@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
                     <td className="py-2.5 text-gray-400 font-bold">{i + 1}</td>
                     <td className="py-2.5 text-gray-900">{item.item_name}</td>
                     <td className="py-2.5 text-right text-gray-700">{item.quantity_sold}</td>
-                    <td className="py-2.5 text-right font-medium text-gray-900">₪{item.revenue.toFixed(0)}</td>
+                    <td className="py-2.5 text-right font-medium text-gray-900">₪{(item.revenue ?? 0).toFixed(0)}</td>
                   </tr>
                 ))}
               </tbody>

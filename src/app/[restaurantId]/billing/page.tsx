@@ -249,7 +249,7 @@ export default function BillingPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-4 text-gray-500">
-                  {evt.amount && (
+                  {evt.amount != null && (
                     <span className="font-medium text-gray-900">₪{evt.amount.toFixed(0)}</span>
                   )}
                   <span>{new Date(evt.created_at).toLocaleDateString('he-IL')}</span>

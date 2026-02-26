@@ -108,7 +108,7 @@ export default function DashboardPage() {
                     <span className="text-sm text-gray-700">{item.item_name}</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">₪{item.revenue.toFixed(0)}</div>
+                    <div className="text-sm font-medium text-gray-900">₪{(item.revenue ?? 0).toFixed(0)}</div>
                     <div className="text-xs text-gray-400">{item.quantity_sold} sold</div>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ export default function DashboardPage() {
                     <div className="text-xs text-gray-400 capitalize">{order.order_type.replace('_', ' ')}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium">₪{order.total_amount.toFixed(0)}</div>
+                    <div className="text-sm font-medium">₪{(order.total_amount ?? 0).toFixed(0)}</div>
                     <StatusBadge status={order.status} />
                   </div>
                 </div>
