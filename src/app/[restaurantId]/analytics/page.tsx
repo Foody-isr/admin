@@ -37,9 +37,9 @@ export default function AnalyticsPage() {
       {/* Today summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Revenue today', value: stats ? `₪${stats.total_revenue.toFixed(0)}` : '—' },
+          { label: 'Revenue today', value: stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—' },
           { label: 'Orders today', value: stats?.order_count ?? '—' },
-          { label: 'Avg order', value: stats ? `₪${stats.avg_order_value.toFixed(0)}` : '—' },
+          { label: 'Avg order', value: stats ? `₪${(stats.avg_order_value ?? 0).toFixed(0)}` : '—' },
           { label: 'Pending', value: stats?.pending_orders ?? '—' },
         ].map((s) => (
           <div key={s.label} className="card text-center">

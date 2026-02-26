@@ -170,7 +170,7 @@ export default function MenuPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="font-semibold text-gray-900">₪{item.price.toFixed(2)}</span>
+                          <span className="font-semibold text-gray-900">₪{(item.price ?? 0).toFixed(2)}</span>
                           <button onClick={() => openEditItem(item)} className="p-1.5 rounded hover:bg-gray-100">
                             <PencilIcon className="w-4 h-4 text-gray-500" />
                           </button>

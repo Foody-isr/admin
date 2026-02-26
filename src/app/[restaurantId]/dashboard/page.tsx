@@ -69,7 +69,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Revenue today"
-          value={stats ? `₪${stats.total_revenue.toFixed(0)}` : '—'}
+          value={stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—'}
           icon={BanknotesIcon}
           color="bg-brand-500"
         />
@@ -81,7 +81,7 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Avg order value"
-          value={stats ? `₪${stats.avg_order_value.toFixed(0)}` : '—'}
+          value={stats ? `₪${(stats.avg_order_value ?? 0).toFixed(0)}` : '—'}
           icon={ArrowTrendingUpIcon}
           color="bg-green-500"
         />
