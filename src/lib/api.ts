@@ -121,6 +121,7 @@ export interface Subscription {
   restaurant_id: number;
   status: SubscriptionStatus;
   plan_tier: PlanTier;
+  payplus_recurring_uid?: string;
   card_last_four?: string;
   card_brand?: string;
   current_period_start?: string;
