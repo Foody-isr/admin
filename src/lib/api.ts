@@ -207,7 +207,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
 
   // Decode JWT to get restaurant_ids from claims
   const claims = parseJwtClaims(data.token);
-  const restaurantIds: number[] = claims?.restaurant_ids ?? [];
+  const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
 
   localStorage.setItem(TOKEN_KEY, data.token);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));
