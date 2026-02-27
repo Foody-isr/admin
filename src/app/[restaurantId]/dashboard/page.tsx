@@ -6,8 +6,6 @@ import { getAnalyticsToday, getTopSellers, listOrders, TodayStats, TopSeller, Or
 import {
   BanknotesIcon,
   ShoppingBagIcon,
-  ClockIcon,
-  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 
 function StatCard({ label, value, icon: Icon, color }: {
@@ -75,21 +73,9 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Orders today"
-          value={stats?.order_count ?? '—'}
+          value={stats?.total_orders ?? '—'}
           icon={ShoppingBagIcon}
           color="bg-blue-500"
-        />
-        <StatCard
-          label="Avg order value"
-          value={stats ? `₪${(stats.avg_order_value ?? 0).toFixed(0)}` : '—'}
-          icon={ArrowTrendingUpIcon}
-          color="bg-green-500"
-        />
-        <StatCard
-          label="Pending orders"
-          value={stats?.pending_orders ?? '—'}
-          icon={ClockIcon}
-          color="bg-yellow-500"
         />
       </div>
 
@@ -105,11 +91,11 @@ export default function DashboardPage() {
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold text-gray-400 w-5">#{i + 1}</span>
-                    <span className="text-sm text-gray-700">{item.item_name}</span>
+                    <span className="text-sm text-gray-700">{item.name}</span>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-medium text-gray-900">₪{(item.revenue ?? 0).toFixed(0)}</div>
-                    <div className="text-xs text-gray-400">{item.quantity_sold} sold</div>
+                    <div className="text-xs text-gray-400">{item.quantity} sold</div>
                   </div>
                 </div>
               ))}

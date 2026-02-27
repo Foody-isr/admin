@@ -25,7 +25,10 @@ export default function MenuPage() {
   const [itemModal, setItemModal] = useState<{ open: boolean; categoryId?: number; editing?: MenuItem }>({ open: false });
   const [itemForm, setItemForm] = useState({ name: '', description: '', price: '', is_active: true });
 
-  const reload = () => getMenu(rid).then(setCategories).finally(() => setLoading(false));
+  const reload = () => getMenu(rid).then((cats) => {
+    setCategories(cats);
+    setExpanded(new Set(cats.map((c) => c.id)));
+  }).finally(() => setLoading(false));
   useEffect(() => { reload(); }, [rid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleExpand = (id: number) => {

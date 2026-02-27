@@ -38,9 +38,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Revenue today', value: stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—' },
-          { label: 'Orders today', value: stats?.order_count ?? '—' },
-          { label: 'Avg order', value: stats ? `₪${(stats.avg_order_value ?? 0).toFixed(0)}` : '—' },
-          { label: 'Pending', value: stats?.pending_orders ?? '—' },
+          { label: 'Orders today', value: stats?.total_orders ?? '—' },
         ].map((s) => (
           <div key={s.label} className="card text-center">
             <div className="text-2xl font-bold text-gray-900">{s.value}</div>
@@ -69,8 +67,8 @@ export default function AnalyticsPage() {
                 {topSellers.map((item, i) => (
                   <tr key={i} className="border-b border-gray-50">
                     <td className="py-2.5 text-gray-400 font-bold">{i + 1}</td>
-                    <td className="py-2.5 text-gray-900">{item.item_name}</td>
-                    <td className="py-2.5 text-right text-gray-700">{item.quantity_sold}</td>
+                    <td className="py-2.5 text-gray-900">{item.name}</td>
+                    <td className="py-2.5 text-right text-gray-700">{item.quantity}</td>
                     <td className="py-2.5 text-right font-medium text-gray-900">₪{(item.revenue ?? 0).toFixed(0)}</td>
                   </tr>
                 ))}

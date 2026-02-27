@@ -181,12 +181,18 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Plan selection */}
+      {/* Plan selection — only when a subscription exists */}
+      {!loading && !sub && (
+        <div className="card text-sm text-gray-500 text-center py-8">
+          No active subscription found. Please contact support to get your account set up.
+        </div>
+      )}
+      {sub && (
       <div>
         <h2 className="font-semibold text-gray-900 mb-4">Plans</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PLANS.map((plan) => {
-            const isCurrent = sub?.plan_tier === plan.tier;
+            const isCurrent = sub.plan_tier === plan.tier;
             return (
               <div
                 key={plan.tier}
@@ -231,6 +237,7 @@ export default function BillingPage() {
           })}
         </div>
       </div>
+      )}
 
       {/* Payment history */}
       {sub && sub.events && sub.events.length > 0 && (

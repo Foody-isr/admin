@@ -147,14 +147,12 @@ export interface SubscriptionDetail extends Subscription {
 
 export interface TodayStats {
   total_revenue: number;
-  order_count: number;
-  avg_order_value: number;
-  pending_orders: number;
+  total_orders: number;
 }
 
 export interface TopSeller {
-  item_name: string;
-  quantity_sold: number;
+  name: string;
+  quantity: number;
   revenue: number;
 }
 
@@ -366,16 +364,17 @@ export async function rejectOrder(restaurantId: number, orderId: number): Promis
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
 export async function getAnalyticsToday(restaurantId: number): Promise<TodayStats> {
-  return apiFetch<TodayStats>(
+  const data = await apiFetch<{ summary: TodayStats }>(
     `/api/v1/analytics/today?restaurant_id=${restaurantId}`, restaurantId
   );
+  return data.summary;
 }
 
 export async function getTopSellers(restaurantId: number): Promise<TopSeller[]> {
-  const data = await apiFetch<{ items: TopSeller[] }>(
+  const data = await apiFetch<{ top_items: TopSeller[] }>(
     `/api/v1/analytics/top-sellers?restaurant_id=${restaurantId}`, restaurantId
   );
-  return data.items ?? [];
+  return data.top_items ?? [];
 }
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
