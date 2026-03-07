@@ -236,6 +236,66 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
+// ─── Account Setup (invite flow) ─────────────────────────────────────────────
+
+export interface ValidateInviteResponse {
+  valid: boolean;
+  user: { email: string; full_name: string; phone: string };
+}
+
+/** Check if an invite token is valid before showing the setup form. */
+export async function validateInviteToken(token: string): Promise<ValidateInviteResponse> {
+  return apiFetch<ValidateInviteResponse>(`/api/v1/auth/validate-invite?token=${encodeURIComponent(token)}`);
+}
+
+/** Check if a password reset token is valid before showing the reset form. */
+export async function validateResetToken(token: string): Promise<ValidateInviteResponse> {
+  return apiFetch<ValidateInviteResponse>(`/api/v1/auth/validate-reset-token?token=${encodeURIComponent(token)}`);
+}
+
+/** Reset password using a reset token. Returns JWT so user is auto-logged in. */
+export async function resetPassword(input: {
+  token: string;
+  password: string;
+}): Promise<LoginResponse> {
+  const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/reset-password', undefined, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  const claims = parseJwtClaims(data.token);
+  const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
+
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  localStorage.setItem('foody_restaurant_ids', JSON.stringify(restaurantIds));
+
+  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+}
+
+/** Complete account setup: set password and optionally update profile. */
+export async function setupAccount(input: {
+  token: string;
+  password: string;
+  full_name?: string;
+  phone?: string;
+}): Promise<LoginResponse> {
+  const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/setup-account', undefined, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  // Store auth just like login
+  const claims = parseJwtClaims(data.token);
+  const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
+
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  localStorage.setItem('foody_restaurant_ids', JSON.stringify(restaurantIds));
+
+  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+}
+
 function parseJwtClaims(token: string): Record<string, unknown> | null {
   try {
     const payload = token.split('.')[1];
