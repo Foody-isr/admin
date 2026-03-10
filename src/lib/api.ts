@@ -178,6 +178,11 @@ async function apiFetch<T>(
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined') {
+      // Token expired or revoked — clear stored auth and force re-login
+      logout();
+      window.location.href = '/login';
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || body.message || `API error ${res.status}`);
   }
