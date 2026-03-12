@@ -17,6 +17,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
+  const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
 
   useEffect(() => {
     if (loading) return;
@@ -44,8 +45,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isLoggedIn || !restaurant) return null;
-
-  const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
 
   return (
     <WsProvider restaurantId={restaurantId}>
