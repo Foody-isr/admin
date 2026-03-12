@@ -537,3 +537,79 @@ export async function updateWebsiteConfig(
   );
   return data.website_config;
 }
+
+// ─── Website Sections ───────────────────────────────────────────────────────
+
+export interface WebsiteSection {
+  id: number;
+  restaurant_id: number;
+  section_type: string;
+  sort_order: number;
+  is_visible: boolean;
+  layout: string;
+  content: Record<string, any>;
+  settings: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteStylePreset {
+  id: string;
+  name: string;
+  primary_color: string;
+  secondary_color: string;
+  font_family: string;
+}
+
+export async function listWebsiteSections(restaurantId: number): Promise<WebsiteSection[]> {
+  const data = await apiFetch<{ sections: WebsiteSection[] }>(
+    `/api/v1/restaurants/${restaurantId}/website-sections`, restaurantId
+  );
+  return data.sections || [];
+}
+
+export async function createWebsiteSection(
+  restaurantId: number, input: Partial<WebsiteSection>
+): Promise<WebsiteSection> {
+  const data = await apiFetch<{ section: WebsiteSection }>(
+    `/api/v1/restaurants/${restaurantId}/website-sections`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.section;
+}
+
+export async function updateWebsiteSection(
+  restaurantId: number, sectionId: number, input: Partial<WebsiteSection>
+): Promise<WebsiteSection> {
+  const data = await apiFetch<{ section: WebsiteSection }>(
+    `/api/v1/restaurants/${restaurantId}/website-sections/${sectionId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.section;
+}
+
+export async function deleteWebsiteSection(
+  restaurantId: number, sectionId: number
+): Promise<void> {
+  await apiFetch(
+    `/api/v1/restaurants/${restaurantId}/website-sections/${sectionId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function reorderWebsiteSections(
+  restaurantId: number, order: { id: number; sort_order: number }[]
+): Promise<WebsiteSection[]> {
+  const data = await apiFetch<{ sections: WebsiteSection[] }>(
+    `/api/v1/restaurants/${restaurantId}/website-sections-reorder`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(order) }
+  );
+  return data.sections || [];
+}
+
+export async function listSiteStyles(): Promise<SiteStylePreset[]> {
+  const res = await fetch(`${API_URL}/api/v1/public/site-styles`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.styles || [];
+}
