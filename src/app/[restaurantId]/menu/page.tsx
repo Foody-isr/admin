@@ -8,6 +8,7 @@ import {
   MenuCategory, MenuItem,
 } from '@/lib/api';
 import { PlusIcon, PencilIcon, TrashIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import Modal from '@/components/Modal';
 
 export default function MenuPage() {
   const { restaurantId } = useParams();
@@ -106,7 +107,7 @@ export default function MenuPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Menu</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">Menu</h1>
         <button onClick={openAddCategory} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-4 h-4" />
           Add Category
@@ -114,7 +115,7 @@ export default function MenuPage() {
       </div>
 
       {categories.length === 0 ? (
-        <div className="card text-center py-12 text-gray-400">
+        <div className="card text-center py-12 text-fg-secondary">
           No menu categories yet. Add your first category to get started.
         </div>
       ) : (
@@ -123,17 +124,17 @@ export default function MenuPage() {
             <div key={cat.id} className="card p-0 overflow-hidden">
               {/* Category header */}
               <div
-                className="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-gray-50"
+                className="flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-surface-subtle"
                 onClick={() => toggleExpand(cat.id)}
               >
                 <div className="flex items-center gap-3">
                   {expanded.has(cat.id) ? (
-                    <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                    <ChevronDownIcon className="w-4 h-4 text-fg-secondary" />
                   ) : (
-                    <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                    <ChevronRightIcon className="w-4 h-4 text-fg-secondary" />
                   )}
-                  <span className="font-semibold text-gray-900">{cat.name}</span>
-                  <span className="text-xs text-gray-400">({(cat.items ?? []).length} items)</span>
+                  <span className="font-semibold text-fg-primary">{cat.name}</span>
+                  <span className="text-xs text-fg-secondary">({(cat.items ?? []).length} items)</span>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -142,10 +143,10 @@ export default function MenuPage() {
                   >
                     <PlusIcon className="w-3 h-3" /> Add Item
                   </button>
-                  <button onClick={() => openEditCategory(cat)} className="p-1.5 rounded hover:bg-gray-100">
-                    <PencilIcon className="w-4 h-4 text-gray-500" />
+                  <button onClick={() => openEditCategory(cat)} className="p-1.5 rounded hover:bg-surface-subtle">
+                    <PencilIcon className="w-4 h-4 text-fg-secondary" />
                   </button>
-                  <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 rounded hover:bg-red-50">
+                  <button onClick={() => handleDeleteCategory(cat.id)} className="p-1.5 rounded hover:bg-red-500/10">
                     <TrashIcon className="w-4 h-4 text-red-400" />
                   </button>
                 </div>
@@ -153,9 +154,9 @@ export default function MenuPage() {
 
               {/* Items list */}
               {expanded.has(cat.id) && (
-                <div className="border-t border-gray-100 divide-y divide-gray-50">
+                <div className="border-t border-divider divide-y divide-divider">
                   {(cat.items ?? []).length === 0 ? (
-                    <p className="px-6 py-4 text-sm text-gray-400">No items in this category</p>
+                    <p className="px-6 py-4 text-sm text-fg-secondary">No items in this category</p>
                   ) : (
                     (cat.items ?? []).map((item) => (
                       <div key={item.id} className="flex items-center justify-between px-6 py-3">
@@ -164,20 +165,20 @@ export default function MenuPage() {
                             <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
                           )}
                           <div>
-                            <div className={`text-sm font-medium ${item.is_active ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                            <div className={`text-sm font-medium ${item.is_active ? 'text-fg-primary' : 'text-fg-secondary line-through'}`}>
                               {item.name}
                             </div>
                             {item.description && (
-                              <div className="text-xs text-gray-400 truncate max-w-xs">{item.description}</div>
+                              <div className="text-xs text-fg-secondary truncate max-w-xs">{item.description}</div>
                             )}
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="font-semibold text-gray-900">₪{(item.price ?? 0).toFixed(2)}</span>
-                          <button onClick={() => openEditItem(item)} className="p-1.5 rounded hover:bg-gray-100">
-                            <PencilIcon className="w-4 h-4 text-gray-500" />
+                          <span className="font-semibold text-fg-primary">₪{(item.price ?? 0).toFixed(2)}</span>
+                          <button onClick={() => openEditItem(item)} className="p-1.5 rounded hover:bg-surface-subtle">
+                            <PencilIcon className="w-4 h-4 text-fg-secondary" />
                           </button>
-                          <button onClick={() => handleDeleteItem(item.id)} className="p-1.5 rounded hover:bg-red-50">
+                          <button onClick={() => handleDeleteItem(item.id)} className="p-1.5 rounded hover:bg-red-500/10">
                             <TrashIcon className="w-4 h-4 text-red-400" />
                           </button>
                         </div>
@@ -194,7 +195,7 @@ export default function MenuPage() {
       {/* Category modal */}
       {categoryModal.open && (
         <Modal title={categoryModal.editing ? 'Edit Category' : 'New Category'} onClose={() => setCategoryModal({ open: false })}>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category name</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">Category name</label>
           <input
             autoFocus
             className="input"
@@ -214,24 +215,24 @@ export default function MenuPage() {
         <Modal title={itemModal.editing ? 'Edit Item' : 'New Item'} onClose={() => setItemModal({ open: false })}>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">Name</label>
               <input autoFocus className="input" value={itemForm.name}
                 onChange={(e) => setItemForm((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">Description</label>
               <input className="input" value={itemForm.description}
                 onChange={(e) => setItemForm((p) => ({ ...p, description: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price (₪)</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">Price (₪)</label>
               <input type="number" min="0" step="0.01" className="input" value={itemForm.price}
                 onChange={(e) => setItemForm((p) => ({ ...p, price: e.target.value }))} />
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={itemForm.is_active}
+              <input type="checkbox" checked={itemForm.is_active} className="accent-brand-500"
                 onChange={(e) => setItemForm((p) => ({ ...p, is_active: e.target.checked }))} />
-              <span className="text-sm text-gray-700">Active (visible to customers)</span>
+              <span className="text-sm text-fg-secondary">Active (visible to customers)</span>
             </label>
           </div>
           <div className="flex justify-end gap-2 mt-4">
@@ -240,20 +241,6 @@ export default function MenuPage() {
           </div>
         </Modal>
       )}
-    </div>
-  );
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

@@ -20,12 +20,21 @@ function StatCard({ label, value, icon: Icon, color }: {
         <Icon className="w-6 h-6 text-white" />
       </div>
       <div>
-        <div className="text-2xl font-bold text-gray-900">{value}</div>
-        <div className="text-sm text-gray-500">{label}</div>
+        <div className="text-2xl font-bold text-fg-primary">{value}</div>
+        <div className="text-sm text-fg-secondary">{label}</div>
       </div>
     </div>
   );
 }
+
+const STATUS_BADGE: Record<string, string> = {
+  pending_review: 'badge-pending',
+  accepted: 'badge-accepted',
+  in_kitchen: 'badge-in-kitchen',
+  ready: 'badge-ready',
+  served: 'badge-served',
+  rejected: 'badge-rejected',
+};
 
 export default function DashboardPage() {
   const { restaurantId } = useParams();
@@ -59,8 +68,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Today&apos;s overview</p>
+        <h1 className="text-2xl font-bold text-fg-primary">Dashboard</h1>
+        <p className="text-sm text-fg-secondary mt-1">Today&apos;s overview</p>
       </div>
 
       {/* KPI cards */}
@@ -82,20 +91,20 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top sellers */}
         <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4">Top Sellers</h2>
+          <h2 className="font-semibold text-fg-primary mb-4">Top Sellers</h2>
           {topSellers.length === 0 ? (
-            <p className="text-sm text-gray-400">No sales data yet</p>
+            <p className="text-sm text-fg-secondary">No sales data yet</p>
           ) : (
             <div className="space-y-3">
               {topSellers.map((item, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-400 w-5">#{i + 1}</span>
-                    <span className="text-sm text-gray-700">{item.name}</span>
+                    <span className="text-xs font-bold text-fg-secondary w-5">#{i + 1}</span>
+                    <span className="text-sm text-fg-primary">{item.name}</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">₪{(item.revenue ?? 0).toFixed(0)}</div>
-                    <div className="text-xs text-gray-400">{item.quantity} sold</div>
+                    <div className="text-sm font-medium text-fg-primary">₪{(item.revenue ?? 0).toFixed(0)}</div>
+                    <div className="text-xs text-fg-secondary">{item.quantity} sold</div>
                   </div>
                 </div>
               ))}
@@ -105,22 +114,24 @@ export default function DashboardPage() {
 
         {/* Recent orders */}
         <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4">Recent Orders</h2>
+          <h2 className="font-semibold text-fg-primary mb-4">Recent Orders</h2>
           {recentOrders.length === 0 ? (
-            <p className="text-sm text-gray-400">No orders yet</p>
+            <p className="text-sm text-fg-secondary">No orders yet</p>
           ) : (
             <div className="space-y-3">
               {recentOrders.map((order) => (
                 <div key={order.id} className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-fg-primary">
                       #{order.id} {order.customer_name && `— ${order.customer_name}`}
                     </div>
-                    <div className="text-xs text-gray-400 capitalize">{order.order_type.replace('_', ' ')}</div>
+                    <div className="text-xs text-fg-secondary capitalize">{order.order_type.replace('_', ' ')}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-medium">₪{(order.total_amount ?? 0).toFixed(0)}</div>
-                    <StatusBadge status={order.status} />
+                    <span className={`badge ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
+                      {order.status.replace(/_/g, ' ')}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -129,21 +140,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pending_review: 'bg-yellow-100 text-yellow-700',
-    accepted: 'bg-blue-100 text-blue-700',
-    in_kitchen: 'bg-orange-100 text-orange-700',
-    ready: 'bg-green-100 text-green-700',
-    served: 'bg-gray-100 text-gray-600',
-    rejected: 'bg-red-100 text-red-700',
-  };
-  return (
-    <span className={`badge ${colors[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {status.replace(/_/g, ' ')}
-    </span>
   );
 }

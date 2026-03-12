@@ -1,7 +1,7 @@
 // Foody Admin API client — restaurant owner/manager portal
 // Calls foodyserver at /api/v1/* using JWT auth.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
 
@@ -176,7 +176,7 @@ export interface TopSeller {
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -442,6 +442,14 @@ export async function acceptOrder(restaurantId: number, orderId: number): Promis
 
 export async function rejectOrder(restaurantId: number, orderId: number): Promise<void> {
   await apiFetch<void>(`/api/v1/orders/${orderId}/reject?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
+}
+
+export async function updateOrderStatus(restaurantId: number, orderId: number, status: OrderStatus): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(`/api/v1/orders/${orderId}/status?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+  return data.order;
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────

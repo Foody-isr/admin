@@ -7,10 +7,10 @@ import { validateResetToken, resetPassword, ValidateInviteResponse } from '@/lib
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-fg-secondary">Loading…</p>
         </div>
       </div>
     }>
@@ -92,10 +92,10 @@ function ResetPasswordContent() {
   // Loading state
   if (validating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">Validating your reset link…</p>
+          <p className="text-sm text-fg-secondary">Validating your reset link…</p>
         </div>
       </div>
     );
@@ -104,7 +104,7 @@ function ResetPasswordContent() {
   // Token error state
   if (tokenError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
             <div className="flex items-center gap-3">
@@ -112,8 +112,8 @@ function ResetPasswordContent() {
                 <span className="text-xl font-black text-white">F</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Foody Admin</h1>
-                <p className="text-xs text-gray-500">Restaurant portal</p>
+                <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
+                <p className="text-xs text-fg-secondary">Restaurant portal</p>
               </div>
             </div>
           </div>
@@ -124,8 +124,8 @@ function ResetPasswordContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Invalid Reset Link</h2>
-            <p className="text-sm text-gray-500 mb-6">{tokenError}</p>
+            <h2 className="text-lg font-semibold text-fg-primary mb-2">Invalid Reset Link</h2>
+            <p className="text-sm text-fg-secondary mb-6">{tokenError}</p>
             <a href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
               Go to Login
             </a>
@@ -138,7 +138,7 @@ function ResetPasswordContent() {
   // Success state
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="w-full max-w-sm">
           <div className="card text-center">
             <div className="w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
@@ -146,8 +146,8 @@ function ResetPasswordContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Password Updated!</h2>
-            <p className="text-sm text-gray-500">Your password has been reset. Redirecting to your dashboard…</p>
+            <h2 className="text-lg font-semibold text-fg-primary mb-2">Password Updated!</h2>
+            <p className="text-sm text-fg-secondary">Your password has been reset. Redirecting to your dashboard…</p>
           </div>
         </div>
       </div>
@@ -156,7 +156,7 @@ function ResetPasswordContent() {
 
   // Reset form
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-page">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-8">
@@ -165,27 +165,27 @@ function ResetPasswordContent() {
               <span className="text-xl font-black text-white">F</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Foody Admin</h1>
-              <p className="text-xs text-gray-500">Restaurant portal</p>
+              <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
+              <p className="text-xs text-fg-secondary">Restaurant portal</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Reset Your Password</h2>
-          <p className="text-sm text-gray-500 mb-6">
+          <h2 className="text-lg font-semibold text-fg-primary mb-1">Reset Your Password</h2>
+          <p className="text-sm text-fg-secondary mb-6">
             Enter a new password for <strong>{resetData?.user.email}</strong>
           </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">New Password</label>
               <input
                 type="password"
                 value={password}
@@ -197,7 +197,7 @@ function ResetPasswordContent() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">Confirm Password</label>
               <input
                 type="password"
                 value={confirmPassword}

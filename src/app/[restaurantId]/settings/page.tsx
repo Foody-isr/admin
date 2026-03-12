@@ -69,11 +69,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">Settings</h1>
 
       {/* Restaurant info */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">Restaurant Info</h2>
+        <h2 className="font-semibold text-fg-primary">Restaurant Info</h2>
         {[
           { label: 'Name', key: 'name' as const },
           { label: 'Address', key: 'address' as const },
@@ -81,7 +81,7 @@ export default function SettingsPage() {
           { label: 'Description', key: 'description' as const },
         ].map(({ label, key }) => (
           <div key={key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{label}</label>
             <input
               className="input"
               value={info[key]}
@@ -93,10 +93,10 @@ export default function SettingsPage() {
 
       {/* Operational settings */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">Operations</h2>
+        <h2 className="font-semibold text-fg-primary">Operations</h2>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Service Mode</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">Service Mode</label>
           <select
             className="input"
             value={svc.service_mode}
@@ -121,8 +121,8 @@ export default function SettingsPage() {
               onChange={(e) => setSvc((p) => ({ ...p, [key]: e.target.checked }))}
             />
             <div>
-              <div className="text-sm font-medium text-gray-900">{label}</div>
-              <div className="text-xs text-gray-500">{desc}</div>
+              <div className="text-sm font-medium text-fg-primary">{label}</div>
+              <div className="text-xs text-fg-secondary">{desc}</div>
             </div>
           </label>
         ))}
@@ -132,7 +132,7 @@ export default function SettingsPage() {
         <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
-        {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
+        {saved && <span className="text-sm text-status-ready font-medium">Saved!</span>}
       </div>
     </div>
   );

@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-context';
+import { useWs } from '@/lib/ws-context';
 import {
   HomeIcon,
   Bars3BottomLeftIcon,
@@ -14,6 +16,8 @@ import {
   CreditCardIcon,
   ArrowRightOnRectangleIcon,
   BuildingStorefrontIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -24,6 +28,8 @@ interface SidebarProps {
 export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, restaurantIds } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { status: wsStatus } = useWs();
 
   const base = `/${restaurantId}`;
   const nav = [
@@ -38,7 +44,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
   ];
 
   return (
-    <aside className="w-64 min-h-screen bg-[#1a1a2e] text-gray-300 flex flex-col">
+    <aside className="w-64 min-h-screen flex flex-col" style={{ background: 'var(--sidebar-bg)' }}>
       {/* Brand + restaurant name */}
       <div className="px-5 py-6 border-b border-white/10">
         <div className="flex items-center gap-3">
@@ -47,7 +53,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
           </div>
           <div className="min-w-0">
             <h1 className="text-sm font-bold text-white truncate">{restaurantName}</h1>
-            <p className="text-xs text-gray-400">Admin Portal</p>
+            <p className="text-xs text-[var(--text-secondary)]">Admin Portal</p>
           </div>
         </div>
       </div>
@@ -57,7 +63,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
         <div className="px-4 pt-3">
           <Link
             href="/select-restaurant"
-            className="flex items-center gap-2 text-xs text-gray-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-xs text-[var(--text-secondary)] hover:text-white transition-colors"
           >
             <BuildingStorefrontIcon className="w-4 h-4" />
             Switch restaurant
@@ -73,19 +79,44 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
             <Link
               key={item.href}
               href={item.href}
-              className={`sidebar-link ${isActive ? 'active' : ''}`}
+              className={`sidebar-link text-[var(--text-secondary)] ${isActive ? 'active' : ''}`}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               {item.label}
+              {item.label === 'Orders' && (
+                <span
+                  className={`ml-auto w-2 h-2 rounded-full flex-shrink-0 ${
+                    wsStatus === 'connected' ? 'bg-green-400' :
+                    wsStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
+                    'bg-red-400'
+                  }`}
+                  title={`WebSocket: ${wsStatus}`}
+                />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* User & logout */}
-      <div className="px-4 py-4 border-t border-white/10">
-        <div className="text-xs text-gray-400 mb-1 truncate">{user?.full_name}</div>
-        <div className="text-xs text-gray-500 mb-3 truncate">{user?.email}</div>
+      {/* Footer: theme toggle + user + logout */}
+      <div className="px-4 py-4 border-t border-white/10 space-y-3">
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          className="sidebar-link w-full text-[var(--text-secondary)]"
+        >
+          {theme === 'dark' ? (
+            <SunIcon className="w-5 h-5" />
+          ) : (
+            <MoonIcon className="w-5 h-5" />
+          )}
+          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        </button>
+
+        {/* User info */}
+        <div className="text-xs text-[var(--text-secondary)] truncate">{user?.full_name}</div>
+        <div className="text-xs text-[var(--text-secondary)] opacity-70 truncate">{user?.email}</div>
+
         <button
           onClick={logout}
           className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"

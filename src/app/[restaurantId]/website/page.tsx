@@ -219,19 +219,19 @@ export default function WebsitePage() {
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col">
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-divider" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold text-gray-900">Site Design</h1>
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <h1 className="text-lg font-bold text-fg-primary">Site Design</h1>
+          <div className="flex rounded-lg border border-divider overflow-hidden">
             <button
               onClick={() => setActiveTab('sections')}
-              className={`px-4 py-1.5 text-sm font-medium ${activeTab === 'sections' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              className={`px-4 py-1.5 text-sm font-medium ${activeTab === 'sections' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:bg-surface-subtle'}`}
             >
               Sections
             </button>
             <button
               onClick={() => setActiveTab('styles')}
-              className={`px-4 py-1.5 text-sm font-medium ${activeTab === 'styles' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              className={`px-4 py-1.5 text-sm font-medium ${activeTab === 'styles' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:bg-surface-subtle'}`}
             >
               Site Styles
             </button>
@@ -239,10 +239,10 @@ export default function WebsitePage() {
         </div>
         <div className="flex items-center gap-3">
           {/* Preview toggle */}
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <div className="flex rounded-lg border border-divider overflow-hidden">
             <button
               onClick={() => setPreviewMode('desktop')}
-              className={`p-1.5 ${previewMode === 'desktop' ? 'bg-gray-100' : ''}`}
+              className={`p-1.5 ${previewMode === 'desktop' ? 'bg-surface-subtle' : ''}`}
               title="Desktop preview"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,7 +251,7 @@ export default function WebsitePage() {
             </button>
             <button
               onClick={() => setPreviewMode('mobile')}
-              className={`p-1.5 ${previewMode === 'mobile' ? 'bg-gray-100' : ''}`}
+              className={`p-1.5 ${previewMode === 'mobile' ? 'bg-surface-subtle' : ''}`}
               title="Mobile preview"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +272,7 @@ export default function WebsitePage() {
           <button
             onClick={handleSaveConfig}
             disabled={saving}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
+            className="btn-primary px-5 py-2 disabled:opacity-50"
           >
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Publish'}
           </button>
@@ -280,7 +280,7 @@ export default function WebsitePage() {
       </div>
 
       {error && (
-        <div className="mx-6 mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="mx-6 mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-red-400 text-sm">
           {error}
           <button onClick={() => setError('')} className="ml-2 text-red-500 font-bold">&times;</button>
         </div>
@@ -289,7 +289,7 @@ export default function WebsitePage() {
       {/* Main 3-Column Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Column 1: Section List (or Site Styles tab) */}
-        <div className="w-64 border-r border-gray-200 bg-gray-50 overflow-y-auto flex-shrink-0">
+        <div className="w-64 border-r border-divider overflow-y-auto flex-shrink-0" style={{ background: 'var(--surface-subtle)' }}>
           {activeTab === 'styles' ? (
             <SiteStylesPanel
               styles={siteStyles}
@@ -315,7 +315,7 @@ export default function WebsitePage() {
         </div>
 
         {/* Column 2: Section Settings */}
-        <div className="flex-1 overflow-y-auto bg-white p-6 min-w-0">
+        <div className="flex-1 overflow-y-auto p-6 min-w-0" style={{ background: 'var(--surface)' }}>
           {activeTab === 'styles' ? (
             <StyleSettingsPanel
               tagline={tagline}
@@ -345,7 +345,7 @@ export default function WebsitePage() {
         </div>
 
         {/* Column 3: Preview */}
-        <div className="w-[380px] border-l border-gray-200 bg-gray-100 overflow-y-auto flex-shrink-0 flex items-start justify-center p-6">
+        <div className="w-[380px] border-l border-divider overflow-y-auto flex-shrink-0 flex items-start justify-center p-6" style={{ background: 'var(--surface-subtle)' }}>
           <PreviewPanel
             mode={previewMode}
             restaurant={restaurant}
@@ -386,7 +386,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
 }) {
   return (
     <div className="p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Site Styles</h3>
+      <h3 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider">Site Styles</h3>
       <div className="grid grid-cols-2 gap-2">
         {styles.map((style) => (
           <button
@@ -409,7 +409,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
 
       <hr className="border-gray-200" />
 
-      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Custom Colors</h3>
+      <h3 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider">Custom Colors</h3>
       <div className="space-y-3">
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Primary</label>
@@ -449,7 +449,7 @@ function StyleSettingsPanel({ tagline, showAddress, showPhone, showHours, onTagl
   return (
     <div className="max-w-xl space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Global Settings</h2>
+        <h2 className="text-lg font-semibold text-fg-primary mb-4">Global Settings</h2>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
@@ -458,7 +458,7 @@ function StyleSettingsPanel({ tagline, showAddress, showPhone, showHours, onTagl
         </div>
       </div>
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Visibility</h3>
+        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Visibility</h3>
         {[
           { label: 'Show Address', value: showAddress, setter: onShowAddressChange },
           { label: 'Show Phone', value: showPhone, setter: onShowPhoneChange },
@@ -487,7 +487,7 @@ function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onTog
   return (
     <div className="p-3">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Sections</h3>
+        <h3 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider">Sections</h3>
         <button
           onClick={onAdd}
           className="w-7 h-7 rounded-lg bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors text-lg font-bold"
@@ -562,7 +562,7 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xl">{meta?.icon || '📄'}</span>
-          <h2 className="text-lg font-semibold text-gray-900">{meta?.label || section.section_type}</h2>
+          <h2 className="text-lg font-semibold text-fg-primary">{meta?.label || section.section_type}</h2>
         </div>
         <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700 font-medium">Delete</button>
       </div>
@@ -570,7 +570,7 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
       {/* Layout variants */}
       {layouts && layouts.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Layout</h3>
+          <h3 className="text-sm font-semibold text-fg-secondary mb-2">Layout</h3>
           <div className="flex gap-2">
             {layouts.map(l => (
               <button
@@ -589,7 +589,7 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
 
       {/* Color Style */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Color Style</h3>
+        <h3 className="text-sm font-semibold text-fg-secondary mb-2">Color Style</h3>
         <div className="flex gap-2">
           {COLOR_STYLES.map(cs => (
             <button
@@ -607,7 +607,7 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
 
       {/* Content fields — vary by section type */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-700">Content</h3>
+        <h3 className="text-sm font-semibold text-fg-secondary">Content</h3>
 
         {/* Common text fields based on section type */}
         {(section.section_type === 'hero_banner' || section.section_type === 'text_and_image' || section.section_type === 'about' || section.section_type === 'promo_banner') && (

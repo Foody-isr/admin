@@ -2,17 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme tokens (light = default, dark = .dark on <html>) ── */
 :root {
-  --foreground: #171717;
-  --background: #f5f5f5;
+  --bg: #F5F6F8;
+  --surface: #FFFFFF;
+  --surface-subtle: #F0F2F5;
+  --divider: #E4E5E7;
+  --text-primary: #1A1A1A;
+  --text-secondary: #4B5563;
+  --sidebar-bg: #1a1a2e;
+  --shadow-color: rgba(39, 40, 52, 0.12);
+}
+
+.dark {
+  --bg: #000000;
+  --surface: #1A1A1A;
+  --surface-subtle: #0D0D0D;
+  --divider: #2A2A2A;
+  --text-primary: #FFFFFF;
+  --text-secondary: #E5E5EA;
+  --sidebar-bg: #0D0D0D;
+  --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
+/* ── Sidebar ── */
 .sidebar-link {
   @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150;
 }
@@ -23,22 +42,82 @@ body {
   @apply bg-brand-500 text-white;
 }
 
+/* ── Card ── */
 .card {
-  @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px var(--shadow-color);
 }
 
+/* ── Buttons ── */
 .btn-primary {
-  @apply bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  @apply bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-standard text-sm font-medium transition-colors;
 }
 
 .btn-secondary {
-  @apply bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+  @apply px-4 py-2 rounded-standard text-sm font-medium transition-colors;
+}
+.btn-secondary:hover {
+  background: var(--divider);
 }
 
+/* ── Input ── */
 .input {
-  @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  @apply w-full rounded-standard px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
 }
 
+/* ── Badge (base) ── */
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+/* ── Status badges (work in both light and dark) ── */
+.badge-pending {
+  background: rgba(241, 138, 71, 0.15);
+  color: #F18A47;
+}
+.badge-accepted {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60A5FA;
+}
+.badge-in-kitchen {
+  background: rgba(216, 155, 53, 0.15);
+  color: #D89B35;
+}
+.badge-ready {
+  background: rgba(119, 186, 75, 0.15);
+  color: #77BA4B;
+}
+.badge-rejected {
+  background: rgba(247, 56, 56, 0.15);
+  color: #F73838;
+}
+.badge-served {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34D399;
+}
+.badge-neutral {
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+
+/* ── Order type badges ── */
+.badge-dine-in {
+  background: rgba(119, 186, 75, 0.15);
+  color: #77BA4B;
+}
+.badge-pickup {
+  background: rgba(216, 155, 53, 0.15);
+  color: #D89B35;
+}
+.badge-delivery {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60A5FA;
 }

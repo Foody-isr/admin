@@ -34,14 +34,14 @@ export default function SelectRestaurantPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-page">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
               <span className="text-xl font-black text-white">F</span>
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Choose a restaurant</h1>
+            <h1 className="text-xl font-bold text-fg-primary">Choose a restaurant</h1>
           </div>
         </div>
 
@@ -60,8 +60,8 @@ export default function SelectRestaurantPage() {
                 </div>
               )}
               <div>
-                <div className="font-semibold text-gray-900">{r.name}</div>
-                <div className="text-sm text-gray-500">{r.address}</div>
+                <div className="font-semibold text-fg-primary">{r.name}</div>
+                <div className="text-sm text-fg-secondary">{r.address}</div>
               </div>
             </button>
           ))}

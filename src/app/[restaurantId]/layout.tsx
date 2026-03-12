@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { WsProvider } from '@/lib/ws-context';
+import { useIdleTimeout } from '@/lib/use-idle-timeout';
 import Sidebar from '@/components/Sidebar';
+import IdleModal from '@/components/IdleModal';
 import { getRestaurant, Restaurant } from '@/lib/api';
 
 function RestaurantGuard({ children }: { children: React.ReactNode }) {
@@ -42,13 +45,18 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   if (!isLoggedIn || !restaurant) return null;
 
+  const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar restaurantId={restaurantId} restaurantName={restaurant.name} />
-      <main className="flex-1 overflow-auto">
-        <div className="p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
-      </main>
-    </div>
+    <WsProvider restaurantId={restaurantId}>
+      <div className="flex min-h-screen">
+        <Sidebar restaurantId={restaurantId} restaurantName={restaurant.name} />
+        <main className="flex-1 overflow-auto">
+          <div className="p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
+        </main>
+      </div>
+      {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+    </WsProvider>
   );
 }
 

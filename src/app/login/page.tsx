@@ -46,7 +46,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-page">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex justify-center mb-8">
@@ -55,24 +55,24 @@ export default function LoginPage() {
               <span className="text-xl font-black text-white">F</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Foody Admin</h1>
-              <p className="text-xs text-gray-500">Restaurant portal</p>
+              <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
+              <p className="text-xs text-fg-secondary">Restaurant portal</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Sign in</h2>
+          <h2 className="text-lg font-semibold text-fg-primary mb-6">Sign in</h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">Email</label>
               <input
                 type="email"
                 value={email}
@@ -84,7 +84,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">Password</label>
               <input
                 type="password"
                 value={password}

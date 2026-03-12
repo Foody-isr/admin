@@ -32,7 +32,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">Analytics</h1>
 
       {/* Today summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -41,35 +41,35 @@ export default function AnalyticsPage() {
           { label: 'Orders today', value: stats?.total_orders ?? '—' },
         ].map((s) => (
           <div key={s.label} className="card text-center">
-            <div className="text-2xl font-bold text-gray-900">{s.value}</div>
-            <div className="text-sm text-gray-500 mt-1">{s.label}</div>
+            <div className="text-2xl font-bold text-fg-primary">{s.value}</div>
+            <div className="text-sm text-fg-secondary mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Top sellers table */}
       <div className="card">
-        <h2 className="font-semibold text-gray-900 mb-4">Top Selling Items</h2>
+        <h2 className="font-semibold text-fg-primary mb-4">Top Selling Items</h2>
         {topSellers.length === 0 ? (
-          <p className="text-sm text-gray-400">No sales data yet</p>
+          <p className="text-sm text-fg-secondary">No sales data yet</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left py-2 text-gray-500 font-medium">#</th>
-                  <th className="text-left py-2 text-gray-500 font-medium">Item</th>
-                  <th className="text-right py-2 text-gray-500 font-medium">Qty Sold</th>
-                  <th className="text-right py-2 text-gray-500 font-medium">Revenue</th>
+                <tr className="border-b border-divider">
+                  <th className="text-left py-2 text-fg-secondary font-medium">#</th>
+                  <th className="text-left py-2 text-fg-secondary font-medium">Item</th>
+                  <th className="text-right py-2 text-fg-secondary font-medium">Qty Sold</th>
+                  <th className="text-right py-2 text-fg-secondary font-medium">Revenue</th>
                 </tr>
               </thead>
               <tbody>
                 {topSellers.map((item, i) => (
-                  <tr key={i} className="border-b border-gray-50">
-                    <td className="py-2.5 text-gray-400 font-bold">{i + 1}</td>
-                    <td className="py-2.5 text-gray-900">{item.name}</td>
-                    <td className="py-2.5 text-right text-gray-700">{item.quantity}</td>
-                    <td className="py-2.5 text-right font-medium text-gray-900">₪{(item.revenue ?? 0).toFixed(0)}</td>
+                  <tr key={i} className="border-b border-divider">
+                    <td className="py-2.5 text-fg-secondary font-bold">{i + 1}</td>
+                    <td className="py-2.5 text-fg-primary">{item.name}</td>
+                    <td className="py-2.5 text-right text-fg-secondary">{item.quantity}</td>
+                    <td className="py-2.5 text-right font-medium text-fg-primary">₪{(item.revenue ?? 0).toFixed(0)}</td>
                   </tr>
                 ))}
               </tbody>
