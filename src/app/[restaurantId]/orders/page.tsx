@@ -12,7 +12,7 @@ import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import {
   MagnifyingGlassIcon, ArrowPathIcon, SpeakerWaveIcon, SpeakerXMarkIcon,
   BellIcon, BellSlashIcon, ChevronLeftIcon, ChevronRightIcon,
-  ChevronDownIcon,
+  ChevronDownIcon, XMarkIcon, PrinterIcon, EllipsisHorizontalIcon,
 } from '@heroicons/react/24/outline';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
@@ -78,6 +78,18 @@ function defaultDateRange(): { from: Date; to: Date } {
   return { from, to };
 }
 
+function itemInitials(name: string): string {
+  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+// Simple hash to pick a muted color for item avatars
+function itemColor(name: string): string {
+  const colors = ['#F18A47', '#60A5FA', '#D89B35', '#77BA4B', '#A78BFA', '#F472B6', '#34D399', '#FB7185'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
@@ -96,7 +108,7 @@ export default function OrdersPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const prevEvent = useRef<WsEvent | null>(null);
 
-  // ─── Filters ──────────────────────────────────────────────────────
+  // Filters
   const [activeTab, setActiveTab] = useState('active');
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
@@ -105,8 +117,9 @@ export default function OrdersPage() {
   const [dateRange] = useState(defaultDateRange);
   const [page, setPage] = useState(0);
 
-  // Expanded order detail
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  // Selected order for right panel
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
 
@@ -141,7 +154,7 @@ export default function OrdersPage() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // ─── WebSocket live updates ───────────────────────────────────────
+  // ─── WebSocket ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!lastEvent || lastEvent === prevEvent.current) return;
@@ -206,12 +219,12 @@ export default function OrdersPage() {
   const handleMarkServed = (orderId: number) =>
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'served').then(() => {}), 'served');
 
-  // ─── Tab change resets page ───────────────────────────────────────
+  // ─── Tab / search ─────────────────────────────────────────────────
 
   const switchTab = (key: string) => {
     setActiveTab(key);
     setPage(0);
-    setExpandedId(null);
+    setSelectedId(null);
   };
 
   const handleSearch = () => {
@@ -224,212 +237,468 @@ export default function OrdersPage() {
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">All orders</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { const next = toggleSound(); setSoundOn(next); }}
-            className="p-2 rounded-standard text-fg-secondary hover:text-fg-primary transition-colors"
-            title={soundOn ? 'Mute sound' : 'Unmute sound'}
-          >
-            {soundOn ? <SpeakerWaveIcon className="w-5 h-5" /> : <SpeakerXMarkIcon className="w-5 h-5" />}
-          </button>
-          <button
-            onClick={requestPermission}
-            className={`p-2 rounded-standard transition-colors ${
-              permission === 'granted' ? 'text-status-ready' : 'text-fg-secondary hover:text-fg-primary'
-            }`}
-            title={
-              permission === 'granted' ? 'Notifications enabled'
-              : permission === 'denied' ? 'Notifications blocked'
-              : 'Enable browser notifications'
-            }
-          >
-            {permission === 'granted' ? <BellIcon className="w-5 h-5" /> : <BellSlashIcon className="w-5 h-5" />}
-          </button>
-          {wsStatus === 'connected' && (
-            <span className="badge badge-ready text-[10px] uppercase tracking-wider font-bold">Live</span>
-          )}
-          {wsStatus === 'connecting' && (
-            <span className="badge badge-in-kitchen text-[10px] uppercase tracking-wider font-bold animate-pulse">Connecting</span>
-          )}
-          {wsStatus === 'disconnected' && (
-            <span className="badge badge-rejected text-[10px] uppercase tracking-wider font-bold">Offline</span>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-divider">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => switchTab(tab.key)}
-            className={`pb-3 text-sm font-medium transition-colors relative ${
-              activeTab === tab.key
-                ? 'text-fg-primary'
-                : 'text-fg-secondary hover:text-fg-primary'
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.key && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fg-primary rounded-full" />
+    <div className="flex gap-0" style={{ minHeight: 'calc(100vh - 120px)' }}>
+      {/* Left: table list */}
+      <div className={`flex-1 min-w-0 space-y-5 transition-all ${selectedOrder ? 'pr-0' : ''}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-fg-primary">All orders</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { const next = toggleSound(); setSoundOn(next); }}
+              className="p-2 rounded-standard text-fg-secondary hover:text-fg-primary transition-colors"
+              title={soundOn ? 'Mute sound' : 'Unmute sound'}
+            >
+              {soundOn ? <SpeakerWaveIcon className="w-5 h-5" /> : <SpeakerXMarkIcon className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={requestPermission}
+              className={`p-2 rounded-standard transition-colors ${
+                permission === 'granted' ? 'text-status-ready' : 'text-fg-secondary hover:text-fg-primary'
+              }`}
+              title={
+                permission === 'granted' ? 'Notifications enabled'
+                : permission === 'denied' ? 'Notifications blocked'
+                : 'Enable browser notifications'
+              }
+            >
+              {permission === 'granted' ? <BellIcon className="w-5 h-5" /> : <BellSlashIcon className="w-5 h-5" />}
+            </button>
+            {wsStatus === 'connected' && (
+              <span className="badge badge-ready text-[10px] uppercase tracking-wider font-bold">Live</span>
             )}
-          </button>
-        ))}
-      </div>
-
-      {/* Filters row */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="flex items-center gap-0">
-          <div className="relative">
-            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
-            <input
-              type="text"
-              placeholder="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="input pl-9 pr-3 py-2 text-sm w-48"
-            />
+            {wsStatus === 'connecting' && (
+              <span className="badge badge-in-kitchen text-[10px] uppercase tracking-wider font-bold animate-pulse">Connecting</span>
+            )}
+            {wsStatus === 'disconnected' && (
+              <span className="badge badge-rejected text-[10px] uppercase tracking-wider font-bold">Offline</span>
+            )}
           </div>
-          <button onClick={handleSearch} className="btn-secondary text-sm py-2 px-4 ml-2">
-            Search
-          </button>
         </div>
 
-        {/* Date range (display only for now) */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary"
-          style={{ border: '1px solid var(--divider)' }}
-        >
-          {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
+        {/* Tabs */}
+        <div className="flex items-center gap-6 border-b border-divider">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => switchTab(tab.key)}
+              className={`pb-3 text-sm font-medium transition-colors relative ${
+                activeTab === tab.key ? 'text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.key && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fg-primary rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Type filter */}
-        <FilterDropdown
-          label="Type"
-          value={typeFilter}
-          onChange={(v) => { setTypeFilter(v); setPage(0); }}
-          options={[
-            { value: '', label: 'All' },
-            { value: 'dine_in', label: 'Dine In' },
-            { value: 'pickup', label: 'Pickup' },
-            { value: 'delivery', label: 'Delivery' },
-          ]}
-        />
-
-        {/* Payment status filter */}
-        <FilterDropdown
-          label="Payment status"
-          value={paymentFilter}
-          onChange={(v) => { setPaymentFilter(v); setPage(0); }}
-          options={[
-            { value: '', label: 'All' },
-            { value: 'paid', label: 'Paid' },
-            { value: 'pending', label: 'Pending' },
-            { value: 'unpaid', label: 'Unpaid' },
-            { value: 'refunded', label: 'Refunded' },
-          ]}
-        />
-      </div>
-
-      {/* Last updated + refresh */}
-      <div className="flex items-center justify-between text-xs text-fg-secondary">
-        {lastUpdated && (
-          <span>Last updated: {lastUpdated.toLocaleString('en-US', {
-            month: 'short', day: 'numeric', year: 'numeric',
-            hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-          })}</span>
-        )}
-        <button onClick={fetchOrders} className="flex items-center gap-1.5 text-fg-secondary hover:text-fg-primary transition-colors">
-          <ArrowPathIcon className="w-3.5 h-3.5" />
-          Refresh
-        </button>
-      </div>
-
-      {/* Orders table */}
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="card text-center py-16 space-y-3">
-          <p className="text-lg font-semibold text-fg-primary">We couldn&apos;t find a match</p>
-          <p className="text-sm text-fg-secondary">Try searching across all orders.</p>
-          <button
-            onClick={() => { switchTab('all'); setSearch(''); setSearchSubmitted(''); setTypeFilter(''); setPaymentFilter(''); }}
-            className="btn-primary mx-auto"
-          >
-            Search all orders
-          </button>
-        </div>
-      ) : (
-        <div className="card overflow-hidden p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-3 px-4 font-medium">Order</th>
-                <th className="py-3 px-4 font-medium">Customer</th>
-                <th className="py-3 px-4 font-medium">Type</th>
-                <th className="py-3 px-4 font-medium">Status</th>
-                <th className="py-3 px-4 font-medium">Payment</th>
-                <th className="py-3 px-4 font-medium text-right">Total</th>
-                <th className="py-3 px-4 font-medium">Date</th>
-                <th className="py-3 px-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <OrderRow
-                  key={order.id}
-                  order={order}
-                  expanded={expandedId === order.id}
-                  onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
-                  isLoading={actionLoading === order.id}
-                  onAccept={() => handleAccept(order.id)}
-                  onReject={() => handleReject(order.id)}
-                  onSendToKitchen={() => handleSendToKitchen(order.id)}
-                  onMarkReady={() => handleMarkReady(order.id)}
-                  onMarkServed={() => handleMarkServed(order.id)}
-                />
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
-              <span className="text-xs text-fg-secondary">
-                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={page === 0}
-                  onClick={() => setPage(page - 1)}
-                  className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
-                >
-                  <ChevronLeftIcon className="w-4 h-4" />
-                </button>
-                <span className="text-xs text-fg-secondary px-2">
-                  Page {page + 1} of {totalPages}
-                </span>
-                <button
-                  disabled={page >= totalPages - 1}
-                  onClick={() => setPage(page + 1)}
-                  className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
-                >
-                  <ChevronRightIcon className="w-4 h-4" />
-                </button>
-              </div>
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center">
+            <div className="relative">
+              <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
+              <input
+                type="text"
+                placeholder="Search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="input pl-9 pr-3 py-2 text-sm w-48"
+              />
             </div>
-          )}
+            <button onClick={handleSearch} className="btn-secondary text-sm py-2 px-4 ml-2">
+              Search
+            </button>
+          </div>
+
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary"
+            style={{ border: '1px solid var(--divider)' }}
+          >
+            {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
+          </div>
+
+          <FilterDropdown
+            label="Type"
+            value={typeFilter}
+            onChange={(v) => { setTypeFilter(v); setPage(0); }}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'dine_in', label: 'Dine In' },
+              { value: 'pickup', label: 'Pickup' },
+              { value: 'delivery', label: 'Delivery' },
+            ]}
+          />
+
+          <FilterDropdown
+            label="Payment status"
+            value={paymentFilter}
+            onChange={(v) => { setPaymentFilter(v); setPage(0); }}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'paid', label: 'Paid' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'unpaid', label: 'Unpaid' },
+              { value: 'refunded', label: 'Refunded' },
+            ]}
+          />
         </div>
+
+        {/* Last updated */}
+        <div className="flex items-center justify-between text-xs text-fg-secondary">
+          {lastUpdated && (
+            <span>Last updated: {lastUpdated.toLocaleString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric',
+              hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+            })}</span>
+          )}
+          <button onClick={fetchOrders} className="flex items-center gap-1.5 text-fg-secondary hover:text-fg-primary transition-colors">
+            <ArrowPathIcon className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="card text-center py-16 space-y-3">
+            <p className="text-lg font-semibold text-fg-primary">We couldn&apos;t find a match</p>
+            <p className="text-sm text-fg-secondary">Try searching across all orders.</p>
+            <button
+              onClick={() => { switchTab('all'); setSearch(''); setSearchSubmitted(''); setTypeFilter(''); setPaymentFilter(''); }}
+              className="btn-primary mx-auto"
+            >
+              Search all orders
+            </button>
+          </div>
+        ) : (
+          <div className="card overflow-hidden p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
+                  <th className="py-3 px-4 font-medium">Name</th>
+                  <th className="py-3 px-4 font-medium">Source</th>
+                  <th className="py-3 px-4 font-medium">Type</th>
+                  <th className="py-3 px-4 font-medium">Items</th>
+                  <th className="py-3 px-4 font-medium">Status</th>
+                  <th className="py-3 px-4 font-medium">Payment</th>
+                  <th className="py-3 px-4 font-medium text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr
+                    key={order.id}
+                    onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedId === order.id
+                        ? 'bg-blue-500/10'
+                        : 'hover:bg-[var(--surface-subtle)]'
+                    }`}
+                    style={{ borderBottom: '1px solid var(--divider)' }}
+                  >
+                    <td className="py-3 px-4">
+                      <span className="font-semibold text-fg-primary">Order #{order.id}</span>
+                    </td>
+                    <td className="py-3 px-4 text-fg-secondary">Order</td>
+                    <td className="py-3 px-4 text-fg-secondary capitalize">
+                      {order.order_type.replace(/_/g, ' ')}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1">
+                        {(order.items ?? []).slice(0, 3).map((item) => (
+                          <span
+                            key={item.id}
+                            className="w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                            style={{ background: itemColor(item.name) }}
+                            title={item.name}
+                          >
+                            {itemInitials(item.name)}
+                          </span>
+                        ))}
+                        {(order.items ?? []).length > 3 && (
+                          <span className="text-[10px] text-fg-secondary ml-0.5">
+                            +{order.items.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`badge text-[10px] ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
+                        {order.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className={`badge text-[10px] ${PAYMENT_BADGE[order.payment_status] ?? 'badge-neutral'}`}>
+                        {order.payment_status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium text-fg-primary">
+                      ₪{(order.total_amount ?? 0).toFixed(0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
+                <span className="text-xs text-fg-secondary">
+                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setPage(page - 1)}
+                    className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeftIcon className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs text-fg-secondary px-2">
+                    Page {page + 1} of {totalPages}
+                  </span>
+                  <button
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage(page + 1)}
+                    className="p-1.5 rounded-standard text-fg-secondary hover:text-fg-primary disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronRightIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Right: order detail panel */}
+      {selectedOrder && (
+        <OrderDetailPanel
+          order={selectedOrder}
+          isLoading={actionLoading === selectedOrder.id}
+          onClose={() => setSelectedId(null)}
+          onAccept={() => handleAccept(selectedOrder.id)}
+          onReject={() => handleReject(selectedOrder.id)}
+          onSendToKitchen={() => handleSendToKitchen(selectedOrder.id)}
+          onMarkReady={() => handleMarkReady(selectedOrder.id)}
+          onMarkServed={() => handleMarkServed(selectedOrder.id)}
+        />
       )}
     </div>
   );
+}
+
+// ─── Order Detail Panel (right side) ─────────────────────────────────────────
+
+function OrderDetailPanel({
+  order, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+}: {
+  order: Order;
+  isLoading: boolean;
+  onClose: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+  onSendToKitchen: () => void;
+  onMarkReady: () => void;
+  onMarkServed: () => void;
+}) {
+  return (
+    <div
+      className="w-[420px] flex-shrink-0 overflow-y-auto ml-5"
+      style={{ borderLeft: '1px solid var(--divider)', background: 'var(--surface)' }}
+    >
+      {/* Panel header */}
+      <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
+          style={{ border: '1px solid var(--divider)' }}
+        >
+          <XMarkIcon className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
+            style={{ border: '1px solid var(--divider)' }}
+            title="Print receipt"
+          >
+            <PrinterIcon className="w-5 h-5" />
+          </button>
+          <button
+            className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
+            style={{ border: '1px solid var(--divider)' }}
+            title="More options"
+          >
+            <EllipsisHorizontalIcon className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="px-6 py-6 space-y-6">
+        {/* Title */}
+        <div>
+          <h2 className="text-xl font-bold text-fg-primary">Order #{order.id}</h2>
+          <div className="flex items-center gap-2 mt-2">
+            <span className={`badge text-[10px] ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
+              {order.status.replace(/_/g, ' ')}
+            </span>
+            <span className={`badge text-[10px] ${PAYMENT_BADGE[order.payment_status] ?? 'badge-neutral'}`}>
+              {order.payment_status}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <OrderPanelActions
+          status={order.status}
+          isLoading={isLoading}
+          onAccept={onAccept}
+          onReject={onReject}
+          onSendToKitchen={onSendToKitchen}
+          onMarkReady={onMarkReady}
+          onMarkServed={onMarkServed}
+        />
+
+        {/* Details section */}
+        <div>
+          <h3 className="text-base font-bold text-fg-primary mb-4">Details</h3>
+          <div className="space-y-0">
+            <DetailRow label="Created" value={
+              new Date(order.created_at).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+              })
+            } />
+            <DetailRow label="Type" value={order.order_type.replace(/_/g, ' ')} capitalize />
+            {order.customer_name && <DetailRow label="Customer" value={order.customer_name} />}
+            {order.customer_phone && <DetailRow label="Phone" value={order.customer_phone} />}
+            {order.table_number && <DetailRow label="Table" value={order.table_number} />}
+            <DetailRow label="Order" value={`#${order.id}`} />
+          </div>
+        </div>
+
+        {/* Items section */}
+        <div>
+          <h3 className="text-base font-bold text-fg-primary mb-4">Items</h3>
+          <div className="space-y-0">
+            {(order.items ?? []).map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 py-3"
+                style={{ borderBottom: '1px solid var(--divider)' }}
+              >
+                <span
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                  style={{ background: itemColor(item.name) }}
+                >
+                  {itemInitials(item.name)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold text-fg-primary">{item.name}</span>
+                  <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
+                </div>
+                <span className="text-sm text-fg-primary font-medium">
+                  ₪{(item.price * item.quantity).toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Totals */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-fg-primary">Subtotal</span>
+            <span className="text-sm text-fg-primary">₪{(order.total_amount ?? 0).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-fg-primary">Total</span>
+            <span className="text-sm font-bold text-fg-primary">₪{(order.total_amount ?? 0).toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Detail Row ──────────────────────────────────────────────────────────────
+
+function DetailRow({ label, value, capitalize: cap }: { label: string; value: string; capitalize?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
+      <span className="text-sm font-semibold text-fg-primary">{label}</span>
+      <span className={`text-sm text-fg-secondary ${cap ? 'capitalize' : ''}`}>{value}</span>
+    </div>
+  );
+}
+
+// ─── Panel Actions ───────────────────────────────────────────────────────────
+
+function OrderPanelActions({
+  status, isLoading, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+}: {
+  status: OrderStatus;
+  isLoading: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+  onSendToKitchen: () => void;
+  onMarkReady: () => void;
+  onMarkServed: () => void;
+}) {
+  if (status === 'pending_review') {
+    return (
+      <div className="flex gap-2">
+        <button disabled={isLoading} onClick={onAccept} className="btn-primary flex-1 py-2.5 disabled:opacity-50">
+          Accept
+        </button>
+        <button
+          disabled={isLoading}
+          onClick={onReject}
+          className="flex-1 py-2.5 rounded-standard font-medium disabled:opacity-50 text-status-rejected"
+          style={{ background: 'rgba(247,56,56,0.1)' }}
+        >
+          Reject
+        </button>
+      </div>
+    );
+  }
+  if (status === 'accepted') {
+    return (
+      <button disabled={isLoading} onClick={onSendToKitchen} className="btn-primary w-full py-2.5 disabled:opacity-50">
+        Send to Kitchen
+      </button>
+    );
+  }
+  if (status === 'in_kitchen') {
+    return (
+      <button
+        disabled={isLoading}
+        onClick={onMarkReady}
+        className="w-full py-2.5 rounded-standard font-medium disabled:opacity-50"
+        style={{ background: 'rgba(119,186,75,0.15)', color: '#77BA4B' }}
+      >
+        Mark Ready
+      </button>
+    );
+  }
+  if (status === 'ready' || status === 'ready_for_pickup') {
+    return (
+      <button
+        disabled={isLoading}
+        onClick={onMarkServed}
+        className="w-full py-2.5 rounded-standard font-medium disabled:opacity-50"
+        style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}
+      >
+        Mark Served
+      </button>
+    );
+  }
+  return null;
 }
 
 // ─── Filter Dropdown ─────────────────────────────────────────────────────────
@@ -485,161 +754,4 @@ function FilterDropdown({ label, value, onChange, options }: {
       )}
     </div>
   );
-}
-
-// ─── Order Row ───────────────────────────────────────────────────────────────
-
-function OrderRow({
-  order, expanded, onToggle, isLoading,
-  onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
-}: {
-  order: Order;
-  expanded: boolean;
-  onToggle: () => void;
-  isLoading: boolean;
-  onAccept: () => void;
-  onReject: () => void;
-  onSendToKitchen: () => void;
-  onMarkReady: () => void;
-  onMarkServed: () => void;
-}) {
-  return (
-    <>
-      <tr
-        onClick={onToggle}
-        className="cursor-pointer transition-colors hover:bg-[var(--surface-subtle)]"
-        style={{ borderBottom: '1px solid var(--divider)' }}
-      >
-        <td className="py-3 px-4 font-semibold text-fg-primary">#{order.id}</td>
-        <td className="py-3 px-4 text-fg-secondary">{order.customer_name || '—'}</td>
-        <td className="py-3 px-4">
-          <span className={`badge text-[10px] ${ORDER_TYPE_BADGE[order.order_type] ?? 'badge-neutral'} capitalize`}>
-            {order.order_type.replace(/_/g, ' ')}
-          </span>
-        </td>
-        <td className="py-3 px-4">
-          <span className={`badge text-[10px] ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
-            {order.status.replace(/_/g, ' ')}
-          </span>
-        </td>
-        <td className="py-3 px-4">
-          <span className={`badge text-[10px] ${PAYMENT_BADGE[order.payment_status] ?? 'badge-neutral'}`}>
-            {order.payment_status}
-          </span>
-        </td>
-        <td className="py-3 px-4 text-right font-medium text-fg-primary">
-          ₪{(order.total_amount ?? 0).toFixed(0)}
-        </td>
-        <td className="py-3 px-4 text-fg-secondary text-xs">
-          {new Date(order.created_at).toLocaleString('en-US', {
-            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-          })}
-        </td>
-        <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-          <OrderActions
-            status={order.status}
-            isLoading={isLoading}
-            onAccept={onAccept}
-            onReject={onReject}
-            onSendToKitchen={onSendToKitchen}
-            onMarkReady={onMarkReady}
-            onMarkServed={onMarkServed}
-          />
-        </td>
-      </tr>
-
-      {/* Expanded detail row */}
-      {expanded && (
-        <tr style={{ borderBottom: '1px solid var(--divider)' }}>
-          <td colSpan={8} className="px-4 py-4" style={{ background: 'var(--surface-subtle)' }}>
-            <div className="space-y-3">
-              <div className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Order Items</div>
-              <div className="space-y-1.5">
-                {(order.items ?? []).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-sm">
-                    <span className="text-fg-primary">{item.quantity}x {item.name}</span>
-                    <span className="text-fg-secondary">₪{(item.price * item.quantity).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--divider)' }}>
-                <span className="text-sm font-semibold text-fg-primary">Total</span>
-                <span className="text-sm font-bold text-fg-primary">₪{(order.total_amount ?? 0).toFixed(0)}</span>
-              </div>
-              {order.customer_phone && (
-                <div className="text-xs text-fg-secondary">Phone: {order.customer_phone}</div>
-              )}
-              {order.table_number && (
-                <div className="text-xs text-fg-secondary">Table: {order.table_number}</div>
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-// ─── Order Actions ───────────────────────────────────────────────────────────
-
-function OrderActions({
-  status, isLoading, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
-}: {
-  status: OrderStatus;
-  isLoading: boolean;
-  onAccept: () => void;
-  onReject: () => void;
-  onSendToKitchen: () => void;
-  onMarkReady: () => void;
-  onMarkServed: () => void;
-}) {
-  if (status === 'pending_review') {
-    return (
-      <div className="flex items-center gap-1.5">
-        <button disabled={isLoading} onClick={onAccept} className="btn-primary text-xs py-1 px-3 disabled:opacity-50">
-          Accept
-        </button>
-        <button
-          disabled={isLoading}
-          onClick={onReject}
-          className="text-xs py-1 px-3 rounded-standard font-medium disabled:opacity-50 text-status-rejected"
-          style={{ background: 'rgba(247,56,56,0.1)' }}
-        >
-          Reject
-        </button>
-      </div>
-    );
-  }
-  if (status === 'accepted') {
-    return (
-      <button disabled={isLoading} onClick={onSendToKitchen} className="btn-primary text-xs py-1 px-3 disabled:opacity-50">
-        To Kitchen
-      </button>
-    );
-  }
-  if (status === 'in_kitchen') {
-    return (
-      <button
-        disabled={isLoading}
-        onClick={onMarkReady}
-        className="text-xs py-1 px-3 rounded-standard font-medium disabled:opacity-50"
-        style={{ background: 'rgba(119,186,75,0.15)', color: '#77BA4B' }}
-      >
-        Mark Ready
-      </button>
-    );
-  }
-  if (status === 'ready' || status === 'ready_for_pickup') {
-    return (
-      <button
-        disabled={isLoading}
-        onClick={onMarkServed}
-        className="text-xs py-1 px-3 rounded-standard font-medium disabled:opacity-50"
-        style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}
-      >
-        Mark Served
-      </button>
-    );
-  }
-  return <span className="text-xs text-fg-secondary">—</span>;
 }
