@@ -22,6 +22,8 @@ export default function SettingsPage() {
   // Settings form
   const [svc, setSvc] = useState({
     require_order_approval: true,
+    auto_send_to_kitchen: true,
+    require_dine_in_prepayment: false,
     service_mode: 'table',
     scheduling_enabled: false,
     tips_enabled: true,
@@ -35,6 +37,8 @@ export default function SettingsPage() {
       setInfo({ name: r.name, address: r.address, phone: r.phone, description: r.description });
       setSvc({
         require_order_approval: s.require_order_approval,
+        auto_send_to_kitchen: s.auto_send_to_kitchen ?? true,
+        require_dine_in_prepayment: s.require_dine_in_prepayment ?? false,
         service_mode: s.service_mode,
         scheduling_enabled: s.scheduling_enabled,
         tips_enabled: s.tips_enabled,
@@ -106,7 +110,8 @@ export default function SettingsPage() {
         </div>
 
         {[
-          { label: 'Require order approval', key: 'require_order_approval' as const, desc: 'New orders need manual approval before going to kitchen' },
+          { label: 'Auto send to kitchen', key: 'auto_send_to_kitchen' as const, desc: 'QR orders go directly to kitchen without staff approval' },
+          { label: 'Require dine-in prepayment', key: 'require_dine_in_prepayment' as const, desc: 'Dine-in guests must pay online before their order is sent' },
           { label: 'Enable tips', key: 'tips_enabled' as const, desc: 'Show tip option at checkout' },
           { label: 'Scheduled orders', key: 'scheduling_enabled' as const, desc: 'Allow customers to order for future dates' },
           { label: 'Rush mode', key: 'rush_mode' as const, desc: 'Block new customer orders (e.g. kitchen is full)' },

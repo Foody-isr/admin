@@ -47,6 +47,7 @@ export interface RestaurantSettings {
   id: number;
   restaurant_id: number;
   require_order_approval: boolean;
+  require_dine_in_prepayment: boolean;
   service_mode: string;
   scheduling_enabled: boolean;
   tips_enabled: boolean;
