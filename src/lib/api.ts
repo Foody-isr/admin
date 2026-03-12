@@ -419,14 +419,42 @@ export async function deleteMenuItem(restaurantId: number, id: number): Promise<
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
-export async function listOrders(restaurantId: number, params?: { status?: string; active?: boolean }): Promise<Order[]> {
+export interface ListOrdersParams {
+  status?: string;
+  active?: boolean;
+  q?: string;
+  type?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+  sort_by?: string;
+  sort_dir?: string;
+  payment_status?: string;
+}
+
+export interface ListOrdersResult {
+  orders: Order[];
+  total: number;
+}
+
+export async function listOrders(restaurantId: number, params?: ListOrdersParams): Promise<ListOrdersResult> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.status) qs.set('status', params.status);
   if (params?.active) qs.set('active', 'true');
-  const data = await apiFetch<{ orders: Order[] }>(
+  if (params?.q) qs.set('q', params.q);
+  if (params?.type) qs.set('type', params.type);
+  if (params?.from) qs.set('from', params.from);
+  if (params?.to) qs.set('to', params.to);
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.offset) qs.set('offset', String(params.offset));
+  if (params?.sort_by) qs.set('sort_by', params.sort_by);
+  if (params?.sort_dir) qs.set('sort_dir', params.sort_dir);
+  if (params?.payment_status) qs.set('payment_status', params.payment_status);
+  const data = await apiFetch<{ orders: Order[]; total: number }>(
     `/api/v1/orders?${qs.toString()}`, restaurantId
   );
-  return data.orders ?? [];
+  return { orders: data.orders ?? [], total: data.total ?? 0 };
 }
 
 export async function getOrder(restaurantId: number, orderId: number): Promise<Order> {

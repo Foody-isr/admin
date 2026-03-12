@@ -49,7 +49,7 @@ export default function DashboardPage() {
     Promise.all([
       getAnalyticsToday(rid).catch(() => null),
       getTopSellers(rid).catch(() => []),
-      listOrders(rid).catch(() => []),
+      listOrders(rid).then((r) => r.orders).catch(() => []),
     ]).then(([s, ts, orders]) => {
       if (s) setStats(s);
       setTopSellers(ts.slice(0, 5));
