@@ -10,6 +10,7 @@ import {
   UsersIcon,
   ChartBarIcon,
   Cog6ToothIcon,
+  GlobeAltIcon,
   CreditCardIcon,
   ArrowRightOnRectangleIcon,
   BuildingStorefrontIcon,
@@ -32,6 +33,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
     { href: `${base}/staff`, label: 'Staff', icon: UsersIcon },
     { href: `${base}/analytics`, label: 'Analytics', icon: ChartBarIcon },
     { href: `${base}/settings`, label: 'Settings', icon: Cog6ToothIcon },
+    { href: `${base}/website`, label: 'Website', icon: GlobeAltIcon },
     { href: `${base}/billing`, label: 'Billing', icon: CreditCardIcon },
   ];
 

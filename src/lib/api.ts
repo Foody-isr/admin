@@ -145,6 +145,23 @@ export interface SubscriptionDetail extends Subscription {
   events: SubscriptionEvent[];
 }
 
+export interface WebsiteConfig {
+  id: number;
+  restaurant_id: number;
+  primary_color: string;
+  secondary_color: string;
+  background_color: string;
+  font_family: string;
+  hero_layout: string;
+  welcome_text: string;
+  tagline: string;
+  social_links: Record<string, string>;
+  show_address: boolean;
+  show_phone: boolean;
+  show_hours: boolean;
+  favicon_url: string;
+}
+
 export interface TodayStats {
   total_revenue: number;
   total_orders: number;
@@ -500,4 +517,23 @@ export async function changePlan(restaurantId: number, planTier: PlanTier): Prom
     `/api/v1/restaurants/${restaurantId}/subscription/change-plan`, restaurantId,
     { method: 'POST', body: JSON.stringify({ plan_tier: planTier }) }
   );
+}
+
+// ─── Website Config ──────────────────────────────────────────────────────────
+
+export async function getWebsiteConfig(restaurantId: number): Promise<WebsiteConfig> {
+  const data = await apiFetch<{ website_config: WebsiteConfig }>(
+    `/api/v1/restaurants/${restaurantId}/website-config`, restaurantId
+  );
+  return data.website_config;
+}
+
+export async function updateWebsiteConfig(
+  restaurantId: number, input: Partial<WebsiteConfig>
+): Promise<WebsiteConfig> {
+  const data = await apiFetch<{ website_config: WebsiteConfig }>(
+    `/api/v1/restaurants/${restaurantId}/website-config`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.website_config;
 }

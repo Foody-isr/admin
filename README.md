@@ -118,6 +118,29 @@ Two sections, saved separately:
 - `tips_enabled` — show tips prompt at checkout
 - `rush_mode` — disable optional features under high load
 
+### Website (`/[restaurantId]/website`)
+
+White-label website customizer for the restaurant's guest-facing QR ordering site (foodyweb).
+
+**Left column — Form sections:**
+1. **Branding** — Primary and secondary color pickers (hex input + visual picker)
+2. **Typography** — Font family dropdown (Nunito Sans, Inter, Poppins, Rubik, Open Sans, Playfair Display)
+3. **Content** — Welcome text and tagline fields
+4. **Hero Layout** — Radio selection: Standard / Minimal / Fullscreen
+5. **Visibility** — Toggle switches: show address, phone, opening hours
+6. **Social Links** — Instagram, Facebook, TikTok URL inputs
+
+**Right column — Live Preview:**
+- Static preview card mimicking the restaurant hero (no iframe)
+- Updates in real-time as the form changes
+- Shows logo, cover image, name, tagline, info pills, and social links
+
+**API endpoints used:**
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/restaurants/:id/website-config` | Get current website config |
+| `PUT` | `/restaurants/:id/website-config` | Update website config (partial updates supported) |
+
 ### Billing (`/[restaurantId]/billing`)
 
 Self-service subscription management:
@@ -289,7 +312,9 @@ src/
     api.ts                      # All API functions + TypeScript types
     auth-context.tsx            # Auth state, token storage, role guard
   components/
-    Sidebar.tsx                 # Nav sidebar with restaurant name + links
+    Sidebar.tsx                 # Nav sidebar with restaurant name + links (includes Website nav item)
+    [restaurantId]/
+      website/page.tsx          # Website customizer (colors, fonts, layout, content)
 ```
 
 ## Authentication
@@ -330,6 +355,8 @@ All calls go to `NEXT_PUBLIC_API_URL/api/v1/...` with `Authorization: Bearer <to
 | `GET` | `/restaurants/:id/subscription` | Subscription detail + event history |
 | `POST` | `/restaurants/:id/subscription/setup-billing` | Generate PayPlus payment page URL |
 | `POST` | `/restaurants/:id/subscription/change-plan` | Self-service plan change |
+| `GET` | `/restaurants/:id/website-config` | Get website customization config |
+| `PUT` | `/restaurants/:id/website-config` | Update website customization config |
 
 ## Validation & Pre-push
 
