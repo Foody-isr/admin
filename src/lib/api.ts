@@ -87,18 +87,31 @@ export interface MenuItem {
   modifiers?: MenuItemModifier[];
 }
 
+export interface OrderItemModifier {
+  id: number;
+  order_item_id: number;
+  menu_item_modifier_id: number;
+  name: string;
+  action: string;
+  price_delta: number;
+}
+
 export interface OrderItem {
   id: number;
   menu_item_id: number;
   name: string;
   price: number;
   quantity: number;
+  notes?: string;
+  target_station?: string;
+  modifiers?: OrderItemModifier[];
 }
 
 export interface Order {
   id: number;
   restaurant_id: number;
   order_type: 'dine_in' | 'pickup' | 'delivery';
+  order_source?: string;
   status: OrderStatus;
   payment_status: PaymentStatus;
   customer_name: string;
@@ -107,6 +120,13 @@ export interface Order {
   items: OrderItem[];
   created_at: string;
   table_number?: string;
+  table_code?: string;
+  is_scheduled?: boolean;
+  scheduled_for?: string;
+  accepted_at?: string;
+  in_kitchen_at?: string;
+  ready_at?: string;
+  completed_at?: string;
 }
 
 export interface StaffMember {
@@ -417,6 +437,86 @@ export async function deleteMenuItem(restaurantId: number, id: number): Promise<
   );
 }
 
+// ─── Modifiers ────────────────────────────────────────────────────────────────
+
+export interface ModifierInput {
+  menu_item_id: number;
+  name: string;
+  action: 'add' | 'remove';
+  category: string;
+  price_delta: number;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export async function createModifier(restaurantId: number, input: ModifierInput): Promise<MenuItemModifier> {
+  const data = await apiFetch<{ modifier: MenuItemModifier }>(
+    `/api/v1/menu/modifiers?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.modifier;
+}
+
+export async function updateModifier(restaurantId: number, id: number, input: Partial<ModifierInput>): Promise<MenuItemModifier> {
+  const data = await apiFetch<{ modifier: MenuItemModifier }>(
+    `/api/v1/menu/modifiers/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.modifier;
+}
+
+export async function deleteModifier(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifiers/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+// ─── AI Menu Import ──────────────────────────────────────────────────────────
+
+export interface ExtractedItem {
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface ExtractedCategory {
+  name: string;
+  items: ExtractedItem[];
+}
+
+export interface MenuExtraction {
+  categories: ExtractedCategory[];
+}
+
+export async function importMenuAI(restaurantId: number, file: File): Promise<MenuExtraction> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_URL}/api/v1/menu/import?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Import failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.extraction;
+}
+
+export async function confirmMenuImport(restaurantId: number, extraction: MenuExtraction): Promise<MenuCategory[]> {
+  const data = await apiFetch<{ categories: MenuCategory[] }>(
+    `/api/v1/menu/import/confirm?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(extraction) }
+  );
+  return data.categories;
+}
+
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 export interface ListOrdersParams {
@@ -446,8 +546,8 @@ export async function listOrders(restaurantId: number, params?: ListOrdersParams
   if (params?.type) qs.set('type', params.type);
   if (params?.from) qs.set('from', params.from);
   if (params?.to) qs.set('to', params.to);
-  if (params?.limit) qs.set('limit', String(params.limit));
-  if (params?.offset) qs.set('offset', String(params.offset));
+  if (params?.limit != null) qs.set('limit', String(params.limit));
+  if (params?.offset != null) qs.set('offset', String(params.offset));
   if (params?.sort_by) qs.set('sort_by', params.sort_by);
   if (params?.sort_dir) qs.set('sort_dir', params.sort_dir);
   if (params?.payment_status) qs.set('payment_status', params.payment_status);

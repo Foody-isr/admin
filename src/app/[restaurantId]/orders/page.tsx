@@ -400,7 +400,9 @@ export default function OrdersPage() {
                     <td className="py-3 px-4">
                       <span className="font-semibold text-fg-primary">Order #{order.id}</span>
                     </td>
-                    <td className="py-3 px-4 text-fg-secondary">Order</td>
+                    <td className="py-3 px-4 text-fg-secondary capitalize">
+                      {(order.order_source ?? 'order').replace(/_/g, ' ')}
+                    </td>
                     <td className="py-3 px-4 text-fg-secondary capitalize">
                       {order.order_type.replace(/_/g, ' ')}
                     </td>
@@ -569,6 +571,7 @@ function OrderDetailPanel({
                 month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
               })
             } />
+            <DetailRow label="Source" value={(order.order_source ?? 'order').replace(/_/g, ' ')} capitalize />
             <DetailRow label="Type" value={order.order_type.replace(/_/g, ' ')} capitalize />
             {order.customer_name && <DetailRow label="Customer" value={order.customer_name} />}
             {order.customer_phone && <DetailRow label="Phone" value={order.customer_phone} />}
@@ -584,22 +587,43 @@ function OrderDetailPanel({
             {(order.items ?? []).map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 py-3"
+                className="py-3"
                 style={{ borderBottom: '1px solid var(--divider)' }}
               >
-                <span
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                  style={{ background: itemColor(item.name) }}
-                >
-                  {itemInitials(item.name)}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-semibold text-fg-primary">{item.name}</span>
-                  <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                    style={{ background: itemColor(item.name) }}
+                  >
+                    {itemInitials(item.name)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-fg-primary">{item.name}</span>
+                    <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
+                  </div>
+                  <span className="text-sm text-fg-primary font-medium">
+                    ₪{(item.price * item.quantity).toFixed(2)}
+                  </span>
                 </div>
-                <span className="text-sm text-fg-primary font-medium">
-                  ₪{(item.price * item.quantity).toFixed(2)}
-                </span>
+                {/* Modifiers */}
+                {item.modifiers && item.modifiers.length > 0 && (
+                  <div className="ml-12 mt-1 space-y-0.5">
+                    {item.modifiers.map((mod) => (
+                      <div key={mod.id} className="flex items-center justify-between text-xs text-fg-secondary">
+                        <span>{mod.action === 'remove' ? '−' : '+'} {mod.name}</span>
+                        {mod.price_delta !== 0 && (
+                          <span>{mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Notes */}
+                {item.notes && (
+                  <div className="ml-12 mt-1 text-xs text-fg-secondary italic">
+                    Note: {item.notes}
+                  </div>
+                )}
               </div>
             ))}
           </div>
