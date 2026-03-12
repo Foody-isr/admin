@@ -9,6 +9,7 @@ import {
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
+import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
   MagnifyingGlassIcon, ArrowPathIcon, SpeakerWaveIcon, SpeakerXMarkIcon,
   BellIcon, BellSlashIcon, ChevronLeftIcon, ChevronRightIcon,
@@ -63,10 +64,6 @@ const PAGE_SIZE = 25;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-}
-
 function toISODate(d: Date): string {
   return d.toISOString().split('T')[0];
 }
@@ -114,7 +111,7 @@ export default function OrdersPage() {
   const [searchSubmitted, setSearchSubmitted] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
-  const [dateRange] = useState(defaultDateRange);
+  const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
   const [page, setPage] = useState(0);
 
   // Selected order for right panel
@@ -313,12 +310,10 @@ export default function OrdersPage() {
             </button>
           </div>
 
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary"
-            style={{ border: '1px solid var(--divider)' }}
-          >
-            {formatDate(dateRange.from)} - {formatDate(dateRange.to)}
-          </div>
+          <DateRangePicker
+            value={dateRange}
+            onChange={(range) => { setDateRange(range); setPage(0); }}
+          />
 
           <FilterDropdown
             label="Type"
