@@ -192,19 +192,90 @@ function SetupAccountContent() {
     );
   }
 
-  // Success state
+  // Success state — show POS download instructions
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-page">
-        <div className="w-full max-w-sm">
-          <div className="card text-center">
-            <div className="w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+      <div className="min-h-screen flex items-center justify-center bg-page py-12 px-4">
+        <div className="w-full max-w-lg">
+          <div className="flex justify-center mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
+                <span className="text-xl font-black text-white">F</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
+                <p className="text-xs text-fg-secondary">Setup complete</p>
+              </div>
             </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">You&apos;re All Set!</h2>
-            <p className="text-sm text-fg-secondary">Your account and restaurant are ready. Redirecting to your dashboard…</p>
+          </div>
+
+          <div className="card">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-fg-primary mb-1">You&apos;re All Set!</h2>
+              <p className="text-sm text-fg-secondary">
+                Your account and <strong>{restaurantName}</strong> are ready.
+                Download FoodyPOS to start taking orders.
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {(posPlatform === 'ipad' || posPlatform === 'both') && (
+                <a
+                  href="https://apps.apple.com/app/foodypos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-700 hover:border-blue-500 transition"
+                >
+                  <div className="w-11 h-11 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-fg-primary">Download for iPad</p>
+                    <p className="text-xs text-fg-secondary">Get FoodyPOS from the App Store</p>
+                  </div>
+                  <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )}
+
+              {(posPlatform === 'macos' || posPlatform === 'both') && (
+                <a
+                  href="https://github.com/foody-pos/foodypos/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-700 hover:border-purple-500 transition"
+                >
+                  <div className="w-11 h-11 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-fg-primary">Download for macOS</p>
+                    <p className="text-xs text-fg-secondary">Get the FoodyPOS DMG file</p>
+                  </div>
+                  <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </a>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push(dashboardUrl)}
+              className="btn-primary w-full justify-center"
+            >
+              Go to Dashboard
+            </button>
           </div>
         </div>
       </div>
