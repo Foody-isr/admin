@@ -284,6 +284,14 @@ export function isAuthenticated(): boolean {
 export interface ValidateInviteResponse {
   valid: boolean;
   user: { email: string; full_name: string; phone: string };
+  restaurant?: {
+    id: number;
+    name: string;
+    slug: string;
+    address: string;
+    phone: string;
+    pos_platform: string;
+  };
 }
 
 /** Check if an invite token is valid before showing the setup form. */
@@ -316,12 +324,17 @@ export async function resetPassword(input: {
   return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
 }
 
-/** Complete account setup: set password and optionally update profile. */
+/** Complete account setup: set password, profile, restaurant details, and POS choice. */
 export async function setupAccount(input: {
   token: string;
   password: string;
   full_name?: string;
   phone?: string;
+  restaurant_name?: string;
+  restaurant_slug?: string;
+  restaurant_address?: string;
+  restaurant_phone?: string;
+  pos_platform?: string;
 }): Promise<LoginResponse> {
   const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/setup-account', undefined, {
     method: 'POST',
