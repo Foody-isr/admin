@@ -361,6 +361,26 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   }
 }
 
+// ─── POS Downloads ────────────────────────────────────────────────────────────
+
+export interface POSPlatformDownload {
+  url: string;
+  name: string;
+  version?: string;
+}
+
+export interface POSDownloads {
+  ipad?: POSPlatformDownload;
+  macos?: POSPlatformDownload;
+}
+
+/** Fetch POS download URLs from the server (public, no auth). */
+export async function getPosDownloads(): Promise<POSDownloads> {
+  const res = await fetch(`${API_URL}/api/v1/public/pos-downloads`);
+  if (!res.ok) return {};
+  return res.json();
+}
+
 // ─── Restaurant ───────────────────────────────────────────────────────────────
 
 export async function getRestaurant(id: number): Promise<Restaurant> {

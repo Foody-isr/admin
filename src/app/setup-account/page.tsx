@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { validateInviteToken, setupAccount, ValidateInviteResponse } from '@/lib/api';
+import { validateInviteToken, setupAccount, getPosDownloads, ValidateInviteResponse, POSDownloads } from '@/lib/api';
 
 type PosPlatform = 'ipad' | 'macos' | 'both';
 
@@ -54,6 +54,7 @@ function SetupAccountContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/login');
+  const [posDownloads, setPosDownloads] = useState<POSDownloads>({});
 
   // Validate token on mount
   useEffect(() => {
@@ -130,6 +131,10 @@ function SetupAccountContent() {
       } else if (result.restaurant_ids.length > 1) {
         setDashboardUrl('/select-restaurant');
       }
+
+      // Fetch POS download URLs from server
+      getPosDownloads().then(setPosDownloads).catch(() => {});
+
       setSuccess(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Account setup failed');
@@ -224,9 +229,9 @@ function SetupAccountContent() {
             </div>
 
             <div className="space-y-3 mb-6">
-              {(posPlatform === 'ipad' || posPlatform === 'both') && (
+              {(posPlatform === 'ipad' || posPlatform === 'both') && posDownloads.ipad && (
                 <a
-                  href="https://apps.apple.com/app/foodypos"
+                  href={posDownloads.ipad.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-700 hover:border-blue-500 transition"
@@ -238,7 +243,7 @@ function SetupAccountContent() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-fg-primary">Download for iPad</p>
-                    <p className="text-xs text-fg-secondary">Get FoodyPOS from the App Store</p>
+                    <p className="text-xs text-fg-secondary">{posDownloads.ipad.name}</p>
                   </div>
                   <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -246,9 +251,9 @@ function SetupAccountContent() {
                 </a>
               )}
 
-              {(posPlatform === 'macos' || posPlatform === 'both') && (
+              {(posPlatform === 'macos' || posPlatform === 'both') && posDownloads.macos && (
                 <a
-                  href="https://github.com/foody-pos/foodypos/releases/latest"
+                  href={posDownloads.macos.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-700 hover:border-purple-500 transition"
@@ -260,7 +265,9 @@ function SetupAccountContent() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-fg-primary">Download for macOS</p>
-                    <p className="text-xs text-fg-secondary">Get the FoodyPOS DMG file</p>
+                    <p className="text-xs text-fg-secondary">
+                      {posDownloads.macos.name}{posDownloads.macos.version ? ` v${posDownloads.macos.version}` : ''}
+                    </p>
                   </div>
                   <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
