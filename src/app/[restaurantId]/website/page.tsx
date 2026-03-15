@@ -91,6 +91,17 @@ export default function WebsitePage() {
   const [showHours, setShowHours] = useState(true);
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+
+  // When a section is selected, show the settings panel
+  useEffect(() => {
+    if (selectedSectionId) setShowSettingsPanel(true);
+  }, [selectedSectionId]);
+
+  function closeSettings() {
+    setShowSettingsPanel(false);
+    setSelectedSectionId(null);
+  }
 
   // Derive unique pages from sections
   const pages = Array.from(new Set(sections.map(s => s.page || 'home'))).sort((a, b) =>
@@ -275,18 +286,6 @@ export default function WebsitePage() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500" />
       </div>
     );
-  }
-
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-
-  // When a section is selected, show the settings panel
-  useEffect(() => {
-    if (selectedSectionId) setShowSettingsPanel(true);
-  }, [selectedSectionId]);
-
-  function closeSettings() {
-    setShowSettingsPanel(false);
-    setSelectedSectionId(null);
   }
 
   return (
