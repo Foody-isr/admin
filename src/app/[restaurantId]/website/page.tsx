@@ -279,6 +279,8 @@ export default function WebsitePage() {
       setCustomPages(prev => [...prev, slug]);
     }
     setActivePage(slug);
+    // Immediately open the Add Section modal so the page gets a section (and persists)
+    setTimeout(() => setShowAddModal(true), 100);
   }
 
   // ─── Render ─────────────────────────────────────────────────────
