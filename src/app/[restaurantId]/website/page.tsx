@@ -407,17 +407,11 @@ export default function WebsitePage() {
         </div>
 
         {/* Column 3: Preview */}
-        <div className="w-[380px] border-l border-divider overflow-y-auto flex-shrink-0 flex items-start justify-center p-6" style={{ background: 'var(--surface-subtle)' }}>
+        <div className={`border-l border-divider overflow-y-auto flex-shrink-0 flex items-start justify-center p-6 transition-all ${previewMode === 'desktop' ? 'w-[520px]' : 'w-[340px]'}`} style={{ background: 'var(--surface-subtle)' }}>
           <PreviewPanel
             mode={previewMode}
             restaurant={restaurant}
-            primaryColor={primaryColor}
-            fontFamily={fontFamily}
-            tagline={tagline}
-            showAddress={showAddress}
-            showPhone={showPhone}
-            showHours={showHours}
-            sections={filteredSections}
+            activePage={activePage}
           />
         </div>
       </div>
@@ -939,139 +933,97 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, restaurant, primaryColor, fontFamily, tagline, showAddress, showPhone, showHours, sections }: {
+function PreviewPanel({ mode, restaurant, activePage }: {
   mode: 'mobile' | 'desktop';
   restaurant: Restaurant | null;
-  primaryColor: string;
-  fontFamily: string;
-  tagline: string;
-  showAddress: boolean;
-  showPhone: boolean;
-  showHours: boolean;
-  sections: WebsiteSection[];
+  activePage: string;
 }) {
-  const width = mode === 'mobile' ? 320 : 768;
+  const slug = restaurant?.slug || String(restaurant?.id || '');
+  const baseUrl = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+  const pagePath = activePage === 'home' ? '' : `/${activePage}`;
+  const iframeSrc = slug ? `${baseUrl}/r/${slug}${pagePath}` : '';
 
+  const [iframeKey, setIframeKey] = useState(0);
+
+  // Refresh iframe when page or mode changes
+  useEffect(() => {
+    setIframeKey(k => k + 1);
+  }, [activePage]);
+
+  if (!slug) {
+    return (
+      <div className="flex items-center justify-center h-64 text-fg-secondary text-sm">
+        No restaurant to preview
+      </div>
+    );
+  }
+
+  if (mode === 'desktop') {
+    return (
+      <div className="sticky top-6 w-full">
+        {/* Desktop monitor frame */}
+        <div className="rounded-lg border-2 border-gray-700 overflow-hidden bg-white shadow-2xl">
+          {/* Browser chrome */}
+          <div className="bg-gray-800 px-3 py-1.5 flex items-center gap-2">
+            <div className="flex gap-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            </div>
+            <div className="flex-1 bg-gray-700 rounded px-2 py-0.5 text-[9px] text-gray-400 truncate">
+              {iframeSrc}
+            </div>
+          </div>
+          {/* Content */}
+          <iframe
+            key={iframeKey}
+            src={iframeSrc}
+            className="w-full border-0"
+            style={{ height: 520 }}
+            title="Desktop preview"
+          />
+        </div>
+        {/* Refresh hint */}
+        <button
+          onClick={() => setIframeKey(k => k + 1)}
+          className="mt-3 w-full text-center text-xs text-fg-secondary hover:text-brand-500 transition-colors"
+        >
+          Click to refresh preview
+        </button>
+      </div>
+    );
+  }
+
+  // Mobile frame
   return (
     <div className="sticky top-6">
-      <div className="rounded-[2rem] border-[6px] border-gray-800 overflow-hidden bg-white shadow-2xl" style={{ width }}>
-        {/* Status bar */}
-        <div className="bg-gray-800 text-white text-[10px] flex justify-between px-4 py-1">
-          <span>9:41</span>
-          <span>...</span>
+      <div className="relative rounded-[2.5rem] border-[4px] border-gray-900 bg-gray-900 shadow-2xl overflow-hidden" style={{ width: 290 }}>
+        {/* Notch */}
+        <div className="relative z-10 flex justify-center">
+          <div className="w-24 h-5 bg-gray-900 rounded-b-2xl" />
         </div>
-
-        {/* Mini hero */}
-        <div className="relative h-28" style={{ backgroundColor: primaryColor }}>
-          {restaurant?.cover_url && (
-            <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute bottom-2 left-3 right-3 flex items-end gap-2">
-            {restaurant?.logo_url ? (
-              <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-md bg-white border border-white object-cover" />
-            ) : (
-              <div className="w-8 h-8 rounded-md flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: primaryColor }}>
-                {restaurant?.name?.charAt(0) || 'R'}
-              </div>
-            )}
-            <div>
-              <div className="text-white font-bold text-xs" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>
-                {restaurant?.name || 'Restaurant'}
-              </div>
-              {tagline && <div className="text-white/70 text-[10px] truncate max-w-[160px]">{tagline}</div>}
-            </div>
-          </div>
+        {/* Screen */}
+        <div className="bg-white overflow-hidden rounded-b-[2rem]" style={{ marginTop: -2 }}>
+          <iframe
+            key={iframeKey}
+            src={iframeSrc}
+            className="w-full border-0"
+            style={{ height: 560 }}
+            title="Mobile preview"
+          />
         </div>
-
-        {/* Info bar */}
-        <div className="px-2 py-1.5 border-b border-gray-100 flex flex-wrap gap-1">
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium text-white" style={{ backgroundColor: primaryColor }}>Pickup</span>
-          {showHours && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-[9px] text-gray-500">10:00-22:00</span>}
-          {showAddress && restaurant?.address && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-[9px] text-gray-500 truncate max-w-[100px]">{restaurant.address}</span>}
-        </div>
-
-        {/* Sections preview */}
-        {sections.filter(s => s.is_visible).map(section => (
-          <SectionPreviewMini key={section.id} section={section} primaryColor={primaryColor} />
-        ))}
-
-        {/* Menu skeleton */}
-        <div className="p-2 space-y-1.5">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex items-center gap-2 p-1.5 rounded bg-gray-50">
-              <div className="w-8 h-8 rounded bg-gray-200" />
-              <div className="flex-1">
-                <div className="h-2 bg-gray-200 rounded w-3/4 mb-1" />
-                <div className="h-1.5 bg-gray-100 rounded w-1/2" />
-              </div>
-              <div className="text-[10px] font-bold" style={{ color: primaryColor }}>&#8362;32</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Cart button */}
-        <div className="px-2 pb-2">
-          <div className="w-full py-2 rounded-lg text-white text-center text-[10px] font-bold" style={{ backgroundColor: primaryColor }}>
-            View Cart &middot; &#8362;96.00
-          </div>
+        {/* Home indicator */}
+        <div className="flex justify-center py-1.5">
+          <div className="w-24 h-1 bg-gray-600 rounded-full" />
         </div>
       </div>
-    </div>
-  );
-}
-
-function SectionPreviewMini({ section, primaryColor }: { section: WebsiteSection; primaryColor: string }) {
-  const content = section.content || {};
-  const meta = SECTION_TYPE_META[section.section_type];
-
-  if (section.section_type === 'hero_banner') {
-    return (
-      <div className="relative h-20 bg-gray-200 overflow-hidden">
-        {content.image_url && <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white px-3">
-          <div className="text-xs font-bold text-center truncate w-full">{content.headline || 'Hero Banner'}</div>
-          {content.subheadline && <div className="text-[9px] opacity-80 truncate w-full text-center">{content.subheadline}</div>}
-          {content.cta_text && (
-            <div className="mt-1 px-2 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: primaryColor }}>{content.cta_text}</div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (section.section_type === 'scrolling_text') {
-    return (
-      <div className="py-1.5 overflow-hidden border-b border-gray-100">
-        <div className="text-[9px] font-bold text-gray-600 whitespace-nowrap">
-          {content.text || 'Scrolling text here...'}
-        </div>
-      </div>
-    );
-  }
-
-  if (section.section_type === 'action_buttons') {
-    const buttons = content.buttons || [];
-    return (
-      <div className="px-2 py-2 border-b border-gray-100 flex flex-wrap gap-1">
-        {buttons.map((btn: any, i: number) => (
-          <div key={i} className="px-2 py-0.5 rounded text-[8px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
-            {btn.label || 'Button'}
-          </div>
-        ))}
-        {buttons.length === 0 && (
-          <span className="text-[10px] text-gray-400">No buttons configured</span>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-2 py-2 border-b border-gray-100">
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs">{meta?.icon || '\u{1F4C4}'}</span>
-        <span className="text-[10px] font-medium text-gray-500">{meta?.label || section.section_type}</span>
-      </div>
+      {/* Refresh hint */}
+      <button
+        onClick={() => setIframeKey(k => k + 1)}
+        className="mt-3 w-full text-center text-xs text-fg-secondary hover:text-brand-500 transition-colors"
+      >
+        Click to refresh preview
+      </button>
     </div>
   );
 }
