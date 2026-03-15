@@ -81,6 +81,9 @@ export default function WebsitePage() {
   const [activePage, setActivePage] = useState('home');
   const [customPages, setCustomPages] = useState<string[]>([]);
 
+  // Default pages always available in the picker
+  const DEFAULT_PAGES = ['home', 'about', 'gallery', 'menu', 'contact'];
+
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
   const [secondaryColor, setSecondaryColor] = useState('#C94400');
@@ -104,8 +107,9 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  // Derive unique pages from sections + manually added pages
+  // Derive unique pages from defaults + sections + manually added pages
   const pages = Array.from(new Set([
+    ...DEFAULT_PAGES,
     ...sections.map(s => s.page || 'home'),
     ...customPages,
   ])).sort((a, b) =>
