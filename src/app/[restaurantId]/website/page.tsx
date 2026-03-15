@@ -94,9 +94,12 @@ export default function WebsitePage() {
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 
-  // When a section is selected, show the settings panel
+  // When a section is selected, show section settings (not site styles)
   useEffect(() => {
-    if (selectedSectionId) setShowSettingsPanel(true);
+    if (selectedSectionId) {
+      setActiveTab('sections');
+      setShowSettingsPanel(true);
+    }
   }, [selectedSectionId]);
 
   function closeSettings() {
