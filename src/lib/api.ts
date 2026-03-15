@@ -180,6 +180,7 @@ export interface WebsiteConfig {
   show_address: boolean;
   show_phone: boolean;
   show_hours: boolean;
+  theme_mode: string;
   favicon_url: string;
 }
 
@@ -220,6 +221,8 @@ async function apiFetch<T>(
       // Token expired or revoked — clear stored auth and force re-login
       logout();
       window.location.href = '/login';
+      // Stop execution — don't throw, which could trigger competing redirects
+      return new Promise<never>(() => {});
     }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || body.message || `API error ${res.status}`);
@@ -714,6 +717,7 @@ export interface WebsiteSection {
   id: number;
   restaurant_id: number;
   section_type: string;
+  page: string;
   sort_order: number;
   is_visible: boolean;
   layout: string;

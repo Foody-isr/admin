@@ -33,6 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (stored && (stored.role === 'owner' || stored.role === 'manager')) {
         setUserState(stored);
         setRestaurantIds(rids);
+      } else {
+        // Token exists but user data is missing/invalid — clear stale auth
+        // to prevent redirect loops between login and dashboard
+        apiLogout();
       }
     }
     setLoading(false);

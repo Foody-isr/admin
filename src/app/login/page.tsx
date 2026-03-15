@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, isAuthenticated, getStoredRestaurantIds } from '@/lib/api';
+import { login, isAuthenticated, getStoredRestaurantIds, getStoredUser, logout } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +14,12 @@ export default function LoginPage() {
   // If already logged in, skip to restaurant selection
   useEffect(() => {
     if (isAuthenticated()) {
+      const user = getStoredUser();
+      if (!user || (user.role !== 'owner' && user.role !== 'manager')) {
+        // Stale/invalid session — clear it to prevent redirect loops
+        logout();
+        return;
+      }
       const rids = getStoredRestaurantIds();
       if (rids.length === 1) {
         router.replace(`/${rids[0]}/dashboard`);

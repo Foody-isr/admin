@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredRestaurantIds, getRestaurant, Restaurant, isAuthenticated } from '@/lib/api';
+import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, logout } from '@/lib/api';
 import { BuildingStorefrontIcon } from '@heroicons/react/24/outline';
 
 export default function SelectRestaurantPage() {
@@ -12,6 +12,12 @@ export default function SelectRestaurantPage() {
 
   useEffect(() => {
     if (!isAuthenticated()) {
+      router.replace('/login');
+      return;
+    }
+    const user = getStoredUser();
+    if (!user || (user.role !== 'owner' && user.role !== 'manager')) {
+      logout();
       router.replace('/login');
       return;
     }
