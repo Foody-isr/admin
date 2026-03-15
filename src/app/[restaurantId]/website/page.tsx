@@ -277,49 +277,53 @@ export default function WebsitePage() {
     );
   }
 
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+
+  // When a section is selected, show the settings panel
+  useEffect(() => {
+    if (selectedSectionId) setShowSettingsPanel(true);
+  }, [selectedSectionId]);
+
+  function closeSettings() {
+    setShowSettingsPanel(false);
+    setSelectedSectionId(null);
+  }
+
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-divider" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold text-fg-primary">Site Design</h1>
-          <div className="flex rounded-lg border border-divider overflow-hidden">
+      {/* Top Bar — Wix-style */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-divider" style={{ background: 'var(--surface)' }}>
+        {/* Left: back + title */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => window.history.back()} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-subtle">
+            <svg className="w-4 h-4 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+            <span className="text-sm font-semibold text-fg-primary">Site design</span>
+          </div>
+        </div>
+
+        {/* Center: device toggle + undo/redo */}
+        <div className="flex items-center gap-2">
+          {/* Device dropdown */}
+          <div className="relative">
             <button
-              onClick={() => setActiveTab('sections')}
-              className={`px-4 py-1.5 text-sm font-medium ${activeTab === 'sections' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:bg-surface-subtle'}`}
+              onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-divider hover:bg-surface-subtle transition text-fg-secondary"
             >
-              Sections
-            </button>
-            <button
-              onClick={() => setActiveTab('styles')}
-              className={`px-4 py-1.5 text-sm font-medium ${activeTab === 'styles' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:bg-surface-subtle'}`}
-            >
-              Site Styles
+              {previewMode === 'desktop' ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              )}
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
           </div>
         </div>
+
+        {/* Right: Preview Live + Publish */}
         <div className="flex items-center gap-3">
-          {/* Preview toggle */}
-          <div className="flex rounded-lg border border-divider overflow-hidden">
-            <button
-              onClick={() => setPreviewMode('desktop')}
-              className={`p-1.5 ${previewMode === 'desktop' ? 'bg-surface-subtle' : ''}`}
-              title="Desktop preview"
-            >
-              <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setPreviewMode('mobile')}
-              className={`p-1.5 ${previewMode === 'mobile' ? 'bg-surface-subtle' : ''}`}
-              title="Mobile preview"
-            >
-              <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            </button>
-          </div>
           {restaurant?.slug && (
             <a
               href={`${process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'}/r/${restaurant.slug}`}
@@ -327,13 +331,13 @@ export default function WebsitePage() {
               rel="noopener noreferrer"
               className="text-sm text-brand-500 hover:text-brand-600 font-medium"
             >
-              Preview Live
+              Preview
             </a>
           )}
           <button
             onClick={handleSaveConfig}
             disabled={saving}
-            className="btn-primary px-5 py-2 disabled:opacity-50"
+            className="btn-primary px-5 py-2 rounded-lg disabled:opacity-50 text-sm font-semibold"
           >
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Publish'}
           </button>
@@ -341,29 +345,50 @@ export default function WebsitePage() {
       </div>
 
       {error && (
-        <div className="mx-6 mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
           {error}
           <button onClick={() => setError('')} className="ml-2 text-red-500 font-bold">&times;</button>
         </div>
       )}
 
-      {/* Main 3-Column Layout */}
+      {/* Main Layout: Left sidebar + Full preview */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Column 1: Section List (or Site Styles tab) */}
-        <div className="w-64 border-r border-divider overflow-y-auto flex-shrink-0" style={{ background: 'var(--surface-subtle)' }}>
-          {activeTab === 'styles' ? (
-            <SiteStylesPanel
-              styles={siteStyles}
-              currentPrimary={primaryColor}
-              onApply={applySiteStyle}
-              primaryColor={primaryColor}
-              secondaryColor={secondaryColor}
-              fontFamily={fontFamily}
-              onPrimaryChange={setPrimaryColor}
-              onSecondaryChange={setSecondaryColor}
-              onFontChange={setFontFamily}
-            />
-          ) : (
+        {/* Left Sidebar */}
+        <div className="w-60 border-r border-divider overflow-y-auto flex-shrink-0 flex flex-col" style={{ background: 'var(--surface)' }}>
+          {/* Page selector + gear + add */}
+          <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+            <select
+              value={activePage}
+              onChange={e => setActivePage(e.target.value)}
+              className="flex-1 border border-divider rounded-lg px-3 py-2 text-sm font-medium bg-[var(--surface)] text-fg-primary"
+            >
+              {pages.map(p => (
+                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setActiveTab(activeTab === 'styles' ? 'sections' : 'styles')}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
+              title="Site settings"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
+              title="Add section"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Add page button */}
+          <div className="px-3 pb-2">
+            <button onClick={handleAddPage} className="text-xs text-fg-secondary hover:text-brand-500 transition">+ Add page</button>
+          </div>
+
+          {/* Section list */}
+          <div className="flex-1 overflow-y-auto px-2 pb-3">
             <SectionListPanel
               sections={filteredSections}
               selectedId={selectedSectionId}
@@ -377,44 +402,11 @@ export default function WebsitePage() {
               onAddPage={handleAddPage}
               allSections={sections}
             />
-          )}
+          </div>
         </div>
 
-        {/* Column 2: Section Settings */}
-        <div className="flex-1 overflow-y-auto p-6 min-w-0" style={{ background: 'var(--surface)' }}>
-          {activeTab === 'styles' ? (
-            <StyleSettingsPanel
-              tagline={tagline}
-              themeMode={themeMode}
-              showAddress={showAddress}
-              showPhone={showPhone}
-              showHours={showHours}
-              onTaglineChange={setTagline}
-              onThemeModeChange={setThemeMode}
-              onShowAddressChange={setShowAddress}
-              onShowPhoneChange={setShowPhone}
-              onShowHoursChange={setShowHours}
-            />
-          ) : selectedSection ? (
-            <SectionSettingsPanel
-              section={selectedSection}
-              pages={pages}
-              onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
-              onDelete={() => handleDeleteSection(selectedSection.id)}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-fg-secondary">
-              <svg className="w-16 h-16 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-              </svg>
-              <p className="font-medium">Select a section to edit</p>
-              <p className="text-sm opacity-60 mt-1">Or add a new one with the + button</p>
-            </div>
-          )}
-        </div>
-
-        {/* Column 3: Preview */}
-        <div className={`border-l border-divider overflow-y-auto flex-shrink-0 flex items-start justify-center p-6 transition-all ${previewMode === 'desktop' ? 'w-[520px]' : 'w-[340px]'}`} style={{ background: 'var(--surface-subtle)' }}>
+        {/* Main Preview Area — full width like Wix */}
+        <div className="flex-1 overflow-y-auto flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
           <PreviewPanel
             mode={previewMode}
             restaurant={restaurant}
@@ -425,8 +417,60 @@ export default function WebsitePage() {
             themeMode={themeMode}
             tagline={tagline}
             selectedSectionId={selectedSectionId}
+            onSelectSection={setSelectedSectionId}
           />
         </div>
+
+        {/* Right slide-in settings panel */}
+        {showSettingsPanel && (selectedSection || activeTab === 'styles') && (
+          <div className="w-80 border-l border-divider overflow-y-auto flex-shrink-0 animate-in slide-in-from-right" style={{ background: 'var(--surface)' }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-divider">
+              <h3 className="text-sm font-semibold text-fg-primary">
+                {activeTab === 'styles' ? 'Site Settings' : 'Section Settings'}
+              </h3>
+              <button onClick={closeSettings} className="w-6 h-6 rounded-full hover:bg-surface-subtle flex items-center justify-center text-fg-secondary">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-4">
+              {activeTab === 'styles' ? (
+                <>
+                  <SiteStylesPanel
+                    styles={siteStyles}
+                    currentPrimary={primaryColor}
+                    onApply={applySiteStyle}
+                    primaryColor={primaryColor}
+                    secondaryColor={secondaryColor}
+                    fontFamily={fontFamily}
+                    onPrimaryChange={setPrimaryColor}
+                    onSecondaryChange={setSecondaryColor}
+                    onFontChange={setFontFamily}
+                  />
+                  <hr className="border-divider my-4" />
+                  <StyleSettingsPanel
+                    tagline={tagline}
+                    themeMode={themeMode}
+                    showAddress={showAddress}
+                    showPhone={showPhone}
+                    showHours={showHours}
+                    onTaglineChange={setTagline}
+                    onThemeModeChange={setThemeMode}
+                    onShowAddressChange={setShowAddress}
+                    onShowPhoneChange={setShowPhone}
+                    onShowHoursChange={setShowHours}
+                  />
+                </>
+              ) : selectedSection ? (
+                <SectionSettingsPanel
+                  section={selectedSection}
+                  pages={pages}
+                  onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
+                  onDelete={() => { handleDeleteSection(selectedSection.id); closeSettings(); }}
+                />
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Section Modal */}
@@ -454,7 +498,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   onFontChange: (v: string) => void;
 }) {
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4">
       <h3 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider">Site Styles</h3>
       <div className="grid grid-cols-2 gap-2">
         {styles.map((style) => (
@@ -586,7 +630,7 @@ function StyleSettingsPanel({ tagline, themeMode, showAddress, showPhone, showHo
   );
 }
 
-function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onToggleVisibility, pages, activePage, onPageChange, onAddPage, allSections }: {
+function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisibility }: {
   sections: WebsiteSection[];
   selectedId: number | null;
   onSelect: (id: number) => void;
@@ -600,85 +644,44 @@ function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onTog
   allSections: WebsiteSection[];
 }) {
   return (
-    <div className="p-3">
-      {/* Page selector */}
-      <div className="mb-3">
-        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-          {pages.map(page => {
-            const count = allSections.filter(s => (s.page || 'home') === page).length;
-            return (
-              <button
-                key={page}
-                onClick={() => onPageChange(page)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                  activePage === page
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-[var(--surface)] text-fg-secondary hover:bg-[var(--surface-subtle)]'
-                }`}
-              >
-                {page.charAt(0).toUpperCase() + page.slice(1)}
-                {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
-              </button>
-            );
-          })}
-          <button
-            onClick={onAddPage}
-            className="px-2 py-1 rounded-md text-xs font-medium text-fg-secondary hover:bg-[var(--surface)] transition-all"
-            title="Add page"
+    <div className="space-y-0.5">
+      {sections.map((section, idx) => {
+        const meta = SECTION_TYPE_META[section.section_type];
+        return (
+          <div
+            key={section.id}
+            onClick={() => onSelect(section.id)}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all group ${
+              selectedId === section.id
+                ? 'bg-brand-500/10 border border-brand-500'
+                : 'hover:bg-surface-subtle border border-transparent'
+            } ${!section.is_visible ? 'opacity-50' : ''}`}
           >
-            + Page
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider">Sections</h3>
-        <button
-          onClick={onAdd}
-          className="w-7 h-7 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition-colors text-lg font-bold"
-        >
-          +
-        </button>
-      </div>
-      <div className="space-y-1">
-        {sections.map((section, idx) => {
-          const meta = SECTION_TYPE_META[section.section_type];
-          return (
-            <div
-              key={section.id}
-              onClick={() => onSelect(section.id)}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-all group ${
-                selectedId === section.id
-                  ? 'bg-brand-500/10 border border-brand-500'
-                  : 'hover:bg-[var(--surface)] border border-transparent'
-              } ${!section.is_visible ? 'opacity-50' : ''}`}
-            >
-              <span className="text-base flex-shrink-0">{meta?.icon || '\u{1F4C4}'}</span>
-              <span className="text-sm font-medium text-fg-primary flex-1 truncate">
-                {meta?.label || section.section_type}
-              </span>
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); onMove(section.id, 'up'); }} disabled={idx === 0} className="p-0.5 text-fg-secondary hover:text-fg-primary disabled:opacity-30">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); onMove(section.id, 'down'); }} disabled={idx === sections.length - 1} className="p-0.5 text-fg-secondary hover:text-fg-primary disabled:opacity-30">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); onToggleVisibility(section.id, !section.is_visible); }} className="p-0.5 text-fg-secondary hover:text-fg-primary">
-                  {section.is_visible ? (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-                  )}
-                </button>
-              </div>
+            <span className="text-base flex-shrink-0">{meta?.icon || '\u{1F4C4}'}</span>
+            <span className="text-sm font-medium text-fg-primary flex-1 truncate">
+              {meta?.label || section.section_type}
+            </span>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={(e) => { e.stopPropagation(); onMove(section.id, 'up'); }} disabled={idx === 0} className="p-0.5 text-fg-secondary hover:text-fg-primary disabled:opacity-30">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onMove(section.id, 'down'); }} disabled={idx === sections.length - 1} className="p-0.5 text-fg-secondary hover:text-fg-primary disabled:opacity-30">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onToggleVisibility(section.id, !section.is_visible); }} className="p-0.5 text-fg-secondary hover:text-fg-primary">
+                {section.is_visible ? (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                )}
+              </button>
             </div>
-          );
-        })}
-        {sections.length === 0 && (
-          <p className="text-xs text-fg-secondary text-center py-4">No sections on this page. Click + to add one.</p>
-        )}
-      </div>
+          </div>
+        );
+      })}
+      {sections.length === 0 && (
+        <p className="text-xs text-fg-secondary text-center py-6">No sections on this page.<br />Click + to add one.</p>
+      )}
     </div>
   );
 }
@@ -984,7 +987,7 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, selectedSectionId }: {
+function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, selectedSectionId, onSelectSection }: {
   mode: 'mobile' | 'desktop';
   restaurant: Restaurant | null;
   sections: WebsiteSection[];
@@ -994,13 +997,14 @@ function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor
   themeMode: 'light' | 'dark';
   tagline: string;
   selectedSectionId: number | null;
+  onSelectSection?: (id: number) => void;
 }) {
   const isDark = themeMode === 'dark';
-  const bg = isDark ? '#111' : '#fff';
+  const bg = isDark ? '#121316' : '#fff';
   const text = isDark ? '#f5f5f5' : '#1a1a1a';
-  const textSoft = isDark ? '#aaa' : '#666';
-  const surface = isDark ? '#1a1a1a' : '#f9f9f9';
-  const divider = isDark ? '#333' : '#e5e5e5';
+  const textSoft = isDark ? '#9CA3AF' : '#6B7280';
+  const surface = isDark ? '#202125' : '#f9fafb';
+  const divider = isDark ? '#3D3E44' : '#E4E5E7';
 
   const themeVars: React.CSSProperties = {
     fontFamily: `"${fontFamily}", sans-serif`,
@@ -1012,90 +1016,93 @@ function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor
 
   const siteContent = (
     <>
-      {/* Nav Bar */}
-      <div style={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', borderBottom: `1px solid ${divider}` }} className="px-3 py-2 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-2">
+      {/* Nav Bar — mirrors foodyweb RestaurantLanding nav */}
+      <div style={{ backgroundColor: isDark ? 'rgba(32,33,37,0.95)' : 'rgba(255,255,255,0.95)', borderBottom: `1px solid ${divider}`, backdropFilter: 'blur(8px)' }} className="px-5 py-3 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-3">
           {restaurant?.logo_url ? (
-            <img src={restaurant.logo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+            <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
           ) : (
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: primaryColor }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: primaryColor }}>
               {restaurant?.name?.charAt(0) || 'R'}
             </div>
           )}
-          <span className="font-bold text-xs" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
+          <span className="font-semibold text-base" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
         </div>
-        <div className="px-3 py-1 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+        <span className="px-5 py-2 rounded-full text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
           Order Now
-        </div>
+        </span>
       </div>
 
       {/* Sections */}
       {visibleSections.length === 0 ? (
-        <div className="flex items-center justify-center py-16 text-center" style={{ color: textSoft }}>
+        <div className="flex items-center justify-center py-32 text-center" style={{ color: textSoft }}>
           <div>
-            <div className="text-2xl mb-2">+</div>
-            <div className="text-xs">Add sections to see your site preview</div>
+            <div className="text-4xl mb-3 opacity-40">+</div>
+            <div className="text-sm">Add sections to see your site preview</div>
           </div>
         </div>
       ) : (
         visibleSections.map(section => (
-          <div key={section.id} className="relative transition-all" style={{ outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none', outlineOffset: -2 }}>
+          <div
+            key={section.id}
+            className="relative transition-all cursor-pointer"
+            onClick={() => onSelectSection?.(section.id)}
+            style={{
+              outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none',
+              outlineOffset: -2,
+            }}
+          >
+            {selectedSectionId === section.id && (
+              <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
+                {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
+              </div>
+            )}
             <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textSoft} surface={surface} fontFamily={fontFamily} />
           </div>
         ))
       )}
 
-      {/* Footer */}
-      <div style={{ backgroundColor: surface, borderTop: `1px solid ${divider}` }} className="px-3 py-4 text-center mt-6">
-        <span style={{ color: textSoft }} className="text-[9px]">&copy; 2025 {restaurant?.name || 'Restaurant'}. Powered by Foody.</span>
+      {/* Footer — mirrors foodyweb RestaurantLanding footer */}
+      <div style={{ backgroundColor: isDark ? '#1a1a1a' : '#f9fafb', borderTop: `1px solid ${divider}` }} className="px-6 py-8 text-center mt-4">
+        <div className="text-sm font-semibold mb-1" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</div>
+        {restaurant?.address && <div className="text-xs mb-0.5" style={{ color: textSoft }}>{restaurant.address}</div>}
+        {restaurant?.phone && <div className="text-xs mb-3" style={{ color: textSoft }}>{restaurant.phone}</div>}
+        <div className="text-[11px]" style={{ color: textSoft }}>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</div>
       </div>
     </>
   );
 
-  const width = mode === 'mobile' ? 290 : '100%';
+  // Desktop: full-width preview, no frame
+  if (mode === 'desktop') {
+    return (
+      <div className="w-full h-full overflow-y-auto" style={themeVars}>
+        {siteContent}
+      </div>
+    );
+  }
 
-  const frame = mode === 'mobile' ? (
-    <div className="sticky top-6">
-      <div className="relative rounded-[2.5rem] border-[4px] border-gray-900 bg-gray-900 shadow-2xl overflow-hidden" style={{ width: 290 }}>
+  // Mobile: centered phone frame
+  return (
+    <div className="py-6">
+      <div className="relative mx-auto rounded-[2.5rem] border-[4px] border-gray-900 bg-gray-900 shadow-2xl overflow-hidden" style={{ width: 375 }}>
         {/* Notch */}
         <div className="relative z-10 flex justify-center">
-          <div className="w-24 h-5 bg-gray-900 rounded-b-2xl" />
+          <div className="w-28 h-6 bg-gray-900 rounded-b-2xl" />
         </div>
         {/* Screen */}
-        <div className="overflow-y-auto rounded-b-[2rem]" style={{ ...themeVars, height: 560, marginTop: -2 }}>
+        <div className="overflow-y-auto rounded-b-[2rem]" style={{ ...themeVars, height: 700, marginTop: -2 }}>
           {siteContent}
         </div>
         {/* Home indicator */}
-        <div className="flex justify-center py-1.5">
-          <div className="w-24 h-1 bg-gray-600 rounded-full" />
-        </div>
-      </div>
-    </div>
-  ) : (
-    <div className="sticky top-6 w-full">
-      <div className="rounded-lg border-2 border-gray-700 overflow-hidden shadow-2xl">
-        {/* Browser chrome */}
-        <div className="bg-gray-800 px-3 py-1.5 flex items-center gap-2">
-          <div className="flex gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-          </div>
-          <div className="flex-1 bg-gray-700 rounded px-2 py-0.5 text-[9px] text-gray-400 truncate">
-            {restaurant?.slug ? `app.foody-pos.co.il/r/${restaurant.slug}` : 'preview'}
-          </div>
-        </div>
-        <div className="overflow-y-auto" style={{ ...themeVars, height: 520 }}>
-          {siteContent}
+        <div className="flex justify-center py-2">
+          <div className="w-28 h-1 bg-gray-600 rounded-full" />
         </div>
       </div>
     </div>
   );
-
-  return frame;
 }
 
-/** Live section preview renderers — instant, no network */
+/** Live section preview — mirrors foodyweb section components exactly */
 function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, textSoft, surface, fontFamily }: {
   section: WebsiteSection;
   primaryColor: string;
@@ -1110,80 +1117,142 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
   const settings = section.settings || {};
   const colorStyle = settings.color_style || 'light';
 
-  // Section background based on color_style
-  let sectionBg = isDark ? '#111' : '#fff';
+  // Color style backgrounds — matches foodyweb exactly
+  let sectionBg = isDark ? '#121316' : '#fff';
   let sectionText = text;
-  if (colorStyle === 'brand') { sectionBg = primaryColor; sectionText = '#fff'; }
-  else if (colorStyle === 'dark') { sectionBg = isDark ? '#1a1a1a' : '#222'; sectionText = '#fff'; }
+  let sectionTextSoft = textSoft;
+  if (colorStyle === 'brand') { sectionBg = primaryColor; sectionText = '#fff'; sectionTextSoft = 'rgba(255,255,255,0.9)'; }
+  else if (colorStyle === 'dark') { sectionBg = '#111827'; sectionText = '#fff'; sectionTextSoft = 'rgba(255,255,255,0.9)'; }
   else if (colorStyle === 'transparent') { sectionBg = 'transparent'; }
 
+  const surfaceSubtle = isDark ? '#2C2D33' : '#F0F2F5';
+  const surfaceCard = isDark ? '#202125' : '#fff';
   const t = section.section_type;
 
+  // ── hero_banner — matches foodyweb/components/sections/HeroBannerSection.tsx
   if (t === 'hero_banner') {
+    const height = settings.height || 'auto';
+    const heightMap: Record<string, number> = { compact: 180, auto: 220, medium: 280, tall: 360, fullscreen: 400 };
+    const h = heightMap[height] || 220;
+    const textAlign = (settings.text_alignment || 'center') as 'left' | 'center' | 'right';
+    const isSplit = section.layout === 'split';
+
+    if (isSplit) {
+      return (
+        <div className="flex" style={{ backgroundColor: sectionBg, minHeight: h }}>
+          <div className="flex-1 flex flex-col justify-center px-5 py-6" style={{ textAlign }}>
+            <div className="text-lg font-bold leading-tight" style={{ color: sectionText, fontFamily: `"${fontFamily}", sans-serif` }}>
+              {content.headline || 'Welcome'}
+            </div>
+            {content.subheadline && (
+              <div className="text-xs mt-2 leading-relaxed" style={{ color: sectionTextSoft }}>{content.subheadline}</div>
+            )}
+            {content.cta_text && (
+              <div className="mt-3">
+                <span className="inline-block px-5 py-2 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: colorStyle === 'brand' ? '#fff' : primaryColor, color: colorStyle === 'brand' ? primaryColor : '#fff' }}>
+                  {content.cta_text}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 relative overflow-hidden">
+            {content.image_url ? (
+              <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full" style={{ backgroundColor: isDark ? '#333' : '#e5e7eb' }} />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Centered / left-aligned layout with background image
     return (
-      <div className="relative overflow-hidden" style={{ minHeight: 120, backgroundColor: sectionBg }}>
+      <div className="relative overflow-hidden" style={{ minHeight: h, backgroundColor: sectionBg }}>
         {content.image_url && <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-        <div className="absolute inset-0 bg-black/40" />
-        <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 py-8" style={{ minHeight: 120 }}>
-          <div className="text-sm font-bold text-white" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>
+        {content.image_url && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10" />}
+        <div className="relative z-10 flex flex-col justify-end h-full px-5 py-6" style={{ minHeight: h, textAlign, alignItems: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+          <div className="text-xl font-bold text-white leading-tight" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>
             {content.headline || 'Welcome'}
           </div>
-          {content.subheadline && <div className="text-[10px] text-white/80 mt-1">{content.subheadline}</div>}
+          {content.subheadline && (
+            <div className="text-xs text-white/80 mt-1.5 leading-relaxed">{content.subheadline}</div>
+          )}
           {content.cta_text && (
-            <div className="mt-2 px-3 py-1 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
+            <span className="inline-block mt-3 px-5 py-2 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: primaryColor }}>
               {content.cta_text}
-            </div>
+            </span>
           )}
         </div>
       </div>
     );
   }
 
+  // ── scrolling_text — matches foodyweb/components/sections/ScrollingTextSection.tsx
   if (t === 'scrolling_text') {
+    const phrases = (content.text || 'Scrolling text here...').split('|').map((s: string) => s.trim()).filter(Boolean);
     return (
-      <div className="py-2 px-3 overflow-hidden" style={{ backgroundColor: sectionBg }}>
-        <div className="text-[10px] font-bold whitespace-nowrap" style={{ color: colorStyle === 'brand' ? '#fff' : textSoft }}>
-          {content.text || 'Scrolling text here...'}
+      <div className="overflow-hidden py-2.5" style={{ backgroundColor: colorStyle === 'brand' ? primaryColor : sectionBg }}>
+        <div className="flex whitespace-nowrap animate-none">
+          {[...phrases, ...phrases].map((phrase: string, i: number) => (
+            <span key={i} className="mx-4 text-sm font-semibold shrink-0" style={{ color: colorStyle === 'brand' ? '#fff' : sectionText }}>
+              {phrase}
+            </span>
+          ))}
         </div>
       </div>
     );
   }
 
+  // ── about — matches foodyweb/components/sections/AboutSection.tsx
   if (t === 'about') {
     return (
-      <div className="px-4 py-5" style={{ backgroundColor: sectionBg, color: sectionText }}>
-        <div className="text-xs font-bold mb-1">{content.title || 'About Us'}</div>
-        <div className="text-[10px] leading-relaxed" style={{ color: colorStyle === 'brand' ? 'rgba(255,255,255,0.8)' : textSoft }}>
-          {content.body || 'Tell your customers about your restaurant...'}
+      <div className="py-10 px-5 text-center" style={{ backgroundColor: sectionBg, color: sectionText }}>
+        <div className="max-w-[85%] mx-auto">
+          <h2 className="text-lg font-bold mb-3" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || 'About Us'}</h2>
+          <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: sectionTextSoft, opacity: 0.9 }}>
+            {content.body || 'Tell your customers about your restaurant...'}
+          </p>
         </div>
       </div>
     );
   }
 
+  // ── text_and_image — matches foodyweb/components/sections/TextAndImageSection.tsx
   if (t === 'text_and_image') {
+    const imagePos = content.image_position || 'right';
+    const textAlign = (settings.text_alignment || 'left') as 'left' | 'center' | 'right';
+    const padding = settings.padding || 'normal';
+    const pyMap: Record<string, string> = { compact: 'py-4 px-3', normal: 'py-8 px-5', spacious: 'py-12 px-5' };
     return (
-      <div className="flex gap-2 px-3 py-4" style={{ backgroundColor: sectionBg, color: sectionText, flexDirection: section.layout === 'image_left' ? 'row-reverse' : 'row' }}>
-        <div className="flex-1">
-          <div className="text-xs font-bold mb-1">{content.title || 'Our Story'}</div>
-          <div className="text-[10px] leading-relaxed" style={{ color: colorStyle === 'brand' ? 'rgba(255,255,255,0.8)' : textSoft }}>
-            {content.body || 'Tell your story...'}
-          </div>
+      <div className={`flex flex-col gap-4 ${pyMap[padding] || 'py-8 px-5'}`} style={{ backgroundColor: sectionBg, color: sectionText }}>
+        {/* On mobile preview, stack vertically like the real site */}
+        <div className="relative aspect-[4/3] rounded-xl overflow-hidden" style={{ order: imagePos === 'left' ? -1 : 1 }}>
+          {content.image_url ? (
+            <img src={content.image_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full" style={{ backgroundColor: isDark ? '#333' : '#e5e7eb' }} />
+          )}
         </div>
-        <div className="w-20 h-16 rounded bg-gray-200 flex-shrink-0 overflow-hidden">
-          {content.image_url ? <img src={content.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-300" />}
+        <div style={{ textAlign }}>
+          <h2 className="text-base font-bold mb-2" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || 'Our Story'}</h2>
+          <p className="text-xs leading-relaxed" style={{ color: sectionTextSoft }}>
+            {content.body || 'Tell your story...'}
+          </p>
         </div>
       </div>
     );
   }
 
+  // ── gallery — matches foodyweb/components/sections/GallerySection.tsx
   if (t === 'gallery') {
     const images: any[] = content.images || [];
     return (
-      <div className="px-3 py-4" style={{ backgroundColor: sectionBg }}>
-        <div className="grid grid-cols-3 gap-1">
-          {(images.length > 0 ? images.slice(0, 6) : [{}, {}, {}]).map((img: any, i: number) => (
-            <div key={i} className="aspect-square rounded overflow-hidden bg-gray-200">
-              {img.url && <img src={img.url} alt="" className="w-full h-full object-cover" />}
+      <div className="py-10 px-5" style={{ backgroundColor: isDark ? '#121316' : '#fff' }}>
+        <div className="grid grid-cols-2 gap-2">
+          {(images.length > 0 ? images.slice(0, 6) : [{}, {}, {}, {}]).map((img: any, i: number) => (
+            <div key={i} className="aspect-square rounded-xl overflow-hidden" style={{ backgroundColor: isDark ? '#2C2D33' : '#F0F2F5' }}>
+              {img.url && <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />}
             </div>
           ))}
         </div>
@@ -1191,61 +1260,83 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
+  // ── testimonials — matches foodyweb/components/sections/TestimonialsSection.tsx
   if (t === 'testimonials') {
     const reviews: any[] = content.reviews || [];
     return (
-      <div className="px-3 py-4" style={{ backgroundColor: sectionBg, color: sectionText }}>
-        <div className="text-xs font-bold mb-2">What our customers say</div>
-        {reviews.length > 0 ? reviews.slice(0, 2).map((r: any, i: number) => (
-          <div key={i} className="mb-2 p-2 rounded" style={{ backgroundColor: isDark ? '#222' : '#f5f5f5' }}>
-            <div className="text-[10px] font-medium">{r.name}</div>
-            <div className="text-[9px] mt-0.5" style={{ color: textSoft }}>{r.text}</div>
-            <div className="text-[9px] mt-0.5" style={{ color: primaryColor }}>{'★'.repeat(r.rating || 5)}</div>
-          </div>
-        )) : (
-          <div className="text-[10px]" style={{ color: textSoft }}>No reviews yet</div>
-        )}
+      <div className="py-10 px-5" style={{ backgroundColor: surfaceSubtle }}>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {reviews.length > 0 ? reviews.slice(0, 3).map((r: any, i: number) => (
+            <div key={i} className="shrink-0 rounded-xl p-4" style={{ width: 200, backgroundColor: surfaceCard }}>
+              <div className="flex gap-0.5 mb-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <span key={star} className="text-xs" style={{ color: star <= (r.rating || 5) ? '#FACC15' : isDark ? '#4B5563' : '#D1D5DB' }}>&#9733;</span>
+                ))}
+              </div>
+              <p className="text-[11px] leading-relaxed mb-2" style={{ color: text, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {r.text}
+              </p>
+              <div className="text-[11px] font-medium" style={{ color: textSoft }}>{r.name}</div>
+            </div>
+          )) : (
+            <div className="text-xs py-4 text-center w-full" style={{ color: textSoft }}>No reviews yet</div>
+          )}
+        </div>
       </div>
     );
   }
 
+  // ── promo_banner — matches foodyweb/components/sections/PromoBannerSection.tsx
   if (t === 'promo_banner') {
+    const bgColor = content.background_color || primaryColor;
     return (
-      <div className="px-4 py-4 text-center" style={{ backgroundColor: primaryColor }}>
-        <div className="text-xs font-bold text-white">{content.title || 'Special Offer'}</div>
-        {content.body && <div className="text-[10px] text-white/80 mt-1">{content.body}</div>}
+      <div className="relative py-10 px-5 overflow-hidden text-center" style={{ backgroundColor: bgColor }}>
+        {content.image_url && (
+          <>
+            <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/50" />
+          </>
+        )}
+        <div className="relative z-10">
+          <h2 className="text-lg font-bold text-white mb-2" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || 'Special Offer'}</h2>
+          {content.body && <p className="text-xs text-white/90 leading-relaxed">{content.body}</p>}
+        </div>
       </div>
     );
   }
 
+  // ── social_feed — matches foodyweb/components/sections/SocialFeedSection.tsx
   if (t === 'social_feed') {
     const links: any[] = content.links || [];
+    const platformIcons: Record<string, string> = {
+      facebook: 'f', instagram: 'ig', twitter: 'X', tiktok: 'T', youtube: 'YT', whatsapp: 'W',
+    };
     return (
-      <div className="px-3 py-3 flex justify-center gap-3" style={{ backgroundColor: sectionBg }}>
-        {links.length > 0 ? links.map((l: any, i: number) => (
-          <div key={i} className="text-[10px] font-medium" style={{ color: primaryColor }}>
-            {l.platform?.charAt(0).toUpperCase() + l.platform?.slice(1)}
-          </div>
-        )) : (
-          <div className="text-[10px]" style={{ color: textSoft }}>Social links</div>
-        )}
+      <div className="py-8 px-5" style={{ backgroundColor: surfaceCard }}>
+        <div className="flex flex-wrap justify-center gap-3">
+          {links.length > 0 ? links.map((l: any, i: number) => (
+            <div key={i} className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+              style={{ backgroundColor: surfaceSubtle, color: text }}>
+              {platformIcons[l.platform] || l.platform?.charAt(0).toUpperCase()}
+            </div>
+          )) : (
+            <div className="text-xs py-2" style={{ color: textSoft }}>Social links</div>
+          )}
+        </div>
       </div>
     );
   }
 
+  // ── menu_highlights — matches foodyweb/components/sections/MenuHighlightsSection.tsx
   if (t === 'menu_highlights') {
     return (
-      <div className="px-3 py-4" style={{ backgroundColor: sectionBg, color: sectionText }}>
-        <div className="text-xs font-bold mb-2">{content.title || "Chef's Picks"}</div>
-        <div className="space-y-1.5">
+      <div className="py-10 px-5" style={{ backgroundColor: surfaceSubtle, color: sectionText }}>
+        <h2 className="text-base font-bold mb-4" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || "Chef's Picks"}</h2>
+        <div className="grid grid-cols-2 gap-2">
           {[1, 2, 3].map(i => (
-            <div key={i} className="flex items-center gap-2 p-1.5 rounded" style={{ backgroundColor: isDark ? '#222' : '#f5f5f5' }}>
-              <div className="w-8 h-8 rounded bg-gray-300 flex-shrink-0" />
-              <div className="flex-1">
-                <div className="h-2 rounded w-3/4 mb-1" style={{ backgroundColor: isDark ? '#333' : '#ddd' }} />
-                <div className="h-1.5 rounded w-1/2" style={{ backgroundColor: isDark ? '#2a2a2a' : '#eee' }} />
-              </div>
-              <div className="text-[10px] font-bold" style={{ color: primaryColor }}>&#8362;32</div>
+            <div key={i} className="rounded-xl p-3" style={{ backgroundColor: surfaceCard, minHeight: 80 }}>
+              <div className="text-xs font-medium mb-1" style={{ color: text }}>Featured item</div>
+              <div className="text-[11px]" style={{ color: textSoft }}>Coming soon</div>
             </div>
           ))}
         </div>
@@ -1253,24 +1344,25 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
+  // ── action_buttons — matches foodyweb/components/sections/ActionButtonsSection.tsx
   if (t === 'action_buttons') {
     const buttons: any[] = content.buttons || [];
     return (
-      <div className="px-3 py-4 flex flex-wrap justify-center gap-2" style={{ backgroundColor: sectionBg }}>
+      <div className="py-8 px-5 flex flex-wrap items-center justify-center gap-3" style={{ backgroundColor: sectionBg }}>
         {buttons.length > 0 ? buttons.map((btn: any, i: number) => {
           const s = btn.style || 'primary';
           const btnStyle: React.CSSProperties = s === 'primary'
             ? { backgroundColor: primaryColor, color: '#fff' }
             : s === 'outline'
-              ? { border: `1.5px solid ${primaryColor}`, color: primaryColor, backgroundColor: 'transparent' }
-              : { backgroundColor: isDark ? '#333' : '#eee', color: isDark ? '#fff' : '#333' };
+              ? { border: `2px solid ${primaryColor}`, color: primaryColor, backgroundColor: 'transparent' }
+              : { backgroundColor: surfaceSubtle, color: text };
           return (
-            <div key={i} className="px-3 py-1.5 rounded-full text-[10px] font-semibold" style={btnStyle}>
+            <span key={i} className="inline-block px-5 py-2.5 rounded-full text-xs font-semibold" style={btnStyle}>
               {btn.label || 'Button'}
-            </div>
+            </span>
           );
         }) : (
-          <div className="text-[10px]" style={{ color: textSoft }}>No buttons</div>
+          <div className="text-xs" style={{ color: textSoft }}>No buttons configured</div>
         )}
       </div>
     );
@@ -1279,10 +1371,10 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
   // Fallback
   const meta = SECTION_TYPE_META[t];
   return (
-    <div className="px-3 py-3" style={{ backgroundColor: sectionBg, color: sectionText }}>
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs">{meta?.icon || '📄'}</span>
-        <span className="text-[10px] font-medium" style={{ color: textSoft }}>{meta?.label || t}</span>
+    <div className="px-5 py-6" style={{ backgroundColor: sectionBg, color: sectionText }}>
+      <div className="flex items-center gap-2">
+        <span className="text-base">{meta?.icon || '📄'}</span>
+        <span className="text-xs font-medium" style={{ color: textSoft }}>{meta?.label || t}</span>
       </div>
     </div>
   );
