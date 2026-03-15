@@ -435,11 +435,31 @@ export default function WebsitePage() {
           {/* Section list */}
           <div className="flex-1 overflow-y-auto px-2 pb-3">
             {activePage === 'menu' ? (
-              <div className="px-3 py-8 text-center">
-                <p className="text-xs text-fg-secondary leading-relaxed">
-                  The menu page displays your restaurant&apos;s ordering interface.<br /><br />
-                  It is managed in the <strong>Menu</strong> section of the admin panel and cannot be customized here.
+              <div className="px-3 py-6">
+                <p className="text-xs text-fg-secondary leading-relaxed mb-4">
+                  Sections can&apos;t be added to the menu page.
                 </p>
+                <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
+                  <p className="text-xs font-medium text-fg-primary mb-2">What you can customize:</p>
+                  <ul className="text-xs text-fg-secondary space-y-1.5">
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 shrink-0">•</span>
+                      <span>Brand color &amp; font (via ⚙ settings)</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 shrink-0">•</span>
+                      <span>Cover image &amp; logo (restaurant settings)</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 shrink-0">•</span>
+                      <span>Show/hide address, phone, hours</span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="mt-0.5 shrink-0">•</span>
+                      <span>Menu items &amp; categories (Menu section)</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             ) : (
             <SectionListPanel
@@ -1260,25 +1280,157 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
       </div>
     );
   } else if (activePage === 'menu') {
-    // MENU: special non-editable page — shows info card
+    // MENU: realistic order page mockup — uses same theme as rest of site
+    const mBg = bg;
+    const mSurface = surface;
+    const mSurfaceSubtle = surfaceSubtle;
+    const mText = text;
+    const mTextMuted = textMuted;
+    const mDivider = divider;
+    const sampleCategories = ['⭐ Most ordered', 'Salads', 'Mains', 'Desserts', 'Drinks'];
+    const placeholderItems = [
+      { name: 'Menu Item', desc: 'A delicious item from your menu', price: '₪45.00' },
+      { name: 'Menu Item', desc: 'Another great dish to try', price: '₪38.00' },
+      { name: 'Menu Item', desc: 'Chef\'s recommendation', price: '₪52.00' },
+    ];
+
     siteContent = (
-      <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
-        {navBar}
-        <div className="flex-1 flex items-center justify-center py-24 px-6">
-          <div className="max-w-md text-center rounded-2xl p-8" style={{ backgroundColor: surface, border: `1px solid ${divider}` }}>
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center" style={{ backgroundColor: surfaceSubtle }}>
-              <svg className="w-8 h-8" fill="none" stroke={textMuted} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
+      <div className="min-h-screen" style={{ backgroundColor: mBg, color: mText, fontFamily: ff }}>
+        {/* Top Bar */}
+        <nav className="sticky top-0 z-40" style={{ backgroundColor: isDark ? 'rgba(18,19,22,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${mDivider}` }}>
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: mTextMuted }}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </div>
+              {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-full object-cover" />}
+              <span className="font-bold" style={{ color: mText }}>{restaurant?.name || 'Restaurant'}</span>
             </div>
-            <h2 className="text-xl font-bold mb-3" style={{ color: text }}>Menu &amp; Ordering</h2>
-            <p className="text-sm leading-relaxed" style={{ color: textMuted }}>
-              This page displays your restaurant&apos;s full menu with ordering capability.
-              It is managed through the <strong>Menu</strong> section of the admin panel.
-            </p>
+          </div>
+        </nav>
+
+        {/* Restaurant Hero */}
+        <div className="relative">
+          {restaurant?.cover_url ? (
+            <div className="relative" style={{ height: mode === 'mobile' ? '180px' : '240px' }}>
+              <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+              <div className="absolute bottom-4 left-4 flex items-end gap-3">
+                {restaurant?.logo_url && (
+                  <img src={restaurant.logo_url} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-white/20" />
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold text-white" style={{ fontFamily: ff }}>{restaurant?.name || 'Restaurant'}</h1>
+                  {tagline && <p className="text-sm text-white/70">{tagline}</p>}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="px-4 py-8" style={{ backgroundColor: mSurface }}>
+              <div className="flex items-center gap-3">
+                {restaurant?.logo_url && (
+                  <img src={restaurant.logo_url} alt="" className="w-16 h-16 rounded-full object-cover" />
+                )}
+                <div>
+                  <h1 className="text-2xl font-bold" style={{ color: mText, fontFamily: ff }}>{restaurant?.name || 'Restaurant'}</h1>
+                  {tagline && <p className="text-sm" style={{ color: mTextMuted }}>{tagline}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Info bar */}
+          <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap" style={{ backgroundColor: mSurface, borderBottom: `1px solid ${mDivider}` }}>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: mSurfaceSubtle, color: mText }}>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              Pickup
+            </span>
+            {showHours && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs" style={{ backgroundColor: mSurfaceSubtle, color: mTextMuted }}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                10-15 min
+              </span>
+            )}
+            {showAddress && restaurant?.address && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs" style={{ backgroundColor: mSurfaceSubtle, color: mTextMuted }}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
+                {restaurant.address.length > 30 ? restaurant.address.slice(0, 30) + '...' : restaurant.address}
+              </span>
+            )}
           </div>
         </div>
-        {simpleFooter}
+
+        {/* Category Tabs */}
+        <div className="sticky top-[52px] z-30 flex items-center gap-2 px-4 py-2.5 overflow-x-auto" style={{ backgroundColor: mBg, borderBottom: `1px solid ${mDivider}` }}>
+          {sampleCategories.map((cat, i) => (
+            <span
+              key={cat}
+              className="whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium shrink-0"
+              style={{
+                backgroundColor: i === 0 ? primaryColor : mSurfaceSubtle,
+                color: i === 0 ? '#fff' : mTextMuted,
+              }}
+            >
+              {cat}
+            </span>
+          ))}
+          <div className="ml-auto shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: mSurfaceSubtle }}>
+            <svg className="w-4 h-4" fill="none" stroke={mTextMuted} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <span className="text-xs" style={{ color: mTextMuted }}>Search...</span>
+          </div>
+        </div>
+
+        {/* Menu Items Grid */}
+        <div className="px-4 py-6">
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: mText }}>
+            <span>⭐</span> Most ordered
+          </h2>
+          <div className="grid gap-3" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(2, 1fr)' }}>
+            {placeholderItems.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: mSurface, border: `1px solid ${mDivider}` }}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm mb-1" style={{ color: mText }}>{item.name}</h3>
+                  <p className="text-xs mb-2 line-clamp-2" style={{ color: mTextMuted }}>{item.desc}</p>
+                  <span className="text-sm font-bold" style={{ color: primaryColor }}>{item.price}</span>
+                </div>
+                <div className="w-20 h-20 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: mSurfaceSubtle }}>
+                  <svg className="w-8 h-8" fill="none" stroke={mDivider} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Second section */}
+          <h2 className="text-lg font-bold mt-8 mb-4 flex items-center gap-2" style={{ color: mText }}>
+            Salads
+          </h2>
+          <div className="grid gap-3" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(2, 1fr)' }}>
+            {placeholderItems.slice(0, 2).map((item, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: mSurface, border: `1px solid ${mDivider}` }}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm mb-1" style={{ color: mText }}>{item.name}</h3>
+                  <p className="text-xs mb-2 line-clamp-2" style={{ color: mTextMuted }}>{item.desc}</p>
+                  <span className="text-sm font-bold" style={{ color: primaryColor }}>{item.price}</span>
+                </div>
+                <div className="w-20 h-20 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: mSurfaceSubtle }}>
+                  <svg className="w-8 h-8" fill="none" stroke={mDivider} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Floating Cart Button */}
+        <div className="sticky bottom-4 mx-4 z-40">
+          <div className="rounded-2xl px-6 py-3.5 flex items-center justify-between" style={{ backgroundColor: mSurface, border: `1px solid ${mDivider}` }}>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: primaryColor }}>2</div>
+              <span className="text-sm font-semibold" style={{ color: mText }}>View Cart</span>
+            </div>
+            <span className="text-sm font-bold" style={{ color: mText }}>₪83.00</span>
+          </div>
+        </div>
       </div>
     );
   } else {
