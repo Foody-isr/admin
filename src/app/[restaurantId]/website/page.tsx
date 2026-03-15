@@ -79,6 +79,7 @@ export default function WebsitePage() {
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
+  const [customPages, setCustomPages] = useState<string[]>([]);
 
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
@@ -103,8 +104,11 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  // Derive unique pages from sections
-  const pages = Array.from(new Set(sections.map(s => s.page || 'home'))).sort((a, b) =>
+  // Derive unique pages from sections + manually added pages
+  const pages = Array.from(new Set([
+    ...sections.map(s => s.page || 'home'),
+    ...customPages,
+  ])).sort((a, b) =>
     a === 'home' ? -1 : b === 'home' ? 1 : a.localeCompare(b)
   );
 
@@ -271,9 +275,8 @@ export default function WebsitePage() {
       setError(`"${slug}" is a reserved page name.`);
       return;
     }
-    if (pages.includes(slug)) {
-      setActivePage(slug);
-      return;
+    if (!pages.includes(slug)) {
+      setCustomPages(prev => [...prev, slug]);
     }
     setActivePage(slug);
   }
@@ -366,8 +369,17 @@ export default function WebsitePage() {
               ))}
             </select>
             <button
-              onClick={() => setActiveTab(activeTab === 'styles' ? 'sections' : 'styles')}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
+              onClick={() => {
+                if (activeTab === 'styles' && showSettingsPanel) {
+                  setActiveTab('sections');
+                  setShowSettingsPanel(false);
+                } else {
+                  setActiveTab('styles');
+                  setSelectedSectionId(null);
+                  setShowSettingsPanel(true);
+                }
+              }}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' && showSettingsPanel ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
               title="Site settings"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -404,17 +416,21 @@ export default function WebsitePage() {
           </div>
         </div>
 
-        {/* Main Preview Area — full width like Wix */}
-        <div className="flex-1 overflow-y-auto flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
+        {/* Main Preview Area */}
+        <div className="flex-1 overflow-hidden flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
           <PreviewPanel
             mode={previewMode}
             restaurant={restaurant}
+            config={config}
             sections={filteredSections}
             primaryColor={primaryColor}
             secondaryColor={secondaryColor}
             fontFamily={fontFamily}
             themeMode={themeMode}
             tagline={tagline}
+            showAddress={showAddress}
+            showPhone={showPhone}
+            showHours={showHours}
             selectedSectionId={selectedSectionId}
             onSelectSection={setSelectedSectionId}
           />
@@ -986,89 +1002,203 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, selectedSectionId, onSelectSection }: {
+function PreviewPanel({ mode, restaurant, config, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, selectedSectionId, onSelectSection }: {
   mode: 'mobile' | 'desktop';
   restaurant: Restaurant | null;
+  config: WebsiteConfig | null;
   sections: WebsiteSection[];
   primaryColor: string;
   secondaryColor: string;
   fontFamily: string;
   themeMode: 'light' | 'dark';
   tagline: string;
+  showAddress: boolean;
+  showPhone: boolean;
+  showHours: boolean;
   selectedSectionId: number | null;
   onSelectSection?: (id: number) => void;
 }) {
   const isDark = themeMode === 'dark';
   const bg = isDark ? '#121316' : '#fff';
   const text = isDark ? '#f5f5f5' : '#1a1a1a';
-  const textSoft = isDark ? '#9CA3AF' : '#6B7280';
+  const textMuted = isDark ? '#9CA3AF' : '#6B7280';
+  const textSoft = isDark ? '#71717A' : '#A1A1AA';
   const surface = isDark ? '#202125' : '#f9fafb';
+  const surfaceSubtle = isDark ? '#2C2D33' : '#F0F2F5';
   const divider = isDark ? '#3D3E44' : '#E4E5E7';
 
-  const themeVars: React.CSSProperties = {
-    fontFamily: `"${fontFamily}", sans-serif`,
-    backgroundColor: bg,
-    color: text,
-  };
-
+  const ff = `"${fontFamily}", sans-serif`;
+  const themeVars: React.CSSProperties = { fontFamily: ff, backgroundColor: bg, color: text };
   const visibleSections = sections.filter(s => s.is_visible);
 
+  const heroLayout = config?.hero_layout || 'standard';
+  const welcomeText = config?.welcome_text || restaurant?.name || 'Restaurant';
+  const socialLinks = config?.social_links || {};
+
   const siteContent = (
-    <>
-      {/* Nav Bar — mirrors foodyweb RestaurantLanding nav */}
-      <div style={{ backgroundColor: isDark ? 'rgba(32,33,37,0.95)' : 'rgba(255,255,255,0.95)', borderBottom: `1px solid ${divider}`, backdropFilter: 'blur(8px)' }} className="px-5 py-3 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          {restaurant?.logo_url ? (
-            <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+    <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
+      {/* ─── Nav Bar — exact match RestaurantLanding.tsx lines 40-70 ─── */}
+      <nav className="sticky top-0 z-40" style={{ backgroundColor: isDark ? 'rgba(32,33,37,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${divider}` }}>
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Hamburger menu icon */}
+            <div className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: textMuted }}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </div>
+            {restaurant?.logo_url && (
+              <img src={restaurant.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+            )}
+            <span className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
+          </div>
+          <span className="px-5 py-2.5 rounded-full text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+            Order Now
+          </span>
+        </div>
+      </nav>
+
+      {/* ─── Hero Section — exact match RestaurantLanding.tsx lines 72-155 ─── */}
+      {heroLayout === 'fullscreen' ? (
+        <section className="relative flex items-center justify-center text-center" style={{ height: mode === 'mobile' ? '50vh' : '100vh' }}>
+          {restaurant?.cover_url && <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 px-6 max-w-3xl">
+            <h1 className="text-4xl font-bold text-white mb-4" style={{ fontFamily: ff }}>{welcomeText}</h1>
+            {tagline && <p className="text-lg text-white/80 mb-8">{tagline}</p>}
+            <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
+          </div>
+        </section>
+      ) : heroLayout === 'minimal' ? (
+        <section className="max-w-6xl mx-auto px-4 py-16 text-center">
+          {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-6" />}
+          <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
+          {tagline && <p className="text-lg mb-8 max-w-xl mx-auto" style={{ color: textMuted }}>{tagline}</p>}
+          <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
+        </section>
+      ) : (
+        /* Standard layout */
+        <section className="relative">
+          {restaurant?.cover_url ? (
+            <>
+              <div className="relative" style={{ height: mode === 'mobile' ? '35vh' : '55vh' }}>
+                <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-6 max-w-6xl mx-auto">
+                <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: ff }}>{welcomeText}</h1>
+                {tagline && <p className="text-lg text-white/80 mb-6 max-w-xl">{tagline}</p>}
+                <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
+              </div>
+            </>
           ) : (
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: primaryColor }}>
-              {restaurant?.name?.charAt(0) || 'R'}
+            <div className="max-w-6xl mx-auto px-4 py-16">
+              <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
+              {tagline && <p className="text-lg mb-8 max-w-xl" style={{ color: textMuted }}>{tagline}</p>}
+              <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
             </div>
           )}
-          <span className="font-semibold text-base" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
-        </div>
-        <span className="px-5 py-2 rounded-full text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
-          Order Now
-        </span>
-      </div>
-
-      {/* Sections */}
-      {visibleSections.length === 0 ? (
-        <div className="flex items-center justify-center py-32 text-center" style={{ color: textSoft }}>
-          <div>
-            <div className="text-4xl mb-3 opacity-40">+</div>
-            <div className="text-sm">Add sections to see your site preview</div>
-          </div>
-        </div>
-      ) : (
-        visibleSections.map(section => (
-          <div
-            key={section.id}
-            className="relative transition-all cursor-pointer"
-            onClick={() => onSelectSection?.(section.id)}
-            style={{
-              outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none',
-              outlineOffset: -2,
-            }}
-          >
-            {selectedSectionId === section.id && (
-              <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
-                {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
-              </div>
-            )}
-            <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textSoft} surface={surface} fontFamily={fontFamily} />
-          </div>
-        ))
+        </section>
       )}
 
-      {/* Footer — mirrors foodyweb RestaurantLanding footer */}
-      <div style={{ backgroundColor: isDark ? '#1a1a1a' : '#f9fafb', borderTop: `1px solid ${divider}` }} className="px-6 py-8 text-center mt-4">
-        <div className="text-sm font-semibold mb-1" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</div>
-        {restaurant?.address && <div className="text-xs mb-0.5" style={{ color: textSoft }}>{restaurant.address}</div>}
-        {restaurant?.phone && <div className="text-xs mb-3" style={{ color: textSoft }}>{restaurant.phone}</div>}
-        <div className="text-[11px]" style={{ color: textSoft }}>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</div>
-      </div>
-    </>
+      {/* ─── Website Sections — wrapped in max-w-6xl like RestaurantLanding.tsx lines 158-162 ─── */}
+      {visibleSections.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4">
+          {visibleSections.map(section => (
+            <div
+              key={section.id}
+              className="relative transition-all cursor-pointer"
+              onClick={() => onSelectSection?.(section.id)}
+              style={{
+                outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none',
+                outlineOffset: -2,
+              }}
+            >
+              {selectedSectionId === section.id && (
+                <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
+                  {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
+                </div>
+              )}
+              <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ─── Mid-page CTA — exact match RestaurantLanding.tsx lines 164-180 ─── */}
+      <section className="py-16 text-center">
+        <div className="max-w-2xl mx-auto px-4">
+          <h2 className="text-2xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>Ready to order?</h2>
+          <p className="mb-8" style={{ color: textMuted }}>Browse our menu and place your order for pickup or delivery.</p>
+          <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>View Menu &amp; Order</span>
+        </div>
+      </section>
+
+      {/* ─── Footer — exact match RestaurantLanding.tsx lines 182-266 ─── */}
+      <footer style={{ borderTop: `1px solid ${divider}`, backgroundColor: surface }}>
+        <div className="max-w-6xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 gap-8" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(3, 1fr)' }}>
+            {/* Restaurant Info */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
+                <h3 className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</h3>
+              </div>
+              {restaurant?.description && <p className="text-sm mb-4" style={{ color: textMuted }}>{restaurant.description}</p>}
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="font-semibold mb-3" style={{ color: text }}>Contact</h4>
+              {showAddress && restaurant?.address && (
+                <p className="text-sm mb-2 flex items-start gap-2" style={{ color: textMuted }}>
+                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {restaurant.address}
+                </p>
+              )}
+              {showPhone && restaurant?.phone && (
+                <p className="text-sm mb-2 flex items-center gap-2" style={{ color: textMuted }}>
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  {restaurant.phone}
+                </p>
+              )}
+            </div>
+
+            {/* Hours placeholder */}
+            {showHours && (
+              <div>
+                <h4 className="font-semibold mb-3" style={{ color: text }}>Hours</h4>
+                <p className="text-sm" style={{ color: textMuted }}>Contact us for hours</p>
+              </div>
+            )}
+          </div>
+
+          {/* Social Links */}
+          {Object.keys(socialLinks).length > 0 && (
+            <div className="mt-8 pt-8 flex items-center gap-4" style={{ borderTop: `1px solid ${divider}` }}>
+              {Object.entries(socialLinks).map(([platform, url]) => {
+                if (!url) return null;
+                return (
+                  <div key={platform} className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: textMuted }}>
+                    {platform.slice(0, 2)}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Copyright */}
+          <div className="mt-8 pt-8 text-center text-sm" style={{ borderTop: `1px solid ${divider}`, color: textSoft }}>
+            <p>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 
   // Desktop: full-width preview, no frame
@@ -1101,7 +1231,7 @@ function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor
   );
 }
 
-/** Live section preview — mirrors foodyweb section components exactly */
+/** Live section preview — uses same sizes as foodyweb components */
 function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, textSoft, surface, fontFamily }: {
   section: WebsiteSection;
   primaryColor: string;
@@ -1116,7 +1246,6 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
   const settings = section.settings || {};
   const colorStyle = settings.color_style || 'light';
 
-  // Color style backgrounds — matches foodyweb exactly
   let sectionBg = isDark ? '#121316' : '#fff';
   let sectionText = text;
   let sectionTextSoft = textSoft;
@@ -1127,58 +1256,60 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
   const surfaceSubtle = isDark ? '#2C2D33' : '#F0F2F5';
   const surfaceCard = isDark ? '#202125' : '#fff';
   const t = section.section_type;
+  const ff = `"${fontFamily}", sans-serif`;
 
-  // ── hero_banner — matches foodyweb/components/sections/HeroBannerSection.tsx
+  // ── hero_banner — exact match with foodyweb HeroBannerSection.tsx
   if (t === 'hero_banner') {
-    const height = settings.height || 'auto';
-    const heightMap: Record<string, number> = { compact: 180, auto: 220, medium: 280, tall: 360, fullscreen: 400 };
-    const h = heightMap[height] || 220;
+    const heightSetting = settings.height || 'auto';
+    const heightMap: Record<string, string> = { compact: '250px', auto: '300px', medium: '400px', tall: '550px', fullscreen: '100vh' };
+    const h = heightMap[heightSetting] || '300px';
     const textAlign = (settings.text_alignment || 'center') as 'left' | 'center' | 'right';
-    const isSplit = section.layout === 'split';
+    const isSplit = section.layout === 'split' && content.image_url;
 
     if (isSplit) {
       return (
-        <div className="flex" style={{ backgroundColor: sectionBg, minHeight: h }}>
-          <div className="flex-1 flex flex-col justify-center px-5 py-6" style={{ textAlign }}>
-            <div className="text-lg font-bold leading-tight" style={{ color: sectionText, fontFamily: `"${fontFamily}", sans-serif` }}>
+        <div className="flex flex-col md:flex-row" style={{ backgroundColor: sectionBg, minHeight: h }}>
+          <div className="flex-1 flex flex-col justify-center px-8 md:px-12 py-10" style={{ textAlign }}>
+            <h1 className="text-2xl md:text-4xl font-bold leading-tight" style={{ color: sectionText, fontFamily: ff }}>
               {content.headline || 'Welcome'}
-            </div>
+            </h1>
             {content.subheadline && (
-              <div className="text-xs mt-2 leading-relaxed" style={{ color: sectionTextSoft }}>{content.subheadline}</div>
+              <p className="text-base md:text-lg mt-3 leading-relaxed" style={{ color: sectionTextSoft }}>{content.subheadline}</p>
             )}
             {content.cta_text && (
-              <div className="mt-3">
-                <span className="inline-block px-5 py-2 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: colorStyle === 'brand' ? '#fff' : primaryColor, color: colorStyle === 'brand' ? primaryColor : '#fff' }}>
+              <div className="mt-6">
+                <span className="inline-block px-8 py-3 rounded-full text-base font-semibold" style={{ backgroundColor: colorStyle === 'brand' ? '#fff' : primaryColor, color: colorStyle === 'brand' ? primaryColor : '#fff' }}>
                   {content.cta_text}
                 </span>
               </div>
             )}
           </div>
-          <div className="flex-1 relative overflow-hidden">
-            {content.image_url ? (
-              <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full" style={{ backgroundColor: isDark ? '#333' : '#e5e7eb' }} />
-            )}
+          <div className="flex-1 relative overflow-hidden" style={{ minHeight: 200 }}>
+            <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
           </div>
         </div>
       );
     }
 
-    // Centered / left-aligned layout with background image
+    // Centered / left-aligned — with or without background image
     return (
       <div className="relative overflow-hidden" style={{ minHeight: h, backgroundColor: sectionBg }}>
         {content.image_url && <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
         {content.image_url && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10" />}
-        <div className="relative z-10 flex flex-col justify-end h-full px-5 py-6" style={{ minHeight: h, textAlign, alignItems: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
-          <div className="text-xl font-bold text-white leading-tight" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>
+        <div className="relative z-10 flex flex-col justify-center h-full px-8 md:px-16 py-12" style={{ minHeight: h, textAlign, alignItems: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
+          <h1 className="text-3xl md:text-5xl font-bold leading-tight" style={{ color: content.image_url ? '#fff' : sectionText, fontFamily: ff }}>
             {content.headline || 'Welcome'}
-          </div>
+          </h1>
           {content.subheadline && (
-            <div className="text-xs text-white/80 mt-1.5 leading-relaxed">{content.subheadline}</div>
+            <p className="text-base md:text-xl mt-3 leading-relaxed" style={{ color: content.image_url ? 'rgba(255,255,255,0.8)' : sectionTextSoft }}>
+              {content.subheadline}
+            </p>
           )}
           {content.cta_text && (
-            <span className="inline-block mt-3 px-5 py-2 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+            <span className="inline-block mt-6 px-8 py-3 rounded-full text-base font-semibold" style={{
+              backgroundColor: content.image_url ? primaryColor : (colorStyle === 'brand' ? '#fff' : primaryColor),
+              color: content.image_url ? '#fff' : (colorStyle === 'brand' ? primaryColor : '#fff'),
+            }}>
               {content.cta_text}
             </span>
           )}
@@ -1187,14 +1318,14 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
-  // ── scrolling_text — matches foodyweb/components/sections/ScrollingTextSection.tsx
+  // ── scrolling_text — foodyweb ScrollingTextSection.tsx
   if (t === 'scrolling_text') {
     const phrases = (content.text || 'Scrolling text here...').split('|').map((s: string) => s.trim()).filter(Boolean);
     return (
-      <div className="overflow-hidden py-2.5" style={{ backgroundColor: colorStyle === 'brand' ? primaryColor : sectionBg }}>
-        <div className="flex whitespace-nowrap animate-none">
+      <div className="overflow-hidden py-3" style={{ backgroundColor: colorStyle === 'brand' ? primaryColor : sectionBg }}>
+        <div className="flex whitespace-nowrap">
           {[...phrases, ...phrases].map((phrase: string, i: number) => (
-            <span key={i} className="mx-4 text-sm font-semibold shrink-0" style={{ color: colorStyle === 'brand' ? '#fff' : sectionText }}>
+            <span key={i} className="mx-8 text-lg font-semibold shrink-0" style={{ color: colorStyle === 'brand' ? '#fff' : sectionText }}>
               {phrase}
             </span>
           ))}
@@ -1203,13 +1334,13 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
-  // ── about — matches foodyweb/components/sections/AboutSection.tsx
+  // ── about — foodyweb AboutSection.tsx
   if (t === 'about') {
     return (
-      <div className="py-10 px-5 text-center" style={{ backgroundColor: sectionBg, color: sectionText }}>
-        <div className="max-w-[85%] mx-auto">
-          <h2 className="text-lg font-bold mb-3" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || 'About Us'}</h2>
-          <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: sectionTextSoft, opacity: 0.9 }}>
+      <div className="py-16 px-6 text-center" style={{ backgroundColor: sectionBg, color: sectionText }}>
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ fontFamily: ff }}>{content.title || 'About Us'}</h2>
+          <p className="text-base md:text-lg leading-relaxed whitespace-pre-line" style={{ color: sectionTextSoft, opacity: 0.9 }}>
             {content.body || 'Tell your customers about your restaurant...'}
           </p>
         </div>
@@ -1217,41 +1348,40 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
-  // ── text_and_image — matches foodyweb/components/sections/TextAndImageSection.tsx
+  // ── text_and_image — foodyweb TextAndImageSection.tsx
   if (t === 'text_and_image') {
     const imagePos = content.image_position || 'right';
     const textAlign = (settings.text_alignment || 'left') as 'left' | 'center' | 'right';
     const padding = settings.padding || 'normal';
-    const pyMap: Record<string, string> = { compact: 'py-4 px-3', normal: 'py-8 px-5', spacious: 'py-12 px-5' };
+    const pyMap: Record<string, string> = { compact: 'py-8 px-4', normal: 'py-16 px-6', spacious: 'py-24 px-8' };
     return (
-      <div className={`flex flex-col gap-4 ${pyMap[padding] || 'py-8 px-5'}`} style={{ backgroundColor: sectionBg, color: sectionText }}>
-        {/* On mobile preview, stack vertically like the real site */}
-        <div className="relative aspect-[4/3] rounded-xl overflow-hidden" style={{ order: imagePos === 'left' ? -1 : 1 }}>
+      <div className={`flex flex-col md:flex-row gap-8 ${pyMap[padding] || 'py-16 px-6'}`} style={{ backgroundColor: sectionBg, color: sectionText, flexDirection: imagePos === 'left' ? 'row-reverse' : undefined }}>
+        <div className="flex-1" style={{ textAlign }}>
+          <h2 className="text-xl md:text-2xl font-bold mb-3" style={{ fontFamily: ff }}>{content.title || 'Our Story'}</h2>
+          <p className="text-base leading-relaxed" style={{ color: sectionTextSoft }}>
+            {content.body || 'Tell your story...'}
+          </p>
+        </div>
+        <div className="flex-1 relative aspect-[4/3] rounded-xl overflow-hidden">
           {content.image_url ? (
             <img src={content.image_url} alt="" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full" style={{ backgroundColor: isDark ? '#333' : '#e5e7eb' }} />
           )}
         </div>
-        <div style={{ textAlign }}>
-          <h2 className="text-base font-bold mb-2" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || 'Our Story'}</h2>
-          <p className="text-xs leading-relaxed" style={{ color: sectionTextSoft }}>
-            {content.body || 'Tell your story...'}
-          </p>
-        </div>
       </div>
     );
   }
 
-  // ── gallery — matches foodyweb/components/sections/GallerySection.tsx
+  // ── gallery — foodyweb GallerySection.tsx
   if (t === 'gallery') {
     const images: any[] = content.images || [];
     return (
-      <div className="py-10 px-5" style={{ backgroundColor: isDark ? '#121316' : '#fff' }}>
-        <div className="grid grid-cols-2 gap-2">
-          {(images.length > 0 ? images.slice(0, 6) : [{}, {}, {}, {}]).map((img: any, i: number) => (
-            <div key={i} className="aspect-square rounded-xl overflow-hidden" style={{ backgroundColor: isDark ? '#2C2D33' : '#F0F2F5' }}>
-              {img.url && <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />}
+      <div className="py-16 px-6" style={{ backgroundColor: isDark ? '#121316' : '#fff' }}>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {(images.length > 0 ? images.slice(0, 6) : [{}, {}, {}, {}, {}, {}]).map((img: any, i: number) => (
+            <div key={i} className="aspect-square rounded-xl overflow-hidden group" style={{ backgroundColor: isDark ? '#2C2D33' : '#F0F2F5' }}>
+              {img.url && <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />}
             </div>
           ))}
         </div>
@@ -1259,83 +1389,83 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
-  // ── testimonials — matches foodyweb/components/sections/TestimonialsSection.tsx
+  // ── testimonials — foodyweb TestimonialsSection.tsx
   if (t === 'testimonials') {
     const reviews: any[] = content.reviews || [];
     return (
-      <div className="py-10 px-5" style={{ backgroundColor: surfaceSubtle }}>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {reviews.length > 0 ? reviews.slice(0, 3).map((r: any, i: number) => (
-            <div key={i} className="shrink-0 rounded-xl p-4" style={{ width: 200, backgroundColor: surfaceCard }}>
-              <div className="flex gap-0.5 mb-2">
+      <div className="py-16 px-6" style={{ backgroundColor: surfaceSubtle }}>
+        <div className="flex gap-6 overflow-x-auto pb-4">
+          {reviews.length > 0 ? reviews.slice(0, 4).map((r: any, i: number) => (
+            <div key={i} className="shrink-0 w-[300px] md:w-[360px] rounded-xl p-6" style={{ backgroundColor: surfaceCard }}>
+              <div className="flex gap-0.5 mb-3">
                 {[1, 2, 3, 4, 5].map(star => (
-                  <span key={star} className="text-xs" style={{ color: star <= (r.rating || 5) ? '#FACC15' : isDark ? '#4B5563' : '#D1D5DB' }}>&#9733;</span>
+                  <span key={star} className="text-sm" style={{ color: star <= (r.rating || 5) ? '#FACC15' : isDark ? '#4B5563' : '#D1D5DB' }}>&#9733;</span>
                 ))}
               </div>
-              <p className="text-[11px] leading-relaxed mb-2" style={{ color: text, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              <p className="text-sm leading-relaxed mb-3" style={{ color: text, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {r.text}
               </p>
-              <div className="text-[11px] font-medium" style={{ color: textSoft }}>{r.name}</div>
+              <div className="text-sm font-medium" style={{ color: textSoft }}>{r.name}</div>
             </div>
           )) : (
-            <div className="text-xs py-4 text-center w-full" style={{ color: textSoft }}>No reviews yet</div>
+            <div className="text-sm py-8 text-center w-full" style={{ color: textSoft }}>No reviews yet</div>
           )}
         </div>
       </div>
     );
   }
 
-  // ── promo_banner — matches foodyweb/components/sections/PromoBannerSection.tsx
+  // ── promo_banner — foodyweb PromoBannerSection.tsx
   if (t === 'promo_banner') {
     const bgColor = content.background_color || primaryColor;
     return (
-      <div className="relative py-10 px-5 overflow-hidden text-center" style={{ backgroundColor: bgColor }}>
+      <div className="relative py-16 px-6 overflow-hidden text-center" style={{ backgroundColor: bgColor }}>
         {content.image_url && (
           <>
             <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/50" />
           </>
         )}
-        <div className="relative z-10">
-          <h2 className="text-lg font-bold text-white mb-2" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || 'Special Offer'}</h2>
-          {content.body && <p className="text-xs text-white/90 leading-relaxed">{content.body}</p>}
+        <div className="relative z-10 max-w-4xl mx-auto">
+          <h2 className="text-2xl md:text-4xl font-bold text-white mb-3" style={{ fontFamily: ff }}>{content.title || 'Special Offer'}</h2>
+          {content.body && <p className="text-base md:text-lg text-white/90 leading-relaxed">{content.body}</p>}
         </div>
       </div>
     );
   }
 
-  // ── social_feed — matches foodyweb/components/sections/SocialFeedSection.tsx
+  // ── social_feed — foodyweb SocialFeedSection.tsx
   if (t === 'social_feed') {
     const links: any[] = content.links || [];
     const platformIcons: Record<string, string> = {
       facebook: 'f', instagram: 'ig', twitter: 'X', tiktok: 'T', youtube: 'YT', whatsapp: 'W',
     };
     return (
-      <div className="py-8 px-5" style={{ backgroundColor: surfaceCard }}>
-        <div className="flex flex-wrap justify-center gap-3">
+      <div className="py-12 px-6" style={{ backgroundColor: surfaceCard }}>
+        <div className="flex flex-wrap justify-center gap-6">
           {links.length > 0 ? links.map((l: any, i: number) => (
-            <div key={i} className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+            <div key={i} className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
               style={{ backgroundColor: surfaceSubtle, color: text }}>
               {platformIcons[l.platform] || l.platform?.charAt(0).toUpperCase()}
             </div>
           )) : (
-            <div className="text-xs py-2" style={{ color: textSoft }}>Social links</div>
+            <div className="text-sm py-4" style={{ color: textSoft }}>Social links</div>
           )}
         </div>
       </div>
     );
   }
 
-  // ── menu_highlights — matches foodyweb/components/sections/MenuHighlightsSection.tsx
+  // ── menu_highlights — foodyweb MenuHighlightsSection.tsx
   if (t === 'menu_highlights') {
     return (
-      <div className="py-10 px-5" style={{ backgroundColor: surfaceSubtle, color: sectionText }}>
-        <h2 className="text-base font-bold mb-4" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>{content.title || "Chef's Picks"}</h2>
-        <div className="grid grid-cols-2 gap-2">
+      <div className="py-16 px-6" style={{ backgroundColor: surfaceSubtle, color: sectionText }}>
+        <h2 className="text-xl md:text-2xl font-bold mb-6" style={{ fontFamily: ff }}>{content.title || "Chef's Picks"}</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="rounded-xl p-3" style={{ backgroundColor: surfaceCard, minHeight: 80 }}>
-              <div className="text-xs font-medium mb-1" style={{ color: text }}>Featured item</div>
-              <div className="text-[11px]" style={{ color: textSoft }}>Coming soon</div>
+            <div key={i} className="rounded-xl p-6" style={{ backgroundColor: surfaceCard, minHeight: 120 }}>
+              <div className="text-sm font-medium mb-1" style={{ color: text }}>Featured item</div>
+              <div className="text-sm" style={{ color: textSoft }}>Coming soon</div>
             </div>
           ))}
         </div>
@@ -1343,11 +1473,11 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
-  // ── action_buttons — matches foodyweb/components/sections/ActionButtonsSection.tsx
+  // ── action_buttons — foodyweb ActionButtonsSection.tsx
   if (t === 'action_buttons') {
     const buttons: any[] = content.buttons || [];
     return (
-      <div className="py-8 px-5 flex flex-wrap items-center justify-center gap-3" style={{ backgroundColor: sectionBg }}>
+      <div className="py-12 px-6 flex flex-wrap items-center justify-center gap-4" style={{ backgroundColor: sectionBg }}>
         {buttons.length > 0 ? buttons.map((btn: any, i: number) => {
           const s = btn.style || 'primary';
           const btnStyle: React.CSSProperties = s === 'primary'
@@ -1356,12 +1486,12 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
               ? { border: `2px solid ${primaryColor}`, color: primaryColor, backgroundColor: 'transparent' }
               : { backgroundColor: surfaceSubtle, color: text };
           return (
-            <span key={i} className="inline-block px-5 py-2.5 rounded-full text-xs font-semibold" style={btnStyle}>
+            <span key={i} className="inline-block px-8 py-3.5 rounded-full text-base font-semibold" style={btnStyle}>
               {btn.label || 'Button'}
             </span>
           );
         }) : (
-          <div className="text-xs" style={{ color: textSoft }}>No buttons configured</div>
+          <div className="text-sm" style={{ color: textSoft }}>No buttons configured</div>
         )}
       </div>
     );
@@ -1370,10 +1500,10 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
   // Fallback
   const meta = SECTION_TYPE_META[t];
   return (
-    <div className="px-5 py-6" style={{ backgroundColor: sectionBg, color: sectionText }}>
+    <div className="px-6 py-8" style={{ backgroundColor: sectionBg, color: sectionText }}>
       <div className="flex items-center gap-2">
-        <span className="text-base">{meta?.icon || '📄'}</span>
-        <span className="text-xs font-medium" style={{ color: textSoft }}>{meta?.label || t}</span>
+        <span className="text-lg">{meta?.icon || '📄'}</span>
+        <span className="text-sm font-medium" style={{ color: textSoft }}>{meta?.label || t}</span>
       </div>
     </div>
   );
