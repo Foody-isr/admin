@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
   getWebsiteConfig, updateWebsiteConfig, getRestaurant,
@@ -79,13 +79,6 @@ export default function WebsitePage() {
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
-  const [previewRefresh, setPreviewRefresh] = useState(0);
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshPreview = useCallback(() => {
-    // Debounce: wait 800ms after last change before refreshing iframe
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-    refreshTimerRef.current = setTimeout(() => setPreviewRefresh(k => k + 1), 800);
-  }, []);
 
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
@@ -157,14 +150,14 @@ export default function WebsitePage() {
       });
       setConfig(updated);
       setSaved(true);
-      refreshPreview();
+
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to save');
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, refreshPreview]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours]);
 
   // ─── Apply Site Style ───────────────────────────────────────────
 
@@ -180,7 +173,7 @@ export default function WebsitePage() {
       });
       setConfig(updated);
       setSaved(true);
-      refreshPreview();
+
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to apply style');
@@ -202,7 +195,7 @@ export default function WebsitePage() {
       });
       setSections(prev => [...prev, section]);
       setSelectedSectionId(section.id);
-      refreshPreview();
+
     } catch (err: any) {
       setError(err.message || 'Failed to add section');
     }
@@ -213,7 +206,7 @@ export default function WebsitePage() {
       await deleteWebsiteSection(restaurantId, sectionId);
       setSections(prev => prev.filter(s => s.id !== sectionId));
       if (selectedSectionId === sectionId) setSelectedSectionId(null);
-      refreshPreview();
+
     } catch (err: any) {
       setError(err.message || 'Failed to delete section');
     }
@@ -223,7 +216,7 @@ export default function WebsitePage() {
     try {
       const updated = await updateWebsiteSection(restaurantId, sectionId, updates);
       setSections(prev => prev.map(s => s.id === sectionId ? updated : s));
-      refreshPreview();
+
     } catch (err: any) {
       setError(err.message || 'Failed to update section');
     }
@@ -425,8 +418,13 @@ export default function WebsitePage() {
           <PreviewPanel
             mode={previewMode}
             restaurant={restaurant}
-            activePage={activePage}
-            refreshKey={previewRefresh}
+            sections={filteredSections}
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            fontFamily={fontFamily}
+            themeMode={themeMode}
+            tagline={tagline}
+            selectedSectionId={selectedSectionId}
           />
         </div>
       </div>
@@ -986,72 +984,77 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, restaurant, activePage, refreshKey }: {
+function PreviewPanel({ mode, restaurant, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, selectedSectionId }: {
   mode: 'mobile' | 'desktop';
   restaurant: Restaurant | null;
-  activePage: string;
-  refreshKey: number;
+  sections: WebsiteSection[];
+  primaryColor: string;
+  secondaryColor: string;
+  fontFamily: string;
+  themeMode: 'light' | 'dark';
+  tagline: string;
+  selectedSectionId: number | null;
 }) {
-  const slug = restaurant?.slug || String(restaurant?.id || '');
-  const baseUrl = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
-  const pagePath = activePage === 'home' ? '' : `/${activePage}`;
+  const isDark = themeMode === 'dark';
+  const bg = isDark ? '#111' : '#fff';
+  const text = isDark ? '#f5f5f5' : '#1a1a1a';
+  const textSoft = isDark ? '#aaa' : '#666';
+  const surface = isDark ? '#1a1a1a' : '#f9f9f9';
+  const divider = isDark ? '#333' : '#e5e5e5';
 
-  const [iframeKey, setIframeKey] = useState(0);
+  const themeVars: React.CSSProperties = {
+    fontFamily: `"${fontFamily}", sans-serif`,
+    backgroundColor: bg,
+    color: text,
+  };
 
-  // Refresh iframe when page changes or when data is saved
-  useEffect(() => {
-    setIframeKey(k => k + 1);
-  }, [activePage, refreshKey]);
+  const visibleSections = sections.filter(s => s.is_visible);
 
-  // Cache-busting: append timestamp so browser never serves stale content
-  const iframeSrc = slug ? `${baseUrl}/r/${slug}${pagePath}?_t=${iframeKey}` : '';
-
-  if (!slug) {
-    return (
-      <div className="flex items-center justify-center h-64 text-fg-secondary text-sm">
-        No restaurant to preview
-      </div>
-    );
-  }
-
-  if (mode === 'desktop') {
-    return (
-      <div className="sticky top-6 w-full">
-        {/* Desktop monitor frame */}
-        <div className="rounded-lg border-2 border-gray-700 overflow-hidden bg-white shadow-2xl">
-          {/* Browser chrome */}
-          <div className="bg-gray-800 px-3 py-1.5 flex items-center gap-2">
-            <div className="flex gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-              <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+  const siteContent = (
+    <>
+      {/* Nav Bar */}
+      <div style={{ backgroundColor: isDark ? '#1a1a1a' : '#fff', borderBottom: `1px solid ${divider}` }} className="px-3 py-2 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          {restaurant?.logo_url ? (
+            <img src={restaurant.logo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+          ) : (
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: primaryColor }}>
+              {restaurant?.name?.charAt(0) || 'R'}
             </div>
-            <div className="flex-1 bg-gray-700 rounded px-2 py-0.5 text-[9px] text-gray-400 truncate">
-              {iframeSrc}
-            </div>
-          </div>
-          {/* Content */}
-          <iframe
-            key={iframeKey}
-            src={iframeSrc}
-            className="w-full border-0"
-            style={{ height: 520 }}
-            title="Desktop preview"
-          />
+          )}
+          <span className="font-bold text-xs" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
         </div>
-        {/* Refresh hint */}
-        <button
-          onClick={() => setIframeKey(k => k + 1)}
-          className="mt-3 w-full text-center text-xs text-fg-secondary hover:text-brand-500 transition-colors"
-        >
-          Click to refresh preview
-        </button>
+        <div className="px-3 py-1 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+          Order Now
+        </div>
       </div>
-    );
-  }
 
-  // Mobile frame
-  return (
+      {/* Sections */}
+      {visibleSections.length === 0 ? (
+        <div className="flex items-center justify-center py-16 text-center" style={{ color: textSoft }}>
+          <div>
+            <div className="text-2xl mb-2">+</div>
+            <div className="text-xs">Add sections to see your site preview</div>
+          </div>
+        </div>
+      ) : (
+        visibleSections.map(section => (
+          <div key={section.id} className="relative transition-all" style={{ outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none', outlineOffset: -2 }}>
+            <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textSoft} surface={surface} fontFamily={fontFamily} />
+          </div>
+        ))
+      )}
+
+      {/* Footer */}
+      <div style={{ backgroundColor: surface, borderTop: `1px solid ${divider}` }} className="px-3 py-4 text-center mt-6">
+        <span style={{ color: textSoft }} className="text-[9px]">&copy; 2025 {restaurant?.name || 'Restaurant'}. Powered by Foody.</span>
+      </div>
+    </>
+  );
+
+  const width = mode === 'mobile' ? 290 : '100%';
+
+  const frame = mode === 'mobile' ? (
     <div className="sticky top-6">
       <div className="relative rounded-[2.5rem] border-[4px] border-gray-900 bg-gray-900 shadow-2xl overflow-hidden" style={{ width: 290 }}>
         {/* Notch */}
@@ -1059,27 +1062,228 @@ function PreviewPanel({ mode, restaurant, activePage, refreshKey }: {
           <div className="w-24 h-5 bg-gray-900 rounded-b-2xl" />
         </div>
         {/* Screen */}
-        <div className="bg-white overflow-hidden rounded-b-[2rem]" style={{ marginTop: -2 }}>
-          <iframe
-            key={iframeKey}
-            src={iframeSrc}
-            className="w-full border-0"
-            style={{ height: 560 }}
-            title="Mobile preview"
-          />
+        <div className="overflow-y-auto rounded-b-[2rem]" style={{ ...themeVars, height: 560, marginTop: -2 }}>
+          {siteContent}
         </div>
         {/* Home indicator */}
         <div className="flex justify-center py-1.5">
           <div className="w-24 h-1 bg-gray-600 rounded-full" />
         </div>
       </div>
-      {/* Refresh hint */}
-      <button
-        onClick={() => setIframeKey(k => k + 1)}
-        className="mt-3 w-full text-center text-xs text-fg-secondary hover:text-brand-500 transition-colors"
-      >
-        Click to refresh preview
-      </button>
+    </div>
+  ) : (
+    <div className="sticky top-6 w-full">
+      <div className="rounded-lg border-2 border-gray-700 overflow-hidden shadow-2xl">
+        {/* Browser chrome */}
+        <div className="bg-gray-800 px-3 py-1.5 flex items-center gap-2">
+          <div className="flex gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+          </div>
+          <div className="flex-1 bg-gray-700 rounded px-2 py-0.5 text-[9px] text-gray-400 truncate">
+            {restaurant?.slug ? `app.foody-pos.co.il/r/${restaurant.slug}` : 'preview'}
+          </div>
+        </div>
+        <div className="overflow-y-auto" style={{ ...themeVars, height: 520 }}>
+          {siteContent}
+        </div>
+      </div>
+    </div>
+  );
+
+  return frame;
+}
+
+/** Live section preview renderers — instant, no network */
+function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, textSoft, surface, fontFamily }: {
+  section: WebsiteSection;
+  primaryColor: string;
+  secondaryColor: string;
+  isDark: boolean;
+  text: string;
+  textSoft: string;
+  surface: string;
+  fontFamily: string;
+}) {
+  const content = section.content || {};
+  const settings = section.settings || {};
+  const colorStyle = settings.color_style || 'light';
+
+  // Section background based on color_style
+  let sectionBg = isDark ? '#111' : '#fff';
+  let sectionText = text;
+  if (colorStyle === 'brand') { sectionBg = primaryColor; sectionText = '#fff'; }
+  else if (colorStyle === 'dark') { sectionBg = isDark ? '#1a1a1a' : '#222'; sectionText = '#fff'; }
+  else if (colorStyle === 'transparent') { sectionBg = 'transparent'; }
+
+  const t = section.section_type;
+
+  if (t === 'hero_banner') {
+    return (
+      <div className="relative overflow-hidden" style={{ minHeight: 120, backgroundColor: sectionBg }}>
+        {content.image_url && <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 py-8" style={{ minHeight: 120 }}>
+          <div className="text-sm font-bold text-white" style={{ fontFamily: `"${fontFamily}", sans-serif` }}>
+            {content.headline || 'Welcome'}
+          </div>
+          {content.subheadline && <div className="text-[10px] text-white/80 mt-1">{content.subheadline}</div>}
+          {content.cta_text && (
+            <div className="mt-2 px-3 py-1 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
+              {content.cta_text}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (t === 'scrolling_text') {
+    return (
+      <div className="py-2 px-3 overflow-hidden" style={{ backgroundColor: sectionBg }}>
+        <div className="text-[10px] font-bold whitespace-nowrap" style={{ color: colorStyle === 'brand' ? '#fff' : textSoft }}>
+          {content.text || 'Scrolling text here...'}
+        </div>
+      </div>
+    );
+  }
+
+  if (t === 'about') {
+    return (
+      <div className="px-4 py-5" style={{ backgroundColor: sectionBg, color: sectionText }}>
+        <div className="text-xs font-bold mb-1">{content.title || 'About Us'}</div>
+        <div className="text-[10px] leading-relaxed" style={{ color: colorStyle === 'brand' ? 'rgba(255,255,255,0.8)' : textSoft }}>
+          {content.body || 'Tell your customers about your restaurant...'}
+        </div>
+      </div>
+    );
+  }
+
+  if (t === 'text_and_image') {
+    return (
+      <div className="flex gap-2 px-3 py-4" style={{ backgroundColor: sectionBg, color: sectionText, flexDirection: section.layout === 'image_left' ? 'row-reverse' : 'row' }}>
+        <div className="flex-1">
+          <div className="text-xs font-bold mb-1">{content.title || 'Our Story'}</div>
+          <div className="text-[10px] leading-relaxed" style={{ color: colorStyle === 'brand' ? 'rgba(255,255,255,0.8)' : textSoft }}>
+            {content.body || 'Tell your story...'}
+          </div>
+        </div>
+        <div className="w-20 h-16 rounded bg-gray-200 flex-shrink-0 overflow-hidden">
+          {content.image_url ? <img src={content.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-300" />}
+        </div>
+      </div>
+    );
+  }
+
+  if (t === 'gallery') {
+    const images: any[] = content.images || [];
+    return (
+      <div className="px-3 py-4" style={{ backgroundColor: sectionBg }}>
+        <div className="grid grid-cols-3 gap-1">
+          {(images.length > 0 ? images.slice(0, 6) : [{}, {}, {}]).map((img: any, i: number) => (
+            <div key={i} className="aspect-square rounded overflow-hidden bg-gray-200">
+              {img.url && <img src={img.url} alt="" className="w-full h-full object-cover" />}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (t === 'testimonials') {
+    const reviews: any[] = content.reviews || [];
+    return (
+      <div className="px-3 py-4" style={{ backgroundColor: sectionBg, color: sectionText }}>
+        <div className="text-xs font-bold mb-2">What our customers say</div>
+        {reviews.length > 0 ? reviews.slice(0, 2).map((r: any, i: number) => (
+          <div key={i} className="mb-2 p-2 rounded" style={{ backgroundColor: isDark ? '#222' : '#f5f5f5' }}>
+            <div className="text-[10px] font-medium">{r.name}</div>
+            <div className="text-[9px] mt-0.5" style={{ color: textSoft }}>{r.text}</div>
+            <div className="text-[9px] mt-0.5" style={{ color: primaryColor }}>{'★'.repeat(r.rating || 5)}</div>
+          </div>
+        )) : (
+          <div className="text-[10px]" style={{ color: textSoft }}>No reviews yet</div>
+        )}
+      </div>
+    );
+  }
+
+  if (t === 'promo_banner') {
+    return (
+      <div className="px-4 py-4 text-center" style={{ backgroundColor: primaryColor }}>
+        <div className="text-xs font-bold text-white">{content.title || 'Special Offer'}</div>
+        {content.body && <div className="text-[10px] text-white/80 mt-1">{content.body}</div>}
+      </div>
+    );
+  }
+
+  if (t === 'social_feed') {
+    const links: any[] = content.links || [];
+    return (
+      <div className="px-3 py-3 flex justify-center gap-3" style={{ backgroundColor: sectionBg }}>
+        {links.length > 0 ? links.map((l: any, i: number) => (
+          <div key={i} className="text-[10px] font-medium" style={{ color: primaryColor }}>
+            {l.platform?.charAt(0).toUpperCase() + l.platform?.slice(1)}
+          </div>
+        )) : (
+          <div className="text-[10px]" style={{ color: textSoft }}>Social links</div>
+        )}
+      </div>
+    );
+  }
+
+  if (t === 'menu_highlights') {
+    return (
+      <div className="px-3 py-4" style={{ backgroundColor: sectionBg, color: sectionText }}>
+        <div className="text-xs font-bold mb-2">{content.title || "Chef's Picks"}</div>
+        <div className="space-y-1.5">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex items-center gap-2 p-1.5 rounded" style={{ backgroundColor: isDark ? '#222' : '#f5f5f5' }}>
+              <div className="w-8 h-8 rounded bg-gray-300 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="h-2 rounded w-3/4 mb-1" style={{ backgroundColor: isDark ? '#333' : '#ddd' }} />
+                <div className="h-1.5 rounded w-1/2" style={{ backgroundColor: isDark ? '#2a2a2a' : '#eee' }} />
+              </div>
+              <div className="text-[10px] font-bold" style={{ color: primaryColor }}>&#8362;32</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (t === 'action_buttons') {
+    const buttons: any[] = content.buttons || [];
+    return (
+      <div className="px-3 py-4 flex flex-wrap justify-center gap-2" style={{ backgroundColor: sectionBg }}>
+        {buttons.length > 0 ? buttons.map((btn: any, i: number) => {
+          const s = btn.style || 'primary';
+          const btnStyle: React.CSSProperties = s === 'primary'
+            ? { backgroundColor: primaryColor, color: '#fff' }
+            : s === 'outline'
+              ? { border: `1.5px solid ${primaryColor}`, color: primaryColor, backgroundColor: 'transparent' }
+              : { backgroundColor: isDark ? '#333' : '#eee', color: isDark ? '#fff' : '#333' };
+          return (
+            <div key={i} className="px-3 py-1.5 rounded-full text-[10px] font-semibold" style={btnStyle}>
+              {btn.label || 'Button'}
+            </div>
+          );
+        }) : (
+          <div className="text-[10px]" style={{ color: textSoft }}>No buttons</div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback
+  const meta = SECTION_TYPE_META[t];
+  return (
+    <div className="px-3 py-3" style={{ backgroundColor: sectionBg, color: sectionText }}>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs">{meta?.icon || '📄'}</span>
+        <span className="text-[10px] font-medium" style={{ color: textSoft }}>{meta?.label || t}</span>
+      </div>
     </div>
   );
 }
