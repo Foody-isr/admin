@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getWebsiteConfig, updateWebsiteConfig, getRestaurant,
+  getWebsiteConfig, updateWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
+  uploadRestaurantLogo, uploadRestaurantBackground,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant,
 } from '@/lib/api';
 
@@ -54,8 +55,6 @@ const BUTTON_STYLES = [
   { value: 'outline', label: 'Outline' },
 ];
 
-const RESERVED_PAGES = new Set(['order', 'orders', 'table', 'payment', 'pickup', 'delivery']);
-
 // ─── Main Component ─────────────────────────────────────────────────
 
 type Tab = 'styles' | 'sections';
@@ -79,7 +78,6 @@ export default function WebsitePage() {
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
-  const [customPages, setCustomPages] = useState<string[]>([]);
 
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
@@ -107,17 +105,9 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  // Derive unique pages: home + menu always present, plus sections' pages + manually added
-  const pages = Array.from(new Set([
-    'home',
-    'menu',
-    ...sections.map(s => s.page || 'home'),
-    ...customPages,
-  ])).sort((a, b) =>
-    a === 'home' ? -1 : b === 'home' ? 1 : a === 'menu' ? -1 : b === 'menu' ? 1 : a.localeCompare(b)
-  );
+  const pages: string[] = ['home', 'menu'];
 
-  // Filter sections by active page
+  // Filter sections by active page (only home has editable sections)
   const filteredSections = sections.filter(s => (s.page || 'home') === activePage);
 
   // ─── Load Data ──────────────────────────────────────────────────
@@ -271,42 +261,6 @@ export default function WebsitePage() {
     }
   }
 
-  function handleAddPage() {
-    const name = prompt('Enter page name (e.g., about, info, gallery):');
-    if (!name) return;
-    const slug = name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    if (!slug) return;
-    if (RESERVED_PAGES.has(slug)) {
-      setError(`"${slug}" is a reserved page name.`);
-      return;
-    }
-    if (!pages.includes(slug)) {
-      setCustomPages(prev => [...prev, slug]);
-    }
-    setActivePage(slug);
-    // Immediately open the Add Section modal so the page gets a section (and persists)
-    setTimeout(() => setShowAddModal(true), 100);
-  }
-
-  async function handleDeletePage(page: string) {
-    if (page === 'home' || page === 'menu') return;
-    const pageSections = sections.filter(s => (s.page || 'home') === page);
-    const msg = pageSections.length > 0
-      ? `Delete "${page}" page and its ${pageSections.length} section(s)? This cannot be undone.`
-      : `Delete "${page}" page?`;
-    if (!confirm(msg)) return;
-    try {
-      await Promise.all(pageSections.map(s => deleteWebsiteSection(restaurantId, s.id)));
-      setSections(prev => prev.filter(s => (s.page || 'home') !== page));
-      setCustomPages(prev => prev.filter(p => p !== page));
-      setActivePage('home');
-      setSelectedSectionId(null);
-      setShowSettingsPanel(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete page');
-    }
-  }
-
   // ─── Render ─────────────────────────────────────────────────────
 
   if (loading) {
@@ -383,75 +337,80 @@ export default function WebsitePage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
         <div className="w-60 border-r border-divider overflow-y-auto flex-shrink-0 flex flex-col" style={{ background: 'var(--surface)' }}>
-          {/* Page selector + gear + add */}
-          <div className="px-3 pt-3 pb-2 flex items-center gap-2">
-            <select
-              value={activePage}
-              onChange={e => setActivePage(e.target.value)}
-              className="flex-1 border border-divider rounded-lg px-3 py-2 text-sm font-medium bg-[var(--surface)] text-fg-primary"
-            >
+          {/* Page tabs + gear + add */}
+          <div className="px-3 pt-3 pb-2 space-y-2">
+            <div className="flex rounded-lg border border-divider overflow-hidden">
               {pages.map(p => (
-                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                <button
+                  key={p}
+                  onClick={() => setActivePage(p)}
+                  className={`flex-1 px-3 py-2 text-sm font-medium transition ${
+                    activePage === p
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-[var(--surface)] text-fg-secondary hover:bg-surface-subtle'
+                  }`}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
               ))}
-            </select>
-            {activePage !== 'home' && activePage !== 'menu' && (
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleDeletePage(activePage)}
-                className="w-8 h-8 rounded-lg border border-divider text-red-400 hover:bg-red-500/10 flex items-center justify-center transition"
-                title="Delete page"
+                onClick={() => {
+                  if (activeTab === 'styles' && showSettingsPanel) {
+                    setActiveTab('sections');
+                    setShowSettingsPanel(false);
+                  } else {
+                    setActiveTab('styles');
+                    setSelectedSectionId(null);
+                    setShowSettingsPanel(true);
+                  }
+                }}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' && showSettingsPanel ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
+                title="Site settings"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
-            )}
-            <button
-              onClick={() => {
-                if (activeTab === 'styles' && showSettingsPanel) {
-                  setActiveTab('sections');
-                  setShowSettingsPanel(false);
-                } else {
-                  setActiveTab('styles');
-                  setSelectedSectionId(null);
-                  setShowSettingsPanel(true);
-                }
-              }}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' && showSettingsPanel ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
-              title="Site settings"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            </button>
-            {activePage !== 'menu' && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
-                title="Add section"
-              >
-                +
-              </button>
-            )}
-          </div>
-
-          {/* Add page button */}
-          <div className="px-3 pb-2">
-            <button onClick={handleAddPage} className="text-xs text-fg-secondary hover:text-brand-500 transition">+ Add page</button>
+              {activePage === 'home' && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
+                  title="Add section"
+                >
+                  +
+                </button>
+              )}
+              <span className="text-xs text-fg-secondary ml-auto">
+                {activePage === 'home' ? 'Edit sections' : 'Preview only'}
+              </span>
+            </div>
           </div>
 
           {/* Section list */}
           <div className="flex-1 overflow-y-auto px-2 pb-3">
-            {activePage === 'menu' ? (
+            {activePage === 'home' ? (
+              <SectionListPanel
+                sections={filteredSections}
+                selectedId={selectedSectionId}
+                onSelect={setSelectedSectionId}
+                onMove={handleMoveSection}
+                onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
+              />
+            ) : (
               <div className="px-3 py-6">
                 <p className="text-xs text-fg-secondary leading-relaxed mb-4">
-                  Sections can&apos;t be added to the menu page.
+                  This page is auto-generated from your menu and settings.
                 </p>
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
-                  <p className="text-xs font-medium text-fg-primary mb-2">What you can customize:</p>
+                  <p className="text-xs font-medium text-fg-primary mb-2">Customize via site settings:</p>
                   <ul className="text-xs text-fg-secondary space-y-1.5">
                     <li className="flex items-start gap-1.5">
                       <span className="mt-0.5 shrink-0">•</span>
-                      <span>Brand color &amp; font (via ⚙ settings)</span>
+                      <span>Logo &amp; cover image</span>
                     </li>
                     <li className="flex items-start gap-1.5">
                       <span className="mt-0.5 shrink-0">•</span>
-                      <span>Cover image &amp; logo (restaurant settings)</span>
+                      <span>Brand color &amp; font</span>
                     </li>
                     <li className="flex items-start gap-1.5">
                       <span className="mt-0.5 shrink-0">•</span>
@@ -459,25 +418,11 @@ export default function WebsitePage() {
                     </li>
                     <li className="flex items-start gap-1.5">
                       <span className="mt-0.5 shrink-0">•</span>
-                      <span>Menu items &amp; categories (Menu section)</span>
+                      <span>Theme (light / dark)</span>
                     </li>
                   </ul>
                 </div>
               </div>
-            ) : (
-            <SectionListPanel
-              sections={filteredSections}
-              selectedId={selectedSectionId}
-              onSelect={setSelectedSectionId}
-              onAdd={() => setShowAddModal(true)}
-              onMove={handleMoveSection}
-              onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
-              pages={pages}
-              activePage={activePage}
-              onPageChange={setActivePage}
-              onAddPage={handleAddPage}
-              allSections={sections}
-            />
             )}
           </div>
         </div>
@@ -530,6 +475,8 @@ export default function WebsitePage() {
                   />
                   <hr className="border-divider my-4" />
                   <StyleSettingsPanel
+                    restaurantId={restaurantId}
+                    restaurant={restaurant}
                     tagline={tagline}
                     themeMode={themeMode}
                     showAddress={showAddress}
@@ -540,12 +487,12 @@ export default function WebsitePage() {
                     onShowAddressChange={setShowAddress}
                     onShowPhoneChange={setShowPhone}
                     onShowHoursChange={setShowHours}
+                    onRestaurantUpdate={setRestaurant}
                   />
                 </>
               ) : selectedSection ? (
                 <SectionSettingsPanel
                   section={selectedSection}
-                  pages={pages}
                   onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
                   onDelete={() => { handleDeleteSection(selectedSection.id); closeSettings(); }}
                 />
@@ -631,7 +578,9 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ tagline, themeMode, showAddress, showPhone, showHours, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onRestaurantUpdate }: {
+  restaurantId: number;
+  restaurant: Restaurant | null;
   tagline: string;
   themeMode: 'light' | 'dark';
   showAddress: boolean;
@@ -642,9 +591,93 @@ function StyleSettingsPanel({ tagline, themeMode, showAddress, showPhone, showHo
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
+  onRestaurantUpdate: (r: Restaurant) => void;
 }) {
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const imageUrl = await uploadRestaurantLogo(restaurantId, file);
+      const updated = await updateRestaurant(restaurantId, { logo_url: imageUrl } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } catch {
+      // Error is shown at parent level
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const imageUrl = await uploadRestaurantBackground(restaurantId, file);
+      const updated = await updateRestaurant(restaurantId, { cover_url: imageUrl } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } catch {
+      // Error is shown at parent level
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   return (
     <div className="max-w-xl space-y-6">
+      {/* Branding Images */}
+      <div>
+        <h2 className="text-lg font-semibold text-fg-primary mb-4">Branding</h2>
+        <div className="space-y-4">
+          {/* Logo */}
+          <div>
+            <label className="block text-sm font-medium text-fg-primary mb-2">Logo</label>
+            <div className="flex items-center gap-3">
+              {restaurant?.logo_url ? (
+                <img src={restaurant.logo_url} alt="Logo" className="w-16 h-16 rounded-full object-cover border border-[var(--divider)]" />
+              ) : (
+                <div className="w-16 h-16 rounded-full border-2 border-dashed border-[var(--divider)] flex items-center justify-center text-fg-secondary">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+              )}
+              <label className={`px-3 py-1.5 rounded-lg border border-[var(--divider)] text-xs font-medium cursor-pointer hover:bg-surface-subtle transition ${uploadingLogo ? 'opacity-50 pointer-events-none' : 'text-fg-primary'}`}>
+                {uploadingLogo ? 'Uploading...' : 'Change logo'}
+                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+              </label>
+            </div>
+          </div>
+
+          {/* Cover Image */}
+          <div>
+            <label className="block text-sm font-medium text-fg-primary mb-2">Cover Image</label>
+            {restaurant?.cover_url ? (
+              <div className="relative rounded-lg overflow-hidden border border-[var(--divider)]">
+                <img src={restaurant.cover_url} alt="Cover" className="w-full h-32 object-cover" />
+                <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition cursor-pointer">
+                  <span className="px-3 py-1.5 rounded-lg bg-white/90 text-xs font-medium text-gray-900">
+                    {uploadingCover ? 'Uploading...' : 'Change cover'}
+                  </span>
+                  <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" disabled={uploadingCover} />
+                </label>
+              </div>
+            ) : (
+              <label className={`block w-full h-32 rounded-lg border-2 border-dashed border-[var(--divider)] flex items-center justify-center cursor-pointer hover:border-brand-500 transition ${uploadingCover ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="text-center">
+                  <svg className="w-8 h-8 mx-auto text-fg-secondary mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <span className="text-xs text-fg-secondary">{uploadingCover ? 'Uploading...' : 'Upload cover image'}</span>
+                </div>
+                <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
+              </label>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <hr className="border-divider" />
+
       <div>
         <h2 className="text-lg font-semibold text-fg-primary mb-4">Global Settings</h2>
         <div className="space-y-4">
@@ -716,14 +749,8 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
   sections: WebsiteSection[];
   selectedId: number | null;
   onSelect: (id: number) => void;
-  onAdd: () => void;
   onMove: (id: number, dir: 'up' | 'down') => void;
   onToggleVisibility: (id: number, visible: boolean) => void;
-  pages: string[];
-  activePage: string;
-  onPageChange: (page: string) => void;
-  onAddPage: () => void;
-  allSections: WebsiteSection[];
 }) {
   return (
     <div className="space-y-0.5">
@@ -768,9 +795,8 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
   );
 }
 
-function SectionSettingsPanel({ section, pages, onUpdate, onDelete }: {
+function SectionSettingsPanel({ section, onUpdate, onDelete }: {
   section: WebsiteSection;
-  pages: string[];
   onUpdate: (updates: Partial<WebsiteSection>) => void;
   onDelete: () => void;
 }) {
@@ -799,38 +825,6 @@ function SectionSettingsPanel({ section, pages, onUpdate, onDelete }: {
           <h2 className="text-lg font-semibold text-fg-primary">{meta?.label || section.section_type}</h2>
         </div>
         <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700 font-medium">Delete</button>
-      </div>
-
-      {/* Page assignment */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-2">Page</h3>
-        <div className="flex items-center gap-2">
-          <select
-            value={section.page || 'home'}
-            onChange={e => onUpdate({ page: e.target.value })}
-            className="flex-1 border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary"
-          >
-            {pages.map(p => (
-              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-            ))}
-          </select>
-          <span className="text-xs text-fg-secondary">or type new:</span>
-          <input
-            type="text"
-            placeholder="new-page"
-            className="w-28 border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary"
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                const input = e.currentTarget;
-                const slug = input.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-                if (slug && !RESERVED_PAGES.has(slug)) {
-                  onUpdate({ page: slug });
-                  input.value = '';
-                }
-              }
-            }}
-          />
-        </div>
       </div>
 
       {/* Layout variants */}
@@ -1103,8 +1097,6 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
   const welcomeText = config?.welcome_text || restaurant?.name || 'Restaurant';
   const socialLinks = config?.social_links || {};
 
-  const pageTitle = activePage.charAt(0).toUpperCase() + activePage.slice(1);
-
   // ─── Shared components ───
 
   const navBar = (
@@ -1204,14 +1196,6 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
         <div className="mt-8 pt-8 text-center text-sm" style={{ borderTop: `1px solid ${divider}`, color: textSoft }}>
           <p>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</p>
         </div>
-      </div>
-    </footer>
-  );
-
-  const simpleFooter = (
-    <footer style={{ borderTop: `1px solid ${divider}`, backgroundColor: surface, marginTop: 64 }}>
-      <div className="max-w-6xl mx-auto px-4 py-8 text-center text-sm" style={{ color: textSoft }}>
-        <p>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</p>
       </div>
     </footer>
   );
@@ -1434,27 +1418,6 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
             <span className="text-sm font-bold" style={{ color: mText }}>₪83.00</span>
           </div>
         </div>
-      </div>
-    );
-  } else {
-    // CUSTOM PAGES (about, gallery, contact, etc.) — matches foodyweb/app/r/[restaurantId]/[page]/page.tsx
-    siteContent = (
-      <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
-        {navBar}
-
-        {/* Page Title */}
-        <div className="max-w-6xl mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold" style={{ color: text, fontFamily: ff }}>{pageTitle}</h1>
-        </div>
-
-        {/* Sections */}
-        {sectionsBlock || (
-          <div className="max-w-6xl mx-auto px-4 py-12 text-center">
-            <p className="text-sm" style={{ color: textMuted }}>No sections on this page yet. Add one from the sidebar.</p>
-          </div>
-        )}
-
-        {simpleFooter}
       </div>
     );
   }
