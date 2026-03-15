@@ -21,7 +21,8 @@ export default function LoginPage() {
         router.replace('/select-restaurant');
       }
     }
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

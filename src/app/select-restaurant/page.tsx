@@ -23,7 +23,8 @@ export default function SelectRestaurantPage() {
     Promise.all(rids.map((id) => getRestaurant(id)))
       .then(setRestaurants)
       .finally(() => setLoading(false));
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (

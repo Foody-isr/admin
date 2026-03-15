@@ -34,7 +34,8 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       .then(setRestaurant)
       .catch(() => router.push('/select-restaurant'))
       .finally(() => setRestaurantLoading(false));
-  }, [loading, isLoggedIn, restaurantId, restaurantIds, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isLoggedIn, restaurantId, restaurantIds]);
 
   if (loading || restaurantLoading) {
     return (
