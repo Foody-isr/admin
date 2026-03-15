@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   getWebsiteConfig, updateWebsiteConfig, getRestaurant,
@@ -80,7 +80,12 @@ export default function WebsitePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
   const [previewRefresh, setPreviewRefresh] = useState(0);
-  const refreshPreview = useCallback(() => setPreviewRefresh(k => k + 1), []);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshPreview = useCallback(() => {
+    // Debounce: wait 800ms after last change before refreshing iframe
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => setPreviewRefresh(k => k + 1), 800);
+  }, []);
 
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
@@ -990,7 +995,6 @@ function PreviewPanel({ mode, restaurant, activePage, refreshKey }: {
   const slug = restaurant?.slug || String(restaurant?.id || '');
   const baseUrl = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
   const pagePath = activePage === 'home' ? '' : `/${activePage}`;
-  const iframeSrc = slug ? `${baseUrl}/r/${slug}${pagePath}` : '';
 
   const [iframeKey, setIframeKey] = useState(0);
 
@@ -998,6 +1002,9 @@ function PreviewPanel({ mode, restaurant, activePage, refreshKey }: {
   useEffect(() => {
     setIframeKey(k => k + 1);
   }, [activePage, refreshKey]);
+
+  // Cache-busting: append timestamp so browser never serves stale content
+  const iframeSrc = slug ? `${baseUrl}/r/${slug}${pagePath}?_t=${iframeKey}` : '';
 
   if (!slug) {
     return (
