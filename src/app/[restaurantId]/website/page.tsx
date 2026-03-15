@@ -79,6 +79,8 @@ export default function WebsitePage() {
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
+  const [previewRefresh, setPreviewRefresh] = useState(0);
+  const refreshPreview = useCallback(() => setPreviewRefresh(k => k + 1), []);
 
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
@@ -150,13 +152,14 @@ export default function WebsitePage() {
       });
       setConfig(updated);
       setSaved(true);
+      refreshPreview();
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to save');
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, refreshPreview]);
 
   // ─── Apply Site Style ───────────────────────────────────────────
 
@@ -172,6 +175,7 @@ export default function WebsitePage() {
       });
       setConfig(updated);
       setSaved(true);
+      refreshPreview();
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to apply style');
@@ -193,6 +197,7 @@ export default function WebsitePage() {
       });
       setSections(prev => [...prev, section]);
       setSelectedSectionId(section.id);
+      refreshPreview();
     } catch (err: any) {
       setError(err.message || 'Failed to add section');
     }
@@ -203,6 +208,7 @@ export default function WebsitePage() {
       await deleteWebsiteSection(restaurantId, sectionId);
       setSections(prev => prev.filter(s => s.id !== sectionId));
       if (selectedSectionId === sectionId) setSelectedSectionId(null);
+      refreshPreview();
     } catch (err: any) {
       setError(err.message || 'Failed to delete section');
     }
@@ -212,6 +218,7 @@ export default function WebsitePage() {
     try {
       const updated = await updateWebsiteSection(restaurantId, sectionId, updates);
       setSections(prev => prev.map(s => s.id === sectionId ? updated : s));
+      refreshPreview();
     } catch (err: any) {
       setError(err.message || 'Failed to update section');
     }
@@ -370,6 +377,7 @@ export default function WebsitePage() {
               activePage={activePage}
               onPageChange={setActivePage}
               onAddPage={handleAddPage}
+              allSections={sections}
             />
           )}
         </div>
@@ -392,6 +400,7 @@ export default function WebsitePage() {
           ) : selectedSection ? (
             <SectionSettingsPanel
               section={selectedSection}
+              pages={pages}
               onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
               onDelete={() => handleDeleteSection(selectedSection.id)}
             />
@@ -412,6 +421,7 @@ export default function WebsitePage() {
             mode={previewMode}
             restaurant={restaurant}
             activePage={activePage}
+            refreshKey={previewRefresh}
           />
         </div>
       </div>
@@ -573,7 +583,7 @@ function StyleSettingsPanel({ tagline, themeMode, showAddress, showPhone, showHo
   );
 }
 
-function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onToggleVisibility, pages, activePage, onPageChange, onAddPage }: {
+function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onToggleVisibility, pages, activePage, onPageChange, onAddPage, allSections }: {
   sections: WebsiteSection[];
   selectedId: number | null;
   onSelect: (id: number) => void;
@@ -584,25 +594,30 @@ function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onTog
   activePage: string;
   onPageChange: (page: string) => void;
   onAddPage: () => void;
+  allSections: WebsiteSection[];
 }) {
   return (
     <div className="p-3">
       {/* Page selector */}
       <div className="mb-3">
         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-          {pages.map(page => (
-            <button
-              key={page}
-              onClick={() => onPageChange(page)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                activePage === page
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-[var(--surface)] text-fg-secondary hover:bg-[var(--surface-subtle)]'
-              }`}
-            >
-              {page.charAt(0).toUpperCase() + page.slice(1)}
-            </button>
-          ))}
+          {pages.map(page => {
+            const count = allSections.filter(s => (s.page || 'home') === page).length;
+            return (
+              <button
+                key={page}
+                onClick={() => onPageChange(page)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                  activePage === page
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-[var(--surface)] text-fg-secondary hover:bg-[var(--surface-subtle)]'
+                }`}
+              >
+                {page.charAt(0).toUpperCase() + page.slice(1)}
+                {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+              </button>
+            );
+          })}
           <button
             onClick={onAddPage}
             className="px-2 py-1 rounded-md text-xs font-medium text-fg-secondary hover:bg-[var(--surface)] transition-all"
@@ -665,8 +680,9 @@ function SectionListPanel({ sections, selectedId, onSelect, onAdd, onMove, onTog
   );
 }
 
-function SectionSettingsPanel({ section, onUpdate, onDelete }: {
+function SectionSettingsPanel({ section, pages, onUpdate, onDelete }: {
   section: WebsiteSection;
+  pages: string[];
   onUpdate: (updates: Partial<WebsiteSection>) => void;
   onDelete: () => void;
 }) {
@@ -695,6 +711,38 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
           <h2 className="text-lg font-semibold text-fg-primary">{meta?.label || section.section_type}</h2>
         </div>
         <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700 font-medium">Delete</button>
+      </div>
+
+      {/* Page assignment */}
+      <div>
+        <h3 className="text-sm font-semibold text-fg-secondary mb-2">Page</h3>
+        <div className="flex items-center gap-2">
+          <select
+            value={section.page || 'home'}
+            onChange={e => onUpdate({ page: e.target.value })}
+            className="flex-1 border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary"
+          >
+            {pages.map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
+          </select>
+          <span className="text-xs text-fg-secondary">or type new:</span>
+          <input
+            type="text"
+            placeholder="new-page"
+            className="w-28 border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary"
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const input = e.currentTarget;
+                const slug = input.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                if (slug && !RESERVED_PAGES.has(slug)) {
+                  onUpdate({ page: slug });
+                  input.value = '';
+                }
+              }
+            }}
+          />
+        </div>
       </div>
 
       {/* Layout variants */}
@@ -933,10 +981,11 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, restaurant, activePage }: {
+function PreviewPanel({ mode, restaurant, activePage, refreshKey }: {
   mode: 'mobile' | 'desktop';
   restaurant: Restaurant | null;
   activePage: string;
+  refreshKey: number;
 }) {
   const slug = restaurant?.slug || String(restaurant?.id || '');
   const baseUrl = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
@@ -945,10 +994,10 @@ function PreviewPanel({ mode, restaurant, activePage }: {
 
   const [iframeKey, setIframeKey] = useState(0);
 
-  // Refresh iframe when page or mode changes
+  // Refresh iframe when page changes or when data is saved
   useEffect(() => {
     setIframeKey(k => k + 1);
-  }, [activePage]);
+  }, [activePage, refreshKey]);
 
   if (!slug) {
     return (
