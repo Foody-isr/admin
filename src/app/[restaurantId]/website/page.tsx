@@ -81,9 +81,6 @@ export default function WebsitePage() {
   const [activePage, setActivePage] = useState('home');
   const [customPages, setCustomPages] = useState<string[]>([]);
 
-  // Default pages always available in the picker
-  const DEFAULT_PAGES = ['home', 'about', 'gallery', 'menu', 'contact'];
-
   // Config form state
   const [primaryColor, setPrimaryColor] = useState('#EB5204');
   const [secondaryColor, setSecondaryColor] = useState('#C94400');
@@ -107,13 +104,14 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  // Derive unique pages from defaults + sections + manually added pages
+  // Derive unique pages: home + menu always present, plus sections' pages + manually added
   const pages = Array.from(new Set([
-    ...DEFAULT_PAGES,
+    'home',
+    'menu',
     ...sections.map(s => s.page || 'home'),
     ...customPages,
   ])).sort((a, b) =>
-    a === 'home' ? -1 : b === 'home' ? 1 : a.localeCompare(b)
+    a === 'home' ? -1 : b === 'home' ? 1 : a === 'menu' ? -1 : b === 'menu' ? 1 : a.localeCompare(b)
   );
 
   // Filter sections by active page
@@ -287,6 +285,25 @@ export default function WebsitePage() {
     setTimeout(() => setShowAddModal(true), 100);
   }
 
+  async function handleDeletePage(page: string) {
+    if (page === 'home' || page === 'menu') return;
+    const pageSections = sections.filter(s => (s.page || 'home') === page);
+    const msg = pageSections.length > 0
+      ? `Delete "${page}" page and its ${pageSections.length} section(s)? This cannot be undone.`
+      : `Delete "${page}" page?`;
+    if (!confirm(msg)) return;
+    try {
+      await Promise.all(pageSections.map(s => deleteWebsiteSection(restaurantId, s.id)));
+      setSections(prev => prev.filter(s => (s.page || 'home') !== page));
+      setCustomPages(prev => prev.filter(p => p !== page));
+      setActivePage('home');
+      setSelectedSectionId(null);
+      setShowSettingsPanel(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete page');
+    }
+  }
+
   // ─── Render ─────────────────────────────────────────────────────
 
   if (loading) {
@@ -374,6 +391,15 @@ export default function WebsitePage() {
                 <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
               ))}
             </select>
+            {activePage !== 'home' && activePage !== 'menu' && (
+              <button
+                onClick={() => handleDeletePage(activePage)}
+                className="w-8 h-8 rounded-lg border border-divider text-red-400 hover:bg-red-500/10 flex items-center justify-center transition"
+                title="Delete page"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
+            )}
             <button
               onClick={() => {
                 if (activeTab === 'styles' && showSettingsPanel) {
@@ -390,13 +416,15 @@ export default function WebsitePage() {
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
-              title="Add section"
-            >
-              +
-            </button>
+            {activePage !== 'menu' && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
+                title="Add section"
+              >
+                +
+              </button>
+            )}
           </div>
 
           {/* Add page button */}
@@ -406,6 +434,14 @@ export default function WebsitePage() {
 
           {/* Section list */}
           <div className="flex-1 overflow-y-auto px-2 pb-3">
+            {activePage === 'menu' ? (
+              <div className="px-3 py-8 text-center">
+                <p className="text-xs text-fg-secondary leading-relaxed">
+                  The menu page displays your restaurant&apos;s ordering interface.<br /><br />
+                  It is managed in the <strong>Menu</strong> section of the admin panel and cannot be customized here.
+                </p>
+              </div>
+            ) : (
             <SectionListPanel
               sections={filteredSections}
               selectedId={selectedSectionId}
@@ -419,6 +455,7 @@ export default function WebsitePage() {
               onAddPage={handleAddPage}
               allSections={sections}
             />
+            )}
           </div>
         </div>
 
@@ -426,6 +463,7 @@ export default function WebsitePage() {
         <div className="flex-1 overflow-hidden flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
           <PreviewPanel
             mode={previewMode}
+            activePage={activePage}
             restaurant={restaurant}
             config={config}
             sections={filteredSections}
@@ -1008,8 +1046,9 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, restaurant, config, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, selectedSectionId, onSelectSection }: {
+function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, selectedSectionId, onSelectSection }: {
   mode: 'mobile' | 'desktop';
+  activePage: string;
   restaurant: Restaurant | null;
   config: WebsiteConfig | null;
   sections: WebsiteSection[];
@@ -1041,171 +1080,229 @@ function PreviewPanel({ mode, restaurant, config, sections, primaryColor, second
   const welcomeText = config?.welcome_text || restaurant?.name || 'Restaurant';
   const socialLinks = config?.social_links || {};
 
-  const siteContent = (
-    <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
-      {/* ─── Nav Bar — exact match RestaurantLanding.tsx lines 40-70 ─── */}
-      <nav className="sticky top-0 z-40" style={{ backgroundColor: isDark ? 'rgba(32,33,37,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${divider}` }}>
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Hamburger menu icon */}
-            <div className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: textMuted }}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </div>
-            {restaurant?.logo_url && (
-              <img src={restaurant.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-            )}
-            <span className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
-          </div>
-          <span className="px-5 py-2.5 rounded-full text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
-            Order Now
-          </span>
-        </div>
-      </nav>
+  const pageTitle = activePage.charAt(0).toUpperCase() + activePage.slice(1);
 
-      {/* ─── Hero Section — exact match RestaurantLanding.tsx lines 72-155 ─── */}
-      {heroLayout === 'fullscreen' ? (
-        <section className="relative flex items-center justify-center text-center" style={{ height: mode === 'mobile' ? '50vh' : '100vh' }}>
-          {restaurant?.cover_url && <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative z-10 px-6 max-w-3xl">
-            <h1 className="text-4xl font-bold text-white mb-4" style={{ fontFamily: ff }}>{welcomeText}</h1>
-            {tagline && <p className="text-lg text-white/80 mb-8">{tagline}</p>}
-            <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
+  // ─── Shared components ───
+
+  const navBar = (
+    <nav className="sticky top-0 z-40" style={{ backgroundColor: isDark ? 'rgba(32,33,37,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${divider}` }}>
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: textMuted }}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </div>
-        </section>
-      ) : heroLayout === 'minimal' ? (
-        <section className="max-w-6xl mx-auto px-4 py-16 text-center">
-          {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-6" />}
-          <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
-          {tagline && <p className="text-lg mb-8 max-w-xl mx-auto" style={{ color: textMuted }}>{tagline}</p>}
-          <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
-        </section>
-      ) : (
-        /* Standard layout */
-        <section className="relative">
-          {restaurant?.cover_url ? (
-            <>
-              <div className="relative" style={{ height: mode === 'mobile' ? '35vh' : '55vh' }}>
-                <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-6 max-w-6xl mx-auto">
-                <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: ff }}>{welcomeText}</h1>
-                {tagline && <p className="text-lg text-white/80 mb-6 max-w-xl">{tagline}</p>}
-                <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
-              </div>
-            </>
-          ) : (
-            <div className="max-w-6xl mx-auto px-4 py-16">
-              <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
-              {tagline && <p className="text-lg mb-8 max-w-xl" style={{ color: textMuted }}>{tagline}</p>}
+          {restaurant?.logo_url && (
+            <img src={restaurant.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+          )}
+          <span className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
+        </div>
+        <span className="px-5 py-2.5 rounded-full text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
+          Order Now
+        </span>
+      </div>
+    </nav>
+  );
+
+  const sectionsBlock = visibleSections.length > 0 ? (
+    <div className="max-w-6xl mx-auto px-4">
+      {visibleSections.map(section => (
+        <div
+          key={section.id}
+          className="relative transition-all cursor-pointer"
+          onClick={() => onSelectSection?.(section.id)}
+          style={{
+            outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none',
+            outlineOffset: -2,
+          }}
+        >
+          {selectedSectionId === section.id && (
+            <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
+              {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
+            </div>
+          )}
+          <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} />
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  const fullFooter = (
+    <footer style={{ borderTop: `1px solid ${divider}`, backgroundColor: surface }}>
+      <div className="max-w-6xl mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 gap-8" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(3, 1fr)' }}>
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
+              <h3 className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</h3>
+            </div>
+            {restaurant?.description && <p className="text-sm mb-4" style={{ color: textMuted }}>{restaurant.description}</p>}
+          </div>
+          <div>
+            <h4 className="font-semibold mb-3" style={{ color: text }}>Contact</h4>
+            {showAddress && restaurant?.address && (
+              <p className="text-sm mb-2 flex items-start gap-2" style={{ color: textMuted }}>
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {restaurant.address}
+              </p>
+            )}
+            {showPhone && restaurant?.phone && (
+              <p className="text-sm mb-2 flex items-center gap-2" style={{ color: textMuted }}>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                {restaurant.phone}
+              </p>
+            )}
+          </div>
+          {showHours && (
+            <div>
+              <h4 className="font-semibold mb-3" style={{ color: text }}>Hours</h4>
+              <p className="text-sm" style={{ color: textMuted }}>Contact us for hours</p>
+            </div>
+          )}
+        </div>
+        {Object.keys(socialLinks).length > 0 && (
+          <div className="mt-8 pt-8 flex items-center gap-4" style={{ borderTop: `1px solid ${divider}` }}>
+            {Object.entries(socialLinks).map(([platform, url]) => {
+              if (!url) return null;
+              return (
+                <div key={platform} className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: textMuted }}>
+                  {platform.slice(0, 2)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="mt-8 pt-8 text-center text-sm" style={{ borderTop: `1px solid ${divider}`, color: textSoft }}>
+          <p>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</p>
+        </div>
+      </div>
+    </footer>
+  );
+
+  const simpleFooter = (
+    <footer style={{ borderTop: `1px solid ${divider}`, backgroundColor: surface, marginTop: 64 }}>
+      <div className="max-w-6xl mx-auto px-4 py-8 text-center text-sm" style={{ color: textSoft }}>
+        <p>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</p>
+      </div>
+    </footer>
+  );
+
+  // ─── Page-specific content ───
+
+  let siteContent: React.ReactNode;
+
+  if (activePage === 'home') {
+    // HOME: hero + sections + mid-CTA + full footer (matches RestaurantLanding.tsx)
+    siteContent = (
+      <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
+        {navBar}
+
+        {/* Hero Section */}
+        {heroLayout === 'fullscreen' ? (
+          <section className="relative flex items-center justify-center text-center" style={{ height: mode === 'mobile' ? '50vh' : '100vh' }}>
+            {restaurant?.cover_url && <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+            <div className="absolute inset-0 bg-black/50" />
+            <div className="relative z-10 px-6 max-w-3xl">
+              <h1 className="text-4xl font-bold text-white mb-4" style={{ fontFamily: ff }}>{welcomeText}</h1>
+              {tagline && <p className="text-lg text-white/80 mb-8">{tagline}</p>}
               <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
             </div>
-          )}
-        </section>
-      )}
-
-      {/* ─── Website Sections — wrapped in max-w-6xl like RestaurantLanding.tsx lines 158-162 ─── */}
-      {visibleSections.length > 0 && (
-        <div className="max-w-6xl mx-auto px-4">
-          {visibleSections.map(section => (
-            <div
-              key={section.id}
-              className="relative transition-all cursor-pointer"
-              onClick={() => onSelectSection?.(section.id)}
-              style={{
-                outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none',
-                outlineOffset: -2,
-              }}
-            >
-              {selectedSectionId === section.id && (
-                <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
-                  {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
+          </section>
+        ) : heroLayout === 'minimal' ? (
+          <section className="max-w-6xl mx-auto px-4 py-16 text-center">
+            {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-6" />}
+            <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
+            {tagline && <p className="text-lg mb-8 max-w-xl mx-auto" style={{ color: textMuted }}>{tagline}</p>}
+            <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
+          </section>
+        ) : (
+          <section className="relative">
+            {restaurant?.cover_url ? (
+              <>
+                <div className="relative" style={{ height: mode === 'mobile' ? '35vh' : '55vh' }}>
+                  <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                 </div>
-              )}
-              <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ─── Mid-page CTA — exact match RestaurantLanding.tsx lines 164-180 ─── */}
-      <section className="py-16 text-center">
-        <div className="max-w-2xl mx-auto px-4">
-          <h2 className="text-2xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>Ready to order?</h2>
-          <p className="mb-8" style={{ color: textMuted }}>Browse our menu and place your order for pickup or delivery.</p>
-          <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>View Menu &amp; Order</span>
-        </div>
-      </section>
-
-      {/* ─── Footer — exact match RestaurantLanding.tsx lines 182-266 ─── */}
-      <footer style={{ borderTop: `1px solid ${divider}`, backgroundColor: surface }}>
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 gap-8" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(3, 1fr)' }}>
-            {/* Restaurant Info */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
-                <h3 className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</h3>
-              </div>
-              {restaurant?.description && <p className="text-sm mb-4" style={{ color: textMuted }}>{restaurant.description}</p>}
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="font-semibold mb-3" style={{ color: text }}>Contact</h4>
-              {showAddress && restaurant?.address && (
-                <p className="text-sm mb-2 flex items-start gap-2" style={{ color: textMuted }}>
-                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {restaurant.address}
-                </p>
-              )}
-              {showPhone && restaurant?.phone && (
-                <p className="text-sm mb-2 flex items-center gap-2" style={{ color: textMuted }}>
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  {restaurant.phone}
-                </p>
-              )}
-            </div>
-
-            {/* Hours placeholder */}
-            {showHours && (
-              <div>
-                <h4 className="font-semibold mb-3" style={{ color: text }}>Hours</h4>
-                <p className="text-sm" style={{ color: textMuted }}>Contact us for hours</p>
+                <div className="absolute bottom-0 left-0 right-0 p-6 max-w-6xl mx-auto">
+                  <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: ff }}>{welcomeText}</h1>
+                  {tagline && <p className="text-lg text-white/80 mb-6 max-w-xl">{tagline}</p>}
+                  <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
+                </div>
+              </>
+            ) : (
+              <div className="max-w-6xl mx-auto px-4 py-16">
+                <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
+                {tagline && <p className="text-lg mb-8 max-w-xl" style={{ color: textMuted }}>{tagline}</p>}
+                <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>Start Your Order</span>
               </div>
             )}
+          </section>
+        )}
+
+        {sectionsBlock}
+
+        {/* Mid-page CTA */}
+        <section className="py-16 text-center">
+          <div className="max-w-2xl mx-auto px-4">
+            <h2 className="text-2xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>Ready to order?</h2>
+            <p className="mb-8" style={{ color: textMuted }}>Browse our menu and place your order for pickup or delivery.</p>
+            <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>View Menu &amp; Order</span>
           </div>
+        </section>
 
-          {/* Social Links */}
-          {Object.keys(socialLinks).length > 0 && (
-            <div className="mt-8 pt-8 flex items-center gap-4" style={{ borderTop: `1px solid ${divider}` }}>
-              {Object.entries(socialLinks).map(([platform, url]) => {
-                if (!url) return null;
-                return (
-                  <div key={platform} className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: textMuted }}>
-                    {platform.slice(0, 2)}
-                  </div>
-                );
-              })}
+        {fullFooter}
+      </div>
+    );
+  } else if (activePage === 'menu') {
+    // MENU: special non-editable page — shows info card
+    siteContent = (
+      <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
+        {navBar}
+        <div className="flex-1 flex items-center justify-center py-24 px-6">
+          <div className="max-w-md text-center rounded-2xl p-8" style={{ backgroundColor: surface, border: `1px solid ${divider}` }}>
+            <div className="w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center" style={{ backgroundColor: surfaceSubtle }}>
+              <svg className="w-8 h-8" fill="none" stroke={textMuted} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
             </div>
-          )}
-
-          {/* Copyright */}
-          <div className="mt-8 pt-8 text-center text-sm" style={{ borderTop: `1px solid ${divider}`, color: textSoft }}>
-            <p>&copy; {new Date().getFullYear()} {restaurant?.name || 'Restaurant'}. Powered by Foody.</p>
+            <h2 className="text-xl font-bold mb-3" style={{ color: text }}>Menu &amp; Ordering</h2>
+            <p className="text-sm leading-relaxed" style={{ color: textMuted }}>
+              This page displays your restaurant&apos;s full menu with ordering capability.
+              It is managed through the <strong>Menu</strong> section of the admin panel.
+            </p>
           </div>
         </div>
-      </footer>
-    </div>
-  );
+        {simpleFooter}
+      </div>
+    );
+  } else {
+    // CUSTOM PAGES (about, gallery, contact, etc.) — matches foodyweb/app/r/[restaurantId]/[page]/page.tsx
+    siteContent = (
+      <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
+        {navBar}
+
+        {/* Page Title */}
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          <h1 className="text-3xl font-bold" style={{ color: text, fontFamily: ff }}>{pageTitle}</h1>
+        </div>
+
+        {/* Sections */}
+        {sectionsBlock || (
+          <div className="max-w-6xl mx-auto px-4 py-12 text-center">
+            <p className="text-sm" style={{ color: textMuted }}>No sections on this page yet. Add one from the sidebar.</p>
+          </div>
+        )}
+
+        {simpleFooter}
+      </div>
+    );
+  }
 
   // Desktop: full-width preview, no frame
   if (mode === 'desktop') {
