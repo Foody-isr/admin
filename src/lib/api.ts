@@ -713,6 +713,14 @@ export async function updateWebsiteConfig(
   return data.website_config;
 }
 
+export async function resetWebsiteConfig(restaurantId: number): Promise<WebsiteConfig> {
+  const data = await apiFetch<{ website_config: WebsiteConfig }>(
+    `/api/v1/restaurants/${restaurantId}/website-config/reset`, restaurantId,
+    { method: 'POST' }
+  );
+  return data.website_config;
+}
+
 // ─── Restaurant Branding Uploads ─────────────────────────────────────────────
 
 export async function uploadRestaurantLogo(restaurantId: number, file: File): Promise<string> {

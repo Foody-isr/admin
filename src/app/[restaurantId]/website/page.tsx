@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getWebsiteConfig, updateWebsiteConfig, getRestaurant, updateRestaurant,
+  getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
   uploadRestaurantLogo, uploadRestaurantBackground,
@@ -188,6 +188,25 @@ export default function WebsitePage() {
       setSaving(false);
     }
   }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle]);
+
+  const handleResetConfig = useCallback(async () => {
+    try {
+      const cfg = await resetWebsiteConfig(restaurantId);
+      setConfig(cfg);
+      setPrimaryColor(cfg.primary_color || '#EB5204');
+      setSecondaryColor(cfg.secondary_color || '#C94400');
+      setFontFamily(cfg.font_family || 'Nunito Sans');
+      setThemeMode((cfg.theme_mode as 'light' | 'dark') || 'light');
+      setTagline(cfg.tagline || '');
+      setShowAddress(cfg.show_address ?? true);
+      setShowPhone(cfg.show_phone ?? true);
+      setShowHours(cfg.show_hours ?? true);
+      setMenuLayout(cfg.menu_layout || 'list');
+      setCartStyle(cfg.cart_style || 'bar-bottom');
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset');
+    }
+  }, [restaurantId]);
 
   // ─── Apply Site Style ───────────────────────────────────────────
 
@@ -512,6 +531,7 @@ export default function WebsitePage() {
                     onMenuLayoutChange={setMenuLayout}
                     onCartStyleChange={setCartStyle}
                     onRestaurantUpdate={setRestaurant}
+                    onReset={handleResetConfig}
                   />
                 </>
               ) : selectedSection ? (
@@ -602,7 +622,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, menuLayout, cartStyle, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onMenuLayoutChange, onCartStyleChange, onRestaurantUpdate }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, menuLayout, cartStyle, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onMenuLayoutChange, onCartStyleChange, onRestaurantUpdate, onReset }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -620,6 +640,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   onMenuLayoutChange: (v: string) => void;
   onCartStyleChange: (v: string) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
+  onReset: () => void;
 }) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -768,6 +789,21 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
             </button>
           </label>
         ))}
+      </div>
+
+      {/* Reset to Default */}
+      <div className="mt-6 pt-4 border-t border-divider">
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm('Reset all site settings to default? This cannot be undone.')) {
+              onReset();
+            }
+          }}
+          className="w-full px-4 py-2 rounded-lg border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors"
+        >
+          Reset to Default
+        </button>
       </div>
 
       {/* Menu Page Settings */}
