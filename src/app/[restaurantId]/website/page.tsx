@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
@@ -472,18 +472,10 @@ export default function WebsitePage() {
             mode={previewMode}
             activePage={activePage}
             restaurant={restaurant}
-            config={config}
-            sections={filteredSections}
             primaryColor={primaryColor}
             secondaryColor={secondaryColor}
             fontFamily={fontFamily}
             themeMode={themeMode}
-            tagline={tagline}
-            showAddress={showAddress}
-            showPhone={showPhone}
-            showHours={showHours}
-            selectedSectionId={selectedSectionId}
-            onSelectSection={setSelectedSectionId}
           />
         </div>
 
@@ -1224,254 +1216,64 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, selectedSectionId, onSelectSection }: {
+
+function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
-  config: WebsiteConfig | null;
-  sections: WebsiteSection[];
   primaryColor: string;
   secondaryColor: string;
   fontFamily: string;
   themeMode: 'light' | 'dark';
-  tagline: string;
-  showAddress: boolean;
-  showPhone: boolean;
-  showHours: boolean;
-  selectedSectionId: number | null;
-  onSelectSection?: (id: number) => void;
 }) {
-  const isDark = themeMode === 'dark';
-  const bg = isDark ? '#121316' : '#fff';
-  const text = isDark ? '#f5f5f5' : '#1a1a1a';
-  const textMuted = isDark ? '#9CA3AF' : '#6B7280';
-  const textSoft = isDark ? '#71717A' : '#A1A1AA';
-  const surface = isDark ? '#202125' : '#f9fafb';
-  const surfaceSubtle = isDark ? '#2C2D33' : '#F0F2F5';
-  const divider = isDark ? '#3D3E44' : '#E4E5E7';
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const ff = `"${fontFamily}", sans-serif`;
-  const themeVars: React.CSSProperties = { fontFamily: ff, backgroundColor: bg, color: text };
-  const visibleSections = sections.filter(s => s.is_visible);
+  const slug = restaurant?.slug || String(restaurant?.id || '');
+  const webUrl = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+  const pagePath = activePage === 'menu' ? `/r/${slug}/order` : `/r/${slug}`;
+  const iframeSrc = `${webUrl}${pagePath}`;
 
-  // ─── Shared components ───
+  // Send theme overrides to the iframe in real-time
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
 
-  const navBar = (
-    <nav className="sticky top-0 z-40" style={{ backgroundColor: isDark ? 'rgba(32,33,37,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${divider}` }}>
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: textMuted }}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </div>
-          {restaurant?.logo_url && (
-            <img src={restaurant.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-          )}
-          <span className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</span>
-        </div>
-        <span className="px-5 py-2.5 rounded-full text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
-          Order Now
-        </span>
-      </div>
-    </nav>
-  );
+    const msg = {
+      type: 'foody-theme-override',
+      config: {
+        primaryColor,
+        secondaryColor,
+        fontFamily,
+        themeMode,
+      },
+    };
+    iframe.contentWindow.postMessage(msg, '*');
+  }, [primaryColor, secondaryColor, fontFamily, themeMode]);
 
-  const sectionsBlock = visibleSections.length > 0 ? (
-    <div>
-      {visibleSections.map(section => (
-        <div
-          key={section.id}
-          className="relative transition-all cursor-pointer"
-          onClick={() => onSelectSection?.(section.id)}
-        >
-          {selectedSectionId === section.id && (
-            <>
-              <div className="absolute inset-0 z-30 pointer-events-none" style={{ border: `2px solid ${primaryColor}` }} />
-              <div className="absolute top-2 left-2 z-30 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
-                {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
-              </div>
-            </>
-          )}
-          <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} restaurant={restaurant} />
-        </div>
-      ))}
-    </div>
-  ) : null;
+  // Also send on iframe load
+  const handleIframeLoad = () => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.postMessage({
+      type: 'foody-theme-override',
+      config: { primaryColor, secondaryColor, fontFamily, themeMode },
+    }, '*');
+  };
 
-  // ─── Page-specific content ───
-
-  let siteContent: React.ReactNode;
-
-  if (activePage === 'home') {
-    // HOME: navBar + sections (hero, footer, CTA are all section-based now)
-    siteContent = (
-      <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
-        {navBar}
-        {sectionsBlock}
-      </div>
-    );
-  } else if (activePage === 'menu') {
-    // MENU: realistic order page mockup — uses same theme as rest of site
-    const mBg = bg;
-    const mSurface = surface;
-    const mSurfaceSubtle = surfaceSubtle;
-    const mText = text;
-    const mTextMuted = textMuted;
-    const mDivider = divider;
-    const sampleCategories = ['⭐ Most ordered', 'Salads', 'Mains', 'Desserts', 'Drinks'];
-    const placeholderItems = [
-      { name: 'Menu Item', desc: 'A delicious item from your menu', price: '₪45.00' },
-      { name: 'Menu Item', desc: 'Another great dish to try', price: '₪38.00' },
-      { name: 'Menu Item', desc: 'Chef\'s recommendation', price: '₪52.00' },
-    ];
-
-    siteContent = (
-      <div className="min-h-screen" style={{ backgroundColor: mBg, color: mText, fontFamily: ff }}>
-        {/* Top Bar */}
-        <nav className="sticky top-0 z-40" style={{ backgroundColor: isDark ? 'rgba(18,19,22,0.95)' : 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${mDivider}` }}>
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 flex items-center justify-center rounded-full" style={{ color: mTextMuted }}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </div>
-              {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-8 h-8 rounded-full object-cover" />}
-              <span className="font-bold" style={{ color: mText }}>{restaurant?.name || 'Restaurant'}</span>
-            </div>
-          </div>
-        </nav>
-
-        {/* Restaurant Hero */}
-        <div className="relative">
-          {restaurant?.cover_url ? (
-            <div className="relative" style={{ height: mode === 'mobile' ? '180px' : '240px' }}>
-              <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-              <div className="absolute bottom-4 left-4 flex items-end gap-3">
-                {restaurant?.logo_url && (
-                  <img src={restaurant.logo_url} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-white/20" />
-                )}
-                <div>
-                  <h1 className="text-2xl font-bold text-white" style={{ fontFamily: ff }}>{restaurant?.name || 'Restaurant'}</h1>
-                  {tagline && <p className="text-sm text-white/70">{tagline}</p>}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="px-4 py-8" style={{ backgroundColor: mSurface }}>
-              <div className="flex items-center gap-3">
-                {restaurant?.logo_url && (
-                  <img src={restaurant.logo_url} alt="" className="w-16 h-16 rounded-full object-cover" />
-                )}
-                <div>
-                  <h1 className="text-2xl font-bold" style={{ color: mText, fontFamily: ff }}>{restaurant?.name || 'Restaurant'}</h1>
-                  {tagline && <p className="text-sm" style={{ color: mTextMuted }}>{tagline}</p>}
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Info bar */}
-          <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap" style={{ backgroundColor: mSurface, borderBottom: `1px solid ${mDivider}` }}>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: mSurfaceSubtle, color: mText }}>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-              Pickup
-            </span>
-            {showHours && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs" style={{ backgroundColor: mSurfaceSubtle, color: mTextMuted }}>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                10-15 min
-              </span>
-            )}
-            {showAddress && restaurant?.address && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs" style={{ backgroundColor: mSurfaceSubtle, color: mTextMuted }}>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /></svg>
-                {restaurant.address.length > 30 ? restaurant.address.slice(0, 30) + '...' : restaurant.address}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Category Tabs */}
-        <div className="sticky top-[52px] z-30 flex items-center gap-2 px-4 py-2.5 overflow-x-auto" style={{ backgroundColor: mBg, borderBottom: `1px solid ${mDivider}` }}>
-          {sampleCategories.map((cat, i) => (
-            <span
-              key={cat}
-              className="whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium shrink-0"
-              style={{
-                backgroundColor: i === 0 ? primaryColor : mSurfaceSubtle,
-                color: i === 0 ? '#fff' : mTextMuted,
-              }}
-            >
-              {cat}
-            </span>
-          ))}
-          <div className="ml-auto shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: mSurfaceSubtle }}>
-            <svg className="w-4 h-4" fill="none" stroke={mTextMuted} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <span className="text-xs" style={{ color: mTextMuted }}>Search...</span>
-          </div>
-        </div>
-
-        {/* Menu Items Grid */}
-        <div className="px-4 py-6">
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: mText }}>
-            <span>⭐</span> Most ordered
-          </h2>
-          <div className="grid gap-3" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(2, 1fr)' }}>
-            {placeholderItems.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: mSurface, border: `1px solid ${mDivider}` }}>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm mb-1" style={{ color: mText }}>{item.name}</h3>
-                  <p className="text-xs mb-2 line-clamp-2" style={{ color: mTextMuted }}>{item.desc}</p>
-                  <span className="text-sm font-bold" style={{ color: primaryColor }}>{item.price}</span>
-                </div>
-                <div className="w-20 h-20 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: mSurfaceSubtle }}>
-                  <svg className="w-8 h-8" fill="none" stroke={mDivider} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Second section */}
-          <h2 className="text-lg font-bold mt-8 mb-4 flex items-center gap-2" style={{ color: mText }}>
-            Salads
-          </h2>
-          <div className="grid gap-3" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(2, 1fr)' }}>
-            {placeholderItems.slice(0, 2).map((item, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl p-3" style={{ backgroundColor: mSurface, border: `1px solid ${mDivider}` }}>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm mb-1" style={{ color: mText }}>{item.name}</h3>
-                  <p className="text-xs mb-2 line-clamp-2" style={{ color: mTextMuted }}>{item.desc}</p>
-                  <span className="text-sm font-bold" style={{ color: primaryColor }}>{item.price}</span>
-                </div>
-                <div className="w-20 h-20 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: mSurfaceSubtle }}>
-                  <svg className="w-8 h-8" fill="none" stroke={mDivider} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Floating Cart Button */}
-        <div className="sticky bottom-4 mx-4 z-40">
-          <div className="rounded-2xl px-6 py-3.5 flex items-center justify-between" style={{ backgroundColor: mSurface, border: `1px solid ${mDivider}` }}>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: primaryColor }}>2</div>
-              <span className="text-sm font-semibold" style={{ color: mText }}>View Cart</span>
-            </div>
-            <span className="text-sm font-bold" style={{ color: mText }}>₪83.00</span>
-          </div>
-        </div>
-      </div>
-    );
+  if (!slug) {
+    return <div className="flex items-center justify-center h-full text-fg-secondary text-sm">Loading preview...</div>;
   }
 
-  // Desktop: full-width preview, no frame
   if (mode === 'desktop') {
     return (
-      <div className="w-full h-full overflow-y-auto" style={themeVars}>
-        {siteContent}
+      <div className="w-full h-full">
+        <iframe
+          ref={iframeRef}
+          src={iframeSrc}
+          onLoad={handleIframeLoad}
+          className="w-full h-full border-0"
+          title="Website Preview"
+        />
       </div>
     );
   }
@@ -1485,388 +1287,20 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
           <div className="w-28 h-6 bg-gray-900 rounded-b-2xl" />
         </div>
         {/* Screen */}
-        <div className="overflow-y-auto rounded-b-[2rem]" style={{ ...themeVars, height: 700, marginTop: -2 }}>
-          {siteContent}
+        <div className="overflow-hidden rounded-b-[2rem]" style={{ height: 700, marginTop: -2 }}>
+          <iframe
+            ref={iframeRef}
+            src={iframeSrc}
+            onLoad={handleIframeLoad}
+            className="w-full h-full border-0"
+            title="Website Preview"
+            style={{ width: 375, height: 700 }}
+          />
         </div>
         {/* Home indicator */}
         <div className="flex justify-center py-2">
           <div className="w-28 h-1 bg-gray-600 rounded-full" />
         </div>
-      </div>
-    </div>
-  );
-}
-
-/** Live section preview — uses same sizes as foodyweb components */
-function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, textSoft, surface, fontFamily, restaurant }: {
-  section: WebsiteSection;
-  primaryColor: string;
-  secondaryColor: string;
-  isDark: boolean;
-  text: string;
-  textSoft: string;
-  surface: string;
-  fontFamily: string;
-  restaurant?: Restaurant | null;
-}) {
-  const content = section.content || {};
-  const settings = section.settings || {};
-  const colorStyle = settings.color_style || 'light';
-
-  let sectionBg = isDark ? '#121316' : '#fff';
-  let sectionText = text;
-  let sectionTextSoft = textSoft;
-  if (colorStyle === 'brand') { sectionBg = primaryColor; sectionText = '#fff'; sectionTextSoft = 'rgba(255,255,255,0.9)'; }
-  else if (colorStyle === 'dark') { sectionBg = '#111827'; sectionText = '#fff'; sectionTextSoft = 'rgba(255,255,255,0.9)'; }
-  else if (colorStyle === 'transparent') { sectionBg = 'transparent'; }
-
-  const surfaceSubtle = isDark ? '#2C2D33' : '#F0F2F5';
-  const surfaceCard = isDark ? '#202125' : '#fff';
-  const t = section.section_type;
-  const ff = `"${fontFamily}", sans-serif`;
-
-  // ── hero_banner — exact match with foodyweb HeroBannerSection.tsx
-  if (t === 'hero_banner') {
-    const heightSetting = settings.height || 'auto';
-    const heightMap: Record<string, string> = { compact: '250px', auto: '300px', medium: '400px', tall: '550px', fullscreen: '100vh' };
-    const h = heightMap[heightSetting] || '300px';
-    const textAlign = (settings.text_alignment || 'center') as 'left' | 'center' | 'right';
-    const isSplit = section.layout === 'split' && content.image_url;
-
-    if (isSplit) {
-      return (
-        <div className="flex flex-col md:flex-row" style={{ backgroundColor: sectionBg, minHeight: h }}>
-          <div className="flex-1 flex flex-col justify-center px-8 md:px-12 py-10" style={{ textAlign }}>
-            <h1 className="text-2xl md:text-4xl font-bold leading-tight" style={{ color: sectionText, fontFamily: ff }}>
-              {content.headline || 'Welcome'}
-            </h1>
-            {content.subheadline && (
-              <p className="text-base md:text-lg mt-3 leading-relaxed" style={{ color: sectionTextSoft }}>{content.subheadline}</p>
-            )}
-            {content.cta_text && (
-              <div className="mt-6">
-                <span className="inline-block px-8 py-3 rounded-full text-base font-semibold" style={{ backgroundColor: colorStyle === 'brand' ? '#fff' : primaryColor, color: colorStyle === 'brand' ? primaryColor : '#fff' }}>
-                  {content.cta_text}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 relative overflow-hidden" style={{ minHeight: 200 }}>
-            <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          </div>
-        </div>
-      );
-    }
-
-    // Centered / left-aligned — with or without background image
-    return (
-      <div className="relative overflow-hidden" style={{ minHeight: h, backgroundColor: sectionBg }}>
-        {content.image_url && <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-        {content.image_url && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10" />}
-        <div className="relative z-10 flex flex-col justify-center h-full px-8 md:px-16 py-12" style={{ minHeight: h, textAlign, alignItems: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
-          <h1 className="text-3xl md:text-5xl font-bold leading-tight" style={{ color: content.image_url ? '#fff' : sectionText, fontFamily: ff }}>
-            {content.headline || 'Welcome'}
-          </h1>
-          {content.subheadline && (
-            <p className="text-base md:text-xl mt-3 leading-relaxed" style={{ color: content.image_url ? 'rgba(255,255,255,0.8)' : sectionTextSoft }}>
-              {content.subheadline}
-            </p>
-          )}
-          {content.cta_text && (
-            <span className="inline-block mt-6 px-8 py-3 rounded-full text-base font-semibold" style={{
-              backgroundColor: content.image_url ? primaryColor : (colorStyle === 'brand' ? '#fff' : primaryColor),
-              color: content.image_url ? '#fff' : (colorStyle === 'brand' ? primaryColor : '#fff'),
-            }}>
-              {content.cta_text}
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── scrolling_text — foodyweb ScrollingTextSection.tsx
-  if (t === 'scrolling_text') {
-    const phrases = (content.text || 'Scrolling text here...').split('|').map((s: string) => s.trim()).filter(Boolean);
-    return (
-      <div className="overflow-hidden py-3" style={{ backgroundColor: colorStyle === 'brand' ? primaryColor : sectionBg }}>
-        <div className="flex whitespace-nowrap">
-          {[...phrases, ...phrases].map((phrase: string, i: number) => (
-            <span key={i} className="mx-8 text-lg font-semibold shrink-0" style={{ color: colorStyle === 'brand' ? '#fff' : sectionText }}>
-              {phrase}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── about — foodyweb AboutSection.tsx
-  if (t === 'about') {
-    return (
-      <div className="py-16 px-6 text-center" style={{ backgroundColor: sectionBg, color: sectionText }}>
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ fontFamily: ff }}>{content.title || 'About Us'}</h2>
-          <p className="text-base md:text-lg leading-relaxed whitespace-pre-line" style={{ color: sectionTextSoft, opacity: 0.9 }}>
-            {content.body || 'Tell your customers about your restaurant...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── text_and_image — foodyweb TextAndImageSection.tsx
-  if (t === 'text_and_image') {
-    const imagePos = content.image_position || 'right';
-    const textAlign = (settings.text_alignment || 'left') as 'left' | 'center' | 'right';
-    const padding = settings.padding || 'normal';
-    const pyMap: Record<string, string> = { compact: 'py-8 px-4', normal: 'py-16 px-6', spacious: 'py-24 px-8' };
-    return (
-      <div className={`flex flex-col md:flex-row gap-8 ${pyMap[padding] || 'py-16 px-6'}`} style={{ backgroundColor: sectionBg, color: sectionText, flexDirection: imagePos === 'left' ? 'row-reverse' : undefined }}>
-        <div className="flex-1" style={{ textAlign }}>
-          <h2 className="text-xl md:text-2xl font-bold mb-3" style={{ fontFamily: ff }}>{content.title || 'Our Story'}</h2>
-          <p className="text-base leading-relaxed" style={{ color: sectionTextSoft }}>
-            {content.body || 'Tell your story...'}
-          </p>
-        </div>
-        <div className="flex-1 relative aspect-[4/3] rounded-xl overflow-hidden">
-          {content.image_url ? (
-            <img src={content.image_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full" style={{ backgroundColor: isDark ? '#333' : '#e5e7eb' }} />
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── gallery — foodyweb GallerySection.tsx
-  if (t === 'gallery') {
-    const images: any[] = content.images || [];
-    return (
-      <div className="py-16 px-6" style={{ backgroundColor: isDark ? '#121316' : '#fff' }}>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {(images.length > 0 ? images.slice(0, 6) : [{}, {}, {}, {}, {}, {}]).map((img: any, i: number) => (
-            <div key={i} className="aspect-square rounded-xl overflow-hidden group" style={{ backgroundColor: isDark ? '#2C2D33' : '#F0F2F5' }}>
-              {img.url && <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── testimonials — foodyweb TestimonialsSection.tsx
-  if (t === 'testimonials') {
-    const reviews: any[] = content.reviews || [];
-    return (
-      <div className="py-16 px-6" style={{ backgroundColor: surfaceSubtle }}>
-        <div className="flex gap-6 overflow-x-auto pb-4">
-          {reviews.length > 0 ? reviews.slice(0, 4).map((r: any, i: number) => (
-            <div key={i} className="shrink-0 w-[300px] md:w-[360px] rounded-xl p-6" style={{ backgroundColor: surfaceCard }}>
-              <div className="flex gap-0.5 mb-3">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <span key={star} className="text-sm" style={{ color: star <= (r.rating || 5) ? '#FACC15' : isDark ? '#4B5563' : '#D1D5DB' }}>&#9733;</span>
-                ))}
-              </div>
-              <p className="text-sm leading-relaxed mb-3" style={{ color: text, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {r.text}
-              </p>
-              <div className="text-sm font-medium" style={{ color: textSoft }}>{r.name}</div>
-            </div>
-          )) : (
-            <div className="text-sm py-8 text-center w-full" style={{ color: textSoft }}>No reviews yet</div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── promo_banner — foodyweb PromoBannerSection.tsx
-  if (t === 'promo_banner') {
-    const bgColor = content.background_color || primaryColor;
-    return (
-      <div className="relative py-16 px-6 overflow-hidden text-center" style={{ backgroundColor: bgColor }}>
-        {content.image_url && (
-          <>
-            <img src={content.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/50" />
-          </>
-        )}
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <h2 className="text-2xl md:text-4xl font-bold text-white mb-3" style={{ fontFamily: ff }}>{content.title || 'Special Offer'}</h2>
-          {content.body && <p className="text-base md:text-lg text-white/90 leading-relaxed">{content.body}</p>}
-        </div>
-      </div>
-    );
-  }
-
-  // ── social_feed — foodyweb SocialFeedSection.tsx
-  if (t === 'social_feed') {
-    const links: any[] = content.links || [];
-    const platformIcons: Record<string, string> = {
-      facebook: 'f', instagram: 'ig', twitter: 'X', tiktok: 'T', youtube: 'YT', whatsapp: 'W',
-    };
-    return (
-      <div className="py-12 px-6" style={{ backgroundColor: surfaceCard }}>
-        <div className="flex flex-wrap justify-center gap-6">
-          {links.length > 0 ? links.map((l: any, i: number) => (
-            <div key={i} className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
-              style={{ backgroundColor: surfaceSubtle, color: text }}>
-              {platformIcons[l.platform] || l.platform?.charAt(0).toUpperCase()}
-            </div>
-          )) : (
-            <div className="text-sm py-4" style={{ color: textSoft }}>Social links</div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── menu_highlights — foodyweb MenuHighlightsSection.tsx
-  if (t === 'menu_highlights') {
-    return (
-      <div className="py-16 px-6" style={{ backgroundColor: surfaceSubtle, color: sectionText }}>
-        <h2 className="text-xl md:text-2xl font-bold mb-6" style={{ fontFamily: ff }}>{content.title || "Chef's Picks"}</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="rounded-xl p-6" style={{ backgroundColor: surfaceCard, minHeight: 120 }}>
-              <div className="text-sm font-medium mb-1" style={{ color: text }}>Featured item</div>
-              <div className="text-sm" style={{ color: textSoft }}>Coming soon</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── action_buttons — foodyweb ActionButtonsSection.tsx
-  if (t === 'action_buttons') {
-    const buttons: any[] = content.buttons || [];
-    return (
-      <div className="py-12 px-6 flex flex-wrap items-center justify-center gap-4" style={{ backgroundColor: sectionBg }}>
-        {buttons.length > 0 ? buttons.map((btn: any, i: number) => {
-          const s = btn.style || 'primary';
-          const btnStyle: React.CSSProperties = s === 'primary'
-            ? { backgroundColor: primaryColor, color: '#fff' }
-            : s === 'outline'
-              ? { border: `2px solid ${primaryColor}`, color: primaryColor, backgroundColor: 'transparent' }
-              : { backgroundColor: surfaceSubtle, color: text };
-          return (
-            <span key={i} className="inline-block px-8 py-3.5 rounded-full text-base font-semibold" style={btnStyle}>
-              {btn.label || 'Button'}
-            </span>
-          );
-        }) : (
-          <div className="text-sm" style={{ color: textSoft }}>No buttons configured</div>
-        )}
-      </div>
-    );
-  }
-
-  // ── footer
-  if (t === 'footer') {
-    const socialLinks: any[] = content.social_links || [];
-    const layout = section.layout || 'columns';
-    const customText = content.custom_text || `\u00A9 ${new Date().getFullYear()} ${restaurant?.name || 'Restaurant'}. Powered by Foody.`;
-
-    if (layout === 'minimal') {
-      return (
-        <footer className="py-8 px-6 text-center" style={{ backgroundColor: sectionBg, borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
-          {socialLinks.length > 0 && (
-            <div className="flex items-center justify-center gap-3 mb-4">
-              {socialLinks.map((l: any, i: number) => (
-                <div key={i} className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: sectionTextSoft }}>
-                  {l.platform?.slice(0, 2)}
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="text-xs" style={{ color: sectionTextSoft }}>{customText}</p>
-        </footer>
-      );
-    }
-
-    if (layout === 'centered') {
-      return (
-        <footer className="py-12 px-6 text-center" style={{ backgroundColor: sectionBg, borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
-          {content.show_logo !== false && (
-            <div className="flex items-center justify-center gap-3 mb-4">
-              {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
-              <h3 className="font-bold text-lg" style={{ color: sectionText }}>{restaurant?.name || 'Restaurant'}</h3>
-            </div>
-          )}
-          {content.show_description !== false && restaurant?.description && (
-            <p className="text-sm mb-4 max-w-md mx-auto" style={{ color: sectionTextSoft }}>{restaurant.description}</p>
-          )}
-          {content.show_address !== false && restaurant?.address && <p className="text-xs mb-1" style={{ color: sectionTextSoft }}>{restaurant.address}</p>}
-          {content.show_phone !== false && restaurant?.phone && <p className="text-xs mb-4" style={{ color: sectionTextSoft }}>{restaurant.phone}</p>}
-          {socialLinks.length > 0 && (
-            <div className="flex items-center justify-center gap-3 mb-4">
-              {socialLinks.map((l: any, i: number) => (
-                <div key={i} className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: sectionTextSoft }}>
-                  {l.platform?.slice(0, 2)}
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="text-xs mt-4" style={{ color: sectionTextSoft }}>{customText}</p>
-        </footer>
-      );
-    }
-
-    // columns layout (default)
-    return (
-      <footer className="py-12 px-6" style={{ backgroundColor: sectionBg, borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
-        <div className="grid grid-cols-1 gap-6" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-          <div>
-            {content.show_logo !== false && (
-              <div className="flex items-center gap-3 mb-3">
-                {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />}
-                <h3 className="font-bold" style={{ color: sectionText }}>{restaurant?.name || 'Restaurant'}</h3>
-              </div>
-            )}
-            {content.show_description !== false && restaurant?.description && (
-              <p className="text-xs" style={{ color: sectionTextSoft }}>{restaurant.description}</p>
-            )}
-          </div>
-          <div>
-            <h4 className="font-semibold text-sm mb-2" style={{ color: sectionText }}>Contact</h4>
-            {content.show_address !== false && restaurant?.address && <p className="text-xs mb-1" style={{ color: sectionTextSoft }}>{restaurant.address}</p>}
-            {content.show_phone !== false && restaurant?.phone && <p className="text-xs" style={{ color: sectionTextSoft }}>{restaurant.phone}</p>}
-          </div>
-          <div>
-            {content.show_hours !== false && (
-              <>
-                <h4 className="font-semibold text-sm mb-2" style={{ color: sectionText }}>Hours</h4>
-                <p className="text-xs" style={{ color: sectionTextSoft }}>Contact us for hours</p>
-              </>
-            )}
-          </div>
-        </div>
-        {socialLinks.length > 0 && (
-          <div className="flex items-center gap-3 mt-6 pt-6" style={{ borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
-            {socialLinks.map((l: any, i: number) => (
-              <div key={i} className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: sectionTextSoft }}>
-                {l.platform?.slice(0, 2)}
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="mt-6 pt-6 text-center text-xs" style={{ borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}`, color: sectionTextSoft }}>
-          <p>{customText}</p>
-        </div>
-      </footer>
-    );
-  }
-
-  // Fallback
-  const meta = SECTION_TYPE_META[t];
-  return (
-    <div className="px-6 py-8" style={{ backgroundColor: sectionBg, color: sectionText }}>
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{meta?.icon || '📄'}</span>
-        <span className="text-sm font-medium" style={{ color: textSoft }}>{meta?.label || t}</span>
       </div>
     </div>
   );
