@@ -125,8 +125,20 @@ export default function WebsitePage() {
         ]);
         setConfig(cfg);
         setRestaurant(rest);
-        setSections(sects);
         setSiteStyles(styles);
+
+        // Auto-create default sections if restaurant has none
+        if (sects.length === 0) {
+          const defaults = [
+            { section_type: 'hero_banner', page: 'home', is_visible: true, layout: 'default', sort_order: 0, content: getDefaultContent('hero_banner'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } },
+            { section_type: 'action_buttons', page: 'home', is_visible: true, layout: 'default', sort_order: 1, content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } },
+            { section_type: 'footer', page: 'home', is_visible: true, layout: 'columns', sort_order: 99, content: getDefaultContent('footer'), settings: { color_style: 'light' } },
+          ];
+          const created = await Promise.all(defaults.map(d => createWebsiteSection(restaurantId, d)));
+          setSections(created);
+        } else {
+          setSections(sects);
+        }
 
         setPrimaryColor(cfg.primary_color || '#EB5204');
         setSecondaryColor(cfg.secondary_color || '#C94400');
@@ -430,7 +442,7 @@ export default function WebsitePage() {
         </div>
 
         {/* Main Preview Area */}
-        <div className="flex-1 overflow-hidden flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
+        <div className="flex-1 overflow-auto flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
           <PreviewPanel
             mode={previewMode}
             activePage={activePage}
@@ -1169,7 +1181,7 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
   );
 
   const sectionsBlock = visibleSections.length > 0 ? (
-    <div className="max-w-6xl mx-auto px-4">
+    <div>
       {visibleSections.map(section => (
         <div
           key={section.id}
