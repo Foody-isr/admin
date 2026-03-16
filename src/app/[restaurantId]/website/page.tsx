@@ -37,10 +37,9 @@ const LAYOUT_OPTIONS: Record<string, { value: string; label: string }[]> = {
 };
 
 const COLOR_STYLES = [
-  { value: 'brand', label: 'Brand' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
-  { value: 'transparent', label: 'Transparent' },
+  { value: 'custom', label: 'Custom' },
 ];
 
 const ACTION_TYPES = [
@@ -104,6 +103,17 @@ export default function WebsitePage() {
     }
   }, [selectedSectionId]);
 
+  // Listen for section clicks from inside the iframe
+  useEffect(() => {
+    function handleMessage(e: MessageEvent) {
+      if (e.data?.type === 'foody-select-section' && typeof e.data.sectionId === 'number') {
+        setSelectedSectionId(e.data.sectionId);
+      }
+    }
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   function closeSettings() {
     setShowSettingsPanel(false);
     setSelectedSectionId(null);
@@ -111,8 +121,14 @@ export default function WebsitePage() {
 
   const pages: string[] = ['home', 'menu'];
 
-  // Filter sections by active page (only home has editable sections)
-  const filteredSections = sections.filter(s => (s.page || 'home') === activePage);
+  // Filter sections by active page, footer always last
+  const filteredSections = sections
+    .filter(s => (s.page || 'home') === activePage)
+    .sort((a, b) => {
+      if (a.section_type === 'footer') return 1;
+      if (b.section_type === 'footer') return -1;
+      return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    });
 
   // ─── Load Data ──────────────────────────────────────────────────
 
@@ -986,6 +1002,20 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
             </button>
           ))}
         </div>
+        {settings.color_style === 'custom' && (
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-fg-secondary w-20">Background</label>
+              <input type="color" value={settings.custom_bg || '#ffffff'} onChange={e => updateSettings('custom_bg', e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
+              <input type="text" value={settings.custom_bg || '#ffffff'} onChange={e => updateSettings('custom_bg', e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-fg-secondary w-20">Text</label>
+              <input type="color" value={settings.custom_text || '#000000'} onChange={e => updateSettings('custom_text', e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
+              <input type="text" value={settings.custom_text || '#000000'} onChange={e => updateSettings('custom_text', e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content fields */}
