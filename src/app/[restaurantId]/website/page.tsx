@@ -25,6 +25,7 @@ const SECTION_TYPE_META: Record<string, { label: string; icon: string; desc: str
   promo_banner:    { label: 'Promo Banner',      icon: '\u{1F3F7}\u{FE0F}', desc: 'Promotional offer banner' },
   social_feed:     { label: 'Social Links',      icon: '\u{1F4F1}', desc: 'Social media profile links' },
   action_buttons:  { label: 'Action Buttons',    icon: '\u{1F518}', desc: 'Configurable CTA buttons (order, menu, links)' },
+  footer:          { label: 'Footer',            icon: '\u{1F3E0}', desc: 'Site footer with contact, social & copyright' },
 };
 
 const LAYOUT_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -32,6 +33,7 @@ const LAYOUT_OPTIONS: Record<string, { value: string; label: string }[]> = {
   text_and_image: [{ value: 'default', label: 'Image Right' }, { value: 'image_left', label: 'Image Left' }],
   gallery:        [{ value: 'grid', label: 'Grid' }, { value: 'masonry', label: 'Masonry' }],
   testimonials:   [{ value: 'carousel', label: 'Carousel' }, { value: 'grid', label: 'Grid' }],
+  footer:         [{ value: 'columns', label: 'Columns' }, { value: 'centered', label: 'Centered' }, { value: 'minimal', label: 'Minimal' }],
 };
 
 const COLOR_STYLES = [
@@ -88,12 +90,6 @@ export default function WebsitePage() {
   const [showAddress, setShowAddress] = useState(true);
   const [showPhone, setShowPhone] = useState(true);
   const [showHours, setShowHours] = useState(true);
-  const [heroCtaText, setHeroCtaText] = useState('Start Your Order');
-  const [midCtaEnabled, setMidCtaEnabled] = useState(true);
-  const [midCtaTitle, setMidCtaTitle] = useState('Ready to order?');
-  const [midCtaBody, setMidCtaBody] = useState('Browse our menu and place your order for pickup or delivery.');
-  const [midCtaBtnText, setMidCtaBtnText] = useState('View Menu & Order');
-  const [footerText, setFooterText] = useState('');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -140,12 +136,6 @@ export default function WebsitePage() {
         setShowAddress(cfg.show_address ?? true);
         setShowPhone(cfg.show_phone ?? true);
         setShowHours(cfg.show_hours ?? true);
-        setHeroCtaText(cfg.hero_cta_text || 'Start Your Order');
-        setMidCtaEnabled(cfg.mid_cta_enabled ?? true);
-        setMidCtaTitle(cfg.mid_cta_title || 'Ready to order?');
-        setMidCtaBody(cfg.mid_cta_body || 'Browse our menu and place your order for pickup or delivery.');
-        setMidCtaBtnText(cfg.mid_cta_btn_text || 'View Menu & Order');
-        setFooterText(cfg.footer_text || '');
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -169,12 +159,6 @@ export default function WebsitePage() {
         show_address: showAddress,
         show_phone: showPhone,
         show_hours: showHours,
-        hero_cta_text: heroCtaText,
-        mid_cta_enabled: midCtaEnabled,
-        mid_cta_title: midCtaTitle,
-        mid_cta_body: midCtaBody,
-        mid_cta_btn_text: midCtaBtnText,
-        footer_text: footerText,
       });
       setConfig(updated);
       setSaved(true);
@@ -185,7 +169,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, heroCtaText, midCtaEnabled, midCtaTitle, midCtaBody, midCtaBtnText, footerText]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours]);
 
   // ─── Apply Site Style ───────────────────────────────────────────
 
@@ -461,12 +445,6 @@ export default function WebsitePage() {
             showAddress={showAddress}
             showPhone={showPhone}
             showHours={showHours}
-            heroCtaText={heroCtaText}
-            midCtaEnabled={midCtaEnabled}
-            midCtaTitle={midCtaTitle}
-            midCtaBody={midCtaBody}
-            midCtaBtnText={midCtaBtnText}
-            footerText={footerText}
             selectedSectionId={selectedSectionId}
             onSelectSection={setSelectedSectionId}
           />
@@ -506,23 +484,11 @@ export default function WebsitePage() {
                     showAddress={showAddress}
                     showPhone={showPhone}
                     showHours={showHours}
-                    heroCtaText={heroCtaText}
-                    midCtaEnabled={midCtaEnabled}
-                    midCtaTitle={midCtaTitle}
-                    midCtaBody={midCtaBody}
-                    midCtaBtnText={midCtaBtnText}
-                    footerText={footerText}
                     onTaglineChange={setTagline}
                     onThemeModeChange={setThemeMode}
                     onShowAddressChange={setShowAddress}
                     onShowPhoneChange={setShowPhone}
                     onShowHoursChange={setShowHours}
-                    onHeroCtaTextChange={setHeroCtaText}
-                    onMidCtaEnabledChange={setMidCtaEnabled}
-                    onMidCtaTitleChange={setMidCtaTitle}
-                    onMidCtaBodyChange={setMidCtaBody}
-                    onMidCtaBtnTextChange={setMidCtaBtnText}
-                    onFooterTextChange={setFooterText}
                     onRestaurantUpdate={setRestaurant}
                   />
                 </>
@@ -614,7 +580,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, heroCtaText, midCtaEnabled, midCtaTitle, midCtaBody, midCtaBtnText, footerText, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onHeroCtaTextChange, onMidCtaEnabledChange, onMidCtaTitleChange, onMidCtaBodyChange, onMidCtaBtnTextChange, onFooterTextChange, onRestaurantUpdate }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onRestaurantUpdate }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -622,23 +588,11 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
-  heroCtaText: string;
-  midCtaEnabled: boolean;
-  midCtaTitle: string;
-  midCtaBody: string;
-  midCtaBtnText: string;
-  footerText: string;
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
-  onHeroCtaTextChange: (v: string) => void;
-  onMidCtaEnabledChange: (v: boolean) => void;
-  onMidCtaTitleChange: (v: string) => void;
-  onMidCtaBodyChange: (v: string) => void;
-  onMidCtaBtnTextChange: (v: string) => void;
-  onFooterTextChange: (v: string) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
 }) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -788,58 +742,6 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
             </button>
           </label>
         ))}
-      </div>
-
-      <hr className="border-divider" />
-
-      {/* Hero CTA */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Hero Button</h3>
-        <div>
-          <label className="block text-sm font-medium text-fg-primary mb-1">Button Text</label>
-          <input type="text" value={heroCtaText} onChange={e => onHeroCtaTextChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="Start Your Order" />
-        </div>
-      </div>
-
-      <hr className="border-divider" />
-
-      {/* Mid-page CTA */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Call to Action Section</h3>
-        <label className="flex items-center justify-between py-2 mb-3">
-          <span className="text-sm text-fg-primary">Show CTA section</span>
-          <button type="button" onClick={() => onMidCtaEnabledChange(!midCtaEnabled)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${midCtaEnabled ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${midCtaEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-        </label>
-        {midCtaEnabled && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-fg-secondary mb-1">Title</label>
-              <input type="text" value={midCtaTitle} onChange={e => onMidCtaTitleChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="Ready to order?" />
-            </div>
-            <div>
-              <label className="block text-xs text-fg-secondary mb-1">Description</label>
-              <textarea value={midCtaBody} onChange={e => onMidCtaBodyChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary min-h-[60px]" placeholder="Browse our menu..." />
-            </div>
-            <div>
-              <label className="block text-xs text-fg-secondary mb-1">Button Text</label>
-              <input type="text" value={midCtaBtnText} onChange={e => onMidCtaBtnTextChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="View Menu & Order" />
-            </div>
-          </div>
-        )}
-      </div>
-
-      <hr className="border-divider" />
-
-      {/* Footer */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Footer</h3>
-        <div>
-          <label className="block text-xs text-fg-secondary mb-1">Custom Footer Text</label>
-          <input type="text" value={footerText} onChange={e => onFooterTextChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder={`\u00A9 ${new Date().getFullYear()} ${restaurant?.name || 'Restaurant'}. Powered by Foody.`} />
-          <p className="text-[10px] text-fg-secondary mt-1">Leave empty for default copyright text.</p>
-        </div>
       </div>
     </div>
   );
@@ -1082,6 +984,56 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
           <ActionButtonsEditor content={content} updateContent={updateContent} />
         )}
 
+        {/* Footer Editor */}
+        {section.section_type === 'footer' && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              {[
+                { key: 'show_logo', label: 'Show Logo & Name' },
+                { key: 'show_description', label: 'Show Description' },
+                { key: 'show_address', label: 'Show Address' },
+                { key: 'show_phone', label: 'Show Phone' },
+                { key: 'show_hours', label: 'Show Hours' },
+              ].map(t => (
+                <label key={t.key} className="flex items-center justify-between py-1">
+                  <span className="text-xs text-fg-primary">{t.label}</span>
+                  <button type="button" onClick={() => updateContent(t.key, !content[t.key])} className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${content[t.key] !== false ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}>
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${content[t.key] !== false ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </label>
+              ))}
+            </div>
+            <div>
+              <label className={labelClass}>Copyright Text</label>
+              <input type="text" value={content.custom_text || ''} onChange={e => updateContent('custom_text', e.target.value)} className={inputClass} placeholder="© 2026 Restaurant. Powered by Foody." />
+            </div>
+            <div className="space-y-2">
+              <label className={labelClass}>Social Links</label>
+              {['instagram', 'facebook', 'tiktok', 'whatsapp'].map(platform => (
+                <div key={platform}>
+                  <label className={`${labelClass} capitalize`}>{platform}</label>
+                  <input
+                    type="url"
+                    value={(content.social_links || []).find((l: any) => l.platform === platform)?.url || ''}
+                    onChange={e => {
+                      const links = [...(content.social_links || [])];
+                      const idx = links.findIndex((l: any) => l.platform === platform);
+                      if (idx >= 0) {
+                        links[idx] = { platform, url: e.target.value };
+                      } else if (e.target.value) {
+                        links.push({ platform, url: e.target.value });
+                      }
+                      updateContent('social_links', links.filter((l: any) => l.url));
+                    }}
+                    className={inputClass}
+                    placeholder={`https://${platform}.com/yourrestaurant`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Image URL for sections that support it */}
         {['hero_banner', 'text_and_image', 'promo_banner'].includes(section.section_type) && (
           <div>
@@ -1163,7 +1115,7 @@ function ActionButtonsEditor({ content, updateContent }: {
   );
 }
 
-function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, heroCtaText, midCtaEnabled, midCtaTitle, midCtaBody, midCtaBtnText, footerText, selectedSectionId, onSelectSection }: {
+function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, selectedSectionId, onSelectSection }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
@@ -1177,12 +1129,6 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
-  heroCtaText: string;
-  midCtaEnabled: boolean;
-  midCtaTitle: string;
-  midCtaBody: string;
-  midCtaBtnText: string;
-  footerText: string;
   selectedSectionId: number | null;
   onSelectSection?: (id: number) => void;
 }) {
@@ -1198,10 +1144,6 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
   const ff = `"${fontFamily}", sans-serif`;
   const themeVars: React.CSSProperties = { fontFamily: ff, backgroundColor: bg, color: text };
   const visibleSections = sections.filter(s => s.is_visible);
-
-  const heroLayout = config?.hero_layout || 'standard';
-  const welcomeText = config?.welcome_text || restaurant?.name || 'Restaurant';
-  const socialLinks = config?.social_links || {};
 
   // ─── Shared components ───
 
@@ -1243,135 +1185,22 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
               {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
             </div>
           )}
-          <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} />
+          <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} restaurant={restaurant} />
         </div>
       ))}
     </div>
   ) : null;
-
-  const fullFooter = (
-    <footer style={{ borderTop: `1px solid ${divider}`, backgroundColor: surface }}>
-      <div className="max-w-6xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 gap-8" style={{ gridTemplateColumns: mode === 'mobile' ? '1fr' : 'repeat(3, 1fr)' }}>
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
-              <h3 className="font-bold text-lg" style={{ color: text }}>{restaurant?.name || 'Restaurant'}</h3>
-            </div>
-            {restaurant?.description && <p className="text-sm mb-4" style={{ color: textMuted }}>{restaurant.description}</p>}
-          </div>
-          <div>
-            <h4 className="font-semibold mb-3" style={{ color: text }}>Contact</h4>
-            {showAddress && restaurant?.address && (
-              <p className="text-sm mb-2 flex items-start gap-2" style={{ color: textMuted }}>
-                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {restaurant.address}
-              </p>
-            )}
-            {showPhone && restaurant?.phone && (
-              <p className="text-sm mb-2 flex items-center gap-2" style={{ color: textMuted }}>
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                {restaurant.phone}
-              </p>
-            )}
-          </div>
-          {showHours && (
-            <div>
-              <h4 className="font-semibold mb-3" style={{ color: text }}>Hours</h4>
-              <p className="text-sm" style={{ color: textMuted }}>Contact us for hours</p>
-            </div>
-          )}
-        </div>
-        {Object.keys(socialLinks).length > 0 && (
-          <div className="mt-8 pt-8 flex items-center gap-4" style={{ borderTop: `1px solid ${divider}` }}>
-            {Object.entries(socialLinks).map(([platform, url]) => {
-              if (!url) return null;
-              return (
-                <div key={platform} className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: textMuted }}>
-                  {platform.slice(0, 2)}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <div className="mt-8 pt-8 text-center text-sm" style={{ borderTop: `1px solid ${divider}`, color: textSoft }}>
-          <p>{footerText || `\u00A9 ${new Date().getFullYear()} ${restaurant?.name || 'Restaurant'}. Powered by Foody.`}</p>
-        </div>
-      </div>
-    </footer>
-  );
 
   // ─── Page-specific content ───
 
   let siteContent: React.ReactNode;
 
   if (activePage === 'home') {
-    // HOME: hero + sections + mid-CTA + full footer (matches RestaurantLanding.tsx)
+    // HOME: navBar + sections (hero, footer, CTA are all section-based now)
     siteContent = (
       <div className="min-h-screen" style={{ backgroundColor: bg, color: text, fontFamily: ff }}>
         {navBar}
-
-        {/* Hero Section */}
-        {heroLayout === 'fullscreen' ? (
-          <section className="relative flex items-center justify-center text-center" style={{ height: mode === 'mobile' ? '50vh' : '100vh' }}>
-            {restaurant?.cover_url && <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-            <div className="absolute inset-0 bg-black/50" />
-            <div className="relative z-10 px-6 max-w-3xl">
-              <h1 className="text-4xl font-bold text-white mb-4" style={{ fontFamily: ff }}>{welcomeText}</h1>
-              {tagline && <p className="text-lg text-white/80 mb-8">{tagline}</p>}
-              <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>{heroCtaText}</span>
-            </div>
-          </section>
-        ) : heroLayout === 'minimal' ? (
-          <section className="max-w-6xl mx-auto px-4 py-16 text-center">
-            {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-6" />}
-            <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
-            {tagline && <p className="text-lg mb-8 max-w-xl mx-auto" style={{ color: textMuted }}>{tagline}</p>}
-            <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>{heroCtaText}</span>
-          </section>
-        ) : (
-          <section className="relative">
-            {restaurant?.cover_url ? (
-              <>
-                <div className="relative" style={{ height: mode === 'mobile' ? '35vh' : '55vh' }}>
-                  <img src={restaurant.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-6 max-w-6xl mx-auto">
-                  <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: ff }}>{welcomeText}</h1>
-                  {tagline && <p className="text-lg text-white/80 mb-6 max-w-xl">{tagline}</p>}
-                  <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>{heroCtaText}</span>
-                </div>
-              </>
-            ) : (
-              <div className="max-w-6xl mx-auto px-4 py-16">
-                <h1 className="text-3xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{welcomeText}</h1>
-                {tagline && <p className="text-lg mb-8 max-w-xl" style={{ color: textMuted }}>{tagline}</p>}
-                <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>{heroCtaText}</span>
-              </div>
-            )}
-          </section>
-        )}
-
         {sectionsBlock}
-
-        {/* Mid-page CTA */}
-        {midCtaEnabled && (
-          <section className="py-16 text-center">
-            <div className="max-w-2xl mx-auto px-4">
-              <h2 className="text-2xl font-bold mb-4" style={{ color: text, fontFamily: ff }}>{midCtaTitle}</h2>
-              <p className="mb-8" style={{ color: textMuted }}>{midCtaBody}</p>
-              <span className="inline-block px-8 py-4 rounded-full text-white font-bold text-lg" style={{ backgroundColor: primaryColor }}>{midCtaBtnText}</span>
-            </div>
-          </section>
-        )}
-
-        {fullFooter}
       </div>
     );
   } else if (activePage === 'menu') {
@@ -1561,7 +1390,7 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
 }
 
 /** Live section preview — uses same sizes as foodyweb components */
-function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, textSoft, surface, fontFamily }: {
+function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, textSoft, surface, fontFamily, restaurant }: {
   section: WebsiteSection;
   primaryColor: string;
   secondaryColor: string;
@@ -1570,6 +1399,7 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
   textSoft: string;
   surface: string;
   fontFamily: string;
+  restaurant?: Restaurant | null;
 }) {
   const content = section.content || {};
   const settings = section.settings || {};
@@ -1826,6 +1656,102 @@ function SectionPreview({ section, primaryColor, secondaryColor, isDark, text, t
     );
   }
 
+  // ── footer
+  if (t === 'footer') {
+    const socialLinks: any[] = content.social_links || [];
+    const layout = section.layout || 'columns';
+    const customText = content.custom_text || `\u00A9 ${new Date().getFullYear()} ${restaurant?.name || 'Restaurant'}. Powered by Foody.`;
+
+    if (layout === 'minimal') {
+      return (
+        <footer className="py-8 px-6 text-center" style={{ backgroundColor: sectionBg, borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
+          {socialLinks.length > 0 && (
+            <div className="flex items-center justify-center gap-3 mb-4">
+              {socialLinks.map((l: any, i: number) => (
+                <div key={i} className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: sectionTextSoft }}>
+                  {l.platform?.slice(0, 2)}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs" style={{ color: sectionTextSoft }}>{customText}</p>
+        </footer>
+      );
+    }
+
+    if (layout === 'centered') {
+      return (
+        <footer className="py-12 px-6 text-center" style={{ backgroundColor: sectionBg, borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
+          {content.show_logo !== false && (
+            <div className="flex items-center justify-center gap-3 mb-4">
+              {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />}
+              <h3 className="font-bold text-lg" style={{ color: sectionText }}>{restaurant?.name || 'Restaurant'}</h3>
+            </div>
+          )}
+          {content.show_description !== false && restaurant?.description && (
+            <p className="text-sm mb-4 max-w-md mx-auto" style={{ color: sectionTextSoft }}>{restaurant.description}</p>
+          )}
+          {content.show_address !== false && restaurant?.address && <p className="text-xs mb-1" style={{ color: sectionTextSoft }}>{restaurant.address}</p>}
+          {content.show_phone !== false && restaurant?.phone && <p className="text-xs mb-4" style={{ color: sectionTextSoft }}>{restaurant.phone}</p>}
+          {socialLinks.length > 0 && (
+            <div className="flex items-center justify-center gap-3 mb-4">
+              {socialLinks.map((l: any, i: number) => (
+                <div key={i} className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: sectionTextSoft }}>
+                  {l.platform?.slice(0, 2)}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs mt-4" style={{ color: sectionTextSoft }}>{customText}</p>
+        </footer>
+      );
+    }
+
+    // columns layout (default)
+    return (
+      <footer className="py-12 px-6" style={{ backgroundColor: sectionBg, borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
+        <div className="grid grid-cols-1 gap-6" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          <div>
+            {content.show_logo !== false && (
+              <div className="flex items-center gap-3 mb-3">
+                {restaurant?.logo_url && <img src={restaurant.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />}
+                <h3 className="font-bold" style={{ color: sectionText }}>{restaurant?.name || 'Restaurant'}</h3>
+              </div>
+            )}
+            {content.show_description !== false && restaurant?.description && (
+              <p className="text-xs" style={{ color: sectionTextSoft }}>{restaurant.description}</p>
+            )}
+          </div>
+          <div>
+            <h4 className="font-semibold text-sm mb-2" style={{ color: sectionText }}>Contact</h4>
+            {content.show_address !== false && restaurant?.address && <p className="text-xs mb-1" style={{ color: sectionTextSoft }}>{restaurant.address}</p>}
+            {content.show_phone !== false && restaurant?.phone && <p className="text-xs" style={{ color: sectionTextSoft }}>{restaurant.phone}</p>}
+          </div>
+          <div>
+            {content.show_hours !== false && (
+              <>
+                <h4 className="font-semibold text-sm mb-2" style={{ color: sectionText }}>Hours</h4>
+                <p className="text-xs" style={{ color: sectionTextSoft }}>Contact us for hours</p>
+              </>
+            )}
+          </div>
+        </div>
+        {socialLinks.length > 0 && (
+          <div className="flex items-center gap-3 mt-6 pt-6" style={{ borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}` }}>
+            {socialLinks.map((l: any, i: number) => (
+              <div key={i} className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold uppercase" style={{ backgroundColor: surfaceSubtle, color: sectionTextSoft }}>
+                {l.platform?.slice(0, 2)}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-6 pt-6 text-center text-xs" style={{ borderTop: `1px solid ${isDark ? '#3D3E44' : '#E4E5E7'}`, color: sectionTextSoft }}>
+          <p>{customText}</p>
+        </div>
+      </footer>
+    );
+  }
+
   // Fallback
   const meta = SECTION_TYPE_META[t];
   return (
@@ -1876,6 +1802,7 @@ function getDefaultContent(sectionType: string): Record<string, any> {
     case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
     case 'social_feed': return { links: [] };
     case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
+    case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
     default: return {};
   }
 }

@@ -182,12 +182,6 @@ export interface WebsiteConfig {
   show_hours: boolean;
   theme_mode: string;
   favicon_url: string;
-  hero_cta_text: string;
-  mid_cta_enabled: boolean;
-  mid_cta_title: string;
-  mid_cta_body: string;
-  mid_cta_btn_text: string;
-  footer_text: string;
 }
 
 export interface TodayStats {
