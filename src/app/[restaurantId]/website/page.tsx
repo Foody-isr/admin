@@ -90,6 +90,8 @@ export default function WebsitePage() {
   const [showAddress, setShowAddress] = useState(true);
   const [showPhone, setShowPhone] = useState(true);
   const [showHours, setShowHours] = useState(true);
+  const [menuLayout, setMenuLayout] = useState<string>('list');
+  const [cartStyle, setCartStyle] = useState<string>('bar-bottom');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -148,6 +150,8 @@ export default function WebsitePage() {
         setShowAddress(cfg.show_address ?? true);
         setShowPhone(cfg.show_phone ?? true);
         setShowHours(cfg.show_hours ?? true);
+        setMenuLayout(cfg.menu_layout || 'list');
+        setCartStyle(cfg.cart_style || 'bar-bottom');
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -171,6 +175,8 @@ export default function WebsitePage() {
         show_address: showAddress,
         show_phone: showPhone,
         show_hours: showHours,
+        menu_layout: menuLayout,
+        cart_style: cartStyle,
       });
       setConfig(updated);
       setSaved(true);
@@ -181,7 +187,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle]);
 
   // ─── Apply Site Style ───────────────────────────────────────────
 
@@ -501,6 +507,10 @@ export default function WebsitePage() {
                     onShowAddressChange={setShowAddress}
                     onShowPhoneChange={setShowPhone}
                     onShowHoursChange={setShowHours}
+                    menuLayout={menuLayout}
+                    cartStyle={cartStyle}
+                    onMenuLayoutChange={setMenuLayout}
+                    onCartStyleChange={setCartStyle}
                     onRestaurantUpdate={setRestaurant}
                   />
                 </>
@@ -592,7 +602,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onRestaurantUpdate }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, menuLayout, cartStyle, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onMenuLayoutChange, onCartStyleChange, onRestaurantUpdate }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -600,11 +610,15 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
+  menuLayout: string;
+  cartStyle: string;
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
+  onMenuLayoutChange: (v: string) => void;
+  onCartStyleChange: (v: string) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
 }) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -754,6 +768,53 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
             </button>
           </label>
         ))}
+      </div>
+
+      {/* Menu Page Settings */}
+      <div className="mt-6 pt-4 border-t border-divider">
+        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Menu Page</h3>
+
+        <div className="mb-4">
+          <label className="text-xs text-fg-secondary mb-1.5 block">Item Layout</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              { value: 'list', label: 'List', icon: '☰' },
+              { value: 'grid', label: 'Grid', icon: '⊞' },
+              { value: 'compact', label: 'Compact', icon: '≡' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onMenuLayoutChange(opt.value)}
+                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${menuLayout === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
+              >
+                <span className="text-base">{opt.icon}</span>
+                <span className="font-medium">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-fg-secondary mb-1.5 block">Cart Button Style</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              { value: 'bar-bottom', label: 'Bottom Bar', icon: '▬' },
+              { value: 'fab-right', label: 'FAB', icon: '●' },
+              { value: 'tab-right', label: 'Side Tab', icon: '▐' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onCartStyleChange(opt.value)}
+                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${cartStyle === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
+              >
+                <span className="text-base">{opt.icon}</span>
+                <span className="font-medium">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

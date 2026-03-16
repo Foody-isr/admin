@@ -182,6 +182,8 @@ export interface WebsiteConfig {
   show_hours: boolean;
   theme_mode: string;
   favicon_url: string;
+  menu_layout: string;
+  cart_style: string;
 }
 
 export interface TodayStats {
