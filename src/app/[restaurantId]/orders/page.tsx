@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
-  Order, OrderStatus, ListOrdersParams,
+  Order, OrderItem, OrderStatus, ListOrdersParams,
 } from '@/lib/api';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
@@ -584,48 +584,72 @@ function OrderDetailPanel({
         <div>
           <h3 className="text-base font-bold text-fg-primary mb-4">Items</h3>
           <div className="space-y-0">
-            {(order.items ?? []).map((item) => (
-              <div
-                key={item.id}
-                className="py-3"
-                style={{ borderBottom: '1px solid var(--divider)' }}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                    style={{ background: itemColor(item.name) }}
-                  >
-                    {itemInitials(item.name)}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-fg-primary">{item.name}</span>
-                    <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
-                  </div>
-                  <span className="text-sm text-fg-primary font-medium">
-                    ₪{(item.price * item.quantity).toFixed(2)}
-                  </span>
-                </div>
-                {/* Modifiers */}
-                {item.modifiers && item.modifiers.length > 0 && (
-                  <div className="ml-12 mt-1 space-y-0.5">
-                    {item.modifiers.map((mod) => (
-                      <div key={mod.id} className="flex items-center justify-between text-xs text-fg-secondary">
-                        <span>{mod.action === 'remove' ? '−' : '+'} {mod.name}</span>
-                        {mod.price_delta !== 0 && (
-                          <span>{mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}</span>
-                        )}
+            {(() => {
+              const allItems = order.items ?? [];
+              const regularItems = allItems.filter((i) => !i.combo_group);
+              const comboGroups = new Map<string, typeof allItems>();
+              for (const item of allItems) {
+                if (item.combo_group) {
+                  const group = comboGroups.get(item.combo_group) ?? [];
+                  group.push(item);
+                  comboGroups.set(item.combo_group, group);
+                }
+              }
+
+              // Fallback combo price computation
+              const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
+              const comboDeltasTotal = Array.from(comboGroups.values()).reduce(
+                (s: number, group: OrderItem[]) => s + group.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0), 0
+              );
+              const remainingForCombos = (order.total_amount ?? 0) - regularTotal - comboDeltasTotal;
+              const comboCount = comboGroups.size;
+
+              return (
+                <>
+                  {regularItems.map((item) => (
+                    <AdminOrderItemRow key={item.id} item={item} />
+                  ))}
+                  {Array.from(comboGroups.entries()).map(([group, comboItems]: [string, OrderItem[]]) => {
+                    const basePrice = comboItems[0].combo_price || (comboCount > 0 ? remainingForCombos / comboCount : 0);
+                    const itemDeltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
+                    return (
+                      <div
+                        key={group}
+                        className="py-3"
+                        style={{ borderBottom: '1px solid var(--divider)' }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-[16px] flex-shrink-0"
+                            style={{ background: 'var(--brand-light, #FEF3C7)' }}
+                          >
+                            🍱
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-fg-primary">
+                              {comboItems[0].combo_name || 'Menu Combo'}
+                            </span>
+                          </div>
+                          <span className="text-sm text-fg-primary font-medium">
+                            ₪{(basePrice + itemDeltas).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="ml-12 mt-1 space-y-0.5">
+                          {comboItems.map((ci: OrderItem) => (
+                            <div key={ci.id} className="flex items-center justify-between text-xs text-fg-secondary">
+                              <span>↳ {ci.quantity > 1 ? `${ci.quantity}× ` : ''}{ci.name}</span>
+                              {ci.price > 0 && (
+                                <span>+₪{(ci.price * ci.quantity).toFixed(2)}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {/* Notes */}
-                {item.notes && (
-                  <div className="ml-12 mt-1 text-xs text-fg-secondary italic">
-                    Note: {item.notes}
-                  </div>
-                )}
-              </div>
-            ))}
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -641,6 +665,50 @@ function OrderDetailPanel({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Order Item Row ─────────────────────────────────────────────────────────
+
+function AdminOrderItemRow({ item }: { item: OrderItem }) {
+  return (
+    <div
+      className="py-3"
+      style={{ borderBottom: '1px solid var(--divider)' }}
+    >
+      <div className="flex items-center gap-3">
+        <span
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+          style={{ background: itemColor(item.name) }}
+        >
+          {itemInitials(item.name)}
+        </span>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-fg-primary">{item.name}</span>
+          <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
+        </div>
+        <span className="text-sm text-fg-primary font-medium">
+          ₪{(item.price * item.quantity).toFixed(2)}
+        </span>
+      </div>
+      {item.modifiers && item.modifiers.length > 0 && (
+        <div className="ml-12 mt-1 space-y-0.5">
+          {item.modifiers.map((mod) => (
+            <div key={mod.id} className="flex items-center justify-between text-xs text-fg-secondary">
+              <span>{mod.action === 'remove' ? '−' : '+'} {mod.name}</span>
+              {mod.price_delta !== 0 && (
+                <span>{mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {item.notes && (
+        <div className="ml-12 mt-1 text-xs text-fg-secondary italic">
+          Note: {item.notes}
+        </div>
+      )}
     </div>
   );
 }

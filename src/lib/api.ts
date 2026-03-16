@@ -105,6 +105,10 @@ export interface OrderItem {
   notes?: string;
   target_station?: string;
   modifiers?: OrderItemModifier[];
+  combo_menu_id?: number;
+  combo_group?: string;
+  combo_name?: string;
+  combo_price?: number;
 }
 
 export interface Order {
