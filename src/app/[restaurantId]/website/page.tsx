@@ -546,6 +546,8 @@ export default function WebsitePage() {
             secondaryColor={secondaryColor}
             fontFamily={fontFamily}
             themeMode={themeMode}
+            menuLayout={menuLayout}
+            cartStyle={cartStyle}
             sections={sections}
             selectedSectionId={selectedSectionId}
           />
@@ -1235,7 +1237,7 @@ function ActionButtonsEditor({ content, updateContent }: {
 }
 
 
-function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, sections, selectedSectionId }: {
+function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, sections, selectedSectionId }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
@@ -1243,6 +1245,8 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   secondaryColor: string;
   fontFamily: string;
   themeMode: 'light' | 'dark';
+  menuLayout: string;
+  cartStyle: string;
   sections: WebsiteSection[];
   selectedSectionId: number | null;
 }) {
@@ -1258,10 +1262,10 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
 
-    // Send theme overrides
+    // Send theme overrides (includes menu page settings so order iframe updates too)
     iframe.contentWindow.postMessage({
       type: 'foody-theme-override',
-      config: { primaryColor, secondaryColor, fontFamily, themeMode },
+      config: { primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle },
     }, '*');
 
     // Send section content overrides
@@ -1275,7 +1279,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
       type: 'foody-highlight-section',
       sectionId: selectedSectionId,
     }, '*');
-  }, [primaryColor, secondaryColor, fontFamily, themeMode, sections, selectedSectionId]);
+  }, [primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, sections, selectedSectionId]);
 
   // Send overrides whenever they change
   useEffect(() => {
