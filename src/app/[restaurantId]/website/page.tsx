@@ -1187,15 +1187,14 @@ function PreviewPanel({ mode, activePage, restaurant, config, sections, primaryC
           key={section.id}
           className="relative transition-all cursor-pointer"
           onClick={() => onSelectSection?.(section.id)}
-          style={{
-            outline: selectedSectionId === section.id ? `2px solid ${primaryColor}` : 'none',
-            outlineOffset: -2,
-          }}
         >
           {selectedSectionId === section.id && (
-            <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
-              {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
-            </div>
+            <>
+              <div className="absolute inset-0 z-30 pointer-events-none" style={{ border: `2px solid ${primaryColor}` }} />
+              <div className="absolute top-2 left-2 z-30 px-2 py-0.5 rounded text-[10px] font-bold text-white" style={{ backgroundColor: primaryColor }}>
+                {SECTION_TYPE_META[section.section_type]?.label || section.section_type}
+              </div>
+            </>
           )}
           <SectionPreview section={section} primaryColor={primaryColor} secondaryColor={secondaryColor} isDark={isDark} text={text} textSoft={textMuted} surface={surface} fontFamily={fontFamily} restaurant={restaurant} />
         </div>
