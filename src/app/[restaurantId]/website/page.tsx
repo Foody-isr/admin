@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
@@ -62,6 +62,7 @@ type Tab = 'styles' | 'sections';
 
 export default function WebsitePage() {
   const params = useParams();
+  const router = useRouter();
   const restaurantId = Number(params.restaurantId);
 
   const [loading, setLoading] = useState(true);
@@ -374,12 +375,12 @@ export default function WebsitePage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col">
+    <div className="h-screen flex flex-col">
       {/* Top Bar — Wix-style */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-divider" style={{ background: 'var(--surface)' }}>
         {/* Left: back + title */}
         <div className="flex items-center gap-3">
-          <button onClick={() => window.history.back()} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition">
+          <button onClick={() => router.push(`/${restaurantId}/dashboard`)} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition" title="Back to dashboard">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-subtle">

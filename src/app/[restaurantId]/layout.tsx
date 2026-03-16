@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
@@ -12,8 +12,10 @@ import { getRestaurant, Restaurant } from '@/lib/api';
 function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, loading, restaurantIds } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const params = useParams();
   const restaurantId = Number(params.restaurantId);
+  const isFullscreen = pathname.endsWith('/website');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
@@ -46,6 +48,15 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!isLoggedIn || !restaurant) return null;
+
+  if (isFullscreen) {
+    return (
+      <WsProvider restaurantId={restaurantId}>
+        <div className="min-h-screen">{children}</div>
+        {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+      </WsProvider>
+    );
+  }
 
   return (
     <WsProvider restaurantId={restaurantId}>
