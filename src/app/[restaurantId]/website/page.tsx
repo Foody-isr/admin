@@ -1018,6 +1018,79 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
         )}
       </div>
 
+      {/* Typography */}
+      {['hero_banner', 'text_and_image', 'about', 'promo_banner', 'scrolling_text', 'footer'].includes(section.section_type) && (
+        <div>
+          <h3 className="text-sm font-semibold text-fg-secondary mb-2">Typography</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-fg-secondary mb-1.5 block">Heading Size</label>
+              <div className="flex gap-1.5">
+                {[
+                  { value: 'sm', label: 'S' },
+                  { value: 'md', label: 'M' },
+                  { value: 'lg', label: 'L' },
+                  { value: 'xl', label: 'XL' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateSettings('heading_size', opt.value)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      (settings.heading_size || 'md') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-fg-secondary mb-1.5 block">Body Size</label>
+              <div className="flex gap-1.5">
+                {[
+                  { value: 'sm', label: 'S' },
+                  { value: 'md', label: 'M' },
+                  { value: 'lg', label: 'L' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateSettings('body_size', opt.value)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      (settings.body_size || 'md') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-fg-secondary mb-1.5 block">Font Weight</label>
+              <div className="flex gap-1.5">
+                {[
+                  { value: 'normal', label: 'Regular' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'bold', label: 'Bold' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateSettings('font_weight', opt.value)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                      (settings.font_weight || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content fields */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-fg-secondary">Content</h3>
