@@ -234,7 +234,7 @@ export default function OrdersPage() {
   // ─── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="flex gap-0" style={{ minHeight: 'calc(100vh - 120px)' }}>
+    <div className="flex gap-0" style={{ height: 'calc(100vh - 120px)' }}>
       {/* Left: table list */}
       <div className={`flex-1 min-w-0 space-y-5 transition-all ${selectedOrder ? 'pr-0' : ''}`}>
         {/* Header */}
@@ -507,11 +507,11 @@ function OrderDetailPanel({
 }) {
   return (
     <div
-      className="w-[420px] flex-shrink-0 overflow-y-auto ml-5"
+      className="w-[420px] flex-shrink-0 flex flex-col ml-5 h-full"
       style={{ borderLeft: '1px solid var(--divider)', background: 'var(--surface)' }}
     >
       {/* Panel header */}
-      <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
+      <div className="flex-shrink-0 flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
         <button
           onClick={onClose}
           className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
@@ -537,7 +537,7 @@ function OrderDetailPanel({
         </div>
       </div>
 
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-6 py-6 space-y-6 overflow-y-auto flex-1 min-h-0">
         {/* Title */}
         <div>
           <h2 className="text-xl font-bold text-fg-primary">Order #{order.id}</h2>

@@ -512,16 +512,29 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
               className="input resize-y text-sm"
             />
 
-            {/* Image placeholder */}
-            <div
-              className="flex flex-col items-center justify-center py-12 rounded-card cursor-pointer"
-              style={{ border: '2px dashed var(--divider)' }}
-            >
-              <PhotoIcon className="w-8 h-8 text-fg-secondary mb-2" />
-              <p className="text-sm text-fg-secondary">
-                Drop images here, <span className="underline">browse files</span>
-              </p>
-            </div>
+            {/* Image placeholder / existing image */}
+            {editing?.image_url ? (
+              <div className="relative rounded-card overflow-hidden cursor-pointer group"
+                style={{ border: '2px solid var(--divider)' }}>
+                <img src={editing.image_url} alt={editing.name} className="w-full h-48 object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
+                  <PhotoIcon className="w-8 h-8 text-white mb-2" />
+                  <p className="text-sm text-white">
+                    Drop images here, <span className="underline">browse files</span>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center py-12 rounded-card cursor-pointer"
+                style={{ border: '2px dashed var(--divider)' }}
+              >
+                <PhotoIcon className="w-8 h-8 text-fg-secondary mb-2" />
+                <p className="text-sm text-fg-secondary">
+                  Drop images here, <span className="underline">browse files</span>
+                </p>
+              </div>
+            )}
 
             {/* Modifiers section for existing items */}
             {editing && (
