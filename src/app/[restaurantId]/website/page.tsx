@@ -164,8 +164,25 @@ export default function WebsitePage() {
   // ─── Save Config ────────────────────────────────────────────────
 
   const handleSaveConfig = useCallback(async () => {
+    // Flush any pending debounced section save
+    if (sectionSaveTimerRef.current) {
+      clearTimeout(sectionSaveTimerRef.current);
+      sectionSaveTimerRef.current = null;
+    }
+
     setSaving(true); setSaved(false); setError('');
     try {
+      // Save any unsaved section changes first
+      const savePromises = sections.map(s =>
+        updateWebsiteSection(restaurantId, s.id, {
+          content: s.content,
+          settings: s.settings,
+          layout: s.layout,
+          is_visible: s.is_visible,
+        }).catch(() => {}) // ignore individual failures
+      );
+      await Promise.all(savePromises);
+
       const updated = await updateWebsiteConfig(restaurantId, {
         primary_color: primaryColor,
         secondary_color: secondaryColor,
@@ -187,7 +204,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle, sections]);
 
   const handleResetConfig = useCallback(async () => {
     try {
@@ -261,14 +278,30 @@ export default function WebsitePage() {
     }
   }
 
-  async function handleUpdateSection(sectionId: number, updates: Partial<WebsiteSection>) {
-    try {
-      const updated = await updateWebsiteSection(restaurantId, sectionId, updates);
-      setSections(prev => prev.map(s => s.id === sectionId ? updated : s));
+  // Debounced API save for section updates
+  const sectionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to update section');
-    }
+  function handleUpdateSection(sectionId: number, updates: Partial<WebsiteSection>) {
+    // Optimistic local update — immediate, so iframe gets it right away
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s;
+      return {
+        ...s,
+        ...updates,
+        content: updates.content ? { ...s.content, ...updates.content } : s.content,
+        settings: updates.settings ? { ...s.settings, ...updates.settings } : s.settings,
+      };
+    }));
+
+    // Debounce the actual API save (500ms)
+    if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
+    sectionSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await updateWebsiteSection(restaurantId, sectionId, updates);
+      } catch (err: any) {
+        setError(err.message || 'Failed to update section');
+      }
+    }, 500);
   }
 
   async function handleMoveSection(sectionId: number, direction: 'up' | 'down') {
@@ -476,6 +509,7 @@ export default function WebsitePage() {
             secondaryColor={secondaryColor}
             fontFamily={fontFamily}
             themeMode={themeMode}
+            sections={sections}
           />
         </div>
 
@@ -1217,7 +1251,7 @@ function ActionButtonsEditor({ content, updateContent }: {
 }
 
 
-function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode }: {
+function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, sections }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
@@ -1225,6 +1259,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   secondaryColor: string;
   fontFamily: string;
   themeMode: 'light' | 'dark';
+  sections: WebsiteSection[];
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -1233,31 +1268,33 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   const pagePath = activePage === 'menu' ? `/r/${slug}/order` : `/r/${slug}`;
   const iframeSrc = `${webUrl}${pagePath}`;
 
-  // Send theme overrides to the iframe in real-time
-  useEffect(() => {
+  // Helper to send all overrides to iframe
+  const sendOverrides = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
 
-    const msg = {
-      type: 'foody-theme-override',
-      config: {
-        primaryColor,
-        secondaryColor,
-        fontFamily,
-        themeMode,
-      },
-    };
-    iframe.contentWindow.postMessage(msg, '*');
-  }, [primaryColor, secondaryColor, fontFamily, themeMode]);
-
-  // Also send on iframe load
-  const handleIframeLoad = () => {
-    const iframe = iframeRef.current;
-    if (!iframe?.contentWindow) return;
+    // Send theme overrides
     iframe.contentWindow.postMessage({
       type: 'foody-theme-override',
       config: { primaryColor, secondaryColor, fontFamily, themeMode },
     }, '*');
+
+    // Send section content overrides
+    iframe.contentWindow.postMessage({
+      type: 'foody-sections-override',
+      sections,
+    }, '*');
+  }, [primaryColor, secondaryColor, fontFamily, themeMode, sections]);
+
+  // Send overrides whenever they change
+  useEffect(() => {
+    sendOverrides();
+  }, [sendOverrides]);
+
+  // Also send on iframe load
+  const handleIframeLoad = () => {
+    // Small delay to ensure the iframe's React app has mounted and listeners are ready
+    setTimeout(sendOverrides, 500);
   };
 
   if (!slug) {
