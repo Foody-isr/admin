@@ -92,6 +92,8 @@ export default function WebsitePage() {
   const [showHours, setShowHours] = useState(true);
   const [menuLayout, setMenuLayout] = useState<string>('list');
   const [cartStyle, setCartStyle] = useState<string>('bar-bottom');
+  const [navbarStyle, setNavbarStyle] = useState<string>('solid');
+  const [navbarColor, setNavbarColor] = useState<string>('');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -183,6 +185,8 @@ export default function WebsitePage() {
         setShowHours(cfg.show_hours ?? true);
         setMenuLayout(cfg.menu_layout || 'list');
         setCartStyle(cfg.cart_style || 'bar-bottom');
+        setNavbarStyle(cfg.navbar_style || 'solid');
+        setNavbarColor(cfg.navbar_color || '');
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -225,6 +229,8 @@ export default function WebsitePage() {
         show_hours: showHours,
         menu_layout: menuLayout,
         cart_style: cartStyle,
+        navbar_style: navbarStyle,
+        navbar_color: navbarColor,
       });
       setConfig(updated);
       setSaved(true);
@@ -235,7 +241,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle, sections]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle, navbarStyle, navbarColor, sections]);
 
   const handleResetConfig = useCallback(async () => {
     try {
@@ -251,6 +257,8 @@ export default function WebsitePage() {
       setShowHours(cfg.show_hours ?? true);
       setMenuLayout(cfg.menu_layout || 'list');
       setCartStyle(cfg.cart_style || 'bar-bottom');
+      setNavbarStyle(cfg.navbar_style || 'solid');
+      setNavbarColor(cfg.navbar_color || '');
     } catch (err: any) {
       setError(err.message || 'Failed to reset');
     }
@@ -564,6 +572,8 @@ export default function WebsitePage() {
             themeMode={themeMode}
             menuLayout={menuLayout}
             cartStyle={cartStyle}
+            navbarStyle={navbarStyle}
+            navbarColor={navbarColor}
             sections={sections}
             selectedSectionId={selectedSectionId}
           />
@@ -603,11 +613,15 @@ export default function WebsitePage() {
                     showAddress={showAddress}
                     showPhone={showPhone}
                     showHours={showHours}
+                    navbarStyle={navbarStyle}
+                    navbarColor={navbarColor}
                     onTaglineChange={setTagline}
                     onThemeModeChange={setThemeMode}
                     onShowAddressChange={setShowAddress}
                     onShowPhoneChange={setShowPhone}
                     onShowHoursChange={setShowHours}
+                    onNavbarStyleChange={setNavbarStyle}
+                    onNavbarColorChange={setNavbarColor}
                     onRestaurantUpdate={setRestaurant}
                     onReset={handleResetConfig}
                   />
@@ -700,7 +714,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onRestaurantUpdate, onReset }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onRestaurantUpdate, onReset }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -708,11 +722,15 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
+  navbarStyle: string;
+  navbarColor: string;
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
+  onNavbarStyleChange: (v: string) => void;
+  onNavbarColorChange: (v: string) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
   onReset: () => void;
 }) {
@@ -847,6 +865,35 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
             <span className="text-sm font-medium text-fg-primary">Dark</span>
           </button>
         </div>
+      </div>
+
+      {/* Navbar Style */}
+      <div>
+        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Navigation Bar</h3>
+        <div className="flex gap-2 mb-3">
+          {[
+            { value: 'solid', label: 'Solid' },
+            { value: 'transparent', label: 'Transparent' },
+            { value: 'custom', label: 'Custom' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => onNavbarStyleChange(opt.value)}
+              className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                navbarStyle === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {navbarStyle === 'custom' && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-fg-secondary w-20">Color</label>
+            <input type="color" value={navbarColor || '#1f2937'} onChange={e => onNavbarColorChange(e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
+            <input type="text" value={navbarColor || '#1f2937'} onChange={e => onNavbarColorChange(e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
+          </div>
+        )}
       </div>
 
       <div>
@@ -1340,7 +1387,7 @@ function ActionButtonsEditor({ content, updateContent }: {
 }
 
 
-function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, sections, selectedSectionId }: {
+function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, sections, selectedSectionId }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
@@ -1350,6 +1397,8 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   themeMode: 'light' | 'dark';
   menuLayout: string;
   cartStyle: string;
+  navbarStyle: string;
+  navbarColor: string;
   sections: WebsiteSection[];
   selectedSectionId: number | null;
 }) {
@@ -1368,7 +1417,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
     // Send theme overrides (includes menu page settings so order iframe updates too)
     iframe.contentWindow.postMessage({
       type: 'foody-theme-override',
-      config: { primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle },
+      config: { primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor },
     }, '*');
 
     // Send section content overrides
@@ -1382,7 +1431,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
       type: 'foody-highlight-section',
       sectionId: selectedSectionId,
     }, '*');
-  }, [primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, sections, selectedSectionId]);
+  }, [primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, sections, selectedSectionId]);
 
   // Send overrides whenever they change
   useEffect(() => {

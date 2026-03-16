@@ -184,6 +184,8 @@ export interface WebsiteConfig {
   favicon_url: string;
   menu_layout: string;
   cart_style: string;
+  navbar_style: string;
+  navbar_color: string;
 }
 
 export interface TodayStats {
