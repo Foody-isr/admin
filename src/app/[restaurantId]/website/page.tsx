@@ -1282,10 +1282,11 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
     sendOverrides();
   }, [sendOverrides]);
 
-  // Also send on iframe load
+  // Also send on iframe load — retry a few times to ensure React has mounted listeners
   const handleIframeLoad = () => {
-    // Small delay to ensure the iframe's React app has mounted and listeners are ready
-    setTimeout(sendOverrides, 500);
+    setTimeout(sendOverrides, 300);
+    setTimeout(sendOverrides, 800);
+    setTimeout(sendOverrides, 1500);
   };
 
   if (!slug) {
