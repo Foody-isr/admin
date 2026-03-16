@@ -132,14 +132,28 @@ export default function WebsitePage() {
         // Auto-create default sections if restaurant has none
         if (sects.length === 0) {
           const defaults = [
-            { section_type: 'hero_banner', page: 'home', is_visible: true, layout: 'default', sort_order: 0, content: getDefaultContent('hero_banner'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } },
+            { section_type: 'hero_banner', page: 'home', is_visible: true, layout: 'centered', sort_order: 0, content: getDefaultContent('hero_banner'), settings: { color_style: 'brand', text_alignment: 'center', padding: 'normal' } },
             { section_type: 'action_buttons', page: 'home', is_visible: true, layout: 'default', sort_order: 1, content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } },
-            { section_type: 'footer', page: 'home', is_visible: true, layout: 'columns', sort_order: 99, content: getDefaultContent('footer'), settings: { color_style: 'light' } },
+            { section_type: 'footer', page: 'home', is_visible: true, layout: 'columns', sort_order: 99, content: getDefaultContent('footer'), settings: { color_style: 'dark' } },
           ];
           const created = await Promise.all(defaults.map(d => createWebsiteSection(restaurantId, d)));
           setSections(created);
         } else {
-          setSections(sects);
+          // Auto-create missing essential sections for existing restaurants
+          const existingTypes = new Set(sects.map(s => s.section_type));
+          const missing: { section_type: string; sort_order: number; layout: string; content: Record<string, any>; settings: Record<string, any> }[] = [];
+          if (!existingTypes.has('footer')) {
+            missing.push({ section_type: 'footer', sort_order: 99, layout: 'columns', content: getDefaultContent('footer'), settings: { color_style: 'dark' } });
+          }
+          if (!existingTypes.has('action_buttons')) {
+            missing.push({ section_type: 'action_buttons', sort_order: sects.length, layout: 'default', content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } });
+          }
+          if (missing.length > 0) {
+            const created = await Promise.all(missing.map(d => createWebsiteSection(restaurantId, { ...d, page: 'home', is_visible: true })));
+            setSections([...sects, ...created]);
+          } else {
+            setSections(sects);
+          }
         }
 
         setPrimaryColor(cfg.primary_color || '#EB5204');
