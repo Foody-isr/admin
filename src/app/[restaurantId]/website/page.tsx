@@ -467,7 +467,7 @@ export default function WebsitePage() {
                 </button>
               )}
               <span className="text-xs text-fg-secondary ml-auto">
-                {activePage === 'home' ? 'Edit sections' : 'Preview only'}
+                {activePage === 'home' ? 'Edit sections' : 'Menu settings'}
               </span>
             </div>
           </div>
@@ -483,30 +483,53 @@ export default function WebsitePage() {
                 onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
               />
             ) : (
-              <div className="px-3 py-6">
-                <p className="text-xs text-fg-secondary leading-relaxed mb-4">
-                  This page is auto-generated from your menu and settings.
+              <div className="px-3 py-4 space-y-5">
+                <p className="text-xs text-fg-secondary leading-relaxed">
+                  Menu content is auto-generated from your items. Customize its appearance below.
                 </p>
-                <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
-                  <p className="text-xs font-medium text-fg-primary mb-2">Customize via site settings:</p>
-                  <ul className="text-xs text-fg-secondary space-y-1.5">
-                    <li className="flex items-start gap-1.5">
-                      <span className="mt-0.5 shrink-0">•</span>
-                      <span>Logo &amp; cover image</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="mt-0.5 shrink-0">•</span>
-                      <span>Brand color &amp; font</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="mt-0.5 shrink-0">•</span>
-                      <span>Show/hide address, phone, hours</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="mt-0.5 shrink-0">•</span>
-                      <span>Theme (light / dark)</span>
-                    </li>
-                  </ul>
+
+                {/* Item Layout */}
+                <div>
+                  <label className="text-xs font-semibold text-fg-secondary mb-2 block">Item Layout</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { value: 'list', label: 'List', icon: '☰' },
+                      { value: 'grid', label: 'Grid', icon: '⊞' },
+                      { value: 'compact', label: 'Compact', icon: '≡' },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setMenuLayout(opt.value)}
+                        className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${menuLayout === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
+                      >
+                        <span className="text-base">{opt.icon}</span>
+                        <span className="font-medium">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cart Button Style */}
+                <div>
+                  <label className="text-xs font-semibold text-fg-secondary mb-2 block">Cart Button Style</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { value: 'bar-bottom', label: 'Bottom Bar', icon: '▬' },
+                      { value: 'fab-right', label: 'FAB', icon: '●' },
+                      { value: 'tab-right', label: 'Side Tab', icon: '▐' },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setCartStyle(opt.value)}
+                        className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${cartStyle === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
+                      >
+                        <span className="text-base">{opt.icon}</span>
+                        <span className="font-medium">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -567,10 +590,6 @@ export default function WebsitePage() {
                     onShowAddressChange={setShowAddress}
                     onShowPhoneChange={setShowPhone}
                     onShowHoursChange={setShowHours}
-                    menuLayout={menuLayout}
-                    cartStyle={cartStyle}
-                    onMenuLayoutChange={setMenuLayout}
-                    onCartStyleChange={setCartStyle}
                     onRestaurantUpdate={setRestaurant}
                     onReset={handleResetConfig}
                   />
@@ -663,7 +682,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, menuLayout, cartStyle, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onMenuLayoutChange, onCartStyleChange, onRestaurantUpdate, onReset }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onRestaurantUpdate, onReset }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -671,15 +690,11 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
-  menuLayout: string;
-  cartStyle: string;
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
-  onMenuLayoutChange: (v: string) => void;
-  onCartStyleChange: (v: string) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
   onReset: () => void;
 }) {
@@ -847,52 +862,6 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
         </button>
       </div>
 
-      {/* Menu Page Settings */}
-      <div className="mt-6 pt-4 border-t border-divider">
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Menu Page</h3>
-
-        <div className="mb-4">
-          <label className="text-xs text-fg-secondary mb-1.5 block">Item Layout</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { value: 'list', label: 'List', icon: '☰' },
-              { value: 'grid', label: 'Grid', icon: '⊞' },
-              { value: 'compact', label: 'Compact', icon: '≡' },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onMenuLayoutChange(opt.value)}
-                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${menuLayout === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
-              >
-                <span className="text-base">{opt.icon}</span>
-                <span className="font-medium">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs text-fg-secondary mb-1.5 block">Cart Button Style</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { value: 'bar-bottom', label: 'Bottom Bar', icon: '▬' },
-              { value: 'fab-right', label: 'FAB', icon: '●' },
-              { value: 'tab-right', label: 'Side Tab', icon: '▐' },
-            ].map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onCartStyleChange(opt.value)}
-                className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${cartStyle === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
-              >
-                <span className="text-base">{opt.icon}</span>
-                <span className="font-medium">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
