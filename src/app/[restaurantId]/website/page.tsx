@@ -508,11 +508,10 @@ export default function WebsitePage() {
                 {/* Item Layout */}
                 <div>
                   <label className="text-xs font-semibold text-fg-secondary mb-2 block">Item Layout</label>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {[
                       { value: 'list', label: 'List', icon: '☰' },
                       { value: 'grid', label: 'Grid', icon: '⊞' },
-                      { value: 'compact', label: 'Compact', icon: '≡' },
                     ].map(opt => (
                       <button
                         key={opt.value}
