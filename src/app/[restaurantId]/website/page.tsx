@@ -510,6 +510,7 @@ export default function WebsitePage() {
             fontFamily={fontFamily}
             themeMode={themeMode}
             sections={sections}
+            selectedSectionId={selectedSectionId}
           />
         </div>
 
@@ -1251,7 +1252,7 @@ function ActionButtonsEditor({ content, updateContent }: {
 }
 
 
-function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, sections }: {
+function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, sections, selectedSectionId }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
@@ -1260,6 +1261,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   fontFamily: string;
   themeMode: 'light' | 'dark';
   sections: WebsiteSection[];
+  selectedSectionId: number | null;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -1284,7 +1286,13 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
       type: 'foody-sections-override',
       sections,
     }, '*');
-  }, [primaryColor, secondaryColor, fontFamily, themeMode, sections]);
+
+    // Send section highlight
+    iframe.contentWindow.postMessage({
+      type: 'foody-highlight-section',
+      sectionId: selectedSectionId,
+    }, '*');
+  }, [primaryColor, secondaryColor, fontFamily, themeMode, sections, selectedSectionId]);
 
   // Send overrides whenever they change
   useEffect(() => {
