@@ -736,6 +736,10 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
 }) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [pickerColor, setPickerColor] = useState(restaurant?.background_color || '#EB5204');
+
+  const coverMode = restaurant?.cover_display_mode || 'cover';
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -750,6 +754,13 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
     } finally {
       setUploadingLogo(false);
     }
+  }
+
+  async function handleRemoveLogo() {
+    try {
+      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, logo_url: '' } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } catch { /* */ }
   }
 
   async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -767,55 +778,181 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
     }
   }
 
+  async function handleRemoveCover() {
+    try {
+      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, cover_url: '', background_color: '' } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } catch { /* */ }
+  }
+
+  async function handleSetDisplayMode(mode: string) {
+    try {
+      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, cover_display_mode: mode } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } catch { /* */ }
+  }
+
+  async function handleSetBackgroundColor(hex: string) {
+    try {
+      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, background_color: hex, cover_url: '' } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } catch { /* */ }
+  }
+
+  const DISPLAY_MODES = [
+    { value: 'cover', label: 'Fill', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>) },
+    { value: 'contain', label: 'Fit', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" /></svg>) },
+    { value: 'repeat', label: 'Repeat', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>) },
+  ];
+
+  const PRESET_COLORS = [
+    '#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
+    '#2196F3', '#03A9F4', '#009688', '#4CAF50', '#8BC34A',
+    '#FF9800', '#FF5722', '#795548', '#607D8B', '#212121',
+  ];
+
   return (
     <div className="max-w-xl space-y-6">
-      {/* Branding Images */}
+      {/* Branding */}
       <div>
-        <h2 className="text-lg font-semibold text-fg-primary mb-4">Branding</h2>
-        <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-fg-primary mb-1">Branding</h2>
+        <p className="text-xs text-fg-secondary mb-4">Customize your online menu appearance. Customers will see your logo and background image.</p>
+        <div className="space-y-6">
           {/* Logo */}
           <div>
             <label className="block text-sm font-medium text-fg-primary mb-2">Logo</label>
             <div className="flex items-center gap-3">
               {restaurant?.logo_url ? (
-                <img src={restaurant.logo_url} alt="Logo" className="w-16 h-16 rounded-full object-cover border border-[var(--divider)]" />
+                <img src={restaurant.logo_url} alt="Logo" className="w-20 h-20 rounded-full object-cover border-2 border-[var(--divider)]" />
               ) : (
-                <div className="w-16 h-16 rounded-full border-2 border-dashed border-[var(--divider)] flex items-center justify-center text-fg-secondary">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <div className="w-20 h-20 rounded-full border-2 border-dashed border-[var(--divider)] flex items-center justify-center text-fg-secondary">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </div>
               )}
-              <label className={`px-3 py-1.5 rounded-lg border border-[var(--divider)] text-xs font-medium cursor-pointer hover:bg-surface-subtle transition ${uploadingLogo ? 'opacity-50 pointer-events-none' : 'text-fg-primary'}`}>
-                {uploadingLogo ? 'Uploading...' : 'Change logo'}
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-              </label>
+              <div className="flex flex-col gap-2">
+                <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--divider)] text-xs font-medium cursor-pointer hover:bg-[var(--surface-hover)] transition ${uploadingLogo ? 'opacity-50 pointer-events-none' : 'text-fg-primary'}`}>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                  {uploadingLogo ? 'Uploading...' : (restaurant?.logo_url ? 'Change' : 'Upload')}
+                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                </label>
+                {restaurant?.logo_url && (
+                  <button onClick={handleRemoveLogo} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-600 hover:bg-red-50 transition">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Remove
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Cover Image */}
+          {/* Background */}
           <div>
-            <label className="block text-sm font-medium text-fg-primary mb-2">Cover Image</label>
-            {restaurant?.cover_url ? (
-              <div className="relative rounded-lg overflow-hidden border border-[var(--divider)]">
-                <img src={restaurant.cover_url} alt="Cover" className="w-full h-32 object-cover" />
-                <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition cursor-pointer">
-                  <span className="px-3 py-1.5 rounded-lg bg-white/90 text-xs font-medium text-gray-900">
-                    {uploadingCover ? 'Uploading...' : 'Change cover'}
-                  </span>
-                  <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" disabled={uploadingCover} />
-                </label>
-              </div>
-            ) : (
-              <label className={`block w-full h-32 rounded-lg border-2 border-dashed border-[var(--divider)] flex items-center justify-center cursor-pointer hover:border-brand-500 transition ${uploadingCover ? 'opacity-50 pointer-events-none' : ''}`}>
-                <div className="text-center">
-                  <svg className="w-8 h-8 mx-auto text-fg-secondary mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  <span className="text-xs text-fg-secondary">{uploadingCover ? 'Uploading...' : 'Upload cover image'}</span>
+            <label className="block text-sm font-medium text-fg-primary mb-2">Background</label>
+
+            {/* Preview */}
+            <div className="relative rounded-lg overflow-hidden border border-[var(--divider)] mb-3" style={{ height: 180 }}>
+              {restaurant?.cover_url ? (
+                coverMode === 'repeat' ? (
+                  <div className="absolute inset-0" style={{ backgroundImage: `url(${restaurant.cover_url})`, backgroundRepeat: 'repeat', backgroundSize: 'auto 50%', backgroundPosition: 'left top' }} />
+                ) : (
+                  <img src={restaurant.cover_url} alt="Cover" className={`w-full h-full ${coverMode === 'contain' ? 'object-contain' : 'object-cover'}`} />
+                )
+              ) : restaurant?.background_color ? (
+                <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: restaurant.background_color }}>
+                  <div className="text-center text-white/80">
+                    <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" /></svg>
+                    <span className="text-xs font-medium">{restaurant.background_color}</span>
+                  </div>
                 </div>
-                <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
-              </label>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-hover)]">
+                  <div className="text-center text-fg-secondary">
+                    <svg className="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <span className="text-xs">No background set</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Status */}
+            {restaurant?.cover_url && (
+              <p className="text-xs text-fg-secondary mb-2">Using uploaded image</p>
             )}
+            {!restaurant?.cover_url && restaurant?.background_color && (
+              <p className="text-xs text-fg-secondary mb-2">Using solid color</p>
+            )}
+
+            {/* Display Mode (only when cover image is set) */}
+            {restaurant?.cover_url && (
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-fg-secondary mb-2">Display Mode</label>
+                <div className="flex gap-2">
+                  {DISPLAY_MODES.map(m => (
+                    <button
+                      key={m.value}
+                      onClick={() => handleSetDisplayMode(m.value)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition ${
+                        coverMode === m.value
+                          ? 'border-brand-500 bg-brand-500/10 text-brand-600'
+                          : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/40'
+                      }`}
+                    >
+                      {m.icon}
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap gap-2">
+              <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-500 text-white text-xs font-medium cursor-pointer hover:bg-brand-600 transition ${uploadingCover ? 'opacity-50 pointer-events-none' : ''}`}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                {uploadingCover ? 'Uploading...' : 'Upload Image'}
+                <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" disabled={uploadingCover} />
+              </label>
+              <button onClick={() => { setPickerColor(restaurant?.background_color || '#EB5204'); setShowColorPicker(true); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--divider)] text-xs font-medium text-fg-primary hover:bg-[var(--surface-hover)] transition">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" /></svg>
+                Pick Color
+              </button>
+              {(restaurant?.cover_url || restaurant?.background_color) && (
+                <button onClick={handleRemoveCover} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-600 hover:bg-red-50 transition">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Color Picker Modal */}
+      {showColorPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowColorPicker(false)}>
+          <div className="bg-[var(--surface)] rounded-xl shadow-xl p-5 w-80" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-fg-primary mb-3">Pick Background Color</h3>
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              {PRESET_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setPickerColor(c)}
+                  className={`w-10 h-10 rounded-lg border-2 transition ${pickerColor === c ? 'border-brand-500 scale-110' : 'border-transparent hover:scale-105'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              <input type="color" value={pickerColor} onChange={e => setPickerColor(e.target.value)} className="w-10 h-10 rounded border border-[var(--divider)] cursor-pointer" />
+              <input type="text" value={pickerColor} onChange={e => setPickerColor(e.target.value)} className="flex-1 text-sm border border-[var(--divider)] rounded-lg px-3 py-2 bg-[var(--surface)] text-fg-primary font-mono" placeholder="#000000" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowColorPicker(false)} className="flex-1 px-3 py-2 rounded-lg border border-[var(--divider)] text-xs font-medium text-fg-secondary hover:bg-[var(--surface-hover)] transition">Cancel</button>
+              <button onClick={() => { handleSetBackgroundColor(pickerColor); setShowColorPicker(false); }} className="flex-1 px-3 py-2 rounded-lg bg-brand-500 text-white text-xs font-medium hover:bg-brand-600 transition">Apply</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <hr className="border-divider" />
 

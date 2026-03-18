@@ -35,6 +35,7 @@ export interface Restaurant {
   logo_url: string;
   cover_url: string;
   background_color: string;
+  cover_display_mode: string;
   description: string;
   phone: string;
   delivery_enabled: boolean;
