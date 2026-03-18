@@ -245,7 +245,8 @@ export default function WebsitePage() {
 
   const handleResetConfig = useCallback(async () => {
     try {
-      const cfg = await resetWebsiteConfig(restaurantId);
+      const data = await resetWebsiteConfig(restaurantId);
+      const cfg = data.website_config;
       setConfig(cfg);
       setPrimaryColor(cfg.primary_color || '#EB5204');
       setSecondaryColor(cfg.secondary_color || '#C94400');
@@ -259,6 +260,11 @@ export default function WebsitePage() {
       setCartStyle(cfg.cart_style || 'bar-bottom');
       setNavbarStyle(cfg.navbar_style || 'solid');
       setNavbarColor(cfg.navbar_color || '');
+      // Also refresh sections from reset response
+      if (data.sections) {
+        setSections(data.sections);
+        setSelectedSectionId(null);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to reset');
     }

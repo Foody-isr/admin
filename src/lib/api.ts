@@ -720,12 +720,12 @@ export async function updateWebsiteConfig(
   return data.website_config;
 }
 
-export async function resetWebsiteConfig(restaurantId: number): Promise<WebsiteConfig> {
-  const data = await apiFetch<{ website_config: WebsiteConfig }>(
+export async function resetWebsiteConfig(restaurantId: number): Promise<{ website_config: WebsiteConfig; sections: WebsiteSection[] }> {
+  const data = await apiFetch<{ website_config: WebsiteConfig; sections: WebsiteSection[] }>(
     `/api/v1/restaurants/${restaurantId}/website-config/reset`, restaurantId,
     { method: 'POST' }
   );
-  return data.website_config;
+  return data;
 }
 
 // ─── Restaurant Branding Uploads ─────────────────────────────────────────────
