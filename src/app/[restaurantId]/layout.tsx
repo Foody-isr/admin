@@ -16,6 +16,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const restaurantId = Number(params.restaurantId);
   const isFullscreen = pathname.endsWith('/website');
+  const isWideLayout = pathname.endsWith('/orders');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
@@ -63,7 +64,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen">
         <Sidebar restaurantId={restaurantId} restaurantName={restaurant.name} />
         <main className="flex-1 overflow-auto">
-          <div className="p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
+          <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>{children}</div>
         </main>
       </div>
       {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
