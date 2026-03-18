@@ -743,7 +743,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
     setUploadingLogo(true);
     try {
       const imageUrl = await uploadRestaurantLogo(restaurantId, file);
-      const updated = await updateRestaurant(restaurantId, { logo_url: imageUrl } as Partial<Restaurant>);
+      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, logo_url: imageUrl } as Partial<Restaurant>);
       onRestaurantUpdate(updated);
     } catch {
       // Error is shown at parent level
@@ -758,7 +758,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
     setUploadingCover(true);
     try {
       const imageUrl = await uploadRestaurantBackground(restaurantId, file);
-      const updated = await updateRestaurant(restaurantId, { cover_url: imageUrl } as Partial<Restaurant>);
+      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, cover_url: imageUrl } as Partial<Restaurant>);
       onRestaurantUpdate(updated);
     } catch {
       // Error is shown at parent level
