@@ -18,6 +18,7 @@ import {
   BuildingStorefrontIcon,
   SunIcon,
   MoonIcon,
+  BeakerIcon,
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
   const nav = [
     { href: `${base}/dashboard`, label: 'Dashboard', icon: HomeIcon },
     { href: `${base}/menu`, label: 'Menu', icon: Bars3BottomLeftIcon },
+    { href: `${base}/kitchen`, label: 'Kitchen', icon: BeakerIcon },
     { href: `${base}/orders`, label: 'Orders', icon: ClipboardDocumentListIcon },
     { href: `${base}/staff`, label: 'Staff', icon: UsersIcon },
     { href: `${base}/analytics`, label: 'Analytics', icon: ChartBarIcon },

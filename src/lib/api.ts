@@ -204,6 +204,229 @@ export interface TopSeller {
   revenue: number;
 }
 
+// ─── Stock & Kitchen Types ───────────────────────────────────────────────────
+
+export type StockUnit = 'kg' | 'g' | 'l' | 'ml' | 'unit' | 'pack' | 'box' | 'bag' | 'dose' | 'other';
+export type StockTransactionType = 'receive' | 'waste' | 'adjust' | 'deduct' | 'produce';
+export type PrepTransactionType = 'produce' | 'waste' | 'adjust' | 'deduct';
+
+export interface StockItemAlias {
+  id: number;
+  stock_item_id: number;
+  alias: string;
+  language: string;
+  created_at: string;
+}
+
+export interface StockItem {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  unit: StockUnit;
+  quantity: number;
+  reorder_threshold: number;
+  cost_per_unit: number;
+  supplier: string;
+  category: string;
+  notes: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  aliases?: StockItemAlias[];
+}
+
+export interface StockCategory {
+  name: string;
+  color: string;
+}
+
+export interface StockTransaction {
+  id: number;
+  stock_item_id: number;
+  restaurant_id: number;
+  type: StockTransactionType;
+  quantity_delta: number;
+  notes: string;
+  created_by_id: number;
+  created_at: string;
+  stock_item?: StockItem;
+}
+
+export interface StockItemInput {
+  name: string;
+  unit: StockUnit;
+  quantity?: number;
+  reorder_threshold?: number;
+  cost_per_unit?: number;
+  supplier?: string;
+  category?: string;
+  notes?: string;
+  is_active?: boolean;
+}
+
+export interface StockTransactionInput {
+  stock_item_id: number;
+  type: StockTransactionType;
+  quantity_delta: number;
+  notes?: string;
+}
+
+export interface PrepItemIngredient {
+  id: number;
+  prep_item_id: number;
+  stock_item_id: number;
+  quantity_needed: number;
+  created_at: string;
+  stock_item?: StockItem;
+}
+
+export interface PrepItem {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  unit: StockUnit;
+  quantity: number;
+  yield_per_batch: number;
+  reorder_threshold: number;
+  shelf_life_hours: number;
+  category: string;
+  notes: string;
+  is_active: boolean;
+  cost_per_unit: number;
+  created_at: string;
+  updated_at: string;
+  ingredients?: PrepItemIngredient[];
+}
+
+export interface PrepItemInput {
+  name: string;
+  unit: StockUnit;
+  quantity?: number;
+  yield_per_batch?: number;
+  reorder_threshold?: number;
+  shelf_life_hours?: number;
+  category?: string;
+  notes?: string;
+  is_active?: boolean;
+}
+
+export interface PrepTransaction {
+  id: number;
+  prep_item_id: number;
+  restaurant_id: number;
+  type: PrepTransactionType;
+  quantity_delta: number;
+  notes: string;
+  created_by_id: number;
+  created_at: string;
+  prep_item?: PrepItem;
+}
+
+export interface PrepTransactionInput {
+  prep_item_id: number;
+  type: PrepTransactionType;
+  quantity_delta: number;
+  notes?: string;
+}
+
+export interface ProduceBatchInput {
+  quantity?: number;
+  batches?: number;
+}
+
+export interface IngredientUsed {
+  stock_item_id: number;
+  stock_item_name: string;
+  quantity_used: number;
+  remaining: number;
+}
+
+export interface Shortage {
+  stock_item_id: number;
+  stock_item_name: string;
+  required: number;
+  available: number;
+}
+
+export interface ProduceBatchResult {
+  prep_item: PrepItem;
+  produced: number;
+  ingredients: IngredientUsed[];
+  insufficient: Shortage[];
+}
+
+export interface MenuItemIngredient {
+  id: number;
+  menu_item_id: number;
+  stock_item_id?: number;
+  prep_item_id?: number;
+  quantity_needed: number;
+  created_at: string;
+  stock_item?: StockItem;
+  prep_item?: PrepItem;
+}
+
+export interface IngredientInput {
+  stock_item_id?: number;
+  prep_item_id?: number;
+  quantity_needed: number;
+}
+
+export interface PrepIngredientInput {
+  stock_item_id: number;
+  quantity_needed: number;
+}
+
+export interface DeliveryItem {
+  original_name: string;
+  translated_name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+  estimated_cost: number;
+  matched_item_id?: number;
+  matched_item_name: string;
+  confidence: number;
+  is_new: boolean;
+}
+
+export interface DeliveryExtraction {
+  supplier_name: string;
+  delivery_date: string;
+  items: DeliveryItem[];
+  raw_notes: string;
+}
+
+export interface ConfirmDeliveryItemInput {
+  stock_item_id?: number;
+  name: string;
+  original_name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+  cost_per_unit: number;
+}
+
+export interface ConfirmDeliveryInput {
+  supplier_name: string;
+  items: ConfirmDeliveryItemInput[];
+}
+
+export interface DailyPlanItem {
+  prep_item: PrepItem;
+  current_stock: number;
+  predicted_demand: number;
+  recommended_batches: number;
+  ingredients_needed: { stock_item_id: number; stock_item_name: string; quantity_needed: number; available: number }[];
+}
+
+export interface DemandForecastItem {
+  menu_item_id: number;
+  menu_item_name: string;
+  predicted_quantity: number;
+  day_of_week: number;
+}
+
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
 export function getToken(): string | null {
@@ -845,4 +1068,289 @@ export async function listSiteStyles(): Promise<SiteStylePreset[]> {
   if (!res.ok) return [];
   const data = await res.json();
   return data.styles || [];
+}
+
+// ─── Stock Management ────────────────────────────────────────────────────────
+
+export async function listStockItems(
+  restaurantId: number,
+  params?: { category?: string; search?: string; low_stock?: boolean; is_active?: boolean }
+): Promise<StockItem[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.category) qs.set('category', params.category);
+  if (params?.search) qs.set('search', params.search);
+  if (params?.low_stock) qs.set('low_stock', 'true');
+  if (params?.is_active !== undefined) qs.set('is_active', String(params.is_active));
+  const data = await apiFetch<{ items: StockItem[] }>(`/api/v1/stock/items?${qs}`, restaurantId);
+  return data.items ?? [];
+}
+
+export async function getStockItem(restaurantId: number, id: number): Promise<StockItem> {
+  const data = await apiFetch<{ item: StockItem }>(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId);
+  return data.item;
+}
+
+export async function createStockItem(restaurantId: number, input: StockItemInput): Promise<StockItem> {
+  const data = await apiFetch<{ item: StockItem }>(`/api/v1/stock/items?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.item;
+}
+
+export async function updateStockItem(restaurantId: number, id: number, input: Partial<StockItemInput>): Promise<StockItem> {
+  const data = await apiFetch<{ item: StockItem }>(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.item;
+}
+
+export async function deleteStockItem(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function batchUpdateStockCategory(
+  restaurantId: number, input: { item_ids: number[]; category: string }
+): Promise<void> {
+  await apiFetch(`/api/v1/stock/items/batch-category?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PATCH', body: JSON.stringify(input),
+  });
+}
+
+export async function listStockTransactions(
+  restaurantId: number, params?: { stock_item_id?: number; limit?: number }
+): Promise<StockTransaction[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.stock_item_id) qs.set('stock_item_id', String(params.stock_item_id));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const data = await apiFetch<{ transactions: StockTransaction[] }>(`/api/v1/stock/transactions?${qs}`, restaurantId);
+  return data.transactions ?? [];
+}
+
+export async function createStockTransaction(restaurantId: number, input: StockTransactionInput): Promise<StockTransaction> {
+  const data = await apiFetch<{ transaction: StockTransaction }>(`/api/v1/stock/transactions?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.transaction;
+}
+
+export async function getStockCategories(restaurantId: number): Promise<StockCategory[]> {
+  const data = await apiFetch<{ categories: StockCategory[] }>(`/api/v1/stock/categories?restaurant_id=${restaurantId}`, restaurantId);
+  return data.categories ?? [];
+}
+
+export async function updateStockCategoryColor(restaurantId: number, input: { category: string; color: string }): Promise<void> {
+  await apiFetch(`/api/v1/stock/category-color?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+}
+
+export async function getLowStockCount(restaurantId: number): Promise<number> {
+  const data = await apiFetch<{ count: number }>(`/api/v1/stock/low-stock-count?restaurant_id=${restaurantId}`, restaurantId);
+  return data.count ?? 0;
+}
+
+export async function getMenuItemIngredients(restaurantId: number, menuItemId: number): Promise<MenuItemIngredient[]> {
+  const data = await apiFetch<{ ingredients: MenuItemIngredient[] }>(
+    `/api/v1/stock/menu-items/${menuItemId}/ingredients?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.ingredients ?? [];
+}
+
+export async function setMenuItemIngredients(restaurantId: number, menuItemId: number, ingredients: IngredientInput[]): Promise<MenuItemIngredient[]> {
+  const data = await apiFetch<{ ingredients: MenuItemIngredient[] }>(
+    `/api/v1/stock/menu-items/${menuItemId}/ingredients?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ ingredients }) }
+  );
+  return data.ingredients ?? [];
+}
+
+export async function getStockItemMenuLinks(restaurantId: number, stockItemId: number): Promise<MenuItem[]> {
+  const data = await apiFetch<{ menu_items: MenuItem[] }>(
+    `/api/v1/stock/items/${stockItemId}/menu-links?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.menu_items ?? [];
+}
+
+export async function importDelivery(restaurantId: number, file: File, lang?: string, method?: string, supplier?: string): Promise<DeliveryExtraction> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  if (lang) formData.append('language', lang);
+  if (method) formData.append('method', method);
+  if (supplier) formData.append('supplier', supplier);
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Import failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.extraction;
+}
+
+export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
+  await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+}
+
+export async function getDemandForecast(
+  restaurantId: number, params?: { day_of_week?: number; weeks?: number }
+): Promise<DemandForecastItem[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.day_of_week !== undefined) qs.set('day_of_week', String(params.day_of_week));
+  if (params?.weeks) qs.set('weeks', String(params.weeks));
+  const data = await apiFetch<{ items: DemandForecastItem[] }>(`/api/v1/stock/forecast?${qs}`, restaurantId);
+  return data.items ?? [];
+}
+
+// ─── Prep / Recipes ──────────────────────────────────────────────────────────
+
+export async function listPrepItems(
+  restaurantId: number,
+  params?: { category?: string; search?: string; low_stock?: boolean; is_active?: boolean }
+): Promise<PrepItem[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.category) qs.set('category', params.category);
+  if (params?.search) qs.set('search', params.search);
+  if (params?.low_stock) qs.set('low_stock', 'true');
+  if (params?.is_active !== undefined) qs.set('is_active', String(params.is_active));
+  const data = await apiFetch<{ items: PrepItem[] }>(`/api/v1/prep/items?${qs}`, restaurantId);
+  return data.items ?? [];
+}
+
+export async function getPrepItem(restaurantId: number, id: number): Promise<PrepItem> {
+  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId);
+  return data.item;
+}
+
+export async function createPrepItem(restaurantId: number, input: PrepItemInput): Promise<PrepItem> {
+  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.item;
+}
+
+export async function updatePrepItem(restaurantId: number, id: number, input: Partial<PrepItemInput>): Promise<PrepItem> {
+  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.item;
+}
+
+export async function deletePrepItem(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function getPrepIngredients(restaurantId: number, prepItemId: number): Promise<PrepItemIngredient[]> {
+  const data = await apiFetch<{ ingredients: PrepItemIngredient[] }>(
+    `/api/v1/prep/items/${prepItemId}/ingredients?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.ingredients ?? [];
+}
+
+export async function setPrepIngredients(restaurantId: number, prepItemId: number, ingredients: PrepIngredientInput[]): Promise<PrepItemIngredient[]> {
+  const data = await apiFetch<{ ingredients: PrepItemIngredient[] }>(
+    `/api/v1/prep/items/${prepItemId}/ingredients?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ ingredients }) }
+  );
+  return data.ingredients ?? [];
+}
+
+export async function getPrepMenuLinks(restaurantId: number, prepItemId: number): Promise<MenuItem[]> {
+  const data = await apiFetch<{ menu_items: MenuItem[] }>(
+    `/api/v1/prep/items/${prepItemId}/menu-links?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.menu_items ?? [];
+}
+
+export async function producePrepBatch(restaurantId: number, prepItemId: number, input: ProduceBatchInput): Promise<ProduceBatchResult> {
+  const data = await apiFetch<ProduceBatchResult>(
+    `/api/v1/prep/items/${prepItemId}/produce?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data;
+}
+
+export async function previewPrepBatch(restaurantId: number, prepItemId: number, input: ProduceBatchInput): Promise<ProduceBatchResult> {
+  const data = await apiFetch<ProduceBatchResult>(
+    `/api/v1/prep/items/${prepItemId}/preview?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data;
+}
+
+export async function listPrepTransactions(
+  restaurantId: number, params?: { prep_item_id?: number; limit?: number }
+): Promise<PrepTransaction[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.prep_item_id) qs.set('prep_item_id', String(params.prep_item_id));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const data = await apiFetch<{ transactions: PrepTransaction[] }>(`/api/v1/prep/transactions?${qs}`, restaurantId);
+  return data.transactions ?? [];
+}
+
+export async function createPrepTransaction(restaurantId: number, input: PrepTransactionInput): Promise<PrepTransaction> {
+  const data = await apiFetch<{ transaction: PrepTransaction }>(`/api/v1/prep/transactions?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.transaction;
+}
+
+export async function getPrepCategories(restaurantId: number): Promise<StockCategory[]> {
+  const data = await apiFetch<{ categories: StockCategory[] }>(`/api/v1/prep/categories?restaurant_id=${restaurantId}`, restaurantId);
+  return data.categories ?? [];
+}
+
+export async function getPrepLowStockCount(restaurantId: number): Promise<number> {
+  const data = await apiFetch<{ count: number }>(`/api/v1/prep/low-stock-count?restaurant_id=${restaurantId}`, restaurantId);
+  return data.count ?? 0;
+}
+
+export async function getDailyPrepPlan(
+  restaurantId: number, params?: { day_of_week?: number; weeks_back?: number }
+): Promise<DailyPlanItem[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.day_of_week !== undefined) qs.set('day_of_week', String(params.day_of_week));
+  if (params?.weeks_back) qs.set('weeks_back', String(params.weeks_back));
+  const data = await apiFetch<{ items: DailyPlanItem[] }>(`/api/v1/prep/daily-plan?${qs}`, restaurantId);
+  return data.items ?? [];
+}
+
+// ── Spoke (Circuit) Delivery Config ─────────────────────────────────
+
+export interface SpokeConfigResponse {
+  configured: boolean;
+  enabled?: boolean;
+  depot_id?: string;
+  default_driver_name?: string;
+  default_driver_phone?: string;
+}
+
+export interface SpokeConfigInput {
+  api_key: string;
+  enabled: boolean;
+  depot_id: string;
+  default_driver_name: string;
+  default_driver_phone: string;
+}
+
+export async function getSpokeConfig(restaurantId: number): Promise<SpokeConfigResponse> {
+  return apiFetch<SpokeConfigResponse>(`/api/v1/spoke/config`, restaurantId);
+}
+
+export async function updateSpokeConfig(
+  restaurantId: number,
+  config: SpokeConfigInput
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/api/v1/spoke/config`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
 }
