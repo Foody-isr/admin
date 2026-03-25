@@ -73,6 +73,7 @@ export interface MenuItemModifier {
   action: 'add' | 'remove';
   category: string;
   price_delta: number;
+  is_required: boolean;
   sort_order: number;
 }
 
@@ -714,6 +715,7 @@ export interface ModifierInput {
   category: string;
   price_delta: number;
   is_active?: boolean;
+  is_required?: boolean;
   sort_order?: number;
 }
 

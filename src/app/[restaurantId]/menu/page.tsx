@@ -665,6 +665,7 @@ function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
   const [action, setAction] = useState<'add' | 'remove'>('add');
   const [category, setCategory] = useState('');
   const [priceDelta, setPriceDelta] = useState('0');
+  const [isRequired, setIsRequired] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -677,6 +678,7 @@ function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
         action,
         category,
         price_delta: parseFloat(priceDelta) || 0,
+        is_required: isRequired,
       };
       await createModifier(restaurantId, input);
       onSaved();
@@ -717,6 +719,10 @@ function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
           <label className="block text-sm font-medium text-fg-secondary mb-1">Category (group name)</label>
           <input className="input" placeholder="e.g. Toppings, Sauces" value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="rounded" />
+          <span className="text-sm font-medium text-fg-secondary">Required (customer must select at least one)</span>
+        </label>
       </div>
       <div className="flex justify-end gap-2 mt-4">
         <button className="btn-secondary" onClick={onClose}>Cancel</button>
