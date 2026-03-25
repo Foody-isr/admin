@@ -1354,3 +1354,39 @@ export async function updateSpokeConfig(
     body: JSON.stringify(config),
   });
 }
+
+// ─── Trusted Customers ──────────────────────────────────────────────────────
+
+export interface TrustedCustomer {
+  id: number;
+  restaurant_id: number;
+  phone: string;
+  name: string;
+  notes?: string;
+  created_at: string;
+}
+
+export async function listTrustedCustomers(restaurantId: number): Promise<TrustedCustomer[]> {
+  const data = await apiFetch<{ trusted_customers: TrustedCustomer[] }>(
+    `/api/v1/restaurants/${restaurantId}/customers/trusted`, restaurantId
+  );
+  return data.trusted_customers ?? [];
+}
+
+export async function addTrustedCustomer(
+  restaurantId: number,
+  input: { phone: string; name: string; notes?: string }
+): Promise<TrustedCustomer> {
+  const data = await apiFetch<{ trusted_customer: TrustedCustomer }>(
+    `/api/v1/restaurants/${restaurantId}/customers/trusted`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.trusted_customer;
+}
+
+export async function removeTrustedCustomer(restaurantId: number, customerId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/customers/trusted/${customerId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
