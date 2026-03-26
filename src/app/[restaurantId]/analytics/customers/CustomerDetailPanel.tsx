@@ -205,7 +205,6 @@ export default function CustomerDetailPanel({
                     <thead>
                       <tr className="border-b border-divider">
                         <th className="text-left py-1.5 text-fg-secondary font-medium">Date</th>
-                        <th className="text-left py-1.5 text-fg-secondary font-medium">#</th>
                         <th className="text-left py-1.5 text-fg-secondary font-medium">Type</th>
                         <th className="text-right py-1.5 text-fg-secondary font-medium">Amount</th>
                         <th className="text-left py-1.5 text-fg-secondary font-medium">Payment</th>
@@ -216,7 +215,6 @@ export default function CustomerDetailPanel({
                       {detail.orders.map(o => (
                         <tr key={o.id} className="border-b border-divider">
                           <td className="py-1.5 text-fg-secondary">{new Date(o.created_at).toLocaleDateString()}</td>
-                          <td className="py-1.5 text-fg-secondary">{o.order_number}</td>
                           <td className="py-1.5 text-fg-secondary">{formatLabel(o.order_type)}</td>
                           <td className="py-1.5 text-right font-medium text-fg-primary">₪{o.total_amount.toFixed(0)}</td>
                           <td className="py-1.5 text-fg-secondary">{formatLabel(o.payment_method)}</td>

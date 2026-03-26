@@ -246,7 +246,6 @@ export interface CustomerListResult {
 
 export interface OrderBrief {
   id: number;
-  order_number: string;
   order_type: string;
   total_amount: number;
   payment_method: string;
