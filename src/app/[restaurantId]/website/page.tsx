@@ -1039,6 +1039,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
             { value: 'solid', label: 'Solid' },
             { value: 'transparent', label: 'Transparent' },
             { value: 'custom', label: 'Custom' },
+            { value: 'hidden', label: 'Hidden' },
           ].map(opt => (
             <button
               key={opt.value}
