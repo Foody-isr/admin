@@ -7,7 +7,8 @@ import {
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
   uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
-  WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant,
+  getMenu,
+  WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
 } from '@/lib/api';
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ const SECTION_TYPE_META: Record<string, { label: string; icon: string; desc: str
   gallery:         { label: 'Gallery',           icon: '\u{1F3A8}', desc: 'Photo grid showcase' },
   testimonials:    { label: 'Testimonials',      icon: '\u{1F4AC}', desc: 'Customer reviews carousel' },
   about:           { label: 'About',             icon: '\u{1F4A1}', desc: 'About your restaurant' },
-  menu_highlights: { label: 'Menu Highlights',   icon: '\u{2B50}', desc: 'Featured dishes' },
+  menu_highlights: { label: 'Menu Highlights',   icon: '\u{2B50}', desc: 'Featured dishes carousel' },
   promo_banner:    { label: 'Promo Banner',      icon: '\u{1F3F7}\u{FE0F}', desc: 'Promotional offer banner' },
   social_feed:     { label: 'Social Links',      icon: '\u{1F4F1}', desc: 'Social media profile links' },
   action_buttons:  { label: 'Action Buttons',    icon: '\u{1F518}', desc: 'Configurable CTA buttons (order, menu, links)' },
@@ -1371,6 +1372,163 @@ function PicnicBasketEditor({ content, settings, updateContent, updateSettings, 
   );
 }
 
+// ─── Menu Highlights Editor ──────────────────────────────────────────
+function MenuHighlightsEditor({ content, settings, updateContent, updateSettings, restaurantId }: {
+  content: Record<string, any>;
+  settings: Record<string, any>;
+  updateContent: (key: string, value: any) => void;
+  updateSettings: (key: string, value: any) => void;
+  restaurantId: number;
+}) {
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [search, setSearch] = useState('');
+  const selectedIds: number[] = content.item_ids || [];
+
+  useEffect(() => {
+    getMenu(restaurantId)
+      .then(cats => setCategories(cats))
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingMenu(false));
+  }, [restaurantId]);
+
+  const allItems = categories.flatMap(cat =>
+    (cat.items || []).map(item => ({ ...item, categoryName: cat.name }))
+  );
+
+  const selectedItems = selectedIds
+    .map(id => allItems.find(i => i.id === id))
+    .filter(Boolean) as (MenuItem & { categoryName: string })[];
+
+  const filtered = search.trim()
+    ? allItems.filter(i =>
+        i.name.toLowerCase().includes(search.toLowerCase()) ||
+        i.categoryName.toLowerCase().includes(search.toLowerCase())
+      )
+    : allItems;
+
+  function toggleItem(id: number) {
+    const ids = [...selectedIds];
+    const idx = ids.indexOf(id);
+    if (idx >= 0) {
+      ids.splice(idx, 1);
+    } else {
+      ids.push(id);
+    }
+    updateContent('item_ids', ids);
+  }
+
+  function removeItem(id: number) {
+    updateContent('item_ids', selectedIds.filter(i => i !== id));
+  }
+
+  function moveItem(index: number, dir: -1 | 1) {
+    const ids = [...selectedIds];
+    const target = index + dir;
+    if (target < 0 || target >= ids.length) return;
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    updateContent('item_ids', ids);
+  }
+
+  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
+
+  return (
+    <div className="space-y-3">
+      <TextFieldWithTypography
+        label="Title"
+        value={content.title || ''}
+        onChange={v => updateContent('title', v)}
+        placeholder="Chef's Picks"
+        fieldPrefix="title"
+        settings={settings}
+        onSettingChange={updateSettings}
+      />
+      <TextFieldWithTypography
+        label="Subtitle"
+        value={content.subtitle || ''}
+        onChange={v => updateContent('subtitle', v)}
+        placeholder="Our most popular dishes"
+        fieldPrefix="subtitle"
+        settings={settings}
+        onSettingChange={updateSettings}
+      />
+
+      {/* Selected items */}
+      {selectedItems.length > 0 && (
+        <div>
+          <label className="text-xs text-fg-secondary mb-1 block">Selected Items ({selectedItems.length})</label>
+          <div className="space-y-1">
+            {selectedItems.map((item, idx) => (
+              <div key={item.id} className="flex items-center gap-2 bg-[var(--surface-subtle)] rounded-lg px-2 py-1.5 text-sm">
+                {item.image_url ? (
+                  <img src={item.image_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded bg-[var(--divider)] flex items-center justify-center text-xs flex-shrink-0">🍽️</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-fg-primary truncate">{item.name}</p>
+                  <p className="text-[10px] text-fg-secondary">{item.categoryName} · ₪{item.price}</p>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <button type="button" onClick={() => moveItem(idx, -1)} disabled={idx === 0} className="w-5 h-5 flex items-center justify-center rounded text-fg-secondary hover:bg-[var(--divider)] disabled:opacity-30" title="Move up">↑</button>
+                  <button type="button" onClick={() => moveItem(idx, 1)} disabled={idx === selectedItems.length - 1} className="w-5 h-5 flex items-center justify-center rounded text-fg-secondary hover:bg-[var(--divider)] disabled:opacity-30" title="Move down">↓</button>
+                  <button type="button" onClick={() => removeItem(item.id)} className="w-5 h-5 flex items-center justify-center rounded text-red-400 hover:bg-red-500/10" title="Remove">×</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Item picker */}
+      <div>
+        <label className="text-xs text-fg-secondary mb-1 block">Add Items</label>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className={inputClass}
+          placeholder="Search menu items..."
+        />
+        {loadingMenu ? (
+          <p className="text-xs text-fg-secondary mt-2">Loading menu...</p>
+        ) : (
+          <div className="mt-2 max-h-48 overflow-y-auto border border-[var(--divider)] rounded-lg">
+            {filtered.length === 0 ? (
+              <p className="text-xs text-fg-secondary p-3 text-center">No items found</p>
+            ) : (
+              filtered.map(item => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => toggleItem(item.id)}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--surface-subtle)] transition ${isSelected ? 'bg-brand-500/10' : ''}`}
+                  >
+                    {item.image_url ? (
+                      <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-7 h-7 rounded bg-[var(--divider)] flex items-center justify-center text-[10px] flex-shrink-0">🍽️</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-fg-primary truncate">{item.name}</p>
+                      <p className="text-[10px] text-fg-secondary">{item.categoryName} · ₪{item.price}</p>
+                    </div>
+                    <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'border-[var(--divider)]'}`}>
+                      {isSelected && <span className="text-[10px]">✓</span>}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Section Image Uploader ──────────────────────────────────────────
 function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className }: {
   restaurantId: number;
@@ -1925,11 +2083,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
         )}
 
         {section.section_type === 'menu_highlights' && (
-          <div>
-            <label className={labelClass}>Section Title</label>
-            <input type="text" value={content.title || ''} onChange={e => updateContent('title', e.target.value)} className={inputClass} placeholder="Chef's Picks" />
-            <p className="text-xs text-fg-secondary mt-2">Featured items will be auto-populated from your most popular menu items.</p>
-          </div>
+          <MenuHighlightsEditor content={content} settings={settings} updateContent={updateContent} updateSettings={updateSettings} restaurantId={restaurantId} />
         )}
 
         {/* Picnic Basket Editor */}
@@ -2214,7 +2368,7 @@ function getDefaultContent(sectionType: string): Record<string, any> {
     case 'gallery': return { images: [] };
     case 'testimonials': return { reviews: [] };
     case 'about': return { blocks: [{ title: 'About Us', body: 'Tell your customers about your restaurant, your story, and what makes your food special.' }] };
-    case 'menu_highlights': return { title: "Chef's Picks", item_ids: [], auto_populate: true };
+    case 'menu_highlights': return { title: "Chef's Picks", subtitle: 'Our most popular dishes', item_ids: [] };
     case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
     case 'social_feed': return { links: [] };
     case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
