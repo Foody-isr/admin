@@ -13,7 +13,12 @@ import {
 
 // ─── Constants ──────────────────────────────────────────────────────
 
-const FONT_OPTIONS = ['Nunito Sans', 'Inter', 'Poppins', 'Rubik', 'Open Sans', 'Playfair Display'];
+const FONT_OPTIONS = [
+  'Nunito Sans', 'Inter', 'Poppins', 'Rubik', 'Open Sans',
+  'Playfair Display', 'Cinzel Decorative', 'Cormorant Garamond',
+  'Lora', 'Montserrat', 'Oswald', 'Raleway', 'Dancing Script',
+  'Great Vibes', 'Merriweather', 'Bitter', 'Crimson Text',
+];
 
 const SECTION_TYPE_META: Record<string, { label: string; icon: string; desc: string }> = {
   hero_banner:     { label: 'Hero Banner',      icon: '\u{1F5BC}\u{FE0F}', desc: 'Full-width image with headline & CTA' },
