@@ -6,7 +6,7 @@ import {
   getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
-  uploadRestaurantLogo, uploadRestaurantBackground,
+  uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant,
 } from '@/lib/api';
 
@@ -636,6 +636,7 @@ export default function WebsitePage() {
               ) : selectedSection ? (
                 <SectionSettingsPanel
                   section={selectedSection}
+                  restaurantId={restaurantId}
                   onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
                   onDelete={() => { handleDeleteSection(selectedSection.id); closeSettings(); }}
                 />
@@ -1125,8 +1126,283 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
   );
 }
 
-function SectionSettingsPanel({ section, onUpdate, onDelete }: {
+// ─── Picnic Basket Editor ─────────────────────────────────────────────
+function TextFieldWithTypography({ label, value, onChange, placeholder, fieldPrefix, settings, onSettingChange, multiline }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  fieldPrefix: string;
+  settings: Record<string, any>;
+  onSettingChange: (key: string, value: string) => void;
+  multiline?: boolean;
+}) {
+  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
+  const labelClass = "text-xs text-fg-secondary mb-1 block";
+  const smallSelectClass = "text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary";
+  const colorKey = `${fieldPrefix}_color`;
+  const fontKey = `${fieldPrefix}_font`;
+  const sizeKey = `${fieldPrefix}_size`;
+  const weightKey = `${fieldPrefix}_weight`;
+
+  const sizes = fieldPrefix.includes('subtitle') || fieldPrefix.includes('completion')
+    ? ['sm', 'md', 'lg']
+    : ['sm', 'md', 'lg', 'xl'];
+
+  return (
+    <div className="border border-[var(--divider)] rounded-lg p-3 space-y-2">
+      <div>
+        <label className={labelClass}>{label}</label>
+        {multiline ? (
+          <textarea value={value} onChange={e => onChange(e.target.value)} className={`${inputClass} min-h-[60px]`} placeholder={placeholder} />
+        ) : (
+          <input type="text" value={value} onChange={e => onChange(e.target.value)} className={inputClass} placeholder={placeholder} />
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className={labelClass}>Color</label>
+          <div className="flex items-center gap-1">
+            <input type="color" value={settings[colorKey] || '#000000'} onChange={e => onSettingChange(colorKey, e.target.value)} className="w-6 h-6 rounded border border-[var(--divider)] cursor-pointer" />
+            <input type="text" value={settings[colorKey] || ''} onChange={e => onSettingChange(colorKey, e.target.value)} className={`${smallSelectClass} flex-1 w-0`} placeholder="inherit" />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass}>Font</label>
+          <select value={settings[fontKey] || ''} onChange={e => onSettingChange(fontKey, e.target.value)} className={`${smallSelectClass} w-full`}>
+            <option value="">Default</option>
+            {FONT_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Size</label>
+          <div className="flex gap-0.5">
+            {sizes.map(s => (
+              <button key={s} type="button" onClick={() => onSettingChange(sizeKey, s)} className={`flex-1 px-1 py-0.5 rounded text-[10px] font-medium border transition-all ${(settings[sizeKey] || 'md') === s ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}>
+                {s.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div>
+        <label className={labelClass}>Weight</label>
+        <div className="flex gap-1">
+          {[{ value: 'normal', label: 'Regular' }, { value: 'medium', label: 'Medium' }, { value: 'bold', label: 'Bold' }].map(opt => (
+            <button key={opt.value} type="button" onClick={() => onSettingChange(weightKey, opt.value)} className={`flex-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${(settings[weightKey] || (fieldPrefix === 'title' ? 'bold' : 'normal')) === opt.value ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PicnicBasketEditor({ content, settings, updateContent, updateSettings, restaurantId }: {
+  content: Record<string, any>;
+  settings: Record<string, any>;
+  updateContent: (key: string, value: any) => void;
+  updateSettings: (key: string, value: any) => void;
+  restaurantId: number;
+}) {
+  return (
+    <div className="space-y-3">
+      <TextFieldWithTypography
+        label="Title"
+        value={content.title || ''}
+        onChange={v => updateContent('title', v)}
+        placeholder="Preparing Your Basket"
+        fieldPrefix="title"
+        settings={settings}
+        onSettingChange={updateSettings}
+      />
+      <TextFieldWithTypography
+        label="Subtitle"
+        value={content.subtitle || ''}
+        onChange={v => updateContent('subtitle', v)}
+        placeholder="Scroll to fill your Shabbat basket"
+        fieldPrefix="subtitle"
+        settings={settings}
+        onSettingChange={updateSettings}
+      />
+      <TextFieldWithTypography
+        label="Completion Text"
+        value={content.completion_text || ''}
+        onChange={v => updateContent('completion_text', v)}
+        placeholder="Ready for Shabbat! 🕯️"
+        fieldPrefix="completion"
+        settings={settings}
+        onSettingChange={updateSettings}
+      />
+      <SectionImageUploader
+        restaurantId={restaurantId}
+        currentUrl={content.basket_image || ''}
+        onUploaded={(url) => updateContent('basket_image', url)}
+        onRemove={() => updateContent('basket_image', '')}
+        label="Basket Image (optional — uses default illustration if empty)"
+      />
+      <SectionMultiImageUploader
+        restaurantId={restaurantId}
+        images={(content.items || []).filter((img: any) => img.url)}
+        onUpdate={(items) => updateContent('items', items)}
+        label="Food Item Images"
+        hint="Add 4-8 dish images for the best effect. They will float down into the basket as visitors scroll. Uses emoji placeholders if empty."
+      />
+    </div>
+  );
+}
+
+// ─── Section Image Uploader ──────────────────────────────────────────
+function SectionImageUploader({ restaurantId, currentUrl, onUploaded, onRemove, label, className }: {
+  restaurantId: number;
+  currentUrl?: string;
+  onUploaded: (url: string) => void;
+  onRemove?: () => void;
+  label?: string;
+  className?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadSectionImage(restaurantId, file);
+      onUploaded(url);
+    } catch (err: any) {
+      alert(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div className={className}>
+      {label && <label className="text-xs text-fg-secondary mb-1 block">{label}</label>}
+      {currentUrl ? (
+        <div className="relative group">
+          <img src={currentUrl} alt="" className="rounded-lg max-h-32 object-cover w-full" />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+            <button type="button" onClick={() => inputRef.current?.click()} className="px-2 py-1 bg-white rounded text-xs font-medium" disabled={uploading}>
+              {uploading ? 'Uploading...' : 'Replace'}
+            </button>
+            {onRemove && (
+              <button type="button" onClick={onRemove} className="px-2 py-1 bg-red-500 text-white rounded text-xs font-medium">Remove</button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="w-full py-6 border-2 border-dashed border-[var(--divider)] rounded-lg text-xs text-fg-secondary hover:border-[var(--brand)] hover:text-[var(--brand)] transition-all flex flex-col items-center gap-1"
+        >
+          {uploading ? (
+            <span>Uploading...</span>
+          ) : (
+            <>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              <span>Click to upload image</span>
+            </>
+          )}
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+    </div>
+  );
+}
+
+// ─── Multi-Image Uploader (for gallery, picnic basket items) ──────────
+function SectionMultiImageUploader({ restaurantId, images, onUpdate, label, hint }: {
+  restaurantId: number;
+  images: { url: string; alt?: string }[];
+  onUpdate: (images: { url: string; alt?: string }[]) => void;
+  label?: string;
+  hint?: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const newImages = [...images];
+      for (let i = 0; i < files.length; i++) {
+        const url = await uploadSectionImage(restaurantId, files[i]);
+        newImages.push({ url, alt: '' });
+      }
+      onUpdate(newImages);
+    } catch (err: any) {
+      alert(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  function removeImage(index: number) {
+    onUpdate(images.filter((_, i) => i !== index));
+  }
+
+  function moveImage(index: number, direction: 'up' | 'down') {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= images.length) return;
+    const updated = [...images];
+    [updated[index], updated[target]] = [updated[target], updated[index]];
+    onUpdate(updated);
+  }
+
+  return (
+    <div>
+      {label && <label className="text-xs text-fg-secondary mb-1 block">{label}</label>}
+      {images.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          {images.map((img, i) => (
+            <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-[var(--divider)]">
+              <img src={img.url} alt={img.alt || ''} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                {i > 0 && (
+                  <button type="button" onClick={() => moveImage(i, 'up')} className="p-1 bg-white rounded text-xs">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                )}
+                <button type="button" onClick={() => removeImage(i)} className="p-1 bg-red-500 text-white rounded text-xs">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                {i < images.length - 1 && (
+                  <button type="button" onClick={() => moveImage(i, 'down')} className="p-1 bg-white rounded text-xs">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="w-full py-3 border-2 border-dashed border-[var(--divider)] rounded-lg text-xs text-fg-secondary hover:border-[var(--brand)] hover:text-[var(--brand)] transition-all"
+      >
+        {uploading ? 'Uploading...' : '+ Add Images'}
+      </button>
+      {hint && <p className="text-xs text-fg-secondary mt-1">{hint}</p>}
+      <input ref={inputRef} type="file" accept="image/*" multiple onChange={handleUpload} className="hidden" />
+    </div>
+  );
+}
+
+function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
   section: WebsiteSection;
+  restaurantId: number;
   onUpdate: (updates: Partial<WebsiteSection>) => void;
   onDelete: () => void;
 }) {
@@ -1346,18 +1622,13 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
         )}
 
         {section.section_type === 'gallery' && (
-          <div>
-            <label className={labelClass}>Image URLs (one per line)</label>
-            <textarea
-              value={(content.images || []).map((img: any) => img.url).join('\n')}
-              onChange={e => {
-                const images = e.target.value.split('\n').filter(Boolean).map(url => ({ url: url.trim(), alt: '' }));
-                updateContent('images', images);
-              }}
-              className={`${inputClass} min-h-[80px] font-mono`}
-              placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg"
-            />
-          </div>
+          <SectionMultiImageUploader
+            restaurantId={restaurantId}
+            images={(content.images || []).filter((img: any) => img.url)}
+            onUpdate={(images) => updateContent('images', images)}
+            label="Gallery Images"
+            hint="Upload photos to showcase your restaurant."
+          />
         )}
 
         {section.section_type === 'social_feed' && (
@@ -1396,37 +1667,7 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
 
         {/* Picnic Basket Editor */}
         {section.section_type === 'picnic_basket' && (
-          <div className="space-y-3">
-            <div>
-              <label className={labelClass}>Title</label>
-              <input type="text" value={content.title || ''} onChange={e => updateContent('title', e.target.value)} className={inputClass} placeholder="Preparing Your Basket" />
-            </div>
-            <div>
-              <label className={labelClass}>Subtitle</label>
-              <input type="text" value={content.subtitle || ''} onChange={e => updateContent('subtitle', e.target.value)} className={inputClass} placeholder="Scroll to fill your Shabbat basket" />
-            </div>
-            <div>
-              <label className={labelClass}>Completion Text</label>
-              <input type="text" value={content.completion_text || ''} onChange={e => updateContent('completion_text', e.target.value)} className={inputClass} placeholder="Ready for Shabbat! 🕯️" />
-            </div>
-            <div>
-              <label className={labelClass}>Basket Image URL (optional — uses default illustration if empty)</label>
-              <input type="text" value={content.basket_image || ''} onChange={e => updateContent('basket_image', e.target.value)} className={`${inputClass} font-mono text-xs`} placeholder="https://..." />
-            </div>
-            <div>
-              <label className={labelClass}>Food Item Images (one URL per line — uses emoji placeholders if empty)</label>
-              <textarea
-                value={(content.items || []).map((img: any) => typeof img === 'string' ? img : img.url).filter(Boolean).join('\n')}
-                onChange={e => {
-                  const items = e.target.value.split('\n').filter(Boolean).map(url => ({ url: url.trim(), alt: '' }));
-                  updateContent('items', items);
-                }}
-                className={`${inputClass} min-h-[100px] font-mono text-xs`}
-                placeholder={"https://example.com/challah.jpg\nhttps://example.com/salad.jpg\nhttps://example.com/chicken.jpg"}
-              />
-              <p className="text-xs text-fg-secondary mt-1">Add 4-8 dish images for the best effect. They will float down into the basket as visitors scroll.</p>
-            </div>
-          </div>
+          <PicnicBasketEditor content={content} settings={settings} updateContent={updateContent} updateSettings={updateSettings} restaurantId={restaurantId} />
         )}
 
         {/* Action Buttons Editor */}
@@ -1484,15 +1725,15 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
           </div>
         )}
 
-        {/* Image URL for sections that support it */}
+        {/* Image upload for sections that support it */}
         {['hero_banner', 'text_and_image', 'promo_banner'].includes(section.section_type) && (
-          <div>
-            <label className={labelClass}>Image URL</label>
-            <input type="url" value={content.image_url || ''} onChange={e => updateContent('image_url', e.target.value)} className={inputClass} placeholder="https://..." />
-            {content.image_url && (
-              <img src={content.image_url} alt="" className="mt-2 rounded-lg max-h-32 object-cover" />
-            )}
-          </div>
+          <SectionImageUploader
+            restaurantId={restaurantId}
+            currentUrl={content.image_url || ''}
+            onUploaded={(url) => updateContent('image_url', url)}
+            onRemove={() => updateContent('image_url', '')}
+            label="Image"
+          />
         )}
       </div>
     </div>
