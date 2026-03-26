@@ -190,7 +190,7 @@ export default function WebsitePage() {
         setCartStyle(cfg.cart_style || 'bar-bottom');
         setNavbarStyle(cfg.navbar_style || 'solid');
         setNavbarColor(cfg.navbar_color || '');
-        setLogoSize(cfg.logo_size || 40);
+        setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
         setHideNavbarName(cfg.hide_navbar_name || false);
       } catch (err: any) {
         setError(err.message || 'Failed to load');
@@ -267,7 +267,7 @@ export default function WebsitePage() {
       setCartStyle(cfg.cart_style || 'bar-bottom');
       setNavbarStyle(cfg.navbar_style || 'solid');
       setNavbarColor(cfg.navbar_color || '');
-      setLogoSize(cfg.logo_size || 40);
+      setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
       setHideNavbarName(cfg.hide_navbar_name || false);
       // Also refresh sections from reset response
       if (data.sections) {
@@ -1168,6 +1168,77 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
   );
 }
 
+// ─── About Blocks Editor ──────────────────────────────────────────────
+function AboutBlocksEditor({ content, updateContent }: {
+  content: Record<string, any>;
+  updateContent: (key: string, value: any) => void;
+}) {
+  // Backward compat: migrate legacy {title, body} to blocks
+  const blocks: Record<string, any>[] =
+    Array.isArray(content.blocks) && content.blocks.length > 0
+      ? content.blocks
+      : [{ title: content.title || '', body: content.body || '' }];
+
+  function setBlocks(newBlocks: Record<string, any>[]) {
+    updateContent('blocks', newBlocks);
+  }
+
+  function updateBlock(index: number, key: string, value: string) {
+    const updated = blocks.map((b, i) => i === index ? { ...b, [key]: value } : b);
+    setBlocks(updated);
+  }
+
+  function addBlock() {
+    setBlocks([...blocks, { title: '', body: '' }]);
+  }
+
+  function removeBlock(index: number) {
+    if (blocks.length <= 1) return;
+    setBlocks(blocks.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="space-y-4">
+      {blocks.map((block, idx) => (
+        <div key={idx} className="border border-[var(--divider)] rounded-xl p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-fg-secondary">Block {idx + 1}</span>
+            {blocks.length > 1 && (
+              <button type="button" onClick={() => removeBlock(idx)} className="text-xs text-red-500 hover:text-red-700 transition">Remove</button>
+            )}
+          </div>
+          <TextFieldWithTypography
+            label="Title"
+            value={block.title || ''}
+            onChange={v => updateBlock(idx, 'title', v)}
+            placeholder="Section title"
+            fieldPrefix="title"
+            settings={block}
+            onSettingChange={(key, val) => updateBlock(idx, key, val)}
+          />
+          <TextFieldWithTypography
+            label="Text"
+            value={block.body || ''}
+            onChange={v => updateBlock(idx, 'body', v)}
+            placeholder="Section text"
+            fieldPrefix="text"
+            settings={block}
+            onSettingChange={(key, val) => updateBlock(idx, key, val)}
+            multiline
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addBlock}
+        className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--divider)] text-sm font-medium text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-all"
+      >
+        + Add Block
+      </button>
+    </div>
+  );
+}
+
 // ─── Picnic Basket Editor ─────────────────────────────────────────────
 function TextFieldWithTypography({ label, value, onChange, placeholder, fieldPrefix, settings, onSettingChange, multiline }: {
   label: string;
@@ -1702,37 +1773,93 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-fg-secondary">Content</h3>
 
-        {/* Common text fields based on section type */}
-        {(section.section_type === 'hero_banner' || section.section_type === 'text_and_image' || section.section_type === 'about' || section.section_type === 'promo_banner') && (
+        {/* About — multi-block editor */}
+        {section.section_type === 'about' && (
+          <AboutBlocksEditor content={content} updateContent={updateContent} />
+        )}
+
+        {/* Hero Banner — per-field typography */}
+        {section.section_type === 'hero_banner' && (
           <>
-            {section.section_type !== 'about' && (
+            <TextFieldWithTypography
+              label="Headline"
+              value={content.headline || ''}
+              onChange={v => updateContent('headline', v)}
+              placeholder="Your headline here"
+              fieldPrefix="headline"
+              settings={settings}
+              onSettingChange={updateSettings}
+            />
+            <TextFieldWithTypography
+              label="Subheadline"
+              value={content.subheadline || ''}
+              onChange={v => updateContent('subheadline', v)}
+              placeholder="Description text..."
+              fieldPrefix="subheadline"
+              settings={settings}
+              onSettingChange={updateSettings}
+              multiline
+            />
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Headline</label>
-                <input type="text" value={content.headline || content.title || ''} onChange={e => updateContent(section.section_type === 'hero_banner' ? 'headline' : 'title', e.target.value)} className={inputClass} placeholder="Your headline here" />
+                <label className={labelClass}>CTA Text</label>
+                <input type="text" value={content.cta_text || ''} onChange={e => updateContent('cta_text', e.target.value)} className={inputClass} placeholder="Order Now" />
               </div>
-            )}
-            {section.section_type === 'about' && (
               <div>
-                <label className={labelClass}>Title</label>
-                <input type="text" value={content.title || ''} onChange={e => updateContent('title', e.target.value)} className={inputClass} placeholder="About Us" />
+                <label className={labelClass}>CTA Link</label>
+                <input type="text" value={content.cta_link || ''} onChange={e => updateContent('cta_link', e.target.value)} className={inputClass} placeholder="#menu" />
               </div>
-            )}
-            <div>
-              <label className={labelClass}>{section.section_type === 'hero_banner' ? 'Subheadline' : 'Body'}</label>
-              <textarea value={content.subheadline || content.body || ''} onChange={e => updateContent(section.section_type === 'hero_banner' ? 'subheadline' : 'body', e.target.value)} className={`${inputClass} min-h-[80px]`} placeholder="Description text..." />
             </div>
-            {section.section_type === 'hero_banner' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>CTA Text</label>
-                  <input type="text" value={content.cta_text || ''} onChange={e => updateContent('cta_text', e.target.value)} className={inputClass} placeholder="Order Now" />
-                </div>
-                <div>
-                  <label className={labelClass}>CTA Link</label>
-                  <input type="text" value={content.cta_link || ''} onChange={e => updateContent('cta_link', e.target.value)} className={inputClass} placeholder="#menu" />
-                </div>
-              </div>
-            )}
+          </>
+        )}
+
+        {/* Text & Image — per-field typography */}
+        {section.section_type === 'text_and_image' && (
+          <>
+            <TextFieldWithTypography
+              label="Title"
+              value={content.title || ''}
+              onChange={v => updateContent('title', v)}
+              placeholder="Our Story"
+              fieldPrefix="title"
+              settings={settings}
+              onSettingChange={updateSettings}
+            />
+            <TextFieldWithTypography
+              label="Body"
+              value={content.body || ''}
+              onChange={v => updateContent('body', v)}
+              placeholder="Tell your customers about your restaurant..."
+              fieldPrefix="body"
+              settings={settings}
+              onSettingChange={updateSettings}
+              multiline
+            />
+          </>
+        )}
+
+        {/* Promo Banner — per-field typography */}
+        {section.section_type === 'promo_banner' && (
+          <>
+            <TextFieldWithTypography
+              label="Title"
+              value={content.title || ''}
+              onChange={v => updateContent('title', v)}
+              placeholder="Special Offer"
+              fieldPrefix="title"
+              settings={settings}
+              onSettingChange={updateSettings}
+            />
+            <TextFieldWithTypography
+              label="Body"
+              value={content.body || ''}
+              onChange={v => updateContent('body', v)}
+              placeholder="Check out our latest deals!"
+              fieldPrefix="body"
+              settings={settings}
+              onSettingChange={updateSettings}
+              multiline
+            />
           </>
         )}
 
@@ -2086,7 +2213,7 @@ function getDefaultContent(sectionType: string): Record<string, any> {
     case 'text_and_image': return { title: 'Our Story', body: 'Tell your customers about your restaurant...', image_position: 'right' };
     case 'gallery': return { images: [] };
     case 'testimonials': return { reviews: [] };
-    case 'about': return { title: 'About Us', body: 'Tell your customers about your restaurant, your story, and what makes your food special.' };
+    case 'about': return { blocks: [{ title: 'About Us', body: 'Tell your customers about your restaurant, your story, and what makes your food special.' }] };
     case 'menu_highlights': return { title: "Chef's Picks", item_ids: [], auto_populate: true };
     case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
     case 'social_feed': return { links: [] };
