@@ -25,6 +25,7 @@ const SECTION_TYPE_META: Record<string, { label: string; icon: string; desc: str
   promo_banner:    { label: 'Promo Banner',      icon: '\u{1F3F7}\u{FE0F}', desc: 'Promotional offer banner' },
   social_feed:     { label: 'Social Links',      icon: '\u{1F4F1}', desc: 'Social media profile links' },
   action_buttons:  { label: 'Action Buttons',    icon: '\u{1F518}', desc: 'Configurable CTA buttons (order, menu, links)' },
+  picnic_basket:   { label: 'Picnic Basket',     icon: '\u{1F9FA}', desc: 'Scroll animation \u2014 food items fill a basket' },
   footer:          { label: 'Footer',            icon: '\u{1F3E0}', desc: 'Site footer with contact, social & copyright' },
 };
 
@@ -1393,6 +1394,41 @@ function SectionSettingsPanel({ section, onUpdate, onDelete }: {
           </div>
         )}
 
+        {/* Picnic Basket Editor */}
+        {section.section_type === 'picnic_basket' && (
+          <div className="space-y-3">
+            <div>
+              <label className={labelClass}>Title</label>
+              <input type="text" value={content.title || ''} onChange={e => updateContent('title', e.target.value)} className={inputClass} placeholder="Preparing Your Basket" />
+            </div>
+            <div>
+              <label className={labelClass}>Subtitle</label>
+              <input type="text" value={content.subtitle || ''} onChange={e => updateContent('subtitle', e.target.value)} className={inputClass} placeholder="Scroll to fill your Shabbat basket" />
+            </div>
+            <div>
+              <label className={labelClass}>Completion Text</label>
+              <input type="text" value={content.completion_text || ''} onChange={e => updateContent('completion_text', e.target.value)} className={inputClass} placeholder="Ready for Shabbat! 🕯️" />
+            </div>
+            <div>
+              <label className={labelClass}>Basket Image URL (optional — uses default illustration if empty)</label>
+              <input type="text" value={content.basket_image || ''} onChange={e => updateContent('basket_image', e.target.value)} className={`${inputClass} font-mono text-xs`} placeholder="https://..." />
+            </div>
+            <div>
+              <label className={labelClass}>Food Item Images (one URL per line — uses emoji placeholders if empty)</label>
+              <textarea
+                value={(content.items || []).map((img: any) => typeof img === 'string' ? img : img.url).filter(Boolean).join('\n')}
+                onChange={e => {
+                  const items = e.target.value.split('\n').filter(Boolean).map(url => ({ url: url.trim(), alt: '' }));
+                  updateContent('items', items);
+                }}
+                className={`${inputClass} min-h-[100px] font-mono text-xs`}
+                placeholder={"https://example.com/challah.jpg\nhttps://example.com/salad.jpg\nhttps://example.com/chicken.jpg"}
+              />
+              <p className="text-xs text-fg-secondary mt-1">Add 4-8 dish images for the best effect. They will float down into the basket as visitors scroll.</p>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons Editor */}
         {section.section_type === 'action_buttons' && (
           <ActionButtonsEditor content={content} updateContent={updateContent} />
@@ -1672,6 +1708,7 @@ function getDefaultContent(sectionType: string): Record<string, any> {
     case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
     case 'social_feed': return { links: [] };
     case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
+    case 'picnic_basket': return { title: 'Preparing Your Basket', subtitle: 'Scroll to fill your Shabbat basket with love', items: [], basket_image: '', completion_text: 'Ready for Shabbat! \u{1F56F}\u{FE0F}' };
     case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
     default: return {};
   }
