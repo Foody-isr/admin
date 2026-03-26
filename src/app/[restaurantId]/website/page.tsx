@@ -95,6 +95,8 @@ export default function WebsitePage() {
   const [cartStyle, setCartStyle] = useState<string>('bar-bottom');
   const [navbarStyle, setNavbarStyle] = useState<string>('solid');
   const [navbarColor, setNavbarColor] = useState<string>('');
+  const [logoSize, setLogoSize] = useState<number>(40);
+  const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -188,6 +190,8 @@ export default function WebsitePage() {
         setCartStyle(cfg.cart_style || 'bar-bottom');
         setNavbarStyle(cfg.navbar_style || 'solid');
         setNavbarColor(cfg.navbar_color || '');
+        setLogoSize(cfg.logo_size || 40);
+        setHideNavbarName(cfg.hide_navbar_name || false);
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -232,6 +236,8 @@ export default function WebsitePage() {
         cart_style: cartStyle,
         navbar_style: navbarStyle,
         navbar_color: navbarColor,
+        logo_size: logoSize,
+        hide_navbar_name: hideNavbarName,
       });
       setConfig(updated);
       setSaved(true);
@@ -242,7 +248,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle, navbarStyle, navbarColor, sections]);
+  }, [restaurantId, primaryColor, secondaryColor, fontFamily, themeMode, tagline, showAddress, showPhone, showHours, menuLayout, cartStyle, navbarStyle, navbarColor, logoSize, hideNavbarName, sections]);
 
   const handleResetConfig = useCallback(async () => {
     try {
@@ -261,6 +267,8 @@ export default function WebsitePage() {
       setCartStyle(cfg.cart_style || 'bar-bottom');
       setNavbarStyle(cfg.navbar_style || 'solid');
       setNavbarColor(cfg.navbar_color || '');
+      setLogoSize(cfg.logo_size || 40);
+      setHideNavbarName(cfg.hide_navbar_name || false);
       // Also refresh sections from reset response
       if (data.sections) {
         setSections(data.sections);
@@ -581,6 +589,8 @@ export default function WebsitePage() {
             cartStyle={cartStyle}
             navbarStyle={navbarStyle}
             navbarColor={navbarColor}
+            logoSize={logoSize}
+            hideNavbarName={hideNavbarName}
             sections={sections}
             selectedSectionId={selectedSectionId}
           />
@@ -622,6 +632,8 @@ export default function WebsitePage() {
                     showHours={showHours}
                     navbarStyle={navbarStyle}
                     navbarColor={navbarColor}
+                    logoSize={logoSize}
+                    hideNavbarName={hideNavbarName}
                     onTaglineChange={setTagline}
                     onThemeModeChange={setThemeMode}
                     onShowAddressChange={setShowAddress}
@@ -629,6 +641,8 @@ export default function WebsitePage() {
                     onShowHoursChange={setShowHours}
                     onNavbarStyleChange={setNavbarStyle}
                     onNavbarColorChange={setNavbarColor}
+                    onLogoSizeChange={setLogoSize}
+                    onHideNavbarNameChange={setHideNavbarName}
                     onRestaurantUpdate={setRestaurant}
                     onReset={handleResetConfig}
                   />
@@ -722,7 +736,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onRestaurantUpdate, onReset }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onLogoSizeChange, onHideNavbarNameChange, onRestaurantUpdate, onReset }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -732,6 +746,8 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   showHours: boolean;
   navbarStyle: string;
   navbarColor: string;
+  logoSize: number;
+  hideNavbarName: boolean;
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
@@ -739,6 +755,8 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   onShowHoursChange: (v: boolean) => void;
   onNavbarStyleChange: (v: string) => void;
   onNavbarColorChange: (v: string) => void;
+  onLogoSizeChange: (v: number) => void;
+  onHideNavbarNameChange: (v: boolean) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
   onReset: () => void;
 }) {
@@ -1039,6 +1057,30 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
             <input type="text" value={navbarColor || '#1f2937'} onChange={e => onNavbarColorChange(e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
           </div>
         )}
+        {/* Logo size */}
+        <div className="mt-3">
+          <label className="text-xs text-fg-secondary block mb-1">Logo Size ({logoSize}px)</label>
+          <input
+            type="range"
+            min={20}
+            max={120}
+            step={4}
+            value={logoSize}
+            onChange={e => onLogoSizeChange(Number(e.target.value))}
+            className="w-full accent-brand-500"
+          />
+          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
+            <span>20px</span>
+            <span>120px</span>
+          </div>
+        </div>
+        {/* Hide restaurant name */}
+        <label className="flex items-center justify-between py-2 mt-1">
+          <span className="text-sm text-fg-primary">Hide Restaurant Name</span>
+          <button type="button" onClick={() => onHideNavbarNameChange(!hideNavbarName)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideNavbarName ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideNavbarName ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </label>
       </div>
 
       <div>
@@ -1235,6 +1277,11 @@ function PicnicBasketEditor({ content, settings, updateContent, updateSettings, 
         settings={settings}
         onSettingChange={updateSettings}
       />
+      <div>
+        <label className="text-xs text-fg-secondary mb-1 block">Basket Link</label>
+        <input type="text" value={content.basket_link || ''} onChange={e => updateContent('basket_link', e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="/order (default)" />
+        <p className="text-xs text-fg-secondary mt-1">Where the basket links to when clicked. Default: /order</p>
+      </div>
       <SectionImageUploader
         restaurantId={restaurantId}
         currentUrl={content.basket_image || ''}
@@ -1483,6 +1530,99 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
             </div>
           </div>
         )}
+
+        {/* Background Image */}
+        <div className="mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-fg-secondary font-medium">Background Image</label>
+            {settings.bg_image && (
+              <button type="button" onClick={() => { updateSettings('bg_image', ''); }} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+            )}
+          </div>
+          <SectionImageUploader
+            restaurantId={restaurantId}
+            currentUrl={settings.bg_image || ''}
+            onUploaded={(url) => updateSettings('bg_image', url)}
+            onRemove={() => updateSettings('bg_image', '')}
+          />
+          {settings.bg_image && (
+            <div className="space-y-3 pt-1">
+              {/* Overlay toggle */}
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-fg-secondary">Overlay</label>
+                <button
+                  type="button"
+                  onClick={() => updateSettings('bg_overlay', !settings.bg_overlay)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${settings.bg_overlay ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${settings.bg_overlay ? 'translate-x-4' : ''}`} />
+                </button>
+              </div>
+              {settings.bg_overlay && (
+                <>
+                  {/* Overlay color */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-fg-secondary w-20">Overlay Color</label>
+                    <input type="color" value={settings.bg_overlay_color || '#000000'} onChange={e => updateSettings('bg_overlay_color', e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
+                    <input type="text" value={settings.bg_overlay_color || '#000000'} onChange={e => updateSettings('bg_overlay_color', e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
+                  </div>
+                  {/* Overlay opacity */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-fg-secondary">Overlay Opacity</label>
+                      <span className="text-xs text-fg-secondary">{settings.bg_overlay_opacity ?? 50}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={settings.bg_overlay_opacity ?? 50}
+                      onChange={e => updateSettings('bg_overlay_opacity', Number(e.target.value))}
+                      className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-[var(--brand)]"
+                    />
+                  </div>
+                </>
+              )}
+              {/* Background size */}
+              <div>
+                <label className="text-xs text-fg-secondary mb-1 block">Image Fit</label>
+                <div className="flex gap-1.5">
+                  {[
+                    { value: 'cover', label: 'Cover' },
+                    { value: 'contain', label: 'Contain' },
+                    { value: 'repeat', label: 'Repeat' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateSettings('bg_size', opt.value)}
+                      className={`flex-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${(settings.bg_size || 'cover') === opt.value ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Background position */}
+              <div>
+                <label className="text-xs text-fg-secondary mb-1 block">Image Position</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {['top', 'center', 'bottom'].map(pos => (
+                    <button
+                      key={pos}
+                      type="button"
+                      onClick={() => updateSettings('bg_position', pos)}
+                      className={`px-2 py-1 rounded-lg border text-xs font-medium transition-all capitalize ${(settings.bg_position || 'center') === pos ? 'bg-[var(--brand)] text-white border-[var(--brand)]' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary'}`}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Typography */}
@@ -1807,7 +1947,7 @@ function ActionButtonsEditor({ content, updateContent }: {
 }
 
 
-function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, sections, selectedSectionId }: {
+function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, logoSize, hideNavbarName, sections, selectedSectionId }: {
   mode: 'mobile' | 'desktop';
   activePage: string;
   restaurant: Restaurant | null;
@@ -1819,6 +1959,8 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   cartStyle: string;
   navbarStyle: string;
   navbarColor: string;
+  logoSize: number;
+  hideNavbarName: boolean;
   sections: WebsiteSection[];
   selectedSectionId: number | null;
 }) {
@@ -1837,7 +1979,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
     // Send theme overrides (includes menu page settings so order iframe updates too)
     iframe.contentWindow.postMessage({
       type: 'foody-theme-override',
-      config: { primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor },
+      config: { primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, logoSize, hideNavbarName },
     }, '*');
 
     // Send section content overrides
@@ -1851,7 +1993,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
       type: 'foody-highlight-section',
       sectionId: selectedSectionId,
     }, '*');
-  }, [primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, sections, selectedSectionId]);
+  }, [primaryColor, secondaryColor, fontFamily, themeMode, menuLayout, cartStyle, navbarStyle, navbarColor, logoSize, hideNavbarName, sections, selectedSectionId]);
 
   // Send overrides whenever they change
   useEffect(() => {

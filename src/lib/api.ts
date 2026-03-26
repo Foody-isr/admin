@@ -194,6 +194,8 @@ export interface WebsiteConfig {
   cart_style: string;
   navbar_style: string;
   navbar_color: string;
+  logo_size: number;
+  hide_navbar_name: boolean;
 }
 
 export interface TodayStats {
