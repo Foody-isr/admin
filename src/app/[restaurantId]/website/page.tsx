@@ -17,7 +17,7 @@ const FONT_OPTIONS = [
   'Nunito Sans', 'Inter', 'Poppins', 'Rubik', 'Open Sans',
   'Playfair Display', 'Cinzel Decorative', 'Cormorant Garamond',
   'Lora', 'Montserrat', 'Oswald', 'Raleway', 'Dancing Script',
-  'Great Vibes', 'Merriweather', 'Bitter', 'Crimson Text',
+  'Great Vibes', 'Merriweather', 'Bitter', 'Crimson Text', 'Eros',
 ];
 
 const SECTION_TYPE_META: Record<string, { label: string; icon: string; desc: string }> = {
