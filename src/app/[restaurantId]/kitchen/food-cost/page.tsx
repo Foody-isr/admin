@@ -12,12 +12,14 @@ import {
   MagnifyingGlassIcon, PlusIcon, TrashIcon,
   ExclamationTriangleIcon, CurrencyDollarIcon,
 } from '@heroicons/react/24/outline';
+import { useI18n } from '@/lib/i18n';
 
 const COST_THRESHOLD = 0.35; // 35% food cost warning
 
 export default function FoodCostPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -80,12 +82,6 @@ export default function FoodCostPage() {
   const totalCost = ingredients.reduce((sum, ing) => sum + calcLineCost(ing), 0);
   const costPct = selectedItem && selectedItem.price > 0 ? totalCost / selectedItem.price : 0;
 
-  // Summary stats
-  const itemsWithCost = allItems.filter((item) => {
-    // We only know costs for the selected item in real-time, so show aggregate stats
-    return true;
-  });
-
   // Edit mode
   const startEditing = () => {
     setEditIngredients(ingredients.map((i) => ({
@@ -138,7 +134,7 @@ export default function FoodCostPage() {
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
           <input
             type="text"
-            placeholder="Search menu items..."
+            placeholder={t('searchMenuItems')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input pl-9 pr-3 py-2 text-sm w-full"
@@ -180,8 +176,8 @@ export default function FoodCostPage() {
         {!selectedItem ? (
           <div className="card text-center py-16 space-y-3">
             <CurrencyDollarIcon className="w-12 h-12 mx-auto text-fg-secondary" />
-            <p className="text-lg font-semibold text-fg-primary">Select a menu item</p>
-            <p className="text-sm text-fg-secondary">Choose an item from the list to view and manage its food cost breakdown.</p>
+            <p className="text-lg font-semibold text-fg-primary">{t('selectMenuItem')}</p>
+            <p className="text-sm text-fg-secondary">{t('chooseItemForFoodCost')}</p>
           </div>
         ) : loadingIngredients ? (
           <div className="card flex justify-center py-16">
@@ -191,10 +187,10 @@ export default function FoodCostPage() {
           /* Edit mode */
           <div className="card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-fg-primary text-lg">Edit Ingredients: {selectedItem.name}</h3>
+              <h3 className="font-semibold text-fg-primary text-lg">{t('editIngredients').replace('{name}', selectedItem.name)}</h3>
             </div>
 
-            <p className="text-sm text-fg-secondary">Link raw stock items and prep items with quantity per serving.</p>
+            <p className="text-sm text-fg-secondary">{t('linkIngredients')}</p>
 
             {editIngredients.map((ing, idx) => (
               <div key={idx} className="flex items-center gap-2">
@@ -210,11 +206,11 @@ export default function FoodCostPage() {
                     }
                   }}
                 >
-                  <option value="">Select ingredient...</option>
-                  <optgroup label="Raw Stock">
+                  <option value="">{t('selectIngredient')}</option>
+                  <optgroup label={t('rawStock')}>
                     {stockItems.map((s) => <option key={`s${s.id}`} value={`stock:${s.id}`}>{s.name} ({s.unit})</option>)}
                   </optgroup>
-                  <optgroup label="Prep Items">
+                  <optgroup label={t('prepItems')}>
                     {prepItems.map((p) => <option key={`p${p.id}`} value={`prep:${p.id}`}>{p.name} ({p.unit})</option>)}
                   </optgroup>
                 </select>
@@ -225,7 +221,7 @@ export default function FoodCostPage() {
                   className="input w-24 py-2 text-sm text-right"
                   value={ing.quantity_needed || ''}
                   onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
-                  placeholder="Qty"
+                  placeholder={t('qty')}
                 />
                 <button onClick={() => removeEditIngredient(idx)} className="p-1 text-red-400 hover:text-red-300">
                   <TrashIcon className="w-4 h-4" />
@@ -234,12 +230,12 @@ export default function FoodCostPage() {
             ))}
 
             <button onClick={addEditIngredient} className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1">
-              <PlusIcon className="w-4 h-4" /> Add Ingredient
+              <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
             </button>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setEditing(false)} className="btn-secondary text-sm">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? 'Saving...' : 'Save'}</button>
+              <button onClick={() => setEditing(false)} className="btn-secondary text-sm">{t('cancel')}</button>
+              <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('save')}</button>
             </div>
           </div>
         ) : (
@@ -250,25 +246,25 @@ export default function FoodCostPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-semibold text-fg-primary text-lg">{selectedItem.name}</h3>
-                  <p className="text-sm text-fg-secondary">Selling price: <span className="font-mono font-bold">{selectedItem.price.toFixed(2)} &#8362;</span></p>
+                  <p className="text-sm text-fg-secondary">{t('sellingPrice').replace('{price}', selectedItem.price.toFixed(2))}</p>
                 </div>
-                <button onClick={startEditing} className="btn-secondary text-sm">Edit Ingredients</button>
+                <button onClick={startEditing} className="btn-secondary text-sm">{t('editIngredients').replace('{name}', '').replace(/[:\s]+$/, '')}</button>
               </div>
 
               {/* Cost summary */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
-                  <p className="text-xs text-fg-secondary">Food Cost</p>
+                  <p className="text-xs text-fg-secondary">{t('foodCostLabel')}</p>
                   <p className="text-xl font-bold text-fg-primary">{totalCost.toFixed(2)} &#8362;</p>
                 </div>
                 <div className={`rounded-lg p-3 ${costPct > COST_THRESHOLD ? 'bg-red-500/10' : ''}`} style={costPct <= COST_THRESHOLD ? { background: 'var(--surface-subtle)' } : {}}>
-                  <p className="text-xs text-fg-secondary">Cost %</p>
+                  <p className="text-xs text-fg-secondary">{t('costPercent')}</p>
                   <p className={`text-xl font-bold ${costPct > COST_THRESHOLD ? 'text-red-500' : 'text-fg-primary'}`}>
                     {(costPct * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
-                  <p className="text-xs text-fg-secondary">Gross Profit</p>
+                  <p className="text-xs text-fg-secondary">{t('grossProfit')}</p>
                   <p className="text-xl font-bold text-status-ready">{(selectedItem.price - totalCost).toFixed(2)} &#8362;</p>
                 </div>
               </div>
@@ -276,7 +272,7 @@ export default function FoodCostPage() {
               {costPct > COST_THRESHOLD && (
                 <div className="flex items-center gap-2 mt-3 text-sm text-red-500">
                   <ExclamationTriangleIcon className="w-4 h-4" />
-                  Food cost exceeds {(COST_THRESHOLD * 100).toFixed(0)}% threshold
+                  {t('foodCostExceedsThreshold').replace('{threshold}', (COST_THRESHOLD * 100).toFixed(0))}
                 </div>
               )}
             </div>
@@ -285,18 +281,18 @@ export default function FoodCostPage() {
             <div className="card overflow-hidden p-0">
               {ingredients.length === 0 ? (
                 <div className="text-center py-8 space-y-2">
-                  <p className="text-sm text-fg-secondary">No ingredients linked yet.</p>
-                  <button onClick={startEditing} className="text-sm text-brand-500 hover:text-brand-400">Add ingredients</button>
+                  <p className="text-sm text-fg-secondary">{t('noIngredientsLinked')}</p>
+                  <button onClick={startEditing} className="text-sm text-brand-500 hover:text-brand-400">{t('addIngredients')}</button>
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                      <th className="py-3 px-4 font-medium">Ingredient</th>
-                      <th className="py-3 px-4 font-medium">Type</th>
-                      <th className="py-3 px-4 font-medium text-right">Qty / Serving</th>
-                      <th className="py-3 px-4 font-medium text-right">Unit Cost</th>
-                      <th className="py-3 px-4 font-medium text-right">Line Cost</th>
+                      <th className="py-3 px-4 font-medium">{t('ingredient')}</th>
+                      <th className="py-3 px-4 font-medium">{t('type')}</th>
+                      <th className="py-3 px-4 font-medium text-right">{t('qtyPerServing')}</th>
+                      <th className="py-3 px-4 font-medium text-right">{t('unitCost')}</th>
+                      <th className="py-3 px-4 font-medium text-right">{t('lineCost')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -305,12 +301,12 @@ export default function FoodCostPage() {
                       const unit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
                       const unitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
                       const lineCost = calcLineCost(ing);
-                      const type = ing.stock_item_id ? 'Raw' : 'Prep';
+                      const type = ing.stock_item_id ? t('raw') : t('prep');
                       return (
                         <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                           <td className="py-3 px-4 font-medium text-fg-primary">{name}</td>
                           <td className="py-3 px-4">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${type === 'Raw' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${ing.stock_item_id ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
                               {type}
                             </span>
                           </td>
@@ -323,7 +319,7 @@ export default function FoodCostPage() {
                       );
                     })}
                     <tr style={{ background: 'var(--surface-subtle)' }}>
-                      <td colSpan={4} className="py-3 px-4 text-right font-semibold text-fg-primary">Total Food Cost</td>
+                      <td colSpan={4} className="py-3 px-4 text-right font-semibold text-fg-primary">{t('totalFoodCost')}</td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-fg-primary">{totalCost.toFixed(2)} &#8362;</td>
                     </tr>
                   </tbody>

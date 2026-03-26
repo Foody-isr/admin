@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getAnalyticsToday, getTopSellers, TodayStats, TopSeller } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 export default function AnalyticsOverviewPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
@@ -35,30 +37,30 @@ export default function AnalyticsOverviewPage() {
       {/* Today summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Revenue today', value: stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—' },
-          { label: 'Orders today', value: stats?.total_orders ?? '—' },
+          { labelKey: 'revenueToday', value: stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—' },
+          { labelKey: 'ordersToday', value: stats?.total_orders ?? '—' },
         ].map((s) => (
-          <div key={s.label} className="card text-center">
+          <div key={s.labelKey} className="card text-center">
             <div className="text-2xl font-bold text-fg-primary">{s.value}</div>
-            <div className="text-sm text-fg-secondary mt-1">{s.label}</div>
+            <div className="text-sm text-fg-secondary mt-1">{t(s.labelKey)}</div>
           </div>
         ))}
       </div>
 
       {/* Top sellers table */}
       <div className="card">
-        <h2 className="font-semibold text-fg-primary mb-4">Top Selling Items</h2>
+        <h2 className="font-semibold text-fg-primary mb-4">{t('topSellingItems')}</h2>
         {topSellers.length === 0 ? (
-          <p className="text-sm text-fg-secondary">No sales data yet</p>
+          <p className="text-sm text-fg-secondary">{t('noSalesDataYet')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-divider">
-                  <th className="text-left py-2 text-fg-secondary font-medium">#</th>
-                  <th className="text-left py-2 text-fg-secondary font-medium">Item</th>
-                  <th className="text-right py-2 text-fg-secondary font-medium">Qty Sold</th>
-                  <th className="text-right py-2 text-fg-secondary font-medium">Revenue</th>
+                  <th className="text-left py-2 text-fg-secondary font-medium">{t('qtyHeader')}</th>
+                  <th className="text-left py-2 text-fg-secondary font-medium">{t('itemHeader')}</th>
+                  <th className="text-right py-2 text-fg-secondary font-medium">{t('qtySold')}</th>
+                  <th className="text-right py-2 text-fg-secondary font-medium">{t('revenue')}</th>
                 </tr>
               </thead>
               <tbody>

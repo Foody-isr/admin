@@ -15,6 +15,7 @@ import {
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline';
+import { useI18n } from '@/lib/i18n';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 
@@ -23,6 +24,7 @@ const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 
 export default function StockPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [items, setItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<StockCategory[]>([]);
@@ -66,7 +68,7 @@ export default function StockPage() {
   const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this stock item?')) return;
+    if (!confirm(t('deleteStockItem'))) return;
     await deleteStockItem(rid, id);
     reload();
   };
@@ -84,17 +86,17 @@ export default function StockPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">Total Items</p>
+          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('totalItems')}</p>
           <p className="text-2xl font-bold text-fg-primary mt-1">{items.length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">Low Stock</p>
+          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('lowStock')}</p>
           <p className={`text-2xl font-bold mt-1 ${lowStockCount > 0 ? 'text-red-500' : 'text-fg-primary'}`}>
             {lowStockCount}
           </p>
         </div>
         <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">Inventory Value</p>
+          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('inventoryValue')}</p>
           <p className="text-2xl font-bold text-fg-primary mt-1">{totalValue.toFixed(2)} &#8362;</p>
         </div>
       </div>
@@ -105,7 +107,7 @@ export default function StockPage() {
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
           <input
             type="text"
-            placeholder="Search items..."
+            placeholder={t('searchItems')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input pl-9 pr-3 py-2 text-sm w-full"
@@ -117,7 +119,7 @@ export default function StockPage() {
           onChange={(e) => setCategoryFilter(e.target.value)}
           className="input py-2 text-sm"
         >
-          <option value="">All Categories</option>
+          <option value="">{t('allCategories')}</option>
           {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
 
@@ -128,25 +130,25 @@ export default function StockPage() {
             onChange={(e) => setLowStockOnly(e.target.checked)}
             className="rounded"
           />
-          Low stock only
+          {t('lowStockOnly')}
         </label>
 
         <div className="flex-1" />
 
         <button onClick={() => setImportModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
-          <SparklesIcon className="w-4 h-4" /> Import Delivery
+          <SparklesIcon className="w-4 h-4" /> {t('importDelivery')}
         </button>
         <button onClick={() => setItemModal({ open: true })} className="btn-primary flex items-center gap-2 text-sm">
-          <PlusIcon className="w-4 h-4" /> Add Item
+          <PlusIcon className="w-4 h-4" /> {t('addItem')}
         </button>
       </div>
 
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="card text-center py-16 space-y-3">
-          <p className="text-lg font-semibold text-fg-primary">No stock items found</p>
+          <p className="text-lg font-semibold text-fg-primary">{t('noStockItemsFound')}</p>
           <p className="text-sm text-fg-secondary">
-            {items.length === 0 ? 'Add your first stock item to get started.' : 'Try adjusting your filters.'}
+            {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
         </div>
       ) : (
@@ -154,12 +156,12 @@ export default function StockPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-3 px-4 font-medium">Item</th>
-                <th className="py-3 px-4 font-medium">Category</th>
-                <th className="py-3 px-4 font-medium text-right">Quantity</th>
-                <th className="py-3 px-4 font-medium text-right">Cost/Unit</th>
-                <th className="py-3 px-4 font-medium">Supplier</th>
-                <th className="py-3 px-4 font-medium">Status</th>
+                <th className="py-3 px-4 font-medium">{t('item')}</th>
+                <th className="py-3 px-4 font-medium">{t('category')}</th>
+                <th className="py-3 px-4 font-medium text-right">{t('quantity')}</th>
+                <th className="py-3 px-4 font-medium text-right">{t('costPerUnit')}</th>
+                <th className="py-3 px-4 font-medium">{t('supplier')}</th>
+                <th className="py-3 px-4 font-medium">{t('status')}</th>
                 <th className="py-3 px-4 font-medium w-10" />
               </tr>
             </thead>
@@ -192,10 +194,10 @@ export default function StockPage() {
                     <td className="py-3 px-4">
                       {isLow ? (
                         <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
-                          <ExclamationTriangleIcon className="w-4 h-4" /> Low Stock
+                          <ExclamationTriangleIcon className="w-4 h-4" /> {t('lowStock')}
                         </span>
                       ) : (
-                        <span className="text-xs text-status-ready font-medium">OK</span>
+                        <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
@@ -203,21 +205,21 @@ export default function StockPage() {
                         <button
                           onClick={() => setTxModal({ open: true, item, type: 'receive' })}
                           className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title="Receive stock"
+                          title={t('receiveStock')}
                         >
                           <ArrowDownTrayIcon className="w-4 h-4 text-fg-secondary" />
                         </button>
                         <button
                           onClick={() => setItemModal({ open: true, editing: item })}
                           className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title="Edit"
+                          title={t('edit')}
                         >
                           <PencilIcon className="w-4 h-4 text-fg-secondary" />
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
                           className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title="Delete"
+                          title={t('delete')}
                         >
                           <TrashIcon className="w-4 h-4 text-red-400" />
                         </button>
@@ -276,6 +278,7 @@ function StockItemModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<StockItemInput>({
     name: editing?.name ?? '',
     unit: editing?.unit ?? 'unit',
@@ -308,44 +311,44 @@ function StockItemModal({
   };
 
   return (
-    <Modal title={editing ? 'Edit Stock Item' : 'Add Stock Item'} onClose={onClose}>
+    <Modal title={editing ? t('editStockItem') : t('addStockItem')} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">Name *</label>
+          <label className="text-xs text-fg-secondary block mb-1">{t('nameLabel')}</label>
           <input className="input w-full py-2 text-sm" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">Unit *</label>
+            <label className="text-xs text-fg-secondary block mb-1">{t('unitLabel')}</label>
             <select className="input w-full py-2 text-sm" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value as StockUnit })}>
               {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">Quantity</label>
+            <label className="text-xs text-fg-secondary block mb-1">{t('quantity')}</label>
             <input type="number" step="any" className="input w-full py-2 text-sm" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">Cost per Unit</label>
+            <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')}</label>
             <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">Reorder Threshold</label>
+            <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
             <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">Supplier</label>
+            <label className="text-xs text-fg-secondary block mb-1">{t('supplier')}</label>
             <input className="input w-full py-2 text-sm" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">Category</label>
+            <label className="text-xs text-fg-secondary block mb-1">{t('category')}</label>
             <input
               className="input w-full py-2 text-sm"
               list="stock-cats"
@@ -359,18 +362,18 @@ function StockItemModal({
         </div>
 
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">Notes</label>
+          <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
           <textarea className="input w-full py-2 text-sm" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
 
         <div className="flex items-center justify-between pt-2">
           <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
             <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded" />
-            Active
+            {t('active')}
           </label>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? 'Saving...' : editing ? 'Update' : 'Create'}</button>
+            <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+            <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : editing ? t('update') : t('create')}</button>
           </div>
         </div>
       </form>
@@ -389,6 +392,7 @@ function TransactionModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [type, setType] = useState<StockTransactionType>(defaultType ?? 'receive');
   const [qty, setQty] = useState(0);
   const [notes, setNotes] = useState('');
@@ -416,13 +420,15 @@ function TransactionModal({
   };
 
   const typeOptions: { value: StockTransactionType; label: string; icon: typeof ArrowDownIcon }[] = [
-    { value: 'receive', label: 'Receive', icon: ArrowDownIcon },
-    { value: 'waste', label: 'Waste', icon: TrashIcon },
-    { value: 'adjust', label: 'Adjust', icon: ArrowsRightLeftIcon },
+    { value: 'receive', label: t('receive'), icon: ArrowDownIcon },
+    { value: 'waste', label: t('waste'), icon: TrashIcon },
+    { value: 'adjust', label: t('adjust'), icon: ArrowsRightLeftIcon },
   ];
 
+  const afterQty = type === 'receive' ? item.quantity + qty : item.quantity - qty;
+
   return (
-    <Modal title={`Stock Transaction — ${item.name}`} onClose={onClose}>
+    <Modal title={t('stockTransaction').replace('{name}', item.name)} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex gap-2">
           {typeOptions.map((opt) => (
@@ -441,25 +447,25 @@ function TransactionModal({
         </div>
 
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">Quantity ({item.unit})</label>
+          <label className="text-xs text-fg-secondary block mb-1">{t('quantityUnit').replace('{unit}', item.unit)}</label>
           <input type="number" step="any" min="0" required className="input w-full py-2 text-sm" value={qty || ''} onChange={(e) => setQty(+e.target.value)} />
         </div>
 
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">Notes</label>
+          <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
           <input className="input w-full py-2 text-sm" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
         <div className="text-xs text-fg-secondary">
-          Current: <span className="font-mono">{item.quantity} {item.unit}</span>
-          &rarr; After: <span className="font-mono font-bold">
-            {type === 'receive' ? item.quantity + qty : item.quantity - qty} {item.unit}
-          </span>
+          {t('currentAfter')
+            .replace('{current}', String(item.quantity))
+            .replace('{after}', String(afterQty))
+            .replace(/\{unit\}/g, item.unit)}
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
-          <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? 'Saving...' : 'Confirm'}</button>
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+          <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('confirm')}</button>
         </div>
       </form>
     </Modal>
@@ -475,6 +481,7 @@ function DeliveryImportModal({
   onClose: () => void;
   onImported: () => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -530,14 +537,14 @@ function DeliveryImportModal({
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-fg-primary flex items-center gap-2">
             <SparklesIcon className="w-5 h-5 text-brand-500" />
-            AI Delivery Import
+            {t('aiDeliveryImport')}
           </h3>
           <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
         </div>
 
         {step === 'upload' && (
           <div className="space-y-4">
-            <p className="text-sm text-fg-secondary">Upload a photo or PDF of a delivery voucher. Our AI will extract the items automatically.</p>
+            <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
             <input
               type="file"
               accept="image/*,.pdf"
@@ -545,9 +552,9 @@ function DeliveryImportModal({
               className="input w-full py-2 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
               <button onClick={handleUpload} disabled={!file || loading} className="btn-primary text-sm">
-                {loading ? 'Analyzing...' : 'Upload & Analyze'}
+                {loading ? t('analyzing') : t('uploadAndAnalyze')}
               </button>
             </div>
           </div>
@@ -556,18 +563,20 @@ function DeliveryImportModal({
         {step === 'review' && (
           <div className="space-y-4">
             <p className="text-sm text-fg-secondary">
-              Found {editedItems.length} items from {extraction?.supplier_name || 'supplier'}. Review and confirm.
+              {t('foundItemsFromSupplier')
+                .replace('{count}', String(editedItems.length))
+                .replace('{supplier}', extraction?.supplier_name || 'supplier')}
             </p>
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-fg-secondary uppercase" style={{ borderBottom: '1px solid var(--divider)' }}>
-                    <th className="py-2 px-2 font-medium">Name</th>
-                    <th className="py-2 px-2 font-medium text-right">Qty</th>
-                    <th className="py-2 px-2 font-medium">Unit</th>
-                    <th className="py-2 px-2 font-medium text-right">Cost/Unit</th>
-                    <th className="py-2 px-2 font-medium">Category</th>
+                    <th className="py-2 px-2 font-medium">{t('name')}</th>
+                    <th className="py-2 px-2 font-medium text-right">{t('qty')}</th>
+                    <th className="py-2 px-2 font-medium">{t('unit')}</th>
+                    <th className="py-2 px-2 font-medium text-right">{t('costPerUnit')}</th>
+                    <th className="py-2 px-2 font-medium">{t('category')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -595,9 +604,9 @@ function DeliveryImportModal({
             </div>
 
             <div className="flex justify-end gap-2">
-              <button onClick={() => setStep('upload')} className="btn-secondary text-sm">Back</button>
+              <button onClick={() => setStep('upload')} className="btn-secondary text-sm">{t('back')}</button>
               <button onClick={handleConfirm} disabled={loading} className="btn-primary text-sm">
-                {loading ? 'Confirming...' : 'Confirm Import'}
+                {loading ? t('confirming') : t('confirmImport')}
               </button>
             </div>
           </div>

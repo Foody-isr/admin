@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { login, isAuthenticated, getStoredRestaurantIds, getStoredUser, logout } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,7 +18,6 @@ export default function LoginPage() {
     if (isAuthenticated()) {
       const user = getStoredUser();
       if (!user || (user.role !== 'owner' && user.role !== 'manager')) {
-        // Stale/invalid session — clear it to prevent redirect loops
         logout();
         return;
       }
@@ -37,7 +38,7 @@ export default function LoginPage() {
     try {
       const { restaurant_ids } = await login(email, password);
       if (restaurant_ids.length === 0) {
-        setError('No restaurant assigned to your account. Contact your Foody administrator.');
+        setError(t('noRestaurantAssigned'));
         return;
       }
       if (restaurant_ids.length === 1) {
@@ -46,7 +47,7 @@ export default function LoginPage() {
         router.push('/select-restaurant');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -62,14 +63,14 @@ export default function LoginPage() {
               <span className="text-xl font-black text-white">F</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-              <p className="text-xs text-fg-secondary">Restaurant portal</p>
+              <h1 className="text-xl font-bold text-fg-primary">{t('foodyAdmin')}</h1>
+              <p className="text-xs text-fg-secondary">{t('restaurantPortal')}</p>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-fg-primary mb-6">Sign in</h2>
+          <h2 className="text-lg font-semibold text-fg-primary mb-6">{t('signIn')}</h2>
 
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
@@ -79,25 +80,25 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Email</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input"
-                placeholder="you@example.com"
+                placeholder={t('emailPlaceholder')}
                 required
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('password')}</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input"
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
                 required
               />
             </div>
@@ -106,7 +107,7 @@ export default function LoginPage() {
               disabled={loading}
               className="btn-primary w-full justify-center disabled:opacity-50"
             >
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? t('signingIn') : t('signIn')}
             </button>
           </form>
         </div>

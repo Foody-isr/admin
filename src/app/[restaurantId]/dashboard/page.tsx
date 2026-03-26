@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getAnalyticsToday, getTopSellers, listOrders, TodayStats, TopSeller, Order } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 import {
   BanknotesIcon,
   ShoppingBagIcon,
@@ -39,6 +40,7 @@ const STATUS_BADGE: Record<string, string> = {
 export default function DashboardPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
@@ -68,20 +70,20 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-fg-primary">Dashboard</h1>
-        <p className="text-sm text-fg-secondary mt-1">Today&apos;s overview</p>
+        <h1 className="text-2xl font-bold text-fg-primary">{t('dashboard')}</h1>
+        <p className="text-sm text-fg-secondary mt-1">{t('todaysOverview')}</p>
       </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Revenue today"
+          label={t('revenueToday')}
           value={stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—'}
           icon={BanknotesIcon}
           color="bg-brand-500"
         />
         <StatCard
-          label="Orders today"
+          label={t('ordersToday')}
           value={stats?.total_orders ?? '—'}
           icon={ShoppingBagIcon}
           color="bg-blue-500"
@@ -91,9 +93,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top sellers */}
         <div className="card">
-          <h2 className="font-semibold text-fg-primary mb-4">Top Sellers</h2>
+          <h2 className="font-semibold text-fg-primary mb-4">{t('topSellers')}</h2>
           {topSellers.length === 0 ? (
-            <p className="text-sm text-fg-secondary">No sales data yet</p>
+            <p className="text-sm text-fg-secondary">{t('noSalesDataYet')}</p>
           ) : (
             <div className="space-y-3">
               {topSellers.map((item, i) => (
@@ -104,7 +106,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-medium text-fg-primary">₪{(item.revenue ?? 0).toFixed(0)}</div>
-                    <div className="text-xs text-fg-secondary">{item.quantity} sold</div>
+                    <div className="text-xs text-fg-secondary">{item.quantity} {t('sold')}</div>
                   </div>
                 </div>
               ))}
@@ -114,9 +116,9 @@ export default function DashboardPage() {
 
         {/* Recent orders */}
         <div className="card">
-          <h2 className="font-semibold text-fg-primary mb-4">Recent Orders</h2>
+          <h2 className="font-semibold text-fg-primary mb-4">{t('recentOrders')}</h2>
           {recentOrders.length === 0 ? (
-            <p className="text-sm text-fg-secondary">No orders yet</p>
+            <p className="text-sm text-fg-secondary">{t('noOrdersYet')}</p>
           ) : (
             <div className="space-y-3">
               {recentOrders.map((order) => (

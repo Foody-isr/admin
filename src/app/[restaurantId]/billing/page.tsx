@@ -3,34 +3,35 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { getSubscription, setupBilling, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 import { CreditCardIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 const STATUS_CONFIG = {
-  trial: { label: 'Free Trial', color: 'badge-accepted', icon: CheckCircleIcon },
-  active: { label: 'Active', color: 'badge-ready', icon: CheckCircleIcon },
-  past_due: { label: 'Past Due', color: 'badge-in-kitchen', icon: ExclamationTriangleIcon },
-  deactivated: { label: 'Deactivated', color: 'badge-rejected', icon: ExclamationTriangleIcon },
-  cancelled: { label: 'Cancelled', color: 'badge-neutral', icon: ExclamationTriangleIcon },
+  trial: { labelKey: 'freeTrial' as const, color: 'badge-accepted', icon: CheckCircleIcon },
+  active: { labelKey: 'active' as const, color: 'badge-ready', icon: CheckCircleIcon },
+  past_due: { labelKey: 'pastDue' as const, color: 'badge-in-kitchen', icon: ExclamationTriangleIcon },
+  deactivated: { labelKey: 'deactivated' as const, color: 'badge-rejected', icon: ExclamationTriangleIcon },
+  cancelled: { labelKey: 'cancelled' as const, color: 'badge-neutral', icon: ExclamationTriangleIcon },
 };
 
-const PLANS: { tier: PlanTier; name: string; price: string; features: string[] }[] = [
+const PLANS: { tier: PlanTier; nameKey: string; priceKey: string; featureKeys: string[] }[] = [
   {
     tier: 'starter',
-    name: 'Starter',
-    price: '₪299/mo',
-    features: ['POS Screen', 'Menu Management', 'Receipt Printing', 'Pickup & Takeaway', 'Push Notifications'],
+    nameKey: 'starter',
+    priceKey: '₪299/mo',
+    featureKeys: ['posScreen', 'menuManagement', 'receiptPrinting', 'pickupAndTakeaway', 'pushNotifications'],
   },
   {
     tier: 'premium',
-    name: 'Premium',
-    price: '₪799/mo',
-    features: ['Everything in Starter', 'QR Dine-In', 'Online Payments', 'Delivery', 'Stock Management', 'Advanced Analytics', 'WhatsApp Notifications'],
+    nameKey: 'premium',
+    priceKey: '₪799/mo',
+    featureKeys: ['everythingInStarter', 'qrDineIn', 'onlinePayments', 'delivery', 'stockManagement', 'advancedAnalytics', 'whatsappNotifications'],
   },
   {
     tier: 'enterprise',
-    name: 'Enterprise',
-    price: 'Custom',
-    features: ['Everything in Premium', 'Multi-Restaurant', 'Custom API Access', 'Priority Support'],
+    nameKey: 'enterprise',
+    priceKey: 'custom',
+    featureKeys: ['everythingInPremium', 'multiRestaurant', 'customApiAccess', 'prioritySupport'],
   },
 ];
 
@@ -38,6 +39,7 @@ export default function BillingPage() {
   const { restaurantId } = useParams();
   const searchParams = useSearchParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [sub, setSub] = useState<SubscriptionDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,8 @@ export default function BillingPage() {
   useEffect(() => {
     // Handle redirect back from PayPlus
     const setup = searchParams.get('setup');
-    if (setup === 'success') setMessage('✓ Billing set up successfully! Your subscription is now active.');
-    else if (setup === 'failed') setMessage('✗ Payment setup failed. Please try again.');
+    if (setup === 'success') setMessage(t('billingSetupSuccess'));
+    else if (setup === 'failed') setMessage(t('billingSetupFailed'));
 
     getSubscription(rid).then(setSub).finally(() => setLoading(false));
   }, [rid, searchParams]);
@@ -60,7 +62,7 @@ export default function BillingPage() {
       const { payment_url } = await setupBilling(rid);
       window.location.href = payment_url;
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : 'Could not start billing setup');
+      setMessage(err instanceof Error ? err.message : t('couldNotStartBilling'));
     } finally {
       setBillingLoading(false);
     }
@@ -68,15 +70,15 @@ export default function BillingPage() {
 
   const handleChangePlan = async (tier: PlanTier) => {
     if (sub?.plan_tier === tier) return;
-    if (!confirm(`Switch to the ${tier} plan?`)) return;
+    if (!confirm(t('switchPlanConfirm').replace('{plan}', tier))) return;
     setPlanLoading(true);
     try {
       await changePlan(rid, tier);
       const updated = await getSubscription(rid);
       setSub(updated);
-      setMessage('Plan updated successfully.');
+      setMessage(t('planUpdated'));
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : 'Could not change plan');
+      setMessage(err instanceof Error ? err.message : t('couldNotChangePlan'));
     } finally {
       setPlanLoading(false);
     }
@@ -95,7 +97,7 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <h1 className="text-2xl font-bold text-fg-primary">Billing</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">{t('billing')}</h1>
 
       {message && (
         <div className={`p-4 rounded-standard text-sm font-medium ${
@@ -111,20 +113,20 @@ export default function BillingPage() {
       {sub && (
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-fg-primary">Subscription</h2>
+            <h2 className="font-semibold text-fg-primary">{t('subscription')}</h2>
             {statusCfg && (
-              <span className={`badge ${statusCfg.color}`}>{statusCfg.label}</span>
+              <span className={`badge ${statusCfg.color}`}>{t(statusCfg.labelKey)}</span>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <div className="text-fg-secondary">Current plan</div>
+              <div className="text-fg-secondary">{t('currentPlan')}</div>
               <div className="font-semibold text-fg-primary capitalize">{sub.plan_tier}</div>
             </div>
             {sub.trial_ends_at && sub.status === 'trial' && (
               <div>
-                <div className="text-fg-secondary">Trial ends</div>
+                <div className="text-fg-secondary">{t('trialEnds')}</div>
                 <div className="font-semibold text-fg-primary">
                   {new Date(sub.trial_ends_at).toLocaleDateString('he-IL')}
                 </div>
@@ -132,7 +134,7 @@ export default function BillingPage() {
             )}
             {sub.current_period_end && sub.status === 'active' && (
               <div>
-                <div className="text-fg-secondary">Next billing</div>
+                <div className="text-fg-secondary">{t('nextBilling')}</div>
                 <div className="font-semibold text-fg-primary">
                   {new Date(sub.current_period_end).toLocaleDateString('he-IL')}
                 </div>
@@ -140,7 +142,7 @@ export default function BillingPage() {
             )}
             {sub.grace_period_until && sub.status === 'past_due' && (
               <div>
-                <div className="text-fg-secondary">Grace period until</div>
+                <div className="text-fg-secondary">{t('gracePeriod')}</div>
                 <div className="font-semibold text-red-600">
                   {new Date(sub.grace_period_until).toLocaleDateString('he-IL')}
                 </div>
@@ -148,7 +150,7 @@ export default function BillingPage() {
             )}
             {sub.card_last_four && (
               <div>
-                <div className="text-fg-secondary">Payment method</div>
+                <div className="text-fg-secondary">{t('paymentMethod')}</div>
                 <div className="flex items-center gap-2 font-medium text-fg-primary">
                   <CreditCardIcon className="w-4 h-4" />
                   {sub.card_brand} •••• {sub.card_last_four}
@@ -166,16 +168,16 @@ export default function BillingPage() {
             >
               <CreditCardIcon className="w-4 h-4" />
               {billingLoading
-                ? 'Redirecting…'
+                ? t('redirecting')
                 : sub.card_last_four
-                ? 'Update payment method'
-                : 'Set up billing'}
+                ? t('updatePaymentMethod')
+                : t('setupBilling')}
             </button>
           )}
 
           {sub.status === 'deactivated' && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
-              Your account is deactivated due to a missed payment. Please contact support or set up billing to re-activate.
+              {t('accountDeactivated')}
             </div>
           )}
         </div>
@@ -184,15 +186,16 @@ export default function BillingPage() {
       {/* Plan selection — only when a subscription exists */}
       {!loading && !sub && (
         <div className="card text-sm text-fg-secondary text-center py-8">
-          No active subscription found. Please contact support to get your account set up.
+          {t('noActiveSubscription')}
         </div>
       )}
       {sub && (
       <div>
-        <h2 className="font-semibold text-fg-primary mb-4">Plans</h2>
+        <h2 className="font-semibold text-fg-primary mb-4">{t('plans')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PLANS.map((plan) => {
             const isCurrent = sub.plan_tier === plan.tier;
+            const planName = t(plan.nameKey);
             return (
               <div
                 key={plan.tier}
@@ -200,18 +203,20 @@ export default function BillingPage() {
               >
                 {isCurrent && (
                   <span className="absolute -top-2.5 left-4 bg-brand-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                    Current
+                    {t('current')}
                   </span>
                 )}
                 <div className="mb-4">
-                  <div className="font-bold text-fg-primary text-lg">{plan.name}</div>
-                  <div className="text-brand-500 font-semibold">{plan.price}</div>
+                  <div className="font-bold text-fg-primary text-lg">{planName}</div>
+                  <div className="text-brand-500 font-semibold">
+                    {plan.tier === 'enterprise' ? t('custom') : plan.priceKey}
+                  </div>
                 </div>
                 <ul className="space-y-1.5 flex-1 mb-6">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-fg-secondary">
+                  {plan.featureKeys.map((fk) => (
+                    <li key={fk} className="flex items-center gap-2 text-sm text-fg-secondary">
                       <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      {f}
+                      {t(fk)}
                     </li>
                   ))}
                 </ul>
@@ -221,7 +226,7 @@ export default function BillingPage() {
                     disabled={planLoading}
                     className="btn-secondary w-full justify-center disabled:opacity-50"
                   >
-                    {planLoading ? 'Switching…' : `Switch to ${plan.name}`}
+                    {planLoading ? t('switching') : t('switchToPlan').replace('{plan}', planName)}
                   </button>
                 )}
                 {plan.tier === 'enterprise' && !isCurrent && (
@@ -229,7 +234,7 @@ export default function BillingPage() {
                     href="mailto:support@foody-pos.co.il?subject=Enterprise Plan"
                     className="btn-secondary w-full justify-center text-center"
                   >
-                    Contact Sales
+                    {t('contactSales')}
                   </a>
                 )}
               </div>
@@ -242,7 +247,7 @@ export default function BillingPage() {
       {/* Payment history */}
       {sub && sub.events && sub.events.length > 0 && (
         <div className="card">
-          <h2 className="font-semibold text-fg-primary mb-4">Payment History</h2>
+          <h2 className="font-semibold text-fg-primary mb-4">{t('paymentHistory')}</h2>
           <div className="space-y-2">
             {sub.events.map((evt) => (
               <div key={evt.id} className="flex items-center justify-between text-sm py-2 border-b border-divider last:border-0">

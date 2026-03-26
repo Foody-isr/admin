@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { listTrustedCustomers, addTrustedCustomer, removeTrustedCustomer, TrustedCustomer } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
+import { useI18n } from '@/lib/i18n';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/components/Modal';
 
@@ -11,6 +12,7 @@ export default function CustomersPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { user } = useAuth();
+  const { t } = useI18n();
 
   const [customers, setCustomers] = useState<TrustedCustomer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,14 +42,14 @@ export default function CustomersPage() {
       setForm({ phone: '', name: '', notes: '' });
       reload();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Failed to add customer');
+      setFormError(err instanceof Error ? err.message : t('failedToAddCustomer'));
     } finally {
       setFormLoading(false);
     }
   };
 
   const handleRemove = async (customer: TrustedCustomer) => {
-    if (!confirm(`Remove ${customer.name || customer.phone} from trusted customers?`)) return;
+    if (!confirm(t('removeCustomerConfirm').replace('{name}', customer.name || customer.phone))) return;
     setActionLoading(customer.id);
     try {
       await removeTrustedCustomer(rid, customer.id);
@@ -69,32 +71,32 @@ export default function CustomersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-fg-primary">Trusted Customers</h1>
+          <h1 className="text-2xl font-bold text-fg-primary">{t('trustedCustomers')}</h1>
           <p className="text-sm text-fg-secondary mt-1">
-            Customers allowed to pay with cash on pickup/delivery orders.
+            {t('trustedCustomersDesc')}
           </p>
         </div>
         {canManage && (
           <button onClick={() => setAddOpen(true)} className="btn-primary flex items-center gap-2">
             <PlusIcon className="w-4 h-4" />
-            Add Customer
+            {t('addCustomer')}
           </button>
         )}
       </div>
 
       {customers.length === 0 ? (
         <div className="card p-8 text-center text-fg-secondary">
-          No trusted customers yet. Add a customer to allow cash payments.
+          {t('noTrustedCustomers')}
         </div>
       ) : (
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b border-divider" style={{ background: 'var(--surface-subtle)' }}>
               <tr>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">Phone</th>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">Name</th>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">Notes</th>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">Added</th>
+                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('phone')}</th>
+                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('name')}</th>
+                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('notes')}</th>
+                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('added')}</th>
                 {canManage && <th className="px-5 py-3" />}
               </tr>
             </thead>
@@ -127,7 +129,7 @@ export default function CustomersPage() {
 
       {/* Add customer modal */}
       {addOpen && (
-        <Modal title="Add Trusted Customer" onClose={() => setAddOpen(false)}>
+        <Modal title={t('addTrustedCustomer')} onClose={() => setAddOpen(false)}>
           {formError && (
             <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
               {formError}
@@ -136,7 +138,7 @@ export default function CustomersPage() {
 
           <form onSubmit={handleAdd} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Phone Number</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneNumber')}</label>
               <input
                 required
                 className="input"
@@ -146,7 +148,7 @@ export default function CustomersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Name (optional)</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('nameOptional')}</label>
               <input
                 className="input"
                 value={form.name}
@@ -154,7 +156,7 @@ export default function CustomersPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Notes (optional)</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('notesOptional')}</label>
               <input
                 className="input"
                 value={form.notes}
@@ -162,9 +164,9 @@ export default function CustomersPage() {
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-secondary" onClick={() => setAddOpen(false)}>Cancel</button>
+              <button type="button" className="btn-secondary" onClick={() => setAddOpen(false)}>{t('cancel')}</button>
               <button type="submit" disabled={formLoading} className="btn-primary disabled:opacity-50">
-                {formLoading ? 'Adding...' : 'Add Customer'}
+                {formLoading ? t('adding') : t('addCustomer')}
               </button>
             </div>
           </form>

@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, logout } from '@/lib/api';
 import { BuildingStorefrontIcon } from '@heroicons/react/24/outline';
+import { useI18n } from '@/lib/i18n';
 
 export default function SelectRestaurantPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +50,7 @@ export default function SelectRestaurantPage() {
             <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
               <span className="text-xl font-black text-white">F</span>
             </div>
-            <h1 className="text-xl font-bold text-fg-primary">Choose a restaurant</h1>
+            <h1 className="text-xl font-bold text-fg-primary">{t('chooseRestaurant')}</h1>
           </div>
         </div>
 

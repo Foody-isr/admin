@@ -2,15 +2,17 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 
 const tabs = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'customers', label: 'Customers' },
+  { key: 'overview', labelKey: 'overview' },
+  { key: 'customers', labelKey: 'customers' },
 ] as const;
 
 export default function AnalyticsLayout({ children }: { children: React.ReactNode }) {
   const { restaurantId } = useParams();
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <div className="space-y-5">
@@ -29,7 +31,7 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
                   : 'text-fg-secondary hover:text-fg-primary'
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Link>
           );
         })}

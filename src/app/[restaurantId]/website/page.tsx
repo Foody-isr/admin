@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 import {
   getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
@@ -20,47 +21,47 @@ const FONT_OPTIONS = [
   'Great Vibes', 'Merriweather', 'Bitter', 'Crimson Text', 'Eros',
 ];
 
-const SECTION_TYPE_META: Record<string, { label: string; icon: string; desc: string }> = {
-  hero_banner:     { label: 'Hero Banner',      icon: '\u{1F5BC}\u{FE0F}', desc: 'Full-width image with headline & CTA' },
-  scrolling_text:  { label: 'Scrolling Text',   icon: '\u{1F4DC}', desc: 'Horizontal scrolling marquee text' },
-  text_and_image:  { label: 'Text & Image',     icon: '\u{1F4DD}', desc: 'Split layout \u2014 text and photo' },
-  gallery:         { label: 'Gallery',           icon: '\u{1F3A8}', desc: 'Photo grid showcase' },
-  testimonials:    { label: 'Testimonials',      icon: '\u{1F4AC}', desc: 'Customer reviews carousel' },
-  about:           { label: 'About',             icon: '\u{1F4A1}', desc: 'About your restaurant' },
-  menu_highlights: { label: 'Menu Highlights',   icon: '\u{2B50}', desc: 'Featured dishes carousel' },
-  promo_banner:    { label: 'Promo Banner',      icon: '\u{1F3F7}\u{FE0F}', desc: 'Promotional offer banner' },
-  social_feed:     { label: 'Social Links',      icon: '\u{1F4F1}', desc: 'Social media profile links' },
-  action_buttons:  { label: 'Action Buttons',    icon: '\u{1F518}', desc: 'Configurable CTA buttons (order, menu, links)' },
-  picnic_basket:   { label: 'Picnic Basket',     icon: '\u{1F9FA}', desc: 'Scroll animation \u2014 food items fill a basket' },
-  footer:          { label: 'Footer',            icon: '\u{1F3E0}', desc: 'Site footer with contact, social & copyright' },
+const SECTION_TYPE_META: Record<string, { labelKey: string; icon: string; descKey: string }> = {
+  hero_banner:     { labelKey: 'heroBanner',      icon: '\u{1F5BC}\u{FE0F}', descKey: 'heroBannerDesc' },
+  scrolling_text:  { labelKey: 'scrollingText',   icon: '\u{1F4DC}', descKey: 'scrollingTextDesc' },
+  text_and_image:  { labelKey: 'textAndImage',     icon: '\u{1F4DD}', descKey: 'textAndImageDesc' },
+  gallery:         { labelKey: 'gallery',           icon: '\u{1F3A8}', descKey: 'galleryDesc' },
+  testimonials:    { labelKey: 'testimonials',      icon: '\u{1F4AC}', descKey: 'testimonialsDesc' },
+  about:           { labelKey: 'about',             icon: '\u{1F4A1}', descKey: 'aboutDesc' },
+  menu_highlights: { labelKey: 'menuHighlights',   icon: '\u{2B50}', descKey: 'menuHighlightsDesc' },
+  promo_banner:    { labelKey: 'promoBanner',      icon: '\u{1F3F7}\u{FE0F}', descKey: 'promoBannerDesc' },
+  social_feed:     { labelKey: 'socialLinks',      icon: '\u{1F4F1}', descKey: 'socialLinksDesc' },
+  action_buttons:  { labelKey: 'actionButtons',    icon: '\u{1F518}', descKey: 'actionButtonsDesc' },
+  picnic_basket:   { labelKey: 'picnicBasket',     icon: '\u{1F9FA}', descKey: 'picnicBasketDesc' },
+  footer:          { labelKey: 'footer',            icon: '\u{1F3E0}', descKey: 'footerDesc' },
 };
 
-const LAYOUT_OPTIONS: Record<string, { value: string; label: string }[]> = {
-  hero_banner:    [{ value: 'centered', label: 'Centered' }, { value: 'left_aligned', label: 'Left Aligned' }, { value: 'split', label: 'Split' }],
-  text_and_image: [{ value: 'default', label: 'Image Right' }, { value: 'image_left', label: 'Image Left' }],
-  gallery:        [{ value: 'grid', label: 'Grid' }, { value: 'masonry', label: 'Masonry' }],
-  testimonials:   [{ value: 'carousel', label: 'Carousel' }, { value: 'grid', label: 'Grid' }],
-  footer:         [{ value: 'columns', label: 'Columns' }, { value: 'centered', label: 'Centered' }, { value: 'minimal', label: 'Minimal' }],
+const LAYOUT_OPTIONS: Record<string, { value: string; labelKey: string }[]> = {
+  hero_banner:    [{ value: 'centered', labelKey: 'centered' }, { value: 'left_aligned', labelKey: 'leftAligned' }, { value: 'split', labelKey: 'split' }],
+  text_and_image: [{ value: 'default', labelKey: 'imageRight' }, { value: 'image_left', labelKey: 'imageLeft' }],
+  gallery:        [{ value: 'grid', labelKey: 'grid' }, { value: 'masonry', labelKey: 'masonry' }],
+  testimonials:   [{ value: 'carousel', labelKey: 'carousel' }, { value: 'grid', labelKey: 'grid' }],
+  footer:         [{ value: 'columns', labelKey: 'columns' }, { value: 'centered', labelKey: 'centered' }, { value: 'minimal', labelKey: 'minimal' }],
 };
 
 const COLOR_STYLES = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'light', labelKey: 'light' },
+  { value: 'dark', labelKey: 'dark' },
+  { value: 'custom', labelKey: 'custom' },
 ];
 
 const ACTION_TYPES = [
-  { value: 'order_pickup', label: 'Order Pickup' },
-  { value: 'order_delivery', label: 'Order Delivery' },
-  { value: 'view_menu', label: 'View Menu' },
-  { value: 'external_link', label: 'External Link' },
-  { value: 'scroll_to_section', label: 'Scroll to Section' },
+  { value: 'order_pickup', labelKey: 'orderPickup' },
+  { value: 'order_delivery', labelKey: 'orderDelivery' },
+  { value: 'view_menu', labelKey: 'viewMenu' },
+  { value: 'external_link', labelKey: 'externalLink' },
+  { value: 'scroll_to_section', labelKey: 'scrollToSection' },
 ];
 
 const BUTTON_STYLES = [
-  { value: 'primary', label: 'Primary' },
-  { value: 'secondary', label: 'Secondary' },
-  { value: 'outline', label: 'Outline' },
+  { value: 'primary', labelKey: 'primary' },
+  { value: 'secondary', labelKey: 'secondary' },
+  { value: 'outline', labelKey: 'outline' },
 ];
 
 // ─── Main Component ─────────────────────────────────────────────────
@@ -68,6 +69,7 @@ const BUTTON_STYLES = [
 type Tab = 'styles' | 'sections';
 
 export default function WebsitePage() {
+  const { t } = useI18n();
   const params = useParams();
   const router = useRouter();
   const restaurantId = Number(params.restaurantId);
@@ -409,12 +411,12 @@ export default function WebsitePage() {
       <div className="flex items-center justify-between px-4 py-2 border-b border-divider" style={{ background: 'var(--surface)' }}>
         {/* Left: back + title */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/${restaurantId}/dashboard`)} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition" title="Back to dashboard">
+          <button onClick={() => router.push(`/${restaurantId}/dashboard`)} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition" title={t('backToDashboard')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-subtle">
             <svg className="w-4 h-4 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-            <span className="text-sm font-semibold text-fg-primary">Site design</span>
+            <span className="text-sm font-semibold text-fg-primary">{t('siteDesign')}</span>
           </div>
         </div>
 
@@ -453,7 +455,7 @@ export default function WebsitePage() {
             disabled={saving}
             className="btn-primary px-5 py-2 rounded-lg disabled:opacity-50 text-sm font-semibold"
           >
-            {saving ? 'Saving...' : saved ? 'Saved!' : 'Publish'}
+            {saving ? t('saving') : saved ? 'Saved!' : t('publish')}
           </button>
         </div>
       </div>
@@ -482,7 +484,7 @@ export default function WebsitePage() {
                       : 'bg-[var(--surface)] text-fg-secondary hover:bg-surface-subtle'
                   }`}
                 >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                  {p === 'home' ? t('home') : p === 'menu' ? t('viewMenu') : p.charAt(0).toUpperCase() + p.slice(1)}
                 </button>
               ))}
             </div>
@@ -513,7 +515,7 @@ export default function WebsitePage() {
                 </button>
               )}
               <span className="text-xs text-fg-secondary ml-auto">
-                {activePage === 'home' ? 'Edit sections' : 'Menu settings'}
+                {activePage === 'home' ? t('editSections') : t('menuSettings')}
               </span>
             </div>
           </div>
@@ -531,16 +533,16 @@ export default function WebsitePage() {
             ) : (
               <div className="px-3 py-4 space-y-5">
                 <p className="text-xs text-fg-secondary leading-relaxed">
-                  Menu content is auto-generated from your items. Customize its appearance below.
+                  {t('menuContentAutoGenerated')}
                 </p>
 
                 {/* Item Layout */}
                 <div>
-                  <label className="text-xs font-semibold text-fg-secondary mb-2 block">Item Layout</label>
+                  <label className="text-xs font-semibold text-fg-secondary mb-2 block">{t('itemLayout')}</label>
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
-                      { value: 'list', label: 'List', icon: '☰' },
-                      { value: 'grid', label: 'Grid', icon: '⊞' },
+                      { value: 'list', labelKey: 'list', icon: '☰' },
+                      { value: 'grid', labelKey: 'grid', icon: '⊞' },
                     ].map(opt => (
                       <button
                         key={opt.value}
@@ -549,7 +551,7 @@ export default function WebsitePage() {
                         className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${menuLayout === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
                       >
                         <span className="text-base">{opt.icon}</span>
-                        <span className="font-medium">{opt.label}</span>
+                        <span className="font-medium">{t(opt.labelKey)}</span>
                       </button>
                     ))}
                   </div>
@@ -557,12 +559,12 @@ export default function WebsitePage() {
 
                 {/* Cart Button Style */}
                 <div>
-                  <label className="text-xs font-semibold text-fg-secondary mb-2 block">Cart Button Style</label>
+                  <label className="text-xs font-semibold text-fg-secondary mb-2 block">{t('cartButtonStyle')}</label>
                   <div className="grid grid-cols-3 gap-1.5">
                     {[
-                      { value: 'bar-bottom', label: 'Bottom Bar', icon: '▬' },
-                      { value: 'fab-right', label: 'FAB', icon: '●' },
-                      { value: 'tab-right', label: 'Side Tab', icon: '▐' },
+                      { value: 'bar-bottom', labelKey: 'bottomBar', icon: '▬' },
+                      { value: 'fab-right', labelKey: 'fab', icon: '●' },
+                      { value: 'tab-right', labelKey: 'sideTab', icon: '▐' },
                     ].map(opt => (
                       <button
                         key={opt.value}
@@ -571,7 +573,7 @@ export default function WebsitePage() {
                         className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border text-xs transition-colors ${cartStyle === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:bg-surface-subtle'}`}
                       >
                         <span className="text-base">{opt.icon}</span>
-                        <span className="font-medium">{opt.label}</span>
+                        <span className="font-medium">{t(opt.labelKey)}</span>
                       </button>
                     ))}
                   </div>
@@ -766,6 +768,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   onRestaurantUpdate: (r: Restaurant) => void;
   onReset: () => void;
 }) {
+  const { t } = useI18n();
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -979,7 +982,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
               <input type="text" value={pickerColor} onChange={e => setPickerColor(e.target.value)} className="flex-1 text-sm border border-[var(--divider)] rounded-lg px-3 py-2 bg-[var(--surface)] text-fg-primary font-mono" placeholder="#000000" />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setShowColorPicker(false)} className="flex-1 px-3 py-2 rounded-lg border border-[var(--divider)] text-xs font-medium text-fg-secondary hover:bg-[var(--surface-hover)] transition">Cancel</button>
+              <button onClick={() => setShowColorPicker(false)} className="flex-1 px-3 py-2 rounded-lg border border-[var(--divider)] text-xs font-medium text-fg-secondary hover:bg-[var(--surface-hover)] transition">{t('cancel')}</button>
               <button onClick={() => { handleSetBackgroundColor(pickerColor); setShowColorPicker(false); }} className="flex-1 px-3 py-2 rounded-lg bg-brand-500 text-white text-xs font-medium hover:bg-brand-600 transition">Apply</button>
             </div>
           </div>
@@ -1132,6 +1135,7 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
   onMove: (id: number, dir: 'up' | 'down') => void;
   onToggleVisibility: (id: number, visible: boolean) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-0.5">
       {sections.map((section, idx) => {
@@ -1148,7 +1152,7 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
           >
             <span className="text-base flex-shrink-0">{meta?.icon || '\u{1F4C4}'}</span>
             <span className="text-sm font-medium text-fg-primary flex-1 truncate">
-              {meta?.label || section.section_type}
+              {meta ? t(meta.labelKey) : section.section_type}
             </span>
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onClick={(e) => { e.stopPropagation(); onMove(section.id, 'up'); }} disabled={idx === 0} className="p-0.5 text-fg-secondary hover:text-fg-primary disabled:opacity-30">
@@ -1688,6 +1692,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
   onUpdate: (updates: Partial<WebsiteSection>) => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   const meta = SECTION_TYPE_META[section.section_type];
   const content = section.content || {};
   const settings = section.settings || {};
@@ -1710,7 +1715,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-xl">{meta?.icon || '\u{1F4C4}'}</span>
-          <h2 className="text-lg font-semibold text-fg-primary">{meta?.label || section.section_type}</h2>
+          <h2 className="text-lg font-semibold text-fg-primary">{meta ? t(meta.labelKey) : section.section_type}</h2>
         </div>
         <button onClick={onDelete} className="text-sm text-red-500 hover:text-red-700 font-medium">Delete</button>
       </div>
@@ -1728,7 +1733,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
                   section.layout === l.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
                 }`}
               >
-                {l.label}
+                {t(l.labelKey)}
               </button>
             ))}
           </div>
@@ -1747,7 +1752,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
                 settings.color_style === cs.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
               }`}
             >
-              {cs.label}
+              {t(cs.labelKey)}
             </button>
           ))}
         </div>
@@ -2171,6 +2176,7 @@ function ActionButtonsEditor({ content, updateContent }: {
   content: Record<string, any>;
   updateContent: (key: string, value: any) => void;
 }) {
+  const { t } = useI18n();
   const buttons: any[] = content.buttons || [];
 
   function updateButton(idx: number, field: string, value: string) {
@@ -2205,13 +2211,13 @@ function ActionButtonsEditor({ content, updateContent }: {
             <div>
               <label className={labelClass}>Action</label>
               <select value={btn.action || 'view_menu'} onChange={e => updateButton(idx, 'action', e.target.value)} className={inputClass}>
-                {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{t(a.labelKey)}</option>)}
               </select>
             </div>
             <div>
               <label className={labelClass}>Style</label>
               <select value={btn.style || 'primary'} onChange={e => updateButton(idx, 'style', e.target.value)} className={inputClass}>
-                {BUTTON_STYLES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                {BUTTON_STYLES.map(s => <option key={s.value} value={s.value}>{t(s.labelKey)}</option>)}
               </select>
             </div>
           </div>
@@ -2251,6 +2257,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   sections: WebsiteSection[];
   selectedSectionId: number | null;
 }) {
+  const { t } = useI18n();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const slug = restaurant?.slug || String(restaurant?.id || '');
@@ -2295,7 +2302,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
   };
 
   if (!slug) {
-    return <div className="flex items-center justify-center h-full text-fg-secondary text-sm">Loading preview...</div>;
+    return <div className="flex items-center justify-center h-full text-fg-secondary text-sm">{t('loading')}</div>;
   }
 
   if (mode === 'desktop') {
@@ -2341,6 +2348,7 @@ function PreviewPanel({ mode, activePage, restaurant, primaryColor, secondaryCol
 }
 
 function AddSectionModal({ onAdd, onClose }: { onAdd: (type: string) => void; onClose: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto" style={{ background: 'var(--surface)' }} onClick={e => e.stopPropagation()}>
@@ -2353,12 +2361,12 @@ function AddSectionModal({ onAdd, onClose }: { onAdd: (type: string) => void; on
               className="p-4 rounded-xl border border-[var(--divider)] hover:border-brand-500 hover:bg-brand-500/5 transition-all text-left"
             >
               <span className="text-2xl block mb-1">{meta.icon}</span>
-              <div className="font-medium text-fg-primary text-sm">{meta.label}</div>
-              <div className="text-xs text-fg-secondary mt-0.5">{meta.desc}</div>
+              <div className="font-medium text-fg-primary text-sm">{t(meta.labelKey)}</div>
+              <div className="text-xs text-fg-secondary mt-0.5">{t(meta.descKey)}</div>
             </button>
           ))}
         </div>
-        <button onClick={onClose} className="mt-4 w-full py-2 text-sm text-fg-secondary hover:text-fg-primary transition">Cancel</button>
+        <button onClick={onClose} className="mt-4 w-full py-2 text-sm text-fg-secondary hover:text-fg-primary transition">{t('cancel')}</button>
       </div>
     </div>
   );

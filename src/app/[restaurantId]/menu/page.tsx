@@ -11,6 +11,7 @@ import {
   ModifierInput,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
+import { useI18n } from '@/lib/i18n';
 import {
   MagnifyingGlassIcon, PlusIcon, ChevronDownIcon,
   XMarkIcon, EllipsisHorizontalIcon, PhotoIcon,
@@ -38,6 +39,7 @@ function flattenItems(categories: MenuCategory[]): FlatItem[] {
 export default function MenuPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function MenuPage() {
   // ─── Item actions ─────────────────────────────────────────────────
 
   const handleDeleteItem = async (id: number) => {
-    if (!confirm('Delete this item?')) return;
+    if (!confirm(t('delete') + '?')) return;
     await deleteMenuItem(rid, id);
     reload();
   };
@@ -106,7 +108,7 @@ export default function MenuPage() {
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
           <input
             type="text"
-            placeholder="Search"
+            placeholder={t('search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input pl-9 pr-3 py-2 text-sm w-full"
@@ -115,21 +117,21 @@ export default function MenuPage() {
 
         {/* Category filter */}
         <FilterDropdown
-          label="Category"
+          label={t('category')}
           value={categoryFilter}
           onChange={setCategoryFilter}
-          options={[{ value: '', label: 'All' }, ...categoryNames.map((n) => ({ value: n, label: n }))]}
+          options={[{ value: '', label: t('all') }, ...categoryNames.map((n) => ({ value: n, label: n }))]}
         />
 
         {/* Status filter */}
         <FilterDropdown
-          label="Status"
+          label={t('status')}
           value={statusFilter}
           onChange={setStatusFilter}
           options={[
-            { value: '', label: 'All' },
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
+            { value: '', label: t('all') },
+            { value: 'active', label: t('active') },
+            { value: 'inactive', label: t('inactive') },
           ]}
         />
 
@@ -152,9 +154,9 @@ export default function MenuPage() {
       {/* Items table */}
       {filtered.length === 0 ? (
         <div className="card text-center py-16 space-y-3">
-          <p className="text-lg font-semibold text-fg-primary">No items found</p>
+          <p className="text-lg font-semibold text-fg-primary">{t('noItemsFound')}</p>
           <p className="text-sm text-fg-secondary">
-            {allItems.length === 0 ? 'Add your first menu item to get started.' : 'Try adjusting your filters.'}
+            {allItems.length === 0 ? t('addFirstMenuItem') : t('tryAdjustingFilters')}
           </p>
         </div>
       ) : (
@@ -162,10 +164,10 @@ export default function MenuPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-3 px-4 font-medium">Item</th>
-                <th className="py-3 px-4 font-medium">Category</th>
-                <th className="py-3 px-4 font-medium">Availability</th>
-                <th className="py-3 px-4 font-medium text-right">Price</th>
+                <th className="py-3 px-4 font-medium">{t('item')}</th>
+                <th className="py-3 px-4 font-medium">{t('category')}</th>
+                <th className="py-3 px-4 font-medium">{t('availability')}</th>
+                <th className="py-3 px-4 font-medium text-right">{t('price')}</th>
                 <th className="py-3 px-4 font-medium w-10" />
               </tr>
             </thead>
@@ -195,7 +197,7 @@ export default function MenuPage() {
                       onClick={(e) => { e.stopPropagation(); handleToggleAvailability(item); }}
                       className={`text-sm font-medium ${item.is_active ? 'text-status-ready' : 'text-fg-secondary'}`}
                     >
-                      {item.is_active ? 'Available' : 'Unavailable'}
+                      {item.is_active ? t('available') : t('unavailable')}
                     </button>
                   </td>
                   <td className="py-3 px-4 text-right text-fg-primary font-medium">
@@ -305,6 +307,7 @@ function FilterDropdown({ label, value, onChange, options }: {
 // ─── Actions Dropdown ────────────────────────────────────────────────────────
 
 function ActionsDropdown({ onImportAI, onRefresh }: { onImportAI: () => void; onRefresh: () => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -317,7 +320,7 @@ function ActionsDropdown({ onImportAI, onRefresh }: { onImportAI: () => void; on
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(!open)} className="btn-secondary flex items-center gap-2">
-        Actions <ChevronDownIcon className="w-3.5 h-3.5" />
+        {t('actions')} <ChevronDownIcon className="w-3.5 h-3.5" />
       </button>
       {open && (
         <div className="absolute top-full right-0 mt-1 rounded-standard py-1 min-w-[200px] z-50 shadow-lg"
@@ -326,13 +329,13 @@ function ActionsDropdown({ onImportAI, onRefresh }: { onImportAI: () => void; on
             onClick={() => { onImportAI(); setOpen(false); }}
             className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
           >
-            <SparklesIcon className="w-4 h-4" /> Import menu with AI
+            <SparklesIcon className="w-4 h-4" /> {t('importMenuWithAI')}
           </button>
           <button
             onClick={() => { onRefresh(); setOpen(false); }}
             className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
           >
-            <ArrowPathIcon className="w-4 h-4" /> Refresh
+            <ArrowPathIcon className="w-4 h-4" /> {t('refresh')}
           </button>
         </div>
       )}
@@ -345,6 +348,7 @@ function ActionsDropdown({ onImportAI, onRefresh }: { onImportAI: () => void; on
 function CreateDropdown({ onCreateItem, onCreateCategory, onCreateModifier }: {
   onCreateItem: () => void; onCreateCategory: () => void; onCreateModifier: () => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -357,22 +361,22 @@ function CreateDropdown({ onCreateItem, onCreateCategory, onCreateModifier }: {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(!open)} className="btn-primary flex items-center gap-2">
-        Create item <ChevronDownIcon className="w-3.5 h-3.5" />
+        {t('createItem')} <ChevronDownIcon className="w-3.5 h-3.5" />
       </button>
       {open && (
         <div className="absolute top-full right-0 mt-1 rounded-standard py-1 min-w-[180px] z-50 shadow-lg"
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}>
           <button onClick={() => { onCreateItem(); setOpen(false); }}
             className="block w-full text-left px-4 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors">
-            Create item
+            {t('createItem')}
           </button>
           <button onClick={() => { onCreateCategory(); setOpen(false); }}
             className="block w-full text-left px-4 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors">
-            Create category
+            {t('createCategory')}
           </button>
           <button onClick={() => { onCreateModifier(); setOpen(false); }}
             className="block w-full text-left px-4 py-2.5 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors">
-            Create modifier
+            {t('createModifier')}
           </button>
         </div>
       )}
@@ -383,6 +387,7 @@ function CreateDropdown({ onCreateItem, onCreateCategory, onCreateModifier }: {
 // ─── Item Row Menu (···) ─────────────────────────────────────────────────────
 
 function ItemRowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -402,11 +407,11 @@ function ItemRowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}>
           <button onClick={() => { onEdit(); setOpen(false); }}
             className="block w-full text-left px-3 py-2 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)]">
-            Edit
+            {t('edit')}
           </button>
           <button onClick={() => { onDelete(); setOpen(false); }}
             className="block w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10">
-            Delete
+            {t('delete')}
           </button>
         </div>
       )}
@@ -424,6 +429,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [price, setPrice] = useState(editing ? String(editing.price) : '');
   const [description, setDescription] = useState(editing?.description ?? '');
@@ -466,13 +472,13 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
         </button>
         <button onClick={handleSave} disabled={saving || !name.trim() || !price}
           className="btn-primary px-6 disabled:opacity-50">
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? t('saving') : t('save')}
         </button>
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-bold text-fg-primary mb-8">
-          {editing ? 'Edit item' : 'Create item'}
+          {editing ? t('editItem') : t('createItem')}
         </h1>
 
         <div className="flex gap-8">
@@ -482,7 +488,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
             <div>
               <input
                 autoFocus
-                placeholder="Name (required)"
+                placeholder={t('nameRequired')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="input text-base py-3"
@@ -495,7 +501,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="Price"
+                placeholder={t('price')}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 className="input text-base py-3 pr-16"
@@ -505,7 +511,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
 
             {/* Description */}
             <textarea
-              placeholder="Customer-facing description"
+              placeholder={t('customerDescription')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
@@ -520,7 +526,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
                   <PhotoIcon className="w-8 h-8 text-white mb-2" />
                   <p className="text-sm text-white">
-                    Drop images here, <span className="underline">browse files</span>
+                    {t('dropImagesHere')}
                   </p>
                 </div>
               </div>
@@ -531,7 +537,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
               >
                 <PhotoIcon className="w-8 h-8 text-fg-secondary mb-2" />
                 <p className="text-sm text-fg-secondary">
-                  Drop images here, <span className="underline">browse files</span>
+                  {t('dropImagesHere')}
                 </p>
               </div>
             )}
@@ -539,9 +545,9 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
             {/* Modifiers section for existing items */}
             {editing && (
               <div>
-                <h3 className="text-base font-bold text-fg-primary mb-3">Modifiers</h3>
+                <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifiers')}</h3>
                 {(editing.modifiers ?? []).length === 0 ? (
-                  <p className="text-sm text-fg-secondary">No modifiers for this item.</p>
+                  <p className="text-sm text-fg-secondary">{t('noModifiersForItem')}</p>
                 ) : (
                   <div className="space-y-2">
                     {(editing.modifiers ?? []).map((mod) => (
@@ -559,13 +565,13 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
                           )}
                           <button
                             onClick={async () => {
-                              if (!confirm('Delete this modifier?')) return;
+                              if (!confirm(t('deleteThisModifier'))) return;
                               await deleteModifier(restaurantId, mod.id);
                               // Reload will happen on overlay close
                             }}
                             className="text-xs text-red-400 hover:text-red-300"
                           >
-                            Remove
+                            {t('remove')}
                           </button>
                         </div>
                       </div>
@@ -581,7 +587,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
             {/* Status card */}
             <div className="card">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-fg-primary">Status</h3>
+                <h3 className="font-bold text-fg-primary">{t('status')}</h3>
                 <button
                   onClick={() => setIsActive(!isActive)}
                   className={`text-sm font-medium px-3 py-1 rounded-standard flex items-center gap-1 ${
@@ -589,7 +595,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
                   }`}
                   style={{ background: isActive ? 'rgba(119,186,75,0.12)' : 'var(--surface-subtle)' }}
                 >
-                  {isActive ? 'Available' : 'Unavailable'}
+                  {isActive ? t('available') : t('unavailable')}
                   <ChevronDownIcon className="w-3 h-3" />
                 </button>
               </div>
@@ -597,7 +603,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
 
             {/* Categories card */}
             <div className="card space-y-3">
-              <h3 className="font-bold text-fg-primary">Categories</h3>
+              <h3 className="font-bold text-fg-primary">{t('categories')}</h3>
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(Number(e.target.value))}
@@ -620,6 +626,7 @@ function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onC
 function CategoryModal({ restaurantId, editing, onClose, onSaved }: {
   restaurantId: number; editing?: MenuCategory; onClose: () => void; onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -639,15 +646,15 @@ function CategoryModal({ restaurantId, editing, onClose, onSaved }: {
   };
 
   return (
-    <Modal title={editing ? 'Edit Category' : 'New Category'} onClose={onClose}>
-      <label className="block text-sm font-medium text-fg-secondary mb-1">Category name</label>
+    <Modal title={editing ? t('editCategory') : t('newCategory')} onClose={onClose}>
+      <label className="block text-sm font-medium text-fg-secondary mb-1">{t('categoryName')}</label>
       <input autoFocus className="input" value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
       <div className="flex justify-end gap-2 mt-4">
-        <button className="btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn-secondary" onClick={onClose}>{t('cancel')}</button>
         <button className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? t('saving') : t('save')}
         </button>
       </div>
     </Modal>
@@ -659,6 +666,7 @@ function CategoryModal({ restaurantId, editing, onClose, onSaved }: {
 function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
   restaurantId: number; categories: MenuCategory[]; onClose: () => void; onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const allItems = flattenItems(categories);
   const [itemId, setItemId] = useState(allItems[0]?.id ?? 0);
   const [name, setName] = useState('');
@@ -688,10 +696,10 @@ function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
   };
 
   return (
-    <Modal title="New Modifier" onClose={onClose}>
+    <Modal title={t('newModifier')} onClose={onClose}>
       <div className="space-y-3">
         <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">Menu Item</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('menuItem')}</label>
           <select className="input text-sm" value={itemId} onChange={(e) => setItemId(Number(e.target.value))}>
             {allItems.map((item) => (
               <option key={item.id} value={item.id}>{item.name} ({item.category_name})</option>
@@ -699,35 +707,35 @@ function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">Modifier name</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('modifierName')}</label>
           <input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Action</label>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('action')}</label>
             <select className="input text-sm" value={action} onChange={(e) => setAction(e.target.value as 'add' | 'remove')}>
-              <option value="add">Add</option>
-              <option value="remove">Remove</option>
+              <option value="add">{t('add')}</option>
+              <option value="remove">{t('remove')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Price delta (₪)</label>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('priceDelta')}</label>
             <input type="number" step="0.01" className="input" value={priceDelta} onChange={(e) => setPriceDelta(e.target.value)} />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">Category (group name)</label>
-          <input className="input" placeholder="e.g. Toppings, Sauces" value={category} onChange={(e) => setCategory(e.target.value)} />
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('categoryGroupName')}</label>
+          <input className="input" placeholder={t('categoryGroupPlaceholder')} value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={isRequired} onChange={(e) => setIsRequired(e.target.checked)} className="rounded" />
-          <span className="text-sm font-medium text-fg-secondary">Required (customer must select at least one)</span>
+          <span className="text-sm font-medium text-fg-secondary">{t('requiredModifier')}</span>
         </label>
       </div>
       <div className="flex justify-end gap-2 mt-4">
-        <button className="btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn-secondary" onClick={onClose}>{t('cancel')}</button>
         <button className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? t('saving') : t('save')}
         </button>
       </div>
     </Modal>
@@ -739,6 +747,7 @@ function ModifierModal({ restaurantId, categories, onClose, onSaved }: {
 function AIImportModal({ restaurantId, onClose, onImported }: {
   restaurantId: number; onClose: () => void; onImported: () => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = useState<'upload' | 'review' | 'importing'>('upload');
   const [extraction, setExtraction] = useState<MenuExtraction | null>(null);
   const [error, setError] = useState('');
@@ -776,11 +785,11 @@ function AIImportModal({ restaurantId, onClose, onImported }: {
   const totalItems = extraction?.categories.reduce((sum, c) => sum + c.items.length, 0) ?? 0;
 
   return (
-    <Modal title="Import Menu with AI" onClose={onClose}>
+    <Modal title={t('importMenuWithAI')} onClose={onClose}>
       {step === 'upload' && (
         <div className="space-y-4">
           <p className="text-sm text-fg-secondary">
-            Upload a photo or PDF of your menu. AI will extract categories, items, and prices automatically.
+            {t('uploadMenuAI')}
           </p>
 
           <div
@@ -791,15 +800,15 @@ function AIImportModal({ restaurantId, onClose, onImported }: {
             {extracting ? (
               <>
                 <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full mb-3" />
-                <p className="text-sm text-fg-secondary">Analyzing menu with AI...</p>
+                <p className="text-sm text-fg-secondary">{t('analyzingMenuAI')}</p>
               </>
             ) : (
               <>
                 <SparklesIcon className="w-8 h-8 text-brand-500 mb-2" />
                 <p className="text-sm text-fg-secondary">
-                  Click to upload or drag & drop
+                  {t('clickToUpload')}
                 </p>
-                <p className="text-xs text-fg-secondary mt-1">JPEG, PNG, PDF up to 10MB</p>
+                <p className="text-xs text-fg-secondary mt-1">{t('imageFormats')}</p>
               </>
             )}
           </div>
@@ -818,9 +827,13 @@ function AIImportModal({ restaurantId, onClose, onImported }: {
 
       {step === 'review' && extraction && (
         <div className="space-y-4">
-          <p className="text-sm text-fg-secondary">
-            Found <strong>{extraction.categories.length}</strong> categories and <strong>{totalItems}</strong> items. Review and confirm.
-          </p>
+          <p className="text-sm text-fg-secondary"
+            dangerouslySetInnerHTML={{
+              __html: t('foundCategoriesItems')
+                .replace('{categories}', `<strong>${extraction.categories.length}</strong>`)
+                .replace('{items}', `<strong>${totalItems}</strong>`),
+            }}
+          />
 
           <div className="max-h-80 overflow-y-auto space-y-3">
             {extraction.categories.map((cat, ci) => (
@@ -847,10 +860,10 @@ function AIImportModal({ restaurantId, onClose, onImported }: {
 
           <div className="flex justify-end gap-2">
             <button className="btn-secondary" onClick={() => { setStep('upload'); setExtraction(null); }}>
-              Re-upload
+              {t('reUpload')}
             </button>
             <button className="btn-primary" onClick={handleConfirm} disabled={confirming}>
-              {confirming ? 'Creating...' : `Import ${totalItems} items`}
+              {confirming ? t('creating') : t('importItems').replace('{count}', String(totalItems))}
             </button>
           </div>
         </div>

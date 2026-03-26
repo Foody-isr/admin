@@ -7,6 +7,7 @@ import {
   listRoles, StaffMember, RestaurantRole,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
+import { useI18n } from '@/lib/i18n';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/components/Modal';
 
@@ -14,6 +15,7 @@ export default function StaffPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { hasPermission, isOwner } = usePermissions();
+  const { t } = useI18n();
   const canManage = hasPermission('staff.manage');
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -62,7 +64,7 @@ export default function StaffPage() {
       setForm({ full_name: '', email: '', phone: '', password: '', role_id: roles[0]?.id || 0 });
       reload();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Failed to invite');
+      setFormError(err instanceof Error ? err.message : t('failedToInvite'));
     } finally {
       setFormLoading(false);
     }
@@ -81,7 +83,7 @@ export default function StaffPage() {
 
   const handleRemove = async (member: StaffMember) => {
     if (member.role === 'owner') return;
-    if (!confirm(`Remove ${member.full_name} from this restaurant?`)) return;
+    if (!confirm(t('removeStaffConfirm').replace('{name}', member.full_name))) return;
     setActionLoading(member.id);
     try {
       await removeStaff(rid, member.id);
@@ -102,11 +104,11 @@ export default function StaffPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">Staff</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">{t('staff')}</h1>
         {canManage && (
           <button onClick={() => setInviteOpen(true)} className="btn-primary flex items-center gap-2">
             <PlusIcon className="w-4 h-4" />
-            Invite Staff
+            {t('inviteStaff')}
           </button>
         )}
       </div>
@@ -115,9 +117,9 @@ export default function StaffPage() {
         <table className="w-full text-sm">
           <thead className="border-b border-divider" style={{ background: 'var(--surface-subtle)' }}>
             <tr>
-              <th className="text-left px-5 py-3 font-medium text-fg-secondary">Name</th>
-              <th className="text-left px-5 py-3 font-medium text-fg-secondary">Email</th>
-              <th className="text-left px-5 py-3 font-medium text-fg-secondary">Role</th>
+              <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('name')}</th>
+              <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('email')}</th>
+              <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('role')}</th>
               {canManage && <th className="px-5 py-3" />}
             </tr>
           </thead>
@@ -166,34 +168,34 @@ export default function StaffPage() {
 
       {/* Invite modal */}
       {inviteOpen && (
-        <Modal title="Invite Staff Member" onClose={() => setInviteOpen(false)}>
+        <Modal title={t('inviteStaffMember')} onClose={() => setInviteOpen(false)}>
           {formError && (
             <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">{formError}</div>
           )}
 
           <form onSubmit={handleInvite} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('fullName')}</label>
               <input required className="input" value={form.full_name}
                 onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Email</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
               <input required type="email" className="input" value={form.email}
                 onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Phone (optional)</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phoneOptional')}</label>
               <input className="input" value={form.phone}
                 onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Temporary Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('temporaryPassword')}</label>
               <input required type="password" className="input" value={form.password} minLength={8}
                 onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Role</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('role')}</label>
               <select className="input" value={form.role_id}
                 onChange={(e) => setForm((p) => ({ ...p, role_id: Number(e.target.value) }))}>
                 {roles.map((r) => (
@@ -202,9 +204,9 @@ export default function StaffPage() {
               </select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" className="btn-secondary" onClick={() => setInviteOpen(false)}>Cancel</button>
+              <button type="button" className="btn-secondary" onClick={() => setInviteOpen(false)}>{t('cancel')}</button>
               <button type="submit" disabled={formLoading} className="btn-primary disabled:opacity-50">
-                {formLoading ? 'Inviting...' : 'Invite'}
+                {formLoading ? t('inviting') : t('invite')}
               </button>
             </div>
           </form>

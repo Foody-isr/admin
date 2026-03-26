@@ -7,10 +7,18 @@ import {
   Restaurant, RestaurantSettings,
   getSpokeConfig, updateSpokeConfig, SpokeConfigResponse,
 } from '@/lib/api';
+import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+
+const LOCALE_LABELS: Record<Locale, string> = {
+  en: 'English',
+  he: 'עברית',
+  fr: 'Français',
+};
 
 export default function SettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t, locale, setLocale } = useI18n();
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [settings, setSettings] = useState<RestaurantSettings | null>(null);
@@ -94,16 +102,36 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <h1 className="text-2xl font-bold text-fg-primary">Settings</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">{t('settings')}</h1>
+
+      {/* Language */}
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-fg-primary">{t('language')}</h2>
+        <div className="flex gap-2">
+          {SUPPORTED_LOCALES.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLocale(l)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                locale === l
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-surface-subtle text-fg-secondary hover:text-fg-primary'
+              }`}
+            >
+              {LOCALE_LABELS[l]}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Restaurant info */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">Restaurant Info</h2>
+        <h2 className="font-semibold text-fg-primary">{t('restaurantInfo')}</h2>
         {[
-          { label: 'Name', key: 'name' as const },
-          { label: 'Address', key: 'address' as const },
-          { label: 'Phone', key: 'phone' as const },
-          { label: 'Description', key: 'description' as const },
+          { label: t('name'), key: 'name' as const },
+          { label: t('address'), key: 'address' as const },
+          { label: t('phone'), key: 'phone' as const },
+          { label: t('description'), key: 'description' as const },
         ].map(({ label, key }) => (
           <div key={key}>
             <label className="block text-sm font-medium text-fg-secondary mb-1">{label}</label>
@@ -118,25 +146,25 @@ export default function SettingsPage() {
 
       {/* Operational settings */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">Operations</h2>
+        <h2 className="font-semibold text-fg-primary">{t('operations')}</h2>
 
         <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">Service Mode</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('serviceMode')}</label>
           <select
             className="input"
             value={svc.service_mode}
             onChange={(e) => setSvc((p) => ({ ...p, service_mode: e.target.value }))}
           >
-            <option value="table">Table service (waiter delivers)</option>
-            <option value="counter">Counter service (customer collects)</option>
+            <option value="table">{t('tableService')}</option>
+            <option value="counter">{t('counterService')}</option>
           </select>
         </div>
 
         {[
-          { label: 'Auto send to kitchen', key: 'auto_send_to_kitchen' as const, desc: 'QR orders go directly to kitchen without staff approval' },
-          { label: 'Enable tips', key: 'tips_enabled' as const, desc: 'Show tip option at checkout' },
-          { label: 'Scheduled orders', key: 'scheduling_enabled' as const, desc: 'Allow customers to order for future dates' },
-          { label: 'Rush mode', key: 'rush_mode' as const, desc: 'Block new customer orders (e.g. kitchen is full)' },
+          { label: t('autoSendToKitchen'), key: 'auto_send_to_kitchen' as const, desc: t('autoSendDesc') },
+          { label: t('enableTips'), key: 'tips_enabled' as const, desc: t('enableTipsDesc') },
+          { label: t('scheduledOrders'), key: 'scheduling_enabled' as const, desc: t('scheduledOrdersDesc') },
+          { label: t('rushMode'), key: 'rush_mode' as const, desc: t('rushModeDesc') },
         ].map(({ label, key, desc }) => (
           <label key={key} className="flex items-start gap-3 cursor-pointer">
             <input
@@ -155,26 +183,26 @@ export default function SettingsPage() {
 
       <div className="flex items-center gap-3">
         <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? t('saving') : t('saveChanges')}
         </button>
-        {saved && <span className="text-sm text-status-ready font-medium">Saved!</span>}
+        {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
       </div>
 
       {/* Spoke delivery integration */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">Spoke Delivery Integration</h2>
+        <h2 className="font-semibold text-fg-primary">{t('spokeDeliveryIntegration')}</h2>
         <p className="text-xs text-fg-secondary">
-          Connect your Spoke (Circuit) account to automate delivery route optimization and customer ETA notifications.
+          {t('spokeDesc')}
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">API Key</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('apiKey')}</label>
           <input
             className="input"
             type="password"
             value={spokeForm.api_key}
             onChange={(e) => setSpokeForm((p) => ({ ...p, api_key: e.target.value }))}
-            placeholder={spokeConfig?.configured ? '••••••••  (saved — enter new key to replace)' : 'Enter your Spoke API key'}
+            placeholder={spokeConfig?.configured ? t('apiKeySavedPlaceholder') : t('enterApiKey')}
           />
         </div>
 
@@ -186,33 +214,33 @@ export default function SettingsPage() {
             onChange={(e) => setSpokeForm((p) => ({ ...p, enabled: e.target.checked }))}
           />
           <div>
-            <div className="text-sm font-medium text-fg-primary">Enable Spoke integration</div>
-            <div className="text-xs text-fg-secondary">When enabled, delivery plans can be created and optimized via Spoke</div>
+            <div className="text-sm font-medium text-fg-primary">{t('enableSpokeIntegration')}</div>
+            <div className="text-xs text-fg-secondary">{t('spokeEnabledDesc')}</div>
           </div>
         </label>
 
         <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">Depot ID (optional)</label>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('depotId')}</label>
           <input
             className="input"
             value={spokeForm.depot_id}
             onChange={(e) => setSpokeForm((p) => ({ ...p, depot_id: e.target.value }))}
-            placeholder="Spoke depot ID"
+            placeholder={t('spokeDepotId')}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Default Driver Name</label>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('defaultDriverName')}</label>
             <input
               className="input"
               value={spokeForm.default_driver_name}
               onChange={(e) => setSpokeForm((p) => ({ ...p, default_driver_name: e.target.value }))}
-              placeholder="Driver name"
+              placeholder={t('driverName')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Default Driver Phone</label>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('defaultDriverPhone')}</label>
             <input
               className="input"
               value={spokeForm.default_driver_phone}
@@ -234,7 +262,6 @@ export default function SettingsPage() {
                 });
                 setSpokeSaved(true);
                 setTimeout(() => setSpokeSaved(false), 2000);
-                // Reload config
                 const cfg = await getSpokeConfig(rid);
                 setSpokeConfig(cfg);
                 setSpokeForm((p) => ({ ...p, api_key: '' }));
@@ -247,11 +274,11 @@ export default function SettingsPage() {
             disabled={spokeSaving || (!spokeForm.api_key && !spokeConfig?.configured)}
             className="btn-primary disabled:opacity-50"
           >
-            {spokeSaving ? 'Saving…' : 'Save Spoke Config'}
+            {spokeSaving ? t('saving') : t('saveSpokeConfig')}
           </button>
-          {spokeSaved && <span className="text-sm text-status-ready font-medium">Saved!</span>}
+          {spokeSaved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
           {spokeConfig?.configured && (
-            <span className="text-xs text-fg-secondary">✓ API key configured</span>
+            <span className="text-xs text-fg-secondary">{t('apiKeyConfigured')}</span>
           )}
         </div>
       </div>

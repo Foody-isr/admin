@@ -9,6 +9,7 @@ import {
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
+import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
   MagnifyingGlassIcon, ArrowPathIcon, SpeakerWaveIcon, SpeakerXMarkIcon,
@@ -20,17 +21,17 @@ import {
 
 interface Tab {
   key: string;
-  label: string;
+  labelKey: string;
   statuses?: string;
   active?: boolean;
 }
 
 const TABS: Tab[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active', active: true },
-  { key: 'scheduled', label: 'Scheduled', statuses: 'scheduled' },
-  { key: 'completed', label: 'Completed', statuses: 'served,picked_up,delivered' },
-  { key: 'canceled', label: 'Canceled', statuses: 'rejected' },
+  { key: 'all', labelKey: 'all', active: undefined },
+  { key: 'active', labelKey: 'active', active: true },
+  { key: 'scheduled', labelKey: 'scheduled', statuses: 'scheduled' },
+  { key: 'completed', labelKey: 'completed', statuses: 'served,picked_up,delivered' },
+  { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
 ];
 
 const STATUS_BADGE: Record<string, string> = {
@@ -90,6 +91,7 @@ function itemColor(name: string): string {
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
+  const { t } = useI18n();
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
@@ -166,8 +168,8 @@ export default function OrdersPage() {
 
     if (type === 'order.created') {
       playSound();
-      notify('New Order!', {
-        body: `Order #${wsOrder.id} — ${wsOrder.order_type?.replace(/_/g, ' ') ?? 'order'}`,
+      notify(t('newOrder'), {
+        body: `${t('orderNumber').replace('{id}', String(wsOrder.id))} — ${wsOrder.order_type?.replace(/_/g, ' ') ?? 'order'}`,
         tag: `order-${wsOrder.id}`,
       });
     }
@@ -206,7 +208,7 @@ export default function OrdersPage() {
   const handleAccept = (orderId: number) =>
     runAction(orderId, () => acceptOrder(rid, orderId), 'accepted');
   const handleReject = (orderId: number) => {
-    if (!confirm('Reject this order?')) return;
+    if (!confirm(t('rejectThisOrder'))) return;
     runAction(orderId, () => rejectOrder(rid, orderId));
   };
   const handleSendToKitchen = (orderId: number) =>
@@ -239,12 +241,12 @@ export default function OrdersPage() {
       <div className={`flex-1 min-w-0 space-y-5 transition-all ${selectedOrder ? 'pr-0' : ''}`}>
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-fg-primary">All orders</h1>
+          <h1 className="text-2xl font-bold text-fg-primary">{t('allOrders')}</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { const next = toggleSound(); setSoundOn(next); }}
               className="p-2 rounded-standard text-fg-secondary hover:text-fg-primary transition-colors"
-              title={soundOn ? 'Mute sound' : 'Unmute sound'}
+              title={soundOn ? t('muteSound') : t('unmuteSound')}
             >
               {soundOn ? <SpeakerWaveIcon className="w-5 h-5" /> : <SpeakerXMarkIcon className="w-5 h-5" />}
             </button>
@@ -254,21 +256,21 @@ export default function OrdersPage() {
                 permission === 'granted' ? 'text-status-ready' : 'text-fg-secondary hover:text-fg-primary'
               }`}
               title={
-                permission === 'granted' ? 'Notifications enabled'
-                : permission === 'denied' ? 'Notifications blocked'
-                : 'Enable browser notifications'
+                permission === 'granted' ? t('notificationsEnabled')
+                : permission === 'denied' ? t('notificationsBlocked')
+                : t('enableNotifications')
               }
             >
               {permission === 'granted' ? <BellIcon className="w-5 h-5" /> : <BellSlashIcon className="w-5 h-5" />}
             </button>
             {wsStatus === 'connected' && (
-              <span className="badge badge-ready text-[10px] uppercase tracking-wider font-bold">Live</span>
+              <span className="badge badge-ready text-[10px] uppercase tracking-wider font-bold">{t('live')}</span>
             )}
             {wsStatus === 'connecting' && (
-              <span className="badge badge-in-kitchen text-[10px] uppercase tracking-wider font-bold animate-pulse">Connecting</span>
+              <span className="badge badge-in-kitchen text-[10px] uppercase tracking-wider font-bold animate-pulse">{t('connecting')}</span>
             )}
             {wsStatus === 'disconnected' && (
-              <span className="badge badge-rejected text-[10px] uppercase tracking-wider font-bold">Offline</span>
+              <span className="badge badge-rejected text-[10px] uppercase tracking-wider font-bold">{t('offline')}</span>
             )}
           </div>
         </div>
@@ -283,7 +285,7 @@ export default function OrdersPage() {
                 activeTab === tab.key ? 'text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
               {activeTab === tab.key && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fg-primary rounded-full" />
               )}
@@ -298,7 +300,7 @@ export default function OrdersPage() {
               <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
               <input
                 type="text"
-                placeholder="Search"
+                placeholder={t('search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -306,7 +308,7 @@ export default function OrdersPage() {
               />
             </div>
             <button onClick={handleSearch} className="btn-secondary text-sm py-2 px-4 ml-2">
-              Search
+              {t('search')}
             </button>
           </div>
 
@@ -316,27 +318,27 @@ export default function OrdersPage() {
           />
 
           <FilterDropdown
-            label="Type"
+            label={t('type')}
             value={typeFilter}
             onChange={(v) => { setTypeFilter(v); setPage(0); }}
             options={[
-              { value: '', label: 'All' },
-              { value: 'dine_in', label: 'Dine In' },
-              { value: 'pickup', label: 'Pickup' },
-              { value: 'delivery', label: 'Delivery' },
+              { value: '', label: t('all') },
+              { value: 'dine_in', label: t('dineIn') },
+              { value: 'pickup', label: t('pickup') },
+              { value: 'delivery', label: t('delivery') },
             ]}
           />
 
           <FilterDropdown
-            label="Payment status"
+            label={t('paymentStatus')}
             value={paymentFilter}
             onChange={(v) => { setPaymentFilter(v); setPage(0); }}
             options={[
-              { value: '', label: 'All' },
-              { value: 'paid', label: 'Paid' },
-              { value: 'pending', label: 'Pending' },
-              { value: 'unpaid', label: 'Unpaid' },
-              { value: 'refunded', label: 'Refunded' },
+              { value: '', label: t('all') },
+              { value: 'paid', label: t('paid') },
+              { value: 'pending', label: t('pending') },
+              { value: 'unpaid', label: t('unpaid') },
+              { value: 'refunded', label: t('refunded') },
             ]}
           />
         </div>
@@ -344,14 +346,14 @@ export default function OrdersPage() {
         {/* Last updated */}
         <div className="flex items-center justify-between text-xs text-fg-secondary">
           {lastUpdated && (
-            <span>Last updated: {lastUpdated.toLocaleString('en-US', {
+            <span>{t('lastUpdated')} {lastUpdated.toLocaleString('en-US', {
               month: 'short', day: 'numeric', year: 'numeric',
               hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
             })}</span>
           )}
           <button onClick={fetchOrders} className="flex items-center gap-1.5 text-fg-secondary hover:text-fg-primary transition-colors">
             <ArrowPathIcon className="w-3.5 h-3.5" />
-            Refresh
+            {t('refresh')}
           </button>
         </div>
 
@@ -362,13 +364,13 @@ export default function OrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <div className="card text-center py-16 space-y-3">
-            <p className="text-lg font-semibold text-fg-primary">We couldn&apos;t find a match</p>
-            <p className="text-sm text-fg-secondary">Try searching across all orders.</p>
+            <p className="text-lg font-semibold text-fg-primary">{t('noMatchFound')}</p>
+            <p className="text-sm text-fg-secondary">{t('trySearchAllOrders')}</p>
             <button
               onClick={() => { switchTab('all'); setSearch(''); setSearchSubmitted(''); setTypeFilter(''); setPaymentFilter(''); }}
               className="btn-primary mx-auto"
             >
-              Search all orders
+              {t('searchAllOrders')}
             </button>
           </div>
         ) : (
@@ -376,13 +378,13 @@ export default function OrdersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                  <th className="py-3 px-4 font-medium">Name</th>
-                  <th className="py-3 px-4 font-medium">Source</th>
-                  <th className="py-3 px-4 font-medium">Type</th>
-                  <th className="py-3 px-4 font-medium">Items</th>
-                  <th className="py-3 px-4 font-medium">Status</th>
-                  <th className="py-3 px-4 font-medium">Payment</th>
-                  <th className="py-3 px-4 font-medium text-right">Total</th>
+                  <th className="py-3 px-4 font-medium">{t('name')}</th>
+                  <th className="py-3 px-4 font-medium">{t('source')}</th>
+                  <th className="py-3 px-4 font-medium">{t('type')}</th>
+                  <th className="py-3 px-4 font-medium">{t('items')}</th>
+                  <th className="py-3 px-4 font-medium">{t('status')}</th>
+                  <th className="py-3 px-4 font-medium">{t('payment')}</th>
+                  <th className="py-3 px-4 font-medium text-right">{t('total')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -398,7 +400,7 @@ export default function OrdersPage() {
                     style={{ borderBottom: '1px solid var(--divider)' }}
                   >
                     <td className="py-3 px-4">
-                      <span className="font-semibold text-fg-primary">Order #{order.id}</span>
+                      <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
                     </td>
                     <td className="py-3 px-4 text-fg-secondary capitalize">
                       {(order.order_source ?? 'order').replace(/_/g, ' ')}
@@ -447,7 +449,7 @@ export default function OrdersPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
                 <span className="text-xs text-fg-secondary">
-                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                  {t('showing').replace('{start}', String(page * PAGE_SIZE + 1)).replace('{end}', String(Math.min((page + 1) * PAGE_SIZE, total))).replace('{total}', String(total))}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
@@ -458,7 +460,7 @@ export default function OrdersPage() {
                     <ChevronLeftIcon className="w-4 h-4" />
                   </button>
                   <span className="text-xs text-fg-secondary px-2">
-                    Page {page + 1} of {totalPages}
+                    {t('pageOf').replace('{page}', String(page + 1)).replace('{total}', String(totalPages))}
                   </span>
                   <button
                     disabled={page >= totalPages - 1}
@@ -505,6 +507,7 @@ function OrderDetailPanel({
   onMarkReady: () => void;
   onMarkServed: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className="w-[420px] flex-shrink-0 flex flex-col ml-5 h-full"
@@ -540,7 +543,7 @@ function OrderDetailPanel({
       <div className="px-6 py-6 space-y-6 overflow-y-auto flex-1 min-h-0">
         {/* Title */}
         <div>
-          <h2 className="text-xl font-bold text-fg-primary">Order #{order.id}</h2>
+          <h2 className="text-xl font-bold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</h2>
           <div className="flex items-center gap-2 mt-2">
             <span className={`badge text-[10px] ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
               {order.status.replace(/_/g, ' ')}
@@ -571,10 +574,10 @@ function OrderDetailPanel({
                 month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
               })
             } />
-            <DetailRow label="Source" value={(order.order_source ?? 'order').replace(/_/g, ' ')} capitalize />
-            <DetailRow label="Type" value={order.order_type.replace(/_/g, ' ')} capitalize />
-            {order.customer_name && <DetailRow label="Customer" value={order.customer_name} />}
-            {order.customer_phone && <DetailRow label="Phone" value={order.customer_phone} />}
+            <DetailRow label={t('source')} value={(order.order_source ?? 'order').replace(/_/g, ' ')} capitalize />
+            <DetailRow label={t('type')} value={order.order_type.replace(/_/g, ' ')} capitalize />
+            {order.customer_name && <DetailRow label={t('customer')} value={order.customer_name} />}
+            {order.customer_phone && <DetailRow label={t('phone')} value={order.customer_phone} />}
             {order.table_number && <DetailRow label="Table" value={order.table_number} />}
             <DetailRow label="Order" value={`#${order.id}`} />
           </div>
@@ -582,7 +585,7 @@ function OrderDetailPanel({
 
         {/* Items section */}
         <div>
-          <h3 className="text-base font-bold text-fg-primary mb-4">Items</h3>
+          <h3 className="text-base font-bold text-fg-primary mb-4">{t('items')}</h3>
           <div className="space-y-0">
             {(() => {
               const allItems = order.items ?? [];
@@ -656,11 +659,11 @@ function OrderDetailPanel({
         {/* Totals */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-fg-primary">Subtotal</span>
+            <span className="text-sm font-semibold text-fg-primary">{t('subtotal')}</span>
             <span className="text-sm text-fg-primary">₪{(order.total_amount ?? 0).toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-fg-primary">Total</span>
+            <span className="text-sm font-bold text-fg-primary">{t('total')}</span>
             <span className="text-sm font-bold text-fg-primary">₪{(order.total_amount ?? 0).toFixed(2)}</span>
           </div>
         </div>
@@ -672,6 +675,7 @@ function OrderDetailPanel({
 // ─── Order Item Row ─────────────────────────────────────────────────────────
 
 function AdminOrderItemRow({ item }: { item: OrderItem }) {
+  const { t } = useI18n();
   return (
     <div
       className="py-3"
@@ -706,7 +710,7 @@ function AdminOrderItemRow({ item }: { item: OrderItem }) {
       )}
       {item.notes && (
         <div className="ml-12 mt-1 text-xs text-fg-secondary italic">
-          Note: {item.notes}
+          {t('note')} {item.notes}
         </div>
       )}
     </div>
@@ -737,11 +741,12 @@ function OrderPanelActions({
   onMarkReady: () => void;
   onMarkServed: () => void;
 }) {
+  const { t } = useI18n();
   if (status === 'pending_review') {
     return (
       <div className="flex gap-2">
         <button disabled={isLoading} onClick={onAccept} className="btn-primary flex-1 py-2.5 disabled:opacity-50">
-          Accept
+          {t('accept')}
         </button>
         <button
           disabled={isLoading}
@@ -749,7 +754,7 @@ function OrderPanelActions({
           className="flex-1 py-2.5 rounded-standard font-medium disabled:opacity-50 text-status-rejected"
           style={{ background: 'rgba(247,56,56,0.1)' }}
         >
-          Reject
+          {t('reject')}
         </button>
       </div>
     );
@@ -757,7 +762,7 @@ function OrderPanelActions({
   if (status === 'accepted') {
     return (
       <button disabled={isLoading} onClick={onSendToKitchen} className="btn-primary w-full py-2.5 disabled:opacity-50">
-        Send to Kitchen
+        {t('sendToKitchen')}
       </button>
     );
   }
@@ -769,7 +774,7 @@ function OrderPanelActions({
         className="w-full py-2.5 rounded-standard font-medium disabled:opacity-50"
         style={{ background: 'rgba(119,186,75,0.15)', color: '#77BA4B' }}
       >
-        Mark Ready
+        {t('markReady')}
       </button>
     );
   }
@@ -781,7 +786,7 @@ function OrderPanelActions({
         className="w-full py-2.5 rounded-standard font-medium disabled:opacity-50"
         style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}
       >
-        Mark Served
+        {t('markServed')}
       </button>
     );
   }

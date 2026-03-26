@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Modal from '@/components/Modal';
+import { useI18n } from '@/lib/i18n';
 import {
   listRoles,
   createRole,
@@ -16,6 +17,7 @@ import {
 export default function RolesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [roles, setRoles] = useState<RestaurantRole[]>([]);
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
@@ -59,11 +61,11 @@ export default function RolesPage() {
 
   async function handleSave() {
     if (!name.trim()) {
-      setError('Name is required');
+      setError(t('nameIsRequired'));
       return;
     }
     if (selectedPerms.size === 0) {
-      setError('Select at least one permission');
+      setError(t('selectAtLeastOnePermission'));
       return;
     }
 
@@ -84,19 +86,19 @@ export default function RolesPage() {
       }
       setShowEditor(false);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to save role');
+      setError(e instanceof Error ? e.message : t('failedToSaveRole'));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(role: RestaurantRole) {
-    if (!confirm(`Delete role "${role.name}"? This cannot be undone.`)) return;
+    if (!confirm(t('deleteRoleConfirm').replace('{name}', role.name))) return;
     try {
       await deleteRole(rid, role.id);
       setRoles((prev) => prev.filter((r) => r.id !== role.id));
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Failed to delete role');
+      alert(e instanceof Error ? e.message : t('failedToDeleteRole'));
     }
   }
 
@@ -131,13 +133,13 @@ export default function RolesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Roles & Permissions</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('rolesAndPermissions')}</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            Manage staff roles and what they can access
+            {t('manageStaffRoles')}
           </p>
         </div>
         <button onClick={openCreate} className="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
-          Create Role
+          {t('createRole')}
         </button>
       </div>
 
@@ -167,8 +169,8 @@ export default function RolesPage() {
               </p>
             )}
             <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <span>{role.permissions.length} permissions</span>
-              <span>{role.user_count} {role.user_count === 1 ? 'user' : 'users'}</span>
+              <span>{t('permissionsCount').replace('{count}', String(role.permissions.length))}</span>
+              <span>{(role.user_count === 1 ? t('userCount') : t('usersCount')).replace('{count}', String(role.user_count))}</span>
             </div>
           </div>
         ))}
@@ -176,44 +178,44 @@ export default function RolesPage() {
 
       {roles.length === 0 && (
         <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
-          <p className="text-lg font-medium mb-2">No roles yet</p>
-          <p className="text-sm">Default roles will be created automatically</p>
+          <p className="text-lg font-medium mb-2">{t('noRolesYet')}</p>
+          <p className="text-sm">{t('defaultRolesAutoCreated')}</p>
         </div>
       )}
 
       {/* Role editor modal */}
       {showEditor && (
-        <Modal title={editingRole ? `Edit ${editingRole.name}` : 'Create Role'} onClose={() => setShowEditor(false)}>
+        <Modal title={editingRole ? t('editRole').replace('{name}', editingRole.name) : t('createRole')} onClose={() => setShowEditor(false)}>
           <div className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Name</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('name')}</label>
               <input
                 className="input w-full"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={editingRole?.is_system_default}
-                placeholder="e.g., Head Chef"
+                placeholder={t('roleNamePlaceholder')}
               />
               {editingRole?.is_system_default && (
-                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>System default roles cannot be renamed</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{t('systemDefaultNoRename')}</p>
               )}
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Description</label>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('description')}</label>
               <input
                 className="input w-full"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of this role"
+                placeholder={t('briefDescription')}
               />
             </div>
 
             {/* Permissions */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Permissions</label>
+              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>{t('permissions')}</label>
               <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {permissionGroups.map((group) => {
                   const allKeys = group.permissions.map((p) => p.key);
@@ -262,19 +264,19 @@ export default function RolesPage() {
                   }}
                   className="text-sm text-red-500 hover:text-red-400"
                   disabled={editingRole.user_count > 0}
-                  title={editingRole.user_count > 0 ? 'Cannot delete role with assigned users' : ''}
+                  title={editingRole.user_count > 0 ? t('cannotDeleteWithUsers') : ''}
                 >
-                  Delete Role
+                  {t('deleteRole')}
                 </button>
               ) : (
                 <div />
               )}
               <div className="flex gap-2">
                 <button onClick={() => setShowEditor(false)} className="btn-secondary px-4 py-2 rounded-lg text-sm">
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button onClick={handleSave} disabled={saving} className="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
-                  {saving ? 'Saving...' : editingRole ? 'Save Changes' : 'Create Role'}
+                  {saving ? t('saving') : editingRole ? t('saveChanges') : t('createRole')}
                 </button>
               </div>
             </div>

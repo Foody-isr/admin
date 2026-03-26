@@ -4,23 +4,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { MagnifyingGlassIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { getAnalyticsCustomers, CustomerInsight, CustomerListResult } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 import CustomerDetailPanel from './CustomerDetailPanel';
 
 type SortField = 'total_spent' | 'total_orders' | 'avg_order_value' | 'last_order_date' | 'customer_name';
 
-function StatusBadge({ days }: { days: number }) {
-  if (days <= 30) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600">Active</span>;
-  if (days <= 60) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-600">At Risk</span>;
-  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600">Churned</span>;
+function StatusBadge({ days, t }: { days: number; t: (k: string) => string }) {
+  if (days <= 30) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600">{t('active')}</span>;
+  if (days <= 60) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-600">{t('atRisk')}</span>;
+  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600">{t('churned')}</span>;
 }
 
-function daysAgoLabel(days: number): string {
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+function daysAgoLabel(days: number, t: (k: string) => string): string {
+  if (days === 0) return t('today');
+  if (days === 1) return t('yesterday');
+  if (days < 7) return t('daysAgo').replace('{n}', String(days));
+  if (days < 30) return t('weeksAgo').replace('{n}', String(Math.floor(days / 7)));
+  if (days < 365) return t('monthsAgo').replace('{n}', String(Math.floor(days / 30)));
+  return t('yearsAgo').replace('{n}', String(Math.floor(days / 365)));
 }
 
 function SortHeader({ label, field, current, dir, onSort }: {
@@ -44,6 +45,7 @@ function SortHeader({ label, field, current, dir, onSort }: {
 export default function CustomersInsightsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [data, setData] = useState<CustomerListResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,19 +108,19 @@ export default function CustomersInsightsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="card text-center">
             <div className="text-2xl font-bold text-fg-primary">{data.total}</div>
-            <div className="text-sm text-fg-secondary mt-1">Total Customers</div>
+            <div className="text-sm text-fg-secondary mt-1">{t('totalCustomers')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold text-green-600">{data.total_active}</div>
-            <div className="text-sm text-fg-secondary mt-1">Active (30d)</div>
+            <div className="text-sm text-fg-secondary mt-1">{t('activeCustomers')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold text-yellow-600">{data.total_at_risk}</div>
-            <div className="text-sm text-fg-secondary mt-1">At Risk (31-60d)</div>
+            <div className="text-sm text-fg-secondary mt-1">{t('atRiskCustomers')}</div>
           </div>
           <div className="card text-center">
             <div className="text-2xl font-bold text-red-600">{data.total_churned}</div>
-            <div className="text-sm text-fg-secondary mt-1">Churned (60d+)</div>
+            <div className="text-sm text-fg-secondary mt-1">{t('churnedCustomers')}</div>
           </div>
         </div>
       )}
@@ -128,7 +130,7 @@ export default function CustomersInsightsPage() {
         <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
         <input
           type="text"
-          placeholder="Search by name or phone..."
+          placeholder={t('searchByNameOrPhone')}
           value={search}
           onChange={e => handleSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2 rounded-lg border border-divider bg-surface-subtle text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
@@ -143,7 +145,7 @@ export default function CustomersInsightsPage() {
           </div>
         ) : !data || data.customers.length === 0 ? (
           <p className="text-sm text-fg-secondary py-8 text-center">
-            No customer data yet. Customer insights will appear once orders with phone numbers are placed.
+            {t('noCustomerData')}
           </p>
         ) : (
           <>
@@ -151,13 +153,13 @@ export default function CustomersInsightsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-divider">
-                    <th className="text-left py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">Customer</th>
-                    <SortHeader label="Orders" field="total_orders" current={sortBy} dir={sortDir} onSort={handleSort} />
-                    <SortHeader label="Total Spent" field="total_spent" current={sortBy} dir={sortDir} onSort={handleSort} />
-                    <SortHeader label="Avg Order" field="avg_order_value" current={sortBy} dir={sortDir} onSort={handleSort} />
-                    <SortHeader label="Last Order" field="last_order_date" current={sortBy} dir={sortDir} onSort={handleSort} />
-                    <th className="text-left py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">Top Items</th>
-                    <th className="text-center py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">Status</th>
+                    <th className="text-left py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">{t('customer')}</th>
+                    <SortHeader label={t('orders')} field="total_orders" current={sortBy} dir={sortDir} onSort={handleSort} />
+                    <SortHeader label={t('totalSpent')} field="total_spent" current={sortBy} dir={sortDir} onSort={handleSort} />
+                    <SortHeader label={t('avgOrder')} field="avg_order_value" current={sortBy} dir={sortDir} onSort={handleSort} />
+                    <SortHeader label={t('lastOrder')} field="last_order_date" current={sortBy} dir={sortDir} onSort={handleSort} />
+                    <th className="text-left py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">{t('topItems')}</th>
+                    <th className="text-center py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">{t('status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,7 +176,7 @@ export default function CustomersInsightsPage() {
                       <td className="py-2.5 px-2 text-right text-fg-primary whitespace-nowrap">{c.total_orders}</td>
                       <td className="py-2.5 px-2 text-right font-medium text-fg-primary whitespace-nowrap">₪{c.total_spent.toFixed(0)}</td>
                       <td className="py-2.5 px-2 text-right text-fg-secondary whitespace-nowrap">₪{c.avg_order_value.toFixed(0)}</td>
-                      <td className="py-2.5 px-2 text-right text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order)}</td>
+                      <td className="py-2.5 px-2 text-right text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order, t)}</td>
                       <td className="py-2.5 px-2">
                         <div className="text-xs text-fg-secondary truncate max-w-[200px]">
                           {c.favorite_items.length > 0
@@ -183,7 +185,7 @@ export default function CustomersInsightsPage() {
                         </div>
                       </td>
                       <td className="py-2.5 px-2 text-center whitespace-nowrap">
-                        <StatusBadge days={c.days_since_last_order} />
+                        <StatusBadge days={c.days_since_last_order} t={t} />
                       </td>
                     </tr>
                   ))}
@@ -195,7 +197,7 @@ export default function CustomersInsightsPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t border-divider">
                 <div className="text-sm text-fg-secondary">
-                  Page {page} of {totalPages} ({data.total} customers)
+                  {t('pageXofY').replace('{page}', String(page)).replace('{total}', String(totalPages)).replace('{count}', String(data.total))}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -203,14 +205,14 @@ export default function CustomersInsightsPage() {
                     disabled={page === 1}
                     className="px-3 py-1 rounded text-sm border border-divider disabled:opacity-40 hover:bg-surface-subtle"
                   >
-                    Previous
+                    {t('previous')}
                   </button>
                   <button
                     onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
                     className="px-3 py-1 rounded text-sm border border-divider disabled:opacity-40 hover:bg-surface-subtle"
                   >
-                    Next
+                    {t('next')}
                   </button>
                 </div>
               </div>

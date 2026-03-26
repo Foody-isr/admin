@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useTheme } from '@/lib/theme-context';
 import { useWs } from '@/lib/ws-context';
+import { useI18n } from '@/lib/i18n';
 import {
   HomeIcon,
   Bars3BottomLeftIcon,
@@ -35,20 +36,21 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
   const { hasAnyPermission } = usePermissions();
   const { theme, toggleTheme } = useTheme();
   const { status: wsStatus } = useWs();
+  const { t } = useI18n();
 
   const base = `/${restaurantId}`;
-  const allNav: { href: string; label: string; icon: typeof HomeIcon; perm?: string[] }[] = [
-    { href: `${base}/dashboard`, label: 'Dashboard', icon: HomeIcon },
-    { href: `${base}/menu`, label: 'Menu', icon: Bars3BottomLeftIcon, perm: ['menu.view', 'menu.edit'] },
-    { href: `${base}/kitchen`, label: 'Kitchen', icon: BeakerIcon, perm: ['kitchen.view', 'kitchen.manage'] },
-    { href: `${base}/orders`, label: 'Orders', icon: ClipboardDocumentListIcon, perm: ['orders.view', 'orders.manage'] },
-    { href: `${base}/staff`, label: 'Staff', icon: UsersIcon, perm: ['staff.view', 'staff.manage'] },
-    { href: `${base}/roles`, label: 'Roles', icon: ShieldCheckIcon, perm: ['roles.manage'] },
-    { href: `${base}/customers`, label: 'Customers', icon: UserGroupIcon, perm: ['customers.view', 'customers.manage'] },
-    { href: `${base}/analytics`, label: 'Analytics', icon: ChartBarIcon, perm: ['analytics.view'] },
-    { href: `${base}/settings`, label: 'Settings', icon: Cog6ToothIcon, perm: ['settings.view', 'settings.edit'] },
-    { href: `${base}/website`, label: 'Website', icon: GlobeAltIcon, perm: ['settings.edit'] },
-    { href: `${base}/billing`, label: 'Billing', icon: CreditCardIcon },
+  const allNav: { href: string; labelKey: string; icon: typeof HomeIcon; perm?: string[] }[] = [
+    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: HomeIcon },
+    { href: `${base}/menu`, labelKey: 'menu', icon: Bars3BottomLeftIcon, perm: ['menu.view', 'menu.edit'] },
+    { href: `${base}/kitchen`, labelKey: 'kitchen', icon: BeakerIcon, perm: ['kitchen.view', 'kitchen.manage'] },
+    { href: `${base}/orders`, labelKey: 'orders', icon: ClipboardDocumentListIcon, perm: ['orders.view', 'orders.manage'] },
+    { href: `${base}/staff`, labelKey: 'staff', icon: UsersIcon, perm: ['staff.view', 'staff.manage'] },
+    { href: `${base}/roles`, labelKey: 'roles', icon: ShieldCheckIcon, perm: ['roles.manage'] },
+    { href: `${base}/customers`, labelKey: 'customers', icon: UserGroupIcon, perm: ['customers.view', 'customers.manage'] },
+    { href: `${base}/analytics`, labelKey: 'analytics', icon: ChartBarIcon, perm: ['analytics.view'] },
+    { href: `${base}/settings`, labelKey: 'settings', icon: Cog6ToothIcon, perm: ['settings.view', 'settings.edit'] },
+    { href: `${base}/website`, labelKey: 'website', icon: GlobeAltIcon, perm: ['settings.edit'] },
+    { href: `${base}/billing`, labelKey: 'billing', icon: CreditCardIcon },
   ];
   const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
 
@@ -62,7 +64,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
           </div>
           <div className="min-w-0">
             <h1 className="text-sm font-bold text-white truncate">{restaurantName}</h1>
-            <p className="text-xs text-[var(--text-secondary)]">Admin Portal</p>
+            <p className="text-xs text-[var(--text-secondary)]">{t('adminPortal')}</p>
           </div>
         </div>
       </div>
@@ -75,7 +77,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
             className="flex items-center gap-2 text-xs text-[var(--text-secondary)] hover:text-white transition-colors"
           >
             <BuildingStorefrontIcon className="w-4 h-4" />
-            Switch restaurant
+            {t('switchRestaurant')}
           </Link>
         </div>
       )}
@@ -91,8 +93,8 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
               className={`sidebar-link text-[var(--text-secondary)] ${isActive ? 'active' : ''}`}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
-              {item.label}
-              {item.label === 'Orders' && (
+              {t(item.labelKey)}
+              {item.labelKey === 'orders' && (
                 <span
                   className={`ml-auto w-2 h-2 rounded-full flex-shrink-0 ${
                     wsStatus === 'connected' ? 'bg-green-400' :
@@ -119,7 +121,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
           ) : (
             <MoonIcon className="w-5 h-5" />
           )}
-          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          {theme === 'dark' ? t('lightMode') : t('darkMode')}
         </button>
 
         {/* User info */}
@@ -131,7 +133,7 @@ export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) 
           className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
-          Sign Out
+          {t('signOut')}
         </button>
       </div>
     </aside>

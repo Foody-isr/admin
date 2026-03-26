@@ -4,17 +4,19 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 const tabs = [
-  { key: 'stock', label: 'Stock' },
-  { key: 'prep', label: 'Recipes & Prep' },
-  { key: 'food-cost', label: 'Food Cost' },
+  { key: 'stock', labelKey: 'stock' },
+  { key: 'prep', labelKey: 'recipesAndPrep' },
+  { key: 'food-cost', labelKey: 'foodCost' },
 ] as const;
 
 export default function KitchenLayout({ children }: { children: React.ReactNode }) {
   const { restaurantId } = useParams();
   const pathname = usePathname();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
@@ -42,7 +44,7 @@ export default function KitchenLayout({ children }: { children: React.ReactNode 
                   : 'text-fg-secondary hover:text-fg-primary'
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
               {badge > 0 && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
                   isActive ? 'bg-white/20 text-white' : 'bg-red-500/10 text-red-500'
