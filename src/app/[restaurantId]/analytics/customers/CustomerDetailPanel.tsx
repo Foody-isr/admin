@@ -4,6 +4,36 @@ import { useEffect, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { getAnalyticsCustomerDetail, CustomerDetailResponse } from '@/lib/api';
 
+const labelMap: Record<string, string> = {
+  dine_in: 'Dine-In',
+  pickup: 'Pickup',
+  delivery: 'Delivery',
+  cash: 'Cash',
+  card: 'Card',
+  credit: 'Credit',
+  pay_now: 'Online',
+  qr_dine_in: 'QR Dine-In',
+  website_order: 'Website',
+  manual: 'Manual (POS)',
+  wolt: 'Wolt',
+  unknown_external: 'External',
+  pending_review: 'Pending',
+  accepted: 'Accepted',
+  in_kitchen: 'In Kitchen',
+  ready: 'Ready',
+  served: 'Served',
+  received: 'Received',
+  picked_up: 'Picked Up',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  refunded: 'Refunded',
+  scheduled: 'Scheduled',
+};
+
+function formatLabel(s: string): string {
+  return labelMap[s] || s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function BreakdownBar({ data, colors }: { data: Record<string, number>; colors: Record<string, string> }) {
   const entries = Object.entries(data).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) return <span className="text-xs text-fg-secondary">—</span>;
@@ -14,7 +44,7 @@ function BreakdownBar({ data, colors }: { data: Record<string, number>; colors: 
           <div
             key={key}
             style={{ width: `${pct}%`, backgroundColor: colors[key] || '#94a3b8' }}
-            title={`${key}: ${pct.toFixed(1)}%`}
+            title={`${formatLabel(key)}: ${pct.toFixed(1)}%`}
           />
         ))}
       </div>
@@ -30,10 +60,6 @@ function BreakdownBar({ data, colors }: { data: Record<string, number>; colors: 
   );
 }
 
-function formatLabel(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
 const orderTypeColors: Record<string, string> = {
   dine_in: '#3b82f6',
   pickup: '#f59e0b',
@@ -44,6 +70,7 @@ const paymentColors: Record<string, string> = {
   cash: '#10b981',
   card: '#6366f1',
   credit: '#6366f1',
+  pay_now: '#8b5cf6',
 };
 
 const sourceColors: Record<string, string> = {
@@ -96,8 +123,8 @@ export default function CustomerDetailPanel({
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative w-full max-w-xl bg-surface-primary shadow-xl overflow-y-auto">
-        <div className="sticky top-0 bg-surface-primary z-10 flex items-center justify-between p-4 border-b border-divider">
+      <div className="relative w-full max-w-xl bg-surface shadow-xl overflow-y-auto">
+        <div className="sticky top-0 bg-surface z-10 flex items-center justify-between p-4 border-b border-divider">
           <h2 className="text-lg font-semibold text-fg-primary">Customer Details</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-surface-subtle">
             <XMarkIcon className="w-5 h-5 text-fg-secondary" />

@@ -30,10 +30,10 @@ function SortHeader({ label, field, current, dir, onSort }: {
   const active = current === field;
   return (
     <th
-      className="text-right py-2 text-fg-secondary font-medium cursor-pointer select-none hover:text-fg-primary"
+      className="text-right py-2 px-2 text-fg-secondary font-medium cursor-pointer select-none hover:text-fg-primary whitespace-nowrap"
       onClick={() => onSort(field)}
     >
-      <span className="inline-flex items-center gap-1">
+      <span className="inline-flex items-center gap-1 justify-end">
         {label}
         {active && (dir === 'desc' ? <ChevronDownIcon className="w-3 h-3" /> : <ChevronUpIcon className="w-3 h-3" />)}
       </span>
@@ -151,13 +151,13 @@ export default function CustomersInsightsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-divider">
-                    <th className="text-left py-2 text-fg-secondary font-medium">Customer</th>
+                    <th className="text-left py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">Customer</th>
                     <SortHeader label="Orders" field="total_orders" current={sortBy} dir={sortDir} onSort={handleSort} />
                     <SortHeader label="Total Spent" field="total_spent" current={sortBy} dir={sortDir} onSort={handleSort} />
                     <SortHeader label="Avg Order" field="avg_order_value" current={sortBy} dir={sortDir} onSort={handleSort} />
                     <SortHeader label="Last Order" field="last_order_date" current={sortBy} dir={sortDir} onSort={handleSort} />
-                    <th className="text-left py-2 text-fg-secondary font-medium">Top Items</th>
-                    <th className="text-center py-2 text-fg-secondary font-medium">Status</th>
+                    <th className="text-left py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">Top Items</th>
+                    <th className="text-center py-2 px-2 text-fg-secondary font-medium whitespace-nowrap">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -167,22 +167,22 @@ export default function CustomersInsightsPage() {
                       className="border-b border-divider hover:bg-surface-subtle cursor-pointer transition-colors"
                       onClick={() => setSelectedPhone(c.customer_phone)}
                     >
-                      <td className="py-2.5">
+                      <td className="py-2.5 px-2 whitespace-nowrap">
                         <div className="text-fg-primary font-medium">{c.customer_name || '—'}</div>
                         <div className="text-xs text-fg-secondary">{c.customer_phone}</div>
                       </td>
-                      <td className="py-2.5 text-right text-fg-primary">{c.total_orders}</td>
-                      <td className="py-2.5 text-right font-medium text-fg-primary">₪{c.total_spent.toFixed(0)}</td>
-                      <td className="py-2.5 text-right text-fg-secondary">₪{c.avg_order_value.toFixed(0)}</td>
-                      <td className="py-2.5 text-right text-fg-secondary">{daysAgoLabel(c.days_since_last_order)}</td>
-                      <td className="py-2.5 text-left">
-                        <div className="text-xs text-fg-secondary truncate max-w-[160px]">
+                      <td className="py-2.5 px-2 text-right text-fg-primary whitespace-nowrap">{c.total_orders}</td>
+                      <td className="py-2.5 px-2 text-right font-medium text-fg-primary whitespace-nowrap">₪{c.total_spent.toFixed(0)}</td>
+                      <td className="py-2.5 px-2 text-right text-fg-secondary whitespace-nowrap">₪{c.avg_order_value.toFixed(0)}</td>
+                      <td className="py-2.5 px-2 text-right text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order)}</td>
+                      <td className="py-2.5 px-2">
+                        <div className="text-xs text-fg-secondary truncate max-w-[200px]">
                           {c.favorite_items.length > 0
                             ? c.favorite_items.map(f => f.name).join(', ')
                             : '—'}
                         </div>
                       </td>
-                      <td className="py-2.5 text-center">
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
                         <StatusBadge days={c.days_since_last_order} />
                       </td>
                     </tr>
