@@ -209,6 +209,72 @@ export interface TopSeller {
   revenue: number;
 }
 
+// ─── Customer Insights Types ────────────────────────────────────────────────
+
+export interface FavoriteItem {
+  menu_item_id: number;
+  name: string;
+  quantity: number;
+}
+
+export interface CustomerInsight {
+  customer_phone: string;
+  customer_name: string;
+  total_orders: number;
+  total_spent: number;
+  avg_order_value: number;
+  first_order_date: string;
+  last_order_date: string;
+  days_since_last_order: number;
+  favorite_items: FavoriteItem[];
+  order_type_breakdown: Record<string, number>;
+  payment_method_breakdown: Record<string, number>;
+  order_source_breakdown: Record<string, number>;
+  preferred_day_of_week: string;
+  preferred_hour: number;
+}
+
+export interface CustomerListResult {
+  customers: CustomerInsight[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_active: number;
+  total_at_risk: number;
+  total_churned: number;
+}
+
+export interface OrderBrief {
+  id: number;
+  order_number: string;
+  order_type: string;
+  total_amount: number;
+  payment_method: string;
+  status: string;
+  created_at: string;
+  item_count: number;
+}
+
+export interface ProductBreakdown {
+  menu_item_id: number;
+  name: string;
+  times_ordered: number;
+  total_quantity: number;
+  total_spent: number;
+}
+
+export interface MonthlySpend {
+  month: string;
+  total_spent: number;
+  order_count: number;
+}
+
+export interface CustomerDetailResponse extends CustomerInsight {
+  orders: OrderBrief[];
+  product_breakdown: ProductBreakdown[];
+  monthly_spending: MonthlySpend[];
+}
+
 // ─── Stock & Kitchen Types ───────────────────────────────────────────────────
 
 export type StockUnit = 'kg' | 'g' | 'l' | 'ml' | 'unit' | 'pack' | 'box' | 'bag' | 'dose' | 'other';
@@ -868,6 +934,32 @@ export async function getTopSellers(restaurantId: number): Promise<TopSeller[]> 
     `/api/v1/analytics/top-sellers?restaurant_id=${restaurantId}`, restaurantId
   );
   return data.top_items ?? [];
+}
+
+// ─── Customer Insights ──────────────────────────────────────────────────────
+
+export async function getAnalyticsCustomers(
+  restaurantId: number,
+  params?: { sort_by?: string; sort_dir?: string; search?: string; page?: number; per_page?: number }
+): Promise<CustomerListResult> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.sort_by) query.set('sort_by', params.sort_by);
+  if (params?.sort_dir) query.set('sort_dir', params.sort_dir);
+  if (params?.search) query.set('search', params.search);
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.per_page) query.set('per_page', String(params.per_page));
+  return apiFetch<CustomerListResult>(`/api/v1/analytics/customers?${query}`, restaurantId);
+}
+
+export async function getAnalyticsCustomerDetail(
+  restaurantId: number,
+  phone: string
+): Promise<CustomerDetailResponse> {
+  const data = await apiFetch<{ customer: CustomerDetailResponse }>(
+    `/api/v1/analytics/customers/${encodeURIComponent(phone)}?restaurant_id=${restaurantId}`,
+    restaurantId
+  );
+  return data.customer;
 }
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
