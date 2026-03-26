@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { usePermissions } from '@/lib/permissions-context';
 import { useTheme } from '@/lib/theme-context';
 import { useWs } from '@/lib/ws-context';
 import {
@@ -20,6 +21,7 @@ import {
   SunIcon,
   MoonIcon,
   BeakerIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -30,22 +32,25 @@ interface SidebarProps {
 export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, restaurantIds } = useAuth();
+  const { hasAnyPermission } = usePermissions();
   const { theme, toggleTheme } = useTheme();
   const { status: wsStatus } = useWs();
 
   const base = `/${restaurantId}`;
-  const nav = [
+  const allNav: { href: string; label: string; icon: typeof HomeIcon; perm?: string[] }[] = [
     { href: `${base}/dashboard`, label: 'Dashboard', icon: HomeIcon },
-    { href: `${base}/menu`, label: 'Menu', icon: Bars3BottomLeftIcon },
-    { href: `${base}/kitchen`, label: 'Kitchen', icon: BeakerIcon },
-    { href: `${base}/orders`, label: 'Orders', icon: ClipboardDocumentListIcon },
-    { href: `${base}/staff`, label: 'Staff', icon: UsersIcon },
-    { href: `${base}/customers`, label: 'Customers', icon: UserGroupIcon },
-    { href: `${base}/analytics`, label: 'Analytics', icon: ChartBarIcon },
-    { href: `${base}/settings`, label: 'Settings', icon: Cog6ToothIcon },
-    { href: `${base}/website`, label: 'Website', icon: GlobeAltIcon },
+    { href: `${base}/menu`, label: 'Menu', icon: Bars3BottomLeftIcon, perm: ['menu.view', 'menu.edit'] },
+    { href: `${base}/kitchen`, label: 'Kitchen', icon: BeakerIcon, perm: ['kitchen.view', 'kitchen.manage'] },
+    { href: `${base}/orders`, label: 'Orders', icon: ClipboardDocumentListIcon, perm: ['orders.view', 'orders.manage'] },
+    { href: `${base}/staff`, label: 'Staff', icon: UsersIcon, perm: ['staff.view', 'staff.manage'] },
+    { href: `${base}/roles`, label: 'Roles', icon: ShieldCheckIcon, perm: ['roles.manage'] },
+    { href: `${base}/customers`, label: 'Customers', icon: UserGroupIcon, perm: ['customers.view', 'customers.manage'] },
+    { href: `${base}/analytics`, label: 'Analytics', icon: ChartBarIcon, perm: ['analytics.view'] },
+    { href: `${base}/settings`, label: 'Settings', icon: Cog6ToothIcon, perm: ['settings.view', 'settings.edit'] },
+    { href: `${base}/website`, label: 'Website', icon: GlobeAltIcon, perm: ['settings.edit'] },
     { href: `${base}/billing`, label: 'Billing', icon: CreditCardIcon },
   ];
+  const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
 
   return (
     <aside className="w-64 min-h-screen flex flex-col" style={{ background: 'var(--sidebar-bg)' }}>

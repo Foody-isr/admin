@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { PermissionsProvider } from '@/lib/permissions-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
 import Sidebar from '@/components/Sidebar';
@@ -52,23 +53,27 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   if (isFullscreen) {
     return (
-      <WsProvider restaurantId={restaurantId}>
-        <div className="min-h-screen">{children}</div>
-        {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
-      </WsProvider>
+      <PermissionsProvider restaurantId={restaurantId}>
+        <WsProvider restaurantId={restaurantId}>
+          <div className="min-h-screen">{children}</div>
+          {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+        </WsProvider>
+      </PermissionsProvider>
     );
   }
 
   return (
-    <WsProvider restaurantId={restaurantId}>
-      <div className="flex min-h-screen">
-        <Sidebar restaurantId={restaurantId} restaurantName={restaurant.name} />
-        <main className="flex-1 overflow-auto">
-          <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>{children}</div>
-        </main>
-      </div>
-      {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
-    </WsProvider>
+    <PermissionsProvider restaurantId={restaurantId}>
+      <WsProvider restaurantId={restaurantId}>
+        <div className="flex min-h-screen">
+          <Sidebar restaurantId={restaurantId} restaurantName={restaurant.name} />
+          <main className="flex-1 overflow-auto">
+            <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>{children}</div>
+          </main>
+        </div>
+        {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+      </WsProvider>
+    </PermissionsProvider>
   );
 }
 

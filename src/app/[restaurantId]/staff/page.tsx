@@ -2,36 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { listStaff, inviteStaff, updateStaffRole, removeStaff, StaffMember, Role } from '@/lib/api';
-import { useAuth } from '@/lib/auth-context';
+import {
+  listStaff, inviteStaff, updateStaffRole, removeStaff,
+  listRoles, StaffMember, RestaurantRole,
+} from '@/lib/api';
+import { usePermissions } from '@/lib/permissions-context';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/components/Modal';
-
-const ROLE_LABELS: Record<Role, string> = {
-  owner: 'Owner',
-  manager: 'Manager',
-  cashier: 'Cashier',
-  waiter: 'Waiter',
-  chef: 'Chef',
-  superadmin: 'Super Admin',
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  owner: 'badge-pending',
-  manager: 'badge-accepted',
-  cashier: 'badge bg-purple-500/15 text-purple-400',
-  waiter: 'badge-ready',
-  chef: 'badge-in-kitchen',
-};
-
-const ASSIGNABLE_ROLES: Role[] = ['manager', 'cashier', 'waiter', 'chef'];
 
 export default function StaffPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { user } = useAuth();
+  const { hasPermission, isOwner } = usePermissions();
+  const canManage = hasPermission('staff.manage');
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [roles, setRoles] = useState<RestaurantRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -41,24 +27,39 @@ export default function StaffPage() {
     email: '',
     phone: '',
     password: '',
-    role: 'waiter' as Role,
+    role_id: 0,
   });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
-  const reload = () => listStaff(rid).then(setStaff).finally(() => setLoading(false));
+  const reload = () => {
+    Promise.all([listStaff(rid), listRoles(rid)])
+      .then(([s, r]) => { setStaff(s); setRoles(r); })
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { reload(); }, [rid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isOwner = user?.role === 'owner' || user?.role === 'superadmin';
+  // Set default role_id once roles load
+  useEffect(() => {
+    if (roles.length > 0 && form.role_id === 0) {
+      setForm((p) => ({ ...p, role_id: roles[0].id }));
+    }
+  }, [roles, form.role_id]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormLoading(true);
     try {
-      await inviteStaff(rid, form);
+      await inviteStaff(rid, {
+        full_name: form.full_name,
+        email: form.email,
+        phone: form.phone || undefined,
+        password: form.password,
+        role_id: form.role_id,
+      });
       setInviteOpen(false);
-      setForm({ full_name: '', email: '', phone: '', password: '', role: 'waiter' });
+      setForm({ full_name: '', email: '', phone: '', password: '', role_id: roles[0]?.id || 0 });
       reload();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Failed to invite');
@@ -67,11 +68,11 @@ export default function StaffPage() {
     }
   };
 
-  const handleRoleChange = async (member: StaffMember, newRole: Role) => {
+  const handleRoleChange = async (member: StaffMember, newRoleId: number) => {
     if (member.role === 'owner') return;
     setActionLoading(member.id);
     try {
-      await updateStaffRole(rid, member.id, newRole);
+      await updateStaffRole(rid, member.id, { role_id: newRoleId });
       reload();
     } finally {
       setActionLoading(null);
@@ -102,7 +103,7 @@ export default function StaffPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-fg-primary">Staff</h1>
-        {isOwner && (
+        {canManage && (
           <button onClick={() => setInviteOpen(true)} className="btn-primary flex items-center gap-2">
             <PlusIcon className="w-4 h-4" />
             Invite Staff
@@ -117,7 +118,7 @@ export default function StaffPage() {
               <th className="text-left px-5 py-3 font-medium text-fg-secondary">Name</th>
               <th className="text-left px-5 py-3 font-medium text-fg-secondary">Email</th>
               <th className="text-left px-5 py-3 font-medium text-fg-secondary">Role</th>
-              {isOwner && <th className="px-5 py-3" />}
+              {canManage && <th className="px-5 py-3" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-divider">
@@ -126,25 +127,25 @@ export default function StaffPage() {
                 <td className="px-5 py-3 font-medium text-fg-primary">{member.full_name}</td>
                 <td className="px-5 py-3 text-fg-secondary">{member.email}</td>
                 <td className="px-5 py-3">
-                  {isOwner && member.role !== 'owner' ? (
+                  {canManage && member.role !== 'owner' ? (
                     <select
                       disabled={actionLoading === member.id}
-                      value={member.role}
-                      onChange={(e) => handleRoleChange(member, e.target.value as Role)}
+                      value={member.role_id ?? ''}
+                      onChange={(e) => handleRoleChange(member, Number(e.target.value))}
                       className="text-xs border border-divider rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
                       style={{ background: 'var(--surface)', color: 'var(--text-primary)' }}
                     >
-                      {ASSIGNABLE_ROLES.map((r) => (
-                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
                   ) : (
-                    <span className={`badge ${ROLE_COLORS[member.role] ?? 'badge-neutral'}`}>
-                      {ROLE_LABELS[member.role] ?? member.role}
+                    <span className="badge badge-neutral">
+                      {member.role_name || member.role}
                     </span>
                   )}
                 </td>
-                {isOwner && (
+                {canManage && (
                   <td className="px-5 py-3 text-right">
                     {member.role !== 'owner' && (
                       <button
@@ -193,17 +194,17 @@ export default function StaffPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-fg-secondary mb-1">Role</label>
-              <select className="input" value={form.role}
-                onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}>
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+              <select className="input" value={form.role_id}
+                onChange={(e) => setForm((p) => ({ ...p, role_id: Number(e.target.value) }))}>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn-secondary" onClick={() => setInviteOpen(false)}>Cancel</button>
               <button type="submit" disabled={formLoading} className="btn-primary disabled:opacity-50">
-                {formLoading ? 'Inviting…' : 'Invite'}
+                {formLoading ? 'Inviting...' : 'Invite'}
               </button>
             </div>
           </form>

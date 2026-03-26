@@ -141,6 +141,8 @@ export interface StaffMember {
   email: string;
   phone: string;
   role: Role;
+  role_id?: number;
+  role_name?: string;
 }
 
 export interface Subscription {
@@ -880,7 +882,8 @@ export async function inviteStaff(restaurantId: number, input: {
   email: string;
   phone?: string;
   password: string;
-  role: Role;
+  role?: Role;
+  role_id?: number;
 }): Promise<StaffMember> {
   const data = await apiFetch<{ staff_member: StaffMember }>(
     `/api/v1/restaurants/${restaurantId}/staff/invite`, restaurantId,
@@ -889,10 +892,12 @@ export async function inviteStaff(restaurantId: number, input: {
   return data.staff_member;
 }
 
-export async function updateStaffRole(restaurantId: number, userId: number, role: Role): Promise<void> {
+export async function updateStaffRole(
+  restaurantId: number, userId: number, update: { role?: Role; role_id?: number }
+): Promise<void> {
   await apiFetch<void>(
     `/api/v1/restaurants/${restaurantId}/staff/${userId}/role`, restaurantId,
-    { method: 'PUT', body: JSON.stringify({ role }) }
+    { method: 'PUT', body: JSON.stringify(update) }
   );
 }
 
@@ -1390,5 +1395,89 @@ export async function removeTrustedCustomer(restaurantId: number, customerId: nu
   await apiFetch<void>(
     `/api/v1/restaurants/${restaurantId}/customers/trusted/${customerId}`, restaurantId,
     { method: 'DELETE' }
+  );
+}
+
+// ─── RBAC: Roles & Permissions ────────────────────────────────────────────────
+
+export interface RolePermission {
+  id: number;
+  restaurant_role_id: number;
+  permission: string;
+}
+
+export interface RestaurantRole {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  description: string;
+  is_system_default: boolean;
+  permissions: RolePermission[];
+  user_count: number;
+  created_at: string;
+}
+
+export interface PermissionInfo {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface PermissionGroup {
+  domain: string;
+  permissions: PermissionInfo[];
+}
+
+export interface MeWithPermissions {
+  user: User;
+  permissions?: string[];
+  role_name?: string;
+}
+
+export async function listRoles(restaurantId: number): Promise<RestaurantRole[]> {
+  const data = await apiFetch<{ roles: RestaurantRole[] }>(
+    `/api/v1/restaurants/${restaurantId}/roles`, restaurantId
+  );
+  return data.roles ?? [];
+}
+
+export async function createRole(
+  restaurantId: number,
+  input: { name: string; description: string; permissions: string[] }
+): Promise<RestaurantRole> {
+  const data = await apiFetch<{ role: RestaurantRole }>(
+    `/api/v1/restaurants/${restaurantId}/roles`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.role;
+}
+
+export async function updateRole(
+  restaurantId: number,
+  roleId: number,
+  input: { name?: string; description?: string; permissions?: string[] }
+): Promise<RestaurantRole> {
+  const data = await apiFetch<{ role: RestaurantRole }>(
+    `/api/v1/restaurants/${restaurantId}/roles/${roleId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.role;
+}
+
+export async function deleteRole(restaurantId: number, roleId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/roles/${roleId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function listPermissions(): Promise<PermissionGroup[]> {
+  const data = await apiFetch<{ permissions: PermissionGroup[] }>('/api/v1/permissions');
+  return data.permissions ?? [];
+}
+
+export async function getMyPermissions(restaurantId: number): Promise<MeWithPermissions> {
+  return apiFetch<MeWithPermissions>(
+    `/api/v1/users/me?restaurant_id=${restaurantId}`
   );
 }
