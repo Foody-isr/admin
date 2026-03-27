@@ -102,8 +102,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <h1 className="text-2xl font-bold text-fg-primary">{t('settings')}</h1>
-
       {/* Language */}
       <div className="card space-y-4">
         <h2 className="font-semibold text-fg-primary">{t('language')}</h2>

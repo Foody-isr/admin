@@ -70,12 +70,9 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-fg-primary">{t('trustedCustomers')}</h1>
-          <p className="text-sm text-fg-secondary mt-1">
-            {t('trustedCustomersDesc')}
-          </p>
-        </div>
+        <p className="text-sm text-fg-secondary">
+          {t('trustedCustomersDesc')}
+        </p>
         {canManage && (
           <button onClick={() => setAddOpen(true)} className="btn-primary flex items-center gap-2">
             <PlusIcon className="w-4 h-4" />
@@ -89,14 +86,14 @@ export default function CustomersPage() {
           {t('noTrustedCustomers')}
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
+        <div className="overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b border-divider" style={{ background: 'var(--surface-subtle)' }}>
               <tr>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('phone')}</th>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('name')}</th>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('notes')}</th>
-                <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('added')}</th>
+                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('phone')}</th>
+                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('name')}</th>
+                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('notes')}</th>
+                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('added')}</th>
                 {canManage && <th className="px-5 py-3" />}
               </tr>
             </thead>

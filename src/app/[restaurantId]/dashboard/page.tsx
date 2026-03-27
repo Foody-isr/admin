@@ -4,29 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getAnalyticsToday, getTopSellers, listOrders, TodayStats, TopSeller, Order } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import {
-  BanknotesIcon,
-  ShoppingBagIcon,
-} from '@heroicons/react/24/outline';
-
-function StatCard({ label, value, icon: Icon }: {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  color?: string;
-}) {
-  return (
-    <div className="card flex items-center gap-4">
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-subtle)' }}>
-        <Icon className="w-5 h-5 text-fg-secondary" />
-      </div>
-      <div>
-        <div className="text-sm text-fg-secondary">{label}</div>
-        <div className="text-2xl font-bold text-fg-primary">{value}</div>
-      </div>
-    </div>
-  );
-}
 
 const STATUS_BADGE: Record<string, string> = {
   pending_review: 'badge-pending',
@@ -69,60 +46,77 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Key Metrics — Square style: simple label + value pairs */}
       <div>
-        <h1 className="text-2xl font-bold text-fg-primary">{t('dashboard')}</h1>
-        <p className="text-sm text-fg-secondary mt-1">{t('todaysOverview')}</p>
+        <h2 className="text-xs font-medium text-fg-secondary uppercase tracking-wider mb-4">
+          {t('todaysOverview')}
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div>
+            <div className="text-xs text-fg-secondary mb-1">{t('revenueToday')}</div>
+            <div className="text-2xl font-bold text-fg-primary">
+              {stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—'}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-fg-secondary mb-1">{t('ordersToday')}</div>
+            <div className="text-2xl font-bold text-fg-primary">
+              {stats?.total_orders ?? '—'}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label={t('revenueToday')}
-          value={stats ? `₪${(stats.total_revenue ?? 0).toFixed(0)}` : '—'}
-          icon={BanknotesIcon}
-          color="bg-brand-500"
-        />
-        <StatCard
-          label={t('ordersToday')}
-          value={stats?.total_orders ?? '—'}
-          icon={ShoppingBagIcon}
-          color="bg-blue-500"
-        />
-      </div>
+      <div style={{ borderTop: '1px solid var(--divider)' }} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top sellers */}
-        <div className="card">
-          <h2 className="font-semibold text-fg-primary mb-4">{t('topSellers')}</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Top sellers — bar-style */}
+        <div>
+          <h2 className="text-xs font-medium text-fg-secondary uppercase tracking-wider mb-4">
+            {t('topSellers')}
+          </h2>
           {topSellers.length === 0 ? (
             <p className="text-sm text-fg-secondary">{t('noSalesDataYet')}</p>
           ) : (
             <div className="space-y-3">
-              {topSellers.map((item, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-fg-secondary w-5">#{i + 1}</span>
-                    <span className="text-sm text-fg-primary">{item.name}</span>
+              {topSellers.map((item, i) => {
+                const maxRevenue = topSellers[0]?.revenue ?? 1;
+                const pct = ((item.revenue ?? 0) / maxRevenue) * 100;
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-fg-primary">{item.name}</span>
+                      <span className="text-sm font-medium text-fg-primary">₪{(item.revenue ?? 0).toFixed(0)}</span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-subtle)' }}>
+                      <div
+                        className="h-full rounded-full bg-brand-500 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-fg-secondary mt-0.5">{item.quantity} {t('sold')}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-fg-primary">₪{(item.revenue ?? 0).toFixed(0)}</div>
-                    <div className="text-xs text-fg-secondary">{item.quantity} {t('sold')}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Recent orders */}
-        <div className="card">
-          <h2 className="font-semibold text-fg-primary mb-4">{t('recentOrders')}</h2>
+        {/* Recent orders — clean rows */}
+        <div>
+          <h2 className="text-xs font-medium text-fg-secondary uppercase tracking-wider mb-4">
+            {t('recentOrders')}
+          </h2>
           {recentOrders.length === 0 ? (
             <p className="text-sm text-fg-secondary">{t('noOrdersYet')}</p>
           ) : (
-            <div className="space-y-3">
+            <div>
               {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between">
+                <div
+                  key={order.id}
+                  className="flex items-center justify-between py-3"
+                  style={{ borderBottom: '1px solid var(--divider)' }}
+                >
                   <div>
                     <div className="text-sm font-medium text-fg-primary">
                       #{order.id} {order.customer_name && `— ${order.customer_name}`}
@@ -130,7 +124,7 @@ export default function DashboardPage() {
                     <div className="text-xs text-fg-secondary capitalize">{order.order_type.replace('_', ' ')}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium">₪{(order.total_amount ?? 0).toFixed(0)}</div>
+                    <div className="text-sm font-medium text-fg-primary">₪{(order.total_amount ?? 0).toFixed(0)}</div>
                     <span className={`badge ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
                       {order.status.replace(/_/g, ' ')}
                     </span>

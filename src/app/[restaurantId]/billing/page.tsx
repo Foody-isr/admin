@@ -97,8 +97,6 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <h1 className="text-2xl font-bold text-fg-primary">{t('billing')}</h1>
-
       {message && (
         <div className={`p-4 rounded-standard text-sm font-medium ${
           message.startsWith('✓') ? 'bg-green-500/10 border border-green-500/20 text-status-ready'

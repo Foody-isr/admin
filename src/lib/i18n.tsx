@@ -675,6 +675,12 @@ const translations: Record<Locale, Record<string, string>> = {
     idleTitle: 'Are you still there?',
     idleDescription: 'Your session will pause in {countdown}s to save resources.',
     idleDismiss: "I'm here!",
+
+    // ── Sub-navigation ──
+    itemLibrary: 'Item library',
+    aiImport: 'AI Import',
+    allOrders2: 'All orders',
+    fulfillmentSettings: 'Fulfillment settings',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -1283,6 +1289,12 @@ const translations: Record<Locale, Record<string, string>> = {
     idleTitle: 'עדיין כאן?',
     idleDescription: 'ההפעלה תושהה בעוד {countdown} שניות לחיסכון במשאבים.',
     idleDismiss: 'אני כאן!',
+
+    // ── Sub-navigation ──
+    itemLibrary: 'ספריית פריטים',
+    aiImport: 'ייבוא AI',
+    allOrders2: 'כל ההזמנות',
+    fulfillmentSettings: 'הגדרות אספקה',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -1891,5 +1903,11 @@ const translations: Record<Locale, Record<string, string>> = {
     idleTitle: 'Êtes-vous toujours là ?',
     idleDescription: 'Votre session sera mise en pause dans {countdown}s pour économiser les ressources.',
     idleDismiss: 'Je suis là !',
+
+    // ── Sub-navigation ──
+    itemLibrary: 'Bibliothèque d\'articles',
+    aiImport: 'Import IA',
+    allOrders2: 'Toutes les commandes',
+    fulfillmentSettings: 'Paramètres de livraison',
   },
 };

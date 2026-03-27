@@ -132,12 +132,9 @@ export default function RolesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('rolesAndPermissions')}</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            {t('manageStaffRoles')}
-          </p>
-        </div>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          {t('manageStaffRoles')}
+        </p>
         <button onClick={openCreate} className="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
           {t('createRole')}
         </button>

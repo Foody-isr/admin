@@ -16,6 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{
             __html: `
               try {
+                if (!localStorage.getItem('foody_admin_redesign_v2')) {
+                  localStorage.removeItem('foody_admin_theme');
+                  localStorage.setItem('foody_admin_redesign_v2', '1');
+                }
                 var t = localStorage.getItem('foody_admin_theme');
                 if (t === 'dark') document.documentElement.classList.add('dark');
                 else document.documentElement.classList.remove('dark');

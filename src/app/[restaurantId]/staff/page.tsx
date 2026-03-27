@@ -103,8 +103,7 @@ export default function StaffPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">{t('staff')}</h1>
+      <div className="flex items-center justify-end">
         {canManage && (
           <button onClick={() => setInviteOpen(true)} className="btn-primary flex items-center gap-2">
             <PlusIcon className="w-4 h-4" />
@@ -113,13 +112,13 @@ export default function StaffPage() {
         )}
       </div>
 
-      <div className="card p-0 overflow-hidden">
+      <div className="overflow-hidden">
         <table className="w-full text-sm">
           <thead className="border-b border-divider" style={{ background: 'var(--surface-subtle)' }}>
             <tr>
-              <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('name')}</th>
-              <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('email')}</th>
-              <th className="text-left px-5 py-3 font-medium text-fg-secondary">{t('role')}</th>
+              <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('name')}</th>
+              <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('email')}</th>
+              <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('role')}</th>
               {canManage && <th className="px-5 py-3" />}
             </tr>
           </thead>
