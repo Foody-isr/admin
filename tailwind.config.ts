@@ -32,6 +32,15 @@ module.exports = {
         divider: 'var(--divider)',
         'fg-primary': 'var(--text-primary)',
         'fg-secondary': 'var(--text-secondary)',
+        sidebar: {
+          bg: 'var(--sidebar-bg)',
+          active: 'var(--sidebar-active)',
+          hover: 'var(--sidebar-hover)',
+        },
+        topbar: {
+          DEFAULT: 'var(--topbar-bg)',
+          fg: 'var(--topbar-fg)',
+        },
       },
       spacing: {
         micro: '6px',
@@ -42,10 +51,10 @@ module.exports = {
         xlarge: '36px',
       },
       borderRadius: {
-        standard: '10px',
-        card: '12px',
-        chip: '12px',
-        modal: '24px',
+        standard: '8px',
+        card: '8px',
+        chip: '8px',
+        modal: '16px',
       },
       backgroundColor: {
         page: 'var(--bg)',

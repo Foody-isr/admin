@@ -9,20 +9,20 @@ import {
   ShoppingBagIcon,
 } from '@heroicons/react/24/outline';
 
-function StatCard({ label, value, icon: Icon, color }: {
+function StatCard({ label, value, icon: Icon }: {
   label: string;
   value: string | number;
   icon: React.ElementType;
-  color: string;
+  color?: string;
 }) {
   return (
     <div className="card flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="w-6 h-6 text-white" />
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--surface-subtle)' }}>
+        <Icon className="w-5 h-5 text-fg-secondary" />
       </div>
       <div>
-        <div className="text-2xl font-bold text-fg-primary">{value}</div>
         <div className="text-sm text-fg-secondary">{label}</div>
+        <div className="text-2xl font-bold text-fg-primary">{value}</div>
       </div>
     </div>
   );

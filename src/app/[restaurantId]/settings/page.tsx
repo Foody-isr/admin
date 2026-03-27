@@ -112,10 +112,10 @@ export default function SettingsPage() {
             <button
               key={l}
               onClick={() => setLocale(l)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
                 locale === l
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-surface-subtle text-fg-secondary hover:text-fg-primary'
+                  ? 'border-brand-500 text-brand-500 bg-brand-500/5'
+                  : 'border-divider text-fg-secondary hover:text-fg-primary hover:border-fg-secondary'
               }`}
             >
               {LOCALE_LABELS[l]}

@@ -29,7 +29,7 @@ export default function KitchenLayout({ children }: { children: React.ReactNode 
   return (
     <div className="space-y-5">
       {/* Tab bar */}
-      <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+      <div className="flex items-center gap-6 border-b" style={{ borderColor: 'var(--divider)' }}>
         {tabs.map((tab) => {
           const href = `/${restaurantId}/kitchen/${tab.key}`;
           const isActive = pathname === href || pathname.startsWith(href + '/');
@@ -38,19 +38,20 @@ export default function KitchenLayout({ children }: { children: React.ReactNode 
             <Link
               key={tab.key}
               href={href}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`relative flex items-center gap-2 pb-3 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-brand-500 text-white shadow-sm'
+                  ? 'text-brand-500'
                   : 'text-fg-secondary hover:text-fg-primary'
               }`}
             >
               {t(tab.labelKey)}
               {badge > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-red-500/10 text-red-500'
-                }`}>
+                <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
                   {badge}
                 </span>
+              )}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-full" />
               )}
             </Link>
           );

@@ -565,7 +565,7 @@ function PrepTxModal({
               type="button"
               onClick={() => setType(txType)}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                type === txType ? 'bg-brand-500 text-white' : 'bg-[var(--surface-subtle)] text-fg-secondary'
+                type === txType ? 'border border-brand-500 text-brand-500 bg-brand-500/5' : 'border border-divider text-fg-secondary hover:text-fg-primary'
               }`}
             >
               {t(txType)}

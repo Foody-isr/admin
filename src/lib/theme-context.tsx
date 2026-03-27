@@ -11,7 +11,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'light',
   setTheme: () => {},
   toggleTheme: () => {},
 });
@@ -19,11 +19,11 @@ const ThemeContext = createContext<ThemeContextType>({
 const STORAGE_KEY = 'foody_admin_theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
+  const [theme, setThemeState] = useState<Theme>('light');
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial = stored === 'light' ? 'light' : 'dark';
+    const initial = stored === 'dark' ? 'dark' : 'light';
     setThemeState(initial);
     applyTheme(initial);
   }, []);

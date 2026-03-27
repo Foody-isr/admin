@@ -4,14 +4,18 @@
 
 /* ── Theme tokens (light = default, dark = .dark on <html>) ── */
 :root {
-  --bg: #F5F6F8;
+  --bg: #F6F6F6;
   --surface: #FFFFFF;
-  --surface-subtle: #F0F2F5;
-  --divider: #E4E5E7;
+  --surface-subtle: #F5F5F5;
+  --divider: #E0E0E0;
   --text-primary: #1A1A1A;
-  --text-secondary: #4B5563;
-  --sidebar-bg: #1a1a2e;
-  --shadow-color: rgba(39, 40, 52, 0.12);
+  --text-secondary: #6B7280;
+  --sidebar-bg: #FFFFFF;
+  --sidebar-active: #F18A47;
+  --sidebar-hover: #F5F5F5;
+  --topbar-bg: #000000;
+  --topbar-fg: #FFFFFF;
+  --shadow-color: rgba(0, 0, 0, 0.04);
 }
 
 .dark {
@@ -20,8 +24,12 @@
   --surface-subtle: #0D0D0D;
   --divider: #2A2A2A;
   --text-primary: #FFFFFF;
-  --text-secondary: #E5E5EA;
-  --sidebar-bg: #0D0D0D;
+  --text-secondary: #A1A1AA;
+  --sidebar-bg: #111111;
+  --sidebar-active: #F18A47;
+  --sidebar-hover: #1A1A1A;
+  --topbar-bg: #000000;
+  --topbar-fg: #FFFFFF;
   --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
@@ -34,21 +42,34 @@ body {
 /* ── Sidebar ── */
 .sidebar-link {
   @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150;
+  color: var(--text-secondary);
 }
 .sidebar-link:hover {
-  @apply bg-white/10;
+  background: var(--sidebar-hover);
+  color: var(--text-primary);
 }
 .sidebar-link.active {
-  @apply bg-brand-500 text-white;
+  color: var(--sidebar-active);
+  font-weight: 600;
+  background: transparent;
+  border-left: 3px solid var(--sidebar-active);
+  border-radius: 0;
+  padding-left: 13px;
+}
+[dir='rtl'] .sidebar-link.active {
+  border-left: none;
+  border-right: 3px solid var(--sidebar-active);
+  padding-left: 16px;
+  padding-right: 13px;
 }
 
 /* ── Card ── */
 .card {
   background: var(--surface);
   border: 1px solid var(--divider);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px var(--shadow-color);
+  box-shadow: 0 1px 3px var(--shadow-color);
 }
 
 /* ── Buttons ── */

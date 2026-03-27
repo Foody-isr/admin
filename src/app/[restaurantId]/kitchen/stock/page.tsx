@@ -437,7 +437,7 @@ function TransactionModal({
               type="button"
               onClick={() => setType(opt.value)}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-                type === opt.value ? 'bg-brand-500 text-white' : 'bg-[var(--surface-subtle)] text-fg-secondary'
+                type === opt.value ? 'border border-brand-500 text-brand-500 bg-brand-500/5' : 'border border-divider text-fg-secondary hover:text-fg-primary'
               }`}
             >
               <opt.icon className="w-4 h-4" />

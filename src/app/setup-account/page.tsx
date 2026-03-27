@@ -317,8 +317,8 @@ function SetupAccountContent() {
                   idx < currentStep
                     ? 'bg-brand-500 text-white'
                     : idx === currentStep
-                    ? 'bg-brand-500 text-white ring-2 ring-brand-200'
-                    : 'bg-gray-700 text-gray-400'
+                    ? 'bg-brand-500 text-white ring-2 ring-brand-500/30'
+                    : 'bg-[var(--surface-subtle)] text-fg-secondary border border-divider'
                 }`}
               >
                 {idx < currentStep ? (

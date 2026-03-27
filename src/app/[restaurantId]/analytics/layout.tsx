@@ -17,7 +17,7 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
   return (
     <div className="space-y-5">
       {/* Tab bar */}
-      <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+      <div className="flex items-center gap-6 border-b" style={{ borderColor: 'var(--divider)' }}>
         {tabs.map((tab) => {
           const href = `/${restaurantId}/analytics/${tab.key}`;
           const isActive = pathname === href || pathname.startsWith(href + '/');
@@ -25,13 +25,16 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
             <Link
               key={tab.key}
               href={href}
-              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`relative pb-3 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-brand-500 text-white shadow-sm'
+                  ? 'text-brand-500'
                   : 'text-fg-secondary hover:text-fg-primary'
               }`}
             >
               {t(tab.labelKey)}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-full" />
+              )}
             </Link>
           );
         })}

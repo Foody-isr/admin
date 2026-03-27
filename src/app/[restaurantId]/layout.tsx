@@ -1,27 +1,55 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { PermissionsProvider } from '@/lib/permissions-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
+import { useI18n } from '@/lib/i18n';
 import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 import IdleModal from '@/components/IdleModal';
 import { getRestaurant, Restaurant } from '@/lib/api';
+
+const PAGE_NAMES: Record<string, string> = {
+  dashboard: 'Dashboard',
+  menu: 'Menu',
+  kitchen: 'Kitchen',
+  orders: 'Orders',
+  staff: 'Staff',
+  roles: 'Roles',
+  customers: 'Customers',
+  analytics: 'Analytics',
+  settings: 'Settings',
+  website: 'Website',
+  billing: 'Billing',
+};
 
 function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, loading, restaurantIds } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams();
+  const { direction } = useI18n();
   const restaurantId = Number(params.restaurantId);
   const isFullscreen = pathname.endsWith('/website');
   const isWideLayout = pathname.endsWith('/orders');
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
+
+  const isRtl = direction === 'rtl';
+
+  // Derive current page name from pathname
+  const segments = pathname.split('/');
+  const pageSlug = segments[2] || 'dashboard';
+  const pageName = PAGE_NAMES[pageSlug] || pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);
+
+  const toggleSidebar = useCallback(() => setSidebarOpen((prev) => !prev), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   useEffect(() => {
     if (loading) return;
@@ -29,7 +57,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       router.push('/login');
       return;
     }
-    // Verify user has access to this restaurant
     if (restaurantIds.length > 0 && !restaurantIds.includes(restaurantId)) {
       router.push('/select-restaurant');
       return;
@@ -65,11 +92,25 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   return (
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
-        <div className="flex min-h-screen">
-          <Sidebar restaurantId={restaurantId} restaurantName={restaurant.name} />
-          <main className="flex-1 overflow-auto">
-            <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>{children}</div>
-          </main>
+        <div className="min-h-screen flex flex-col">
+          <TopBar
+            restaurantName={restaurant.name}
+            pageName={pageName}
+            onToggleSidebar={toggleSidebar}
+          />
+          <div className="flex flex-1 pt-12">
+            <Sidebar
+              restaurantId={restaurantId}
+              restaurantName={restaurant.name}
+              isOpen={sidebarOpen}
+              onClose={closeSidebar}
+            />
+            <main className={`flex-1 overflow-auto ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
+              <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>
+                {children}
+              </div>
+            </main>
+          </div>
         </div>
         {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
       </WsProvider>
