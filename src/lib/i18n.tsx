@@ -677,6 +677,19 @@ const translations: Record<Locale, Record<string, string>> = {
     idleDismiss: "I'm here!",
 
     // ── Sub-navigation ──
+    // ── Foody AI ──
+    aiAssistant: 'Foody AI',
+    aiWelcomeTitle: 'Know your business better',
+    aiWelcomeDesc: 'Ask about sales, customers, inventory, or anything else about your restaurant.',
+    aiPlaceholder: 'Ask Foody AI...',
+    aiClearChat: 'Clear conversation',
+    aiThinking: 'Thinking...',
+    aiBeta: 'Beta',
+    aiSuggestSales: 'How were my sales today?',
+    aiSuggestTopItems: 'What are my best sellers?',
+    aiSuggestStock: 'Any items running low?',
+    aiSuggestCustomers: 'Who are my top customers?',
+
     itemLibrary: 'Item library',
     aiImport: 'AI Import',
     allOrders2: 'All orders',
@@ -1289,6 +1302,19 @@ const translations: Record<Locale, Record<string, string>> = {
     idleTitle: 'עדיין כאן?',
     idleDescription: 'ההפעלה תושהה בעוד {countdown} שניות לחיסכון במשאבים.',
     idleDismiss: 'אני כאן!',
+
+    // ── Foody AI ──
+    aiAssistant: 'Foody AI',
+    aiWelcomeTitle: 'הכירו את העסק שלכם טוב יותר',
+    aiWelcomeDesc: 'שאלו על מכירות, לקוחות, מלאי, או כל דבר אחר על המסעדה.',
+    aiPlaceholder: '...שאלו את Foody AI',
+    aiClearChat: 'נקה שיחה',
+    aiThinking: '...חושב',
+    aiBeta: 'בטא',
+    aiSuggestSales: 'איך היו המכירות שלי היום?',
+    aiSuggestTopItems: 'מה הפריטים הנמכרים ביותר?',
+    aiSuggestStock: 'יש פריטים במלאי נמוך?',
+    aiSuggestCustomers: 'מי הלקוחות המובילים שלי?',
 
     // ── Sub-navigation ──
     itemLibrary: 'ספריית פריטים',
@@ -1903,6 +1929,19 @@ const translations: Record<Locale, Record<string, string>> = {
     idleTitle: 'Êtes-vous toujours là ?',
     idleDescription: 'Votre session sera mise en pause dans {countdown}s pour économiser les ressources.',
     idleDismiss: 'Je suis là !',
+
+    // ── Foody AI ──
+    aiAssistant: 'Foody AI',
+    aiWelcomeTitle: 'Mieux connaître votre entreprise',
+    aiWelcomeDesc: 'Posez des questions sur les ventes, clients, stocks, ou tout autre aspect de votre restaurant.',
+    aiPlaceholder: 'Demandez à Foody AI...',
+    aiClearChat: 'Effacer la conversation',
+    aiThinking: 'Réflexion...',
+    aiBeta: 'Bêta',
+    aiSuggestSales: 'Comment étaient mes ventes aujourd\'hui ?',
+    aiSuggestTopItems: 'Quels sont mes meilleurs produits ?',
+    aiSuggestStock: 'Y a-t-il des articles en rupture ?',
+    aiSuggestCustomers: 'Qui sont mes meilleurs clients ?',
 
     // ── Sub-navigation ──
     itemLibrary: 'Bibliothèque d\'articles',

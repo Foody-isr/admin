@@ -11,7 +11,9 @@ import {
   MoonIcon,
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
+import { useAi } from '@/lib/ai-context';
 
 interface TopBarProps {
   restaurantName: string;
@@ -24,6 +26,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useI18n();
+  const ai = useAi();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +74,16 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
 
       {/* Right: notifications + user menu */}
       <div className="flex items-center gap-2">
+        {/* AI Assistant */}
+        <button
+          onClick={ai.toggleDrawer}
+          className={`relative p-1.5 rounded-md hover:bg-white/10 transition-colors ${ai.isOpen ? 'bg-white/10' : ''}`}
+          style={{ color: 'var(--topbar-fg)' }}
+          aria-label="Foody AI"
+        >
+          <SparklesIcon className="w-5 h-5" />
+        </button>
+
         {/* Notification bell */}
         <button
           className="relative p-1.5 rounded-md hover:bg-white/10 transition-colors"

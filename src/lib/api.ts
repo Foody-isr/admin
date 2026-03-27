@@ -1594,3 +1594,101 @@ export async function getMyPermissions(restaurantId: number): Promise<MeWithPerm
     `/api/v1/users/me?restaurant_id=${restaurantId}`
   );
 }
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+
+export interface RestaurantFeature {
+  feature_key: string;
+  enabled: boolean;
+}
+
+export async function getRestaurantFeatures(restaurantId: number): Promise<RestaurantFeature[]> {
+  const data = await apiFetch<{ features: RestaurantFeature[] }>(
+    `/api/v1/restaurants/${restaurantId}/features`, restaurantId
+  );
+  return data.features ?? [];
+}
+
+// ─── AI Chat ──────────────────────────────────────────────────────────────────
+
+export interface AiChatResponse {
+  message: string;
+  tokens_used: { input_tokens: number; output_tokens: number };
+  tool_calls: number;
+}
+
+export async function sendAiChat(
+  restaurantId: number,
+  message: string,
+  history: { role: string; content: string }[]
+): Promise<AiChatResponse> {
+  return apiFetch<AiChatResponse>(
+    '/api/v1/ai/chat', restaurantId,
+    { method: 'POST', body: JSON.stringify({ message, history }) }
+  );
+}
+
+// Streaming AI chat via SSE (POST with ReadableStream reader)
+export async function streamAiChat(
+  restaurantId: number,
+  message: string,
+  history: { role: string; content: string }[],
+  onDelta: (text: string) => void,
+  onToolUse?: (tool: string) => void,
+): Promise<void> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    'X-Restaurant-ID': String(restaurantId),
+  };
+
+  const res = await fetch(`${API_URL}/api/v1/ai/chat/stream`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ message, history }),
+  });
+
+  if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined') {
+      logout();
+      window.location.href = '/login';
+      return;
+    }
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `API error ${res.status}`);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    let currentEvent = '';
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+          if (currentEvent === 'delta' && parsed.text) {
+            onDelta(parsed.text);
+          } else if (currentEvent === 'tool_use' && parsed.tool && onToolUse) {
+            onToolUse(parsed.tool);
+          }
+        } catch { /* skip non-JSON lines */ }
+        currentEvent = '';
+      }
+    }
+  }
+}

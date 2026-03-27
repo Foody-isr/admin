@@ -10,6 +10,8 @@ import { useI18n } from '@/lib/i18n';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import IdleModal from '@/components/IdleModal';
+import AiDrawer from '@/components/ai/AiDrawer';
+import { AiChatProvider } from '@/lib/ai-context';
 import { getRestaurant, Restaurant } from '@/lib/api';
 
 const PAGE_NAMES: Record<string, string> = {
@@ -92,27 +94,30 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   return (
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
-        <div className="min-h-screen flex flex-col">
-          <TopBar
-            restaurantName={restaurant.name}
-            pageName={pageName}
-            onToggleSidebar={toggleSidebar}
-          />
-          <div className="flex flex-1 pt-12">
-            <Sidebar
-              restaurantId={restaurantId}
+        <AiChatProvider restaurantId={restaurantId}>
+          <div className="min-h-screen flex flex-col">
+            <TopBar
               restaurantName={restaurant.name}
-              isOpen={sidebarOpen}
-              onClose={closeSidebar}
+              pageName={pageName}
+              onToggleSidebar={toggleSidebar}
             />
-            <main className={`flex-1 overflow-auto ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
-              <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>
-                {children}
-              </div>
-            </main>
+            <div className="flex flex-1 pt-12">
+              <Sidebar
+                restaurantId={restaurantId}
+                restaurantName={restaurant.name}
+                isOpen={sidebarOpen}
+                onClose={closeSidebar}
+              />
+              <main className={`flex-1 overflow-auto ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
+                <div className={isWideLayout ? 'p-6 lg:p-8' : 'p-6 lg:p-8 max-w-7xl mx-auto'}>
+                  {children}
+                </div>
+              </main>
+            </div>
           </div>
-        </div>
-        {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+          <AiDrawer />
+          {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+        </AiChatProvider>
       </WsProvider>
     </PermissionsProvider>
   );
