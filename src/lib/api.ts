@@ -297,6 +297,7 @@ export interface StockItem {
   reorder_threshold: number;
   cost_per_unit: number;
   supplier: string;
+  supplier_id?: number | null;
   category: string;
   notes: string;
   is_active: boolean;
@@ -1691,4 +1692,204 @@ export async function streamAiChat(
       }
     }
   }
+}
+
+// ─── Suppliers ──────────────────────────────────────────────────────
+
+export interface Supplier {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  contact_name: string;
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  products?: SupplierProduct[];
+}
+
+export interface SupplierInput {
+  name: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  is_active?: boolean;
+}
+
+export interface SupplierProduct {
+  id: number;
+  supplier_id: number;
+  restaurant_id: number;
+  name: string;
+  sku: string;
+  unit: StockUnit;
+  price_per_unit: number;
+  stock_item_id: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  stock_item?: StockItem | null;
+}
+
+export interface SupplierProductInput {
+  name: string;
+  sku?: string;
+  unit: StockUnit;
+  price_per_unit?: number;
+  stock_item_id?: number | null;
+  is_active?: boolean;
+}
+
+export type PurchaseOrderStatus = 'draft' | 'sent' | 'received' | 'cancelled';
+
+export interface PurchaseOrder {
+  id: number;
+  restaurant_id: number;
+  supplier_id: number;
+  status: PurchaseOrderStatus;
+  notes: string;
+  total_amount: number;
+  order_date: string | null;
+  received_date: string | null;
+  created_by_id: number;
+  created_at: string;
+  updated_at: string;
+  supplier?: Supplier;
+  items?: PurchaseOrderItem[];
+}
+
+export interface PurchaseOrderItem {
+  id: number;
+  purchase_order_id: number;
+  supplier_product_id: number | null;
+  stock_item_id: number | null;
+  name: string;
+  unit: StockUnit;
+  quantity: number;
+  price_per_unit: number;
+  total_price: number;
+  received_qty: number | null;
+  created_at: string;
+}
+
+export interface PurchaseOrderInput {
+  supplier_id: number;
+  notes?: string;
+  items: PurchaseOrderItemInput[];
+}
+
+export interface PurchaseOrderItemInput {
+  supplier_product_id?: number | null;
+  stock_item_id?: number | null;
+  name: string;
+  unit: StockUnit;
+  quantity: number;
+  price_per_unit?: number;
+}
+
+// Supplier CRUD
+
+export async function listSuppliers(restaurantId: number): Promise<Supplier[]> {
+  const data = await apiFetch<{ suppliers: Supplier[] }>(`/api/v1/suppliers?restaurant_id=${restaurantId}`, restaurantId);
+  return data.suppliers ?? [];
+}
+
+export async function getSupplier(restaurantId: number, id: number): Promise<Supplier> {
+  const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId);
+  return data.supplier;
+}
+
+export async function createSupplier(restaurantId: number, input: SupplierInput): Promise<Supplier> {
+  const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.supplier;
+}
+
+export async function updateSupplier(restaurantId: number, id: number, input: SupplierInput): Promise<Supplier> {
+  const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.supplier;
+}
+
+export async function deleteSupplier(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+// Supplier Products
+
+export async function listSupplierProducts(restaurantId: number, supplierId: number): Promise<SupplierProduct[]> {
+  const data = await apiFetch<{ products: SupplierProduct[] }>(`/api/v1/suppliers/${supplierId}/products?restaurant_id=${restaurantId}`, restaurantId);
+  return data.products ?? [];
+}
+
+export async function createSupplierProduct(restaurantId: number, supplierId: number, input: SupplierProductInput): Promise<SupplierProduct> {
+  const data = await apiFetch<{ product: SupplierProduct }>(`/api/v1/suppliers/${supplierId}/products?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.product;
+}
+
+export async function updateSupplierProduct(restaurantId: number, supplierId: number, productId: number, input: SupplierProductInput): Promise<SupplierProduct> {
+  const data = await apiFetch<{ product: SupplierProduct }>(`/api/v1/suppliers/${supplierId}/products/${productId}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.product;
+}
+
+export async function deleteSupplierProduct(restaurantId: number, supplierId: number, productId: number): Promise<void> {
+  await apiFetch(`/api/v1/suppliers/${supplierId}/products/${productId}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+// Purchase Orders
+
+export async function listPurchaseOrders(restaurantId: number, params?: { supplier_id?: number; status?: PurchaseOrderStatus }): Promise<PurchaseOrder[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.supplier_id) qs.set('supplier_id', String(params.supplier_id));
+  if (params?.status) qs.set('status', params.status);
+  const data = await apiFetch<{ orders: PurchaseOrder[] }>(`/api/v1/purchase-orders?${qs}`, restaurantId);
+  return data.orders ?? [];
+}
+
+export async function getPurchaseOrder(restaurantId: number, id: number): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId);
+  return data.order;
+}
+
+export async function createPurchaseOrder(restaurantId: number, input: PurchaseOrderInput): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.order;
+}
+
+export async function updatePurchaseOrder(restaurantId: number, id: number, input: PurchaseOrderInput): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.order;
+}
+
+export async function updatePurchaseOrderStatus(restaurantId: number, id: number, status: PurchaseOrderStatus): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/status?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({ status }),
+  });
+  return data.order;
+}
+
+export async function receivePurchaseOrder(restaurantId: number, id: number, items: { item_id: number; received_qty: number }[]): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/receive?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ items }),
+  });
+  return data.order;
+}
+
+export async function deletePurchaseOrder(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
