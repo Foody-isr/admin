@@ -90,8 +90,9 @@ export default function SuppliersPage() {
             key={t2}
             onClick={() => setTab(t2)}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              tab === t2 ? 'bg-white shadow text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
+              tab === t2 ? 'shadow text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
             }`}
+            style={tab === t2 ? { background: 'var(--surface)' } : {}}
           >
             {t2 === 'suppliers' ? t('suppliers') : t2 === 'orders' ? t('purchaseOrders') : t('orderHistory')}
           </button>

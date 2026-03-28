@@ -1371,6 +1371,47 @@ function PicnicBasketEditor({ content, settings, updateContent, updateSettings, 
         onRemove={() => updateContent('basket_image', '')}
         label="Basket Image (optional — uses default illustration if empty)"
       />
+      {/* Basket Layout Controls */}
+      <div className="border-t border-[var(--divider)] pt-3 mt-3">
+        <p className="text-xs font-medium text-fg-primary mb-2">Basket Layout</p>
+        {/* Scale */}
+        <div>
+          <label className="text-xs text-fg-secondary block mb-1">Basket Size ({content.basket_scale ?? 100}%)</label>
+          <input type="range" min={50} max={250} step={5} value={content.basket_scale ?? 100} onChange={e => updateContent('basket_scale', Number(e.target.value))} className="w-full accent-brand-500" />
+          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
+            <span>50%</span><span>250%</span>
+          </div>
+        </div>
+        {/* Vertical Position */}
+        <div className="mt-2">
+          <label className="text-xs text-fg-secondary block mb-1">Vertical Position ({content.basket_offset_y ?? 0}px)</label>
+          <input type="range" min={-200} max={200} step={5} value={content.basket_offset_y ?? 0} onChange={e => updateContent('basket_offset_y', Number(e.target.value))} className="w-full accent-brand-500" />
+          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
+            <span>Up (-200)</span><span>Down (+200)</span>
+          </div>
+        </div>
+        {/* Horizontal Position */}
+        <div className="mt-2">
+          <label className="text-xs text-fg-secondary block mb-1">Horizontal Position ({content.basket_offset_x ?? 0}px)</label>
+          <input type="range" min={-150} max={150} step={5} value={content.basket_offset_x ?? 0} onChange={e => updateContent('basket_offset_x', Number(e.target.value))} className="w-full accent-brand-500" />
+          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
+            <span>Left (-150)</span><span>Right (+150)</span>
+          </div>
+        </div>
+        {/* Item Landing Distance */}
+        <div className="mt-2">
+          <label className="text-xs text-fg-secondary block mb-1">Item Landing Distance ({content.item_gap ?? 70}px)</label>
+          <input type="range" min={0} max={200} step={5} value={content.item_gap ?? 70} onChange={e => updateContent('item_gap', Number(e.target.value))} className="w-full accent-brand-500" />
+          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
+            <span>0px (top)</span><span>200px (deep)</span>
+          </div>
+        </div>
+        {/* Reset */}
+        <button type="button" onClick={() => { updateContent('basket_scale', 100); updateContent('basket_offset_y', 0); updateContent('basket_offset_x', 0); updateContent('item_gap', 70); }} className="mt-2 text-xs text-brand-500 hover:underline">
+          Reset to defaults
+        </button>
+      </div>
+
       <SectionMultiImageUploader
         restaurantId={restaurantId}
         images={(content.items || []).filter((img: any) => img.url)}
