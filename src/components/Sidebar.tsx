@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
 import { useI18n } from '@/lib/i18n';
+import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
   HomeIcon,
   Bars3BottomLeftIcon,
@@ -20,7 +22,25 @@ import {
   BeakerIcon,
   ShieldCheckIcon,
   XMarkIcon,
+  ChevronRightIcon,
+  ChevronLeftIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline';
+
+interface SubItem {
+  href: string;
+  labelKey: string;
+  badge?: number;
+}
+
+interface NavItem {
+  href: string;
+  labelKey: string;
+  icon: typeof HomeIcon;
+  perm?: string[];
+  subItems?: SubItem[];
+}
 
 interface SidebarProps {
   restaurantId: number;
@@ -36,12 +56,54 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const { status: wsStatus } = useWs();
   const { t, direction } = useI18n();
 
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [lowPrepCount, setLowPrepCount] = useState(0);
+
+  useEffect(() => {
+    getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
+    getPrepLowStockCount(restaurantId).then(setLowPrepCount).catch(() => {});
+  }, [restaurantId]);
+
   const base = `/${restaurantId}`;
-  const allNav: { href: string; labelKey: string; icon: typeof HomeIcon; perm?: string[] }[] = [
+  const isRtl = direction === 'rtl';
+  const BackArrow = isRtl ? ArrowRightIcon : ArrowLeftIcon;
+  const Chevron = isRtl ? ChevronLeftIcon : ChevronRightIcon;
+
+  const allNav: NavItem[] = [
     { href: `${base}/dashboard`, labelKey: 'dashboard', icon: HomeIcon },
-    { href: `${base}/menu`, labelKey: 'menu', icon: Bars3BottomLeftIcon, perm: ['menu.view', 'menu.edit'] },
-    { href: `${base}/kitchen`, labelKey: 'kitchen', icon: BeakerIcon, perm: ['kitchen.view', 'kitchen.manage'] },
-    { href: `${base}/orders`, labelKey: 'orders', icon: ClipboardDocumentListIcon, perm: ['orders.view', 'orders.manage'] },
+    {
+      href: `${base}/menu`,
+      labelKey: 'menu',
+      icon: Bars3BottomLeftIcon,
+      perm: ['menu.view', 'menu.edit'],
+      subItems: [
+        { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
+        { href: `${base}/menu/categories`, labelKey: 'categories' },
+        { href: `${base}/menu/modifiers`, labelKey: 'modifiers' },
+        { href: `${base}/menu/import`, labelKey: 'aiImport' },
+      ],
+    },
+    {
+      href: `${base}/kitchen`,
+      labelKey: 'kitchen',
+      icon: BeakerIcon,
+      perm: ['kitchen.view', 'kitchen.manage'],
+      subItems: [
+        { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
+        { href: `${base}/kitchen/prep`, labelKey: 'recipesAndPrep', badge: lowPrepCount },
+        { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
+      ],
+    },
+    {
+      href: `${base}/orders`,
+      labelKey: 'orders',
+      icon: ClipboardDocumentListIcon,
+      perm: ['orders.view', 'orders.manage'],
+      subItems: [
+        { href: `${base}/orders/all`, labelKey: 'allOrders2' },
+        { href: `${base}/orders/settings`, labelKey: 'fulfillmentSettings' },
+      ],
+    },
     { href: `${base}/staff`, labelKey: 'staff', icon: UsersIcon, perm: ['staff.view', 'staff.manage'] },
     { href: `${base}/roles`, labelKey: 'roles', icon: ShieldCheckIcon, perm: ['roles.manage'] },
     { href: `${base}/customers`, labelKey: 'customers', icon: UserGroupIcon, perm: ['customers.view', 'customers.manage'] },
@@ -52,7 +114,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   ];
   const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
 
-  const isRtl = direction === 'rtl';
+  // Determine if we're inside a section that has sub-items
+  const activeSection = nav.find(
+    (item) => item.subItems && (pathname === item.href || pathname.startsWith(item.href + '/'))
+  );
 
   return (
     <>
@@ -81,47 +146,92 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-3 lg:hidden">
           <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-            {t('menu')}
+            {activeSection ? t(activeSection.labelKey) : t('menu')}
           </span>
           <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
             <XMarkIcon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
 
-        {/* Section label */}
-        <div className="px-4 pt-4 pb-2 hidden lg:block">
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-            Tools
-          </span>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-1 space-y-0.5">
-          {nav.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            return (
+        {activeSection ? (
+          /* ── Sub-navigation view (replaces main nav) ── */
+          <>
+            {/* Back button */}
+            <div className="px-3 pt-4 pb-1">
               <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={`sidebar-link ${isActive ? 'active' : ''}`}
+                href={`${base}/dashboard`}
+                className="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-[var(--sidebar-hover)]"
+                style={{ color: 'var(--text-secondary)' }}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                {t(item.labelKey)}
-                {item.labelKey === 'orders' && (
-                  <span
-                    className={`ml-auto w-2 h-2 rounded-full flex-shrink-0 ${
-                      wsStatus === 'connected' ? 'bg-green-400' :
-                      wsStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
-                      'bg-red-400'
-                    }`}
-                    title={`WebSocket: ${wsStatus}`}
-                  />
-                )}
+                <BackArrow className="w-4 h-4" />
+                {t(activeSection.labelKey)}
               </Link>
-            );
-          })}
-        </nav>
+            </div>
+
+            {/* Sub-items */}
+            <nav className="flex-1 px-3 py-1 space-y-0.5">
+              {activeSection.subItems!.map((sub) => {
+                const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                return (
+                  <Link
+                    key={sub.href}
+                    href={sub.href}
+                    onClick={onClose}
+                    className={`sidebar-link ${isActive ? 'active' : ''}`}
+                  >
+                    <span className="flex-1">{t(sub.labelKey)}</span>
+                    {sub.badge !== undefined && sub.badge > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
+                        {sub.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        ) : (
+          /* ── Main navigation view ── */
+          <>
+            {/* Section label */}
+            <div className="px-4 pt-4 pb-2 hidden lg:block">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                Tools
+              </span>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 px-3 py-1 space-y-0.5">
+              {nav.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.subItems ? item.subItems[0].href : item.href}
+                    onClick={onClose}
+                    className={`sidebar-link ${isActive ? 'active' : ''}`}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="flex-1">{t(item.labelKey)}</span>
+                    {item.labelKey === 'orders' && (
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          wsStatus === 'connected' ? 'bg-green-400' :
+                          wsStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
+                          'bg-red-400'
+                        }`}
+                        title={`WebSocket: ${wsStatus}`}
+                      />
+                    )}
+                    {item.subItems && (
+                      <Chevron className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
 
         {/* Footer: switch restaurant */}
         {restaurantIds.length > 1 && (
