@@ -1,18 +1,15 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
-  getMenu, createMenuItem, updateMenuItem, deleteMenuItem,
-  createModifier, deleteModifier,
-  MenuCategory, MenuItem, MenuItemModifier,
-  ModifierInput,
+  getMenu, updateMenuItem, deleteMenuItem,
+  MenuCategory, MenuItem,
 } from '@/lib/api';
-import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
 import {
   MagnifyingGlassIcon, PlusIcon, ChevronDownIcon,
-  XMarkIcon, EllipsisHorizontalIcon, PhotoIcon,
+  EllipsisHorizontalIcon, PhotoIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
@@ -37,6 +34,7 @@ function flattenItems(categories: MenuCategory[]): FlatItem[] {
 export default function ItemLibraryPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
   const { t } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -46,9 +44,6 @@ export default function ItemLibraryPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
-
-  // Overlays
-  const [itemOverlay, setItemOverlay] = useState<{ open: boolean; editing?: MenuItem; categoryId?: number }>({ open: false });
 
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -155,7 +150,7 @@ export default function ItemLibraryPage() {
 
         {/* Create item button */}
         <button
-          onClick={() => setItemOverlay({ open: true })}
+          onClick={() => router.push(`/${rid}/menu/items/new`)}
           className="btn-primary flex items-center gap-2"
         >
           <PlusIcon className="w-4 h-4" />
@@ -173,7 +168,7 @@ export default function ItemLibraryPage() {
           </p>
           {allItems.length === 0 && (
             <button
-              onClick={() => setItemOverlay({ open: true })}
+              onClick={() => router.push(`/${rid}/menu/items/new`)}
               className="btn-primary mt-2"
             >
               {t('createItem')}
@@ -206,7 +201,7 @@ export default function ItemLibraryPage() {
                   key={item.id}
                   className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
                   style={{ borderBottom: '1px solid var(--divider)' }}
-                  onClick={() => setItemOverlay({ open: true, editing: item })}
+                  onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
                 >
                   <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -242,7 +237,7 @@ export default function ItemLibraryPage() {
                   </td>
                   <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                     <ItemRowMenu
-                      onEdit={() => setItemOverlay({ open: true, editing: item })}
+                      onEdit={() => router.push(`/${rid}/menu/items/${item.id}`)}
                       onDelete={() => handleDeleteItem(item.id)}
                     />
                   </td>
@@ -253,17 +248,6 @@ export default function ItemLibraryPage() {
         </div>
       )}
 
-      {/* Full-page item create/edit overlay */}
-      {itemOverlay.open && (
-        <ItemOverlay
-          restaurantId={rid}
-          categories={categories}
-          editing={itemOverlay.editing}
-          defaultCategoryId={itemOverlay.categoryId}
-          onClose={() => setItemOverlay({ open: false })}
-          onSaved={() => { setItemOverlay({ open: false }); reload(); }}
-        />
-      )}
     </div>
   );
 }
@@ -380,192 +364,3 @@ function ItemRowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
   );
 }
 
-// ─── Full-page Item Overlay (Create/Edit) ────────────────────────────────────
-
-function ItemOverlay({ restaurantId, categories, editing, defaultCategoryId, onClose, onSaved }: {
-  restaurantId: number;
-  categories: MenuCategory[];
-  editing?: MenuItem;
-  defaultCategoryId?: number;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState(editing?.name ?? '');
-  const [price, setPrice] = useState(editing ? String(editing.price) : '');
-  const [description, setDescription] = useState(editing?.description ?? '');
-  const [categoryId, setCategoryId] = useState(editing?.category_id ?? defaultCategoryId ?? categories[0]?.id ?? 0);
-  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!name.trim() || !price) return;
-    setSaving(true);
-    try {
-      const payload = {
-        name: name.trim(),
-        description,
-        price: parseFloat(price),
-        is_active: isActive,
-        category_id: categoryId,
-      };
-      if (editing) {
-        await updateMenuItem(restaurantId, editing.id, payload);
-      } else {
-        await createMenuItem(restaurantId, payload as Parameters<typeof createMenuItem>[1]);
-      }
-      onSaved();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: 'var(--bg)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
-        <button onClick={onClose}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
-          style={{ border: '1px solid var(--divider)' }}>
-          <XMarkIcon className="w-5 h-5" />
-        </button>
-        <button onClick={handleSave} disabled={saving || !name.trim() || !price}
-          className="btn-primary px-6 disabled:opacity-50">
-          {saving ? t('saving') : t('save')}
-        </button>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-bold text-fg-primary mb-8">
-          {editing ? t('editItem') : t('createItem')}
-        </h1>
-
-        <div className="flex gap-8">
-          {/* Left column — main form */}
-          <div className="flex-1 space-y-5">
-            <div>
-              <input
-                autoFocus
-                placeholder={t('nameRequired')}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input text-base py-3"
-              />
-            </div>
-
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={t('price')}
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="input text-base py-3 pr-16"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-fg-secondary">ea</span>
-            </div>
-
-            <textarea
-              placeholder={t('customerDescription')}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="input resize-y text-sm"
-            />
-
-            {editing?.image_url ? (
-              <div className="relative rounded-card overflow-hidden cursor-pointer group"
-                style={{ border: '2px solid var(--divider)' }}>
-                <img src={editing.image_url} alt={editing.name} className="w-full h-48 object-cover" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center">
-                  <PhotoIcon className="w-8 h-8 text-white mb-2" />
-                  <p className="text-sm text-white">{t('dropImagesHere')}</p>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="flex flex-col items-center justify-center py-12 rounded-card cursor-pointer"
-                style={{ border: '2px dashed var(--divider)' }}
-              >
-                <PhotoIcon className="w-8 h-8 text-fg-secondary mb-2" />
-                <p className="text-sm text-fg-secondary">{t('dropImagesHere')}</p>
-              </div>
-            )}
-
-            {editing && (
-              <div>
-                <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifiers')}</h3>
-                {(editing.modifiers ?? []).length === 0 ? (
-                  <p className="text-sm text-fg-secondary">{t('noModifiersForItem')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {(editing.modifiers ?? []).map((mod) => (
-                      <div key={mod.id} className="flex items-center justify-between py-2 px-3 rounded-standard" style={{ background: 'var(--surface-subtle)' }}>
-                        <div>
-                          <span className="text-sm font-medium text-fg-primary">{mod.name}</span>
-                          <span className="text-xs text-fg-secondary ml-2">({mod.action})</span>
-                          {mod.category && <span className="text-xs text-fg-secondary ml-2">· {mod.category}</span>}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {mod.price_delta !== 0 && (
-                            <span className="text-sm text-fg-secondary">
-                              {mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}
-                            </span>
-                          )}
-                          <button
-                            onClick={async () => {
-                              if (!confirm(t('deleteThisModifier'))) return;
-                              await deleteModifier(restaurantId, mod.id);
-                            }}
-                            className="text-xs text-red-400 hover:text-red-300"
-                          >
-                            {t('remove')}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Right column — sidebar cards */}
-          <div className="w-72 space-y-4 flex-shrink-0">
-            <div className="card">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-fg-primary">{t('status')}</h3>
-                <button
-                  onClick={() => setIsActive(!isActive)}
-                  className={`text-sm font-medium px-3 py-1 rounded-standard flex items-center gap-1 ${
-                    isActive ? 'text-status-ready' : 'text-fg-secondary'
-                  }`}
-                  style={{ background: isActive ? 'rgba(119,186,75,0.12)' : 'var(--surface-subtle)' }}
-                >
-                  {isActive ? t('available') : t('unavailable')}
-                  <ChevronDownIcon className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            <div className="card space-y-3">
-              <h3 className="font-bold text-fg-primary">{t('categories')}</h3>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(Number(e.target.value))}
-                className="input text-sm"
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
