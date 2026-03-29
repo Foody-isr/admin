@@ -122,7 +122,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
             <div className="flex flex-1 pt-12">
               <Sidebar
                 restaurantId={restaurantId}
-                restaurantName={restaurant.name}
                 isOpen={sidebarOpen}
                 onClose={closeSidebar}
               />

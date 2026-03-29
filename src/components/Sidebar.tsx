@@ -21,6 +21,7 @@ import {
   XMarkIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
+  ChevronDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
 } from '@heroicons/react/24/outline';
@@ -31,22 +32,29 @@ interface SubItem {
   badge?: number;
 }
 
+interface SubItemGroup {
+  labelKey: string;
+  items: SubItem[];
+}
+
 interface NavItem {
   href: string;
   labelKey: string;
   icon: typeof HomeIcon;
   perm?: string[];
+  /** Flat list of sub-items (for simple sections) */
   subItems?: SubItem[];
+  /** Grouped sub-items with collapsible section headers (for complex sections) */
+  subGroups?: SubItemGroup[];
 }
 
 interface SidebarProps {
   restaurantId: number;
-  restaurantName: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { restaurantIds } = useAuth();
   const { hasAnyPermission } = usePermissions();
@@ -55,6 +63,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
+  // All groups start expanded
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(['articlesGroup', 'stockGroup'])
+  );
 
   useEffect(() => {
     getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
@@ -66,6 +78,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const BackArrow = isRtl ? ArrowRightIcon : ArrowLeftIcon;
   const Chevron = isRtl ? ChevronLeftIcon : ChevronRightIcon;
 
+  function toggleGroup(key: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   const allNav: NavItem[] = [
     { href: `${base}/dashboard`, labelKey: 'dashboard', icon: HomeIcon },
     {
@@ -73,26 +94,32 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'menu',
       icon: Bars3BottomLeftIcon,
       perm: ['menu.view', 'menu.edit', 'kitchen.view', 'kitchen.manage'],
-      subItems: [
-        { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
-        { href: `${base}/menu/categories`, labelKey: 'categories' },
-        { href: `${base}/menu/modifiers`, labelKey: 'modifiers' },
-        { href: `${base}/menu/import`, labelKey: 'aiImport' },
-        { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
-        { href: `${base}/kitchen/prep`, labelKey: 'recipesAndPrep', badge: lowPrepCount },
-        { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
-        { href: `${base}/kitchen/suppliers`, labelKey: 'suppliers' },
+      subGroups: [
+        {
+          labelKey: 'articlesGroup',
+          items: [
+            { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
+            { href: `${base}/menu/categories`, labelKey: 'categories' },
+            { href: `${base}/menu/modifiers`, labelKey: 'modifiers' },
+            { href: `${base}/menu/import`, labelKey: 'aiImport' },
+          ],
+        },
+        {
+          labelKey: 'stockGroup',
+          items: [
+            { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
+            { href: `${base}/kitchen/prep`, labelKey: 'recipesAndPrep', badge: lowPrepCount },
+            { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
+            { href: `${base}/kitchen/suppliers`, labelKey: 'suppliers' },
+          ],
+        },
       ],
     },
     {
-      href: `${base}/orders`,
+      href: `${base}/orders/all`,
       labelKey: 'orders',
       icon: ClipboardDocumentListIcon,
       perm: ['orders.view', 'orders.manage'],
-      subItems: [
-        { href: `${base}/orders/all`, labelKey: 'allOrders2' },
-        { href: `${base}/orders/settings`, labelKey: 'fulfillmentSettings' },
-      ],
     },
     {
       href: `${base}/website`,
@@ -139,6 +166,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['settings.view', 'settings.edit', 'tables.manage'],
       subItems: [
         { href: `${base}/settings`, labelKey: 'general' },
+        { href: `${base}/orders/settings`, labelKey: 'fulfillmentSettings' },
         { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans' },
         { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
         { href: `${base}/restaurant/workflow`, labelKey: 'workflow' },
@@ -148,10 +176,33 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   ];
   const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
 
-  // Determine if we're inside a section that has sub-items
+  /** Returns all leaf hrefs for an item (subItems + subGroups items). */
+  function getSubHrefs(item: NavItem): string[] {
+    return [
+      ...(item.subItems?.map((s) => s.href) ?? []),
+      ...(item.subGroups?.flatMap((g) => g.items.map((s) => s.href)) ?? []),
+    ];
+  }
+
+  /** True when the current pathname is within this nav item's scope. */
+  function isItemActive(item: NavItem): boolean {
+    if (pathname === item.href || pathname.startsWith(item.href + '/')) return true;
+    return getSubHrefs(item).some(
+      (href) => pathname === href || pathname.startsWith(href + '/')
+    );
+  }
+
+  // Determine if we're inside a section that has sub-items or sub-groups
   const activeSection = nav.find(
-    (item) => item.subItems && (pathname === item.href || pathname.startsWith(item.href + '/'))
+    (item) => (item.subItems || item.subGroups) && isItemActive(item)
   );
+
+  /** The href to use when clicking a nav item in the main list */
+  function getNavHref(item: NavItem): string {
+    if (item.subGroups) return item.subGroups[0].items[0].href;
+    if (item.subItems) return item.subItems[0].href;
+    return item.href;
+  }
 
   return (
     <>
@@ -202,27 +253,79 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               </Link>
             </div>
 
-            {/* Sub-items */}
-            <nav className="flex-1 px-3 py-1 space-y-0.5">
-              {activeSection.subItems!.map((sub) => {
-                const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
-                return (
-                  <Link
-                    key={sub.href}
-                    href={sub.href}
-                    onClick={onClose}
-                    className={`sidebar-link ${isActive ? 'active' : ''}`}
-                  >
-                    <span className="flex-1">{t(sub.labelKey)}</span>
-                    {sub.badge !== undefined && sub.badge > 0 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
-                        {sub.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
+            {/* Sub-items (flat) */}
+            {activeSection.subItems && (
+              <nav className="flex-1 px-3 py-1 space-y-0.5">
+                {activeSection.subItems.map((sub) => {
+                  const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={onClose}
+                      className={`sidebar-link ${isActive ? 'active' : ''}`}
+                    >
+                      <span className="flex-1">{t(sub.labelKey)}</span>
+                      {sub.badge !== undefined && sub.badge > 0 && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
+                          {sub.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
+
+            {/* Sub-groups (collapsible sections) */}
+            {activeSection.subGroups && (
+              <nav className="flex-1 px-3 py-1 space-y-1">
+                {activeSection.subGroups.map((group) => {
+                  const hasActiveItem = group.items.some(
+                    (sub) => pathname === sub.href || pathname.startsWith(sub.href + '/')
+                  );
+                  // Auto-expand the group that contains the active route
+                  const isExpanded = expandedGroups.has(group.labelKey) || hasActiveItem;
+                  return (
+                    <div key={group.labelKey}>
+                      <button
+                        onClick={() => toggleGroup(group.labelKey)}
+                        className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold rounded-lg transition-colors hover:bg-[var(--sidebar-hover)]"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        <span>{t(group.labelKey)}</span>
+                        <ChevronDownIcon
+                          className={`w-4 h-4 transition-transform flex-shrink-0 ${isExpanded ? '' : '-rotate-90'}`}
+                          style={{ color: 'var(--text-secondary)' }}
+                        />
+                      </button>
+                      {isExpanded && (
+                        <div className="space-y-0.5 mt-0.5">
+                          {group.items.map((sub) => {
+                            const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                            return (
+                              <Link
+                                key={sub.href}
+                                href={sub.href}
+                                onClick={onClose}
+                                className={`sidebar-link ${isActive ? 'active' : ''}`}
+                              >
+                                <span className="flex-1">{t(sub.labelKey)}</span>
+                                {sub.badge !== undefined && sub.badge > 0 && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
+                                    {sub.badge}
+                                  </span>
+                                )}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </nav>
+            )}
           </>
         ) : (
           /* ── Main navigation view ── */
@@ -237,11 +340,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             {/* Navigation */}
             <nav className="flex-1 px-3 py-1 space-y-0.5">
               {nav.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                const isActive = isItemActive(item);
                 return (
                   <Link
                     key={item.href}
-                    href={item.subItems ? item.subItems[0].href : item.href}
+                    href={getNavHref(item)}
                     onClick={onClose}
                     className={`sidebar-link ${isActive ? 'active' : ''}`}
                   >
@@ -257,7 +360,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         title={`WebSocket: ${wsStatus}`}
                       />
                     )}
-                    {item.subItems && (
+                    {(item.subItems || item.subGroups) && (
                       <Chevron className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
                     )}
                   </Link>
