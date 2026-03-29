@@ -117,6 +117,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['tables.manage'],
       subItems: [
         { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans' },
+        { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
+        { href: `${base}/restaurant/workflow`, labelKey: 'workflow' },
       ],
     },
     { href: `${base}/settings`, labelKey: 'settings', icon: Cog6ToothIcon, perm: ['settings.view', 'settings.edit'] },

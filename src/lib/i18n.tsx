@@ -719,6 +719,8 @@ const translations: Record<Locale, Record<string, string>> = {
     aiImport: 'AI Import',
     allOrders2: 'All orders',
     fulfillmentSettings: 'Fulfillment settings',
+    workflow: 'Workflow',
+    tableStatus: 'Table Status',
     // ── Floor Plans ──
     floorPlans: 'Floor plans',
     createFloorPlan: 'Create floor plan',
@@ -1398,6 +1400,8 @@ const translations: Record<Locale, Record<string, string>> = {
     aiImport: 'ייבוא AI',
     allOrders2: 'כל ההזמנות',
     fulfillmentSettings: 'הגדרות אספקה',
+    workflow: 'זרימת עבודה',
+    tableStatus: 'סטטוס שולחן',
     // ── Floor Plans ──
     floorPlans: 'תוכניות קומה',
     createFloorPlan: 'צור תוכנית קומה',
@@ -2077,6 +2081,8 @@ const translations: Record<Locale, Record<string, string>> = {
     aiImport: 'Import IA',
     allOrders2: 'Toutes les commandes',
     fulfillmentSettings: 'Paramètres de livraison',
+    workflow: 'Flux de commandes',
+    tableStatus: 'Statut des tables',
     // ── Floor Plans ──
     floorPlans: 'Plans de salle',
     createFloorPlan: 'Créer un plan de salle',

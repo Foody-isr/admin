@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getRestaurant, getRestaurantSettings, updateRestaurant, updateRestaurantSettings,
-  Restaurant, RestaurantSettings,
+  getRestaurant, updateRestaurant,
+  Restaurant,
   getSpokeConfig, updateSpokeConfig, SpokeConfigResponse,
 } from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
@@ -21,7 +21,6 @@ export default function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [settings, setSettings] = useState<RestaurantSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -40,15 +39,6 @@ export default function SettingsPage() {
 
   // Restaurant info form
   const [info, setInfo] = useState({ name: '', address: '', phone: '', description: '' });
-  // Settings form
-  const [svc, setSvc] = useState({
-    require_order_approval: true,
-    auto_send_to_kitchen: true,
-    service_mode: 'table',
-    scheduling_enabled: false,
-    tips_enabled: true,
-    rush_mode: false,
-  });
 
   useEffect(() => {
     getSpokeConfig(rid).then((cfg) => {
@@ -63,28 +53,16 @@ export default function SettingsPage() {
         }));
       }
     }).catch(() => {});
-    Promise.all([getRestaurant(rid), getRestaurantSettings(rid)]).then(([r, s]) => {
+    getRestaurant(rid).then((r) => {
       setRestaurant(r);
-      setSettings(s);
       setInfo({ name: r.name, address: r.address, phone: r.phone, description: r.description });
-      setSvc({
-        require_order_approval: s.require_order_approval,
-        auto_send_to_kitchen: s.auto_send_to_kitchen ?? true,
-        service_mode: s.service_mode,
-        scheduling_enabled: s.scheduling_enabled,
-        tips_enabled: s.tips_enabled,
-        rush_mode: s.rush_mode ?? false,
-      });
     }).finally(() => setLoading(false));
   }, [rid]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        updateRestaurant(rid, info),
-        updateRestaurantSettings(rid, svc),
-      ]);
+      await updateRestaurant(rid, info);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -139,43 +117,6 @@ export default function SettingsPage() {
               onChange={(e) => setInfo((p) => ({ ...p, [key]: e.target.value }))}
             />
           </div>
-        ))}
-      </div>
-
-      {/* Operational settings */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">{t('operations')}</h2>
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('serviceMode')}</label>
-          <select
-            className="input"
-            value={svc.service_mode}
-            onChange={(e) => setSvc((p) => ({ ...p, service_mode: e.target.value }))}
-          >
-            <option value="table">{t('tableService')}</option>
-            <option value="counter">{t('counterService')}</option>
-          </select>
-        </div>
-
-        {[
-          { label: t('autoSendToKitchen'), key: 'auto_send_to_kitchen' as const, desc: t('autoSendDesc') },
-          { label: t('enableTips'), key: 'tips_enabled' as const, desc: t('enableTipsDesc') },
-          { label: t('scheduledOrders'), key: 'scheduling_enabled' as const, desc: t('scheduledOrdersDesc') },
-          { label: t('rushMode'), key: 'rush_mode' as const, desc: t('rushModeDesc') },
-        ].map(({ label, key, desc }) => (
-          <label key={key} className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={svc[key] as boolean}
-              onChange={(e) => setSvc((p) => ({ ...p, [key]: e.target.checked }))}
-            />
-            <div>
-              <div className="text-sm font-medium text-fg-primary">{label}</div>
-              <div className="text-xs text-fg-secondary">{desc}</div>
-            </div>
-          </label>
         ))}
       </div>
 
