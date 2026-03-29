@@ -15,15 +15,16 @@ import { XMarkIcon, TrashIcon } from '@heroicons/react/24/outline';
 interface CanvasPlacement {
   tableId: number;
   tableName: string;
-  x: number;     // %
-  y: number;     // %
-  width: number; // %
-  height: number;// %
+  x: number;        // %
+  y: number;        // %
+  width: number;    // %
+  height: number;   // %
   shape: 'square' | 'circle';
+  rotation: number; // degrees
 }
 
 interface CanvasDecoration {
-  id: string;   // client-side key
+  id: string;       // client-side key
   label: string;
   x: number;
   y: number;
@@ -31,6 +32,7 @@ interface CanvasDecoration {
   height: number;
   shape: 'rectangle' | 'circle';
   color: string;
+  rotation: number; // degrees
 }
 
 type SelectedItem =
@@ -203,6 +205,12 @@ export default function FloorPlanEditorPage() {
     startMouseX: number; startMouseY: number;
     startX: number; startY: number;
   } | null>(null);
+  const rotateState = useRef<{
+    kind: 'table' | 'decoration';
+    id: number | string;
+    centerX: number; centerY: number;
+    startAngle: number; startRotation: number;
+  } | null>(null);
   const dropState = useRef<{ tableId: number; tableName: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -218,6 +226,7 @@ export default function FloorPlanEditorPage() {
         width: p.width,
         height: p.height,
         shape: p.shape,
+        rotation: p.rotation ?? 0,
       }));
       setPlacements(mapped);
       setOriginalPlacements(mapped);
@@ -230,6 +239,7 @@ export default function FloorPlanEditorPage() {
         height: d.height,
         shape: d.shape,
         color: d.color,
+        rotation: d.rotation ?? 0,
       }));
       setDecorations(mappedDecs);
       setOriginalDecorations(mappedDecs);
@@ -262,8 +272,42 @@ export default function FloorPlanEditorPage() {
     dragState.current = { kind: 'decoration', id: decId, startMouseX: e.clientX, startMouseY: e.clientY, startX: dec.x, startY: dec.y };
   };
 
+  const handleRotateMouseDown = (e: React.MouseEvent, kind: 'table' | 'decoration', id: number | string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    let item: CanvasPlacement | CanvasDecoration | undefined;
+    let startRotation = 0;
+    if (kind === 'table') {
+      item = placements.find((p) => p.tableId === id);
+      startRotation = item?.rotation ?? 0;
+    } else {
+      item = decorations.find((d) => d.id === id);
+      startRotation = (item as CanvasDecoration | undefined)?.rotation ?? 0;
+    }
+    if (!item) return;
+    const centerX = rect.left + (item.x / 100) * rect.width + (item.width / 100) * rect.width / 2;
+    const centerY = rect.top + (item.y / 100) * rect.height + (item.height / 100) * rect.height / 2;
+    const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+    rotateState.current = { kind, id, centerX, centerY, startAngle, startRotation };
+  };
+
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
+      // Rotation
+      if (rotateState.current) {
+        const { kind, id, centerX, centerY, startAngle, startRotation } = rotateState.current;
+        const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+        const rotation = startRotation + (angle - startAngle);
+        if (kind === 'table') {
+          setPlacements((prev) => prev.map((p) => p.tableId === id ? { ...p, rotation } : p));
+        } else {
+          setDecorations((prev) => prev.map((d) => d.id === id ? { ...d, rotation } : d));
+        }
+        return;
+      }
+      // Move
       if (!dragState.current || !canvasRef.current) return;
       const { kind, id, startMouseX, startMouseY, startX, startY } = dragState.current;
       const rect = canvasRef.current.getBoundingClientRect();
@@ -277,7 +321,7 @@ export default function FloorPlanEditorPage() {
         setDecorations((prev) => prev.map((d) => d.id === id ? { ...d, x: newX, y: newY } : d));
       }
     };
-    const onMouseUp = () => { dragState.current = null; };
+    const onMouseUp = () => { dragState.current = null; rotateState.current = null; };
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     return () => {
@@ -297,7 +341,7 @@ export default function FloorPlanEditorPage() {
     const y = Math.max(0, Math.min(94, ((e.clientY - rect.top) / rect.height) * 100));
     const { tableId, tableName } = dropState.current;
     if (!placedIds.has(tableId)) {
-      setPlacements((prev) => [...prev, { tableId, tableName, x, y, width: 6, height: 6, shape: 'square' }]);
+      setPlacements((prev) => [...prev, { tableId, tableName, x, y, width: 6, height: 6, shape: 'square', rotation: 0 }]);
     }
     dropState.current = null;
   };
@@ -337,7 +381,7 @@ export default function FloorPlanEditorPage() {
     const x = Math.min(10 + offset, 55);
     const y = Math.min(10 + offset, 55);
     const id = `dec-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const dec: CanvasDecoration = { id, label: preset.label, x, y, width: 16, height: 10, shape: preset.shape, color: preset.color };
+    const dec: CanvasDecoration = { id, label: preset.label, x, y, width: 16, height: 10, shape: preset.shape, color: preset.color, rotation: 0 };
     setDecorations((prev) => [...prev, dec]);
     setSelected({ type: 'decoration', id });
   };
@@ -354,6 +398,7 @@ export default function FloorPlanEditorPage() {
         width: p.width,
         height: p.height,
         shape: p.shape,
+        rotation: p.rotation,
       }));
       const decInputs: DecorationInput[] = decorations.map((d) => ({
         label: d.label,
@@ -363,6 +408,7 @@ export default function FloorPlanEditorPage() {
         height: d.height,
         shape: d.shape,
         color: d.color,
+        rotation: d.rotation,
       }));
       await saveFloorPlanLayout(rid, pid, inputs, decInputs);
       router.push(`/${rid}/restaurant/floor-plans`);
@@ -533,65 +579,147 @@ export default function FloorPlanEditorPage() {
               onClick={() => setSelected(null)}
             >
               {/* Decorations — rendered first (behind tables) */}
-              {decorations.map((d) => (
-                <div
-                  key={d.id}
-                  onMouseDown={(e) => handleDecorationMouseDown(e, d.id)}
-                  onClick={(e) => { e.stopPropagation(); setSelected({ type: 'decoration', id: d.id }); }}
-                  style={{
-                    position: 'absolute',
-                    left: `${d.x}%`,
-                    top: `${d.y}%`,
-                    width: `${d.width}%`,
-                    height: `${d.height}%`,
-                    borderRadius: d.shape === 'circle' ? '50%' : '8px',
-                    background: d.color,
-                    border: selected?.type === 'decoration' && selected.id === d.id
-                      ? '2px dashed #F18A47'
-                      : '2px dashed rgba(0,0,0,0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'move',
-                    userSelect: 'none',
-                    zIndex: 1,
-                  }}
-                >
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(0,0,0,0.45)', textAlign: 'center', padding: '4px', lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    {d.label}
-                  </span>
-                </div>
-              ))}
+              {decorations.map((d) => {
+                const isSelectedDec = selected?.type === 'decoration' && selected.id === d.id;
+                return (
+                  <div
+                    key={d.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${d.x}%`,
+                      top: `${d.y}%`,
+                      width: `${d.width}%`,
+                      height: `${d.height}%`,
+                      transform: `rotate(${d.rotation}deg)`,
+                      transformOrigin: 'center center',
+                      zIndex: 1,
+                    }}
+                  >
+                    {/* Visible shape */}
+                    <div
+                      onMouseDown={(e) => handleDecorationMouseDown(e, d.id)}
+                      onClick={(e) => { e.stopPropagation(); setSelected({ type: 'decoration', id: d.id }); }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: d.shape === 'circle' ? '50%' : '8px',
+                        background: d.color,
+                        border: isSelectedDec ? '2px dashed #F18A47' : '2px dashed rgba(0,0,0,0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'move',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(0,0,0,0.45)', textAlign: 'center', padding: '4px', lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {d.label}
+                      </span>
+                    </div>
+                    {/* Rotate handle */}
+                    {isSelectedDec && (
+                      <div
+                        onMouseDown={(e) => handleRotateMouseDown(e, 'decoration', d.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Rotate"
+                        style={{
+                          position: 'absolute',
+                          top: '-22px',
+                          right: '-22px',
+                          width: '20px',
+                          height: '20px',
+                          background: 'white',
+                          border: '2px solid #F18A47',
+                          borderRadius: '50%',
+                          cursor: 'grab',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                          zIndex: 10,
+                        }}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                          <path d="M10 3C8.8 1.5 7 0.6 5 0.6C2.5 0.6 0.6 2.5 0.6 5s1.9 4.4 4.4 4.4c1.5 0 2.8-.7 3.7-1.8" stroke="#F18A47" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M8.5 0.5L10 3L8 3.8" stroke="#F18A47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* Tables — rendered on top of decorations */}
-              {placements.map((p) => (
-                <div
-                  key={p.tableId}
-                  onMouseDown={(e) => handleTableMouseDown(e, p.tableId)}
-                  onClick={(e) => { e.stopPropagation(); setSelected({ type: 'table', id: p.tableId }); }}
-                  style={{
-                    position: 'absolute',
-                    left: `${p.x}%`,
-                    top: `${p.y}%`,
-                    width: `${p.width}%`,
-                    height: `${p.height}%`,
-                    borderRadius: p.shape === 'circle' ? '50%' : '6px',
-                    background: '#1a1a1a',
-                    border: selected?.type === 'table' && selected.id === p.tableId ? '2px solid #F18A47' : '2px solid transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'grab',
-                    userSelect: 'none',
-                    transition: 'border-color 0.1s',
-                    zIndex: 2,
-                  }}
-                >
-                  <span style={{ color: 'white', fontSize: '11px', fontWeight: 600, textAlign: 'center', padding: '2px', lineHeight: 1.2 }}>
-                    {p.tableName}
-                  </span>
-                </div>
-              ))}
+              {placements.map((p) => {
+                const isSelectedTbl = selected?.type === 'table' && selected.id === p.tableId;
+                return (
+                  <div
+                    key={p.tableId}
+                    style={{
+                      position: 'absolute',
+                      left: `${p.x}%`,
+                      top: `${p.y}%`,
+                      width: `${p.width}%`,
+                      height: `${p.height}%`,
+                      transform: `rotate(${p.rotation}deg)`,
+                      transformOrigin: 'center center',
+                      zIndex: 2,
+                    }}
+                  >
+                    {/* Visible table */}
+                    <div
+                      onMouseDown={(e) => handleTableMouseDown(e, p.tableId)}
+                      onClick={(e) => { e.stopPropagation(); setSelected({ type: 'table', id: p.tableId }); }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: p.shape === 'circle' ? '50%' : '6px',
+                        background: '#1a1a1a',
+                        border: isSelectedTbl ? '2px solid #F18A47' : '2px solid transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'grab',
+                        userSelect: 'none',
+                        transition: 'border-color 0.1s',
+                      }}
+                    >
+                      <span style={{ color: 'white', fontSize: '11px', fontWeight: 600, textAlign: 'center', padding: '2px', lineHeight: 1.2 }}>
+                        {p.tableName}
+                      </span>
+                    </div>
+                    {/* Rotate handle */}
+                    {isSelectedTbl && (
+                      <div
+                        onMouseDown={(e) => handleRotateMouseDown(e, 'table', p.tableId)}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Rotate"
+                        style={{
+                          position: 'absolute',
+                          top: '-22px',
+                          right: '-22px',
+                          width: '20px',
+                          height: '20px',
+                          background: 'white',
+                          border: '2px solid #F18A47',
+                          borderRadius: '50%',
+                          cursor: 'grab',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                          zIndex: 10,
+                        }}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                          <path d="M10 3C8.8 1.5 7 0.6 5 0.6C2.5 0.6 0.6 2.5 0.6 5s1.9 4.4 4.4 4.4c1.5 0 2.8-.7 3.7-1.8" stroke="#F18A47" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M8.5 0.5L10 3L8 3.8" stroke="#F18A47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -626,7 +754,7 @@ export default function FloorPlanEditorPage() {
                           const offset = placements.length * 2;
                           const x = Math.min(10 + offset, 60);
                           const y = Math.min(10 + offset, 60);
-                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: 6, height: 6, shape: 'square' }]);
+                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: 6, height: 6, shape: 'square', rotation: 0 }]);
                           setSelected({ type: 'table', id: tbl.id });
                         }}
                         className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"

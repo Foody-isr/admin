@@ -55,6 +55,9 @@ export interface RestaurantSettings {
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
+  floor_plan_color_indicators: boolean;
+  table_yellow_after_minutes: number;
+  table_red_after_minutes: number;
 }
 
 export interface MenuCategory {
@@ -1861,6 +1864,7 @@ export interface FloorPlanPlacement {
   width: number;
   height: number;
   shape: 'square' | 'circle';
+  rotation: number; // degrees
   table: RestaurantTableRef;
 }
 
@@ -1874,6 +1878,7 @@ export interface FloorPlanDecoration {
   height: number;
   shape: 'rectangle' | 'circle';
   color: string;
+  rotation: number; // degrees
 }
 
 export interface DecorationInput {
@@ -1884,6 +1889,7 @@ export interface DecorationInput {
   height: number;
   shape: 'rectangle' | 'circle';
   color: string;
+  rotation: number; // degrees
 }
 
 export interface FloorPlan {
@@ -1911,6 +1917,7 @@ export interface PlacementInput {
   width: number;
   height: number;
   shape: 'square' | 'circle';
+  rotation: number; // degrees
 }
 
 // Sections
