@@ -217,15 +217,16 @@ export default function FloorPlanEditorPage() {
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!dragState.current || !canvasRef.current) return;
+      // Destructure synchronously — dragState.current may be nulled by onMouseUp
+      // before the setPlacements callback runs.
+      const { tableId, startMouseX, startMouseY, startX, startY } = dragState.current;
       const rect = canvasRef.current.getBoundingClientRect();
-      const dx = ((e.clientX - dragState.current.startMouseX) / rect.width) * 100;
-      const dy = ((e.clientY - dragState.current.startMouseY) / rect.height) * 100;
-      const newX = Math.max(0, Math.min(94, dragState.current.startX + dx));
-      const newY = Math.max(0, Math.min(94, dragState.current.startY + dy));
+      const dx = ((e.clientX - startMouseX) / rect.width) * 100;
+      const dy = ((e.clientY - startMouseY) / rect.height) * 100;
+      const newX = Math.max(0, Math.min(94, startX + dx));
+      const newY = Math.max(0, Math.min(94, startY + dy));
       setPlacements((prev) =>
-        prev.map((p) =>
-          p.tableId === dragState.current!.tableId ? { ...p, x: newX, y: newY } : p
-        )
+        prev.map((p) => p.tableId === tableId ? { ...p, x: newX, y: newY } : p)
       );
     };
     const onMouseUp = () => { dragState.current = null; };
