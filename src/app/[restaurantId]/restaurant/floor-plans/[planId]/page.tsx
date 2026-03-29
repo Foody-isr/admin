@@ -456,13 +456,21 @@ export default function FloorPlanEditorPage() {
                     <p className="text-xs text-fg-secondary">{t('noTablesInSection')}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
-                    {/* Unplaced — draggable */}
+                    {/* Unplaced — click to place, also draggable */}
                     {unplaced.map((tbl) => (
                       <div
                         key={tbl.id}
                         draggable
                         onDragStart={() => { dropState.current = { tableId: tbl.id, tableName: tbl.name }; }}
-                        className="px-2.5 py-1.5 rounded text-xs font-medium cursor-grab select-none transition-colors"
+                        onClick={() => {
+                          // Place at a staggered position so multiple clicks don't stack
+                          const offset = placements.length * 2;
+                          const x = Math.min(10 + offset, 60);
+                          const y = Math.min(10 + offset, 60);
+                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: 6, height: 6, shape: 'square' }]);
+                          setSelected(tbl.id);
+                        }}
+                        className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"
                         style={{ background: '#1a1a1a', color: 'white' }}
                         title={tbl.name}
                       >
