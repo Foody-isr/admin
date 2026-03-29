@@ -576,7 +576,7 @@ function ProductFormModal({ editing, stockItems, onClose, onSave, t }: {
 }) {
   const [name, setName] = useState(editing?.name ?? '');
   const [sku, setSku] = useState(editing?.sku ?? '');
-  const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'unit');
+  const [unit, setUnit] = useState<StockUnit>((editing?.unit as StockUnit) ?? 'unit');
   const [price, setPrice] = useState(editing?.price_per_unit ?? 0);
   const [stockItemId, setStockItemId] = useState<number | null>(editing?.stock_item_id ?? null);
 
@@ -758,7 +758,7 @@ function ReceiveOrderModal({ order, rid, onClose, onReceived, t }: {
   t: (k: string) => string;
 }) {
   const [receivedItems, setReceivedItems] = useState(
-    (order.items ?? []).map((item) => ({ item_id: item.id, received_qty: item.quantity }))
+    (order.items ?? []).map((item) => ({ id: item.id, received_qty: item.quantity }))
   );
   const [saving, setSaving] = useState(false);
 
@@ -796,7 +796,7 @@ function ReceiveOrderModal({ order, rid, onClose, onReceived, t }: {
                       value={receivedItems[idx]?.received_qty ?? item.quantity}
                       onChange={(e) => {
                         const n = [...receivedItems];
-                        n[idx] = { item_id: item.id, received_qty: Number(e.target.value) };
+                        n[idx] = { id: item.id, received_qty: Number(e.target.value) };
                         setReceivedItems(n);
                       }}
                       className="w-20 px-2 py-1 rounded border text-sm"

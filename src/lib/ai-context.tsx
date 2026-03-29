@@ -101,7 +101,7 @@ export function AiChatProvider({ restaurantId, children }: AiChatProviderProps) 
         restaurantId,
         text,
         history,
-        (delta) => {
+        (delta: string) => {
           // Append streaming text delta to the assistant message
           setMessages((prev) => {
             const updated = prev.map((m) =>

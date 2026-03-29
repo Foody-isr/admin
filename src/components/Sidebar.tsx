@@ -21,6 +21,7 @@ import {
   BuildingStorefrontIcon,
   BeakerIcon,
   ShieldCheckIcon,
+  TableCellsIcon,
   XMarkIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
@@ -109,6 +110,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     { href: `${base}/roles`, labelKey: 'roles', icon: ShieldCheckIcon, perm: ['roles.manage'] },
     { href: `${base}/customers`, labelKey: 'customers', icon: UserGroupIcon, perm: ['customers.view', 'customers.manage'] },
     { href: `${base}/analytics`, labelKey: 'analytics', icon: ChartBarIcon, perm: ['analytics.view'] },
+    {
+      href: `${base}/restaurant`,
+      labelKey: 'restaurant',
+      icon: TableCellsIcon,
+      perm: ['tables.manage'],
+      subItems: [
+        { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans' },
+      ],
+    },
     { href: `${base}/settings`, labelKey: 'settings', icon: Cog6ToothIcon, perm: ['settings.view', 'settings.edit'] },
     { href: `${base}/website`, labelKey: 'website', icon: GlobeAltIcon, perm: ['settings.edit'] },
     { href: `${base}/billing`, labelKey: 'billing', icon: CreditCardIcon },

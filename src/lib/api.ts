@@ -297,7 +297,6 @@ export interface StockItem {
   reorder_threshold: number;
   cost_per_unit: number;
   supplier: string;
-  supplier_id?: number | null;
   category: string;
   notes: string;
   is_active: boolean;
@@ -790,7 +789,7 @@ export async function uploadMenuItemImage(restaurantId: number, itemId: number, 
     throw new Error(err.error || 'Upload failed');
   }
   const data = await res.json();
-  return data.image_url;
+  return data.image_url as string;
 }
 
 // ─── Modifiers ────────────────────────────────────────────────────────────────
@@ -1613,105 +1612,56 @@ export async function getMyPermissions(restaurantId: number): Promise<MeWithPerm
   );
 }
 
-// ─── Features ─────────────────────────────────────────────────────────────────
+// ─── AI Streaming ─────────────────────────────────────────────────────────────
 
-export interface RestaurantFeature {
-  feature_key: string;
-  enabled: boolean;
+export interface AiHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
-export async function getRestaurantFeatures(restaurantId: number): Promise<RestaurantFeature[]> {
-  const data = await apiFetch<{ features: RestaurantFeature[] }>(
-    `/api/v1/restaurants/${restaurantId}/features`, restaurantId
-  );
-  return data.features ?? [];
-}
-
-// ─── AI Chat ──────────────────────────────────────────────────────────────────
-
-export interface AiChatResponse {
-  message: string;
-  tokens_used: { input_tokens: number; output_tokens: number };
-  tool_calls: number;
-}
-
-export async function sendAiChat(
-  restaurantId: number,
-  message: string,
-  history: { role: string; content: string }[]
-): Promise<AiChatResponse> {
-  return apiFetch<AiChatResponse>(
-    '/api/v1/ai/chat', restaurantId,
-    { method: 'POST', body: JSON.stringify({ message, history }) }
-  );
-}
-
-// Streaming AI chat via SSE (POST with ReadableStream reader)
 export async function streamAiChat(
   restaurantId: number,
   message: string,
-  history: { role: string; content: string }[],
-  onDelta: (text: string) => void,
-  onToolUse?: (tool: string) => void,
+  history: AiHistoryMessage[],
+  onDelta: (delta: string) => void,
 ): Promise<void> {
   const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    'X-Restaurant-ID': String(restaurantId),
-  };
-
-  const res = await fetch(`${API_URL}/api/v1/ai/chat/stream`, {
+  const res = await fetch(`${API_URL}/api/v1/ai/chat/stream?restaurant_id=${restaurantId}`, {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ message, history }),
   });
-
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== 'undefined') {
-      logout();
-      window.location.href = '/login';
-      return;
-    }
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || body.message || `API error ${res.status}`);
+    const err = await res.json().catch(() => ({ error: 'AI error' }));
+    throw new Error(err.error || 'AI error');
   }
-
   const reader = res.body?.getReader();
-  if (!reader) throw new Error('No response body');
-
+  if (!reader) return;
   const decoder = new TextDecoder();
-  let buffer = '';
-
+  let buf = '';
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    let currentEvent = '';
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
     for (const line of lines) {
-      if (line.startsWith('event: ')) {
-        currentEvent = line.slice(7).trim();
-      } else if (line.startsWith('data: ')) {
-        const data = line.slice(6);
+      if (line.startsWith('data: ')) {
         try {
-          const parsed = JSON.parse(data);
-          if (currentEvent === 'delta' && parsed.text) {
-            onDelta(parsed.text);
-          } else if (currentEvent === 'tool_use' && parsed.tool && onToolUse) {
-            onToolUse(parsed.tool);
+          const obj = JSON.parse(line.slice(6));
+          if (obj.type === 'delta' && typeof obj.text === 'string') {
+            onDelta(obj.text);
           }
-        } catch { /* skip non-JSON lines */ }
-        currentEvent = '';
+        } catch { /* ignore non-JSON lines */ }
       }
     }
   }
 }
 
-// ─── Suppliers ──────────────────────────────────────────────────────
+// ─── Suppliers ────────────────────────────────────────────────────────────────
 
 export interface Supplier {
   id: number;
@@ -1723,9 +1673,9 @@ export interface Supplier {
   address: string;
   notes: string;
   is_active: boolean;
+  products?: SupplierProduct[];
   created_at: string;
   updated_at: string;
-  products?: SupplierProduct[];
 }
 
 export interface SupplierInput {
@@ -1744,19 +1694,19 @@ export interface SupplierProduct {
   restaurant_id: number;
   name: string;
   sku: string;
-  unit: StockUnit;
+  unit: string;
   price_per_unit: number;
   stock_item_id: number | null;
   is_active: boolean;
+  stock_item?: { id: number; name: string };
   created_at: string;
   updated_at: string;
-  stock_item?: StockItem | null;
 }
 
 export interface SupplierProductInput {
   name: string;
   sku?: string;
-  unit: StockUnit;
+  unit?: string;
   price_per_unit?: number;
   stock_item_id?: number | null;
   is_active?: boolean;
@@ -1774,10 +1724,10 @@ export interface PurchaseOrder {
   order_date: string | null;
   received_date: string | null;
   created_by_id: number;
+  supplier: Supplier;
+  items: PurchaseOrderItem[];
   created_at: string;
   updated_at: string;
-  supplier?: Supplier;
-  items?: PurchaseOrderItem[];
 }
 
 export interface PurchaseOrderItem {
@@ -1786,39 +1736,25 @@ export interface PurchaseOrderItem {
   supplier_product_id: number | null;
   stock_item_id: number | null;
   name: string;
-  unit: StockUnit;
+  unit: string;
   quantity: number;
   price_per_unit: number;
   total_price: number;
   received_qty: number | null;
-  created_at: string;
-}
-
-export interface PurchaseOrderInput {
-  supplier_id: number;
-  notes?: string;
-  items: PurchaseOrderItemInput[];
 }
 
 export interface PurchaseOrderItemInput {
   supplier_product_id?: number | null;
   stock_item_id?: number | null;
   name: string;
-  unit: StockUnit;
+  unit?: string;
   quantity: number;
-  price_per_unit?: number;
+  price_per_unit: number;
 }
-
-// Supplier CRUD
 
 export async function listSuppliers(restaurantId: number): Promise<Supplier[]> {
   const data = await apiFetch<{ suppliers: Supplier[] }>(`/api/v1/suppliers?restaurant_id=${restaurantId}`, restaurantId);
   return data.suppliers ?? [];
-}
-
-export async function getSupplier(restaurantId: number, id: number): Promise<Supplier> {
-  const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId);
-  return data.supplier;
 }
 
 export async function createSupplier(restaurantId: number, input: SupplierInput): Promise<Supplier> {
@@ -1828,7 +1764,7 @@ export async function createSupplier(restaurantId: number, input: SupplierInput)
   return data.supplier;
 }
 
-export async function updateSupplier(restaurantId: number, id: number, input: SupplierInput): Promise<Supplier> {
+export async function updateSupplier(restaurantId: number, id: number, input: Partial<SupplierInput>): Promise<Supplier> {
   const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify(input),
   });
@@ -1836,10 +1772,8 @@ export async function updateSupplier(restaurantId: number, id: number, input: Su
 }
 
 export async function deleteSupplier(restaurantId: number, id: number): Promise<void> {
-  await apiFetch(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+  await apiFetch<void>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
-
-// Supplier Products
 
 export async function listSupplierProducts(restaurantId: number, supplierId: number): Promise<SupplierProduct[]> {
   const data = await apiFetch<{ products: SupplierProduct[] }>(`/api/v1/suppliers/${supplierId}/products?restaurant_id=${restaurantId}`, restaurantId);
@@ -1853,20 +1787,18 @@ export async function createSupplierProduct(restaurantId: number, supplierId: nu
   return data.product;
 }
 
-export async function updateSupplierProduct(restaurantId: number, supplierId: number, productId: number, input: SupplierProductInput): Promise<SupplierProduct> {
-  const data = await apiFetch<{ product: SupplierProduct }>(`/api/v1/suppliers/${supplierId}/products/${productId}?restaurant_id=${restaurantId}`, restaurantId, {
+export async function updateSupplierProduct(restaurantId: number, supplierId: number, pid: number, input: Partial<SupplierProductInput>): Promise<SupplierProduct> {
+  const data = await apiFetch<{ product: SupplierProduct }>(`/api/v1/suppliers/${supplierId}/products/${pid}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify(input),
   });
   return data.product;
 }
 
-export async function deleteSupplierProduct(restaurantId: number, supplierId: number, productId: number): Promise<void> {
-  await apiFetch(`/api/v1/suppliers/${supplierId}/products/${productId}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+export async function deleteSupplierProduct(restaurantId: number, supplierId: number, pid: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/suppliers/${supplierId}/products/${pid}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
-// Purchase Orders
-
-export async function listPurchaseOrders(restaurantId: number, params?: { supplier_id?: number; status?: PurchaseOrderStatus }): Promise<PurchaseOrder[]> {
+export async function listPurchaseOrders(restaurantId: number, params?: { supplier_id?: number; status?: string }): Promise<PurchaseOrder[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.supplier_id) qs.set('supplier_id', String(params.supplier_id));
   if (params?.status) qs.set('status', params.status);
@@ -1874,21 +1806,9 @@ export async function listPurchaseOrders(restaurantId: number, params?: { suppli
   return data.orders ?? [];
 }
 
-export async function getPurchaseOrder(restaurantId: number, id: number): Promise<PurchaseOrder> {
-  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId);
-  return data.order;
-}
-
-export async function createPurchaseOrder(restaurantId: number, input: PurchaseOrderInput): Promise<PurchaseOrder> {
+export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
-  });
-  return data.order;
-}
-
-export async function updatePurchaseOrder(restaurantId: number, id: number, input: PurchaseOrderInput): Promise<PurchaseOrder> {
-  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, {
-    method: 'PUT', body: JSON.stringify(input),
   });
   return data.order;
 }
@@ -1900,7 +1820,7 @@ export async function updatePurchaseOrderStatus(restaurantId: number, id: number
   return data.order;
 }
 
-export async function receivePurchaseOrder(restaurantId: number, id: number, items: { item_id: number; received_qty: number }[]): Promise<PurchaseOrder> {
+export async function receivePurchaseOrder(restaurantId: number, id: number, items: { id: number; received_qty: number }[]): Promise<PurchaseOrder> {
   const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/receive?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify({ items }),
   });
@@ -1908,5 +1828,148 @@ export async function receivePurchaseOrder(restaurantId: number, id: number, ite
 }
 
 export async function deletePurchaseOrder(restaurantId: number, id: number): Promise<void> {
-  await apiFetch(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+  await apiFetch<void>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+// ─── Floor Plans & Table Sections ─────────────────────────────────────────────
+
+export interface TableSection {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  tables: RestaurantTableRef[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RestaurantTableRef {
+  id: number;
+  code: string;
+  name: string;
+  seats: number;
+  active: boolean;
+  section_id: number | null;
+}
+
+export interface FloorPlanPlacement {
+  id: number;
+  floor_plan_id: number;
+  table_id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'square' | 'circle';
+  table: RestaurantTableRef;
+}
+
+export interface FloorPlan {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  placements?: FloorPlanPlacement[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SectionInput {
+  name: string;
+  label?: string;
+  table_count?: number;
+  custom_names?: string[];
+}
+
+export interface PlacementInput {
+  table_id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'square' | 'circle';
+}
+
+// Sections
+export async function listSections(restaurantId: number): Promise<TableSection[]> {
+  const data = await apiFetch<{ sections: TableSection[] }>(
+    `/api/v1/restaurants/${restaurantId}/sections?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.sections ?? [];
+}
+
+export async function createSection(restaurantId: number, input: SectionInput): Promise<TableSection> {
+  const data = await apiFetch<{ section: TableSection }>(
+    `/api/v1/restaurants/${restaurantId}/sections?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.section;
+}
+
+export async function updateSection(restaurantId: number, sectionId: number, name: string): Promise<TableSection> {
+  const data = await apiFetch<{ section: TableSection }>(
+    `/api/v1/restaurants/${restaurantId}/sections/${sectionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ name }) }
+  );
+  return data.section;
+}
+
+export async function deleteSection(restaurantId: number, sectionId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/sections/${sectionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+// Floor Plans
+export async function listFloorPlans(restaurantId: number): Promise<FloorPlan[]> {
+  const data = await apiFetch<{ floor_plans: FloorPlan[] }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.floor_plans ?? [];
+}
+
+export async function getFloorPlan(restaurantId: number, planId: number): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.floor_plan;
+}
+
+export async function createFloorPlan(restaurantId: number, name: string): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ name }) }
+  );
+  return data.floor_plan;
+}
+
+export async function updateFloorPlan(restaurantId: number, planId: number, name: string): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ name }) }
+  );
+  return data.floor_plan;
+}
+
+export async function deleteFloorPlan(restaurantId: number, planId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function saveFloorPlanLayout(restaurantId: number, planId: number, placements: PlacementInput[]): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}/layout?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ placements }) }
+  );
+  return data.floor_plan;
+}
+
+export async function reorderFloorPlans(restaurantId: number, ids: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ ids }) }
+  );
 }
