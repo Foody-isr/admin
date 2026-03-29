@@ -7,7 +7,7 @@ import {
   FloorPlan,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, Bars3Icon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, Bars3Icon, TrashIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
 export default function FloorPlansListPage() {
   const { restaurantId } = useParams();
@@ -70,13 +70,22 @@ export default function FloorPlansListPage() {
             {t('noFloorPlansDesc')}
           </p>
         </div>
-        <button
-          onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('createFloorPlan')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/${rid}/restaurant/floor-plans/settings`)}
+            className="btn-secondary flex items-center gap-2"
+            title="Paramètres du plan de salle"
+          >
+            <Cog6ToothIcon className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <PlusIcon className="w-4 h-4" />
+            {t('createFloorPlan')}
+          </button>
+        </div>
       </div>
 
       {/* Plans list */}
