@@ -40,6 +40,8 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [restaurantLoading, setRestaurantLoading] = useState(true);
+  const [restaurantError, setRestaurantError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
 
@@ -63,17 +65,33 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       router.push('/select-restaurant');
       return;
     }
+    setRestaurantLoading(true);
+    setRestaurantError(false);
     getRestaurant(restaurantId)
-      .then(setRestaurant)
-      .catch(() => router.push('/select-restaurant'))
+      .then((r) => { setRestaurant(r); setRestaurantError(false); })
+      .catch(() => setRestaurantError(true))
       .finally(() => setRestaurantLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, isLoggedIn, restaurantId, restaurantIds]);
+  }, [loading, isLoggedIn, restaurantId, restaurantIds, retryCount]);
 
   if (loading || restaurantLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (restaurantError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-fg-secondary">Unable to load restaurant. Check your connection.</p>
+        <button
+          className="text-sm text-brand-500 underline"
+          onClick={() => setRetryCount((c) => c + 1)}
+        >
+          Retry
+        </button>
       </div>
     );
   }
