@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   getFloorPlan, listSections, updateFloorPlan, deleteFloorPlan,
   saveFloorPlanLayout, createSection,
-  FloorPlan, FloorPlanPlacement, TableSection, PlacementInput, SectionInput,
+  FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -21,6 +21,33 @@ interface CanvasPlacement {
   height: number;// %
   shape: 'square' | 'circle';
 }
+
+interface CanvasDecoration {
+  id: string;   // client-side key
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'rectangle' | 'circle';
+  color: string;
+}
+
+type SelectedItem =
+  | { type: 'table'; id: number }
+  | { type: 'decoration'; id: string }
+  | null;
+
+const DECORATION_PRESETS = [
+  { label: 'Cuisine',  shape: 'rectangle' as const, color: '#d1c4a8' },
+  { label: 'Bar',      shape: 'rectangle' as const, color: '#b3cde0' },
+  { label: 'Entrée',   shape: 'rectangle' as const, color: '#c8e6c9' },
+  { label: 'Toilettes',shape: 'rectangle' as const, color: '#e1bee7' },
+  { label: 'Caisse',   shape: 'rectangle' as const, color: '#ffe0b2' },
+  { label: 'Forme',    shape: 'rectangle' as const, color: '#e5e7eb' },
+];
+
+const PALETTE_COLORS = ['#e5e7eb', '#d1c4a8', '#b3cde0', '#c8e6c9', '#e1bee7', '#ffe0b2', '#fce4ec', '#f5f5f5'];
 
 // ─── Section Modal ────────────────────────────────────────────────────────────
 
@@ -162,14 +189,20 @@ export default function FloorPlanEditorPage() {
 
   // Canvas placements (working copy)
   const [placements, setPlacements] = useState<CanvasPlacement[]>([]);
-  // Original placements for reset
   const [originalPlacements, setOriginalPlacements] = useState<CanvasPlacement[]>([]);
+  const [decorations, setDecorations] = useState<CanvasDecoration[]>([]);
+  const [originalDecorations, setOriginalDecorations] = useState<CanvasDecoration[]>([]);
 
-  const [selected, setSelected] = useState<number | null>(null); // tableId
+  const [selected, setSelected] = useState<SelectedItem>(null);
   const [showSectionModal, setShowSectionModal] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{ tableId: number; startMouseX: number; startMouseY: number; startX: number; startY: number } | null>(null);
+  const dragState = useRef<{
+    kind: 'table' | 'decoration';
+    id: number | string;
+    startMouseX: number; startMouseY: number;
+    startX: number; startY: number;
+  } | null>(null);
   const dropState = useRef<{ tableId: number; tableName: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -188,6 +221,18 @@ export default function FloorPlanEditorPage() {
       }));
       setPlacements(mapped);
       setOriginalPlacements(mapped);
+      const mappedDecs: CanvasDecoration[] = (fp.decorations ?? []).map((d) => ({
+        id: String(d.id),
+        label: d.label,
+        x: d.x,
+        y: d.y,
+        width: d.width,
+        height: d.height,
+        shape: d.shape,
+        color: d.color,
+      }));
+      setDecorations(mappedDecs);
+      setOriginalDecorations(mappedDecs);
     } finally {
       setLoading(false);
     }
@@ -197,37 +242,40 @@ export default function FloorPlanEditorPage() {
 
   const placedIds = new Set(placements.map((p) => p.tableId));
 
-  // ─── Canvas drag (move existing tables) ───────────────────────────────────
+  // ─── Canvas drag (move tables and decorations) ────────────────────────────
 
   const handleTableMouseDown = (e: React.MouseEvent, tableId: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected(tableId);
+    setSelected({ type: 'table', id: tableId });
     const placement = placements.find((p) => p.tableId === tableId);
     if (!placement) return;
-    dragState.current = {
-      tableId,
-      startMouseX: e.clientX,
-      startMouseY: e.clientY,
-      startX: placement.x,
-      startY: placement.y,
-    };
+    dragState.current = { kind: 'table', id: tableId, startMouseX: e.clientX, startMouseY: e.clientY, startX: placement.x, startY: placement.y };
+  };
+
+  const handleDecorationMouseDown = (e: React.MouseEvent, decId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelected({ type: 'decoration', id: decId });
+    const dec = decorations.find((d) => d.id === decId);
+    if (!dec) return;
+    dragState.current = { kind: 'decoration', id: decId, startMouseX: e.clientX, startMouseY: e.clientY, startX: dec.x, startY: dec.y };
   };
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!dragState.current || !canvasRef.current) return;
-      // Destructure synchronously — dragState.current may be nulled by onMouseUp
-      // before the setPlacements callback runs.
-      const { tableId, startMouseX, startMouseY, startX, startY } = dragState.current;
+      const { kind, id, startMouseX, startMouseY, startX, startY } = dragState.current;
       const rect = canvasRef.current.getBoundingClientRect();
       const dx = ((e.clientX - startMouseX) / rect.width) * 100;
       const dy = ((e.clientY - startMouseY) / rect.height) * 100;
       const newX = Math.max(0, Math.min(94, startX + dx));
       const newY = Math.max(0, Math.min(94, startY + dy));
-      setPlacements((prev) =>
-        prev.map((p) => p.tableId === tableId ? { ...p, x: newX, y: newY } : p)
-      );
+      if (kind === 'table') {
+        setPlacements((prev) => prev.map((p) => p.tableId === id ? { ...p, x: newX, y: newY } : p));
+      } else {
+        setDecorations((prev) => prev.map((d) => d.id === id ? { ...d, x: newX, y: newY } : d));
+      }
     };
     const onMouseUp = () => { dragState.current = null; };
     window.addEventListener('mousemove', onMouseMove);
@@ -254,19 +302,44 @@ export default function FloorPlanEditorPage() {
     dropState.current = null;
   };
 
-  // ─── Selected table controls ──────────────────────────────────────────────
+  // ─── Selected item controls ───────────────────────────────────────────────
 
-  const selectedPlacement = placements.find((p) => p.tableId === selected);
+  const selectedPlacement = selected?.type === 'table'
+    ? placements.find((p) => p.tableId === selected.id)
+    : undefined;
+
+  const selectedDecoration = selected?.type === 'decoration'
+    ? decorations.find((d) => d.id === selected.id)
+    : undefined;
 
   const updateSelected = (patch: Partial<CanvasPlacement>) => {
-    if (selected === null) return;
-    setPlacements((prev) => prev.map((p) => p.tableId === selected ? { ...p, ...patch } : p));
+    if (selected?.type !== 'table') return;
+    setPlacements((prev) => prev.map((p) => p.tableId === selected.id ? { ...p, ...patch } : p));
+  };
+
+  const updateSelectedDecoration = (patch: Partial<CanvasDecoration>) => {
+    if (selected?.type !== 'decoration') return;
+    setDecorations((prev) => prev.map((d) => d.id === selected.id ? { ...d, ...patch } : d));
   };
 
   const removeSelected = () => {
-    if (selected === null) return;
-    setPlacements((prev) => prev.filter((p) => p.tableId !== selected));
+    if (!selected) return;
+    if (selected.type === 'table') {
+      setPlacements((prev) => prev.filter((p) => p.tableId !== selected.id));
+    } else {
+      setDecorations((prev) => prev.filter((d) => d.id !== selected.id));
+    }
     setSelected(null);
+  };
+
+  const addDecoration = (preset: typeof DECORATION_PRESETS[number]) => {
+    const offset = decorations.length * 3;
+    const x = Math.min(10 + offset, 55);
+    const y = Math.min(10 + offset, 55);
+    const id = `dec-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const dec: CanvasDecoration = { id, label: preset.label, x, y, width: 16, height: 10, shape: preset.shape, color: preset.color };
+    setDecorations((prev) => [...prev, dec]);
+    setSelected({ type: 'decoration', id });
   };
 
   // ─── Save / Delete ────────────────────────────────────────────────────────
@@ -282,7 +355,16 @@ export default function FloorPlanEditorPage() {
         height: p.height,
         shape: p.shape,
       }));
-      await saveFloorPlanLayout(rid, pid, inputs);
+      const decInputs: DecorationInput[] = decorations.map((d) => ({
+        label: d.label,
+        x: d.x,
+        y: d.y,
+        width: d.width,
+        height: d.height,
+        shape: d.shape,
+        color: d.color,
+      }));
+      await saveFloorPlanLayout(rid, pid, inputs, decInputs);
       router.push(`/${rid}/restaurant/floor-plans`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
@@ -299,6 +381,7 @@ export default function FloorPlanEditorPage() {
 
   const handleReset = () => {
     setPlacements(originalPlacements);
+    setDecorations(originalDecorations);
     setSelected(null);
   };
 
@@ -334,54 +417,97 @@ export default function FloorPlanEditorPage() {
         {/* Body */}
         <div className="flex flex-1 overflow-hidden">
 
-          {/* Left panel — selected table controls */}
-          <div className="w-28 flex-shrink-0 flex flex-col gap-3 p-3" style={{ borderRight: '1px solid var(--divider)' }}>
+          {/* Left panel — selected item controls */}
+          <div className="w-32 flex-shrink-0 flex flex-col gap-3 p-3" style={{ borderRight: '1px solid var(--divider)' }}>
             {selectedPlacement && (
               <>
-                {/* Shape */}
+                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Table</p>
                 <div>
                   <p className="text-xs text-fg-secondary mb-1.5">{t('shape')}</p>
                   <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => updateSelected({ shape: 'square' })}
-                      className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedPlacement.shape === 'square' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
-                      style={selectedPlacement.shape !== 'square' ? { background: 'var(--surface-subtle)' } : {}}
-                    >
-                      {t('squareShape')}
-                    </button>
-                    <button
-                      onClick={() => updateSelected({ shape: 'circle' })}
-                      className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedPlacement.shape === 'circle' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
-                      style={selectedPlacement.shape !== 'circle' ? { background: 'var(--surface-subtle)' } : {}}
-                    >
-                      {t('circleShape')}
-                    </button>
+                    {(['square', 'circle'] as const).map((s) => (
+                      <button key={s}
+                        onClick={() => updateSelected({ shape: s })}
+                        className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedPlacement.shape === s ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
+                        style={selectedPlacement.shape !== s ? { background: 'var(--surface-subtle)' } : {}}
+                      >
+                        {s === 'square' ? t('squareShape') : t('circleShape')}
+                      </button>
+                    ))}
                   </div>
                 </div>
-
-                {/* Width */}
                 <div>
                   <p className="text-xs text-fg-secondary mb-1">{t('tableWidth')}</p>
-                  <input
-                    type="number" min="3" max="30" step="0.5"
+                  <input type="number" min="3" max="30" step="0.5"
                     value={Math.round(selectedPlacement.width * 10) / 10}
                     onChange={(e) => updateSelected({ width: Number(e.target.value) })}
-                    className="input text-xs w-full"
-                  />
+                    className="input text-xs w-full" />
                 </div>
-
-                {/* Height */}
                 <div>
                   <p className="text-xs text-fg-secondary mb-1">{t('tableHeight')}</p>
-                  <input
-                    type="number" min="3" max="30" step="0.5"
+                  <input type="number" min="3" max="30" step="0.5"
                     value={Math.round(selectedPlacement.height * 10) / 10}
                     onChange={(e) => updateSelected({ height: Number(e.target.value) })}
+                    className="input text-xs w-full" />
+                </div>
+                <button onClick={removeSelected} className="p-2 rounded-md hover:bg-red-500/10 self-start">
+                  <TrashIcon className="w-4 h-4 text-red-400" />
+                </button>
+              </>
+            )}
+
+            {selectedDecoration && (
+              <>
+                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Forme</p>
+                <div>
+                  <p className="text-xs text-fg-secondary mb-1">Étiquette</p>
+                  <input
+                    value={selectedDecoration.label}
+                    onChange={(e) => updateSelectedDecoration({ label: e.target.value })}
                     className="input text-xs w-full"
+                    placeholder="Cuisine..."
                   />
                 </div>
-
-                {/* Delete */}
+                <div>
+                  <p className="text-xs text-fg-secondary mb-1.5">{t('shape')}</p>
+                  <div className="flex flex-col gap-1">
+                    {(['rectangle', 'circle'] as const).map((s) => (
+                      <button key={s}
+                        onClick={() => updateSelectedDecoration({ shape: s })}
+                        className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${selectedDecoration.shape === s ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}
+                        style={selectedDecoration.shape !== s ? { background: 'var(--surface-subtle)' } : {}}
+                      >
+                        {s === 'rectangle' ? 'Carré' : 'Cercle'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-fg-secondary mb-1">{t('tableWidth')}</p>
+                  <input type="number" min="4" max="60" step="1"
+                    value={Math.round(selectedDecoration.width)}
+                    onChange={(e) => updateSelectedDecoration({ width: Number(e.target.value) })}
+                    className="input text-xs w-full" />
+                </div>
+                <div>
+                  <p className="text-xs text-fg-secondary mb-1">{t('tableHeight')}</p>
+                  <input type="number" min="4" max="60" step="1"
+                    value={Math.round(selectedDecoration.height)}
+                    onChange={(e) => updateSelectedDecoration({ height: Number(e.target.value) })}
+                    className="input text-xs w-full" />
+                </div>
+                <div>
+                  <p className="text-xs text-fg-secondary mb-1.5">Couleur</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PALETTE_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateSelectedDecoration({ color: c })}
+                        style={{ background: c, width: 20, height: 20, borderRadius: 4, border: selectedDecoration.color === c ? '2px solid #F18A47' : '1px solid rgba(0,0,0,0.15)' }}
+                      />
+                    ))}
+                  </div>
+                </div>
                 <button onClick={removeSelected} className="p-2 rounded-md hover:bg-red-500/10 self-start">
                   <TrashIcon className="w-4 h-4 text-red-400" />
                 </button>
@@ -406,11 +532,43 @@ export default function FloorPlanEditorPage() {
               onDrop={handleCanvasDrop}
               onClick={() => setSelected(null)}
             >
+              {/* Decorations — rendered first (behind tables) */}
+              {decorations.map((d) => (
+                <div
+                  key={d.id}
+                  onMouseDown={(e) => handleDecorationMouseDown(e, d.id)}
+                  onClick={(e) => { e.stopPropagation(); setSelected({ type: 'decoration', id: d.id }); }}
+                  style={{
+                    position: 'absolute',
+                    left: `${d.x}%`,
+                    top: `${d.y}%`,
+                    width: `${d.width}%`,
+                    height: `${d.height}%`,
+                    borderRadius: d.shape === 'circle' ? '50%' : '8px',
+                    background: d.color,
+                    border: selected?.type === 'decoration' && selected.id === d.id
+                      ? '2px dashed #F18A47'
+                      : '2px dashed rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'move',
+                    userSelect: 'none',
+                    zIndex: 1,
+                  }}
+                >
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(0,0,0,0.45)', textAlign: 'center', padding: '4px', lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {d.label}
+                  </span>
+                </div>
+              ))}
+
+              {/* Tables — rendered on top of decorations */}
               {placements.map((p) => (
                 <div
                   key={p.tableId}
                   onMouseDown={(e) => handleTableMouseDown(e, p.tableId)}
-                  onClick={(e) => { e.stopPropagation(); setSelected(p.tableId); }}
+                  onClick={(e) => { e.stopPropagation(); setSelected({ type: 'table', id: p.tableId }); }}
                   style={{
                     position: 'absolute',
                     left: `${p.x}%`,
@@ -419,13 +577,14 @@ export default function FloorPlanEditorPage() {
                     height: `${p.height}%`,
                     borderRadius: p.shape === 'circle' ? '50%' : '6px',
                     background: '#1a1a1a',
-                    border: selected === p.tableId ? '2px solid #F18A47' : '2px solid transparent',
+                    border: selected?.type === 'table' && selected.id === p.tableId ? '2px solid #F18A47' : '2px solid transparent',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'grab',
                     userSelect: 'none',
                     transition: 'border-color 0.1s',
+                    zIndex: 2,
                   }}
                 >
                   <span style={{ color: 'white', fontSize: '11px', fontWeight: 600, textAlign: 'center', padding: '2px', lineHeight: 1.2 }}>
@@ -468,7 +627,7 @@ export default function FloorPlanEditorPage() {
                           const x = Math.min(10 + offset, 60);
                           const y = Math.min(10 + offset, 60);
                           setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: 6, height: 6, shape: 'square' }]);
-                          setSelected(tbl.id);
+                          setSelected({ type: 'table', id: tbl.id });
                         }}
                         className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"
                         style={{ background: '#1a1a1a', color: 'white' }}
@@ -492,6 +651,23 @@ export default function FloorPlanEditorPage() {
                 </div>
               );
             })}
+
+            {/* Decoration presets */}
+            <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '1rem' }}>
+              <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">Formes</p>
+              <div className="flex flex-wrap gap-1.5">
+                {DECORATION_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => addDecoration(preset)}
+                    className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
+                    style={{ background: preset.color, color: 'rgba(0,0,0,0.6)', border: '1px solid rgba(0,0,0,0.1)' }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Add section */}
             <button

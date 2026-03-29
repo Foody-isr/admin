@@ -1864,12 +1864,35 @@ export interface FloorPlanPlacement {
   table: RestaurantTableRef;
 }
 
+export interface FloorPlanDecoration {
+  id: number;
+  floor_plan_id: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'rectangle' | 'circle';
+  color: string;
+}
+
+export interface DecorationInput {
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'rectangle' | 'circle';
+  color: string;
+}
+
 export interface FloorPlan {
   id: number;
   restaurant_id: number;
   name: string;
   sort_order: number;
   placements?: FloorPlanPlacement[];
+  decorations?: FloorPlanDecoration[];
   created_at: string;
   updated_at: string;
 }
@@ -1959,10 +1982,10 @@ export async function deleteFloorPlan(restaurantId: number, planId: number): Pro
   );
 }
 
-export async function saveFloorPlanLayout(restaurantId: number, planId: number, placements: PlacementInput[]): Promise<FloorPlan> {
+export async function saveFloorPlanLayout(restaurantId: number, planId: number, placements: PlacementInput[], decorations: DecorationInput[] = []): Promise<FloorPlan> {
   const data = await apiFetch<{ floor_plan: FloorPlan }>(
     `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}/layout?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'PUT', body: JSON.stringify({ placements }) }
+    { method: 'PUT', body: JSON.stringify({ placements, decorations }) }
   );
   return data.floor_plan;
 }
