@@ -9,8 +9,9 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  XMarkIcon, PlusIcon, Bars3Icon, TrashIcon,
+  XMarkIcon, PlusIcon, TrashIcon,
 } from '@heroicons/react/24/outline';
+import { PhotoIcon } from '@heroicons/react/24/outline';
 
 interface ModifierRow {
   id?: number;
@@ -52,6 +53,7 @@ export default function ModifierSetEditorPage() {
   const [allowMultiple, setAllowMultiple] = useState(false);
   const [minSelections, setMinSelections] = useState(1);
   const [maxSelections, setMaxSelections] = useState(0);
+  const [allowQuantities, setAllowQuantities] = useState(false);
   const [hideOnReceipt, setHideOnReceipt] = useState(false);
   const [useConversational, setUseConversational] = useState(false);
   const [rows, setRows] = useState<ModifierRow[]>([blankRow(0)]);
@@ -65,6 +67,8 @@ export default function ModifierSetEditorPage() {
     setDisplayName(set.display_name);
     setIsRequired(set.is_required);
     setAllowMultiple(set.allow_multiple);
+    const hasCustomQuantities = set.min_selections > 1 || set.max_selections > 0;
+    setAllowQuantities(hasCustomQuantities);
     setMinSelections(set.min_selections || 1);
     setMaxSelections(set.max_selections);
     setHideOnReceipt(set.hide_on_receipt);
@@ -109,8 +113,8 @@ export default function ModifierSetEditorPage() {
         display_name: displayName,
         is_required: isRequired,
         allow_multiple: allowMultiple,
-        min_selections: isRequired ? minSelections : 0,
-        max_selections: allowMultiple ? maxSelections : 0,
+        min_selections: (allowMultiple && allowQuantities) ? minSelections : 0,
+        max_selections: (allowMultiple && allowQuantities) ? maxSelections : 0,
         hide_on_receipt: hideOnReceipt,
         use_conversational: useConversational,
       };
@@ -224,81 +228,146 @@ export default function ModifierSetEditorPage() {
 
         {/* Modifier list */}
         <div className="card p-0 overflow-hidden">
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
-            <h2 className="font-semibold text-fg-primary">{t('modifierList') || 'Modifier list'}</h2>
+          {/* Section title — not scrollable */}
+          <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
+            <h2 className="font-bold text-fg-primary text-base">{t('modifierList') || 'Modifier list'}</h2>
           </div>
+
+          {/* Sticky column headers */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--divider)' }}>
+            <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: 48 }} />   {/* image */}
+                <col style={{ width: '28%' }} /> {/* name */}
+                <col style={{ width: '22%' }} /> {/* kitchen name */}
+                <col style={{ width: 110 }} />   {/* price */}
+                <col style={{ width: 80 }} />    {/* hide online */}
+                <col style={{ width: 80 }} />    {/* preselect */}
+                <col style={{ width: 120 }} />   {/* availability toggle */}
+                <col style={{ width: 40 }} />    {/* drag / delete */}
+              </colgroup>
+              <thead style={{ borderBottom: '1px solid var(--divider)' }}>
                 <tr>
-                  <th className="w-8 px-3 py-2" />
-                  <th className="text-left px-3 py-2 font-medium text-fg-secondary">{t('name') || 'Name'}</th>
-                  <th className="text-left px-3 py-2 font-medium text-fg-secondary">{t('kitchenName') || 'Kitchen name'}</th>
-                  <th className="text-left px-3 py-2 font-medium text-fg-secondary">{t('price') || 'Price'}</th>
-                  <th className="text-center px-3 py-2 font-medium text-fg-secondary">{t('hideOnline') || 'Hide online'}</th>
-                  <th className="text-center px-3 py-2 font-medium text-fg-secondary">{t('preselect') || 'Preselect'}</th>
-                  <th className="text-center px-3 py-2 font-medium text-fg-secondary">{t('available') || 'Available'}</th>
                   <th className="px-3 py-2" />
+                  <th className="text-left px-3 py-2 font-medium text-fg-secondary text-xs">{t('name') || 'Name'}</th>
+                  <th className="text-left px-3 py-2 font-medium text-fg-secondary text-xs">{t('kitchenName') || 'Kitchen name'}</th>
+                  <th className="text-left px-3 py-2 font-medium text-fg-secondary text-xs">{t('price') || 'Price'}</th>
+                  <th className="text-center px-2 py-2 font-medium text-fg-secondary text-xs leading-tight">{t('hideOnline') || 'Hide online'}</th>
+                  <th className="text-center px-2 py-2 font-medium text-fg-secondary text-xs leading-tight">{t('preselect') || 'Preselect'}</th>
+                  <th className="text-left px-3 py-2 font-medium text-fg-secondary text-xs">{t('available') || 'Availability'}</th>
+                  <th className="px-2 py-2" />
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, i) => (
-                  <tr key={i} style={{ borderTop: i > 0 ? '1px solid var(--divider)' : undefined }}>
-                    <td className="px-3 py-2 text-fg-secondary/30 cursor-grab">
-                      <Bars3Icon className="w-4 h-4" />
+                  <tr
+                    key={i}
+                    className="group"
+                    style={{ borderTop: '1px solid var(--divider)' }}
+                  >
+                    {/* Image placeholder */}
+                    <td className="px-3 py-3">
+                      <div
+                        className="w-8 h-8 rounded flex items-center justify-center text-fg-secondary/40 cursor-pointer hover:text-fg-secondary transition-colors"
+                        style={{ border: '1px solid var(--divider)' }}
+                      >
+                        <PhotoIcon className="w-4 h-4" />
+                      </div>
                     </td>
-                    <td className="px-3 py-2">
+                    {/* Name */}
+                    <td className="px-3 py-3">
                       <input
                         value={row.name}
                         onChange={(e) => updateRow(i, { name: e.target.value })}
-                        placeholder={t('modifierName') || 'e.g. Extra cheese'}
-                        className="w-full min-w-[120px] px-2 py-1 text-sm bg-transparent outline-none text-fg-primary placeholder:text-fg-secondary/50 rounded"
+                        placeholder={t('modifierName') || 'New modifier'}
+                        className="w-full px-2 py-1.5 text-sm bg-transparent outline-none text-fg-primary placeholder:text-fg-secondary/40 rounded"
                         style={{ border: '1px solid var(--divider)' }}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    {/* Kitchen name */}
+                    <td className="px-3 py-3">
                       <input
                         value={row.kitchen_name}
                         onChange={(e) => updateRow(i, { kitchen_name: e.target.value })}
-                        placeholder={t('kitchenNamePlaceholder') || 'e.g. EXT'}
-                        className="w-full min-w-[100px] px-2 py-1 text-sm bg-transparent outline-none text-fg-primary placeholder:text-fg-secondary/50 rounded"
+                        placeholder={t('kitchenNamePlaceholder') || 'Abbrev.'}
+                        className="w-full px-2 py-1.5 text-sm bg-transparent outline-none text-fg-primary placeholder:text-fg-secondary/40 rounded"
                         style={{ border: '1px solid var(--divider)' }}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    {/* Price */}
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
                           step="0.01"
                           value={row.price_delta}
                           onChange={(e) => updateRow(i, { price_delta: parseFloat(e.target.value) || 0 })}
-                          className="w-20 px-2 py-1 text-sm bg-transparent outline-none text-fg-primary rounded"
+                          className="w-full px-2 py-1.5 text-sm bg-transparent outline-none text-fg-primary rounded"
                           style={{ border: '1px solid var(--divider)' }}
                         />
-                        <span className="text-fg-secondary/50 text-xs">₪</span>
+                        <span className="text-fg-secondary/50 text-xs shrink-0">₪</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-center">
-                      <input type="checkbox" checked={row.hide_online} onChange={(e) => updateRow(i, { hide_online: e.target.checked })} className="rounded" />
+                    {/* Hide online */}
+                    <td className="px-2 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={row.hide_online}
+                        onChange={(e) => updateRow(i, { hide_online: e.target.checked })}
+                        className="rounded w-4 h-4"
+                      />
                     </td>
-                    <td className="px-3 py-2 text-center">
-                      <input type="checkbox" checked={row.is_preselected} onChange={(e) => updateRow(i, { is_preselected: e.target.checked })} className="rounded" />
+                    {/* Preselect */}
+                    <td className="px-2 py-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={row.is_preselected}
+                        onChange={(e) => updateRow(i, { is_preselected: e.target.checked })}
+                        className="rounded w-4 h-4"
+                      />
                     </td>
-                    <td className="px-3 py-2 text-center">
-                      <input type="checkbox" checked={row.is_active} onChange={(e) => updateRow(i, { is_active: e.target.checked })} className="rounded" />
+                    {/* Availability toggle */}
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateRow(i, { is_active: !row.is_active })}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${row.is_active ? 'bg-gray-800' : 'bg-gray-300'}`}
+                        >
+                          <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${row.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </button>
+                        <span className="text-xs text-fg-secondary whitespace-nowrap">
+                          {row.is_active ? (t('inStock') || 'In stock') : (t('outOfStock') || 'Out of stock')}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-3 py-2">
-                      <button onClick={() => removeRow(i)} className="p-1 text-fg-secondary/30 hover:text-red-500 rounded transition-colors">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
+                    {/* Drag handle + delete on hover */}
+                    <td className="px-2 py-3">
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => removeRow(i)}
+                          className="p-1 text-fg-secondary/20 hover:text-red-500 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                        <div className="cursor-grab text-fg-secondary/30 p-1">
+                          <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                            <circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/>
+                            <circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/>
+                            <circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
+                          </svg>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Add modifier */}
           <div className="px-4 py-3" style={{ borderTop: '1px solid var(--divider)' }}>
-            <button onClick={addRow} className="flex items-center gap-1.5 text-sm text-brand-500 hover:text-brand-600 transition-colors">
+            <button onClick={addRow} className="flex items-center gap-1.5 text-sm text-brand-500 hover:text-brand-600 transition-colors font-medium">
               <PlusIcon className="w-4 h-4" />
               {t('addModifier') || 'Add modifier'}
             </button>
@@ -323,49 +392,80 @@ export default function ModifierSetEditorPage() {
           />
         </div>
 
-        {/* Quantity rules */}
-        <div className="card px-4 py-4">
-          <h2 className="font-semibold text-fg-primary mb-4">{t('quantityRules') || 'Quantity rules'}</h2>
+        {/* Quantity rules — only visible when Allow multiple is on */}
+        {allowMultiple && (
+          <div className="card p-0">
+            <div className="px-5 py-4">
+              <h2 className="font-bold text-fg-primary text-base mb-4">{t('quantityRules') || 'Quantity rules'}</h2>
 
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <p className="text-sm font-medium text-fg-primary">{t('minSelectionsLabel') || 'Minimum selections'}</p>
-              <p className="text-xs text-fg-secondary mt-0.5">{t('minSelectionsHint') || 'Add modifiers to define a minimum'}</p>
+              {/* Allow quantities toggle */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-fg-primary">
+                    {t('allowQuantities') || 'Allow multiple quantities per modifier'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllowQuantities((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${allowQuantities ? 'bg-gray-800' : 'bg-gray-300'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${allowQuantities ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
             </div>
-            <select
-              value={minSelections}
-              onChange={(e) => setMinSelections(Number(e.target.value))}
-              disabled={!isRequired}
-              className="px-3 py-1.5 text-sm rounded-lg outline-none transition-opacity disabled:opacity-40 text-fg-primary"
-              style={{ border: '1px solid var(--divider)', background: 'var(--surface-subtle)' }}
-            >
-              {selectionOptions.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
 
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-fg-primary">{t('maxSelectionsLabel') || 'Maximum selections'}</p>
-              <p className="text-xs text-fg-secondary mt-0.5">{t('maxSelectionsHint') || 'Add modifiers to define a maximum'}</p>
+            {/* Min selections */}
+            <div className="flex items-center justify-between gap-4 px-5 py-4" style={{ borderTop: '1px solid var(--divider)' }}>
+              <p className="text-sm font-semibold text-fg-primary">{t('minSelectionsLabel') || 'Minimum selections'}</p>
+              <div className="flex flex-col items-end gap-1">
+                <select
+                  value={minSelections}
+                  onChange={(e) => setMinSelections(Number(e.target.value))}
+                  disabled={!allowQuantities}
+                  className="w-48 px-3 py-2 text-sm rounded-lg outline-none transition-opacity text-fg-primary"
+                  style={{
+                    border: '1px solid var(--divider)',
+                    background: allowQuantities ? 'var(--surface)' : 'var(--surface-subtle)',
+                    opacity: allowQuantities ? 1 : 0.6,
+                  }}
+                >
+                  {selectionOptions.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-fg-secondary">{t('minSelectionsHint') || 'Add modifiers to define a minimum'}</p>
+              </div>
             </div>
-            <select
-              value={maxSelections}
-              onChange={(e) => setMaxSelections(Number(e.target.value))}
-              disabled={!allowMultiple}
-              className="px-3 py-1.5 text-sm rounded-lg outline-none transition-opacity disabled:opacity-40 text-fg-primary"
-              style={{ border: '1px solid var(--divider)', background: 'var(--surface-subtle)' }}
-            >
-              <option value={0}>{t('noMaximum') || 'No maximum'}</option>
-              {selectionOptions.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+
+            {/* Max selections */}
+            <div className="flex items-center justify-between gap-4 px-5 py-4" style={{ borderTop: '1px solid var(--divider)' }}>
+              <p className="text-sm font-semibold text-fg-primary">{t('maxSelectionsLabel') || 'Maximum selections'}</p>
+              <div className="flex flex-col items-end gap-1">
+                <select
+                  value={maxSelections}
+                  onChange={(e) => setMaxSelections(Number(e.target.value))}
+                  disabled={!allowQuantities}
+                  className="w-48 px-3 py-2 text-sm rounded-lg outline-none transition-opacity text-fg-primary"
+                  style={{
+                    border: '1px solid var(--divider)',
+                    background: allowQuantities ? 'var(--surface)' : 'var(--surface-subtle)',
+                    opacity: allowQuantities ? 1 : 0.6,
+                  }}
+                >
+                  <option value={0}>{t('noMaximum') || 'No maximum'}</option>
+                  {selectionOptions.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-fg-secondary">{t('maxSelectionsHint') || 'Add modifiers to define a maximum'}</p>
+              </div>
+            </div>
           </div>
+        )}
 
-          <div style={{ borderTop: '1px solid var(--divider)', marginTop: '1rem' }} />
-
+        {/* Settings */}
+        <div className="card px-4 pt-2 pb-0">
           <Toggle
             checked={hideOnReceipt}
             onChange={setHideOnReceipt}
