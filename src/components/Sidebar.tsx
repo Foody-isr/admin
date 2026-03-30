@@ -100,7 +100,7 @@ export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps)
           items: [
             { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
             { href: `${base}/menu/categories`, labelKey: 'categories' },
-            { href: `${base}/menu/modifiers`, labelKey: 'modifiers' },
+            { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
             { href: `${base}/menu/combos`, labelKey: 'combos' },
             { href: `${base}/menu/rotation`, labelKey: 'rotation' },
             { href: `${base}/menu/import`, labelKey: 'aiImport' },

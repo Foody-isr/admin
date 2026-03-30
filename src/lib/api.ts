@@ -73,13 +73,35 @@ export interface MenuCategory {
 
 export interface MenuItemModifier {
   id: number;
-  menu_item_id: number;
+  menu_item_id?: number;
+  modifier_set_id?: number;
   name: string;
+  kitchen_name: string;
   action: 'add' | 'remove';
   category: string;
   price_delta: number;
+  is_active: boolean;
+  is_preselected: boolean;
+  hide_online: boolean;
   is_required: boolean;
   sort_order: number;
+}
+
+export interface ModifierSet {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  display_name: string;
+  is_required: boolean;
+  allow_multiple: boolean;
+  min_selections: number;
+  max_selections: number;
+  hide_on_receipt: boolean;
+  use_conversational: boolean;
+  sort_order: number;
+  modifiers: MenuItemModifier[];
+  menu_items?: { id: number; name: string }[];
+  created_at: string;
 }
 
 export interface MenuItem {
@@ -93,6 +115,7 @@ export interface MenuItem {
   sort_order: number;
   rotation_group?: string;
   modifiers?: MenuItemModifier[];
+  modifier_sets?: ModifierSet[];
 }
 
 export interface OrderItemModifier {
@@ -831,6 +854,105 @@ export async function deleteModifier(restaurantId: number, id: number): Promise<
   await apiFetch<void>(
     `/api/v1/menu/modifiers/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
+  );
+}
+
+// ─── Modifier Sets ────────────────────────────────────────────────────────────
+
+export interface ModifierInSetInput {
+  name: string;
+  kitchen_name?: string;
+  action?: 'add' | 'remove';
+  price_delta?: number;
+  is_active?: boolean;
+  is_preselected?: boolean;
+  hide_online?: boolean;
+  sort_order?: number;
+}
+
+export interface ModifierSetInput {
+  name: string;
+  display_name?: string;
+  is_required?: boolean;
+  allow_multiple?: boolean;
+  min_selections?: number;
+  max_selections?: number;
+  hide_on_receipt?: boolean;
+  use_conversational?: boolean;
+  sort_order?: number;
+  modifiers?: ModifierInSetInput[];
+}
+
+export async function listModifierSets(restaurantId: number): Promise<ModifierSet[]> {
+  const data = await apiFetch<{ modifier_sets: ModifierSet[] }>(
+    `/api/v1/menu/modifier-sets?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.modifier_sets;
+}
+
+export async function getModifierSet(restaurantId: number, id: number): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets/${id}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.modifier_set;
+}
+
+export async function createModifierSet(restaurantId: number, input: ModifierSetInput): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.modifier_set;
+}
+
+export async function updateModifierSet(restaurantId: number, id: number, input: ModifierSetInput): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.modifier_set;
+}
+
+export async function deleteModifierSet(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function attachModifierSetToItems(restaurantId: number, setId: number, menuItemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_item_ids: menuItemIds }) }
+  );
+}
+
+export async function detachModifierSetFromItem(restaurantId: number, setId: number, menuItemId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/items/${menuItemId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function reorderModifierSetModifiers(restaurantId: number, setId: number, modifierIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/modifiers/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ modifier_ids: modifierIds }) }
+  );
+}
+
+export async function createModifierInSet(restaurantId: number, setId: number, input: ModifierInSetInput): Promise<MenuItemModifier> {
+  const data = await apiFetch<{ modifier: MenuItemModifier }>(
+    `/api/v1/menu/modifier-sets/${setId}/modifiers?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.modifier;
+}
+
+export async function migrateLegacyModifiers(restaurantId: number): Promise<{ sets_created: number }> {
+  return apiFetch<{ sets_created: number }>(
+    `/api/v1/menu/modifier-sets/migrate-legacy?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
   );
 }
 

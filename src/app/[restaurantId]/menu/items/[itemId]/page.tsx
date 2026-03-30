@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, updateMenuItem, deleteModifier, uploadMenuItemImage,
-  MenuCategory, MenuItem, MenuItemModifier,
+  detachModifierSetFromItem,
+  MenuCategory, MenuItem, MenuItemModifier, ModifierSet,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -234,7 +235,7 @@ export default function EditItemPage() {
               </div>
             )}
 
-            {/* Modifiers */}
+            {/* Legacy modifiers */}
             {(item.modifiers ?? []).length > 0 && (
               <div>
                 <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifiers')}</h3>
@@ -253,6 +254,46 @@ export default function EditItemPage() {
                           </span>
                         )}
                         <button onClick={() => handleDeleteModifier(mod.id)} className="p-1 rounded-md hover:bg-red-500/10">
+                          <TrashIcon className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modifier sets */}
+            {(item.modifier_sets ?? []).length > 0 && (
+              <div>
+                <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifierSets') || 'Modifier Sets'}</h3>
+                <div className="space-y-2">
+                  {(item.modifier_sets ?? []).map((ms: ModifierSet) => (
+                    <div key={ms.id} className="flex items-center justify-between py-2.5 px-4 rounded-standard" style={{ background: 'var(--surface-subtle)' }}>
+                      <div>
+                        <span className="text-sm font-medium text-fg-primary">{ms.name}</span>
+                        <span className="text-xs text-fg-secondary ml-2">
+                          {ms.modifiers?.length ?? 0} modifiers
+                        </span>
+                        {ms.is_required && (
+                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-600">required</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/${ms.id}`)}
+                          className="text-xs text-brand-600 hover:underline"
+                        >
+                          {t('edit') || 'Edit'}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm('Unlink this modifier set from item?')) return;
+                            await detachModifierSetFromItem(rid, ms.id, iid);
+                            loadData();
+                          }}
+                          className="p-1 rounded-md hover:bg-red-500/10"
+                        >
                           <TrashIcon className="w-4 h-4 text-red-400" />
                         </button>
                       </div>
