@@ -20,6 +20,7 @@ export default function WorkflowPage() {
     scheduling_enabled: false,
     tips_enabled: true,
     rush_mode: false,
+    pickup_prep_time_minutes: 20,
   });
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function WorkflowPage() {
           scheduling_enabled: s.scheduling_enabled,
           tips_enabled: s.tips_enabled,
           rush_mode: s.rush_mode ?? false,
+          pickup_prep_time_minutes: s.pickup_prep_time_minutes ?? 20,
         });
       })
       .finally(() => setLoading(false));
@@ -76,6 +78,22 @@ export default function WorkflowPage() {
             <option value="table">{t('tableService')}</option>
             <option value="counter">{t('counterService')}</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('pickupPrepTime')}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              max="240"
+              className="input w-24"
+              value={svc.pickup_prep_time_minutes}
+              onChange={(e) => setSvc((p) => ({ ...p, pickup_prep_time_minutes: parseInt(e.target.value) || 0 }))}
+            />
+            <span className="text-sm text-fg-secondary">{t('minutes')}</span>
+          </div>
+          <p className="text-xs text-fg-secondary mt-1">{t('pickupPrepTimeDesc')}</p>
         </div>
 
         {([

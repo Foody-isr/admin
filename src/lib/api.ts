@@ -41,6 +41,7 @@ export interface Restaurant {
   delivery_enabled: boolean;
   pickup_enabled: boolean;
   is_active: boolean;
+  opening_hours_config?: OpeningHoursConfig;
   created_at: string;
 }
 
@@ -58,6 +59,7 @@ export interface RestaurantSettings {
   floor_plan_color_indicators: boolean;
   table_yellow_after_minutes: number;
   table_red_after_minutes: number;
+  pickup_prep_time_minutes?: number;
 }
 
 export interface MenuCategory {
@@ -89,6 +91,7 @@ export interface MenuItem {
   price: number;
   is_active: boolean;
   sort_order: number;
+  rotation_group?: string;
   modifiers?: MenuItemModifier[];
 }
 
@@ -2002,4 +2005,182 @@ export async function reorderFloorPlans(restaurantId: number, ids: number[]): Pr
     `/api/v1/restaurants/${restaurantId}/floor-plans/reorder?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'PUT', body: JSON.stringify({ ids }) }
   );
+}
+
+// ─── Combo Menus ──────────────────────────────────────────────────────────────
+
+export interface ComboStepItem {
+  id: number;
+  combo_step_id: number;
+  menu_item_id: number;
+  price_delta: number;
+  menu_item?: MenuItem;
+}
+
+export interface ComboStep {
+  id: number;
+  combo_menu_id: number;
+  name: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order: number;
+  fixed_modifier_name?: string;
+  items: ComboStepItem[];
+}
+
+export interface ComboMenu {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  description: string;
+  price: number;
+  image_url: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  steps: ComboStep[];
+}
+
+export interface ComboStepItemInput {
+  menu_item_id: number;
+  price_delta: number;
+}
+
+export interface ComboStepInput {
+  name: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order: number;
+  fixed_modifier_name?: string;
+  items: ComboStepItemInput[];
+}
+
+export interface ComboInput {
+  name: string;
+  description?: string;
+  price: number;
+  image_url?: string;
+  is_active: boolean;
+  sort_order?: number;
+  steps: ComboStepInput[];
+}
+
+export async function listCombos(restaurantId: number): Promise<ComboMenu[]> {
+  const data = await apiFetch<{ combos: ComboMenu[] }>(`/api/v1/combos`, restaurantId);
+  return data.combos;
+}
+
+export async function getCombo(restaurantId: number, id: number): Promise<ComboMenu> {
+  const data = await apiFetch<{ combo: ComboMenu }>(`/api/v1/combos/${id}`, restaurantId);
+  return data.combo;
+}
+
+export async function createCombo(restaurantId: number, input: ComboInput): Promise<ComboMenu> {
+  const data = await apiFetch<{ combo: ComboMenu }>(`/api/v1/combos`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return data.combo;
+}
+
+export async function updateCombo(restaurantId: number, id: number, input: ComboInput): Promise<ComboMenu> {
+  const data = await apiFetch<{ combo: ComboMenu }>(`/api/v1/combos/${id}`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return data.combo;
+}
+
+export async function deleteCombo(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/combos/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function uploadComboImage(restaurantId: number, comboId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/combos/${comboId}/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
+// ─── Rotation Schedule ────────────────────────────────────────────────────────
+
+export interface RotationSchedule {
+  id: number;
+  restaurant_id: number;
+  rotation_group: string;
+  menu_item_id: number;
+  week_start: string;
+  created_at: string;
+}
+
+export async function getRotationSchedules(restaurantId: number, weeks = 4): Promise<RotationSchedule[]> {
+  const data = await apiFetch<{ schedules: RotationSchedule[] }>(
+    `/api/v1/menus/rotation-schedules?weeks=${weeks}`, restaurantId
+  );
+  return data.schedules;
+}
+
+export async function setRotationSchedule(
+  restaurantId: number,
+  input: { rotation_group: string; menu_item_id: number; week_start: string }
+): Promise<RotationSchedule> {
+  const data = await apiFetch<{ schedule: RotationSchedule }>(
+    `/api/v1/menus/rotation-schedules`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.schedule;
+}
+
+export async function deleteRotationSchedule(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/menus/rotation-schedules/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function renameRotationGroup(restaurantId: number, old_name: string, new_name: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/menus/rotation-groups/rename`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ old_name, new_name }),
+  });
+}
+
+export async function deleteRotationGroup(restaurantId: number, name: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/menus/rotation-groups/${encodeURIComponent(name)}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
+// ─── Opening Hours ────────────────────────────────────────────────────────────
+
+export interface DayHours {
+  open: string;
+  close: string;
+  closed: boolean;
+}
+
+export type WeeklyHours = {
+  monday: DayHours;
+  tuesday: DayHours;
+  wednesday: DayHours;
+  thursday: DayHours;
+  friday: DayHours;
+  saturday: DayHours;
+  sunday: DayHours;
+};
+
+export interface OpeningHoursConfig {
+  dine_in?: WeeklyHours;
+  pickup?: WeeklyHours;
+  delivery?: WeeklyHours;
 }

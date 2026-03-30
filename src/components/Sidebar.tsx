@@ -101,6 +101,8 @@ export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps)
             { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
             { href: `${base}/menu/categories`, labelKey: 'categories' },
             { href: `${base}/menu/modifiers`, labelKey: 'modifiers' },
+            { href: `${base}/menu/combos`, labelKey: 'combos' },
+            { href: `${base}/menu/rotation`, labelKey: 'rotation' },
             { href: `${base}/menu/import`, labelKey: 'aiImport' },
           ],
         },
@@ -166,6 +168,7 @@ export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps)
       perm: ['settings.view', 'settings.edit', 'tables.manage'],
       subItems: [
         { href: `${base}/settings`, labelKey: 'general' },
+        { href: `${base}/settings/opening-hours`, labelKey: 'openingHours' },
         { href: `${base}/orders/settings`, labelKey: 'fulfillmentSettings' },
         { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans' },
         { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
