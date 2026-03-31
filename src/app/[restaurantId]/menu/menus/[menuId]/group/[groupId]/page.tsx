@@ -576,7 +576,7 @@ function AddChoiceModal({ t, onClose, onPickIndividually, onPickFromCategory }: 
   onPickFromCategory: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
       <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-8" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center mb-5">
           <XMarkIcon className="w-5 h-5" />
@@ -639,7 +639,7 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
       <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-8 pb-5">
           <div className="flex items-center justify-between mb-5">
@@ -744,7 +744,7 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
       <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-8 pb-5">
           <div className="flex items-center justify-between mb-5">
