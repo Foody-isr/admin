@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, createCategory, updateCategory,
+  listMenus, getAllCategories, createCategory, updateCategory,
   getCategoryHours, setCategoryHours,
   uploadCategoryImage, deleteMenuItem, updateMenuItem,
   Menu, MenuCategory, MenuItem, CategoryAvailabilityHour,
@@ -28,7 +28,7 @@ export default function GroupPage() {
   const router = useRouter();
   const { t } = useI18n();
 
-  const [allMenus, setAllMenus] = useState<Menu[]>([]);
+  const [allCats, setAllCats] = useState<MenuCategory[]>([]);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,8 +57,8 @@ export default function GroupPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    listMenus(rid).then(async (menus) => {
-      setAllMenus(menus);
+    Promise.all([listMenus(rid), getAllCategories(rid)]).then(async ([menus, fullCats]) => {
+      setAllCats(fullCats);
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       const cats = found?.categories ?? [];
@@ -151,18 +151,16 @@ export default function GroupPage() {
 
   const parentOptions = categories.filter((c) => c.id !== gid);
 
-  // All items across all menus (for item picker + resolving pending)
+  // All items across all categories (for item picker + resolving pending)
   const allItems = useMemo(() => {
     const items: MenuItem[] = [];
-    for (const m of allMenus) {
-      for (const c of m.categories ?? []) {
-        for (const item of c.items ?? []) {
-          items.push(item);
-        }
+    for (const c of allCats) {
+      for (const item of c.items ?? []) {
+        items.push(item);
       }
     }
     return items;
-  }, [allMenus]);
+  }, [allCats]);
 
   // Items belonging to this group (saved + pending)
   const savedGroupItems: MenuItem[] = (!isNew && gid)
@@ -179,18 +177,12 @@ export default function GroupPage() {
     return [...savedGroupItems, ...pendingItems.filter((i) => !savedIds.has(i.id))];
   }, [savedGroupItems, pendingItems]);
 
-  // All categories across all menus (for category picker)
+  // All categories (for category picker), excluding current group
   const allCategories = useMemo(() => {
-    const cats: (MenuCategory & { menuName: string })[] = [];
-    for (const m of allMenus) {
-      for (const c of m.categories ?? []) {
-        if (c.id !== gid) {
-          cats.push({ ...c, menuName: m.name });
-        }
-      }
-    }
-    return cats;
-  }, [allMenus, gid]);
+    return allCats
+      .filter((c) => c.id !== gid)
+      .map((c) => ({ ...c, menuName: '' }));
+  }, [allCats, gid]);
 
   const groupItemIds = useMemo(() => new Set<number>(groupItems.map((i) => i.id)), [groupItems]);
 
@@ -656,9 +648,9 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
           </div>
           <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addArticles')}</h2>
           <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
-              className="input w-full pl-11 rounded-full"
+              className="input w-full pl-12 rounded-full"
               placeholder={t('search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -761,9 +753,9 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
           </div>
           <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addFromCategoryTitle')}</h2>
           <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
-              className="input w-full pl-11 rounded-full"
+              className="input w-full pl-12 rounded-full"
               placeholder={t('searchCategories')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
