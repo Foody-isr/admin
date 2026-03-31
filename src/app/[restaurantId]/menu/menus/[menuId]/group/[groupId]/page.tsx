@@ -577,30 +577,30 @@ function AddChoiceModal({ t, onClose, onPickIndividually, onPickFromCategory }: 
 }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center mb-4">
+      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-8" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center mb-5">
           <XMarkIcon className="w-5 h-5" />
         </button>
-        <h2 className="text-xl font-bold text-fg-primary mb-4">{t('addArticle')}</h2>
+        <h2 className="text-2xl font-bold text-fg-primary mb-6">{t('addArticle')}</h2>
         <div className="space-y-0 rounded-xl border border-[var(--divider)] overflow-hidden">
           <button
             onClick={onPickIndividually}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-left"
+            className="w-full flex items-center justify-between px-6 py-5 hover:bg-[var(--surface-subtle)] transition-colors text-left"
           >
             <div>
               <p className="text-base font-bold text-fg-primary">{t('addIndividually')}</p>
-              <p className="text-sm text-fg-tertiary mt-0.5">{t('addIndividuallyDesc')}</p>
+              <p className="text-sm text-fg-tertiary mt-1">{t('addIndividuallyDesc')}</p>
             </div>
             <ChevronRightIcon className="w-5 h-5 text-fg-tertiary shrink-0" />
           </button>
           <div className="border-t border-[var(--divider)]" />
           <button
             onClick={onPickFromCategory}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-left"
+            className="w-full flex items-center justify-between px-6 py-5 hover:bg-[var(--surface-subtle)] transition-colors text-left"
           >
             <div>
               <p className="text-base font-bold text-fg-primary">{t('addFromCategory')}</p>
-              <p className="text-sm text-fg-tertiary mt-0.5">{t('addFromCategoryDesc')}</p>
+              <p className="text-sm text-fg-tertiary mt-1">{t('addFromCategoryDesc')}</p>
             </div>
             <ChevronRightIcon className="w-5 h-5 text-fg-tertiary shrink-0" />
           </button>
@@ -640,10 +640,10 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={onClose} className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
+      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-8 pb-5">
+          <div className="flex items-center justify-between mb-5">
+            <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
               <XMarkIcon className="w-5 h-5" />
             </button>
             <button
@@ -654,7 +654,7 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
               {t('done')}
             </button>
           </div>
-          <h2 className="text-xl font-bold text-fg-primary mb-4">{t('addArticles')}</h2>
+          <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addArticles')}</h2>
           <div className="relative">
             <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
@@ -665,8 +665,8 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          <div className="flex items-center justify-between text-sm text-fg-secondary mb-2">
+        <div className="flex-1 overflow-y-auto px-8 pb-8">
+          <div className="flex items-center justify-between text-sm text-fg-secondary mb-3">
             <span>{t('articlesGroup')}</span>
             <span>{selected.size} {t('selected')}</span>
           </div>
@@ -745,10 +745,10 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={onClose} className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
+      <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-8 pb-5">
+          <div className="flex items-center justify-between mb-5">
+            <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
               <XMarkIcon className="w-5 h-5" />
             </button>
             <button
@@ -759,7 +759,7 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
               {t('add')}
             </button>
           </div>
-          <h2 className="text-xl font-bold text-fg-primary mb-4">{t('addFromCategoryTitle')}</h2>
+          <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addFromCategoryTitle')}</h2>
           <div className="relative">
             <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
@@ -770,7 +770,7 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto px-8 pb-8">
           {filtered.map((cat) => {
             const itemCount = cat.items?.length ?? 0;
             return (
