@@ -74,13 +74,15 @@ body {
 
 /* ── Buttons ── */
 .btn-primary {
-  @apply bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-standard text-sm font-medium transition-colors;
+  @apply bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-standard font-medium transition-colors;
+  font-size: 15px;
 }
 
 .btn-secondary {
   background: var(--surface-subtle);
   color: var(--text-primary);
-  @apply px-4 py-2 rounded-standard text-sm font-medium transition-colors;
+  @apply px-5 py-2.5 rounded-standard font-medium transition-colors;
+  font-size: 15px;
 }
 .btn-secondary:hover {
   background: var(--divider);
@@ -91,7 +93,16 @@ body {
   background: var(--surface);
   color: var(--text-primary);
   border: 1px solid var(--divider);
-  @apply w-full rounded-standard px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+  @apply w-full rounded-standard px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+  font-size: 15px;
+}
+
+/* ── Input small variant (time pickers, inline filters) ── */
+.input-sm {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  @apply w-full rounded-standard px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
 }
 
 /* Global form element theming — ensures dark mode works everywhere */
