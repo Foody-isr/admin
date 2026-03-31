@@ -71,6 +71,24 @@ export interface MenuAvailabilityHour {
   is_closed: boolean;
 }
 
+export interface CategoryAvailabilityHour {
+  id: number;
+  category_id: number;
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
+export interface Location {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  address: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Menu {
   id: number;
   restaurant_id: number;
@@ -82,6 +100,7 @@ export interface Menu {
   follows_restaurant_hours: boolean;
   availability_hours?: MenuAvailabilityHour[];
   categories?: MenuCategory[];
+  locations?: Location[];
 }
 
 export interface MenuCategory {
@@ -92,6 +111,11 @@ export interface MenuCategory {
   name: string;
   image_url: string;
   sort_order: number;
+  pos_enabled: boolean;
+  web_enabled: boolean;
+  follows_menu_hours: boolean;
+  is_hidden: boolean;
+  availability_hours?: CategoryAvailabilityHour[];
   items?: MenuItem[];
 }
 
@@ -853,7 +877,7 @@ export async function setMenuHours(restaurantId: number, menuId: number, hours: 
   return data.hours ?? [];
 }
 
-export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string }): Promise<MenuCategory> {
+export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string; pos_enabled?: boolean; web_enabled?: boolean; follows_menu_hours?: boolean; is_hidden?: boolean }): Promise<MenuCategory> {
   const data = await apiFetch<{ category: MenuCategory }>(
     `/api/v1/menu/categories?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
@@ -874,6 +898,83 @@ export async function deleteCategory(restaurantId: number, id: number): Promise<
     `/api/v1/menu/categories/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+export async function uploadCategoryImage(restaurantId: number, categoryId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/menu/categories/${categoryId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
+export async function getCategoryHours(restaurantId: number, categoryId: number): Promise<CategoryAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: CategoryAvailabilityHour[] }>(
+    `/api/v1/menu/categories/${categoryId}/hours?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.hours ?? [];
+}
+
+export async function setCategoryHours(restaurantId: number, categoryId: number, hours: Omit<CategoryAvailabilityHour, 'id' | 'category_id'>[]): Promise<CategoryAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: CategoryAvailabilityHour[] }>(
+    `/api/v1/menu/categories/${categoryId}/hours?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(hours) }
+  );
+  return data.hours ?? [];
+}
+
+// --- Locations ---
+
+export async function getLocations(restaurantId: number): Promise<Location[]> {
+  const data = await apiFetch<{ locations: Location[] }>(
+    `/api/v1/locations?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.locations ?? [];
+}
+
+export async function createLocation(restaurantId: number, input: { name: string; address?: string; is_active?: boolean }): Promise<Location> {
+  return apiFetch<Location>(
+    `/api/v1/locations?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+export async function updateLocation(restaurantId: number, id: number, input: { name: string; address?: string; is_active?: boolean }): Promise<Location> {
+  return apiFetch<Location>(
+    `/api/v1/locations/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+}
+
+export async function deleteLocation(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/locations/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function getMenuLocations(restaurantId: number, menuId: number): Promise<Location[]> {
+  const data = await apiFetch<{ locations: Location[] }>(
+    `/api/v1/menu/menus/${menuId}/locations?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.locations ?? [];
+}
+
+export async function setMenuLocations(restaurantId: number, menuId: number, locationIds: number[]): Promise<Location[]> {
+  const data = await apiFetch<{ locations: Location[] }>(
+    `/api/v1/menu/menus/${menuId}/locations?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ location_ids: locationIds }) }
+  );
+  return data.locations ?? [];
 }
 
 export async function createMenuItem(restaurantId: number, input: Partial<MenuItem> & { category_id: number; name: string; price: number }): Promise<MenuItem> {

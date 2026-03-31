@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getRestaurant, updateMenu, getMenuHours, setMenuHours,
-  Menu, MenuAvailabilityHour, Restaurant,
+  getLocations, getMenuLocations, setMenuLocations,
+  Menu, MenuAvailabilityHour, Restaurant, Location,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon } from '@heroicons/react/24/outline';
@@ -30,6 +31,11 @@ export default function MenuEditPage() {
   const [followsRestaurantHours, setFollowsRestaurantHours] = useState(true);
   const [hours, setHours] = useState<MenuAvailabilityHour[]>([]);
 
+  // Locations
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<number[]>([]);
+  const [showLocationsEditor, setShowLocationsEditor] = useState(false);
+
   // Inline editors visibility
   const [showChannelsEditor, setShowChannelsEditor] = useState(false);
   const [showHoursEditor, setShowHoursEditor] = useState(false);
@@ -39,10 +45,14 @@ export default function MenuEditPage() {
     Promise.all([
       listMenus(rid),
       getRestaurant(rid).catch(() => null),
-    ]).then(([menus, rest]) => {
+      getLocations(rid).catch(() => []),
+      getMenuLocations(rid, mid).catch(() => []),
+    ]).then(([menus, rest, locs, menuLocs]) => {
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       setRestaurant(rest);
+      setAllLocations(locs);
+      setSelectedLocationIds(menuLocs.map((l: Location) => l.id));
       if (found) {
         setName(found.name);
         setPosEnabled(found.pos_enabled);
@@ -72,6 +82,7 @@ export default function MenuEditPage() {
           day_of_week, open_time, close_time, is_closed,
         })));
       }
+      await setMenuLocations(rid, mid, selectedLocationIds);
       router.push(`/${rid}/menu/menus/${mid}`);
     } finally {
       setSaving(false);
@@ -145,21 +156,57 @@ export default function MenuEditPage() {
             {t('menuAvailabilityDesc')}
           </p>
 
-          {/* Points de vente */}
-          <div className="flex items-center justify-between py-4 border-t border-[var(--divider)]">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-              </svg>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-fg-primary">{t('pointOfSale')}</p>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-fg-secondary font-medium">{t('all')}</span>
+          {/* Locations (points of sale) */}
+          <div className="py-4 border-t border-[var(--divider)]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                </svg>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-fg-primary">{t('pointOfSale')}</p>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-fg-secondary font-medium">
+                      {selectedLocationIds.length === 0 ? t('all') : selectedLocationIds.length}
+                    </span>
+                  </div>
+                  <p className="text-xs text-fg-tertiary mt-0.5">
+                    {selectedLocationIds.length === 0
+                      ? (restaurant?.name ?? '—')
+                      : allLocations.filter((l) => selectedLocationIds.includes(l.id)).map((l) => l.name).join(', ')}
+                  </p>
                 </div>
-                <p className="text-xs text-fg-tertiary mt-0.5">{restaurant?.name ?? '—'}</p>
               </div>
+              <button onClick={() => setShowLocationsEditor(!showLocationsEditor)} className="text-sm font-medium underline text-fg-primary">
+                {t('edit')}
+              </button>
             </div>
-            <button className="text-sm font-medium underline text-fg-primary">{t('edit')}</button>
+            {showLocationsEditor && (
+              <div className="mt-3 pl-8 space-y-2">
+                {allLocations.length === 0 ? (
+                  <p className="text-xs text-fg-tertiary">{t('noLocations') || 'No locations configured yet.'}</p>
+                ) : (
+                  allLocations.filter((l) => l.is_active).map((loc) => (
+                    <label key={loc.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedLocationIds.includes(loc.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedLocationIds((prev) => [...prev, loc.id]);
+                          } else {
+                            setSelectedLocationIds((prev) => prev.filter((id) => id !== loc.id));
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      {loc.name}
+                    </label>
+                  ))
+                )}
+                <p className="text-xs text-fg-tertiary mt-1">{t('noLocationsSelectedMeansAll') || 'No selection = available at all locations.'}</p>
+              </div>
+            )}
           </div>
 
           {/* Canaux */}
