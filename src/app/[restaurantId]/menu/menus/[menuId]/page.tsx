@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, getRestaurant, createCategory, deleteCategory,
+  listMenus, getRestaurant, createCategory, deleteCategory, deleteMenu,
   Menu, MenuCategory, MenuItem, Restaurant,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -38,6 +38,7 @@ export default function MenuDetailPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
+  const [headerDropdownOpen, setHeaderDropdownOpen] = useState(false);
   const [groupDropdown, setGroupDropdown] = useState<number | null>(null);
   const [groupModal, setGroupModal] = useState<{ open: boolean; editing?: MenuCategory }>({ open: false });
 
@@ -100,7 +101,44 @@ export default function MenuDetailPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-fg-primary">{menu.name}</h1>
-              <EllipsisHorizontalIcon className="w-5 h-5 text-fg-tertiary" />
+              <div className="relative">
+                <button
+                  onClick={() => setHeaderDropdownOpen(!headerDropdownOpen)}
+                  className="p-1 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
+                >
+                  <EllipsisHorizontalIcon className="w-5 h-5 text-fg-primary" />
+                </button>
+                {headerDropdownOpen && (
+                  <div className="absolute left-0 top-10 z-30 w-72 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+                    <button
+                      onClick={() => { setHeaderDropdownOpen(false); router.push(`/${rid}/menu/menus/${mid}/edit`); }}
+                      className="w-full text-left px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors"
+                    >
+                      <p className="text-sm font-medium text-fg-primary">{t('editMenuOption')}</p>
+                      <p className="text-xs text-fg-tertiary mt-0.5">{t('editMenuOptionDesc')}</p>
+                    </button>
+                    <div className="border-t border-[var(--divider)]" />
+                    <button
+                      onClick={() => { setHeaderDropdownOpen(false); alert(t('comingSoon')); }}
+                      className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors"
+                    >
+                      {t('duplicateMenu')}
+                    </button>
+                    <div className="border-t border-[var(--divider)]" />
+                    <button
+                      onClick={async () => {
+                        setHeaderDropdownOpen(false);
+                        if (!confirm(`${t('deleteMenuOption')} "${menu.name}"?`)) return;
+                        await deleteMenu(rid, mid);
+                        router.push(`/${rid}/menu/menus`);
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                    >
+                      {t('deleteMenuOption')}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-0 mt-0.5 text-xs text-fg-tertiary">
               {restaurant?.name && (
