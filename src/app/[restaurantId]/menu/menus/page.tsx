@@ -15,6 +15,7 @@ import {
   ListBulletIcon,
   EllipsisHorizontalIcon,
   Bars3Icon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import Modal from '@/components/Modal';
 
@@ -75,7 +76,9 @@ export default function MenusPage() {
   const [isReordering, setIsReordering] = useState(false);
   const [editModal, setEditModal] = useState<{ open: boolean; editing?: Menu }>({ open: false });
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<HTMLDivElement>(null);
 
   const reload = useCallback(() => {
     return listMenus(rid).then(setMenus).finally(() => setLoading(false));
@@ -86,6 +89,7 @@ export default function MenusPage() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpenDropdown(null);
+      if (channelRef.current && !channelRef.current.contains(e.target as Node)) setChannelDropdownOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -168,15 +172,32 @@ export default function MenusPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          value={channelFilter}
-          onChange={(e) => setChannelFilter(e.target.value as 'all' | 'pos' | 'web')}
-          className="input text-sm h-11 px-5 rounded-full font-medium whitespace-nowrap cursor-pointer appearance-none pr-8"
-        >
-          <option value="all">{t('channels')}  {t('all')}</option>
-          <option value="pos">{t('channels')}  POS</option>
-          <option value="web">{t('channels')}  Web</option>
-        </select>
+        {/* Channel filter dropdown */}
+        <div className="relative" ref={channelRef}>
+          <button
+            onClick={() => setChannelDropdownOpen(!channelDropdownOpen)}
+            className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+          >
+            <span>{t('salesChannels')}</span>
+            <span className="font-bold">
+              {channelFilter === 'all' ? t('all') : channelFilter === 'pos' ? 'POS' : 'Web'}
+            </span>
+            <ChevronDownIcon className="w-4 h-4 text-fg-tertiary" />
+          </button>
+          {channelDropdownOpen && (
+            <div className="absolute left-0 top-full mt-1 z-30 w-44 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+              {(['all', 'pos', 'web'] as const).map((val) => (
+                <button
+                  key={val}
+                  onClick={() => { setChannelFilter(val); setChannelDropdownOpen(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${channelFilter === val ? 'bg-[var(--surface-subtle)] font-medium' : 'hover:bg-[var(--surface-subtle)]'}`}
+                >
+                  {val === 'all' ? t('all') : val === 'pos' ? 'POS' : 'Web'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {!isReordering && (
           <div className="flex items-center border border-[var(--divider)] rounded-full overflow-hidden">
             <button
@@ -258,7 +279,7 @@ export default function MenusPage() {
                   menu={m}
                   isOpen={openDropdown === m.id}
                   onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
-                  onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); setEditModal({ open: true, editing: m }); }}
+                  onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
                   onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); alert(t('comingSoon')); }}
                   onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
                   t={t}
@@ -303,7 +324,7 @@ export default function MenusPage() {
                       menu={m}
                       isOpen={openDropdown === m.id}
                       onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
-                      onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); setEditModal({ open: true, editing: m }); }}
+                      onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
                       onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); alert(t('comingSoon')); }}
                       onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
                       t={t}
