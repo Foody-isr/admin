@@ -62,9 +62,32 @@ export interface RestaurantSettings {
   pickup_prep_time_minutes?: number;
 }
 
+export interface MenuAvailabilityHour {
+  id: number;
+  menu_id: number;
+  day_of_week: number; // 0=Sun … 6=Sat
+  open_time: string;   // "HH:MM" 24h
+  close_time: string;  // "HH:MM" 24h
+  is_closed: boolean;
+}
+
+export interface Menu {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  pos_enabled: boolean;
+  web_enabled: boolean;
+  follows_restaurant_hours: boolean;
+  availability_hours?: MenuAvailabilityHour[];
+  categories?: MenuCategory[];
+}
+
 export interface MenuCategory {
   id: number;
   restaurant_id: number;
+  menu_id?: number;
   name: string;
   image_url: string;
   sort_order: number;
@@ -104,6 +127,25 @@ export interface ModifierSet {
   created_at: string;
 }
 
+export interface MenuItemVariant {
+  id: number;
+  group_id: number;
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface ItemVariantGroup {
+  id: number;
+  menu_item_id: number;
+  title: string;
+  sort_order: number;
+  variants: MenuItemVariant[];
+}
+
 export interface MenuItem {
   id: number;
   category_id: number;
@@ -116,6 +158,7 @@ export interface MenuItem {
   rotation_group?: string;
   modifiers?: MenuItemModifier[];
   modifier_sets?: ModifierSet[];
+  variant_groups?: ItemVariantGroup[];
 }
 
 export interface OrderItemModifier {
@@ -751,14 +794,65 @@ export async function updateRestaurantSettings(
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
-export async function getMenu(restaurantId: number): Promise<MenuCategory[]> {
-  const data = await apiFetch<{ categories: MenuCategory[] }>(
+export async function getMenu(restaurantId: number): Promise<Menu[]> {
+  const data = await apiFetch<{ menus: Menu[] }>(
     `/api/v1/menu/?restaurant_id=${restaurantId}`, restaurantId
   );
-  return data.categories ?? [];
+  return data.menus ?? [];
 }
 
-export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number }): Promise<MenuCategory> {
+/** Flattens all categories from all menus — for pages that work with a global category list. */
+export async function getAllCategories(restaurantId: number): Promise<MenuCategory[]> {
+  const menus = await getMenu(restaurantId);
+  return menus.flatMap((m) => m.categories ?? []);
+}
+
+export async function listMenus(restaurantId: number): Promise<Menu[]> {
+  const data = await apiFetch<{ menus: Menu[] }>(
+    `/api/v1/menu/menus?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.menus ?? [];
+}
+
+export async function createMenu(restaurantId: number, input: Partial<Menu>): Promise<Menu> {
+  const data = await apiFetch<{ menu: Menu }>(
+    `/api/v1/menu/menus?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.menu;
+}
+
+export async function updateMenu(restaurantId: number, id: number, input: Partial<Menu>): Promise<Menu> {
+  const data = await apiFetch<{ menu: Menu }>(
+    `/api/v1/menu/menus/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.menu;
+}
+
+export async function deleteMenu(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/menus/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function getMenuHours(restaurantId: number, menuId: number): Promise<MenuAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: MenuAvailabilityHour[] }>(
+    `/api/v1/menu/menus/${menuId}/hours?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.hours ?? [];
+}
+
+export async function setMenuHours(restaurantId: number, menuId: number, hours: Omit<MenuAvailabilityHour, 'id' | 'menu_id'>[]): Promise<MenuAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: MenuAvailabilityHour[] }>(
+    `/api/v1/menu/menus/${menuId}/hours?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(hours) }
+  );
+  return data.hours ?? [];
+}
+
+export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number }): Promise<MenuCategory> {
   const data = await apiFetch<{ category: MenuCategory }>(
     `/api/v1/menu/categories?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
@@ -953,6 +1047,76 @@ export async function migrateLegacyModifiers(restaurantId: number): Promise<{ se
   return apiFetch<{ sets_created: number }>(
     `/api/v1/menu/modifier-sets/migrate-legacy?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST' }
+  );
+}
+
+// ─── Item Variants ───────────────────────────────────────────────────────────
+
+export interface VariantInput {
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface VariantGroupInput {
+  title: string;
+  sort_order: number;
+  variants?: VariantInput[];
+}
+
+export async function listVariantGroups(restaurantId: number, itemId: number): Promise<ItemVariantGroup[]> {
+  const data = await apiFetch<{ variant_groups: ItemVariantGroup[] }>(
+    `/api/v1/menu/items/${itemId}/variants?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.variant_groups;
+}
+
+export async function createVariantGroup(restaurantId: number, itemId: number, input: VariantGroupInput): Promise<ItemVariantGroup> {
+  const data = await apiFetch<{ variant_group: ItemVariantGroup }>(
+    `/api/v1/menu/items/${itemId}/variants?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.variant_group;
+}
+
+export async function updateVariantGroup(restaurantId: number, itemId: number, groupId: number, input: VariantGroupInput): Promise<ItemVariantGroup> {
+  const data = await apiFetch<{ variant_group: ItemVariantGroup }>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.variant_group;
+}
+
+export async function deleteVariantGroup(restaurantId: number, itemId: number, groupId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function createVariant(restaurantId: number, itemId: number, groupId: number, input: VariantInput): Promise<MenuItemVariant> {
+  const data = await apiFetch<{ variant: MenuItemVariant }>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.variant;
+}
+
+export async function updateVariant(restaurantId: number, itemId: number, groupId: number, variantId: number, input: VariantInput): Promise<MenuItemVariant> {
+  const data = await apiFetch<{ variant: MenuItemVariant }>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}/items/${variantId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.variant;
+}
+
+export async function deleteVariant(restaurantId: number, itemId: number, groupId: number, variantId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}/items/${variantId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
   );
 }
 

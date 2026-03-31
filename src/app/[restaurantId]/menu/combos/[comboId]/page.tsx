@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getCombo, createCombo, updateCombo, uploadComboImage,
-  getMenu, ComboMenu, ComboStep, ComboStepInput, MenuItem, MenuCategory,
+  getAllCategories, ComboMenu, ComboStep, ComboStepInput, MenuItem, MenuCategory,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -54,7 +54,7 @@ export default function ComboEditorPage() {
   // ─── Load data ─────────────────────────────────────────────────────────────
 
   const loadMenu = useCallback(() => {
-    getMenu(rid).then(setCategories).catch(() => {});
+    getAllCategories(rid).then(setCategories).catch(() => {});
   }, [rid]);
 
   useEffect(() => {

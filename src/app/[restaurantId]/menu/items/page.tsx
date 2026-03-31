@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getMenu, updateMenuItem, deleteMenuItem,
+  getAllCategories, updateMenuItem, deleteMenuItem,
   MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -51,7 +51,7 @@ export default function ItemLibraryPage() {
   // ─── Data loading ─────────────────────────────────────────────────
 
   const reload = useCallback(() => {
-    return getMenu(rid).then(setCategories).finally(() => setLoading(false));
+    return getAllCategories(rid).then(setCategories).finally(() => setLoading(false));
   }, [rid]);
 
   useEffect(() => { reload(); }, [reload]);

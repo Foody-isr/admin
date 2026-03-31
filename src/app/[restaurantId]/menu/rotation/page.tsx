@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getMenu, getRotationSchedules, setRotationSchedule, deleteRotationSchedule,
+  getAllCategories, getRotationSchedules, setRotationSchedule, deleteRotationSchedule,
   renameRotationGroup, deleteRotationGroup, updateMenuItem,
   MenuCategory, MenuItem, RotationSchedule,
 } from '@/lib/api';
@@ -87,7 +87,7 @@ export default function RotationPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [cats, scheds] = await Promise.all([getMenu(rid), getRotationSchedules(rid, 4)]);
+      const [cats, scheds] = await Promise.all([getAllCategories(rid), getRotationSchedules(rid, 4)]);
       setCategories(cats);
       setSchedules(scheds);
     } finally {

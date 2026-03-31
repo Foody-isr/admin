@@ -98,6 +98,7 @@ export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps)
         {
           labelKey: 'articlesGroup',
           items: [
+            { href: `${base}/menu/menus`, labelKey: 'menus' },
             { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
             { href: `${base}/menu/categories`, labelKey: 'categories' },
             { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },

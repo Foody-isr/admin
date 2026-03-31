@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getMenu, createModifier, deleteModifier,
+  getAllCategories, createModifier, deleteModifier,
   MenuCategory, MenuItem, MenuItemModifier, ModifierInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -36,7 +36,7 @@ export default function ModifiersPage() {
   const [createModal, setCreateModal] = useState(false);
 
   const reload = useCallback(() => {
-    return getMenu(rid).then(setCategories).finally(() => setLoading(false));
+    return getAllCategories(rid).then(setCategories).finally(() => setLoading(false));
   }, [rid]);
 
   useEffect(() => { reload(); }, [reload]);

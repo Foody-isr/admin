@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
-  getMenu, createMenuItem, uploadMenuItemImage, updateMenuItem,
+  getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
   MenuCategory,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -35,7 +35,7 @@ export default function NewItemPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getMenu(rid).then((cats) => {
+    getAllCategories(rid).then((cats) => {
       setCategories(cats);
       if (!categoryId && cats.length > 0) setCategoryId(cats[0].id);
     }).finally(() => setLoading(false));

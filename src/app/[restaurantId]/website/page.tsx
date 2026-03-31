@@ -8,7 +8,7 @@ import {
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
   uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
-  getMenu,
+  getAllCategories,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
 } from '@/lib/api';
 
@@ -1437,7 +1437,7 @@ function MenuHighlightsEditor({ content, settings, updateContent, updateSettings
   const selectedIds: number[] = content.item_ids || [];
 
   useEffect(() => {
-    getMenu(restaurantId)
+    getAllCategories(restaurantId)
       .then(cats => setCategories(cats))
       .catch(() => setCategories([]))
       .finally(() => setLoadingMenu(false));

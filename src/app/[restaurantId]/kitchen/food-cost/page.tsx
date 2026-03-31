@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getMenu, listStockItems, listPrepItems,
+  getAllCategories, listStockItems, listPrepItems,
   getMenuItemIngredients, setMenuItemIngredients,
   MenuCategory, MenuItem, MenuItemIngredient, IngredientInput,
   StockItem, PrepItem,
@@ -38,7 +38,7 @@ export default function FoodCostPage() {
   const reload = useCallback(async () => {
     try {
       const [cats, stock, prep] = await Promise.all([
-        getMenu(rid),
+        getAllCategories(rid),
         listStockItems(rid),
         listPrepItems(rid),
       ]);

@@ -3,13 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getMenu, createCategory, updateCategory, deleteCategory,
-  MenuCategory,
+  listMenus, createCategory, updateCategory, deleteCategory,
+  Menu, MenuCategory,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import {
-  PlusIcon, PencilIcon, TrashIcon,
-} from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Modal from '@/components/Modal';
 
 export default function CategoriesPage() {
@@ -17,15 +15,38 @@ export default function CategoriesPage() {
   const rid = Number(restaurantId);
   const { t } = useI18n();
 
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [selectedMenuId, setSelectedMenuId] = useState<number | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editModal, setEditModal] = useState<{ open: boolean; editing?: MenuCategory }>({ open: false });
 
-  const reload = useCallback(() => {
-    return getMenu(rid).then(setCategories).finally(() => setLoading(false));
-  }, [rid]);
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const fetchedMenus = await listMenus(rid);
+      setMenus(fetchedMenus);
+
+      const activeMenuId = selectedMenuId ?? fetchedMenus[0]?.id ?? null;
+      if (selectedMenuId === null && fetchedMenus[0]) {
+        setSelectedMenuId(fetchedMenus[0].id);
+      }
+
+      // Collect categories from the selected menu
+      const targetMenu = fetchedMenus.find((m) => m.id === activeMenuId) ?? fetchedMenus[0];
+      setCategories(targetMenu?.categories ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, [rid, selectedMenuId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const handleMenuChange = (menuId: number) => {
+    setSelectedMenuId(menuId);
+    const m = menus.find((m) => m.id === menuId);
+    setCategories(m?.categories ?? []);
+  };
 
   const handleDelete = async (cat: MenuCategory) => {
     if (!confirm(`${t('delete')} "${cat.name}"?`)) return;
@@ -43,9 +64,21 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-5">
-      {/* Header with create button */}
-      <div className="flex items-center justify-between">
-        <div />
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        {/* Menu selector */}
+        {menus.length > 1 && (
+          <select
+            value={selectedMenuId ?? ''}
+            onChange={(e) => handleMenuChange(Number(e.target.value))}
+            className="input text-sm py-1.5 max-w-xs"
+          >
+            {menus.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        )}
+        <div className="flex-1" />
         <button
           onClick={() => setEditModal({ open: true })}
           className="btn-primary flex items-center gap-2"
@@ -113,10 +146,11 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* Edit/Create Category Modal */}
       {editModal.open && (
         <CategoryEditModal
           restaurantId={rid}
+          menus={menus}
+          defaultMenuId={selectedMenuId ?? menus[0]?.id}
           editing={editModal.editing}
           onClose={() => setEditModal({ open: false })}
           onSaved={() => { setEditModal({ open: false }); reload(); }}
@@ -126,11 +160,17 @@ export default function CategoriesPage() {
   );
 }
 
-function CategoryEditModal({ restaurantId, editing, onClose, onSaved }: {
-  restaurantId: number; editing?: MenuCategory; onClose: () => void; onSaved: () => void;
+function CategoryEditModal({ restaurantId, menus, defaultMenuId, editing, onClose, onSaved }: {
+  restaurantId: number;
+  menus: Menu[];
+  defaultMenuId?: number;
+  editing?: MenuCategory;
+  onClose: () => void;
+  onSaved: () => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
+  const [menuId, setMenuId] = useState<number>(editing?.menu_id ?? defaultMenuId ?? menus[0]?.id);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -138,9 +178,9 @@ function CategoryEditModal({ restaurantId, editing, onClose, onSaved }: {
     setSaving(true);
     try {
       if (editing) {
-        await updateCategory(restaurantId, editing.id, { name });
+        await updateCategory(restaurantId, editing.id, { name, menu_id: menuId });
       } else {
-        await createCategory(restaurantId, { name });
+        await createCategory(restaurantId, { name, menu_id: menuId });
       }
       onSaved();
     } finally {
@@ -150,15 +190,39 @@ function CategoryEditModal({ restaurantId, editing, onClose, onSaved }: {
 
   return (
     <Modal title={editing ? t('editCategory') : t('newCategory')} onClose={onClose}>
-      <label className="block text-sm font-medium text-fg-secondary mb-1">{t('categoryName')}</label>
-      <input autoFocus className="input" value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
-      <div className="flex justify-end gap-2 mt-4">
-        <button className="btn-secondary" onClick={onClose}>{t('cancel')}</button>
-        <button className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? t('saving') : t('save')}
-        </button>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('categoryName')}</label>
+          <input
+            autoFocus
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          />
+        </div>
+
+        {menus.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('menus')}</label>
+            <select
+              className="input text-sm"
+              value={menuId}
+              onChange={(e) => setMenuId(Number(e.target.value))}
+            >
+              {menus.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button className="btn-secondary" onClick={onClose}>{t('cancel')}</button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? t('saving') : t('save')}
+          </button>
+        </div>
       </div>
     </Modal>
   );

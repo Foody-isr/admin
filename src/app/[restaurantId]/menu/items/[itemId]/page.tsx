@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getMenu, updateMenuItem, deleteModifier, uploadMenuItemImage,
-  detachModifierSetFromItem,
-  MenuCategory, MenuItem, MenuItemModifier, ModifierSet,
+  getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
+  detachModifierSetFromItem, deleteVariantGroup,
+  MenuCategory, MenuItem, MenuItemModifier, ModifierSet, ItemVariantGroup,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -37,7 +37,7 @@ export default function EditItemPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const cats = await getMenu(rid);
+      const cats = await getAllCategories(rid);
       setCategories(cats);
       // Find the item across all categories
       for (const cat of cats) {
@@ -302,6 +302,59 @@ export default function EditItemPage() {
                 </div>
               </div>
             )}
+
+            {/* Variantes */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
+                <button
+                  onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  className="text-sm text-brand-600 hover:underline font-medium"
+                >
+                  {t('add')}
+                </button>
+              </div>
+              {(item.variant_groups ?? []).length > 0 ? (
+                <div className="space-y-2">
+                  {(item.variant_groups ?? []).map((vg: ItemVariantGroup) => (
+                    <div key={vg.id} className="flex items-center justify-between py-2.5 px-4 rounded-standard" style={{ background: 'var(--surface-subtle)' }}>
+                      <div>
+                        <span className="text-sm font-medium text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
+                        <span className="text-xs text-fg-secondary ml-2">
+                          {(vg.variants ?? []).map((v) => v.name).join(', ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants?group=${vg.id}`)}
+                          className="text-xs text-brand-600 hover:underline"
+                        >
+                          {t('edit')}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(t('deleteThisVariantGroup') || 'Delete this variant group?')) return;
+                            await deleteVariantGroup(rid, iid, vg.id);
+                            loadData();
+                          }}
+                          className="p-1 rounded-md hover:bg-red-500/10"
+                        >
+                          <TrashIcon className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  className="w-full py-3 rounded-standard text-sm text-fg-secondary hover:text-brand-600 transition-colors"
+                  style={{ border: '1px dashed var(--divider)' }}
+                >
+                  + {t('addVariants')}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Right column — sidebar cards */}
