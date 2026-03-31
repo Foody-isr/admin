@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getAllCategories, createCategory, updateCategory,
   getCategoryHours, setCategoryHours,
-  uploadCategoryImage, deleteMenuItem, updateMenuItem,
+  uploadCategoryImage, updateMenuItem,
   Menu, MenuCategory, MenuItem, CategoryAvailabilityHour,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -188,8 +188,11 @@ export default function GroupPage() {
 
   const handleRemoveItem = async (item: MenuItem) => {
     if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
-    await deleteMenuItem(rid, item.id);
-    load();
+    // Remove pending item (not yet saved) or do nothing for saved items
+    // (saved items can be moved via the item editor's category selector)
+    if (pendingItemIds.has(item.id)) {
+      setPendingItemIds((prev) => { const next = new Set(prev); next.delete(item.id); return next; });
+    }
   };
 
   // Move selected items into this group
