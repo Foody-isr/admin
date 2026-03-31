@@ -262,7 +262,7 @@ export default function GroupPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="btn-primary rounded-full"
+          className="bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors rounded-full px-7 py-3 text-base"
         >
           {saving ? t('saving') : t('save')}
         </button>
