@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, getRestaurant, deleteCategory, deleteMenu,
+  listMenus, getRestaurant, deleteCategory, deleteMenu, deleteMenuItem,
   Menu, MenuCategory, MenuItem, Restaurant,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -169,7 +169,7 @@ export default function MenuDetailPage() {
             {addDropdownOpen && (
               <div className="absolute right-0 top-10 z-30 w-56 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
                 <button
-                  onClick={() => { setAddDropdownOpen(false); /* TODO: add article picker */ alert(t('comingSoon')); }}
+                  onClick={() => { setAddDropdownOpen(false); router.push(`/${rid}/menu/items/new?category=${categories[0]?.id ?? ''}&menuId=${mid}`); }}
                   className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
                 >
                   {t('addArticle')}
@@ -250,14 +250,14 @@ export default function MenuDetailPage() {
                     </thead>
                     <tbody>
                       {items.map((item) => (
-                        <ArticleRow key={item.id} item={item} restaurantName={restaurant?.name} menu={menu} t={t} />
+                        <ArticleRow key={item.id} item={item} restaurantName={restaurant?.name} menu={menu} t={t} rid={rid} onDelete={reload} />
                       ))}
                     </tbody>
                   </table>
                 )}
                 {/* Add article row */}
                 <button
-                  onClick={() => alert(t('comingSoon'))}
+                  onClick={() => router.push(`/${rid}/menu/items/new?category=${cat.id}`)}
                   className="flex items-center gap-2 px-4 py-3 text-sm text-fg-tertiary hover:text-fg-primary hover:bg-[var(--surface-subtle)] w-full transition-colors"
                 >
                   <PlusIcon className="w-4 h-4" />
@@ -284,20 +284,31 @@ export default function MenuDetailPage() {
 
 // ─── Article row ──────────────────────────────────────────────────────────────
 
-function ArticleRow({ item, restaurantName, menu, t }: {
+function ArticleRow({ item, restaurantName, menu, t, rid, onDelete }: {
   item: MenuItem;
   restaurantName?: string;
   menu: Menu;
   t: TFn;
+  rid: number;
+  onDelete: () => void;
 }) {
+  const router = useRouter();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const modifierNames = (item.modifier_sets ?? []).map((ms) => ms.name).join(', ') || '—';
   const channelTags: string[] = [];
   if (menu.pos_enabled) channelTags.push(t('posSystem'));
   if (menu.web_enabled) channelTags.push('Web');
 
+  const handleDelete = async () => {
+    setDropdownOpen(false);
+    if (!confirm(`${t('delete')} "${item.name}"?`)) return;
+    await deleteMenuItem(rid, item.id);
+    onDelete();
+  };
+
   return (
-    <tr className="border-b border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors">
-      <td className="py-2.5 px-4"><input type="checkbox" className="rounded" /></td>
+    <tr className="border-b border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer" onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}>
+      <td className="py-2.5 px-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="rounded" /></td>
       <td className="py-2.5 px-4">
         <div className="flex items-center gap-2">
           {item.image_url ? (
@@ -326,8 +337,27 @@ function ArticleRow({ item, restaurantName, menu, t }: {
       <td className="py-2.5 px-4 text-right text-fg-primary font-medium">
         {item.price?.toFixed(2)} ₪
       </td>
-      <td className="py-2.5 px-4">
-        <EllipsisHorizontalIcon className="w-4 h-4 text-fg-tertiary" />
+      <td className="py-2.5 px-4 relative" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => setDropdownOpen(!dropdownOpen)} className="p-1 rounded hover:bg-[var(--surface-subtle)]">
+          <EllipsisHorizontalIcon className="w-4 h-4 text-fg-tertiary" />
+        </button>
+        {dropdownOpen && (
+          <div className="absolute right-4 top-8 z-30 w-40 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+            <button
+              onClick={() => { setDropdownOpen(false); router.push(`/${rid}/menu/items/${item.id}`); }}
+              className="w-full text-left px-3.5 py-2.5 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+            >
+              {t('editItem')}
+            </button>
+            <div className="border-t border-[var(--divider)]" />
+            <button
+              onClick={handleDelete}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+            >
+              {t('delete')}
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   );

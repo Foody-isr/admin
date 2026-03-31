@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, createCategory, updateCategory,
   getCategoryHours, setCategoryHours,
-  uploadCategoryImage,
-  Menu, MenuCategory, CategoryAvailabilityHour,
+  uploadCategoryImage, deleteMenuItem, updateMenuItem,
+  Menu, MenuCategory, MenuItem, CategoryAvailabilityHour,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon } from '@heroicons/react/24/outline';
@@ -137,6 +137,17 @@ export default function GroupPage() {
   };
 
   const parentOptions = categories.filter((c) => c.id !== gid);
+
+  // Items belonging to this group
+  const groupItems: MenuItem[] = (!isNew && gid)
+    ? (categories.find((c) => c.id === gid)?.items ?? [])
+    : [];
+
+  const handleRemoveItem = async (item: MenuItem) => {
+    if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
+    await deleteMenuItem(rid, item.id);
+    load();
+  };
 
   // Build channel summary
   const channelNames: string[] = [];
@@ -274,19 +285,55 @@ export default function GroupPage() {
         {/* Articles */}
         <div className="py-6">
           <h3 className="text-lg font-bold text-fg-primary mb-4">{t('articles')}</h3>
-          <div className="flex items-center justify-between">
+          {groupItems.length > 0 ? (
+            <div className="space-y-0 rounded-xl border border-[var(--divider)] overflow-hidden">
+              {groupItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer"
+                  onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
+                >
+                  {item.image_url ? (
+                    <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V5.25a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v14.25a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-fg-primary truncate">{item.name}</p>
+                    <p className="text-xs text-fg-tertiary">{item.price?.toFixed(2)} ₪</p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemoveItem(item); }}
+                    className="text-xs text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                  >
+                    {t('removeFromGroupConfirm')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6Z" />
               </svg>
-              <div>
-                <p className="text-sm font-medium text-fg-primary">{t('articles')}</p>
-                <p className="text-xs text-fg-tertiary">{t('noItemsSelected')}</p>
-              </div>
+              <p className="text-sm text-fg-tertiary">{t('noItemsSelected')}</p>
             </div>
-            <button className="text-sm font-medium underline text-fg-primary" onClick={() => alert(t('comingSoon'))}>
-              {t('add')}
+          )}
+          <div className="flex gap-2 mt-4">
+            <button
+              className="btn-secondary text-sm px-4 py-2 rounded-full"
+              onClick={() => {
+                if (isNew) {
+                  alert(t('saveFirstToUpload') || 'Save the group first');
+                  return;
+                }
+                router.push(`/${rid}/menu/items/new?category=${gid}`);
+              }}
+            >
+              {t('addArticle')}
             </button>
           </div>
         </div>
