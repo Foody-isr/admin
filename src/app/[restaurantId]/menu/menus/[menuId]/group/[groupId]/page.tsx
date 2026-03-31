@@ -210,7 +210,7 @@ export default function GroupPage() {
 
   const openAddArticle = () => {
     if (isNew) {
-      alert(t('saveFirstToUpload'));
+      alert(t('saveGroupFirst'));
       return;
     }
     setModalView('addChoice');
