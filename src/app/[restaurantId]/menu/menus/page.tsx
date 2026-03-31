@@ -135,10 +135,8 @@ export default function MenusPage() {
   return (
     <div className="space-y-6" ref={containerRef}>
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-sm text-fg-secondary max-w-2xl leading-relaxed">
-          {t('carteDescription')}
-        </p>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-fg-primary">{t('menus')}</h1>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => { setIsReordering(!isReordering); if (!isReordering) setViewMode('grid'); }}
@@ -155,6 +153,10 @@ export default function MenusPage() {
         </div>
       </div>
 
+      <p className="text-sm text-fg-secondary max-w-3xl leading-relaxed">
+        {t('carteDescription')}
+      </p>
+
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-lg">
@@ -166,9 +168,15 @@ export default function MenusPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <button className="input text-sm h-11 px-5 rounded-full font-medium whitespace-nowrap cursor-default">
-          {t('channels')} <span className="font-bold ml-1">{channelFilter === 'all' ? t('allChannels').split(' ').pop() : channelFilter.toUpperCase()}</span>
-        </button>
+        <select
+          value={channelFilter}
+          onChange={(e) => setChannelFilter(e.target.value as 'all' | 'pos' | 'web')}
+          className="input text-sm h-11 px-5 rounded-full font-medium whitespace-nowrap cursor-pointer appearance-none pr-8"
+        >
+          <option value="all">{t('channels')}  {t('all')}</option>
+          <option value="pos">{t('channels')}  POS</option>
+          <option value="web">{t('channels')}  Web</option>
+        </select>
         {!isReordering && (
           <div className="flex items-center border border-[var(--divider)] rounded-full overflow-hidden">
             <button

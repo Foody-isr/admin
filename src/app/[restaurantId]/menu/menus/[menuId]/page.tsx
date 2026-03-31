@@ -47,10 +47,7 @@ export default function MenuDetailPage() {
     listMenus(rid).then((menus) => {
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
-      // Auto-expand all groups
-      if (found?.categories) {
-        setExpanded(new Set(found.categories.map((c) => c.id)));
-      }
+      // Groups start collapsed by default
     }).finally(() => setLoading(false));
   }, [rid, mid]);
 
@@ -195,7 +192,7 @@ export default function MenuDetailPage() {
       {/* ── Groupes de cartes ── */}
       {categories.length === 0 && (
         <div className="text-center py-12 text-sm text-fg-secondary">
-          {t('noMenusYet')}
+          {t('noGroupsYet')}
         </div>
       )}
 
