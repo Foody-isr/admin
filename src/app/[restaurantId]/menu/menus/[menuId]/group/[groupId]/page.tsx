@@ -52,6 +52,9 @@ export default function GroupPage() {
   // Modal state
   const [modalView, setModalView] = useState<ModalView>(null);
 
+  // Pending items to assign on save (for new groups)
+  const [pendingItemIds, setPendingItemIds] = useState<Set<number>>(new Set());
+
   const load = useCallback(() => {
     setLoading(true);
     listMenus(rid).then(async (menus) => {
@@ -105,6 +108,10 @@ export default function GroupPage() {
           day_of_week, open_time, close_time, is_closed,
         })));
       }
+      // Assign any pending items that were selected before save
+      if (pendingItemIds.size > 0 && savedId) {
+        await Promise.all(Array.from(pendingItemIds).map((id) => updateMenuItem(rid, id, { category_id: savedId! })));
+      }
       router.push(`/${rid}/menu/menus/${mid}`);
     } finally {
       setSaving(false);
@@ -144,12 +151,7 @@ export default function GroupPage() {
 
   const parentOptions = categories.filter((c) => c.id !== gid);
 
-  // Items belonging to this group
-  const groupItems: MenuItem[] = (!isNew && gid)
-    ? (categories.find((c) => c.id === gid)?.items ?? [])
-    : [];
-
-  // All items across all menus (for item picker)
+  // All items across all menus (for item picker + resolving pending)
   const allItems = useMemo(() => {
     const items: MenuItem[] = [];
     for (const m of allMenus) {
@@ -161,6 +163,21 @@ export default function GroupPage() {
     }
     return items;
   }, [allMenus]);
+
+  // Items belonging to this group (saved + pending)
+  const savedGroupItems: MenuItem[] = (!isNew && gid)
+    ? (categories.find((c) => c.id === gid)?.items ?? [])
+    : [];
+
+  const pendingItems = useMemo(() => {
+    if (pendingItemIds.size === 0) return [];
+    return allItems.filter((item) => pendingItemIds.has(item.id));
+  }, [allItems, pendingItemIds]);
+
+  const groupItems = useMemo(() => {
+    const savedIds = new Set(savedGroupItems.map((i) => i.id));
+    return [...savedGroupItems, ...pendingItems.filter((i) => !savedIds.has(i.id))];
+  }, [savedGroupItems, pendingItems]);
 
   // All categories across all menus (for category picker)
   const allCategories = useMemo(() => {
@@ -175,7 +192,7 @@ export default function GroupPage() {
     return cats;
   }, [allMenus, gid]);
 
-  const groupItemIds = useMemo(() => new Set(groupItems.map((i) => i.id)), [groupItems]);
+  const groupItemIds = useMemo(() => new Set<number>(groupItems.map((i) => i.id)), [groupItems]);
 
   const handleRemoveItem = async (item: MenuItem) => {
     if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
@@ -185,15 +202,21 @@ export default function GroupPage() {
 
   // Move selected items into this group
   const handleAssignItems = async (itemIds: number[]) => {
-    if (!gid || itemIds.length === 0) return;
-    await Promise.all(itemIds.map((id) => updateMenuItem(rid, id, { category_id: gid })));
-    setModalView(null);
-    load();
+    if (itemIds.length === 0) return;
+    if (isNew) {
+      // Store for later — will be assigned on save
+      setPendingItemIds((prev) => { const next = new Set(prev); itemIds.forEach((id) => next.add(id)); return next; });
+      setModalView(null);
+    } else if (gid) {
+      await Promise.all(itemIds.map((id) => updateMenuItem(rid, id, { category_id: gid })));
+      setModalView(null);
+      load();
+    }
   };
 
   // Import all items from selected categories into this group
   const handleImportFromCategories = async (catIds: number[]) => {
-    if (!gid || catIds.length === 0) return;
+    if (catIds.length === 0) return;
     const itemsToMove: number[] = [];
     for (const cat of allCategories) {
       if (catIds.includes(cat.id)) {
@@ -203,16 +226,17 @@ export default function GroupPage() {
       }
     }
     if (itemsToMove.length === 0) return;
-    await Promise.all(itemsToMove.map((id) => updateMenuItem(rid, id, { category_id: gid })));
-    setModalView(null);
-    load();
+    if (isNew) {
+      setPendingItemIds((prev) => { const next = new Set(prev); itemsToMove.forEach((id) => next.add(id)); return next; });
+      setModalView(null);
+    } else if (gid) {
+      await Promise.all(itemsToMove.map((id) => updateMenuItem(rid, id, { category_id: gid })));
+      setModalView(null);
+      load();
+    }
   };
 
   const openAddArticle = () => {
-    if (isNew) {
-      alert(t('saveGroupFirst'));
-      return;
-    }
     setModalView('addChoice');
   };
 
@@ -528,7 +552,7 @@ export default function GroupPage() {
           groupItemIds={groupItemIds}
           onClose={() => setModalView(null)}
           onDone={handleAssignItems}
-          onCreateNew={() => { setModalView(null); router.push(`/${rid}/menu/items/new?category=${gid}`); }}
+          onCreateNew={() => { setModalView(null); router.push(`/${rid}/menu/items/new${gid ? `?category=${gid}` : ''}`); }}
         />
       )}
       {modalView === 'pickCategory' && (
