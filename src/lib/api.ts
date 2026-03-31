@@ -88,6 +88,7 @@ export interface MenuCategory {
   id: number;
   restaurant_id: number;
   menu_id?: number;
+  parent_id?: number;
   name: string;
   image_url: string;
   sort_order: number;
@@ -852,7 +853,7 @@ export async function setMenuHours(restaurantId: number, menuId: number, hours: 
   return data.hours ?? [];
 }
 
-export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number }): Promise<MenuCategory> {
+export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string }): Promise<MenuCategory> {
   const data = await apiFetch<{ category: MenuCategory }>(
     `/api/v1/menu/categories?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
