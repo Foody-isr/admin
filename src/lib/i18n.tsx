@@ -2063,7 +2063,7 @@ const translations: Record<Locale, Record<string, string>> = {
     nArticles: '{n} articles',
     posSystem: 'Systèmes de caisse',
     nChannels: '{n} canaux',
-    salesChannels: 'Canaux de vente',
+    salesChannels: 'Canaux',
     pointOfSale: 'Points de vente',
     editPosLayout: 'Modifier la mise en page du système de caisse',
     editMenuTitle: 'Modifier les détails de la carte',
