@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, getRestaurant, deleteCategory, deleteMenu, deleteMenuItem,
-  Menu, MenuCategory, MenuItem, Restaurant,
+  listMenus, getRestaurant, deleteGroup, deleteMenu, deleteMenuItem,
+  Menu, MenuGroup, MenuItem, Restaurant,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -51,9 +51,9 @@ export default function MenuDetailPage() {
 
   useEffect(() => { reload(); getRestaurant(rid).then(setRestaurant).catch(() => null); }, [reload, rid]);
 
-  const handleDeleteGroup = async (cat: MenuCategory) => {
-    if (!confirm(`${t('delete')} "${cat.name}"?`)) return;
-    await deleteCategory(rid, cat.id);
+  const handleDeleteGroup = async (group: MenuGroup) => {
+    if (!confirm(`${t('delete')} "${group.name}"?`)) return;
+    await deleteGroup(rid, group.id);
     setGroupDropdown(null);
     reload();
   };
@@ -83,7 +83,7 @@ export default function MenuDetailPage() {
     );
   }
 
-  const categories = menu.categories ?? [];
+  const groups = menu.groups ?? [];
 
   return (
     <div className="space-y-6">
@@ -169,7 +169,7 @@ export default function MenuDetailPage() {
             {addDropdownOpen && (
               <div className="absolute right-0 top-10 z-30 w-56 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
                 <button
-                  onClick={() => { setAddDropdownOpen(false); router.push(`/${rid}/menu/items/new?category=${categories[0]?.id ?? ''}&menuId=${mid}`); }}
+                  onClick={() => { setAddDropdownOpen(false); router.push(`/${rid}/menu/items/new?menuId=${mid}`); }}
                   className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
                 >
                   {t('addArticle')}
@@ -188,13 +188,13 @@ export default function MenuDetailPage() {
       </div>
 
       {/* ── Groupes de cartes ── */}
-      {categories.length === 0 && (
+      {groups.length === 0 && (
         <div className="text-center py-12 text-sm text-fg-secondary">
           {t('noGroupsYet')}
         </div>
       )}
 
-      {categories.map((cat) => {
+      {groups.map((cat) => {
         const items = cat.items ?? [];
         const isExpanded = expanded.has(cat.id);
         return (

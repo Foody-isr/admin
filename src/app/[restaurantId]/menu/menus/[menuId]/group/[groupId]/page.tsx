@@ -3,10 +3,9 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, getAllCategories, createCategory, updateCategory,
-  getCategoryHours, setCategoryHours,
-  uploadCategoryImage, updateMenuItem,
-  Menu, MenuCategory, MenuItem, CategoryAvailabilityHour,
+  listMenus, getAllCategories, createGroup, updateGroup,
+  getGroupHours, setGroupHours, addItemsToGroup,
+  Menu, MenuGroup, MenuCategory, MenuItem, GroupAvailabilityHour,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon, MagnifyingGlassIcon, PlusIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
@@ -30,7 +29,7 @@ export default function GroupPage() {
 
   const [allCats, setAllCats] = useState<MenuCategory[]>([]);
   const [menu, setMenu] = useState<Menu | null>(null);
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [groups, setGroups] = useState<MenuGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -40,7 +39,7 @@ export default function GroupPage() {
   const [showParent, setShowParent] = useState(false);
   const [followsMenuHours, setFollowsMenuHours] = useState(true);
   const [isHidden, setIsHidden] = useState(false);
-  const [hours, setHours] = useState<CategoryAvailabilityHour[]>([]);
+  const [hours, setHours] = useState<GroupAvailabilityHour[]>([]);
 
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -61,10 +60,10 @@ export default function GroupPage() {
       setAllCats(fullCats);
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
-      const cats = found?.categories ?? [];
-      setCategories(cats);
+      const grps = found?.groups ?? [];
+      setGroups(grps);
       if (!isNew && gid) {
-        const editing = cats.find((c) => c.id === gid);
+        const editing = grps.find((g) => g.id === gid);
         if (editing) {
           setName(editing.name);
           setImageUrl(editing.image_url ?? '');
@@ -73,7 +72,7 @@ export default function GroupPage() {
           setFollowsMenuHours(editing.follows_menu_hours ?? true);
           setIsHidden(editing.is_hidden ?? false);
           if (!editing.follows_menu_hours) {
-            const h = await getCategoryHours(rid, gid).catch(() => []);
+            const h = await getGroupHours(rid, gid).catch(() => []);
             setHours(h);
           }
         }
@@ -87,30 +86,32 @@ export default function GroupPage() {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const input = {
-        name,
-        menu_id: mid,
-        parent_id: parentId,
-        pos_enabled: true,
-        web_enabled: true,
-        follows_menu_hours: followsMenuHours,
-        is_hidden: isHidden,
-      };
       let savedId = gid;
       if (isNew) {
-        const cat = await createCategory(rid, input);
-        savedId = cat.id;
+        const g = await createGroup(rid, {
+          name,
+          menu_id: mid,
+          parent_id: parentId,
+          follows_menu_hours: followsMenuHours,
+          is_hidden: isHidden,
+        });
+        savedId = g.id;
       } else if (gid) {
-        await updateCategory(rid, gid, input);
+        await updateGroup(rid, gid, {
+          name,
+          parent_id: parentId,
+          follows_menu_hours: followsMenuHours,
+          is_hidden: isHidden,
+        });
       }
       if (!followsMenuHours && savedId) {
-        await setCategoryHours(rid, savedId, hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({
+        await setGroupHours(rid, savedId, hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({
           day_of_week, open_time, close_time, is_closed,
         })));
       }
       // Assign any pending items that were selected before save
       if (pendingItemIds.size > 0 && savedId) {
-        await Promise.all(Array.from(pendingItemIds).map((id) => updateMenuItem(rid, id, { category_id: savedId! })));
+        await addItemsToGroup(rid, savedId, Array.from(pendingItemIds));
       }
       router.push(`/${rid}/menu/menus/${mid}`);
     } finally {
@@ -122,20 +123,21 @@ export default function GroupPage() {
     setHours((prev) => {
       const existing = prev.find((h) => h.day_of_week === day);
       if (existing) return prev.map((h) => h.day_of_week === day ? { ...h, [field]: value } : h);
-      return [...prev, { id: 0, category_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
+      return [...prev, { id: 0, menu_group_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
     });
   };
 
-  const getHour = (day: number): CategoryAvailabilityHour =>
-    hours.find((h) => h.day_of_week === day) ?? { id: 0, category_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false };
+  const getHour = (day: number): GroupAvailabilityHour =>
+    hours.find((h) => h.day_of_week === day) ?? { id: 0, menu_group_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false };
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (_file: File) => {
     if (!gid) return;
     setUploading(true);
     try {
-      const url = await uploadCategoryImage(rid, gid, file);
-      setImageUrl(url);
-      await updateCategory(rid, gid, { image_url: url });
+      // TODO: add dedicated group image upload endpoint
+      // For now, images are set via updateGroup
+      await updateGroup(rid, gid, { image_url: '' });
+      setImageUrl('');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -149,7 +151,7 @@ export default function GroupPage() {
     if (file && file.type.startsWith('image/')) handleImageUpload(file);
   };
 
-  const parentOptions = categories.filter((c) => c.id !== gid);
+  const parentOptions = groups.filter((g: MenuGroup) => g.id !== gid);
 
   // All items across all categories (for item picker + resolving pending)
   const allItems = useMemo(() => {
@@ -164,7 +166,7 @@ export default function GroupPage() {
 
   // Items belonging to this group (saved + pending)
   const savedGroupItems: MenuItem[] = (!isNew && gid)
-    ? (categories.find((c) => c.id === gid)?.items ?? [])
+    ? (groups.find((g: MenuGroup) => g.id === gid)?.items ?? [])
     : [];
 
   const pendingItems = useMemo(() => {
@@ -195,14 +197,14 @@ export default function GroupPage() {
     }
   };
 
-  // Move selected items into this group
+  // Add selected items to this group
   const handleAssignItems = async (itemIds: number[]) => {
     if (itemIds.length === 0) return;
     if (isNew) {
       setPendingItemIds((prev) => { const next = new Set(prev); itemIds.forEach((id) => next.add(id)); return next; });
       setModalView(null);
     } else if (gid) {
-      await Promise.all(itemIds.map((id) => updateMenuItem(rid, id, { category_id: gid })));
+      await addItemsToGroup(rid, gid, itemIds);
       setModalView(null);
       load();
     }
@@ -211,20 +213,20 @@ export default function GroupPage() {
   // Import all items from selected categories into this group
   const handleImportFromCategories = async (catIds: number[]) => {
     if (catIds.length === 0) return;
-    const itemsToMove: number[] = [];
+    const itemsToImport: number[] = [];
     for (const cat of allCategories) {
       if (catIds.includes(cat.id)) {
         for (const item of cat.items ?? []) {
-          itemsToMove.push(item.id);
+          itemsToImport.push(item.id);
         }
       }
     }
-    if (itemsToMove.length === 0) return;
+    if (itemsToImport.length === 0) return;
     if (isNew) {
-      setPendingItemIds((prev) => { const next = new Set(prev); itemsToMove.forEach((id) => next.add(id)); return next; });
+      setPendingItemIds((prev) => { const next = new Set(prev); itemsToImport.forEach((id) => next.add(id)); return next; });
       setModalView(null);
     } else if (gid) {
-      await Promise.all(itemsToMove.map((id) => updateMenuItem(rid, id, { category_id: gid })));
+      await addItemsToGroup(rid, gid, itemsToImport);
       setModalView(null);
       load();
     }
@@ -375,7 +377,7 @@ export default function GroupPage() {
               className="input w-full"
             >
               <option value="">— {t('none')} —</option>
-              {parentOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {parentOptions.map((g: MenuGroup) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
         )}

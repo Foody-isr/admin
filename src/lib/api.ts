@@ -99,8 +99,34 @@ export interface Menu {
   web_enabled: boolean;
   follows_restaurant_hours: boolean;
   availability_hours?: MenuAvailabilityHour[];
-  categories?: MenuCategory[];
+  groups?: MenuGroup[];
+  categories?: MenuCategory[]; // Deprecated: use groups
   locations?: Location[];
+}
+
+export interface GroupAvailabilityHour {
+  id: number;
+  menu_group_id: number;
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
+export interface MenuGroup {
+  id: number;
+  restaurant_id: number;
+  menu_id: number;
+  parent_id?: number;
+  name: string;
+  image_url: string;
+  sort_order: number;
+  pos_enabled: boolean;
+  web_enabled: boolean;
+  follows_menu_hours: boolean;
+  is_hidden: boolean;
+  items?: MenuItem[];
+  availability_hours?: GroupAvailabilityHour[];
 }
 
 export interface MenuCategory {
@@ -927,6 +953,60 @@ export async function getCategoryHours(restaurantId: number, categoryId: number)
 export async function setCategoryHours(restaurantId: number, categoryId: number, hours: Omit<CategoryAvailabilityHour, 'id' | 'category_id'>[]): Promise<CategoryAvailabilityHour[]> {
   const data = await apiFetch<{ hours: CategoryAvailabilityHour[] }>(
     `/api/v1/menu/categories/${categoryId}/hours?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(hours) }
+  );
+  return data.hours ?? [];
+}
+
+// ─── Menu Groups ─────────────────────────────────────────────────────────────
+
+export async function createGroup(restaurantId: number, input: Partial<MenuGroup> & { menu_id: number; name: string }): Promise<MenuGroup> {
+  const data = await apiFetch<{ group: MenuGroup }>(
+    `/api/v1/menu/groups?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.group;
+}
+
+export async function updateGroup(restaurantId: number, id: number, input: Partial<MenuGroup>): Promise<MenuGroup> {
+  const data = await apiFetch<{ group: MenuGroup }>(
+    `/api/v1/menu/groups/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.group;
+}
+
+export async function deleteGroup(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function addItemsToGroup(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }
+  );
+}
+
+export async function removeItemFromGroup(restaurantId: number, groupId: number, itemId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${groupId}/items/${itemId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function getGroupHours(restaurantId: number, groupId: number): Promise<GroupAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: GroupAvailabilityHour[] }>(
+    `/api/v1/menu/groups/${groupId}/hours?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.hours ?? [];
+}
+
+export async function setGroupHours(restaurantId: number, groupId: number, hours: Omit<GroupAvailabilityHour, 'id' | 'menu_group_id'>[]): Promise<GroupAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: GroupAvailabilityHour[] }>(
+    `/api/v1/menu/groups/${groupId}/hours?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'PUT', body: JSON.stringify(hours) }
   );
   return data.hours ?? [];
