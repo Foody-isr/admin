@@ -187,96 +187,101 @@ export default function MenuDetailPage() {
         </div>
       </div>
 
-      {/* ── Groupes de cartes ── */}
-      {groups.length === 0 && (
-        <div className="text-center py-12 text-sm text-fg-secondary">
-          {t('noGroupsYet')}
-        </div>
-      )}
-
-      {groups.map((cat) => {
-        const items = cat.items ?? [];
-        const isExpanded = expanded.has(cat.id);
-        return (
-          <div key={cat.id} className="rounded-lg border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
-            {/* Group header */}
-            <div className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors" onClick={() => toggleExpand(cat.id)}>
-              {isExpanded ? <ChevronUpIcon className="w-5 h-5 text-fg-tertiary shrink-0" /> : <ChevronDownIcon className="w-5 h-5 text-fg-tertiary shrink-0" />}
-              <span className="font-bold text-base text-fg-primary">{cat.name}</span>
-              <span className="text-sm text-fg-tertiary">{t('nArticles').replace('{n}', String(items.length))}</span>
-              <div className="flex-1" />
-              <div className="relative">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setGroupDropdown(groupDropdown === cat.id ? null : cat.id); }}
-                  className="p-1 rounded hover:bg-[var(--surface-subtle)] text-fg-tertiary"
-                >
-                  <EllipsisHorizontalIcon className="w-5 h-5" />
-                </button>
-                {groupDropdown === cat.id && (
-                  <div className="absolute right-0 top-8 z-30 w-44 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setGroupDropdown(null); router.push(`/${rid}/menu/menus/${mid}/group/${cat.id}`); }}
-                      className="w-full text-left px-3.5 py-2.5 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-                    >
-                      {t('edit')}
-                    </button>
-                    <div className="border-t border-[var(--divider)]" />
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteGroup(cat); }}
-                      className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-                    >
-                      {t('delete')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Articles table */}
-            {isExpanded && (
-              <div className="border-t border-[var(--divider)]">
-                {items.length > 0 && (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-xs text-fg-secondary border-b-2 border-fg-primary">
-                        <th className="py-3 px-4 font-normal w-8"><input type="checkbox" className="rounded" disabled /></th>
-                        <th className="py-3 px-4 font-normal">{t('article')}</th>
-                        <th className="py-3 px-4 font-normal">{t('pointOfSale')}</th>
-                        <th className="py-3 px-4 font-normal">{t('salesChannels')}</th>
-                        <th className="py-3 px-4 font-normal">{t('modifiers')}</th>
-                        <th className="py-3 px-4 font-normal text-right">{t('price')}</th>
-                        <th className="py-3 px-4 font-normal w-10" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item) => (
-                        <ArticleRow key={item.id} item={item} restaurantName={restaurant?.name} menu={menu} t={t} rid={rid} onDelete={reload} />
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-                {/* Add article row */}
-                <button
-                  onClick={() => router.push(`/${rid}/menu/items/new?category=${cat.id}`)}
-                  className="flex items-center gap-2 px-5 py-3.5 text-base text-fg-tertiary hover:text-fg-primary hover:bg-[var(--surface-subtle)] w-full transition-colors"
-                >
-                  <PlusIcon className="w-5 h-5" />
-                  {t('addArticle')}
-                </button>
-              </div>
-            )}
+      {/* ── Groups + Add group: one continuous container ── */}
+      <div className="rounded-lg border border-[var(--divider)] overflow-hidden">
+        {groups.length === 0 && (
+          <div className="text-center py-12 text-sm text-fg-secondary">
+            {t('noGroupsYet')}
           </div>
-        );
-      })}
+        )}
 
-      {/* ── Add group button ── */}
-      <button
-        onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}
-        className="flex items-center gap-3 w-full px-5 py-4 rounded-lg border border-[var(--divider)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] transition-colors text-base font-bold text-fg-primary"
-      >
-        <PlusIcon className="w-5 h-5" />
-        {t('addGroup')}
-      </button>
+        {groups.map((cat, idx) => {
+          const items = cat.items ?? [];
+          const isExpanded = expanded.has(cat.id);
+          return (
+            <div key={cat.id}>
+              {idx > 0 && <div className="border-t border-[var(--divider)]" />}
+              {/* Group header */}
+              <div className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors" onClick={() => toggleExpand(cat.id)}>
+                {isExpanded ? <ChevronUpIcon className="w-5 h-5 text-fg-tertiary shrink-0" /> : <ChevronDownIcon className="w-5 h-5 text-fg-tertiary shrink-0" />}
+                <span className="font-bold text-base text-fg-primary">{cat.name}</span>
+                <span className="text-sm text-fg-tertiary">{t('nArticles').replace('{n}', String(items.length))}</span>
+                <div className="flex-1" />
+                <div className="relative">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setGroupDropdown(groupDropdown === cat.id ? null : cat.id); }}
+                    className="p-1 rounded hover:bg-[var(--surface-subtle)] text-fg-tertiary"
+                  >
+                    <EllipsisHorizontalIcon className="w-5 h-5" />
+                  </button>
+                  {groupDropdown === cat.id && (
+                    <div className="absolute right-0 top-8 z-30 w-44 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setGroupDropdown(null); router.push(`/${rid}/menu/menus/${mid}/group/${cat.id}`); }}
+                        className="w-full text-left px-3.5 py-2.5 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+                      >
+                        {t('edit')}
+                      </button>
+                      <div className="border-t border-[var(--divider)]" />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGroup(cat); }}
+                        className="w-full text-left px-3.5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        {t('delete')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Articles table */}
+              {isExpanded && (
+                <div className="border-t border-[var(--divider)]">
+                  {items.length > 0 && (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-fg-secondary border-b-2 border-fg-primary">
+                          <th className="py-3 px-4 font-normal w-8"><input type="checkbox" className="rounded" disabled /></th>
+                          <th className="py-3 px-4 font-normal">{t('article')}</th>
+                          <th className="py-3 px-4 font-normal">{t('pointOfSale')}</th>
+                          <th className="py-3 px-4 font-normal">{t('salesChannels')}</th>
+                          <th className="py-3 px-4 font-normal">{t('modifiers')}</th>
+                          <th className="py-3 px-4 font-normal text-right">{t('price')}</th>
+                          <th className="py-3 px-4 font-normal w-10" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item) => (
+                          <ArticleRow key={item.id} item={item} restaurantName={restaurant?.name} menu={menu} t={t} rid={rid} onDelete={reload} />
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {/* Add article row */}
+                  <button
+                    onClick={() => router.push(`/${rid}/menu/items/new?category=${cat.id}`)}
+                    className="flex items-center gap-2 px-5 py-3.5 text-base text-fg-tertiary hover:text-fg-primary hover:bg-[var(--surface-subtle)] w-full transition-colors"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                    {t('addArticle')}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add group — inside the same container, separated by border */}
+        <div className="border-t border-[var(--divider)]">
+          <button
+            onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}
+            className="flex items-center gap-3 w-full px-5 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-base font-bold text-fg-primary"
+          >
+            <PlusIcon className="w-5 h-5" />
+            {t('addGroup')}
+          </button>
+        </div>
+      </div>
 
     </div>
   );
