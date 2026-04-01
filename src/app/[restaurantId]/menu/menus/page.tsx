@@ -96,7 +96,6 @@ export default function MenusPage() {
   }, []);
 
   const handleDelete = async (m: Menu) => {
-    if (menus.length <= 1) { alert(t('cannotDeleteLastMenu')); return; }
     if (!confirm(`${t('deleteMenu')} "${m.name}"?`)) return;
     await deleteMenu(rid, m.id);
     setOpenDropdown(null);
