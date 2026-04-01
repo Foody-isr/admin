@@ -86,22 +86,22 @@ export default function MenuDetailPage() {
   const groups = menu.groups ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/${rid}/menu/menus`)} className="p-2 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors">
-            <ArrowLeftIcon className="w-4 h-4" />
+          <button onClick={() => router.push(`/${rid}/menu/menus`)} className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
+            <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-fg-primary">{menu.name}</h1>
+              <h1 className="text-3xl font-bold text-fg-primary">{menu.name}</h1>
               <div className="relative">
                 <button
                   onClick={() => setHeaderDropdownOpen(!headerDropdownOpen)}
-                  className="p-1 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
+                  className="text-fg-tertiary hover:text-fg-primary transition-colors text-2xl leading-none px-1"
                 >
-                  <EllipsisHorizontalIcon className="w-5 h-5 text-fg-primary" />
+                  ···
                 </button>
                 {headerDropdownOpen && (
                   <div className="absolute left-0 top-10 z-30 w-72 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
@@ -198,7 +198,7 @@ export default function MenuDetailPage() {
         const items = cat.items ?? [];
         const isExpanded = expanded.has(cat.id);
         return (
-          <div key={cat.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
+          <div key={cat.id} className="rounded-lg border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
             {/* Group header */}
             <div className="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors" onClick={() => toggleExpand(cat.id)}>
               {isExpanded ? <ChevronUpIcon className="w-5 h-5 text-fg-tertiary shrink-0" /> : <ChevronDownIcon className="w-5 h-5 text-fg-tertiary shrink-0" />}
@@ -272,7 +272,7 @@ export default function MenuDetailPage() {
       {/* ── Add group button ── */}
       <button
         onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}
-        className="flex items-center gap-3 w-full px-5 py-4 rounded-xl border border-[var(--divider)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] transition-colors text-base font-bold text-fg-primary"
+        className="flex items-center gap-3 w-full px-5 py-4 rounded-lg border border-[var(--divider)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] transition-colors text-base font-bold text-fg-primary"
       >
         <PlusIcon className="w-5 h-5" />
         {t('addGroup')}
