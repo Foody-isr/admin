@@ -199,7 +199,6 @@ export default function GroupPage() {
   const handleAssignItems = async (itemIds: number[]) => {
     if (itemIds.length === 0) return;
     if (isNew) {
-      // Store for later — will be assigned on save
       setPendingItemIds((prev) => { const next = new Set(prev); itemIds.forEach((id) => next.add(id)); return next; });
       setModalView(null);
     } else if (gid) {
