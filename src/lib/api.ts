@@ -853,9 +853,20 @@ export async function getMenu(restaurantId: number): Promise<Menu[]> {
 }
 
 /** Flattens all categories from all menus — for pages that work with a global category list. */
+/** Returns all item categories for a restaurant (global, independent of menus). */
 export async function getAllCategories(restaurantId: number): Promise<MenuCategory[]> {
-  const menus = await getMenu(restaurantId);
-  return menus.flatMap((m) => m.categories ?? []);
+  const data = await apiFetch<{ categories: MenuCategory[] }>(
+    `/api/v1/menu/item-categories?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.categories ?? [];
+}
+
+/** Returns all items for a restaurant (global, independent of menus). */
+export async function listAllItems(restaurantId: number): Promise<MenuItem[]> {
+  const data = await apiFetch<{ items: MenuItem[] }>(
+    `/api/v1/menu/items?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.items ?? [];
 }
 
 export async function listMenus(restaurantId: number): Promise<Menu[]> {
