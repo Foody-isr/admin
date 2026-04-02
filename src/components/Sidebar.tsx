@@ -50,11 +50,12 @@ interface NavItem {
 
 interface SidebarProps {
   restaurantId: number;
+  restaurantName?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { restaurantIds } = useAuth();
   const { hasAnyPermission } = usePermissions();
@@ -220,7 +221,7 @@ export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps)
 
       <aside
         className={`
-          fixed top-12 z-30 w-64 h-[calc(100vh-3rem)] flex flex-col overflow-y-auto
+          fixed top-0 z-30 w-64 h-screen flex flex-col overflow-y-auto
           transition-transform duration-200 ease-in-out
           lg:translate-x-0
           ${isRtl ? 'right-0' : 'left-0'}
@@ -232,6 +233,16 @@ export default function Sidebar({ restaurantId, isOpen, onClose }: SidebarProps)
           borderColor: 'var(--divider)',
         }}
       >
+        {/* Profile section */}
+        <div className="px-4 py-4 flex items-center gap-3 border-b" style={{ borderColor: 'var(--divider)' }}>
+          <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center shrink-0">
+            <span className="text-xs font-bold text-white">{(restaurantName ?? 'R')[0].toUpperCase()}</span>
+          </div>
+          <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+            {restaurantName ?? ''}
+          </span>
+        </div>
+
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-3 lg:hidden">
           <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>

@@ -113,15 +113,11 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
         <AiChatProvider restaurantId={restaurantId}>
-          <div className="min-h-screen flex flex-col">
-            <TopBar
-              restaurantName={restaurant.name}
-              pageName={pageName}
-              onToggleSidebar={toggleSidebar}
-            />
-            <div className="flex flex-1 pt-12">
+          <div className="min-h-screen flex">
+            <div className="flex flex-1">
               <Sidebar
                 restaurantId={restaurantId}
+                restaurantName={restaurant.name}
                 isOpen={sidebarOpen}
                 onClose={closeSidebar}
               />
