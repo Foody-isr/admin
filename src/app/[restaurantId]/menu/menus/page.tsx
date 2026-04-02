@@ -136,7 +136,7 @@ export default function MenusPage() {
   }
 
   return (
-    <div className="space-y-6" ref={containerRef}>
+    <div className="space-y-6 max-w-5xl mx-auto" ref={containerRef}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-fg-primary">{t('menus')}</h1>
