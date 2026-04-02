@@ -19,11 +19,11 @@
 }
 
 .dark {
-  --bg: #0f0f0f;
-  --surface: #171717;
-  --surface-subtle: #1c1c1c;
-  --surface-elevated: #232323;
-  --divider: #2a2a2a;
+  --bg: #171717;
+  --surface: #1c1c1c;
+  --surface-subtle: #232323;
+  --surface-elevated: #2a2a2a;
+  --divider: #333333;
   --text-primary: #ffffff;
   --text-secondary: #a1a1a1;
   --text-muted: #6b6b6b;
