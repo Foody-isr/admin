@@ -978,7 +978,7 @@ function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
               {FULL_DAY_LABELS.map((dayInfo, idx) => {
                 const dayOfWeek = idx === 6 ? 0 : idx + 1; // Mon=1..Sat=6, Sun=0
                 const h = getHour(dayOfWeek);
-                const isOpen = !h.is_closed && (h.open_time !== '' || h.close_time !== '');
+                const isOpen = !h.is_closed;
                 return (
                   <div key={dayInfo.key} className="grid grid-cols-[auto_1fr_1fr] gap-3 items-center py-3 border-b border-[var(--divider)]">
                     <div className="w-28 flex items-center gap-2">
@@ -1001,21 +1001,25 @@ function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
                     <div>
                       <input
                         type="time"
-                        value={isOpen ? h.open_time : ''}
+                        value={h.open_time || ''}
+                        onChange={(e) => {
+                          setField(dayOfWeek, 'open_time', e.target.value);
+                          if (e.target.value) setField(dayOfWeek, 'is_closed', false);
+                        }}
+                        className={`input-sm w-full ${!isOpen ? 'opacity-40' : ''}`}
                         placeholder={t('closed')}
-                        disabled={!isOpen}
-                        onChange={(e) => setField(dayOfWeek, 'open_time', e.target.value)}
-                        className="input-sm w-full disabled:opacity-40"
                       />
                     </div>
                     <div>
                       <input
                         type="time"
-                        value={isOpen ? h.close_time : ''}
+                        value={h.close_time || ''}
+                        onChange={(e) => {
+                          setField(dayOfWeek, 'close_time', e.target.value);
+                          if (e.target.value) setField(dayOfWeek, 'is_closed', false);
+                        }}
+                        className={`input-sm w-full ${!isOpen ? 'opacity-40' : ''}`}
                         placeholder={t('closed')}
-                        disabled={!isOpen}
-                        onChange={(e) => setField(dayOfWeek, 'close_time', e.target.value)}
-                        className="input-sm w-full disabled:opacity-40"
                       />
                     </div>
                   </div>
