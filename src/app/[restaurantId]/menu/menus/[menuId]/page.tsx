@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, getRestaurant, deleteGroup, deleteMenu, deleteMenuItem,
+  listMenus, getRestaurant, deleteGroup, deleteMenu,
   listAllItems, addItemsToGroup, removeItemFromGroup,
   Menu, MenuGroup, MenuItem, Restaurant,
 } from '@/lib/api';
@@ -289,7 +289,8 @@ export default function MenuDetailPage() {
                       menu={menu}
                       t={t}
                       rid={rid}
-                      onDelete={reload}
+                      groupId={group.id}
+                      onUpdate={reload}
                     />
                   ))}
 
@@ -490,13 +491,14 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
 
 // ─── Item Row (CSS Grid) ─────────────────────────────────────────────────────
 
-function ItemRow({ item, restaurantName, menu, t, rid, onDelete }: {
+function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
   item: MenuItem;
   restaurantName?: string;
   menu: Menu;
   t: TFn;
   rid: number;
-  onDelete: () => void;
+  groupId: number;
+  onUpdate: () => void;
 }) {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -505,11 +507,11 @@ function ItemRow({ item, restaurantName, menu, t, rid, onDelete }: {
   if (menu.pos_enabled) channelTags.push(t('posSystem'));
   if (menu.web_enabled) channelTags.push('Web');
 
-  const handleDelete = async () => {
+  const handleRemoveFromGroup = async () => {
     setDropdownOpen(false);
-    if (!confirm(`${t('delete')} "${item.name}"?`)) return;
-    await deleteMenuItem(rid, item.id);
-    onDelete();
+    if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
+    await removeItemFromGroup(rid, groupId, item.id);
+    onUpdate();
   };
 
   return (
@@ -561,19 +563,40 @@ function ItemRow({ item, restaurantName, menu, t, rid, onDelete }: {
           <EllipsisHorizontalIcon className="w-4 h-4" />
         </button>
         {dropdownOpen && (
-          <div className="absolute right-0 top-8 z-30 w-44 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+          <div className="absolute right-0 top-8 z-30 w-64 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
             <button
               onClick={() => { setDropdownOpen(false); router.push(`/${rid}/menu/items/${item.id}`); }}
-              className="w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
             >
-              {t('editItem')}
+              {t('editItemDetails')}
             </button>
             <div className="border-t border-[var(--divider)]" />
             <button
-              onClick={handleDelete}
-              className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+              onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
+              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
             >
-              {t('delete')}
+              {t('duplicateItem')}
+            </button>
+            <div className="border-t border-[var(--divider)]" />
+            <button
+              onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
+              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+            >
+              {t('changeModifiers')}
+            </button>
+            <div className="border-t border-[var(--divider)]" />
+            <button
+              onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
+              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+            >
+              {t('archiveItem')}
+            </button>
+            <div className="border-t border-[var(--divider)]" />
+            <button
+              onClick={handleRemoveFromGroup}
+              className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+            >
+              {t('removeFromGroup')}
             </button>
           </div>
         )}
