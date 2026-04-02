@@ -24,7 +24,13 @@ import {
   ChevronDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  BellIcon,
+  QuestionMarkCircleIcon,
+  SparklesIcon,
+  UserIcon,
+  CalendarIcon,
 } from '@heroicons/react/24/outline';
+import { useAi } from '@/lib/ai-context';
 
 interface SubItem {
   href: string;
@@ -58,6 +64,8 @@ interface SidebarProps {
 export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { restaurantIds } = useAuth();
+  const ai = useAi();
+  const [profileOpen, setProfileOpen] = useState(false);
   const { hasAnyPermission } = usePermissions();
   const { status: wsStatus } = useWs();
   const { t, direction } = useI18n();
@@ -233,14 +241,17 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           borderColor: 'var(--divider)',
         }}
       >
-        {/* Profile section */}
-        <div className="px-4 py-4 flex items-center gap-3 border-b" style={{ borderColor: 'var(--divider)' }}>
-          <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-white">{(restaurantName ?? 'R')[0].toUpperCase()}</span>
-          </div>
-          <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-            {restaurantName ?? ''}
-          </span>
+        {/* Profile box */}
+        <div className="px-3 pt-4 pb-2">
+          <button
+            onClick={() => setProfileOpen(!profileOpen)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[var(--divider)] hover:bg-[var(--sidebar-hover)] transition-colors text-left"
+          >
+            <UserIcon className="w-5 h-5 shrink-0" style={{ color: 'var(--text-secondary)' }} />
+            <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+              {restaurantName ?? ''}
+            </span>
+          </button>
         </div>
 
         {/* Mobile close button */}
@@ -387,7 +398,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
         {/* Footer: switch restaurant */}
         {restaurantIds.length > 1 && (
-          <div className="px-4 py-4 border-t" style={{ borderColor: 'var(--divider)' }}>
+          <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--divider)' }}>
             <Link
               href="/select-restaurant"
               className="flex items-center gap-2 text-xs transition-colors hover:text-brand-500"
@@ -398,6 +409,40 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </Link>
           </div>
         )}
+
+        {/* Bottom icon bar */}
+        <div className="mt-auto border-t flex items-center justify-around px-2 py-3" style={{ borderColor: 'var(--divider)' }}>
+          <button
+            className="relative p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Notifications"
+          >
+            <BellIcon className="w-5 h-5" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Orders"
+          >
+            <CalendarIcon className="w-5 h-5" />
+          </button>
+          <button
+            className="p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Help"
+          >
+            <QuestionMarkCircleIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={ai.toggleDrawer}
+            className={`p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors ${ai.isOpen ? 'bg-[var(--sidebar-hover)]' : ''}`}
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label="Foody AI"
+          >
+            <SparklesIcon className="w-5 h-5" />
+          </button>
+        </div>
       </aside>
     </>
   );
