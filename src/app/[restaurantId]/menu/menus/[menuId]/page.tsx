@@ -395,9 +395,9 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50" onClick={onClose}>
       <div
-        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col border border-[var(--divider)]"
+        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
