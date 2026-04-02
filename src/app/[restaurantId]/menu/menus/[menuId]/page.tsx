@@ -207,21 +207,19 @@ export default function MenuDetailPage() {
         </div>
       </div>
 
-      {/* ── Accordion Groups Container ── */}
-      <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
+      {/* ── Accordion Groups ── */}
+      <div className="space-y-3">
         {groups.length === 0 && (
-          <div className="text-center py-16 text-sm text-[var(--text-muted)]">
+          <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] text-center py-16 text-sm text-[var(--text-muted)]">
             {t('noGroupsYet')}
           </div>
         )}
 
-        {groups.map((group, idx) => {
+        {groups.map((group) => {
           const items = group.items ?? [];
           const isExpanded = expanded.has(group.id);
           return (
-            <div key={group.id}>
-              {idx > 0 && <div className="border-t border-[var(--divider)]" />}
-
+            <div key={group.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
               {/* ── Group Header ── */}
               <div
                 className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
@@ -308,8 +306,8 @@ export default function MenuDetailPage() {
           );
         })}
 
-        {/* ── Add Group Row ── */}
-        <div className="border-t border-[var(--divider)]">
+        {/* ── Add Group Card ── */}
+        <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
           <button
             onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}
             className="flex items-center gap-3 w-full px-4 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-base font-bold text-[var(--text-primary)]"
