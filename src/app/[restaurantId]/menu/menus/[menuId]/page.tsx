@@ -19,7 +19,7 @@ import {
 type TFn = (k: string) => string;
 
 // Grid column template shared by header, item rows, and add-item row
-const GRID_COLS = 'grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px]';
+const GRID_COLS = 'grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] min-w-[700px]';
 
 function channelsMeta(m: Menu, t: TFn): string {
   const parts = [m.pos_enabled && t('posSystem'), m.web_enabled && 'Web'].filter(Boolean) as string[];
@@ -104,7 +104,7 @@ export default function MenuDetailPage() {
   const groups = menu.groups ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
       {/* ── Page Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -261,7 +261,7 @@ export default function MenuDetailPage() {
 
               {/* ── Group Content (expanded) ── */}
               {isExpanded && (
-                <div className="border-t border-[var(--divider)]">
+                <div className="border-t border-[var(--divider)] overflow-x-auto">
                   {/* Table Header Row */}
                   {items.length > 0 && (
                     <div className={`grid ${GRID_COLS} items-center px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
