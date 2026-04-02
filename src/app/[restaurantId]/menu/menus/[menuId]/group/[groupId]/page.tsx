@@ -466,53 +466,19 @@ export default function GroupPage() {
           </div>
 
           {/* Hours */}
-          <div className="py-4 border-b border-[var(--divider)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <svg className="w-6 h-6 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-                <div>
-                  <p className="text-base font-medium text-fg-primary">{t('hoursLabel')}</p>
-                  <p className="text-sm text-fg-tertiary max-w-md">{t('hoursDescription')}</p>
-                </div>
+          <div className="flex items-center justify-between py-4 border-b border-[var(--divider)]">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <div>
+                <p className="text-base font-medium text-fg-primary">{t('hoursLabel')}</p>
+                <p className="text-sm text-fg-tertiary max-w-md">{followsMenuHours ? t('hoursDescription') : t('customHours')}</p>
               </div>
-              <button onClick={() => { setShowHoursEditor(!showHoursEditor); if (followsMenuHours) setFollowsMenuHours(false); }} className="text-base font-medium underline text-fg-primary shrink-0">
-                {t('edit')}
-              </button>
             </div>
-            {showHoursEditor && (
-              <div className="mt-4 pl-9 space-y-2">
-                <label className="flex items-center gap-2 text-base mb-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={followsMenuHours}
-                    onChange={(e) => setFollowsMenuHours(e.target.checked)}
-                    className="rounded"
-                  />
-                  {t('followsMenuHours') || 'Use menu hours'}
-                </label>
-                {!followsMenuHours && DAY_LABELS.map((label, day) => {
-                  const h = getHour(day);
-                  return (
-                    <div key={day} className="flex items-center gap-3 text-sm">
-                      <span className="w-10 text-fg-secondary">{label}</span>
-                      <label className="flex items-center gap-1 text-sm">
-                        <input type="checkbox" checked={h.is_closed} onChange={(e) => setHourField(day, 'is_closed', e.target.checked)} className="rounded" />
-                        {t('closed')}
-                      </label>
-                      {!h.is_closed && (
-                        <>
-                          <input type="time" value={h.open_time} onChange={(e) => setHourField(day, 'open_time', e.target.value)} className="input-sm py-1.5 px-2 text-sm w-32" />
-                          <span className="text-fg-secondary">–</span>
-                          <input type="time" value={h.close_time} onChange={(e) => setHourField(day, 'close_time', e.target.value)} className="input-sm py-1.5 px-2 text-sm w-32" />
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <button onClick={() => setShowHoursEditor(true)} className="text-base font-medium underline text-fg-primary shrink-0">
+              {t('edit')}
+            </button>
           </div>
 
           {/* Hide on all channels */}
@@ -562,6 +528,19 @@ export default function GroupPage() {
           allCategories={allCategories}
           onClose={() => setModalView(null)}
           onDone={handleImportFromCategories}
+        />
+      )}
+      {showHoursEditor && (
+        <HoursModal
+          t={t}
+          followsMenuHours={followsMenuHours}
+          hours={hours}
+          onClose={() => setShowHoursEditor(false)}
+          onDone={(newFollows: boolean, newHours: GroupAvailabilityHour[]) => {
+            setFollowsMenuHours(newFollows);
+            setHours(newHours);
+            setShowHoursEditor(false);
+          }}
         />
       )}
       {showMenuPicker && (
@@ -884,6 +863,166 @@ function MenuPickerModal({ t, menus, selectedMenuId, onSelect, onClose }: {
               </div>
             </label>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Hours ────────────────────────────────────────────────────────────
+
+const FULL_DAY_LABELS = [
+  { key: 'monday', en: 'Monday', fr: 'Lundi', he: 'שני' },
+  { key: 'tuesday', en: 'Tuesday', fr: 'Mardi', he: 'שלישי' },
+  { key: 'wednesday', en: 'Wednesday', fr: 'Mercredi', he: 'רביעי' },
+  { key: 'thursday', en: 'Thursday', fr: 'Jeudi', he: 'חמישי' },
+  { key: 'friday', en: 'Friday', fr: 'Vendredi', he: 'שישי' },
+  { key: 'saturday', en: 'Saturday', fr: 'Samedi', he: 'שבת' },
+  { key: 'sunday', en: 'Sunday', fr: 'Dimanche', he: 'ראשון' },
+];
+
+function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
+  t: (k: string) => string;
+  followsMenuHours: boolean;
+  hours: GroupAvailabilityHour[];
+  onClose: () => void;
+  onDone: (followsMenuHours: boolean, hours: GroupAvailabilityHour[]) => void;
+}) {
+  const [useExisting, setUseExisting] = useState(followsMenuHours);
+  const [localHours, setLocalHours] = useState<GroupAvailabilityHour[]>(hours);
+
+  const getHour = (day: number): GroupAvailabilityHour =>
+    localHours.find((h) => h.day_of_week === day) ?? { id: 0, menu_group_id: 0, day_of_week: day, open_time: '', close_time: '', is_closed: true };
+
+  const setField = (day: number, field: string, value: string | boolean) => {
+    setLocalHours((prev) => {
+      const existing = prev.find((h) => h.day_of_week === day);
+      if (existing) return prev.map((h) => h.day_of_week === day ? { ...h, [field]: value } : h);
+      return [...prev, { id: 0, menu_group_id: 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false, [field]: value }];
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50" onClick={onClose}>
+      <div
+        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-6 pb-0">
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => onDone(useExisting, localHours)}
+              className="bg-fg-primary text-[var(--bg)] font-medium px-6 py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity"
+            >
+              {t('done')}
+            </button>
+          </div>
+          <h2 className="text-2xl font-bold text-fg-primary mb-3">{t('hoursLabel')}</h2>
+          <p className="text-sm text-fg-tertiary leading-relaxed mb-6">{t('hoursModalDesc')}</p>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          {/* Option 1: Use existing hours */}
+          <label
+            className="flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer"
+            onClick={() => setUseExisting(true)}
+          >
+            <div className="flex-1">
+              <p className="text-base font-bold text-fg-primary">{t('useExistingHours')}</p>
+              <p className="text-sm text-fg-tertiary mt-1">{t('useExistingHoursDesc')}</p>
+            </div>
+            <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${useExisting ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
+              {useExisting && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
+            </div>
+          </label>
+
+          {/* Option 2: Custom hours */}
+          <label
+            className="flex items-center gap-3 py-4 cursor-pointer"
+            onClick={() => setUseExisting(false)}
+          >
+            <div className="flex-1">
+              <p className="text-base font-bold text-fg-primary">{t('setCustomHours')}</p>
+              <p className="text-sm text-fg-tertiary mt-1">{t('setCustomHoursDesc')}</p>
+            </div>
+            <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${!useExisting ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
+              {!useExisting && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
+            </div>
+          </label>
+
+          {/* Custom hours table */}
+          {!useExisting && (
+            <div className="mt-4">
+              {/* Table header */}
+              <div className="grid grid-cols-[auto_1fr_1fr] gap-3 items-center pb-2 border-b border-[var(--divider)]">
+                <div className="w-28">
+                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('days')}</span>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('startTime')}</span>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('endTime')}</span>
+                </div>
+              </div>
+
+              {/* Day rows — Monday=1 through Sunday=0 mapped to 0-6 */}
+              {FULL_DAY_LABELS.map((dayInfo, idx) => {
+                const dayOfWeek = idx === 6 ? 0 : idx + 1; // Mon=1..Sat=6, Sun=0
+                const h = getHour(dayOfWeek);
+                const isOpen = !h.is_closed && (h.open_time !== '' || h.close_time !== '');
+                return (
+                  <div key={dayInfo.key} className="grid grid-cols-[auto_1fr_1fr] gap-3 items-center py-3 border-b border-[var(--divider)]">
+                    <div className="w-28 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={isOpen}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setField(dayOfWeek, 'is_closed', false);
+                            if (!h.open_time) setField(dayOfWeek, 'open_time', '09:00');
+                            if (!h.close_time) setField(dayOfWeek, 'close_time', '21:00');
+                          } else {
+                            setField(dayOfWeek, 'is_closed', true);
+                          }
+                        }}
+                        className="rounded border-[var(--divider)]"
+                      />
+                      <span className="text-sm text-fg-primary">{t(dayInfo.key) || dayInfo.en}</span>
+                    </div>
+                    <div>
+                      <input
+                        type="time"
+                        value={isOpen ? h.open_time : ''}
+                        placeholder={t('closed')}
+                        disabled={!isOpen}
+                        onChange={(e) => setField(dayOfWeek, 'open_time', e.target.value)}
+                        className="input-sm w-full disabled:opacity-40"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="time"
+                        value={isOpen ? h.close_time : ''}
+                        placeholder={t('closed')}
+                        disabled={!isOpen}
+                        onChange={(e) => setField(dayOfWeek, 'close_time', e.target.value)}
+                        className="input-sm w-full disabled:opacity-40"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
