@@ -28,8 +28,11 @@ export default function GroupPage() {
   const { t } = useI18n();
 
   const [allCats, setAllCats] = useState<MenuCategory[]>([]);
+  const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [groups, setGroups] = useState<MenuGroup[]>([]);
+  const [selectedMenuId, setSelectedMenuId] = useState<number>(mid);
+  const [showMenuPicker, setShowMenuPicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -58,6 +61,7 @@ export default function GroupPage() {
     setLoading(true);
     Promise.all([listMenus(rid), getAllCategories(rid)]).then(async ([menus, fullCats]) => {
       setAllCats(fullCats);
+      setAllMenus(menus);
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       const grps = found?.groups ?? [];
@@ -90,7 +94,7 @@ export default function GroupPage() {
       if (isNew) {
         const g = await createGroup(rid, {
           name,
-          menu_id: mid,
+          menu_id: selectedMenuId,
           parent_id: parentId,
           follows_menu_hours: followsMenuHours,
           is_hidden: isHidden,
@@ -99,6 +103,7 @@ export default function GroupPage() {
       } else if (gid) {
         await updateGroup(rid, gid, {
           name,
+          menu_id: selectedMenuId,
           parent_id: parentId,
           follows_menu_hours: followsMenuHours,
           is_hidden: isHidden,
@@ -454,10 +459,10 @@ export default function GroupPage() {
               </svg>
               <div>
                 <p className="text-base font-medium text-fg-primary">Menu</p>
-                <p className="text-sm text-fg-tertiary">{menu?.name ?? '—'}</p>
+                <p className="text-sm text-fg-tertiary">{allMenus.find((m) => m.id === selectedMenuId)?.name ?? menu?.name ?? '—'}</p>
               </div>
             </div>
-            <button className="text-base font-medium underline text-fg-primary">{t('edit')}</button>
+            <button onClick={() => setShowMenuPicker(true)} className="text-base font-medium underline text-fg-primary">{t('edit')}</button>
           </div>
 
           {/* Hours */}
@@ -557,6 +562,16 @@ export default function GroupPage() {
           allCategories={allCategories}
           onClose={() => setModalView(null)}
           onDone={handleImportFromCategories}
+        />
+      )}
+      {showMenuPicker && (
+        <MenuPickerModal
+          t={t}
+          menus={allMenus}
+          selectedMenuId={selectedMenuId}
+          restaurantName={allMenus[0]?.name ? undefined : undefined}
+          onSelect={(menuId) => { setSelectedMenuId(menuId); setShowMenuPicker(false); }}
+          onClose={() => setShowMenuPicker(false)}
         />
       )}
     </div>
@@ -790,6 +805,85 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
           {filtered.length === 0 && (
             <p className="text-sm text-fg-tertiary text-center py-8">{t('noResults')}</p>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Menu Picker ──────────────────────────────────────────────────────
+
+function MenuPickerModal({ t, menus, selectedMenuId, onSelect, onClose }: {
+  t: (k: string) => string;
+  menus: Menu[];
+  selectedMenuId: number;
+  restaurantName?: string;
+  onSelect: (menuId: number) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [picked, setPicked] = useState(selectedMenuId);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return menus.filter((m) => !q || m.name.toLowerCase().includes(q));
+  }, [menus, search]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[8vh] bg-black/50" onClick={onClose}>
+      <div
+        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col border border-[var(--divider)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => onSelect(picked)}
+              className="bg-fg-primary text-[var(--bg)] font-medium px-6 py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity"
+            >
+              {t('save')}
+            </button>
+          </div>
+          <h2 className="text-xl font-bold text-fg-primary mb-4">{t('assignGroupToMenu')}</h2>
+
+          {/* Search */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+            <input
+              className="input w-full pl-12 rounded-full"
+              placeholder={t('searchByMenuName')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Menu list */}
+        <div className="px-6 pb-6">
+          {filtered.map((m) => (
+            <label
+              key={m.id}
+              className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+              onClick={() => setPicked(m.id)}
+            >
+              <svg className="w-6 h-6 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-medium text-fg-primary">{m.name}</p>
+              </div>
+              <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${picked === m.id ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
+                {picked === m.id && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
+              </div>
+            </label>
+          ))}
         </div>
       </div>
     </div>
