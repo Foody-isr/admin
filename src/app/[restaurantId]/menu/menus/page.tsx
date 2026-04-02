@@ -162,7 +162,7 @@ export default function MenusPage() {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xl">
+        <div className="relative flex-1">
           <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-tertiary pointer-events-none" />
           <input
             className="input pl-10 text-sm h-11 w-full rounded-full"
