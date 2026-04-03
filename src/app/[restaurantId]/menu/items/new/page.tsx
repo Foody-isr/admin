@@ -67,12 +67,13 @@ export default function NewItemPage() {
 
   /** Creates the item and returns the new item ID, or null on failure. */
   const saveItem = async (): Promise<number | null> => {
+    if (!name.trim() || !parseFloat(price)) return null;
     setSaving(true);
     try {
       const item = await createMenuItem(rid, {
-        name: name.trim() || t('createItem'),
+        name: name.trim(),
         description,
-        price: parseFloat(price) || 0,
+        price: parseFloat(price),
         is_active: isActive,
         category_id: categoryId || categories[0]?.id,
       });
@@ -112,7 +113,14 @@ export default function NewItemPage() {
     if (itemId) router.push(`/${rid}/menu/items`);
   };
 
+  const [validationError, setValidationError] = useState('');
+
   const handleAddVariants = async () => {
+    if (!name.trim() || !parseFloat(price)) {
+      setValidationError(t('nameRequired') + ' & ' + t('price'));
+      return;
+    }
+    setValidationError('');
     const itemId = await saveItem();
     if (itemId) router.push(`/${rid}/menu/items/${itemId}/variants`);
   };
@@ -230,6 +238,11 @@ export default function NewItemPage() {
 
             {/* Divider */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />
+
+            {/* Validation error */}
+            {validationError && (
+              <p className="text-sm text-red-500 font-medium">{validationError}</p>
+            )}
 
             {/* Variants */}
             <div>
