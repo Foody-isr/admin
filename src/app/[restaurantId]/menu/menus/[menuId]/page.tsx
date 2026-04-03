@@ -31,6 +31,18 @@ function channelsMeta(m: Menu, t: TFn): string {
   return `${parts[0]}+ ${parts.length - 1} ${t('andNMore').replace('{n}', String(parts.length - 1)).replace(/^\+ \d+ /, '')}`;
 }
 
+function hoursRange(m: Menu): string | null {
+  const hours = m.availability_hours;
+  if (!hours || hours.length === 0 || m.follows_restaurant_hours) return null;
+  const open = hours.filter((h) => !h.is_closed);
+  if (open.length === 0) return null;
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const first = open[0];
+  const last = open[open.length - 1];
+  if (first.day_of_week === last.day_of_week) return `${dayNames[first.day_of_week]}, ${first.open_time} - ${first.close_time}`;
+  return `${dayNames[first.day_of_week]} - ${dayNames[last.day_of_week]}, ${first.open_time} - ${last.close_time}`;
+}
+
 // ─── Tag / Pill ──────────────────────────────────────────────────────────────
 
 function Tag({ children }: { children: React.ReactNode }) {
@@ -161,24 +173,39 @@ export default function MenuDetailPage() {
                 )}
               </div>
             </div>
-            <button
-              onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
-              className="flex items-center gap-0 mt-1 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
-            >
+            <div className="flex items-center gap-0 mt-1 text-sm text-[var(--text-secondary)]">
               {restaurant?.name && (
                 <>
-                  <span className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
+                    className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
+                  >
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
                     {restaurant.name}
-                  </span>
+                  </button>
                   <span className="mx-2 text-[var(--text-muted)]">|</span>
                 </>
               )}
-              <span className="flex items-center gap-1.5">
+              <button
+                onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
+                className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
+              >
                 <Squares2X2Icon className="w-4 h-4 shrink-0" />
                 {channelsMeta(menu, t)}
-              </span>
-            </button>
+              </button>
+              {hoursRange(menu) && (
+                <>
+                  <span className="mx-2 text-[var(--text-muted)]">|</span>
+                  <button
+                    onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
+                    className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    {hoursRange(menu)}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
