@@ -9,7 +9,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  XMarkIcon, ChevronDownIcon, ArrowUpTrayIcon,
+  XMarkIcon, ChevronDownIcon, ArrowUpTrayIcon, MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 
 export default function NewItemPage() {
@@ -35,10 +35,15 @@ export default function NewItemPage() {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Categories search
+  const [categorySearch, setCategorySearch] = useState('');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+
   // Menus / Cartes state
   const [menus, setMenus] = useState<Menu[]>([]);
   const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
   const [menuSearch, setMenuSearch] = useState('');
+  const [menuDropdownOpen, setMenuDropdownOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -132,42 +137,36 @@ export default function NewItemPage() {
           {/* Left column — main form */}
           <div className="flex-1 space-y-5">
             {/* Name */}
-            <div>
-              <label className="block text-xs text-fg-tertiary mb-1 font-medium">{t('nameRequired')}</label>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input w-full text-base"
-              />
-            </div>
+            <input
+              autoFocus
+              placeholder={t('nameRequired')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input w-full text-base"
+            />
 
             {/* Price */}
-            <div>
-              <label className="block text-xs text-fg-tertiary mb-1 font-medium">{t('price')}</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="input w-full text-base pr-16"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
-              </div>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={t('price')}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="input w-full text-base pr-16"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
             </div>
 
             {/* Description */}
-            <div>
-              <label className="block text-xs text-fg-tertiary mb-1 font-medium">{t('customerDescription')}</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="input w-full text-sm resize-y"
-              />
-            </div>
+            <textarea
+              placeholder={t('customerDescription')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="input w-full text-sm resize-y"
+            />
 
             {/* Image upload */}
             <input
@@ -253,30 +252,53 @@ export default function NewItemPage() {
             {/* Categories */}
             <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4 space-y-3">
               <h3 className="font-bold text-fg-primary">{t('categories')}</h3>
-              <p className="text-xs text-fg-tertiary">{t('addToCategories')}</p>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(Number(e.target.value))}
-                className="input text-sm w-full"
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder={t('addToCategories')}
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  onFocus={() => setCategoryDropdownOpen(true)}
+                  className="input text-sm w-full pl-9"
+                />
+              </div>
+              {categoryDropdownOpen && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {categories
+                    .filter((c) => !categorySearch || c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                    .map((cat) => (
+                    <label key={cat.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors">
+                      <input
+                        type="radio"
+                        name="category"
+                        checked={categoryId === cat.id}
+                        onChange={() => { setCategoryId(cat.id); setCategorySearch(cat.name); setCategoryDropdownOpen(false); }}
+                        className="rounded-full border-[var(--divider)] text-brand-500"
+                      />
+                      <span className="text-sm text-fg-primary">{cat.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Cartes / Menus */}
             <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4 space-y-3">
               <h3 className="font-bold text-fg-primary">{t('menus')}</h3>
               <p className="text-xs text-fg-tertiary">{t('cartesDescription')}</p>
-              <input
-                type="text"
-                placeholder={t('addToMenus')}
-                value={menuSearch}
-                onChange={(e) => setMenuSearch(e.target.value)}
-                className="input text-sm w-full"
-              />
-              {menus.length > 0 ? (
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder={t('addToMenus')}
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  onFocus={() => setMenuDropdownOpen(true)}
+                  className="input text-sm w-full pl-9"
+                />
+              </div>
+              {menuDropdownOpen && menus.length > 0 ? (
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {menus
                     .filter((m) => !menuSearch || m.name.toLowerCase().includes(menuSearch.toLowerCase()))
@@ -297,9 +319,9 @@ export default function NewItemPage() {
                     </label>
                   ))}
                 </div>
-              ) : (
+              ) : menuDropdownOpen ? (
                 <p className="text-xs text-fg-tertiary italic">{t('noMenusAvailable') || 'No menus available'}</p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
