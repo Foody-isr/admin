@@ -6,6 +6,7 @@ import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem, deleteVariantGroup,
   listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
+  listModifierSets, attachModifierSetToItems,
   MenuCategory, MenuItem, MenuItemModifier, ModifierSet, ItemVariantGroup, Menu,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -40,6 +41,10 @@ export default function EditItemPage() {
   const [categorySearch, setCategorySearch] = useState('');
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
+  // Modifier sets modal
+  const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
+  const [modifierModalOpen, setModifierModalOpen] = useState(false);
+
   // Menus / Cartes state
   const [menus, setMenus] = useState<Menu[]>([]);
   const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
@@ -50,12 +55,14 @@ export default function EditItemPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [cats, allMenus] = await Promise.all([
+      const [cats, allMenus, ms] = await Promise.all([
         getAllCategories(rid),
         listMenus(rid),
+        listModifierSets(rid),
       ]);
       setCategories(cats);
       setMenus(allMenus);
+      setAllModifierSets(ms ?? []);
       // Find the item across all categories
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
@@ -314,7 +321,7 @@ export default function EditItemPage() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
                 <button
-                  onClick={() => router.push(`/${restaurantId}/menu/modifier-sets`)}
+                  onClick={() => setModifierModalOpen(true)}
                   className="text-base font-medium underline text-fg-primary shrink-0"
                 >
                   {t('add')}
@@ -357,7 +364,7 @@ export default function EditItemPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => router.push(`/${restaurantId}/menu/modifier-sets`)}
+                  onClick={() => setModifierModalOpen(true)}
                   className="w-full py-3 rounded-xl text-sm text-fg-tertiary hover:text-brand-600 transition-colors border border-dashed border-[var(--divider)]"
                 >
                   + {t('add')}
@@ -518,6 +525,70 @@ export default function EditItemPage() {
           </div>
         </div>
       </div>
+
+      {/* Modifier Sets Modal */}
+      {modifierModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]">
+            {/* Modal header */}
+            <div className="p-6 pb-4 flex items-center justify-between">
+              <button
+                onClick={() => setModifierModalOpen(false)}
+                className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setModifierModalOpen(false)}
+                className="btn-secondary rounded-full px-5 py-2 text-sm font-medium"
+              >
+                {t('done')}
+              </button>
+            </div>
+            <div className="px-6 pb-4">
+              <h2 className="text-xl font-bold text-fg-primary mb-2">{t('modifiers')}</h2>
+              <p className="text-sm text-fg-tertiary">{t('modifiersDescription')}</p>
+            </div>
+            <div className="mx-6 border-t-2 border-fg-primary" />
+            {/* Modal body */}
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {allModifierSets.length > 0 ? (
+                allModifierSets.map((ms) => {
+                  const alreadyAttached = (item.modifier_sets ?? []).some((ims: ModifierSet) => ims.id === ms.id);
+                  return (
+                    <label
+                      key={ms.id}
+                      className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-base font-medium text-fg-primary">{ms.name}</span>
+                        <p className="text-sm text-fg-tertiary truncate">
+                          {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={alreadyAttached}
+                        onChange={async () => {
+                          if (alreadyAttached) {
+                            await detachModifierSetFromItem(rid, ms.id, iid);
+                          } else {
+                            await attachModifierSetToItems(rid, ms.id, [iid]);
+                          }
+                          loadData();
+                        }}
+                        className="w-5 h-5 rounded border-2 border-[var(--divider)] text-brand-500 shrink-0"
+                      />
+                    </label>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-fg-tertiary text-center py-8">{t('noModifiersForItem')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
   listMenus, addItemsToGroup, createGroup,
-  MenuCategory, Menu,
+  listModifierSets, attachModifierSetToItems,
+  MenuCategory, Menu, ModifierSet,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -45,20 +46,28 @@ export default function NewItemPage() {
   const [menuSearch, setMenuSearch] = useState('');
   const [menuDropdownOpen, setMenuDropdownOpen] = useState(false);
 
+  // Modifier sets state
+  const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
+  const [selectedModifierSetIds, setSelectedModifierSetIds] = useState<Set<number>>(new Set());
+  const [modifierModalOpen, setModifierModalOpen] = useState(false);
+
   useEffect(() => {
     Promise.all([
       getAllCategories(rid),
       listMenus(rid),
-    ]).then(([cats, m]) => {
+      listModifierSets(rid),
+    ]).then(([cats, m, ms]) => {
       setCategories(cats);
       if (!categoryId && cats.length > 0) setCategoryId(cats[0].id);
       setMenus(m);
+      setAllModifierSets(ms ?? []);
     }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
 
-  const handleSave = async () => {
-    if (!name.trim() || !price) return;
+  /** Creates the item and returns the new item ID, or null on failure. */
+  const saveItem = async (): Promise<number | null> => {
+    if (!name.trim() || !price) return null;
     setSaving(true);
     try {
       const item = await createMenuItem(rid, {
@@ -86,12 +95,31 @@ export default function NewItemPage() {
         }
         await addItemsToGroup(rid, groupId, [item.id]);
       }
-      router.push(`/${rid}/menu/items`);
+      // Attach selected modifier sets
+      for (const setId of Array.from(selectedModifierSetIds)) {
+        await attachModifierSetToItems(rid, setId, [item.id]);
+      }
+      return item.id;
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
+      return null;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    const itemId = await saveItem();
+    if (itemId) router.push(`/${rid}/menu/items`);
+  };
+
+  const handleAddVariants = async () => {
+    if (!name.trim() || !price) {
+      alert(t('nameRequired'));
+      return;
+    }
+    const itemId = await saveItem();
+    if (itemId) router.push(`/${rid}/menu/items/${itemId}/variants`);
   };
 
   const handleFileSelect = (file: File) => {
@@ -212,7 +240,13 @@ export default function NewItemPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
-                <span className="text-sm text-fg-tertiary">{t('saveFirstToAdd')}</span>
+                <button
+                  onClick={handleAddVariants}
+                  disabled={saving}
+                  className="text-base font-medium underline text-fg-primary shrink-0 disabled:opacity-50"
+                >
+                  {t('add')}
+                </button>
               </div>
               <p className="text-sm text-fg-tertiary">{t('variantsDescription')}</p>
             </div>
@@ -224,9 +258,41 @@ export default function NewItemPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
-                <span className="text-sm text-fg-tertiary">{t('saveFirstToAdd')}</span>
+                <button
+                  onClick={() => setModifierModalOpen(true)}
+                  className="text-base font-medium underline text-fg-primary shrink-0"
+                >
+                  {t('add')}
+                </button>
               </div>
               <p className="text-sm text-fg-tertiary">{t('modifiersDescription')}</p>
+              {/* Show selected modifier sets */}
+              {selectedModifierSetIds.size > 0 && (
+                <div className="rounded-xl border border-[var(--divider)] overflow-hidden mt-3">
+                  {allModifierSets
+                    .filter((ms) => selectedModifierSetIds.has(ms.id))
+                    .map((ms) => (
+                    <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
+                      <div>
+                        <span className="text-sm font-medium text-fg-primary">{ms.name}</span>
+                        <span className="text-xs text-fg-tertiary ml-2">
+                          {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const next = new Set(selectedModifierSetIds);
+                          next.delete(ms.id);
+                          setSelectedModifierSetIds(next);
+                        }}
+                        className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                      >
+                        {t('remove')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -326,6 +392,65 @@ export default function NewItemPage() {
           </div>
         </div>
       </div>
+
+      {/* Modifier Sets Modal */}
+      {modifierModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]">
+            {/* Modal header */}
+            <div className="p-6 pb-4 flex items-center justify-between">
+              <button
+                onClick={() => setModifierModalOpen(false)}
+                className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setModifierModalOpen(false)}
+                className="btn-secondary rounded-full px-5 py-2 text-sm font-medium"
+              >
+                {t('done')}
+              </button>
+            </div>
+            <div className="px-6 pb-4">
+              <h2 className="text-xl font-bold text-fg-primary mb-2">{t('modifiers')}</h2>
+              <p className="text-sm text-fg-tertiary">{t('modifiersDescription')}</p>
+            </div>
+            <div className="mx-6 border-t-2 border-fg-primary" />
+            {/* Modal body */}
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {allModifierSets.length > 0 ? (
+                allModifierSets.map((ms) => (
+                  <label
+                    key={ms.id}
+                    className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span className="text-base font-medium text-fg-primary">{ms.name}</span>
+                      <p className="text-sm text-fg-tertiary truncate">
+                        {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedModifierSetIds.has(ms.id)}
+                      onChange={() => {
+                        const next = new Set(selectedModifierSetIds);
+                        if (next.has(ms.id)) next.delete(ms.id);
+                        else next.add(ms.id);
+                        setSelectedModifierSetIds(next);
+                      }}
+                      className="w-5 h-5 rounded border-2 border-[var(--divider)] text-brand-500 shrink-0"
+                    />
+                  </label>
+                ))
+              ) : (
+                <p className="text-sm text-fg-tertiary text-center py-8">{t('noModifiersForItem')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
