@@ -67,15 +67,14 @@ export default function NewItemPage() {
 
   /** Creates the item and returns the new item ID, or null on failure. */
   const saveItem = async (): Promise<number | null> => {
-    if (!name.trim() || !price) return null;
     setSaving(true);
     try {
       const item = await createMenuItem(rid, {
-        name: name.trim(),
+        name: name.trim() || t('createItem'),
         description,
-        price: parseFloat(price),
+        price: parseFloat(price) || 0,
         is_active: isActive,
-        category_id: categoryId,
+        category_id: categoryId || categories[0]?.id,
       });
       // Upload image if pending
       if (pendingImage) {
@@ -114,10 +113,6 @@ export default function NewItemPage() {
   };
 
   const handleAddVariants = async () => {
-    if (!name.trim() || !price) {
-      alert(t('nameRequired'));
-      return;
-    }
     const itemId = await saveItem();
     if (itemId) router.push(`/${rid}/menu/items/${itemId}/variants`);
   };
