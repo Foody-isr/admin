@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getAllCategories, updateMenuItem, deleteMenuItem,
+  getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem,
   MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -47,6 +47,13 @@ export default function ItemLibraryPage() {
 
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  // Quick create
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [qcName, setQcName] = useState('');
+  const [qcPrice, setQcPrice] = useState('');
+  const [qcCategoryId, setQcCategoryId] = useState(0);
+  const [qcSaving, setQcSaving] = useState(false);
 
   // ─── Data loading ─────────────────────────────────────────────────
 
@@ -95,6 +102,28 @@ export default function ItemLibraryPage() {
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setSelected(next);
+  };
+
+  const handleQuickCreate = async () => {
+    if (!qcName.trim()) return;
+    setQcSaving(true);
+    try {
+      await createMenuItem(rid, {
+        name: qcName.trim(),
+        price: parseFloat(qcPrice) || 0,
+        category_id: qcCategoryId || categories[0]?.id,
+        is_active: true,
+      });
+      setQcName('');
+      setQcPrice('');
+      setQcCategoryId(0);
+      setQuickCreateOpen(false);
+      reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create');
+    } finally {
+      setQcSaving(false);
+    }
   };
 
   // ─── Render ───────────────────────────────────────────────────────
