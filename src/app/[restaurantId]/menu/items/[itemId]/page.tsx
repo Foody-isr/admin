@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem, deleteVariantGroup,
-  MenuCategory, MenuItem, MenuItemModifier, ModifierSet, ItemVariantGroup,
+  listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
+  MenuCategory, MenuItem, MenuItemModifier, ModifierSet, ItemVariantGroup, Menu,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -35,10 +36,21 @@ export default function EditItemPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Menus / Cartes state
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
+  const [initialMenuIds, setInitialMenuIds] = useState<Set<number>>(new Set());
+  const [menuGroupMap, setMenuGroupMap] = useState<Map<number, number>>(new Map());
+  const [menuSearch, setMenuSearch] = useState('');
+
   const loadData = useCallback(async () => {
     try {
-      const cats = await getAllCategories(rid);
+      const [cats, allMenus] = await Promise.all([
+        getAllCategories(rid),
+        listMenus(rid),
+      ]);
       setCategories(cats);
+      setMenus(allMenus);
       // Find the item across all categories
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
@@ -53,6 +65,21 @@ export default function EditItemPage() {
           break;
         }
       }
+      // Determine which menus contain this item
+      const mIds = new Set<number>();
+      const gMap = new Map<number, number>();
+      for (const menu of allMenus) {
+        for (const group of menu.groups ?? []) {
+          if ((group.items ?? []).some((i) => i.id === iid)) {
+            mIds.add(menu.id);
+            gMap.set(menu.id, group.id);
+            break;
+          }
+        }
+      }
+      setSelectedMenuIds(mIds);
+      setInitialMenuIds(new Set(mIds));
+      setMenuGroupMap(gMap);
     } finally {
       setLoading(false);
     }
@@ -72,6 +99,25 @@ export default function EditItemPage() {
         category_id: categoryId,
         image_url: imageUrl,
       });
+      // Handle menu assignment diffs
+      const added = Array.from(selectedMenuIds).filter((id) => !initialMenuIds.has(id));
+      const removed = Array.from(initialMenuIds).filter((id) => !selectedMenuIds.has(id));
+      for (const menuId of added) {
+        const menu = menus.find((m) => m.id === menuId);
+        const groups = menu?.groups ?? [];
+        let groupId: number;
+        if (groups.length > 0) {
+          groupId = groups[0].id;
+        } else {
+          const newGroup = await createGroup(rid, { menu_id: menuId, name: menu?.name ?? 'Default' });
+          groupId = newGroup.id;
+        }
+        await addItemsToGroup(rid, groupId, [iid]);
+      }
+      for (const menuId of removed) {
+        const groupId = menuGroupMap.get(menuId);
+        if (groupId) await removeItemFromGroup(rid, groupId, iid);
+      }
       router.push(`/${rid}/menu/items`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
@@ -264,9 +310,18 @@ export default function EditItemPage() {
             )}
 
             {/* Modifier sets */}
-            {(item.modifier_sets ?? []).length > 0 && (
-              <div>
-                <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifierSets') || 'Modifier Sets'}</h3>
+            <div style={{ borderTop: '1px solid var(--divider)' }} className="pt-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
+                <button
+                  onClick={() => router.push(`/${restaurantId}/menu/modifier-sets`)}
+                  className="text-sm text-brand-600 hover:underline font-medium"
+                >
+                  {t('add')}
+                </button>
+              </div>
+              <p className="text-sm text-fg-secondary mb-3">{t('modifiersDescription')}</p>
+              {(item.modifier_sets ?? []).length > 0 ? (
                 <div className="space-y-2">
                   {(item.modifier_sets ?? []).map((ms: ModifierSet) => (
                     <div key={ms.id} className="flex items-center justify-between py-2.5 px-4 rounded-standard" style={{ background: 'var(--surface-subtle)' }}>
@@ -300,12 +355,20 @@ export default function EditItemPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <button
+                  onClick={() => router.push(`/${restaurantId}/menu/modifier-sets`)}
+                  className="w-full py-3 rounded-standard text-sm text-fg-secondary hover:text-brand-600 transition-colors"
+                  style={{ border: '1px dashed var(--divider)' }}
+                >
+                  + {t('add')}
+                </button>
+              )}
+            </div>
 
             {/* Variantes */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
+            <div style={{ borderTop: '1px solid var(--divider)' }} className="pt-5">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
                 <button
                   onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
@@ -314,6 +377,7 @@ export default function EditItemPage() {
                   {t('add')}
                 </button>
               </div>
+              <p className="text-sm text-fg-secondary mb-3">{t('variantsDescription')}</p>
               {(item.variant_groups ?? []).length > 0 ? (
                 <div className="space-y-2">
                   {(item.variant_groups ?? []).map((vg: ItemVariantGroup) => (
@@ -386,6 +450,42 @@ export default function EditItemPage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="card space-y-3">
+              <h3 className="font-bold text-fg-primary">{t('menus')}</h3>
+              <p className="text-xs text-fg-secondary">{t('cartesDescription')}</p>
+              <input
+                type="text"
+                placeholder={t('addToMenus')}
+                value={menuSearch}
+                onChange={(e) => setMenuSearch(e.target.value)}
+                className="input text-sm"
+              />
+              {menus.length > 0 ? (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {menus
+                    .filter((m) => !menuSearch || m.name.toLowerCase().includes(menuSearch.toLowerCase()))
+                    .map((menu) => (
+                    <label key={menu.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--surface-subtle)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedMenuIds.has(menu.id)}
+                        onChange={() => {
+                          const next = new Set(selectedMenuIds);
+                          if (next.has(menu.id)) next.delete(menu.id);
+                          else next.add(menu.id);
+                          setSelectedMenuIds(next);
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-fg-primary">{menu.name}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-fg-secondary italic">{t('noMenusAvailable') || 'No menus available'}</p>
+              )}
             </div>
           </div>
         </div>

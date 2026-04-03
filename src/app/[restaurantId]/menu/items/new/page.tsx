@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
-  MenuCategory,
+  listMenus, addItemsToGroup, createGroup,
+  MenuCategory, Menu,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -34,10 +35,19 @@ export default function NewItemPage() {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Menus / Cartes state
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
+  const [menuSearch, setMenuSearch] = useState('');
+
   useEffect(() => {
-    getAllCategories(rid).then((cats) => {
+    Promise.all([
+      getAllCategories(rid),
+      listMenus(rid),
+    ]).then(([cats, m]) => {
       setCategories(cats);
       if (!categoryId && cats.length > 0) setCategoryId(cats[0].id);
+      setMenus(m);
     }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
@@ -57,6 +67,19 @@ export default function NewItemPage() {
       if (pendingImage) {
         const url = await uploadMenuItemImage(rid, item.id, pendingImage);
         await updateMenuItem(rid, item.id, { image_url: url });
+      }
+      // Assign to selected menus
+      for (const menuId of Array.from(selectedMenuIds)) {
+        const menu = menus.find((m) => m.id === menuId);
+        const groups = menu?.groups ?? [];
+        let groupId: number;
+        if (groups.length > 0) {
+          groupId = groups[0].id;
+        } else {
+          const newGroup = await createGroup(rid, { menu_id: menuId, name: menu?.name ?? 'Default' });
+          groupId = newGroup.id;
+        }
+        await addItemsToGroup(rid, groupId, [item.id]);
       }
       router.push(`/${rid}/menu/items`);
     } catch (err) {
@@ -185,6 +208,23 @@ export default function NewItemPage() {
                 </p>
               </div>
             )}
+            {/* Variants */}
+            <div style={{ borderTop: '1px solid var(--divider)' }} className="pt-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
+                <span className="text-sm text-fg-secondary">{t('saveFirstToAdd')}</span>
+              </div>
+              <p className="text-sm text-fg-secondary">{t('variantsDescription')}</p>
+            </div>
+
+            {/* Modifiers */}
+            <div style={{ borderTop: '1px solid var(--divider)' }} className="pt-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
+                <span className="text-sm text-fg-secondary">{t('saveFirstToAdd')}</span>
+              </div>
+              <p className="text-sm text-fg-secondary">{t('modifiersDescription')}</p>
+            </div>
           </div>
 
           {/* Right column — sidebar cards */}
@@ -216,6 +256,42 @@ export default function NewItemPage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="card space-y-3">
+              <h3 className="font-bold text-fg-primary">{t('menus')}</h3>
+              <p className="text-xs text-fg-secondary">{t('cartesDescription')}</p>
+              <input
+                type="text"
+                placeholder={t('addToMenus')}
+                value={menuSearch}
+                onChange={(e) => setMenuSearch(e.target.value)}
+                className="input text-sm"
+              />
+              {menus.length > 0 ? (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {menus
+                    .filter((m) => !menuSearch || m.name.toLowerCase().includes(menuSearch.toLowerCase()))
+                    .map((menu) => (
+                    <label key={menu.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--surface-subtle)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedMenuIds.has(menu.id)}
+                        onChange={() => {
+                          const next = new Set(selectedMenuIds);
+                          if (next.has(menu.id)) next.delete(menu.id);
+                          else next.add(menu.id);
+                          setSelectedMenuIds(next);
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-fg-primary">{menu.name}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-fg-secondary italic">{t('noMenusAvailable') || 'No menus available'}</p>
+              )}
             </div>
           </div>
         </div>

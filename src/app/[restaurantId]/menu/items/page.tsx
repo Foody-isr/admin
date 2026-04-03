@@ -225,6 +225,75 @@ export default function ItemLibraryPage() {
               </tr>
             </thead>
             <tbody>
+              {/* Quick Create row */}
+              {!quickCreateOpen ? (
+                <tr
+                  className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                  style={{ borderBottom: '1px solid var(--divider)' }}
+                  onClick={() => { setQuickCreateOpen(true); if (!qcCategoryId && categories.length > 0) setQcCategoryId(categories[0].id); }}
+                >
+                  <td colSpan={6} className="py-3 px-4">
+                    <span className="flex items-center gap-2 text-sm font-medium text-brand-500">
+                      <PlusIcon className="w-4 h-4" /> {t('quickCreate')}
+                    </span>
+                  </td>
+                </tr>
+              ) : (
+                <tr className="bg-[var(--surface-subtle)]" style={{ borderBottom: '1px solid var(--divider)' }}>
+                  <td className="py-3 px-4" />
+                  <td className="py-3 px-4">
+                    <input
+                      autoFocus
+                      value={qcName}
+                      onChange={(e) => setQcName(e.target.value)}
+                      placeholder={t('nameRequired')}
+                      className="input text-sm py-1.5"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCreate(); if (e.key === 'Escape') setQuickCreateOpen(false); }}
+                    />
+                  </td>
+                  <td className="py-3 px-4">
+                    <select
+                      value={qcCategoryId}
+                      onChange={(e) => setQcCategoryId(Number(e.target.value))}
+                      className="input text-sm py-1.5"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-3 px-4" />
+                  <td className="py-3 px-4">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={qcPrice}
+                      onChange={(e) => setQcPrice(e.target.value)}
+                      placeholder="0.00"
+                      className="input text-sm py-1.5 text-right"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCreate(); if (e.key === 'Escape') setQuickCreateOpen(false); }}
+                    />
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleQuickCreate}
+                        disabled={qcSaving || !qcName.trim()}
+                        className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+                      >
+                        {qcSaving ? '...' : t('save')}
+                      </button>
+                      <button
+                        onClick={() => setQuickCreateOpen(false)}
+                        className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1.5"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {filtered.map((item) => (
                 <tr
                   key={item.id}
