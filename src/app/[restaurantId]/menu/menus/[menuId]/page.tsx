@@ -161,7 +161,10 @@ export default function MenuDetailPage() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-0 mt-1 text-sm text-[var(--text-secondary)]">
+            <button
+              onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
+              className="flex items-center gap-0 mt-1 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
+            >
               {restaurant?.name && (
                 <>
                   <span className="flex items-center gap-1.5">
@@ -175,7 +178,7 @@ export default function MenuDetailPage() {
                 <Squares2X2Icon className="w-4 h-4 shrink-0" />
                 {channelsMeta(menu, t)}
               </span>
-            </div>
+            </button>
           </div>
         </div>
 
