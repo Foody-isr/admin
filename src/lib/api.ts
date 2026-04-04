@@ -1339,6 +1339,49 @@ export async function createOptionInSet(restaurantId: number, setId: number, inp
   return data.option;
 }
 
+// ─── Per-item option pricing ────────────────────────────────────────────────
+
+export interface ItemOptionOverride {
+  id: number;
+  option_set_id: number;
+  menu_item_id: number;
+  option_id: number;
+  price: number;
+  online_price?: number | null;
+  sku: string;
+  is_active: boolean;
+}
+
+export interface ItemOptionPriceInput {
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+}
+
+export async function setItemOptionPrice(restaurantId: number, setId: number, itemId: number, optionId: number, input: ItemOptionPriceInput): Promise<ItemOptionOverride> {
+  const data = await apiFetch<{ item_option: ItemOptionOverride }>(
+    `/api/v1/menu/option-sets/${setId}/items/${itemId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.item_option;
+}
+
+export async function getItemOptionPrices(restaurantId: number, itemId: number): Promise<ItemOptionOverride[]> {
+  const data = await apiFetch<{ item_options: ItemOptionOverride[] }>(
+    `/api/v1/menu/items/${itemId}/option-prices?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.item_options ?? [];
+}
+
+export async function migrateVariantsToOptionSets(restaurantId: number): Promise<number> {
+  const data = await apiFetch<{ sets_created: number }>(
+    `/api/v1/menu/option-sets/migrate-variants?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data.sets_created;
+}
+
 // ─── Item Variants (legacy per-item — prefer Option Sets) ───────────────────
 
 export interface VariantInput {
