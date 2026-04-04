@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   listOptionSets, createOptionSet, attachOptionSetToItems,
   detachOptionSetFromItem, getItemOptionPrices, setItemOptionPrice,
-  OptionSet, OptionSetInput, ItemOptionOverride,
+  createOptionInSet,
+  OptionSet, OptionSetInput, OptionInSetInput, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -23,7 +24,7 @@ interface AttachedSet {
   optionSetId: number;
   name: string;
   rows: OptionRow[];
-  isNew?: boolean; // true when just attached, not yet saved
+  isNew?: boolean;
 }
 
 export default function VariantsEditorPage() {
@@ -48,7 +49,6 @@ export default function VariantsEditorPage() {
       ]);
       setAllOptionSets(optSets ?? []);
 
-      // Build lookup of per-item overrides: optionId → override
       const overrideMap = new Map<number, ItemOptionOverride>();
       for (const ov of overrides ?? []) {
         overrideMap.set(ov.option_id, ov);
@@ -88,11 +88,9 @@ export default function VariantsEditorPage() {
     setSaving(true);
     try {
       for (const set of attachedSets) {
-        // Attach if new
         if (set.isNew) {
           await attachOptionSetToItems(rid, set.optionSetId, [iid]);
         }
-        // Save per-item price overrides
         for (const row of set.rows) {
           await setItemOptionPrice(rid, set.optionSetId, iid, row.optionId, {
             price: row.price,
@@ -110,9 +108,8 @@ export default function VariantsEditorPage() {
     }
   };
 
-  /** Attach an existing option set to this item */
   const attachExisting = (os: OptionSet) => {
-    if (attachedSets.some((s) => s.optionSetId === os.id)) return; // already attached
+    if (attachedSets.some((s) => s.optionSetId === os.id)) return;
     setAttachedSets((prev) => [...prev, {
       optionSetId: os.id,
       name: os.name,
@@ -130,13 +127,12 @@ export default function VariantsEditorPage() {
     setNewSetName('');
   };
 
-  /** Create a new option set and attach it */
   const createAndAttach = async () => {
     if (!newSetName.trim()) return;
     try {
       const input: OptionSetInput = {
         name: newSetName.trim(),
-        options: [{ name: '', price: 0, is_active: true, sort_order: 0 }],
+        options: [{ name: newSetName.trim(), price: 0, is_active: true, sort_order: 0 }],
       };
       const created = await createOptionSet(rid, input);
       setAllOptionSets((prev) => [...prev, created]);
@@ -146,7 +142,6 @@ export default function VariantsEditorPage() {
     }
   };
 
-  /** Detach an option set from this item */
   const detachSet = async (setId: number) => {
     await detachOptionSetFromItem(rid, setId, iid);
     setAttachedSets((prev) => prev.filter((s) => s.optionSetId !== setId));
@@ -158,7 +153,37 @@ export default function VariantsEditorPage() {
     ));
   };
 
-  // Option sets not yet attached to this item
+  const addOptionToSet = async (setIdx: number) => {
+    const set = attachedSets[setIdx];
+    try {
+      const input: OptionInSetInput = {
+        name: '',
+        price: 0,
+        is_active: true,
+        sort_order: set.rows.length,
+      };
+      const created = await createOptionInSet(rid, set.optionSetId, input);
+      setAttachedSets((prev) => prev.map((s, si) =>
+        si === setIdx ? { ...s, rows: [...s.rows, {
+          optionId: created.id,
+          name: created.name,
+          price: 0,
+          onlinePrice: null,
+          sku: '',
+          isActive: true,
+        }] } : s
+      ));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to add option');
+    }
+  };
+
+  const removeRow = (setIdx: number, rowIdx: number) => {
+    setAttachedSets((prev) => prev.map((s, si) =>
+      si === setIdx ? { ...s, rows: s.rows.filter((_, ri) => ri !== rowIdx) } : s
+    ));
+  };
+
   const availableSets = allOptionSets.filter((os) =>
     !attachedSets.some((s) => s.optionSetId === os.id) &&
     (!newSetName || os.name.toLowerCase().includes(newSetName.toLowerCase()))
@@ -179,9 +204,7 @@ export default function VariantsEditorPage() {
           className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
           <XMarkIcon className="w-5 h-5" />
         </button>
-        <span className="text-sm font-bold text-fg-primary">
-          {t('addVariants')}
-        </span>
+        <span className="text-sm font-bold text-fg-primary">{t('addVariants')}</span>
         <button onClick={handleSave} disabled={saving}
           className="btn-primary text-sm px-5 py-2 rounded-full disabled:opacity-50">
           {saving ? t('saving') : t('done')}
@@ -189,9 +212,10 @@ export default function VariantsEditorPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-        {/* Attached option sets */}
+        {/* Attached option sets with inline editing */}
         {attachedSets.map((set, si) => (
           <div key={set.optionSetId} className="space-y-4">
+            {/* Set title */}
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-fg-primary">{set.name}</h3>
               <button onClick={() => detachSet(set.optionSetId)}
@@ -200,20 +224,22 @@ export default function VariantsEditorPage() {
               </button>
             </div>
 
+            {/* Variants table */}
             <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
               <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
-                style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px' }}>
+                style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px 36px' }}>
                 <span>{t('variantName')}</span>
                 <span>{t('price')}</span>
                 <span>{t('onlinePrice')}</span>
                 <span>SKU</span>
                 <span>{t('status')}</span>
+                <span />
               </div>
 
               {set.rows.map((row, ri) => (
                 <div key={row.optionId}
                   className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px' }}>
+                  style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px 36px' }}>
                   <span className="text-sm font-medium text-fg-primary">{row.name}</span>
                   <input type="number" min="0" step="0.01"
                     value={row.price === 0 ? '' : row.price}
@@ -235,13 +261,24 @@ export default function VariantsEditorPage() {
                     <option value="active">{t('available')}</option>
                     <option value="inactive">{t('unavailable')}</option>
                   </select>
+                  <button onClick={() => removeRow(si, ri)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
+
+              {/* Add variant row */}
+              <button onClick={() => addOptionToSet(si)}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-brand-500 hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]">
+                <PlusIcon className="w-4 h-4" />
+                {t('addVariant')}
+              </button>
             </div>
           </div>
         ))}
 
-        {/* Add option set — dropdown with existing sets + create new */}
+        {/* Add option set — title input with dropdown */}
         <div className="relative">
           <input
             value={newSetName}
@@ -251,7 +288,7 @@ export default function VariantsEditorPage() {
             placeholder={t('variantGroupTitle')}
             className="input w-full text-base"
           />
-          {dropdownOpen && (
+          {dropdownOpen && (availableSets.length > 0 || newSetName.trim()) && (
             <div className="absolute left-0 top-full mt-1 z-30 w-80 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
               {availableSets.length > 0 && (
                 <>
@@ -284,6 +321,15 @@ export default function VariantsEditorPage() {
             </div>
           )}
         </div>
+
+        {/* Add another set link */}
+        {attachedSets.length > 0 && (
+          <button onClick={() => { setNewSetName(''); setDropdownOpen(true); }}
+            className="flex items-center gap-2 text-base font-medium text-fg-primary underline">
+            <PlusIcon className="w-4 h-4" />
+            {t('addAnotherSet')}
+          </button>
+        )}
       </div>
     </div>
   );
