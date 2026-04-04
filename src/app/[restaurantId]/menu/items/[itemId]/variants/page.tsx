@@ -5,8 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   listVariantGroups, createVariantGroup, updateVariantGroup,
   deleteVariant, createVariant, updateVariant,
-  listOptionSets,
-  ItemVariantGroup, VariantGroupInput, VariantInput, OptionSet,
+  listOptionSets, createOptionSet,
+  ItemVariantGroup, VariantGroupInput, VariantInput, OptionSet, OptionSetInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -118,6 +118,26 @@ export default function VariantsEditorPage() {
             await createVariant(rid, iid, groupId, variantInput);
           } else {
             await updateVariant(rid, iid, groupId, row.id, variantInput);
+          }
+        }
+
+        // Auto-save new groups as reusable option sets (so they appear in the dropdown for future items)
+        if ((g.isNew || !g.id) && g.title.trim()) {
+          const existingNames = optionSets.map((os) => os.name.toLowerCase());
+          if (!existingNames.includes(g.title.trim().toLowerCase())) {
+            const osInput: OptionSetInput = {
+              name: g.title.trim(),
+              sort_order: gi,
+              options: g.rows.filter((r) => r.name.trim()).map((r, ri) => ({
+                name: r.name.trim(),
+                price: r.price,
+                online_price: r.online_price,
+                sku: r.sku,
+                is_active: r.is_active,
+                sort_order: ri,
+              })),
+            };
+            await createOptionSet(rid, osInput);
           }
         }
       }
