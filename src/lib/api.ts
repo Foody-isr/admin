@@ -1243,7 +1243,103 @@ export async function migrateLegacyModifiers(restaurantId: number): Promise<{ se
   );
 }
 
-// ─── Item Variants ───────────────────────────────────────────────────────────
+// ─── Option Sets (reusable variant groups — Square "Item Options") ───────────
+
+export interface OptionSetOption {
+  id: number;
+  option_set_id: number;
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface OptionSet {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  options?: OptionSetOption[];
+  menu_items?: MenuItem[];
+}
+
+export interface OptionInSetInput {
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface OptionSetInput {
+  name: string;
+  sort_order?: number;
+  options?: OptionInSetInput[];
+}
+
+export async function listOptionSets(restaurantId: number): Promise<OptionSet[]> {
+  const data = await apiFetch<{ option_sets: OptionSet[] }>(
+    `/api/v1/menu/option-sets?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.option_sets ?? [];
+}
+
+export async function getOptionSet(restaurantId: number, id: number): Promise<OptionSet> {
+  const data = await apiFetch<{ option_set: OptionSet }>(
+    `/api/v1/menu/option-sets/${id}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.option_set;
+}
+
+export async function createOptionSet(restaurantId: number, input: OptionSetInput): Promise<OptionSet> {
+  const data = await apiFetch<{ option_set: OptionSet }>(
+    `/api/v1/menu/option-sets?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.option_set;
+}
+
+export async function updateOptionSet(restaurantId: number, id: number, input: OptionSetInput): Promise<OptionSet> {
+  const data = await apiFetch<{ option_set: OptionSet }>(
+    `/api/v1/menu/option-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.option_set;
+}
+
+export async function deleteOptionSet(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/option-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function attachOptionSetToItems(restaurantId: number, setId: number, menuItemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/option-sets/${setId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_item_ids: menuItemIds }) }
+  );
+}
+
+export async function detachOptionSetFromItem(restaurantId: number, setId: number, itemId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/option-sets/${setId}/items/${itemId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function createOptionInSet(restaurantId: number, setId: number, input: OptionInSetInput): Promise<OptionSetOption> {
+  const data = await apiFetch<{ option: OptionSetOption }>(
+    `/api/v1/menu/option-sets/${setId}/options?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.option;
+}
+
+// ─── Item Variants (legacy per-item — prefer Option Sets) ───────────────────
 
 export interface VariantInput {
   name: string;

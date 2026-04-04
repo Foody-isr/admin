@@ -6,8 +6,9 @@ import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
   listMenus, addItemsToGroup, createGroup,
   listModifierSets, attachModifierSetToItems,
+  listOptionSets, attachOptionSetToItems,
   createVariantGroup,
-  MenuCategory, Menu, ModifierSet, VariantGroupInput, VariantInput,
+  MenuCategory, Menu, ModifierSet, OptionSet, VariantGroupInput, VariantInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -83,16 +84,22 @@ export default function NewItemPage() {
   const [variantGroups, setVariantGroups] = useState<LocalVariantGroup[]>([]);
   const [variantModalOpen, setVariantModalOpen] = useState(false);
 
+  // Option sets (reusable, selected to attach on Save)
+  const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
+  const [selectedOptionSetIds, setSelectedOptionSetIds] = useState<Set<number>>(new Set());
+
   useEffect(() => {
     Promise.all([
       getAllCategories(rid),
       listMenus(rid),
       listModifierSets(rid),
-    ]).then(([cats, m, ms]) => {
+      listOptionSets(rid),
+    ]).then(([cats, m, ms, os]) => {
       setCategories(cats);
       if (!categoryId && cats.length > 0) setCategoryId(cats[0].id);
       setMenus(m);
       setAllModifierSets(ms ?? []);
+      setAllOptionSets(os ?? []);
     }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
@@ -151,6 +158,10 @@ export default function NewItemPage() {
             variants,
           });
         }
+      }
+      // Attach option sets
+      for (const setId of Array.from(selectedOptionSetIds)) {
+        await attachOptionSetToItems(rid, setId, [item.id]);
       }
       router.push(`/${rid}/menu/items`);
     } catch (err) {
@@ -412,6 +423,36 @@ export default function NewItemPage() {
           </div>
 
           <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+            {/* Saved option sets — select existing to attach */}
+            {allOptionSets.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-fg-tertiary">{t('savedOptionSets') || 'Saved option sets'}</p>
+                <div className="space-y-2">
+                  {allOptionSets.map((os) => (
+                    <label key={os.id}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--divider)] hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedOptionSetIds.has(os.id)}
+                        onChange={() => {
+                          const next = new Set(selectedOptionSetIds);
+                          if (next.has(os.id)) next.delete(os.id); else next.add(os.id);
+                          setSelectedOptionSetIds(next);
+                        }}
+                        className="w-5 h-5 rounded border-2 border-[var(--divider)] text-brand-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-fg-primary">{os.name}</span>
+                        <p className="text-xs text-fg-tertiary truncate">
+                          {(os.options ?? []).map((o) => o.name).join(', ')}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {variantGroups.map((vg) => (
               <div key={vg.key} className="space-y-4">
                 {/* Group title */}
