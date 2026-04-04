@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
-  detachModifierSetFromItem, deleteVariantGroup,
+  detachModifierSetFromItem,
   listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
   listModifierSets, attachModifierSetToItems,
-  MenuCategory, MenuItem, MenuItemModifier, ModifierSet, ItemVariantGroup, Menu,
+  listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
+  MenuCategory, MenuItem, MenuItemModifier, ModifierSet, Menu,
+  OptionSet, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -45,6 +47,10 @@ export default function EditItemPage() {
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
 
+  // Option sets (attached to this item)
+  const [attachedOptionSets, setAttachedOptionSets] = useState<OptionSet[]>([]);
+  const [itemOptionOverrides, setItemOptionOverrides] = useState<ItemOptionOverride[]>([]);
+
   // Menus / Cartes state
   const [menus, setMenus] = useState<Menu[]>([]);
   const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
@@ -55,14 +61,21 @@ export default function EditItemPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [cats, allMenus, ms] = await Promise.all([
+      const [cats, allMenus, ms, optSets, optOverrides] = await Promise.all([
         getAllCategories(rid),
         listMenus(rid),
         listModifierSets(rid),
+        listOptionSets(rid),
+        getItemOptionPrices(rid, iid),
       ]);
       setCategories(cats);
       setMenus(allMenus);
       setAllModifierSets(ms ?? []);
+      setItemOptionOverrides(optOverrides ?? []);
+      // Find option sets attached to this item
+      setAttachedOptionSets((optSets ?? []).filter((os) =>
+        (os.menu_items ?? []).some((mi) => mi.id === iid)
+      ));
       // Find the item across all categories
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
@@ -375,7 +388,7 @@ export default function EditItemPage() {
             {/* Divider */}
             <div className="border-t border-[var(--divider)]" />
 
-            {/* Variantes */}
+            {/* Variantes (Option Sets) */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
@@ -387,34 +400,41 @@ export default function EditItemPage() {
                 </button>
               </div>
               <p className="text-sm text-fg-tertiary mb-3">{t('variantsDescription')}</p>
-              {(item.variant_groups ?? []).length > 0 ? (
-                <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
-                  {(item.variant_groups ?? []).map((vg: ItemVariantGroup) => (
-                    <div key={vg.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
-                        <span className="text-xs text-fg-tertiary ml-2">
-                          {(vg.variants ?? []).map((v) => v.name).join(', ')}
-                        </span>
+              {attachedOptionSets.length > 0 ? (
+                <div className="space-y-3">
+                  {attachedOptionSets.map((os) => (
+                    <div key={os.id} className="rounded-xl border border-[var(--divider)] overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface-subtle)]">
+                        <span className="text-sm font-bold text-fg-primary">{os.name}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                            className="text-sm text-brand-600 hover:underline font-medium"
+                          >
+                            {t('edit')}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(t('remove') + '?')) return;
+                              await detachOptionSetFromItem(rid, os.id, iid);
+                              loadData();
+                            }}
+                            className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                          >
+                            {t('remove')}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants?group=${vg.id}`)}
-                          className="text-sm text-brand-600 hover:underline font-medium"
-                        >
-                          {t('edit')}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!confirm(t('deleteThisVariantGroup') || 'Delete this variant group?')) return;
-                            await deleteVariantGroup(rid, iid, vg.id);
-                            loadData();
-                          }}
-                          className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                        >
-                          {t('remove')}
-                        </button>
-                      </div>
+                      {(os.options ?? []).map((opt) => {
+                        const override = itemOptionOverrides.find((ov) => ov.option_id === opt.id);
+                        const price = override?.price ?? opt.price;
+                        return (
+                          <div key={opt.id} className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--divider)]">
+                            <span className="text-sm text-fg-primary">{opt.name}</span>
+                            <span className="text-sm font-semibold text-fg-primary">₪{price.toFixed(2)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
