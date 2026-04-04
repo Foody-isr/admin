@@ -229,6 +229,9 @@ export interface OrderItem {
   quantity: number;
   notes?: string;
   target_station?: string;
+  selected_variant_id?: number;
+  selected_variant_name?: string;
+  selected_variant_price?: number;
   modifiers?: OrderItemModifier[];
   combo_menu_id?: number;
   combo_group?: string;

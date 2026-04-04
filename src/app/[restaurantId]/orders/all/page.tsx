@@ -689,7 +689,9 @@ function AdminOrderItemRow({ item }: { item: OrderItem }) {
           {itemInitials(item.name)}
         </span>
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-fg-primary">{item.name}</span>
+          <span className="text-sm font-semibold text-fg-primary">
+            {item.name}{item.selected_variant_name ? ` - ${item.selected_variant_name}` : ''}
+          </span>
           <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
         </div>
         <span className="text-sm text-fg-primary font-medium">
