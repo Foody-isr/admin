@@ -1,41 +1,29 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
-  listVariantGroups, createVariantGroup, updateVariantGroup,
-  deleteVariant, createVariant, updateVariant,
-  listOptionSets, createOptionSet, listAllItems,
-  ItemVariantGroup, VariantGroupInput, VariantInput, OptionSet, OptionSetInput, MenuItem,
+  listOptionSets, createOptionSet, attachOptionSetToItems,
+  detachOptionSetFromItem, getItemOptionPrices, setItemOptionPrice,
+  OptionSet, OptionSetInput, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
-interface VariantRow {
-  id?: number;
+interface OptionRow {
+  optionId: number;
   name: string;
   price: number;
-  online_price: number | null;
+  onlinePrice: number | null;
   sku: string;
-  is_active: boolean;
-  sort_order: number;
-  isNew?: boolean;
+  isActive: boolean;
 }
 
-interface GroupState {
-  id?: number;
-  title: string;
-  sort_order: number;
-  rows: VariantRow[];
-  isNew?: boolean;
-}
-
-function blankRow(sortOrder: number): VariantRow {
-  return { name: '', price: 0, online_price: null, sku: '', is_active: true, sort_order: sortOrder, isNew: true };
-}
-
-function blankGroup(sortOrder: number): GroupState {
-  return { title: '', sort_order: sortOrder, rows: [blankRow(0)], isNew: true };
+interface AttachedSet {
+  optionSetId: number;
+  name: string;
+  rows: OptionRow[];
+  isNew?: boolean; // true when just attached, not yet saved
 }
 
 export default function VariantsEditorPage() {
@@ -43,102 +31,75 @@ export default function VariantsEditorPage() {
   const rid = Number(restaurantId);
   const iid = Number(itemId);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const focusGroupId = searchParams.get('group') ? Number(searchParams.get('group')) : null;
   const { t } = useI18n();
 
-  const [groups, setGroups] = useState<GroupState[]>([blankGroup(0)]);
+  const [attachedSets, setAttachedSets] = useState<AttachedSet[]>([]);
+  const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
 
-  // Existing option sets for the dropdown
-  const [optionSets, setOptionSets] = useState<OptionSet[]>([]);
-  const [dropdownGroupIdx, setDropdownGroupIdx] = useState<number | null>(null);
-
-  const loadGroups = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [existing, os] = await Promise.all([
-        listVariantGroups(rid, iid),
+      const [optSets, overrides] = await Promise.all([
         listOptionSets(rid),
+        getItemOptionPrices(rid, iid),
       ]);
-      setOptionSets(os ?? []);
-      if (existing.length > 0) {
-        setGroups(existing.map((g: ItemVariantGroup) => ({
-          id: g.id,
-          title: g.title,
-          sort_order: g.sort_order,
-          rows: (g.variants ?? []).map((v) => ({
-            id: v.id,
-            name: v.name,
-            price: v.price,
-            online_price: v.online_price ?? null,
-            sku: v.sku ?? '',
-            is_active: v.is_active,
-            sort_order: v.sort_order,
-          })),
-        })));
+      setAllOptionSets(optSets ?? []);
+
+      // Build lookup of per-item overrides: optionId → override
+      const overrideMap = new Map<number, ItemOptionOverride>();
+      for (const ov of overrides ?? []) {
+        overrideMap.set(ov.option_id, ov);
       }
+
+      // Find which option sets are attached to this item
+      const attached: AttachedSet[] = [];
+      for (const os of optSets ?? []) {
+        const linkedItems = os.menu_items ?? [];
+        if (linkedItems.some((mi) => mi.id === iid)) {
+          attached.push({
+            optionSetId: os.id,
+            name: os.name,
+            rows: (os.options ?? []).map((opt) => {
+              const ov = overrideMap.get(opt.id);
+              return {
+                optionId: opt.id,
+                name: opt.name,
+                price: ov?.price ?? opt.price,
+                onlinePrice: ov?.online_price ?? opt.online_price ?? null,
+                sku: ov?.sku ?? opt.sku ?? '',
+                isActive: ov?.is_active ?? opt.is_active,
+              };
+            }),
+          });
+        }
+      }
+      setAttachedSets(attached);
     } finally {
       setLoading(false);
     }
   }, [rid, iid]);
 
-  useEffect(() => { loadGroups(); }, [loadGroups]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      for (let gi = 0; gi < groups.length; gi++) {
-        const g = groups[gi];
-        const groupInput: VariantGroupInput = {
-          title: g.title,
-          sort_order: gi,
-        };
-
-        let groupId = g.id;
-        if (g.isNew || !groupId) {
-          const created = await createVariantGroup(rid, iid, groupInput);
-          groupId = created.id;
-        } else {
-          await updateVariantGroup(rid, iid, groupId, groupInput);
+      for (const set of attachedSets) {
+        // Attach if new
+        if (set.isNew) {
+          await attachOptionSetToItems(rid, set.optionSetId, [iid]);
         }
-
-        for (let ri = 0; ri < g.rows.length; ri++) {
-          const row = g.rows[ri];
-          if (!row.name.trim()) continue;
-          const variantInput: VariantInput = {
-            name: row.name,
+        // Save per-item price overrides
+        for (const row of set.rows) {
+          await setItemOptionPrice(rid, set.optionSetId, iid, row.optionId, {
             price: row.price,
-            online_price: row.online_price,
+            online_price: row.onlinePrice,
             sku: row.sku,
-            is_active: row.is_active,
-            sort_order: ri,
-          };
-          if (row.isNew || !row.id) {
-            await createVariant(rid, iid, groupId, variantInput);
-          } else {
-            await updateVariant(rid, iid, groupId, row.id, variantInput);
-          }
-        }
-
-        // Auto-save new groups as reusable option sets (so they appear in the dropdown for future items)
-        if ((g.isNew || !g.id) && g.title.trim()) {
-          const existingNames = optionSets.map((os) => os.name.toLowerCase());
-          if (!existingNames.includes(g.title.trim().toLowerCase())) {
-            const osInput: OptionSetInput = {
-              name: g.title.trim(),
-              sort_order: gi,
-              options: g.rows.filter((r) => r.name.trim()).map((r, ri) => ({
-                name: r.name.trim(),
-                price: r.price,
-                online_price: r.online_price,
-                sku: r.sku,
-                is_active: r.is_active,
-                sort_order: ri,
-              })),
-            };
-            await createOptionSet(rid, osInput);
-          }
+            is_active: row.isActive,
+          });
         }
       }
       router.back();
@@ -149,49 +110,59 @@ export default function VariantsEditorPage() {
     }
   };
 
-  const updateGroup = (gi: number, patch: Partial<GroupState>) => {
-    setGroups((prev) => prev.map((g, i) => (i === gi ? { ...g, ...patch } : g)));
-  };
-
-  const updateRow = (gi: number, ri: number, patch: Partial<VariantRow>) => {
-    setGroups((prev) =>
-      prev.map((g, i) =>
-        i === gi ? { ...g, rows: g.rows.map((r, j) => (j === ri ? { ...r, ...patch } : r)) } : g
-      )
-    );
-  };
-
-  const addRow = (gi: number) => {
-    setGroups((prev) =>
-      prev.map((g, i) => (i === gi ? { ...g, rows: [...g.rows, blankRow(g.rows.length)] } : g))
-    );
-  };
-
-  const removeRow = async (gi: number, ri: number) => {
-    const row = groups[gi].rows[ri];
-    const g = groups[gi];
-    if (!row.isNew && row.id && g.id) {
-      await deleteVariant(rid, iid, g.id, row.id);
-    }
-    setGroups((prev) =>
-      prev.map((g, i) => (i === gi ? { ...g, rows: g.rows.filter((_, j) => j !== ri) } : g))
-    );
-  };
-
-  /** Apply an existing option set's options as rows for this group */
-  const applyOptionSet = (gi: number, os: OptionSet) => {
-    const rows: VariantRow[] = (os.options ?? []).map((o, i) => ({
-      name: o.name,
-      price: o.price,
-      online_price: o.online_price ?? null,
-      sku: o.sku ?? '',
-      is_active: o.is_active,
-      sort_order: i,
+  /** Attach an existing option set to this item */
+  const attachExisting = (os: OptionSet) => {
+    if (attachedSets.some((s) => s.optionSetId === os.id)) return; // already attached
+    setAttachedSets((prev) => [...prev, {
+      optionSetId: os.id,
+      name: os.name,
       isNew: true,
-    }));
-    updateGroup(gi, { title: os.name, rows: rows.length > 0 ? rows : [blankRow(0)] });
-    setDropdownGroupIdx(null);
+      rows: (os.options ?? []).map((opt) => ({
+        optionId: opt.id,
+        name: opt.name,
+        price: opt.price,
+        onlinePrice: opt.online_price ?? null,
+        sku: opt.sku ?? '',
+        isActive: opt.is_active,
+      })),
+    }]);
+    setDropdownOpen(false);
+    setNewSetName('');
   };
+
+  /** Create a new option set and attach it */
+  const createAndAttach = async () => {
+    if (!newSetName.trim()) return;
+    try {
+      const input: OptionSetInput = {
+        name: newSetName.trim(),
+        options: [{ name: '', price: 0, is_active: true, sort_order: 0 }],
+      };
+      const created = await createOptionSet(rid, input);
+      setAllOptionSets((prev) => [...prev, created]);
+      attachExisting(created);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create');
+    }
+  };
+
+  /** Detach an option set from this item */
+  const detachSet = async (setId: number) => {
+    await detachOptionSetFromItem(rid, setId, iid);
+    setAttachedSets((prev) => prev.filter((s) => s.optionSetId !== setId));
+  };
+
+  const updateRow = (setIdx: number, rowIdx: number, patch: Partial<OptionRow>) => {
+    setAttachedSets((prev) => prev.map((s, si) =>
+      si === setIdx ? { ...s, rows: s.rows.map((r, ri) => ri === rowIdx ? { ...r, ...patch } : r) } : s
+    ));
+  };
+
+  // Option sets not yet attached to this item
+  const availableSets = allOptionSets.filter((os) =>
+    !attachedSets.some((s) => s.optionSetId === os.id) &&
+    (!newSetName || os.name.toLowerCase().includes(newSetName.toLowerCase()))
+  );
 
   if (loading) {
     return (
@@ -203,14 +174,13 @@ export default function VariantsEditorPage() {
 
   return (
     <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto">
-      {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-6 py-3 flex items-center justify-between">
         <button onClick={() => router.back()}
           className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
           <XMarkIcon className="w-5 h-5" />
         </button>
         <span className="text-sm font-bold text-fg-primary">
-          {focusGroupId ? t('editVariants') : t('addVariants')}
+          {t('addVariants')}
         </span>
         <button onClick={handleSave} disabled={saving}
           className="btn-primary text-sm px-5 py-2 rounded-full disabled:opacity-50">
@@ -219,30 +189,79 @@ export default function VariantsEditorPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-        {groups.map((g, gi) => (
-          <div key={gi} className="space-y-4">
-            {/* Group title input with option set dropdown */}
-            <div className="relative">
-              <input
-                value={g.title}
-                onChange={(e) => updateGroup(gi, { title: e.target.value })}
-                onFocus={() => setDropdownGroupIdx(gi)}
-                onBlur={() => setTimeout(() => setDropdownGroupIdx(null), 200)}
-                placeholder={t('variantGroupTitle')}
-                className="input w-full text-base"
-              />
-              {/* Saved option sets dropdown */}
-              {dropdownGroupIdx === gi && optionSets.length > 0 && (
-                <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+        {/* Attached option sets */}
+        {attachedSets.map((set, si) => (
+          <div key={set.optionSetId} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-fg-primary">{set.name}</h3>
+              <button onClick={() => detachSet(set.optionSetId)}
+                className="text-sm text-red-500 hover:text-red-600 font-medium hover:underline">
+                {t('remove')}
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
+              <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
+                style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px' }}>
+                <span>{t('variantName')}</span>
+                <span>{t('price')}</span>
+                <span>{t('onlinePrice')}</span>
+                <span>SKU</span>
+                <span>{t('status')}</span>
+              </div>
+
+              {set.rows.map((row, ri) => (
+                <div key={row.optionId}
+                  className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors"
+                  style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px' }}>
+                  <span className="text-sm font-medium text-fg-primary">{row.name}</span>
+                  <input type="number" min="0" step="0.01"
+                    value={row.price === 0 ? '' : row.price}
+                    onChange={(e) => updateRow(si, ri, { price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
+                  <input type="number" min="0" step="0.01"
+                    value={row.onlinePrice === null ? '' : row.onlinePrice}
+                    onChange={(e) => updateRow(si, ri, { onlinePrice: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                    placeholder="—"
+                    className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
+                  <input value={row.sku}
+                    onChange={(e) => updateRow(si, ri, { sku: e.target.value })}
+                    placeholder="—"
+                    className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
+                  <select value={row.isActive ? 'active' : 'inactive'}
+                    onChange={(e) => updateRow(si, ri, { isActive: e.target.value === 'active' })}
+                    className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
+                    <option value="active">{t('available')}</option>
+                    <option value="inactive">{t('unavailable')}</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Add option set — dropdown with existing sets + create new */}
+        <div className="relative">
+          <input
+            value={newSetName}
+            onChange={(e) => { setNewSetName(e.target.value); setDropdownOpen(true); }}
+            onFocus={() => setDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+            placeholder={t('variantGroupTitle')}
+            className="input w-full text-base"
+          />
+          {dropdownOpen && (
+            <div className="absolute left-0 top-full mt-1 z-30 w-80 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
+              {availableSets.length > 0 && (
+                <>
                   <div className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-fg-tertiary border-b border-[var(--divider)]">
                     {t('savedOptionSets') || 'Saved option sets'}
                   </div>
-                  {optionSets
-                    .filter((os) => !g.title || os.name.toLowerCase().includes(g.title.toLowerCase()))
-                    .map((os) => (
+                  {availableSets.map((os) => (
                     <button key={os.id}
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => applyOptionSet(gi, os)}
+                      onClick={() => attachExisting(os)}
                       className="w-full text-left px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors">
                       <span className="text-sm font-medium text-fg-primary">{os.name}</span>
                       <p className="text-xs text-fg-tertiary">
@@ -250,75 +269,21 @@ export default function VariantsEditorPage() {
                       </p>
                     </button>
                   ))}
-                </div>
+                </>
+              )}
+              {newSetName.trim() && (
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={createAndAttach}
+                  className="w-full text-left px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]">
+                  <span className="text-sm font-medium text-fg-primary">
+                    {t('createOptionSet') || 'Create'} &ldquo;{newSetName.trim()}&rdquo;
+                  </span>
+                </button>
               )}
             </div>
-
-            {/* Variants table */}
-            <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
-              {/* Table header */}
-              <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
-                style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px 36px' }}>
-                <span>{t('variantName')}</span>
-                <span>{t('price')}</span>
-                <span>{t('onlinePrice')}</span>
-                <span>SKU</span>
-                <span>{t('status')}</span>
-                <span />
-              </div>
-
-              {/* Rows */}
-              {g.rows.map((row, ri) => (
-                <div key={ri}
-                  className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ gridTemplateColumns: '1fr 110px 110px 80px 80px 36px' }}>
-                  <input value={row.name}
-                    onChange={(e) => updateRow(gi, ri, { name: e.target.value })}
-                    placeholder={t('variantName')}
-                    className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
-                  <input type="number" min="0" step="0.01"
-                    value={row.price === 0 ? '' : row.price}
-                    onChange={(e) => updateRow(gi, ri, { price: parseFloat(e.target.value) || 0 })}
-                    placeholder="0.00"
-                    className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
-                  <input type="number" min="0" step="0.01"
-                    value={row.online_price === null ? '' : row.online_price}
-                    onChange={(e) => updateRow(gi, ri, { online_price: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                    placeholder="—"
-                    className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
-                  <input value={row.sku}
-                    onChange={(e) => updateRow(gi, ri, { sku: e.target.value })}
-                    placeholder="—"
-                    className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
-                  <select value={row.is_active ? 'active' : 'inactive'}
-                    onChange={(e) => updateRow(gi, ri, { is_active: e.target.value === 'active' })}
-                    className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
-                    <option value="active">{t('available')}</option>
-                    <option value="inactive">{t('unavailable')}</option>
-                  </select>
-                  <button onClick={() => removeRow(gi, ri)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-
-              {/* Add row */}
-              <button onClick={() => addRow(gi)}
-                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-brand-500 hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]">
-                <PlusIcon className="w-4 h-4" />
-                {t('addVariant')}
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {/* Add another set */}
-        <button onClick={() => setGroups((prev) => [...prev, blankGroup(prev.length)])}
-          className="flex items-center gap-2 text-base font-medium text-fg-primary underline">
-          <PlusIcon className="w-4 h-4" />
-          {t('addAnotherSet')}
-        </button>
+          )}
+        </div>
       </div>
     </div>
   );
