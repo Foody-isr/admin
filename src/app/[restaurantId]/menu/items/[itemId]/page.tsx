@@ -176,7 +176,28 @@ export default function EditItemPage() {
     setExpandedItemIds(new Set());
   };
 
-  const openAddOptionsModal = () => { resetModal(); setComboModalOpen(true); };
+  const [editingStepKey, setEditingStepKey] = useState<string | null>(null);
+
+  const openAddOptionsModal = () => { resetModal(); setEditingStepKey(null); setComboModalOpen(true); };
+
+  const openEditStepModal = (step: ComboStepDraft) => {
+    resetModal();
+    setEditingStepKey(step.key);
+    setModalGroupName(step.name);
+    setModalRequired(step.min_picks);
+    // Rebuild picks from existing step items
+    const picks = new Map<PickKey, PickInfo>();
+    const deltas = new Map<PickKey, number>();
+    for (const si of step.items) {
+      const key = `item:${si.menu_item_id}`;
+      picks.set(key, { menuItemId: si.menu_item_id, name: si.item_name || `Item #${si.menu_item_id}`, price: 0 });
+      if (si.price_delta !== 0) deltas.set(key, si.price_delta);
+    }
+    setModalPicks(picks);
+    setModalItemDeltas(deltas);
+    setModalStep('select');
+    setComboModalOpen(true);
+  };
 
   const togglePick = (key: PickKey, info: PickInfo) => {
     setModalPicks((prev) => { const next = new Map(prev); next.has(key) ? next.delete(key) : next.set(key, info); return next; });
@@ -190,7 +211,7 @@ export default function EditItemPage() {
 
   const handleModalAdd = () => {
     const draft: ComboStepDraft = {
-      key: crypto.randomUUID(),
+      key: editingStepKey || crypto.randomUUID(),
       name: modalGroupName || `Choice ${comboSteps.length + 1}`,
       min_picks: modalRequired,
       max_picks: modalRequired,
@@ -200,7 +221,13 @@ export default function EditItemPage() {
         item_name: p.name,
       })),
     };
-    setComboSteps((prev) => [...prev, draft]);
+    if (editingStepKey) {
+      // Update existing step
+      setComboSteps((prev) => prev.map((s) => s.key === editingStepKey ? draft : s));
+    } else {
+      // Add new step
+      setComboSteps((prev) => [...prev, draft]);
+    }
     setComboModalOpen(false);
   };
 
@@ -417,17 +444,25 @@ export default function EditItemPage() {
                         <span className="w-16" />
                       </div>
                       {comboSteps.map((step) => (
-                        <div key={step.key} className="flex items-center border-b border-[var(--divider)] py-3 px-1">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium text-brand-500">{step.name}</span>
-                            <span className="text-xs text-fg-tertiary ml-2">{step.items.length} {t('options')}</span>
+                        <div key={step.key} className="border-b border-[var(--divider)] py-3 px-1">
+                          <div className="flex items-center">
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
+                              <span className="text-sm font-medium text-brand-500 hover:underline">{step.name}</span>
+                              <span className="text-xs text-fg-tertiary ml-2">{step.items.length} {t('options')}</span>
+                            </div>
+                            <span className="w-20 text-center text-sm text-fg-secondary">{step.min_picks}</span>
+                            <div className="w-16 flex items-center justify-end gap-2">
+                              <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
+                                <TrashIcon className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
-                          <span className="w-20 text-center text-sm text-fg-secondary">{step.min_picks}</span>
-                          <div className="w-16 flex items-center justify-end gap-2">
-                            <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </div>
+                          {/* Show item names under the step */}
+                          {step.items.length > 0 && (
+                            <div className="mt-1.5 text-xs text-fg-tertiary truncate">
+                              {step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
