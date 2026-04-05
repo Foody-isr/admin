@@ -371,7 +371,7 @@ export default function NewItemPage() {
 
         <div className="flex gap-8">
           {/* Left column — main form */}
-          <div className="flex-1 space-y-5">
+          <div className="flex-1 min-w-0 space-y-5">
             {/* Item Type Selector */}
             <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
               <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
@@ -422,39 +422,37 @@ export default function NewItemPage() {
 
             {/* ── Combo Builder (only for combo items) ──────────── */}
             {itemType === 'combo' && (
-              <div className="border-2 border-brand-500/30 rounded-xl p-5 space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <h3 className="text-lg font-bold text-fg-primary">{t('buildThisCombo')}</h3>
-                  <p className="text-sm text-fg-tertiary mt-1">{t('comboBuilderDescription')}</p>
+                  <h3 className="text-base font-bold text-fg-primary">{t('buildThisCombo')}</h3>
+                  <p className="text-sm text-fg-tertiary mt-0.5">{t('comboBuilderDescription')}</p>
                 </div>
 
-                {/* Configured steps table */}
                 {comboSteps.length > 0 && (
                   <div>
-                    <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider px-1 mb-2">
+                    <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider mb-1 border-b border-[var(--divider)] pb-2">
                       <span className="flex-1">{t('comboChoice')}</span>
-                      <span className="w-20 text-center">{t('required')}</span>
-                      <span className="w-16" />
+                      <span className="w-16 text-center">{t('required')}</span>
+                      <span className="w-14" />
                     </div>
                     {comboSteps.map((step) => (
-                      <div key={step.key} className="border-b border-[var(--divider)] py-3 px-1">
-                        <div className="flex items-center">
+                      <div key={step.key} className="border-b border-[var(--divider)] py-2.5">
+                        <div className="flex items-center gap-1">
                           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
                             <span className="text-sm font-medium text-brand-500 hover:underline">{step.name}</span>
-                            <span className="text-xs text-fg-tertiary ml-2">{step.items.length} {t('options')}</span>
+                            <div className="text-xs text-fg-tertiary truncate mt-0.5">
+                              {step.items.length > 0
+                                ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
+                                : `${step.items.length} ${t('options')}`}
+                            </div>
                           </div>
-                          <span className="w-20 text-center text-sm text-fg-secondary">{step.min_picks}</span>
-                          <div className="w-16 flex items-center justify-end gap-2">
+                          <span className="w-16 text-center text-sm text-fg-secondary shrink-0">{step.min_picks}</span>
+                          <div className="w-14 flex items-center justify-end gap-1 shrink-0">
                             <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
                               <TrashIcon className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
-                        {step.items.length > 0 && (
-                          <div className="mt-1.5 text-xs text-fg-tertiary truncate">
-                            {step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')}
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
