@@ -197,6 +197,37 @@ export interface ItemVariantGroup {
   variants: MenuItemVariant[];
 }
 
+export type ItemType = 'food_and_beverage' | 'combo';
+
+export interface ComboStepItem {
+  id?: number;
+  combo_step_id?: number;
+  menu_item_id: number;
+  price_delta: number;
+  menu_item?: MenuItem;
+}
+
+export interface ComboStep {
+  id?: number;
+  menu_item_id?: number;
+  combo_menu_id?: number;
+  name: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order: number;
+  fixed_modifier_name?: string;
+  items: ComboStepItem[];
+}
+
+export interface ComboStepInput {
+  name: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order: number;
+  fixed_modifier_name?: string;
+  items: { menu_item_id: number; price_delta: number }[];
+}
+
 export interface MenuItem {
   id: number;
   category_id: number;
@@ -205,11 +236,13 @@ export interface MenuItem {
   image_url: string;
   price: number;
   is_active: boolean;
+  item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
   modifiers?: MenuItemModifier[];
   modifier_sets?: ModifierSet[];
   variant_groups?: ItemVariantGroup[];
+  combo_steps?: ComboStep[];
 }
 
 export interface OrderItemModifier {
@@ -234,6 +267,7 @@ export interface OrderItem {
   selected_variant_price?: number;
   modifiers?: OrderItemModifier[];
   combo_menu_id?: number;
+  combo_item_id?: number;
   combo_group?: string;
   combo_name?: string;
   combo_price?: number;
@@ -2631,26 +2665,7 @@ export async function reorderFloorPlans(restaurantId: number, ids: number[]): Pr
   );
 }
 
-// ─── Combo Menus ──────────────────────────────────────────────────────────────
-
-export interface ComboStepItem {
-  id: number;
-  combo_step_id: number;
-  menu_item_id: number;
-  price_delta: number;
-  menu_item?: MenuItem;
-}
-
-export interface ComboStep {
-  id: number;
-  combo_menu_id: number;
-  name: string;
-  min_picks: number;
-  max_picks: number;
-  sort_order: number;
-  fixed_modifier_name?: string;
-  items: ComboStepItem[];
-}
+// ─── Combo Menus (legacy — ComboStep/ComboStepItem/ComboStepInput are defined above with MenuItem) ─
 
 export interface ComboMenu {
   id: number;
@@ -2663,20 +2678,6 @@ export interface ComboMenu {
   sort_order: number;
   created_at: string;
   steps: ComboStep[];
-}
-
-export interface ComboStepItemInput {
-  menu_item_id: number;
-  price_delta: number;
-}
-
-export interface ComboStepInput {
-  name: string;
-  min_picks: number;
-  max_picks: number;
-  sort_order: number;
-  fixed_modifier_name?: string;
-  items: ComboStepItemInput[];
 }
 
 export interface ComboInput {

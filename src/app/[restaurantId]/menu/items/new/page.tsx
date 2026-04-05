@@ -9,12 +9,27 @@ import {
   listOptionSets, attachOptionSetToItems,
   createVariantGroup,
   MenuCategory, Menu, ModifierSet, OptionSet, VariantGroupInput, VariantInput,
+  MenuItem, ItemType, ComboStepInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
   XMarkIcon, ChevronDownIcon, ArrowUpTrayIcon, MagnifyingGlassIcon,
   PlusIcon, TrashIcon,
 } from '@heroicons/react/24/outline';
+
+/* ── Combo step draft (local, submitted on Save) ────────────────────── */
+
+interface ComboStepDraft {
+  key: string;
+  name: string;
+  min_picks: number;
+  max_picks: number;
+  items: { menu_item_id: number; price_delta: number; item_name?: string }[];
+}
+
+function newComboStep(): ComboStepDraft {
+  return { key: crypto.randomUUID(), name: '', min_picks: 1, max_picks: 1, items: [] };
+}
 
 /* ── Local variant types (not yet persisted) ─────────────────────────── */
 
@@ -60,10 +75,14 @@ export default function NewItemPage() {
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
+  const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Combo steps (only used when itemType === 'combo')
+  const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
 
   // Categories search
   const [categorySearch, setCategorySearch] = useState('');
@@ -110,13 +129,24 @@ export default function NewItemPage() {
     if (!name.trim() || !parseFloat(price)) return;
     setSaving(true);
     try {
-      const item = await createMenuItem(rid, {
+      const createPayload: Parameters<typeof createMenuItem>[1] = {
         name: name.trim(),
         description,
         price: parseFloat(price),
         is_active: isActive,
+        item_type: itemType,
         category_id: categoryId || categories[0]?.id,
-      });
+      };
+      if (itemType === 'combo' && comboSteps.length > 0) {
+        (createPayload as Record<string, unknown>).combo_steps = comboSteps.map((s, i): ComboStepInput => ({
+          name: s.name || `Choice ${i + 1}`,
+          min_picks: s.min_picks,
+          max_picks: s.max_picks,
+          sort_order: i,
+          items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, price_delta: si.price_delta })),
+        }));
+      }
+      const item = await createMenuItem(rid, createPayload);
       // Upload image
       if (pendingImage) {
         const url = await uploadMenuItemImage(rid, item.id, pendingImage);
@@ -195,6 +225,48 @@ export default function NewItemPage() {
     setVariantGroups((prev) => prev.filter((g) => g.key !== key));
   };
 
+  /* ── Combo step helpers ──────────────────────────────────────────── */
+
+  const allMenuItems = categories.flatMap((c) =>
+    (c.items ?? []).map((i) => ({ ...i, category_name: c.name }))
+  );
+
+  const addComboStep = () => setComboSteps((prev) => [...prev, newComboStep()]);
+
+  const removeComboStep = (key: string) => setComboSteps((prev) => prev.filter((s) => s.key !== key));
+
+  const updateComboStep = (key: string, patch: Partial<ComboStepDraft>) => {
+    setComboSteps((prev) => prev.map((s) => s.key === key ? { ...s, ...patch } : s));
+  };
+
+  const addItemToComboStep = (stepKey: string, item: { id: number; name: string }) => {
+    setComboSteps((prev) =>
+      prev.map((s) => {
+        if (s.key !== stepKey) return s;
+        if (s.items.some((si) => si.menu_item_id === item.id)) return s;
+        return { ...s, items: [...s.items, { menu_item_id: item.id, price_delta: 0, item_name: item.name }] };
+      })
+    );
+  };
+
+  const removeItemFromComboStep = (stepKey: string, menuItemId: number) => {
+    setComboSteps((prev) =>
+      prev.map((s) =>
+        s.key !== stepKey ? s : { ...s, items: s.items.filter((si) => si.menu_item_id !== menuItemId) }
+      )
+    );
+  };
+
+  const updateStepItemDelta = (stepKey: string, menuItemId: number, delta: number) => {
+    setComboSteps((prev) =>
+      prev.map((s) =>
+        s.key !== stepKey
+          ? s
+          : { ...s, items: s.items.map((si) => si.menu_item_id === menuItemId ? { ...si, price_delta: delta } : si) }
+      )
+    );
+  };
+
   /* ── Misc handlers ───────────────────────────────────────────────── */
 
   const handleFileSelect = (file: File) => {
@@ -239,6 +311,19 @@ export default function NewItemPage() {
         <div className="flex gap-8">
           {/* Left column — main form */}
           <div className="flex-1 space-y-5">
+            {/* Item Type Selector */}
+            <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="text-sm text-fg-tertiary">{t('itemType') || 'Item type'}</span>
+              <select
+                value={itemType}
+                onChange={(e) => setItemType(e.target.value as ItemType)}
+                className="input flex-1 text-base border-0 py-0 bg-transparent"
+              >
+                <option value="food_and_beverage">{t('foodAndBeverage') || 'Food & Beverage'}</option>
+                <option value="combo">{t('combo') || 'Combo'}</option>
+              </select>
+            </div>
+
             <input autoFocus placeholder={t('nameRequired')} value={name}
               onChange={(e) => setName(e.target.value)} className="input w-full text-base" />
 
@@ -274,42 +359,136 @@ export default function NewItemPage() {
 
             <div className="h-1 bg-[var(--divider)] rounded-full" />
 
-            {/* ── Variants ────────────────────────────────────────── */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
-                <button onClick={() => setVariantModalOpen(true)}
-                  className="text-base font-medium underline text-fg-primary shrink-0">
-                  {t('add')}
-                </button>
-              </div>
-              <p className="text-sm text-fg-tertiary">{t('variantsDescription')}</p>
-              {/* Show configured variant groups */}
-              {variantGroups.length > 0 && (
-                <div className="rounded-xl border border-[var(--divider)] overflow-hidden mt-3">
-                  {variantGroups.map((vg) => (
-                    <div key={vg.key} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
-                        <span className="text-xs text-fg-tertiary ml-2">
-                          {vg.variants.filter((v) => v.name.trim()).map((v) => v.name).join(', ')}
-                        </span>
+            {/* ── Combo Builder (only for combo items) ──────────── */}
+            {itemType === 'combo' && (
+              <div className="border-2 border-brand-500/30 rounded-xl p-5 space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-fg-primary">{t('buildThisCombo') || 'Build this combo'}</h3>
+                  <p className="text-sm text-fg-tertiary mt-1">
+                    {t('comboBuilderDescription') || 'Add item options so your customers can customize this combo.'}
+                  </p>
+                </div>
+
+                {/* Step list */}
+                {comboSteps.map((step, stepIdx) => (
+                  <div key={step.key} className="border border-[var(--divider)] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <input
+                        placeholder={t('comboChoiceName') || `Choice ${stepIdx + 1}`}
+                        value={step.name}
+                        onChange={(e) => updateComboStep(step.key, { name: e.target.value })}
+                        className="input flex-1 text-sm"
+                      />
+                      <button onClick={() => removeComboStep(step.key)}
+                        className="p-1.5 text-red-400 hover:text-red-300">
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-fg-tertiary">{t('minRequired') || 'Min required'}</label>
+                        <input type="number" min={0} value={step.min_picks}
+                          onChange={(e) => updateComboStep(step.key, { min_picks: parseInt(e.target.value) || 0 })}
+                          className="input w-full text-sm mt-1" />
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setVariantModalOpen(true)}
-                          className="text-sm text-brand-600 hover:underline font-medium">{t('edit')}</button>
-                        <button onClick={() => removeVariantGroup(vg.key)}
-                          className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                          {t('remove')}
-                        </button>
+                      <div className="flex-1">
+                        <label className="text-xs text-fg-tertiary">{t('maxAllowed') || 'Max allowed'}</label>
+                        <input type="number" min={0} value={step.max_picks}
+                          onChange={(e) => updateComboStep(step.key, { max_picks: parseInt(e.target.value) || 0 })}
+                          className="input w-full text-sm mt-1" />
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            <div className="border-t border-[var(--divider)]" />
+                    {/* Items in this step */}
+                    {step.items.length > 0 && (
+                      <div className="space-y-1">
+                        {step.items.map((si) => (
+                          <div key={si.menu_item_id} className="flex items-center gap-2 px-3 py-2 bg-[var(--surface-subtle)] rounded-lg">
+                            <span className="text-sm text-fg-primary flex-1">{si.item_name || `Item #${si.menu_item_id}`}</span>
+                            <input type="number" step="0.01" value={si.price_delta}
+                              onChange={(e) => updateStepItemDelta(step.key, si.menu_item_id, parseFloat(e.target.value) || 0)}
+                              className="input w-24 text-xs text-center" placeholder="Delta" />
+                            <button onClick={() => removeItemFromComboStep(step.key, si.menu_item_id)}
+                              className="text-red-400 hover:text-red-300">
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Item picker dropdown */}
+                    <div className="relative">
+                      <select
+                        onChange={(e) => {
+                          const itemId = parseInt(e.target.value);
+                          const menuItem = allMenuItems.find((i) => i.id === itemId);
+                          if (menuItem) addItemToComboStep(step.key, menuItem);
+                          e.target.value = '';
+                        }}
+                        className="input w-full text-sm"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>{t('addItemToStep') || '+ Add item...'}</option>
+                        {allMenuItems
+                          .filter((i) => !step.items.some((si) => si.menu_item_id === i.id))
+                          .map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {i.name} {i.category_name ? `(${i.category_name})` : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+
+                <button onClick={addComboStep}
+                  className="flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-400">
+                  <PlusIcon className="w-4 h-4" />
+                  {t('addOptions') || 'Add options'}
+                </button>
+              </div>
+            )}
+
+            {/* ── Variants (hidden for combo items) ──────────────── */}
+            {itemType !== 'combo' && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
+                    <button onClick={() => setVariantModalOpen(true)}
+                      className="text-base font-medium underline text-fg-primary shrink-0">
+                      {t('add')}
+                    </button>
+                  </div>
+                  <p className="text-sm text-fg-tertiary">{t('variantsDescription')}</p>
+                  {variantGroups.length > 0 && (
+                    <div className="rounded-xl border border-[var(--divider)] overflow-hidden mt-3">
+                      {variantGroups.map((vg) => (
+                        <div key={vg.key} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
+                            <span className="text-xs text-fg-tertiary ml-2">
+                              {vg.variants.filter((v) => v.name.trim()).map((v) => v.name).join(', ')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button onClick={() => setVariantModalOpen(true)}
+                              className="text-sm text-brand-600 hover:underline font-medium">{t('edit')}</button>
+                            <button onClick={() => removeVariantGroup(vg.key)}
+                              className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                              {t('remove')}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="border-t border-[var(--divider)]" />
+              </>
+            )}
 
             {/* ── Modifiers ───────────────────────────────────────── */}
             <div>

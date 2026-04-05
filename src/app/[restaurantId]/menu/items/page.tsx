@@ -316,6 +316,9 @@ export default function ItemLibraryPage() {
                         </div>
                       )}
                       <span className="font-medium text-fg-primary">{item.name}</span>
+                      {item.item_type === 'combo' && (
+                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-brand-500/15 text-brand-500">Combo</span>
+                      )}
                     </div>
                   </td>
                   <td className="py-3.5 px-2 text-fg-secondary">{item.category_name}</td>

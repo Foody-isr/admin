@@ -9,7 +9,7 @@ import {
   listModifierSets, attachModifierSetToItems,
   listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
   MenuCategory, MenuItem, MenuItemModifier, ModifierSet, Menu,
-  OptionSet, ItemOptionOverride,
+  OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -34,10 +34,21 @@ export default function EditItemPage() {
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState(0);
   const [isActive, setIsActive] = useState(true);
+  const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [imageUrl, setImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Combo steps (only used when itemType === 'combo')
+  interface ComboStepDraft {
+    key: string;
+    name: string;
+    min_picks: number;
+    max_picks: number;
+    items: { menu_item_id: number; price_delta: number; item_name?: string }[];
+  }
+  const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
 
   // Categories search
   const [categorySearch, setCategorySearch] = useState('');
@@ -88,7 +99,22 @@ export default function EditItemPage() {
           const foundCat = cats.find((c) => c.id === found.category_id);
           if (foundCat) setCategorySearch(foundCat.name);
           setIsActive(found.is_active);
+          setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
+          // Load combo steps if this is a combo item
+          if (found.item_type === 'combo' && found.combo_steps) {
+            setComboSteps(found.combo_steps.map((s) => ({
+              key: crypto.randomUUID(),
+              name: s.name,
+              min_picks: s.min_picks,
+              max_picks: s.max_picks,
+              items: s.items.map((si) => ({
+                menu_item_id: si.menu_item_id,
+                price_delta: si.price_delta,
+                item_name: si.menu_item?.name,
+              })),
+            })));
+          }
           break;
         }
       }
@@ -118,14 +144,25 @@ export default function EditItemPage() {
     if (!name.trim() || !price) return;
     setSaving(true);
     try {
-      await updateMenuItem(rid, iid, {
+      const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
         price: parseFloat(price),
         is_active: isActive,
+        item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
-      });
+      };
+      if (itemType === 'combo') {
+        updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
+          name: s.name || `Choice ${i + 1}`,
+          min_picks: s.min_picks,
+          max_picks: s.max_picks,
+          sort_order: i,
+          items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, price_delta: si.price_delta })),
+        }));
+      }
+      await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
       // Handle menu assignment diffs
       const added = Array.from(selectedMenuIds).filter((id) => !initialMenuIds.has(id));
       const removed = Array.from(initialMenuIds).filter((id) => !selectedMenuIds.has(id));
