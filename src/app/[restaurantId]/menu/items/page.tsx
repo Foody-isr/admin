@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  MagnifyingGlassIcon, PlusIcon, ChevronDownIcon,
+  MagnifyingGlassIcon, PlusIcon, ChevronDownIcon, ChevronUpIcon,
   EllipsisHorizontalIcon, PhotoIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
@@ -47,6 +47,12 @@ export default function ItemLibraryPage() {
 
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  // Variant accordion
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
+  const toggleExpand = (id: number) => setExpandedItemIds((prev) => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
 
   // Quick create
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
@@ -292,55 +298,98 @@ export default function ItemLibraryPage() {
                   </td>
                 </tr>
               )}
-              {filtered.map((item) => (
-                <tr
-                  key={item.id}
-                  className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)]"
-                  onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
-                >
-                  <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(item.id)}
-                      onChange={() => toggleSelect(item.id)}
-                      className="rounded border-[var(--divider)]"
-                    />
-                  </td>
-                  <td className="py-3.5 px-2">
-                    <div className="flex items-center gap-3">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                          <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
-                        </div>
-                      )}
-                      <span className="font-medium text-fg-primary">{item.name}</span>
-                      {item.item_type === 'combo' && (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-brand-500/15 text-brand-500">Combo</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-2 text-fg-secondary">{item.category_name}</td>
-                  <td className="py-3.5 px-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleToggleAvailability(item); }}
-                      className={`text-sm font-medium ${item.is_active ? 'text-status-ready' : 'text-fg-secondary'}`}
+              {filtered.map((item) => {
+                const variants = (item.variant_groups ?? []).flatMap((g) => g.variants ?? []).filter((v) => v.is_active);
+                const hasVariants = variants.length > 0;
+                const isExpanded = expandedItemIds.has(item.id);
+
+                return (
+                  <React.Fragment key={item.id}>
+                    {/* Parent item row */}
+                    <tr
+                      className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)]"
+                      onClick={() => hasVariants ? toggleExpand(item.id) : router.push(`/${rid}/menu/items/${item.id}`)}
                     >
-                      {item.is_active ? t('available') : t('unavailable')}
-                    </button>
-                  </td>
-                  <td className="py-3.5 px-2 text-right text-fg-primary font-semibold">
-                    ₪{(item.price ?? 0).toFixed(2)}/ea
-                  </td>
-                  <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
-                    <ItemRowMenu
-                      onEdit={() => router.push(`/${rid}/menu/items/${item.id}`)}
-                      onDelete={() => handleDeleteItem(item.id)}
-                    />
-                  </td>
-                </tr>
-              ))}
+                      <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
+                        {hasVariants ? (
+                          <button className="w-5 h-5 flex items-center justify-center text-fg-tertiary">
+                            {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+                          </button>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(item.id)}
+                            onChange={() => toggleSelect(item.id)}
+                            className="rounded border-[var(--divider)]"
+                          />
+                        )}
+                      </td>
+                      <td className="py-3.5 px-2">
+                        <div className="flex items-center gap-3">
+                          {item.image_url ? (
+                            <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                              <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium text-fg-primary">{item.name}</span>
+                            {item.item_type === 'combo' && (
+                              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-brand-500/15 text-brand-500">Combo</span>
+                            )}
+                            {hasVariants && (
+                              <span className="text-xs text-fg-tertiary ml-2">{variants.length} {t('variants').toLowerCase()}</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-2 text-fg-secondary">{item.category_name}</td>
+                      <td className="py-3.5 px-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleToggleAvailability(item); }}
+                          className={`text-sm font-medium ${item.is_active ? 'text-status-ready' : 'text-fg-secondary'}`}
+                        >
+                          {item.is_active ? t('available') : t('unavailable')}
+                        </button>
+                      </td>
+                      <td className="py-3.5 px-2 text-right text-fg-primary font-semibold">
+                        {hasVariants ? '-' : `₪${(item.price ?? 0).toFixed(2)}/ea`}
+                      </td>
+                      <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
+                        <ItemRowMenu
+                          onEdit={() => router.push(`/${rid}/menu/items/${item.id}`)}
+                          onDelete={() => handleDeleteItem(item.id)}
+                        />
+                      </td>
+                    </tr>
+
+                    {/* Variant child rows (expanded) */}
+                    {hasVariants && isExpanded && variants.map((v) => (
+                      <tr
+                        key={`${item.id}-v-${v.id}`}
+                        className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)] bg-[var(--surface-subtle)]/30"
+                        onClick={() => router.push(`/${rid}/menu/items/${item.id}/variants`)}
+                      >
+                        <td className="py-2.5 px-2" />
+                        <td className="py-2.5 px-2 pl-16">
+                          <span className="text-sm text-fg-secondary">{v.name}</span>
+                        </td>
+                        <td className="py-2.5 px-2" />
+                        <td className="py-2.5 px-2">
+                          <span className={`text-xs font-medium ${v.is_active ? 'text-status-ready' : 'text-fg-tertiary'}`}>
+                            {v.is_active ? t('available') : t('unavailable')}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 text-right text-fg-secondary text-sm">
+                          ₪{(v.price ?? 0).toFixed(2)}/ea
+                        </td>
+                        <td className="py-2.5 px-2" />
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
