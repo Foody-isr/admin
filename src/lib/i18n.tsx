@@ -886,6 +886,7 @@ const translations: Record<Locale, Record<string, string>> = {
     maxAllowed: 'Max allowed',
     addItemToStep: '+ Add item...',
     comboChoice: 'Combo choice',
+    deselectAll: 'Deselect all',
     // Add options modal
     addOptionsDesc: 'Add individual items or entire categories for your customers to choose from.',
     showAllCategories: 'All categories',

@@ -13,7 +13,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  XMarkIcon, ChevronDownIcon, ArrowUpTrayIcon, MagnifyingGlassIcon,
+  XMarkIcon, ChevronDownIcon, ChevronUpIcon, ArrowUpTrayIcon, MagnifyingGlassIcon,
   PlusIcon, TrashIcon, ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 
@@ -234,28 +234,33 @@ export default function NewItemPage() {
   const removeComboStep = (key: string) => setComboSteps((prev) => prev.filter((s) => s.key !== key));
 
   // ── Add Options Modal (Square-style multi-step) ──
+  // Selection key format: "item:123" for plain items, "variant:123:456" for specific variants
+  type PickKey = string;
+  type PickInfo = { menuItemId: number; variantId?: number; name: string; price: number };
   const [comboModalOpen, setComboModalOpen] = useState(false);
   type ModalStep = 'select' | 'pricing' | 'configure';
   const [modalStep, setModalStep] = useState<ModalStep>('select');
   const [modalTab, setModalTab] = useState<'items' | 'categories'>('items');
   const [modalSearch, setModalSearch] = useState('');
   const [modalCategoryFilter, setModalCategoryFilter] = useState<number | null>(null);
-  const [modalSelectedItemIds, setModalSelectedItemIds] = useState<Set<number>>(new Set());
-  const [modalItemDeltas, setModalItemDeltas] = useState<Map<number, number>>(new Map());
+  const [modalPicks, setModalPicks] = useState<Map<PickKey, PickInfo>>(new Map());
+  const [modalItemDeltas, setModalItemDeltas] = useState<Map<PickKey, number>>(new Map());
   const [modalGroupName, setModalGroupName] = useState('');
   const [modalRequired, setModalRequired] = useState(1);
-  const [modalDefaultItemId, setModalDefaultItemId] = useState<number | null>(null);
+  const [modalDefaultKey, setModalDefaultKey] = useState<PickKey | ''>('');
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
 
   const resetModal = () => {
     setModalStep('select');
     setModalTab('items');
     setModalSearch('');
     setModalCategoryFilter(null);
-    setModalSelectedItemIds(new Set());
+    setModalPicks(new Map());
     setModalItemDeltas(new Map());
     setModalGroupName('');
     setModalRequired(1);
-    setModalDefaultItemId(null);
+    setModalDefaultKey('');
+    setExpandedItemIds(new Set());
   };
 
   const openAddOptionsModal = () => {
@@ -263,7 +268,24 @@ export default function NewItemPage() {
     setComboModalOpen(true);
   };
 
-  const modalSelectedItems = allMenuItems.filter((i) => modalSelectedItemIds.has(i.id));
+  const togglePick = (key: PickKey, info: PickInfo) => {
+    setModalPicks((prev) => {
+      const next = new Map(prev);
+      if (next.has(key)) next.delete(key);
+      else next.set(key, info);
+      return next;
+    });
+  };
+
+  const toggleExpand = (itemId: number) => {
+    setExpandedItemIds((prev) => {
+      const next = new Set(prev);
+      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
+      return next;
+    });
+  };
+
+  const modalPicksList = Array.from(modalPicks.entries()).map(([key, info]) => ({ key, ...info }));
 
   const handleModalAdd = () => {
     const draft: ComboStepDraft = {
@@ -271,10 +293,10 @@ export default function NewItemPage() {
       name: modalGroupName || `Choice ${comboSteps.length + 1}`,
       min_picks: modalRequired,
       max_picks: modalRequired,
-      items: modalSelectedItems.map((i) => ({
-        menu_item_id: i.id,
-        price_delta: modalItemDeltas.get(i.id) ?? 0,
-        item_name: i.name,
+      items: modalPicksList.map((p) => ({
+        menu_item_id: p.menuItemId,
+        price_delta: modalItemDeltas.get(p.key) ?? 0,
+        item_name: p.name,
       })),
     };
     setComboSteps((prev) => [...prev, draft]);
@@ -429,8 +451,8 @@ export default function NewItemPage() {
                           <XMarkIcon className="w-4 h-4 text-fg-primary" />
                         </button>
                         <button
-                          onClick={() => { if (modalSelectedItemIds.size > 0) setModalStep('pricing'); }}
-                          disabled={modalSelectedItemIds.size === 0}
+                          onClick={() => { if (modalPicks.size > 0) setModalStep('pricing'); }}
+                          disabled={modalPicks.size === 0}
                           className="btn-primary text-sm px-5 py-2 rounded-lg disabled:opacity-40"
                         >
                           {t('next')}
@@ -489,29 +511,83 @@ export default function NewItemPage() {
                             <span className="w-20 text-right">{t('price')}</span>
                           </div>
 
-                          {/* Item rows */}
+                          {/* Item rows — with expandable variants */}
                           {allMenuItems
                             .filter((i) => {
                               if (modalCategoryFilter && i.category_id !== modalCategoryFilter) return false;
                               if (modalSearch && !i.name.toLowerCase().includes(modalSearch.toLowerCase())) return false;
                               return true;
                             })
-                            .map((item) => (
-                              <label key={item.id} className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
-                                <input type="checkbox"
-                                  checked={modalSelectedItemIds.has(item.id)}
-                                  onChange={() => {
-                                    setModalSelectedItemIds((prev) => {
-                                      const next = new Set(prev);
-                                      next.has(item.id) ? next.delete(item.id) : next.add(item.id);
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-4 h-4 rounded border-2 border-[var(--divider)] accent-brand-500 shrink-0" />
-                                <span className="flex-1 text-sm text-fg-primary">{item.name}</span>
-                                <span className="w-20 text-right text-sm text-fg-secondary">₪{item.price.toFixed(2)}</span>
-                              </label>
-                            ))}
+                            .map((item) => {
+                              const variants = (item.variant_groups ?? []).flatMap((g) => g.variants ?? []).filter((v) => v.is_active);
+                              const hasVariants = variants.length > 0;
+                              const isExpanded = expandedItemIds.has(item.id);
+                              const itemKey = `item:${item.id}`;
+
+                              return (
+                                <div key={item.id}>
+                                  {hasVariants ? (
+                                    <>
+                                      {/* Parent item row — expand/collapse toggle */}
+                                      <div
+                                        className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm"
+                                        onClick={() => toggleExpand(item.id)}
+                                      >
+                                        <button className="w-5 h-5 flex items-center justify-center shrink-0 text-fg-tertiary">
+                                          {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+                                        </button>
+                                        <span className="flex-1 text-sm font-medium text-fg-primary">
+                                          {item.name}
+                                          <span className="text-xs text-fg-tertiary ml-2">{variants.length} {t('variants').toLowerCase()}</span>
+                                        </span>
+                                        <span className="w-20 text-right text-sm text-fg-tertiary">-</span>
+                                      </div>
+                                      {/* Variant child rows */}
+                                      {isExpanded && variants.map((v) => {
+                                        const vKey = `variant:${item.id}:${v.id}`;
+                                        return (
+                                          <label key={vKey} className="flex items-center gap-3 pl-8 pr-1 py-2.5 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
+                                            <input type="checkbox"
+                                              checked={modalPicks.has(vKey)}
+                                              onChange={() => togglePick(vKey, {
+                                                menuItemId: item.id,
+                                                variantId: v.id,
+                                                name: `${item.name} - ${v.name}`,
+                                                price: v.price,
+                                              })}
+                                              className="w-4 h-4 rounded border-2 border-[var(--divider)] accent-brand-500 shrink-0" />
+                                            <span className="flex-1 text-sm text-fg-primary">{v.name}</span>
+                                            <span className="w-20 text-right text-sm text-fg-secondary">₪{v.price.toFixed(2)}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </>
+                                  ) : (
+                                    /* Simple item — no variants */
+                                    <label className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
+                                      <input type="checkbox"
+                                        checked={modalPicks.has(itemKey)}
+                                        onChange={() => togglePick(itemKey, {
+                                          menuItemId: item.id,
+                                          name: item.name,
+                                          price: item.price,
+                                        })}
+                                        className="w-4 h-4 rounded border-2 border-[var(--divider)] accent-brand-500 shrink-0" />
+                                      <span className="flex-1 text-sm text-fg-primary">{item.name}</span>
+                                      <span className="w-20 text-right text-sm text-fg-secondary">₪{item.price.toFixed(2)}</span>
+                                    </label>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                          {/* Selection count footer */}
+                          {modalPicks.size > 0 && (
+                            <div className="flex items-center gap-3 pt-3 text-sm">
+                              <span className="text-brand-500 font-medium">{modalPicks.size} {t('selected')}</span>
+                              <button onClick={() => setModalPicks(new Map())} className="text-brand-500 font-medium hover:underline">{t('deselectAll') || 'Deselect all'}</button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         /* Categories tab */
@@ -532,12 +608,14 @@ export default function NewItemPage() {
                             .map((cat) => (
                               <label key={cat.id} className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
                                 <input type="radio" name="combo-cat"
-                                  checked={modalCategoryFilter === cat.id && (cat.items ?? []).every((i) => modalSelectedItemIds.has(i.id))}
+                                  checked={modalCategoryFilter === cat.id && (cat.items ?? []).every((ci) => modalPicks.has(`item:${ci.id}`))}
                                   onChange={() => {
-                                    const catItemIds = (cat.items ?? []).map((i) => i.id);
-                                    setModalSelectedItemIds((prev) => {
-                                      const next = new Set(prev);
-                                      catItemIds.forEach((id) => next.add(id));
+                                    setModalPicks((prev) => {
+                                      const next = new Map(prev);
+                                      (cat.items ?? []).forEach((ci) => {
+                                        const key = `item:${ci.id}`;
+                                        if (!next.has(key)) next.set(key, { menuItemId: ci.id, name: ci.name, price: ci.price });
+                                      });
                                       return next;
                                     });
                                     setModalCategoryFilter(cat.id);
@@ -576,20 +654,20 @@ export default function NewItemPage() {
                           <span className="flex-1">{t('name')}</span>
                           <span className="w-28 text-right">{t('discountOrUpcharge')}</span>
                         </div>
-                        {modalSelectedItems
+                        {[...modalPicksList]
                           .sort((a, b) => b.price - a.price)
-                          .map((item) => (
-                            <div key={item.id} className="flex items-center border-b border-[var(--divider)] py-3 px-1">
+                          .map((pick) => (
+                            <div key={pick.key} className="flex items-center border-b border-[var(--divider)] py-3 px-1">
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-fg-primary">{item.name}</div>
-                                <div className="text-xs text-fg-tertiary">₪{item.price.toFixed(2)}</div>
+                                <div className="text-sm font-medium text-fg-primary">{pick.name}</div>
+                                <div className="text-xs text-fg-tertiary">₪{pick.price.toFixed(2)}</div>
                               </div>
                               <div className="w-28">
                                 <input type="number" step="0.01"
-                                  value={modalItemDeltas.get(item.id) ?? 0}
+                                  value={modalItemDeltas.get(pick.key) ?? 0}
                                   onChange={(e) => setModalItemDeltas((prev) => {
                                     const next = new Map(prev);
-                                    next.set(item.id, parseFloat(e.target.value) || 0);
+                                    next.set(pick.key, parseFloat(e.target.value) || 0);
                                     return next;
                                   })}
                                   className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary text-sm px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-fg-tertiary"
@@ -630,11 +708,11 @@ export default function NewItemPage() {
 
                         <div>
                           <label className="block text-sm font-medium text-fg-secondary mb-1.5">{t('setDefaultOption')}</label>
-                          <select value={modalDefaultItemId ?? ''} onChange={(e) => setModalDefaultItemId(e.target.value ? Number(e.target.value) : null)}
+                          <select value={modalDefaultKey} onChange={(e) => setModalDefaultKey(e.target.value)}
                             className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
                             <option value="">{t('noDefaultSelection')}</option>
-                            {modalSelectedItems.map((item) => (
-                              <option key={item.id} value={item.id}>{item.name}</option>
+                            {modalPicksList.map((pick) => (
+                              <option key={pick.key} value={pick.key}>{pick.name}</option>
                             ))}
                           </select>
                         </div>
