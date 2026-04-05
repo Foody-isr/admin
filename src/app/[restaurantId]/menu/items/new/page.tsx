@@ -14,7 +14,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import {
   XMarkIcon, ChevronDownIcon, ArrowUpTrayIcon, MagnifyingGlassIcon,
-  PlusIcon, TrashIcon,
+  PlusIcon, TrashIcon, ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 
 /* ── Combo step draft (local, submitted on Save) ────────────────────── */
@@ -228,43 +228,57 @@ export default function NewItemPage() {
   /* ── Combo step helpers ──────────────────────────────────────────── */
 
   const allMenuItems = categories.flatMap((c) =>
-    (c.items ?? []).map((i) => ({ ...i, category_name: c.name }))
+    (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))
   );
-
-  const addComboStep = () => setComboSteps((prev) => [...prev, newComboStep()]);
 
   const removeComboStep = (key: string) => setComboSteps((prev) => prev.filter((s) => s.key !== key));
 
-  const updateComboStep = (key: string, patch: Partial<ComboStepDraft>) => {
-    setComboSteps((prev) => prev.map((s) => s.key === key ? { ...s, ...patch } : s));
+  // ── Add Options Modal (Square-style multi-step) ──
+  const [comboModalOpen, setComboModalOpen] = useState(false);
+  type ModalStep = 'select' | 'pricing' | 'configure';
+  const [modalStep, setModalStep] = useState<ModalStep>('select');
+  const [modalTab, setModalTab] = useState<'items' | 'categories'>('items');
+  const [modalSearch, setModalSearch] = useState('');
+  const [modalCategoryFilter, setModalCategoryFilter] = useState<number | null>(null);
+  const [modalSelectedItemIds, setModalSelectedItemIds] = useState<Set<number>>(new Set());
+  const [modalItemDeltas, setModalItemDeltas] = useState<Map<number, number>>(new Map());
+  const [modalGroupName, setModalGroupName] = useState('');
+  const [modalRequired, setModalRequired] = useState(1);
+  const [modalDefaultItemId, setModalDefaultItemId] = useState<number | null>(null);
+
+  const resetModal = () => {
+    setModalStep('select');
+    setModalTab('items');
+    setModalSearch('');
+    setModalCategoryFilter(null);
+    setModalSelectedItemIds(new Set());
+    setModalItemDeltas(new Map());
+    setModalGroupName('');
+    setModalRequired(1);
+    setModalDefaultItemId(null);
   };
 
-  const addItemToComboStep = (stepKey: string, item: { id: number; name: string }) => {
-    setComboSteps((prev) =>
-      prev.map((s) => {
-        if (s.key !== stepKey) return s;
-        if (s.items.some((si) => si.menu_item_id === item.id)) return s;
-        return { ...s, items: [...s.items, { menu_item_id: item.id, price_delta: 0, item_name: item.name }] };
-      })
-    );
+  const openAddOptionsModal = () => {
+    resetModal();
+    setComboModalOpen(true);
   };
 
-  const removeItemFromComboStep = (stepKey: string, menuItemId: number) => {
-    setComboSteps((prev) =>
-      prev.map((s) =>
-        s.key !== stepKey ? s : { ...s, items: s.items.filter((si) => si.menu_item_id !== menuItemId) }
-      )
-    );
-  };
+  const modalSelectedItems = allMenuItems.filter((i) => modalSelectedItemIds.has(i.id));
 
-  const updateStepItemDelta = (stepKey: string, menuItemId: number, delta: number) => {
-    setComboSteps((prev) =>
-      prev.map((s) =>
-        s.key !== stepKey
-          ? s
-          : { ...s, items: s.items.map((si) => si.menu_item_id === menuItemId ? { ...si, price_delta: delta } : si) }
-      )
-    );
+  const handleModalAdd = () => {
+    const draft: ComboStepDraft = {
+      key: crypto.randomUUID(),
+      name: modalGroupName || `Choice ${comboSteps.length + 1}`,
+      min_picks: modalRequired,
+      max_picks: modalRequired,
+      items: modalSelectedItems.map((i) => ({
+        menu_item_id: i.id,
+        price_delta: modalItemDeltas.get(i.id) ?? 0,
+        item_name: i.name,
+      })),
+    };
+    setComboSteps((prev) => [...prev, draft]);
+    setComboModalOpen(false);
   };
 
   /* ── Misc handlers ───────────────────────────────────────────────── */
@@ -313,14 +327,14 @@ export default function NewItemPage() {
           <div className="flex-1 space-y-5">
             {/* Item Type Selector */}
             <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-sm text-fg-tertiary">{t('itemType') || 'Item type'}</span>
+              <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
               <select
                 value={itemType}
                 onChange={(e) => setItemType(e.target.value as ItemType)}
                 className="input flex-1 text-base border-0 py-0 bg-transparent"
               >
-                <option value="food_and_beverage">{t('foodAndBeverage') || 'Food & Beverage'}</option>
-                <option value="combo">{t('combo') || 'Combo'}</option>
+                <option value="food_and_beverage">{t('foodAndBeverage')}</option>
+                <option value="combo">{t('combo')}</option>
               </select>
             </div>
 
@@ -363,91 +377,253 @@ export default function NewItemPage() {
             {itemType === 'combo' && (
               <div className="border-2 border-brand-500/30 rounded-xl p-5 space-y-4">
                 <div>
-                  <h3 className="text-lg font-bold text-fg-primary">{t('buildThisCombo') || 'Build this combo'}</h3>
-                  <p className="text-sm text-fg-tertiary mt-1">
-                    {t('comboBuilderDescription') || 'Add item options so your customers can customize this combo.'}
-                  </p>
+                  <h3 className="text-lg font-bold text-fg-primary">{t('buildThisCombo')}</h3>
+                  <p className="text-sm text-fg-tertiary mt-1">{t('comboBuilderDescription')}</p>
                 </div>
 
-                {/* Step list */}
-                {comboSteps.map((step, stepIdx) => (
-                  <div key={step.key} className="border border-[var(--divider)] rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        placeholder={t('comboChoiceName') || `Choice ${stepIdx + 1}`}
-                        value={step.name}
-                        onChange={(e) => updateComboStep(step.key, { name: e.target.value })}
-                        className="input flex-1 text-sm"
-                      />
-                      <button onClick={() => removeComboStep(step.key)}
-                        className="p-1.5 text-red-400 hover:text-red-300">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
+                {/* Configured steps table */}
+                {comboSteps.length > 0 && (
+                  <div>
+                    <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider px-1 mb-2">
+                      <span className="flex-1">{t('comboChoice')}</span>
+                      <span className="w-20 text-center">{t('required')}</span>
+                      <span className="w-16" />
                     </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="text-xs text-fg-tertiary">{t('minRequired') || 'Min required'}</label>
-                        <input type="number" min={0} value={step.min_picks}
-                          onChange={(e) => updateComboStep(step.key, { min_picks: parseInt(e.target.value) || 0 })}
-                          className="input w-full text-sm mt-1" />
+                    {comboSteps.map((step) => (
+                      <div key={step.key} className="flex items-center border-b border-[var(--divider)] py-3 px-1">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-brand-500">{step.name}</span>
+                          <span className="text-xs text-fg-tertiary ml-2">{step.items.length} {t('options')}</span>
+                        </div>
+                        <span className="w-20 text-center text-sm text-fg-secondary">{step.min_picks}</span>
+                        <div className="w-16 flex items-center justify-end gap-2">
+                          <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <label className="text-xs text-fg-tertiary">{t('maxAllowed') || 'Max allowed'}</label>
-                        <input type="number" min={0} value={step.max_picks}
-                          onChange={(e) => updateComboStep(step.key, { max_picks: parseInt(e.target.value) || 0 })}
-                          className="input w-full text-sm mt-1" />
-                      </div>
-                    </div>
-
-                    {/* Items in this step */}
-                    {step.items.length > 0 && (
-                      <div className="space-y-1">
-                        {step.items.map((si) => (
-                          <div key={si.menu_item_id} className="flex items-center gap-2 px-3 py-2 bg-[var(--surface-subtle)] rounded-lg">
-                            <span className="text-sm text-fg-primary flex-1">{si.item_name || `Item #${si.menu_item_id}`}</span>
-                            <input type="number" step="0.01" value={si.price_delta}
-                              onChange={(e) => updateStepItemDelta(step.key, si.menu_item_id, parseFloat(e.target.value) || 0)}
-                              className="input w-24 text-xs text-center" placeholder="Delta" />
-                            <button onClick={() => removeItemFromComboStep(step.key, si.menu_item_id)}
-                              className="text-red-400 hover:text-red-300">
-                              <TrashIcon className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Item picker dropdown */}
-                    <div className="relative">
-                      <select
-                        onChange={(e) => {
-                          const itemId = parseInt(e.target.value);
-                          const menuItem = allMenuItems.find((i) => i.id === itemId);
-                          if (menuItem) addItemToComboStep(step.key, menuItem);
-                          e.target.value = '';
-                        }}
-                        className="input w-full text-sm"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>{t('addItemToStep') || '+ Add item...'}</option>
-                        {allMenuItems
-                          .filter((i) => !step.items.some((si) => si.menu_item_id === i.id))
-                          .map((i) => (
-                            <option key={i.id} value={i.id}>
-                              {i.name} {i.category_name ? `(${i.category_name})` : ''}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
 
-                <button onClick={addComboStep}
+                <button onClick={openAddOptionsModal}
                   className="flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-400">
                   <PlusIcon className="w-4 h-4" />
-                  {t('addOptions') || 'Add options'}
+                  {t('addOptions')}
                 </button>
+              </div>
+            )}
+
+            {/* ── Add Options Modal (Square-style multi-step) ────── */}
+            {comboModalOpen && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+                <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+
+                  {/* ─── Step 1: Select Items / Categories ─── */}
+                  {modalStep === 'select' && (
+                    <>
+                      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                        <button onClick={() => setComboModalOpen(false)} className="p-1.5 rounded-full hover:bg-[var(--surface-subtle)]">
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => { if (modalSelectedItemIds.size > 0) setModalStep('pricing'); }}
+                          disabled={modalSelectedItemIds.size === 0}
+                          className="btn-primary text-sm px-5 py-2 rounded-lg disabled:opacity-40"
+                        >
+                          {t('next')}
+                        </button>
+                      </div>
+                      <div className="px-5 pb-3">
+                        <h2 className="text-lg font-bold text-fg-primary">{t('addOptions')}</h2>
+                        <p className="text-sm text-fg-tertiary mt-1">{t('addOptionsDesc')}</p>
+                      </div>
+
+                      {/* Tabs: Items | Categories */}
+                      <div className="flex mx-5 border border-[var(--divider)] rounded-lg overflow-hidden mb-3">
+                        <button
+                          onClick={() => setModalTab('items')}
+                          className={`flex-1 py-2 text-sm font-medium ${modalTab === 'items' ? 'bg-[var(--surface-subtle)] text-fg-primary' : 'text-fg-tertiary'}`}
+                        >
+                          {t('items')}
+                        </button>
+                        <button
+                          onClick={() => setModalTab('categories')}
+                          className={`flex-1 py-2 text-sm font-medium ${modalTab === 'categories' ? 'bg-[var(--surface-subtle)] text-fg-primary' : 'text-fg-tertiary'}`}
+                        >
+                          {t('categories')}
+                        </button>
+                      </div>
+
+                      {modalTab === 'items' ? (
+                        <div className="px-5 flex-1 overflow-y-auto pb-5">
+                          {/* Search + category filter */}
+                          <div className="flex gap-2 mb-3">
+                            <div className="relative flex-1">
+                              <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+                              <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
+                                placeholder={t('searchItems')} className="input w-full text-sm pl-9" />
+                            </div>
+                            <select value={modalCategoryFilter ?? ''} onChange={(e) => setModalCategoryFilter(e.target.value ? Number(e.target.value) : null)}
+                              className="input text-sm">
+                              <option value="">{t('showAllCategories')}</option>
+                              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          </div>
+
+                          {/* Column headers */}
+                          <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider px-1 mb-1">
+                            <span className="w-8" />
+                            <span className="flex-1">{t('name')}</span>
+                            <span className="w-20 text-right">{t('price')}</span>
+                          </div>
+
+                          {/* Item rows */}
+                          {allMenuItems
+                            .filter((i) => {
+                              if (modalCategoryFilter && i.category_id !== modalCategoryFilter) return false;
+                              if (modalSearch && !i.name.toLowerCase().includes(modalSearch.toLowerCase())) return false;
+                              return true;
+                            })
+                            .map((item) => (
+                              <label key={item.id} className="flex items-center gap-3 px-1 py-2.5 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors">
+                                <input type="checkbox"
+                                  checked={modalSelectedItemIds.has(item.id)}
+                                  onChange={() => {
+                                    setModalSelectedItemIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-4 h-4 rounded border-[var(--divider)] accent-brand-500" />
+                                <span className="flex-1 text-sm text-fg-primary">{item.name}</span>
+                                <span className="w-20 text-right text-sm text-fg-secondary">₪{item.price.toFixed(2)}</span>
+                              </label>
+                            ))}
+                        </div>
+                      ) : (
+                        /* Categories tab */
+                        <div className="px-5 flex-1 overflow-y-auto pb-5">
+                          <div className="relative mb-3">
+                            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+                            <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
+                              placeholder={t('searchCategories')} className="input w-full text-sm pl-9" />
+                          </div>
+                          <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider px-1 mb-1">
+                            <span className="w-8" />
+                            <span className="flex-1">{t('name')}</span>
+                            <span className="w-16 text-right">{t('items')}</span>
+                          </div>
+                          {categories
+                            .filter((c) => !modalSearch || c.name.toLowerCase().includes(modalSearch.toLowerCase()))
+                            .map((cat) => (
+                              <label key={cat.id} className="flex items-center gap-3 px-1 py-2.5 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors">
+                                <input type="radio" name="combo-cat"
+                                  checked={modalCategoryFilter === cat.id && (cat.items ?? []).every((i) => modalSelectedItemIds.has(i.id))}
+                                  onChange={() => {
+                                    const catItemIds = (cat.items ?? []).map((i) => i.id);
+                                    setModalSelectedItemIds((prev) => {
+                                      const next = new Set(prev);
+                                      catItemIds.forEach((id) => next.add(id));
+                                      return next;
+                                    });
+                                    setModalCategoryFilter(cat.id);
+                                  }}
+                                  className="w-4 h-4 accent-brand-500" />
+                                <span className="flex-1 text-sm text-fg-primary">{cat.name}</span>
+                                <span className="w-16 text-right text-sm text-fg-secondary">{(cat.items ?? []).length}</span>
+                              </label>
+                            ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ─── Step 2: Discounts / Upcharges ─── */}
+                  {modalStep === 'pricing' && (
+                    <>
+                      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                        <button onClick={() => setModalStep('select')} className="p-1.5 rounded-full hover:bg-[var(--surface-subtle)]">
+                          <ArrowLeftIcon className="w-5 h-5" />
+                        </button>
+                        <div className="flex gap-2">
+                          <button onClick={() => setModalStep('configure')} className="text-sm px-4 py-2 text-fg-secondary hover:text-fg-primary">{t('skip')}</button>
+                          <button onClick={() => setModalStep('configure')} className="btn-primary text-sm px-5 py-2 rounded-lg">{t('next')}</button>
+                        </div>
+                      </div>
+                      <div className="px-5 pb-3">
+                        <h2 className="text-lg font-bold text-fg-primary">{t('addDiscountsOrUpcharges')}</h2>
+                        <p className="text-sm text-fg-tertiary mt-1">{t('addDiscountsDesc')}</p>
+                      </div>
+                      <div className="px-5 flex-1 overflow-y-auto pb-5">
+                        <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider px-1 mb-2">
+                          <span className="flex-1">{t('name')}</span>
+                          <span className="w-28 text-right">{t('discountOrUpcharge')}</span>
+                        </div>
+                        {modalSelectedItems
+                          .sort((a, b) => b.price - a.price)
+                          .map((item) => (
+                            <div key={item.id} className="flex items-center border-b border-[var(--divider)] py-3 px-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-fg-primary">{item.name}</div>
+                                <div className="text-xs text-fg-tertiary">₪{item.price.toFixed(2)}</div>
+                              </div>
+                              <div className="w-28">
+                                <input type="number" step="0.01"
+                                  value={modalItemDeltas.get(item.id) ?? 0}
+                                  onChange={(e) => setModalItemDeltas((prev) => {
+                                    const next = new Map(prev);
+                                    next.set(item.id, parseFloat(e.target.value) || 0);
+                                    return next;
+                                  })}
+                                  className="input w-full text-sm text-right" placeholder="₪0.00" />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* ─── Step 3: Name & Configure ─── */}
+                  {modalStep === 'configure' && (
+                    <>
+                      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                        <button onClick={() => setModalStep('pricing')} className="p-1.5 rounded-full hover:bg-[var(--surface-subtle)]">
+                          <ArrowLeftIcon className="w-5 h-5" />
+                        </button>
+                        <button onClick={handleModalAdd} className="btn-primary text-sm px-5 py-2 rounded-lg">{t('add')}</button>
+                      </div>
+                      <div className="px-5 pb-5 space-y-5">
+                        <h2 className="text-lg font-bold text-fg-primary">{t('nameThisGroup')}</h2>
+
+                        <div>
+                          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('name')}</label>
+                          <input value={modalGroupName} onChange={(e) => setModalGroupName(e.target.value)}
+                            placeholder={t('comboNamePlaceholder')} className="input w-full" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('howManySelections')}</label>
+                          <input type="number" min={0} value={modalRequired}
+                            onChange={(e) => setModalRequired(parseInt(e.target.value) || 0)}
+                            className="input w-full" />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('setDefaultOption')}</label>
+                          <select value={modalDefaultItemId ?? ''} onChange={(e) => setModalDefaultItemId(e.target.value ? Number(e.target.value) : null)}
+                            className="input w-full">
+                            <option value="">{t('noDefaultSelection')}</option>
+                            {modalSelectedItems.map((item) => (
+                              <option key={item.id} value={item.id}>{item.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
