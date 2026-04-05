@@ -203,6 +203,7 @@ export interface ComboStepItem {
   id?: number;
   combo_step_id?: number;
   menu_item_id: number;
+  option_id?: number | null;
   price_delta: number;
   menu_item?: MenuItem;
 }
@@ -225,7 +226,7 @@ export interface ComboStepInput {
   max_picks: number;
   sort_order: number;
   fixed_modifier_name?: string;
-  items: { menu_item_id: number; price_delta: number }[];
+  items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
 }
 
 export interface MenuItem {

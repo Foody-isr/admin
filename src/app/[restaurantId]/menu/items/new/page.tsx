@@ -24,7 +24,7 @@ interface ComboStepDraft {
   name: string;
   min_picks: number;
   max_picks: number;
-  items: { menu_item_id: number; price_delta: number; item_name?: string }[];
+  items: { menu_item_id: number; price_delta: number; item_name?: string; variant_id?: number; pick_key?: string }[];
 }
 
 function newComboStep(): ComboStepDraft {
@@ -143,7 +143,7 @@ export default function NewItemPage() {
           min_picks: s.min_picks,
           max_picks: s.max_picks,
           sort_order: i,
-          items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, price_delta: si.price_delta })),
+          items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
         }));
       }
       const item = await createMenuItem(rid, createPayload);
@@ -278,13 +278,16 @@ export default function NewItemPage() {
     setModalRequired(step.min_picks);
     const picks = new Map<PickKey, PickInfo>();
     const deltas = new Map<PickKey, number>();
+    const expand = new Set<number>();
     for (const si of step.items) {
-      const key = `item:${si.menu_item_id}`;
-      picks.set(key, { menuItemId: si.menu_item_id, name: si.item_name || `Item #${si.menu_item_id}`, price: 0 });
+      const key = si.pick_key || `item:${si.menu_item_id}`;
+      picks.set(key, { menuItemId: si.menu_item_id, variantId: si.variant_id, name: si.item_name || `Item #${si.menu_item_id}`, price: 0 });
       if (si.price_delta !== 0) deltas.set(key, si.price_delta);
+      if (si.variant_id) expand.add(si.menu_item_id);
     }
     setModalPicks(picks);
     setModalItemDeltas(deltas);
+    setExpandedItemIds(expand);
     setModalStep('select');
     setComboModalOpen(true);
   };
@@ -318,6 +321,8 @@ export default function NewItemPage() {
         menu_item_id: p.menuItemId,
         price_delta: modalItemDeltas.get(p.key) ?? 0,
         item_name: p.name,
+        variant_id: p.variantId,
+        pick_key: p.key,
       })),
     };
     if (editingStepKey) {
