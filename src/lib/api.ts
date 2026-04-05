@@ -242,6 +242,7 @@ export interface MenuItem {
   modifiers?: MenuItemModifier[];
   modifier_sets?: ModifierSet[];
   variant_groups?: ItemVariantGroup[];
+  option_sets?: OptionSet[];
   combo_steps?: ComboStep[];
 }
 

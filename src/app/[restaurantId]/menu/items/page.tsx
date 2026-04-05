@@ -299,7 +299,9 @@ export default function ItemLibraryPage() {
                 </tr>
               )}
               {filtered.map((item) => {
-                const variants = (item.variant_groups ?? []).flatMap((g) => g.variants ?? []).filter((v) => v.is_active);
+                const variantOpts = (item.variant_groups ?? []).flatMap((g) => (g.variants ?? []).map((v) => ({ id: v.id, name: v.name, price: v.price, is_active: v.is_active })));
+                const optionSetOpts = (item.option_sets ?? []).flatMap((os) => (os.options ?? []).map((o) => ({ id: o.id, name: o.name, price: o.price, is_active: o.is_active })));
+                const variants = [...variantOpts, ...optionSetOpts].filter((v) => v.is_active);
                 const hasVariants = variants.length > 0;
                 const isExpanded = expandedItemIds.has(item.id);
 
