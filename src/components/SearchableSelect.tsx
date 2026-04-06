@@ -54,14 +54,16 @@ export default function SearchableSelect({
           <input
             type="text"
             autoFocus
-            className="input text-sm w-full pl-9 py-1.5"
+            className="input text-sm w-full py-1.5"
+            style={{ paddingLeft: '2.25rem' }}
             placeholder={placeholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         ) : (
           <button type="button" onClick={() => setOpen(true)}
-            className="input text-sm w-full pl-9 py-1.5 text-left truncate cursor-pointer">
+            className="input text-sm w-full py-1.5 text-left truncate cursor-pointer"
+            style={{ paddingLeft: '2.25rem' }}>
             {displayText || <span className="text-fg-tertiary">{placeholder}</span>}
           </button>
         )}
