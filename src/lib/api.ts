@@ -185,6 +185,8 @@ export interface MenuItemVariant {
   price: number;
   online_price?: number | null;
   sku?: string;
+  portion_size?: number;
+  portion_size_unit?: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -240,6 +242,8 @@ export interface MenuItem {
   item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
+  recipe_yield?: number;
+  recipe_yield_unit?: string;
   modifiers?: MenuItemModifier[];
   modifier_sets?: ModifierSet[];
   variant_groups?: ItemVariantGroup[];
@@ -614,8 +618,13 @@ export interface DeliveryItem {
   translated_name: string;
   quantity: number;
   unit: string;
+  pack_count: number;
+  unit_size: number;
+  unit_size_unit: string;
   category: string;
   estimated_cost: number;
+  price_per_pack: number;
+  total_price: number;
   matched_item_id?: number;
   matched_item_name: string;
   confidence: number;
@@ -637,6 +646,9 @@ export interface ConfirmDeliveryItemInput {
   unit: string;
   category: string;
   cost_per_unit: number;
+  pack_count?: number;
+  price_per_pack?: number;
+  total_price?: number;
 }
 
 export interface ConfirmDeliveryInput {
@@ -1391,6 +1403,8 @@ export interface ItemOptionOverride {
   price: number;
   online_price?: number | null;
   sku: string;
+  portion_size?: number;
+  portion_size_unit?: string;
   is_active: boolean;
 }
 
@@ -1398,6 +1412,8 @@ export interface ItemOptionPriceInput {
   price: number;
   online_price?: number | null;
   sku?: string;
+  portion_size?: number;
+  portion_size_unit?: string;
   is_active: boolean;
 }
 
@@ -2003,6 +2019,97 @@ export async function importDelivery(restaurantId: number, file: File, lang?: st
 export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
   await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
+  });
+}
+
+// ─── Recipe Import ────────────────────────────────────────────────
+
+export interface ExtractedIngredient {
+  original_name: string;
+  translated_name: string;
+  quantity: number;
+  unit: string;
+  matched_item_id?: number | null;
+  matched_item_name: string;
+  confidence: number;
+  is_new: boolean;
+}
+
+export interface ExtractedRecipe {
+  dish_name: string;
+  dish_description: string;
+  servings: number;
+  total_yield: number;
+  total_yield_unit: string;
+  ingredients: ExtractedIngredient[];
+  matched_menu_item_id?: number | null;
+  matched_menu_item_name: string;
+  confidence: number;
+}
+
+export interface RecipeExtraction {
+  recipes: ExtractedRecipe[];
+}
+
+export interface ConfirmRecipeIngredientInput {
+  stock_item_id?: number | null;
+  name: string;
+  original_name: string;
+  quantity_needed: number;
+  unit: string;
+  category: string;
+}
+
+export interface ConfirmRecipeItemInput {
+  menu_item_id: number;
+  recipe_yield: number;
+  recipe_yield_unit: string;
+  ingredients: ConfirmRecipeIngredientInput[];
+}
+
+export interface ConfirmRecipeInput {
+  recipes: ConfirmRecipeItemInput[];
+}
+
+export async function importRecipesFromFile(restaurantId: number, file: File, lang?: string): Promise<RecipeExtraction> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  const res = await fetch(`${API_URL}/api/v1/stock/import/recipes?${params}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Import failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.extraction;
+}
+
+export async function importRecipesFromText(restaurantId: number, text: string, lang?: string): Promise<RecipeExtraction> {
+  const data = await apiFetch<{ extraction: RecipeExtraction }>(
+    `/api/v1/stock/import/recipes/text?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ text, lang: lang || 'en' }) }
+  );
+  return data.extraction;
+}
+
+export async function confirmRecipes(restaurantId: number, input: ConfirmRecipeInput): Promise<void> {
+  await apiFetch(`/api/v1/stock/import/recipes/confirm?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+}
+
+export async function setRecipeYield(restaurantId: number, menuItemId: number, recipeYield: number, recipeYieldUnit: string): Promise<void> {
+  await apiFetch(`/api/v1/stock/menu-items/${menuItemId}/yield?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({ recipe_yield: recipeYield, recipe_yield_unit: recipeYieldUnit }),
   });
 }
 

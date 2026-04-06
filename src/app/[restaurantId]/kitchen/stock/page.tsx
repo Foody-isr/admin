@@ -502,6 +502,9 @@ function DeliveryImportModal({
         unit: i.unit,
         category: i.category,
         cost_per_unit: i.estimated_cost,
+        pack_count: i.pack_count || i.quantity,
+        price_per_pack: i.price_per_pack || 0,
+        total_price: i.total_price || (i.estimated_cost * i.quantity),
       })));
       setStep('review');
     } catch (err: any) {
@@ -568,39 +571,56 @@ function DeliveryImportModal({
                 .replace('{supplier}', extraction?.supplier_name || 'supplier')}
             </p>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-fg-secondary uppercase" style={{ borderBottom: '1px solid var(--divider)' }}>
-                    <th className="py-2 px-2 font-medium">{t('name')}</th>
-                    <th className="py-2 px-2 font-medium text-right">{t('qty')}</th>
-                    <th className="py-2 px-2 font-medium">{t('unit')}</th>
-                    <th className="py-2 px-2 font-medium text-right">{t('costPerUnit')}</th>
-                    <th className="py-2 px-2 font-medium">{t('category')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {editedItems.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid var(--divider)' }}>
-                      <td className="py-2 px-2">
-                        <input className="input w-full py-1 text-sm" value={item.name} onChange={(e) => updateItem(idx, { name: e.target.value })} />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input type="number" step="any" className="input w-20 py-1 text-sm text-right" value={item.quantity} onChange={(e) => updateItem(idx, { quantity: +e.target.value })} />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input className="input w-16 py-1 text-sm" value={item.unit} onChange={(e) => updateItem(idx, { unit: e.target.value })} />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input type="number" step="any" className="input w-20 py-1 text-sm text-right" value={item.cost_per_unit} onChange={(e) => updateItem(idx, { cost_per_unit: +e.target.value })} />
-                      </td>
-                      <td className="py-2 px-2">
-                        <input className="input w-24 py-1 text-sm" value={item.category} onChange={(e) => updateItem(idx, { category: e.target.value })} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+              {editedItems.map((item, idx) => {
+                const totalQty = (item.pack_count ?? item.quantity) * 1; // unit_size is baked into quantity from AI
+                const totalPr = item.total_price ?? 0;
+                const costPerUnit = totalQty > 0 && totalPr > 0 ? totalPr / item.quantity : item.cost_per_unit;
+                return (
+                  <div key={idx} className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
+                    <div className="flex items-center gap-2">
+                      <input className="input flex-1 py-1.5 text-sm font-medium" value={item.name} onChange={(e) => updateItem(idx, { name: e.target.value })} />
+                      <input className="input w-20 py-1.5 text-xs" value={item.category} onChange={(e) => updateItem(idx, { category: e.target.value })} placeholder={t('category')} />
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <label className="text-xs text-fg-secondary w-12">{t('packs')}:</label>
+                      <input type="number" step="any" min="0" className="input w-16 py-1 text-sm text-right"
+                        value={item.pack_count ?? ''} onChange={(e) => {
+                          const packs = +e.target.value;
+                          const qty = packs > 0 ? packs : item.quantity;
+                          const tp = item.price_per_pack ? packs * item.price_per_pack : item.total_price;
+                          const cpu = qty > 0 && (tp ?? 0) > 0 ? (tp ?? 0) / qty : item.cost_per_unit;
+                          updateItem(idx, { pack_count: packs, quantity: qty, total_price: tp, cost_per_unit: cpu });
+                        }} />
+                      <span className="text-fg-secondary text-xs">&times;</span>
+                      <input type="number" step="any" min="0" className="input w-16 py-1 text-sm text-right"
+                        value={item.quantity} onChange={(e) => {
+                          const qty = +e.target.value;
+                          const tp = item.total_price ?? 0;
+                          const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
+                          updateItem(idx, { quantity: qty, cost_per_unit: cpu });
+                        }} />
+                      <input className="input w-12 py-1 text-xs" value={item.unit} onChange={(e) => updateItem(idx, { unit: e.target.value })} />
+                      <span className="text-fg-secondary text-xs mx-1">|</span>
+                      <label className="text-xs text-fg-secondary">{t('totalPrice')}:</label>
+                      <input type="number" step="any" min="0" className="input w-20 py-1 text-sm text-right"
+                        value={item.total_price ?? ''} onChange={(e) => {
+                          const tp = +e.target.value;
+                          const qty = item.quantity || 1;
+                          const cpu = qty > 0 ? tp / qty : 0;
+                          const ppk = (item.pack_count ?? 0) > 0 ? tp / item.pack_count! : 0;
+                          updateItem(idx, { total_price: tp, cost_per_unit: cpu, price_per_pack: ppk });
+                        }} />
+                      <span className="text-xs text-fg-secondary">&#8362;</span>
+                    </div>
+                    {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
+                      <p className="text-xs text-fg-secondary pl-14">
+                        = {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-end gap-2">

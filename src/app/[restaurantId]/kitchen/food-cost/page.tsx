@@ -5,12 +5,16 @@ import { useParams } from 'next/navigation';
 import {
   getAllCategories, listStockItems, listPrepItems,
   getMenuItemIngredients, setMenuItemIngredients,
+  importRecipesFromFile, importRecipesFromText, confirmRecipes,
+  setRecipeYield,
   MenuCategory, MenuItem, MenuItemIngredient, IngredientInput,
   StockItem, PrepItem,
+  RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
 } from '@/lib/api';
 import {
   MagnifyingGlassIcon, PlusIcon, TrashIcon,
   ExclamationTriangleIcon, CurrencyDollarIcon,
+  SparklesIcon, PencilIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -19,7 +23,7 @@ const COST_THRESHOLD = 0.35; // 35% food cost warning
 export default function FoodCostPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -34,6 +38,10 @@ export default function FoodCostPage() {
   const [editing, setEditing] = useState(false);
   const [editIngredients, setEditIngredients] = useState<IngredientInput[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [editingYield, setEditingYield] = useState(false);
+  const [yieldValue, setYieldValue] = useState(0);
+  const [yieldUnit, setYieldUnit] = useState('kg');
 
   const reload = useCallback(async () => {
     try {
@@ -248,7 +256,12 @@ export default function FoodCostPage() {
                   <h3 className="font-semibold text-fg-primary text-lg">{selectedItem.name}</h3>
                   <p className="text-sm text-fg-secondary">{t('sellingPrice').replace('{price}', selectedItem.price.toFixed(2))}</p>
                 </div>
-                <button onClick={startEditing} className="btn-secondary text-sm">{t('editIngredients').replace('{name}', '').replace(/[:\s]+$/, '')}</button>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowImportModal(true)} className="btn-secondary text-sm flex items-center gap-1.5">
+                    <SparklesIcon className="w-4 h-4" /> {t('importRecipe')}
+                  </button>
+                  <button onClick={startEditing} className="btn-secondary text-sm">{t('editIngredients').replace('{name}', '').replace(/[:\s]+$/, '')}</button>
+                </div>
               </div>
 
               {/* Cost summary */}
@@ -282,7 +295,13 @@ export default function FoodCostPage() {
               {ingredients.length === 0 ? (
                 <div className="text-center py-8 space-y-2">
                   <p className="text-sm text-fg-secondary">{t('noIngredientsLinked')}</p>
-                  <button onClick={startEditing} className="text-sm text-brand-500 hover:text-brand-400">{t('addIngredients')}</button>
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={startEditing} className="text-sm text-brand-500 hover:text-brand-400">{t('addIngredients')}</button>
+                    <span className="text-fg-secondary text-xs">{t('or')}</span>
+                    <button onClick={() => setShowImportModal(true)} className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1">
+                      <SparklesIcon className="w-3.5 h-3.5" /> {t('importRecipe')}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <table className="w-full text-sm">
@@ -325,6 +344,366 @@ export default function FoodCostPage() {
                   </tbody>
                 </table>
               )}
+            </div>
+
+            {/* Recipe Yield */}
+            {ingredients.length > 0 && (
+              <div className="card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1">{t('recipeYield')}</p>
+                    {(selectedItem.recipe_yield ?? 0) > 0 ? (
+                      <p className="text-sm font-medium text-fg-primary">
+                        {selectedItem.recipe_yield} {selectedItem.recipe_yield_unit}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-fg-secondary">{t('yieldNotSet')}</p>
+                    )}
+                  </div>
+                  {editingYield ? (
+                    <div className="flex items-center gap-2">
+                      <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-right"
+                        value={yieldValue || ''} onChange={(e) => setYieldValue(+e.target.value)} />
+                      <select className="input w-20 py-1.5 text-sm" value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)}>
+                        <option value="kg">kg</option><option value="g">g</option>
+                        <option value="l">l</option><option value="ml">ml</option>
+                        <option value="unit">unit</option>
+                      </select>
+                      <button className="btn-primary text-xs py-1.5 px-3" onClick={async () => {
+                        if (yieldValue > 0) {
+                          await setRecipeYield(rid, selectedItem.id, yieldValue, yieldUnit);
+                          setSelectedItem({ ...selectedItem, recipe_yield: yieldValue, recipe_yield_unit: yieldUnit });
+                        }
+                        setEditingYield(false);
+                      }}>{t('save')}</button>
+                      <button className="btn-secondary text-xs py-1.5 px-3" onClick={() => setEditingYield(false)}>{t('cancel')}</button>
+                    </div>
+                  ) : (
+                    <button className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
+                      onClick={() => {
+                        setYieldValue(selectedItem.recipe_yield ?? 0);
+                        setYieldUnit(selectedItem.recipe_yield_unit || 'kg');
+                        setEditingYield(true);
+                      }}>
+                      <PencilIcon className="w-3.5 h-3.5" /> {(selectedItem.recipe_yield ?? 0) > 0 ? t('edit') : t('setRecipeYield')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Per-variant cost breakdown */}
+            {ingredients.length > 0 && (selectedItem.recipe_yield ?? 0) > 0 && (() => {
+              const variants = (selectedItem.variant_groups ?? []).flatMap(g => g.variants ?? []).filter(v => (v.portion_size ?? 0) > 0);
+              if (variants.length === 0) return null;
+              const yieldBase = toBaseUnit(selectedItem.recipe_yield!, selectedItem.recipe_yield_unit || 'kg');
+              return (
+                <div className="card overflow-hidden p-0">
+                  <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
+                    <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('variantCostBreakdown')}</p>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
+                        <th className="py-2 px-4 font-medium">{t('variant')}</th>
+                        <th className="py-2 px-4 font-medium text-right">{t('portion')}</th>
+                        <th className="py-2 px-4 font-medium text-right">{t('foodCostLabel')}</th>
+                        <th className="py-2 px-4 font-medium text-right">{t('price')}</th>
+                        <th className="py-2 px-4 font-medium text-right">{t('costPercent')}</th>
+                        <th className="py-2 px-4 font-medium text-right">{t('grossProfit')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variants.map((v) => {
+                        const portionBase = toBaseUnit(v.portion_size!, v.portion_size_unit || 'g');
+                        const vCost = yieldBase > 0 ? totalCost * (portionBase / yieldBase) : 0;
+                        const vPct = v.price > 0 ? vCost / v.price : 0;
+                        return (
+                          <tr key={v.id} style={{ borderBottom: '1px solid var(--divider)' }}>
+                            <td className="py-2.5 px-4 font-medium text-fg-primary">{v.name}</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-fg-primary">{v.portion_size} {v.portion_size_unit}</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-fg-primary">{vCost.toFixed(2)} &#8362;</td>
+                            <td className="py-2.5 px-4 text-right font-mono text-fg-secondary">{v.price.toFixed(2)} &#8362;</td>
+                            <td className={`py-2.5 px-4 text-right font-mono font-bold ${vPct > COST_THRESHOLD ? 'text-red-500' : 'text-fg-primary'}`}>
+                              {(vPct * 100).toFixed(1)}%
+                            </td>
+                            <td className="py-2.5 px-4 text-right font-mono text-status-ready">{(v.price - vCost).toFixed(2)} &#8362;</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* Recipe Import Modal */}
+      {showImportModal && selectedItem && (
+        <RecipeImportModal
+          rid={rid}
+          locale={locale}
+          menuItem={selectedItem}
+          stockItems={stockItems}
+          onClose={() => setShowImportModal(false)}
+          onImported={async () => {
+            setShowImportModal(false);
+            // Reload categories to pick up yield changes, then re-select item
+            await reload();
+            selectItem(selectedItem);
+          }}
+          t={t}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Unit Conversion Helper ─────────────────────────────────────────
+
+function toBaseUnit(value: number, unit: string): number {
+  switch (unit) {
+    case 'kg': return value * 1000; // → grams
+    case 'g': return value;
+    case 'l': return value * 1000;  // → ml
+    case 'ml': return value;
+    default: return value;
+  }
+}
+
+// ─── Recipe Import Modal ─────────────────────────────────────────────
+
+function RecipeImportModal({
+  rid, locale, menuItem, stockItems, onClose, onImported, t,
+}: {
+  rid: number;
+  locale: string;
+  menuItem: MenuItem;
+  stockItems: StockItem[];
+  onClose: () => void;
+  onImported: () => void;
+  t: (key: string) => string;
+}) {
+  const [tab, setTab] = useState<'upload' | 'text'>('text');
+  const [file, setFile] = useState<File | null>(null);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Review step
+  const [extraction, setExtraction] = useState<RecipeExtraction | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<ExtractedRecipe | null>(null);
+  const [editedYield, setEditedYield] = useState(0);
+  const [editedYieldUnit, setEditedYieldUnit] = useState('kg');
+  const [editedIngredients, setEditedIngredients] = useState<Array<{
+    stock_item_id?: number | null;
+    name: string;
+    original_name: string;
+    quantity_needed: number;
+    unit: string;
+    category: string;
+    is_new: boolean;
+  }>>([]);
+
+  const handleExtract = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      let result: RecipeExtraction;
+      if (tab === 'upload') {
+        if (!file) return;
+        result = await importRecipesFromFile(rid, file, locale);
+      } else {
+        if (!text.trim()) return;
+        result = await importRecipesFromText(rid, text, locale);
+      }
+      setExtraction(result);
+      // Auto-select first recipe
+      if (result.recipes.length > 0) {
+        const recipe = result.recipes[0];
+        setSelectedRecipe(recipe);
+        setEditedYield(recipe.total_yield || 0);
+        setEditedYieldUnit(recipe.total_yield_unit || 'kg');
+        setEditedIngredients(recipe.ingredients.map((ing) => ({
+          stock_item_id: ing.matched_item_id ?? null,
+          name: ing.translated_name || ing.original_name,
+          original_name: ing.original_name,
+          quantity_needed: ing.quantity,
+          unit: ing.unit,
+          category: '',
+          is_new: ing.is_new,
+        })));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Extraction failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const input: ConfirmRecipeItemInput = {
+        menu_item_id: menuItem.id,
+        recipe_yield: editedYield,
+        recipe_yield_unit: editedYieldUnit,
+        ingredients: editedIngredients.map((ing) => ({
+          stock_item_id: ing.stock_item_id ?? null,
+          name: ing.name,
+          original_name: ing.original_name,
+          quantity_needed: ing.quantity_needed,
+          unit: ing.unit,
+          category: ing.category,
+        })),
+      };
+      await confirmRecipes(rid, { recipes: [input] });
+      onImported();
+    } catch (err: any) {
+      setError(err.message || 'Confirm failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="rounded-modal shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-fg-primary flex items-center gap-2">
+            <SparklesIcon className="w-5 h-5 text-brand-500" />
+            {t('importRecipe')} — {menuItem.name}
+          </h3>
+          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-500 text-sm">{error}</div>
+        )}
+
+        {!extraction ? (
+          /* Step 1: Input */
+          <div className="space-y-4">
+            {/* Tabs */}
+            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+              <button onClick={() => setTab('text')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'text' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+                {t('pasteRecipeText')}
+              </button>
+              <button onClick={() => setTab('upload')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+                {t('uploadRecipeFile')}
+              </button>
+            </div>
+
+            {tab === 'text' ? (
+              <textarea
+                className="input w-full py-3 text-sm"
+                rows={8}
+                placeholder={t('pasteRecipePlaceholder')}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            ) : (
+              <div
+                className="flex flex-col items-center justify-center py-12 rounded-card cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                style={{ border: '2px dashed var(--divider)' }}
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*,.pdf';
+                  input.onchange = (e) => {
+                    const f = (e.target as HTMLInputElement).files?.[0];
+                    if (f) setFile(f);
+                  };
+                  input.click();
+                }}
+              >
+                {file ? (
+                  <p className="text-sm font-medium text-fg-primary">{file.name}</p>
+                ) : (
+                  <>
+                    <SparklesIcon className="w-8 h-8 text-brand-500 mb-2" />
+                    <p className="text-sm text-fg-secondary">{t('clickToUpload')}</p>
+                    <p className="text-xs text-fg-secondary mt-1">{t('imageFormats')}</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleExtract}
+                disabled={loading || (tab === 'text' ? !text.trim() : !file)}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                {loading ? (
+                  <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> {t('extracting')}</>
+                ) : (
+                  <><SparklesIcon className="w-4 h-4" /> {t('extractRecipe')}</>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Step 2: Review */
+          <div className="space-y-4">
+            {/* Yield */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-fg-secondary font-medium">{t('recipeYield')}:</label>
+              <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-right"
+                value={editedYield || ''} onChange={(e) => setEditedYield(+e.target.value)} />
+              <select className="input w-20 py-1.5 text-sm" value={editedYieldUnit} onChange={(e) => setEditedYieldUnit(e.target.value)}>
+                <option value="kg">kg</option><option value="g">g</option>
+                <option value="l">l</option><option value="ml">ml</option>
+                <option value="unit">unit</option>
+              </select>
+            </div>
+
+            {/* Ingredients table */}
+            <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('ingredients')} ({editedIngredients.length})</div>
+            <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+              {editedIngredients.map((ing, idx) => (
+                <div key={idx} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+                  <select
+                    className="input flex-1 py-1.5 text-sm"
+                    value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const updated = [...editedIngredients];
+                      updated[idx] = { ...ing, stock_item_id: val ? +val : null, is_new: !val };
+                      setEditedIngredients(updated);
+                    }}
+                  >
+                    <option value="">{ing.name} ({t('newItem')})</option>
+                    {stockItems.map((s) => <option key={s.id} value={String(s.id)}>{s.name} ({s.unit})</option>)}
+                  </select>
+                  <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-right"
+                    value={ing.quantity_needed || ''} onChange={(e) => {
+                      const updated = [...editedIngredients];
+                      updated[idx] = { ...ing, quantity_needed: +e.target.value };
+                      setEditedIngredients(updated);
+                    }} />
+                  <span className="text-xs text-fg-secondary w-8">{ing.unit}</span>
+                  {ing.is_new && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">{t('new')}</span>
+                  )}
+                  <button onClick={() => setEditedIngredients(editedIngredients.filter((_, i) => i !== idx))}
+                    className="p-1 text-red-400 hover:text-red-300">
+                    <TrashIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setExtraction(null)} className="btn-secondary text-sm">{t('back')}</button>
+              <button onClick={handleConfirm} disabled={loading || editedIngredients.length === 0} className="btn-primary text-sm">
+                {loading ? t('saving') : t('confirmImport')}
+              </button>
             </div>
           </div>
         )}

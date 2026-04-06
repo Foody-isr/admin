@@ -20,6 +20,8 @@ interface VariantRow {
   price: string;
   onlinePrice: string;
   sku: string;
+  portionSize: string;
+  portionSizeUnit: string;
   isActive: boolean;
 }
 
@@ -31,7 +33,7 @@ interface GroupState {
 }
 
 function newRow(): VariantRow {
-  return { key: crypto.randomUUID(), name: '', price: '', onlinePrice: '', sku: '', isActive: true };
+  return { key: crypto.randomUUID(), name: '', price: '', onlinePrice: '', sku: '', portionSize: '', portionSizeUnit: 'g', isActive: true };
 }
 
 function newGroup(): GroupState {
@@ -86,6 +88,8 @@ export default function VariantsEditorPage() {
                 price: String(ov?.price ?? opt.price),
                 onlinePrice: ov?.online_price != null ? String(ov.online_price) : '',
                 sku: ov?.sku ?? opt.sku ?? '',
+                portionSize: (ov?.portion_size ?? 0) > 0 ? String(ov!.portion_size) : '',
+                portionSizeUnit: ov?.portion_size_unit || 'g',
                 isActive: ov?.is_active ?? opt.is_active,
               };
             }),
@@ -150,6 +154,8 @@ export default function VariantsEditorPage() {
                     price: parseFloat(row.price) || 0,
                     online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
                     sku: row.sku,
+                    portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
+                    portion_size_unit: row.portionSizeUnit || 'g',
                     is_active: row.isActive,
                   });
                 }
@@ -254,6 +260,8 @@ export default function VariantsEditorPage() {
         price: String(opt.price),
         onlinePrice: opt.online_price != null ? String(opt.online_price) : '',
         sku: opt.sku ?? '',
+        portionSize: '',
+        portionSizeUnit: 'g',
         isActive: opt.is_active,
       })),
     });
@@ -320,11 +328,12 @@ export default function VariantsEditorPage() {
             {/* Variants table */}
             <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
               <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
-                style={{ gridTemplateColumns: '1fr 100px 100px 80px 80px 36px' }}>
+                style={{ gridTemplateColumns: '1fr 100px 100px 80px 80px 80px 36px' }}>
                 <span>{t('variantName')}</span>
                 <span>{t('price')}</span>
                 <span>{t('onlinePrice')}</span>
                 <span>SKU</span>
+                <span>{t('portionSize')}</span>
                 <span>{t('status')}</span>
                 <span />
               </div>
@@ -332,7 +341,7 @@ export default function VariantsEditorPage() {
               {g.rows.map((row) => (
                 <div key={row.key}
                   className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ gridTemplateColumns: '1fr 100px 100px 80px 80px 36px' }}>
+                  style={{ gridTemplateColumns: '1fr 100px 100px 80px 80px 80px 36px' }}>
                   <input value={row.name}
                     onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
                     placeholder={t('variantName')}
@@ -351,6 +360,19 @@ export default function VariantsEditorPage() {
                     onChange={(e) => updateRow(g.key, row.key, { sku: e.target.value })}
                     placeholder="—"
                     className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
+                  <div className="flex items-center gap-1">
+                    <input type="number" min="0" step="any"
+                      value={row.portionSize}
+                      onChange={(e) => updateRow(g.key, row.key, { portionSize: e.target.value })}
+                      placeholder="0"
+                      className="text-sm bg-transparent border-0 outline-none text-fg-secondary w-12" />
+                    <select value={row.portionSizeUnit}
+                      onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
+                      className="text-xs bg-transparent border-0 outline-none text-fg-tertiary w-8">
+                      <option value="g">g</option><option value="kg">kg</option>
+                      <option value="ml">ml</option><option value="l">l</option>
+                    </select>
+                  </div>
                   <select value={row.isActive ? 'active' : 'inactive'}
                     onChange={(e) => updateRow(g.key, row.key, { isActive: e.target.value === 'active' })}
                     className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
