@@ -244,6 +244,8 @@ export interface MenuItem {
   rotation_group?: string;
   recipe_yield?: number;
   recipe_yield_unit?: string;
+  portion_size?: number;
+  portion_size_unit?: string;
   modifiers?: MenuItemModifier[];
   modifier_sets?: ModifierSet[];
   variant_groups?: ItemVariantGroup[];

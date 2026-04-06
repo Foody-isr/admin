@@ -44,6 +44,7 @@ export default function FoodCostPage() {
   const [yieldValue, setYieldValue] = useState(0);
   const [yieldUnit, setYieldUnit] = useState('kg');
   const [editingStockItem, setEditingStockItem] = useState<StockItem | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>(''); // '' = full recipe or default
 
   const reload = useCallback(async () => {
     try {
@@ -144,8 +145,47 @@ export default function FoodCostPage() {
     return false;
   };
 
-  const totalCost = ingredients.reduce((sum, ing) => sum + calcLineCost(ing), 0);
-  const costPct = selectedItem && selectedItem.price > 0 ? totalCost / selectedItem.price : 0;
+  const totalRecipeCost = ingredients.reduce((sum, ing) => sum + calcLineCost(ing), 0);
+
+  // Build variant options for the selector
+  const allVariants = selectedItem
+    ? (selectedItem.variant_groups ?? []).flatMap(g => g.variants ?? []).filter(v => v.is_active)
+    : [];
+  const hasYield = (selectedItem?.recipe_yield ?? 0) > 0;
+  const yieldBaseUnit = hasYield ? toBaseUnit(selectedItem!.recipe_yield!, selectedItem!.recipe_yield_unit || 'kg') : 0;
+
+  // Calculate display cost based on selected variant/portion
+  let displayCost = totalRecipeCost;
+  let displayPrice = selectedItem?.price ?? 0;
+  let displayLabel = '';
+
+  if (hasYield && selectedVariantId && selectedVariantId !== 'full') {
+    const variant = allVariants.find(v => String(v.id) === selectedVariantId);
+    if (variant && (variant.portion_size ?? 0) > 0) {
+      const portionBase = toBaseUnit(variant.portion_size!, variant.portion_size_unit || 'g');
+      displayCost = yieldBaseUnit > 0 ? totalRecipeCost * (portionBase / yieldBaseUnit) : totalRecipeCost;
+      displayPrice = variant.price;
+      displayLabel = `${variant.name} (${variant.portion_size}${variant.portion_size_unit || 'g'})`;
+    }
+  } else if (hasYield && !selectedVariantId && allVariants.length > 0) {
+    // Auto-select first variant with portion_size
+    const first = allVariants.find(v => (v.portion_size ?? 0) > 0);
+    if (first) {
+      const portionBase = toBaseUnit(first.portion_size!, first.portion_size_unit || 'g');
+      displayCost = yieldBaseUnit > 0 ? totalRecipeCost * (portionBase / yieldBaseUnit) : totalRecipeCost;
+      displayPrice = first.price;
+      displayLabel = `${first.name} (${first.portion_size}${first.portion_size_unit || 'g'})`;
+    }
+  } else if (hasYield && (selectedItem?.portion_size ?? 0) > 0) {
+    // Item has portion_size but no variants
+    const portionBase = toBaseUnit(selectedItem!.portion_size!, selectedItem!.portion_size_unit || 'g');
+    displayCost = yieldBaseUnit > 0 ? totalRecipeCost * (portionBase / yieldBaseUnit) : totalRecipeCost;
+    displayPrice = selectedItem!.price;
+  }
+
+  const costPct = displayPrice > 0 ? displayCost / displayPrice : 0;
+  // Keep totalCost for backward compat in the ingredients table total row
+  const totalCost = totalRecipeCost;
 
   // Edit mode
   const startEditing = () => {
@@ -334,7 +374,20 @@ export default function FoodCostPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-semibold text-fg-primary text-lg">{selectedItem.name}</h3>
-                  <p className="text-sm text-fg-secondary">{t('sellingPrice').replace('{price}', selectedItem.price.toFixed(2))}</p>
+                  {/* Variant/portion selector when yield is set */}
+                  {hasYield && allVariants.length > 0 ? (
+                    <select className="input py-1 text-sm mt-1" value={selectedVariantId || (allVariants.find(v => (v.portion_size ?? 0) > 0)?.id ? String(allVariants.find(v => (v.portion_size ?? 0) > 0)!.id) : 'full')}
+                      onChange={(e) => setSelectedVariantId(e.target.value)}>
+                      {allVariants.filter(v => (v.portion_size ?? 0) > 0).map((v) => (
+                        <option key={v.id} value={String(v.id)}>
+                          {v.name} ({v.portion_size}{v.portion_size_unit || 'g'}) — {v.price.toFixed(2)} ₪
+                        </option>
+                      ))}
+                      <option value="full">{t('fullRecipe')} ({selectedItem.recipe_yield}{selectedItem.recipe_yield_unit})</option>
+                    </select>
+                  ) : (
+                    <p className="text-sm text-fg-secondary">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setShowImportModal(true)} className="btn-secondary text-sm flex items-center gap-1.5">
@@ -353,7 +406,7 @@ export default function FoodCostPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
                   <p className="text-xs text-fg-secondary">{t('foodCostLabel')}</p>
-                  <p className="text-xl font-bold text-fg-primary">{totalCost.toFixed(2)} &#8362;</p>
+                  <p className="text-xl font-bold text-fg-primary">{displayCost.toFixed(2)} &#8362;</p>
                 </div>
                 <div className={`rounded-lg p-3 ${costPct > COST_THRESHOLD ? 'bg-red-500/10' : ''}`} style={costPct <= COST_THRESHOLD ? { background: 'var(--surface-subtle)' } : {}}>
                   <p className="text-xs text-fg-secondary">{t('costPercent')}</p>
@@ -363,7 +416,7 @@ export default function FoodCostPage() {
                 </div>
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
                   <p className="text-xs text-fg-secondary">{t('grossProfit')}</p>
-                  <p className="text-xl font-bold text-status-ready">{(selectedItem.price - totalCost).toFixed(2)} &#8362;</p>
+                  <p className={`text-xl font-bold ${(displayPrice - displayCost) >= 0 ? 'text-status-ready' : 'text-red-500'}`}>{(displayPrice - displayCost).toFixed(2)} &#8362;</p>
                 </div>
               </div>
 
