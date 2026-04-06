@@ -44,20 +44,30 @@ export default function SearchableSelect({
     !search || o.label.toLowerCase().includes(search.toLowerCase())
   );
 
+  const displayText = selected ? `${selected.label}${selected.sublabel ? ` (${selected.sublabel})` : ''}` : '';
+
   return (
     <div ref={ref} className={`relative min-w-0 ${className}`}>
-      <div className="relative">
-        <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none z-10" />
-        <input
-          type="text"
-          className="input text-sm w-full pl-8 py-1.5 truncate"
-          placeholder={placeholder}
-          value={open ? search : (selected ? `${selected.label}${selected.sublabel ? ` (${selected.sublabel})` : ''}` : '')}
-          onFocus={() => { setOpen(true); setSearch(''); }}
-          onChange={(e) => setSearch(e.target.value)}
-          readOnly={!open}
-        />
-      </div>
+      {open ? (
+        /* Search mode */
+        <div className="relative">
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none z-10" />
+          <input
+            type="text"
+            autoFocus
+            className="input text-sm w-full pl-8 py-1.5"
+            placeholder={placeholder}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      ) : (
+        /* Display mode — show selected or placeholder */
+        <button type="button" onClick={() => setOpen(true)}
+          className="input text-sm w-full py-1.5 text-left truncate cursor-pointer">
+          {displayText || <span className="text-fg-tertiary">{placeholder}</span>}
+        </button>
+      )}
 
       {open && (
         <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg shadow-lg border border-[var(--divider)] max-h-48 overflow-y-auto"
