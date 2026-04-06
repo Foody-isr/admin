@@ -623,6 +623,8 @@ function DeliveryImportModal({
         pack_count: i.pack_count || i.quantity,
         price_per_pack: i.price_per_pack || 0,
         total_price: i.total_price || (i.estimated_cost * i.quantity),
+        unit_size: i.unit_size || 0,
+        unit_size_unit: i.unit_size_unit || '',
       })));
       setStep('review');
     } catch (err: any) {

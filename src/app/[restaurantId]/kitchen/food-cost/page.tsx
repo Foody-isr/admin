@@ -5,10 +5,11 @@ import { useParams } from 'next/navigation';
 import {
   getAllCategories, listStockItems, listPrepItems,
   getMenuItemIngredients, setMenuItemIngredients,
+  updateStockItem,
   importRecipesFromFile, importRecipesFromText, confirmRecipes,
   setRecipeYield,
   MenuCategory, MenuItem, MenuItemIngredient, IngredientInput,
-  StockItem, PrepItem,
+  StockItem, PrepItem, StockItemInput,
   RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
 } from '@/lib/api';
 import {
@@ -42,6 +43,7 @@ export default function FoodCostPage() {
   const [editingYield, setEditingYield] = useState(false);
   const [yieldValue, setYieldValue] = useState(0);
   const [yieldUnit, setYieldUnit] = useState('kg');
+  const [editingStockItem, setEditingStockItem] = useState<StockItem | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -413,7 +415,11 @@ export default function FoodCostPage() {
                             {mismatch && (
                               <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
                                 <ExclamationTriangleIcon className="w-3.5 h-3.5" />
-                                {t('unitMismatchWarning').replace('{ingUnit}', unit).replace('{stockUnit}', stockUnit)}
+                                <span>{t('unitMismatchWarning').replace('{ingUnit}', unit).replace('{stockUnit}', stockUnit)}</span>
+                                {ing.stock_item && (
+                                  <button onClick={() => setEditingStockItem(ing.stock_item!)}
+                                    className="ml-1 underline hover:text-amber-400">{t('fix')}</button>
+                                )}
                               </div>
                             )}
                           </td>
@@ -425,8 +431,12 @@ export default function FoodCostPage() {
                           <td className="py-3 px-4 text-right font-mono text-fg-primary">
                             {ing.quantity_needed} <span className="text-fg-secondary text-xs">{unit}</span>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono text-fg-secondary">
-                            {unitCost.toFixed(2)} &#8362;/{stockUnit || unit}
+                          <td className="py-3 px-4 text-right">
+                            <button onClick={() => ing.stock_item && setEditingStockItem(ing.stock_item)}
+                              className="font-mono text-fg-secondary hover:text-brand-500 hover:underline transition-colors cursor-pointer"
+                              title={t('clickToEditCost')}>
+                              {unitCost.toFixed(2)} &#8362;/{stockUnit || unit}
+                            </button>
                           </td>
                           <td className={`py-3 px-4 text-right font-mono font-bold ${mismatch ? 'text-amber-500' : 'text-fg-primary'}`}>
                             {mismatch ? '—' : `${lineCost.toFixed(2)} ₪`}
@@ -554,6 +564,116 @@ export default function FoodCostPage() {
           t={t}
         />
       )}
+
+      {/* Inline Stock Item Cost Editor */}
+      {editingStockItem && (
+        <StockCostEditor
+          rid={rid}
+          item={editingStockItem}
+          onClose={() => setEditingStockItem(null)}
+          onSaved={async () => {
+            setEditingStockItem(null);
+            // Reload stock items + re-select current menu item to refresh costs
+            const [, stock] = await Promise.all([reload(), listStockItems(rid)]);
+            setStockItems(stock);
+            if (selectedItem) selectItem(selectedItem);
+          }}
+          t={t}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Stock Cost Editor (inline from food cost page) ─────────────────
+
+function StockCostEditor({
+  rid, item, onClose, onSaved, t,
+}: {
+  rid: number;
+  item: StockItem;
+  onClose: () => void;
+  onSaved: () => void;
+  t: (key: string) => string;
+}) {
+  const [costPerUnit, setCostPerUnit] = useState(item.cost_per_unit);
+  const [unit, setUnit] = useState<string>(item.unit);
+  const [unitContent, setUnitContent] = useState(item.unit_content ?? 0);
+  const [unitContentUnit, setUnitContentUnit] = useState(item.unit_content_unit ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const isPackage = ['unit', 'pack', 'box', 'bag', 'dose'].includes(unit);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateStockItem(rid, item.id, {
+        name: item.name,
+        unit: unit as any,
+        cost_per_unit: costPerUnit,
+        unit_content: unitContent,
+        unit_content_unit: unitContentUnit,
+      });
+      onSaved();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="rounded-modal shadow-xl p-5 w-full max-w-sm mx-4" style={{ background: 'var(--surface)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-fg-primary text-sm">{item.name}</h3>
+          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('unitLabel')}</label>
+              <select className="input w-full py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value)}>
+                <option value="g">g</option><option value="kg">kg</option>
+                <option value="ml">ml</option><option value="l">l</option>
+                <option value="unit">unit</option><option value="pack">pack</option>
+                <option value="box">box</option><option value="bag">bag</option>
+                <option value="dose">dose</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')}</label>
+              <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm"
+                value={costPerUnit} onChange={(e) => setCostPerUnit(+e.target.value)} />
+            </div>
+          </div>
+
+          {isPackage && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
+                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm"
+                  value={unitContent || ''} onChange={(e) => setUnitContent(+e.target.value)} placeholder="400" />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
+                <select className="input w-full py-1.5 text-sm" value={unitContentUnit}
+                  onChange={(e) => setUnitContentUnit(e.target.value)}>
+                  <option value="">—</option>
+                  <option value="g">g</option><option value="kg">kg</option>
+                  <option value="ml">ml</option><option value="l">l</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('save')}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

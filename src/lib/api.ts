@@ -655,6 +655,8 @@ export interface ConfirmDeliveryItemInput {
   pack_count?: number;
   price_per_pack?: number;
   total_price?: number;
+  unit_size?: number;
+  unit_size_unit?: string;
 }
 
 export interface ConfirmDeliveryInput {
