@@ -48,26 +48,24 @@ export default function SearchableSelect({
 
   return (
     <div ref={ref} className={`relative min-w-0 ${className}`}>
-      {open ? (
-        /* Search mode */
-        <div className="relative">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none z-10" />
+      <div className="relative">
+        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+        {open ? (
           <input
             type="text"
             autoFocus
-            className="input text-sm w-full pl-8 py-1.5"
+            className="input text-sm w-full pl-9 py-1.5"
             placeholder={placeholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-      ) : (
-        /* Display mode — show selected or placeholder */
-        <button type="button" onClick={() => setOpen(true)}
-          className="input text-sm w-full py-1.5 text-left truncate cursor-pointer">
-          {displayText || <span className="text-fg-tertiary">{placeholder}</span>}
-        </button>
-      )}
+        ) : (
+          <button type="button" onClick={() => setOpen(true)}
+            className="input text-sm w-full pl-9 py-1.5 text-left truncate cursor-pointer">
+            {displayText || <span className="text-fg-tertiary">{placeholder}</span>}
+          </button>
+        )}
+      </div>
 
       {open && (
         <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg shadow-lg border border-[var(--divider)] max-h-48 overflow-y-auto"
