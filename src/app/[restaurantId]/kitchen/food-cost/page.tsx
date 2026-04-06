@@ -622,7 +622,7 @@ function StockCostEditor({
         category: item.category,
         notes: item.notes,
         unit_content: isPackage ? unitContent : 0,
-        unit_content_unit: isPackage ? unitContentUnit : '',
+        unit_content_unit: isPackage ? (unitContentUnit || 'g') : '',
         is_active: item.is_active,
       });
       onSaved();

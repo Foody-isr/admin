@@ -393,10 +393,15 @@ function StockItemModal({
     e.preventDefault();
     setSaving(true);
     try {
+      // Ensure unit_content_unit is never empty when unit_content is set
+      const payload = { ...form };
+      if (payload.unit_content && !payload.unit_content_unit) {
+        payload.unit_content_unit = 'g';
+      }
       if (editing) {
-        await updateStockItem(rid, editing.id, form);
+        await updateStockItem(rid, editing.id, payload);
       } else {
-        await createStockItem(rid, form);
+        await createStockItem(rid, payload);
       }
       onSaved();
       onClose();
