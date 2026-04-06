@@ -13,7 +13,7 @@ export default function AIImportPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [step, setStep] = useState<'upload' | 'review' | 'importing'>('upload');
   const [extraction, setExtraction] = useState<MenuExtraction | null>(null);
@@ -26,7 +26,7 @@ export default function AIImportPage() {
     setError('');
     setExtracting(true);
     try {
-      const result = await importMenuAI(rid, file);
+      const result = await importMenuAI(rid, file, locale);
       setExtraction(result);
       setStep('review');
     } catch (err) {

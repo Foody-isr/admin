@@ -481,7 +481,7 @@ function DeliveryImportModal({
   onClose: () => void;
   onImported: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -492,7 +492,7 @@ function DeliveryImportModal({
     if (!file) return;
     setLoading(true);
     try {
-      const result = await importDelivery(rid, file);
+      const result = await importDelivery(rid, file, locale);
       setExtraction(result);
       setEditedItems(result.items.map((i) => ({
         stock_item_id: i.matched_item_id ?? undefined,

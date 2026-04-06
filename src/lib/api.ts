@@ -1511,11 +1511,13 @@ export interface MenuExtraction {
   categories: ExtractedCategory[];
 }
 
-export async function importMenuAI(restaurantId: number, file: File): Promise<MenuExtraction> {
+export async function importMenuAI(restaurantId: number, file: File, lang?: string): Promise<MenuExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_URL}/api/v1/menu/import?restaurant_id=${restaurantId}`, {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  const res = await fetch(`${API_URL}/api/v1/menu/import?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1978,10 +1980,11 @@ export async function importDelivery(restaurantId: number, file: File, lang?: st
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
-  if (lang) formData.append('language', lang);
-  if (method) formData.append('method', method);
-  if (supplier) formData.append('supplier', supplier);
-  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?restaurant_id=${restaurantId}`, {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  if (method) params.set('method', method);
+  if (supplier) params.set('supplier', supplier);
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
