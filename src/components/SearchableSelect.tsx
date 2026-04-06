@@ -45,21 +45,22 @@ export default function SearchableSelect({
   );
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={`relative min-w-0 ${className}`}>
       <div className="relative">
-        <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+        <MagnifyingGlassIcon className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none z-10" />
         <input
           type="text"
-          className="input text-sm w-full pl-8 py-1.5"
-          placeholder={open ? placeholder : (selected ? selected.label + (selected.sublabel ? ` (${selected.sublabel})` : '') : placeholder)}
-          value={open ? search : (selected ? selected.label : '')}
+          className="input text-sm w-full pl-8 py-1.5 truncate"
+          placeholder={placeholder}
+          value={open ? search : (selected ? `${selected.label}${selected.sublabel ? ` (${selected.sublabel})` : ''}` : '')}
           onFocus={() => { setOpen(true); setSearch(''); }}
           onChange={(e) => setSearch(e.target.value)}
+          readOnly={!open}
         />
       </div>
 
       {open && (
-        <div className="absolute z-20 left-0 right-0 mt-1 rounded-lg shadow-lg border border-[var(--divider)] max-h-48 overflow-y-auto"
+        <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg shadow-lg border border-[var(--divider)] max-h-48 overflow-y-auto"
           style={{ background: 'var(--surface)' }}>
           {filtered.length === 0 ? (
             <div className="px-3 py-2 text-xs text-fg-tertiary">{emptyLabel}</div>
@@ -70,8 +71,8 @@ export default function SearchableSelect({
                   opt.value === value ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary'
                 }`}
                 onClick={() => { onChange(opt.value); setOpen(false); setSearch(''); }}>
-                <span>{opt.label}</span>
-                {opt.sublabel && <span className="text-xs text-fg-tertiary ml-2">{opt.sublabel}</span>}
+                <span className="truncate">{opt.label}</span>
+                {opt.sublabel && <span className="text-xs text-fg-tertiary ml-2 flex-shrink-0">{opt.sublabel}</span>}
               </button>
             ))
           )}
