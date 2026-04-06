@@ -82,29 +82,64 @@ export default function FoodCostPage() {
     : allItems;
 
   // Cost calculations (unit-aware)
+  const PACKAGE_UNITS = ['unit', 'pack', 'box', 'bag', 'dose'];
+  const MEASURABLE_UNITS = ['g', 'kg', 'ml', 'l'];
+
   const calcLineCost = (ing: MenuItemIngredient) => {
     const stock = ing.stock_item;
     const prep = ing.prep_item;
     const stockUnit = stock?.unit ?? prep?.unit ?? '';
-    const ingUnit = ing.unit || stockUnit; // fallback for old data without unit
+    // Only fallback to stock unit when it's a measurable unit (g/kg/ml/l), not package units
+    const ingUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
     const unitCost = stock?.cost_per_unit ?? prep?.cost_per_unit ?? 0;
 
-    // Same unit or no unit info — direct multiply
-    if (ingUnit === stockUnit || !ingUnit) return ing.quantity_needed * unitCost;
+    // Same unit or no unit info (both measurable) — direct multiply
+    if (ingUnit === stockUnit || !ingUnit) {
+      // But if ingUnit is empty and stock is a package unit, it's a mismatch — don't blindly multiply
+      if (!ing.unit && PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
+        // Assume ingredient quantity is in the stock's content unit (e.g., grams)
+        const numUnits = ing.quantity_needed / stock.unit_content;
+        return numUnits * unitCost;
+      }
+      if (!ing.unit && PACKAGE_UNITS.includes(stockUnit)) {
+        return 0; // Can't compute safely
+      }
+      return ing.quantity_needed * unitCost;
+    }
 
     // Weight/volume conversion (g↔kg, ml↔l)
     const converted = convertQuantity(ing.quantity_needed, ingUnit, stockUnit);
     if (converted !== ing.quantity_needed) return converted * unitCost;
 
     // Stock is "unit"/"pack"/"box"/"bag" with known content — convert via content
-    if (['unit', 'pack', 'box', 'bag'].includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
+    if (PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
       const inContentUnit = convertQuantity(ing.quantity_needed, ingUnit, stock.unit_content_unit);
       const numUnits = inContentUnit / stock.unit_content;
       return numUnits * unitCost;
     }
 
-    // Fallback — no conversion possible
+    // Incompatible units (e.g. "g" vs "unit" without content info) — return 0 to avoid wrong values
+    if (PACKAGE_UNITS.includes(stockUnit) && MEASURABLE_UNITS.includes(ingUnit)) {
+      return 0; // Cannot compute — unit_content not set on stock item
+    }
+    if (MEASURABLE_UNITS.includes(stockUnit) && PACKAGE_UNITS.includes(ingUnit)) {
+      return 0;
+    }
+
+    // Fallback — same family, direct multiply
     return ing.quantity_needed * unitCost;
+  };
+
+  const hasUnitMismatch = (ing: MenuItemIngredient): boolean => {
+    const stock = ing.stock_item;
+    const stockUnit = stock?.unit ?? '';
+    const ingUnit = ing.unit || '';
+    // No ingredient unit set + stock is a package unit without content info
+    if (!ingUnit && PACKAGE_UNITS.includes(stockUnit) && !(stock?.unit_content)) return true;
+    if (ingUnit === stockUnit || !ingUnit) return false;
+    if (PACKAGE_UNITS.includes(stockUnit) && MEASURABLE_UNITS.includes(ingUnit) && !(stock?.unit_content)) return true;
+    if (MEASURABLE_UNITS.includes(stockUnit) && PACKAGE_UNITS.includes(ingUnit)) return true;
+    return false;
   };
 
   const totalCost = ingredients.reduce((sum, ing) => sum + calcLineCost(ing), 0);
@@ -346,12 +381,22 @@ export default function FoodCostPage() {
                     {ingredients.map((ing) => {
                       const name = ing.stock_item?.name ?? ing.prep_item?.name ?? '?';
                       const unit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
+                      const stockUnit = ing.stock_item?.unit ?? '';
                       const unitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
                       const lineCost = calcLineCost(ing);
+                      const mismatch = hasUnitMismatch(ing);
                       const type = ing.stock_item_id ? t('raw') : t('prep');
                       return (
                         <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
-                          <td className="py-3 px-4 font-medium text-fg-primary">{name}</td>
+                          <td className="py-3 px-4">
+                            <span className="font-medium text-fg-primary">{name}</span>
+                            {mismatch && (
+                              <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
+                                <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                                {t('unitMismatchWarning').replace('{ingUnit}', unit).replace('{stockUnit}', stockUnit)}
+                              </div>
+                            )}
+                          </td>
                           <td className="py-3 px-4">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${ing.stock_item_id ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
                               {type}
@@ -360,8 +405,12 @@ export default function FoodCostPage() {
                           <td className="py-3 px-4 text-right font-mono text-fg-primary">
                             {ing.quantity_needed} <span className="text-fg-secondary text-xs">{unit}</span>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono text-fg-secondary">{unitCost.toFixed(2)} &#8362;</td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-fg-primary">{lineCost.toFixed(2)} &#8362;</td>
+                          <td className="py-3 px-4 text-right font-mono text-fg-secondary">
+                            {unitCost.toFixed(2)} &#8362;/{stockUnit || unit}
+                          </td>
+                          <td className={`py-3 px-4 text-right font-mono font-bold ${mismatch ? 'text-amber-500' : 'text-fg-primary'}`}>
+                            {mismatch ? '—' : `${lineCost.toFixed(2)} ₪`}
+                          </td>
                         </tr>
                       );
                     })}
@@ -715,39 +764,38 @@ function RecipeImportModal({
                         </button>
                       </div>
                     </div>
-                    {/* Row 2: Stock match + qty */}
+                    {/* Row 2: Stock item match */}
+                    <select
+                      className="input w-full py-1.5 text-sm"
+                      value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const updated = [...editedIngredients];
+                        if (val) {
+                          const si = stockItems.find((s) => s.id === +val);
+                          updated[idx] = { ...ing, stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit };
+                        } else {
+                          updated[idx] = { ...ing, stock_item_id: null, is_new: true };
+                        }
+                        setEditedIngredients(updated);
+                      }}
+                    >
+                      <option value="">-- {t('newItem')}: {ing.name} --</option>
+                      {stockItems.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.name} ({s.unit})
+                        </option>
+                      ))}
+                    </select>
+                    {/* Row 3: Quantity + unit */}
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <select
-                          className="input w-full py-1.5 text-sm"
-                          value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const updated = [...editedIngredients];
-                            if (val) {
-                              const si = stockItems.find((s) => s.id === +val);
-                              updated[idx] = { ...ing, stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit };
-                            } else {
-                              updated[idx] = { ...ing, stock_item_id: null, is_new: true };
-                            }
-                            setEditedIngredients(updated);
-                          }}
-                        >
-                          <option value="">-- {t('newItem')}: {ing.name} --</option>
-                          {stockItems.map((s) => (
-                            <option key={s.id} value={String(s.id)}>
-                              {s.name} ({s.unit})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-right flex-shrink-0"
+                      <input type="number" step="any" min="0" className="input w-24 py-1 text-sm text-right"
                         value={ing.quantity_needed || ''} onChange={(e) => {
                           const updated = [...editedIngredients];
                           updated[idx] = { ...ing, quantity_needed: +e.target.value };
                           setEditedIngredients(updated);
                         }} />
-                      <span className="text-xs text-fg-secondary flex-shrink-0">{ing.unit}</span>
+                      <span className="text-xs text-fg-secondary">{ing.unit}</span>
                     </div>
                   </div>
                 );
