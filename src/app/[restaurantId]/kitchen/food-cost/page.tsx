@@ -596,13 +596,18 @@ function StockCostEditor({
   onSaved: () => void;
   t: (key: string) => string;
 }) {
-  const [costPerUnit, setCostPerUnit] = useState(item.cost_per_unit);
   const [unit, setUnit] = useState<string>(item.unit);
+  const [pricePerPackage, setPricePerPackage] = useState(item.cost_per_unit);
   const [unitContent, setUnitContent] = useState(item.unit_content ?? 0);
-  const [unitContentUnit, setUnitContentUnit] = useState(item.unit_content_unit ?? '');
+  const [unitContentUnit, setUnitContentUnit] = useState(item.unit_content_unit ?? 'g');
   const [saving, setSaving] = useState(false);
 
   const isPackage = ['unit', 'pack', 'box', 'bag', 'dose'].includes(unit);
+
+  // For measurable units (g/kg/ml/l), cost_per_unit IS the price per that unit
+  // For package units, cost_per_unit is the price per package
+  // The calculated cost per content unit is shown as a summary
+  const costPerContentUnit = isPackage && unitContent > 0 ? pricePerPackage / unitContent : 0;
 
   const handleSave = async () => {
     setSaving(true);
@@ -610,9 +615,9 @@ function StockCostEditor({
       await updateStockItem(rid, item.id, {
         name: item.name,
         unit: unit as any,
-        cost_per_unit: costPerUnit,
-        unit_content: unitContent,
-        unit_content_unit: unitContentUnit,
+        cost_per_unit: pricePerPackage,
+        unit_content: isPackage ? unitContent : 0,
+        unit_content_unit: isPackage ? unitContentUnit : '',
       });
       onSaved();
     } catch (err: any) {
@@ -624,47 +629,73 @@ function StockCostEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-5 w-full max-w-sm mx-4" style={{ background: 'var(--surface)' }}>
+      <div className="rounded-modal shadow-xl p-5 w-full max-w-md mx-4" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-fg-primary text-sm">{item.name}</h3>
+          <h3 className="font-semibold text-fg-primary">{item.name}</h3>
           <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
         </div>
 
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('unitLabel')}</label>
-              <select className="input w-full py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value)}>
-                <option value="g">g</option><option value="kg">kg</option>
-                <option value="ml">ml</option><option value="l">l</option>
-                <option value="unit">unit</option><option value="pack">pack</option>
-                <option value="box">box</option><option value="bag">bag</option>
-                <option value="dose">dose</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')}</label>
-              <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm"
-                value={costPerUnit} onChange={(e) => setCostPerUnit(+e.target.value)} />
+        <div className="space-y-4">
+          {/* Stock unit */}
+          <div>
+            <label className="text-xs text-fg-secondary block mb-1">{t('stockUnit')}</label>
+            <select className="input w-full py-2 text-sm" value={unit} onChange={(e) => {
+              const newUnit = e.target.value;
+              setUnit(newUnit);
+              // When switching to a measurable unit, suggest converting the price
+              if (!['unit', 'pack', 'box', 'bag', 'dose'].includes(newUnit) && unitContent > 0) {
+                setPricePerPackage(+(pricePerPackage / unitContent).toFixed(4));
+              }
+            }}>
+              <option value="g">g ({t('grams')})</option>
+              <option value="kg">kg ({t('kilograms')})</option>
+              <option value="ml">ml ({t('milliliters')})</option>
+              <option value="l">l ({t('liters')})</option>
+              <option value="unit">unit ({t('perItem')})</option>
+              <option value="pack">pack</option>
+              <option value="box">box</option>
+              <option value="bag">bag</option>
+              <option value="dose">dose</option>
+            </select>
+          </div>
+
+          {/* Price */}
+          <div>
+            <label className="text-xs text-fg-secondary block mb-1">
+              {isPackage ? t('pricePerPackage') : t('costPerUnit')}
+            </label>
+            <div className="flex items-center gap-2">
+              <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
+                value={pricePerPackage} onChange={(e) => setPricePerPackage(+e.target.value)} />
+              <span className="text-sm text-fg-secondary">&#8362; / {unit}</span>
             </div>
           </div>
 
+          {/* Package content (only for package units) */}
           {isPackage && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
-                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm"
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
+              <div className="flex items-center gap-2">
+                <input type="number" step="any" min="0" className="input w-24 py-2 text-sm"
                   value={unitContent || ''} onChange={(e) => setUnitContent(+e.target.value)} placeholder="400" />
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
-                <select className="input w-full py-1.5 text-sm" value={unitContentUnit}
+                <select className="input w-20 py-2 text-sm" value={unitContentUnit}
                   onChange={(e) => setUnitContentUnit(e.target.value)}>
-                  <option value="">—</option>
                   <option value="g">g</option><option value="kg">kg</option>
                   <option value="ml">ml</option><option value="l">l</option>
                 </select>
+                <span className="text-sm text-fg-secondary">{t('perItem')}</span>
               </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          {isPackage && unitContent > 0 && pricePerPackage > 0 && (
+            <div className="rounded-lg p-3 text-sm" style={{ background: 'var(--surface-subtle)' }}>
+              <span className="text-fg-secondary">{t('effectiveCost')}: </span>
+              <span className="font-mono font-bold text-fg-primary">
+                {costPerContentUnit.toFixed(4)} &#8362;/{unitContentUnit}
+              </span>
+              <span className="text-fg-secondary"> ({pricePerPackage} &#8362; &divide; {unitContent}{unitContentUnit})</span>
             </div>
           )}
 
