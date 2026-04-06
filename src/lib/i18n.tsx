@@ -712,6 +712,15 @@ const translations: Record<Locale, Record<string, string>> = {
     totalPrice: 'Total',
     existing: 'Existing',
     stockReceives: 'Stock receives',
+    itemsSelected: '{count} item(s) selected',
+    updateCategory: 'Update Category',
+    bulkDeleteConfirm: 'Delete {count} selected item(s)? This cannot be undone.',
+    bulkCategoryDesc: 'Set category for {count} selected item(s):',
+    selectCategory: 'Select a category...',
+    orTypeNewCategory: 'Or type a new category...',
+    apply: 'Apply',
+    contentPerUnit: 'Content per unit',
+    contentUnit: 'Content unit',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -1651,6 +1660,15 @@ const translations: Record<Locale, Record<string, string>> = {
     totalPrice: 'סה"כ',
     existing: 'קיים',
     stockReceives: 'המלאי מקבל',
+    itemsSelected: '{count} פריטים נבחרו',
+    updateCategory: 'עדכן קטגוריה',
+    bulkDeleteConfirm: 'למחוק {count} פריטים נבחרים? לא ניתן לבטל.',
+    bulkCategoryDesc: 'הגדר קטגוריה ל-{count} פריטים נבחרים:',
+    selectCategory: 'בחר קטגוריה...',
+    orTypeNewCategory: 'או הקלד קטגוריה חדשה...',
+    apply: 'החל',
+    contentPerUnit: 'תכולה ליחידה',
+    contentUnit: 'יחידת תכולה',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -2589,6 +2607,15 @@ const translations: Record<Locale, Record<string, string>> = {
     totalPrice: 'Total',
     existing: 'Existant',
     stockReceives: 'Stock reçoit',
+    itemsSelected: '{count} article(s) sélectionné(s)',
+    updateCategory: 'Modifier la catégorie',
+    bulkDeleteConfirm: 'Supprimer {count} article(s) sélectionné(s) ? Cette action est irréversible.',
+    bulkCategoryDesc: 'Définir la catégorie pour {count} article(s) sélectionné(s) :',
+    selectCategory: 'Sélectionner une catégorie...',
+    orTypeNewCategory: 'Ou saisir une nouvelle catégorie...',
+    apply: 'Appliquer',
+    contentPerUnit: 'Contenu par unité',
+    contentUnit: 'Unité de contenu',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',

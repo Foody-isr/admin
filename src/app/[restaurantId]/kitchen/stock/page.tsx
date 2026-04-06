@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, importDelivery, confirmDelivery,
+  batchUpdateStockCategory,
   StockItem, StockCategory, StockItemInput, StockUnit, StockTransactionType,
   DeliveryExtraction, ConfirmDeliveryItemInput,
 } from '@/lib/api';
@@ -34,6 +35,11 @@ export default function StockPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
+
+  // Selection for bulk actions
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkCategoryModal, setBulkCategoryModal] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState('');
 
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: StockItem }>({ open: false });
@@ -70,6 +76,44 @@ export default function StockPage() {
   const handleDelete = async (id: number) => {
     if (!confirm(t('deleteStockItem'))) return;
     await deleteStockItem(rid, id);
+    reload();
+  };
+
+  // Bulk selection
+  const toggleSelectAll = () => {
+    const filteredIds = filtered.map((i) => i.id);
+    const allSelected = filteredIds.every((id) => selected.has(id));
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filteredIds));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(t('bulkDeleteConfirm').replace('{count}', String(selected.size)))) return;
+    for (const id of Array.from(selected)) {
+      await deleteStockItem(rid, id);
+    }
+    setSelected(new Set());
+    reload();
+  };
+
+  const handleBulkCategory = async () => {
+    if (selected.size === 0 || !bulkCategory) return;
+    await batchUpdateStockCategory(rid, { item_ids: Array.from(selected), category: bulkCategory });
+    setSelected(new Set());
+    setBulkCategoryModal(false);
+    setBulkCategory('');
     reload();
   };
 
@@ -153,9 +197,34 @@ export default function StockPage() {
         </div>
       ) : (
         <div className="card overflow-hidden p-0">
+          {/* Bulk action bar */}
+          {selected.size > 0 && (
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-500/10" style={{ borderBottom: '1px solid var(--divider)' }}>
+              <span className="text-sm font-medium text-brand-500">
+                {t('itemsSelected').replace('{count}', String(selected.size))}
+              </span>
+              <div className="flex-1" />
+              <button onClick={() => setBulkCategoryModal(true)} className="btn-secondary text-xs py-1.5 px-3">
+                {t('updateCategory')}
+              </button>
+              <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
+                {t('delete')} ({selected.size})
+              </button>
+              <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
+                {t('cancel')}
+              </button>
+            </div>
+          )}
+
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
+                <th className="py-3 px-3 w-10">
+                  <input type="checkbox"
+                    checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
+                    onChange={toggleSelectAll}
+                    className="rounded border-fg-secondary" />
+                </th>
                 <th className="py-3 px-4 font-medium">{t('item')}</th>
                 <th className="py-3 px-4 font-medium">{t('category')}</th>
                 <th className="py-3 px-4 font-medium text-right">{t('quantity')}</th>
@@ -172,9 +241,15 @@ export default function StockPage() {
                 return (
                   <tr
                     key={item.id}
-                    className="hover:bg-[var(--surface-subtle)] transition-colors"
+                    className={`hover:bg-[var(--surface-subtle)] transition-colors ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
                     style={{ borderBottom: '1px solid var(--divider)' }}
                   >
+                    <td className="py-3 px-3 w-10">
+                      <input type="checkbox"
+                        checked={selected.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                        className="rounded border-fg-secondary" />
+                    </td>
                     <td className="py-3 px-4">
                       <span className="font-medium text-fg-primary">{item.name}</span>
                     </td>
@@ -264,6 +339,25 @@ export default function StockPage() {
           onImported={reload}
         />
       )}
+
+      {/* Bulk Update Category Modal */}
+      {bulkCategoryModal && (
+        <Modal title={t('updateCategory')} onClose={() => setBulkCategoryModal(false)}>
+          <p className="text-sm text-fg-secondary mb-3">
+            {t('bulkCategoryDesc').replace('{count}', String(selected.size))}
+          </p>
+          <select className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}>
+            <option value="">{t('selectCategory')}</option>
+            {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}
+            placeholder={t('orTypeNewCategory')} />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setBulkCategoryModal(false)} className="btn-secondary text-sm">{t('cancel')}</button>
+            <button onClick={handleBulkCategory} disabled={!bulkCategory} className="btn-primary text-sm">{t('apply')}</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -289,6 +383,8 @@ function StockItemModal({
     supplier: editing?.supplier ?? '',
     category: editing?.category ?? '',
     notes: editing?.notes ?? '',
+    unit_content: editing?.unit_content ?? 0,
+    unit_content_unit: editing?.unit_content_unit ?? '',
     is_active: editing?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
@@ -331,6 +427,26 @@ function StockItemModal({
             <input type="number" step="any" className="input w-full py-2 text-sm" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} />
           </div>
         </div>
+
+        {['unit', 'pack', 'box', 'bag'].includes(form.unit) && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
+              <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
+                value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value })}
+                placeholder="400" />
+            </div>
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
+              <select className="input w-full py-2 text-sm" value={form.unit_content_unit || ''}
+                onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+                <option value="">—</option>
+                <option value="g">g</option><option value="kg">kg</option>
+                <option value="ml">ml</option><option value="l">l</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>

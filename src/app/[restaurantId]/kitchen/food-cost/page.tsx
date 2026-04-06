@@ -81,9 +81,29 @@ export default function FoodCostPage() {
     ? allItems.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
     : allItems;
 
-  // Cost calculations
+  // Cost calculations (unit-aware)
   const calcLineCost = (ing: MenuItemIngredient) => {
-    const unitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
+    const stock = ing.stock_item;
+    const prep = ing.prep_item;
+    const stockUnit = stock?.unit ?? prep?.unit ?? '';
+    const ingUnit = ing.unit || stockUnit; // fallback for old data without unit
+    const unitCost = stock?.cost_per_unit ?? prep?.cost_per_unit ?? 0;
+
+    // Same unit or no unit info — direct multiply
+    if (ingUnit === stockUnit || !ingUnit) return ing.quantity_needed * unitCost;
+
+    // Weight/volume conversion (g↔kg, ml↔l)
+    const converted = convertQuantity(ing.quantity_needed, ingUnit, stockUnit);
+    if (converted !== ing.quantity_needed) return converted * unitCost;
+
+    // Stock is "unit"/"pack"/"box"/"bag" with known content — convert via content
+    if (['unit', 'pack', 'box', 'bag'].includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
+      const inContentUnit = convertQuantity(ing.quantity_needed, ingUnit, stock.unit_content_unit);
+      const numUnits = inContentUnit / stock.unit_content;
+      return numUnits * unitCost;
+    }
+
+    // Fallback — no conversion possible
     return ing.quantity_needed * unitCost;
   };
 
@@ -96,12 +116,13 @@ export default function FoodCostPage() {
       stock_item_id: i.stock_item_id ?? undefined,
       prep_item_id: i.prep_item_id ?? undefined,
       quantity_needed: i.quantity_needed,
+      unit: i.unit || i.stock_item?.unit || i.prep_item?.unit || '',
     })));
     setEditing(true);
   };
 
   const addEditIngredient = () => {
-    setEditIngredients([...editIngredients, { quantity_needed: 0 }]);
+    setEditIngredients([...editIngredients, { quantity_needed: 0, unit: '' }]);
   };
 
   const removeEditIngredient = (idx: number) => {
@@ -231,6 +252,13 @@ export default function FoodCostPage() {
                   onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
                   placeholder={t('qty')}
                 />
+                <select className="input w-16 py-2 text-xs" value={ing.unit || ''}
+                  onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
+                  <option value="">—</option>
+                  <option value="g">g</option><option value="kg">kg</option>
+                  <option value="ml">ml</option><option value="l">l</option>
+                  <option value="unit">unit</option>
+                </select>
                 <button onClick={() => removeEditIngredient(idx)} className="p-1 text-red-400 hover:text-red-300">
                   <TrashIcon className="w-4 h-4" />
                 </button>
@@ -317,7 +345,7 @@ export default function FoodCostPage() {
                   <tbody>
                     {ingredients.map((ing) => {
                       const name = ing.stock_item?.name ?? ing.prep_item?.name ?? '?';
-                      const unit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
+                      const unit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
                       const unitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
                       const lineCost = calcLineCost(ing);
                       const type = ing.stock_item_id ? t('raw') : t('prep');
@@ -461,16 +489,20 @@ export default function FoodCostPage() {
   );
 }
 
-// ─── Unit Conversion Helper ─────────────────────────────────────────
+// ─── Unit Conversion Helpers ────────────────────────────────────────
+
+const unitFactors: Record<string, number> = { g: 1, kg: 1000, ml: 1, l: 1000 };
 
 function toBaseUnit(value: number, unit: string): number {
-  switch (unit) {
-    case 'kg': return value * 1000; // → grams
-    case 'g': return value;
-    case 'l': return value * 1000;  // → ml
-    case 'ml': return value;
-    default: return value;
-  }
+  return value * (unitFactors[unit] ?? 1);
+}
+
+function convertQuantity(qty: number, from: string, to: string): number {
+  if (from === to || !from || !to) return qty;
+  const fromFactor = unitFactors[from];
+  const toFactor = unitFactors[to];
+  if (fromFactor != null && toFactor != null) return qty * fromFactor / toFactor;
+  return qty; // no conversion possible (e.g., "unit" vs "g")
 }
 
 // ─── Recipe Import Modal ─────────────────────────────────────────────
@@ -683,33 +715,39 @@ function RecipeImportModal({
                         </button>
                       </div>
                     </div>
-                    {/* Row 2: Stock match dropdown + qty + unit */}
+                    {/* Row 2: Stock match + qty */}
                     <div className="flex items-center gap-2">
-                      <select
-                        className="input flex-1 py-1 text-xs"
-                        value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const updated = [...editedIngredients];
-                          if (val) {
-                            const si = stockItems.find((s) => s.id === +val);
-                            updated[idx] = { ...ing, stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit };
-                          } else {
-                            updated[idx] = { ...ing, stock_item_id: null, is_new: true };
-                          }
-                          setEditedIngredients(updated);
-                        }}
-                      >
-                        <option value="">-- {t('newItem')}: {ing.name} --</option>
-                        {stockItems.map((s) => <option key={s.id} value={String(s.id)}>{s.name} ({s.unit})</option>)}
-                      </select>
-                      <input type="number" step="any" min="0" className="input w-20 py-1 text-sm text-right"
+                      <div className="flex-1 min-w-0">
+                        <select
+                          className="input w-full py-1.5 text-sm"
+                          value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const updated = [...editedIngredients];
+                            if (val) {
+                              const si = stockItems.find((s) => s.id === +val);
+                              updated[idx] = { ...ing, stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit };
+                            } else {
+                              updated[idx] = { ...ing, stock_item_id: null, is_new: true };
+                            }
+                            setEditedIngredients(updated);
+                          }}
+                        >
+                          <option value="">-- {t('newItem')}: {ing.name} --</option>
+                          {stockItems.map((s) => (
+                            <option key={s.id} value={String(s.id)}>
+                              {s.name} ({s.unit})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-right flex-shrink-0"
                         value={ing.quantity_needed || ''} onChange={(e) => {
                           const updated = [...editedIngredients];
                           updated[idx] = { ...ing, quantity_needed: +e.target.value };
                           setEditedIngredients(updated);
                         }} />
-                      <span className="text-xs text-fg-secondary w-8">{ing.unit}</span>
+                      <span className="text-xs text-fg-secondary flex-shrink-0">{ing.unit}</span>
                     </div>
                   </div>
                 );

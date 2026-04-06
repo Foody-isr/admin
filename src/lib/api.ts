@@ -465,6 +465,8 @@ export interface StockItem {
   supplier: string;
   category: string;
   notes: string;
+  unit_content?: number;
+  unit_content_unit?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -497,6 +499,8 @@ export interface StockItemInput {
   supplier?: string;
   category?: string;
   notes?: string;
+  unit_content?: number;
+  unit_content_unit?: string;
   is_active?: boolean;
 }
 
@@ -597,6 +601,7 @@ export interface MenuItemIngredient {
   stock_item_id?: number;
   prep_item_id?: number;
   quantity_needed: number;
+  unit?: string;
   created_at: string;
   stock_item?: StockItem;
   prep_item?: PrepItem;
@@ -606,6 +611,7 @@ export interface IngredientInput {
   stock_item_id?: number;
   prep_item_id?: number;
   quantity_needed: number;
+  unit?: string;
 }
 
 export interface PrepIngredientInput {
