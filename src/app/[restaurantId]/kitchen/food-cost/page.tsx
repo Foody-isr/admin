@@ -478,6 +478,14 @@ export default function FoodCostPage() {
                   </div>
                 </div>
               ) : (
+                <>
+                {hasYield && (
+                  <div className="px-4 py-2.5 flex items-center justify-between" style={{ background: 'var(--surface-subtle)', borderBottom: '1px solid var(--divider)' }}>
+                    <span className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">
+                      {t('recipeCostBreakdown')} — {t('fullRecipe')} ({selectedItem.recipe_yield} {selectedItem.recipe_yield_unit})
+                    </span>
+                  </div>
+                )}
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
@@ -539,6 +547,7 @@ export default function FoodCostPage() {
                     </tr>
                   </tbody>
                 </table>
+                </>
               )}
             </div>
 

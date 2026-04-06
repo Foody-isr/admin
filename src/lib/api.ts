@@ -1403,6 +1403,20 @@ export async function createOptionInSet(restaurantId: number, setId: number, inp
   return data.option;
 }
 
+export async function updateOptionInSet(restaurantId: number, setId: number, optionId: number, input: OptionInSetInput): Promise<OptionSetOption> {
+  const data = await apiFetch<{ option: OptionSetOption }>(
+    `/api/v1/menu/option-sets/${setId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.option;
+}
+
+export async function deleteOptionInSet(restaurantId: number, setId: number, optionId: number): Promise<void> {
+  await apiFetch(`/api/v1/menu/option-sets/${setId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
 // ─── Per-item option pricing ────────────────────────────────────────────────
 
 export interface ItemOptionOverride {

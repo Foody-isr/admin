@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getOptionSet, updateOptionSet, createOptionInSet, deleteOptionSet,
+  getOptionSet, updateOptionSet, createOptionInSet, updateOptionInSet, deleteOptionInSet, deleteOptionSet,
   OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -125,19 +125,14 @@ export default function OptionSetDetailPage() {
           </h2>
           <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
             {(optionSet.options ?? []).map((opt) => (
-              <div key={opt.id}
-                className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-                <span className="text-base font-medium text-fg-primary">{opt.name}</span>
-                <span className="text-sm text-fg-tertiary">
-                  {(optionSet.menu_items ?? []).length} {t('variants') || 'item variations'}
-                </span>
-              </div>
+              <OptionRow key={opt.id} rid={rid} setId={osid} option={opt} onUpdated={loadData} t={t} />
             ))}
 
             {/* Add option row */}
             <div className="flex items-center gap-2 px-4 py-3 border-t border-[var(--divider)]">
+              <PlusIcon className="w-4 h-4 text-fg-tertiary" />
               <input value={newOptionName} onChange={(e) => setNewOptionName(e.target.value)}
-                placeholder={t('addVariant') || 'Add an option'}
+                placeholder={t('addOption')}
                 className="flex-1 text-sm bg-transparent border-0 outline-none text-fg-primary"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }} />
               {newOptionName.trim() && (
@@ -148,10 +143,6 @@ export default function OptionSetDetailPage() {
               )}
             </div>
           </div>
-
-          <p className="text-sm text-fg-tertiary mt-4">
-            {t('deleteOptionSetHint') || 'To delete an option set, first delete all its options.'}
-          </p>
         </div>
 
         {/* Delete */}
@@ -160,6 +151,66 @@ export default function OptionSetDetailPage() {
           {t('delete')} {t('options').toLowerCase()}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Editable Option Row ─────────────────────────────────────────
+
+function OptionRow({ rid, setId, option, onUpdated, t }: {
+  rid: number;
+  setId: number;
+  option: OptionSetOption;
+  onUpdated: () => void;
+  t: (key: string) => string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(option.name);
+
+  const handleSave = async () => {
+    if (!editName.trim() || editName.trim() === option.name) {
+      setEditing(false);
+      return;
+    }
+    try {
+      await updateOptionInSet(rid, setId, option.id, {
+        name: editName.trim(),
+        price: option.price,
+        is_active: option.is_active,
+        sort_order: option.sort_order,
+      });
+      onUpdated();
+      setEditing(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(t('deleteOption') + ` "${option.name}"?`)) return;
+    try {
+      await deleteOptionInSet(rid, setId, option.id);
+      onUpdated();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete');
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
+      {editing ? (
+        <input value={editName} onChange={(e) => setEditName(e.target.value)}
+          onBlur={handleSave} onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+          autoFocus className="text-base font-medium text-fg-primary bg-transparent border-0 outline-none flex-1" />
+      ) : (
+        <button onClick={() => setEditing(true)}
+          className="text-base font-medium text-fg-primary hover:text-brand-500 text-left flex-1 cursor-text">
+          {option.name}
+        </button>
+      )}
+      <button onClick={handleDelete} className="p-1.5 rounded hover:bg-red-500/10 text-fg-tertiary hover:text-red-500 transition-colors ml-2">
+        <TrashIcon className="w-4 h-4" />
+      </button>
     </div>
   );
 }
