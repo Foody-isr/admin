@@ -615,9 +615,15 @@ function StockCostEditor({
       await updateStockItem(rid, item.id, {
         name: item.name,
         unit: unit as any,
+        quantity: item.quantity,
+        reorder_threshold: item.reorder_threshold,
         cost_per_unit: pricePerPackage,
+        supplier: item.supplier,
+        category: item.category,
+        notes: item.notes,
         unit_content: isPackage ? unitContent : 0,
         unit_content_unit: isPackage ? unitContentUnit : '',
+        is_active: item.is_active,
       });
       onSaved();
     } catch (err: any) {

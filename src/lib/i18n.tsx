@@ -725,6 +725,14 @@ const translations: Record<Locale, Record<string, string>> = {
     removeRecipeConfirm: 'Remove all ingredients and recipe yield for this item?',
     fix: 'Fix',
     clickToEditCost: 'Click to edit cost and unit',
+    stockUnit: 'Stock unit',
+    pricePerPackage: 'Price per package',
+    effectiveCost: 'Effective cost',
+    perItem: 'per item',
+    grams: 'grams',
+    kilograms: 'kilograms',
+    milliliters: 'milliliters',
+    liters: 'liters',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -1677,6 +1685,14 @@ const translations: Record<Locale, Record<string, string>> = {
     removeRecipeConfirm: 'להסיר את כל המרכיבים ותפוקת המתכון מפריט זה?',
     fix: 'תקן',
     clickToEditCost: 'לחץ לעריכת עלות ויחידה',
+    stockUnit: 'יחידת מלאי',
+    pricePerPackage: 'מחיר לאריזה',
+    effectiveCost: 'עלות בפועל',
+    perItem: 'ליחידה',
+    grams: 'גרם',
+    kilograms: 'קילוגרם',
+    milliliters: 'מיליליטר',
+    liters: 'ליטר',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -2628,6 +2644,14 @@ const translations: Record<Locale, Record<string, string>> = {
     removeRecipeConfirm: 'Supprimer tous les ingrédients et le rendement de la recette pour cet article ?',
     fix: 'Corriger',
     clickToEditCost: 'Cliquer pour modifier le coût et l\'unité',
+    stockUnit: 'Unité de stock',
+    pricePerPackage: 'Prix par paquet',
+    effectiveCost: 'Coût effectif',
+    perItem: 'par unité',
+    grams: 'grammes',
+    kilograms: 'kilogrammes',
+    milliliters: 'millilitres',
+    liters: 'litres',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',
