@@ -18,6 +18,7 @@ import {
   ExclamationTriangleIcon, CurrencyDollarIcon,
   SparklesIcon, PencilIcon,
 } from '@heroicons/react/24/outline';
+import SearchableSelect from '@/components/SearchableSelect';
 import { useI18n } from '@/lib/i18n';
 
 const COST_THRESHOLD = 0.35; // 35% food cost warning
@@ -351,43 +352,41 @@ export default function FoodCostPage() {
 
             {editIngredients.map((ing, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <select
-                  className="input flex-1 py-2 text-sm"
+                <SearchableSelect
+                  className="flex-1"
                   value={ing.stock_item_id ? `stock:${ing.stock_item_id}` : ing.prep_item_id ? `prep:${ing.prep_item_id}` : ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
+                  onChange={(val) => {
                     if (val.startsWith('stock:')) {
-                      updateEditIngredient(idx, { stock_item_id: +val.split(':')[1], prep_item_id: undefined });
+                      const si = stockItems.find(s => s.id === +val.split(':')[1]);
+                      updateEditIngredient(idx, { stock_item_id: +val.split(':')[1], prep_item_id: undefined, unit: si?.unit || ing.unit });
                     } else if (val.startsWith('prep:')) {
-                      updateEditIngredient(idx, { prep_item_id: +val.split(':')[1], stock_item_id: undefined });
+                      const pi = prepItems.find(p => p.id === +val.split(':')[1]);
+                      updateEditIngredient(idx, { prep_item_id: +val.split(':')[1], stock_item_id: undefined, unit: pi?.unit || ing.unit });
                     }
                   }}
-                >
-                  <option value="">{t('selectIngredient')}</option>
-                  <optgroup label={t('rawStock')}>
-                    {stockItems.map((s) => <option key={`s${s.id}`} value={`stock:${s.id}`}>{s.name} ({s.unit})</option>)}
-                  </optgroup>
-                  <optgroup label={t('prepItems')}>
-                    {prepItems.map((p) => <option key={`p${p.id}`} value={`prep:${p.id}`}>{p.name} ({p.unit})</option>)}
-                  </optgroup>
-                </select>
+                  options={[
+                    ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
+                    ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
+                  ]}
+                  placeholder={t('selectIngredient')}
+                />
                 <input
                   type="number"
                   step="any"
                   min="0"
-                  className="input w-24 py-2 text-sm text-right"
+                  className="input w-24 py-2 text-sm text-right flex-shrink-0"
                   value={ing.quantity_needed || ''}
                   onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
                   placeholder={t('qty')}
                 />
-                <select className="input w-16 py-2 text-xs" value={ing.unit || ''}
+                <select className="input w-16 py-2 text-xs flex-shrink-0" value={ing.unit || ''}
                   onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
                   <option value="">—</option>
                   <option value="g">g</option><option value="kg">kg</option>
                   <option value="ml">ml</option><option value="l">l</option>
                   <option value="unit">unit</option>
                 </select>
-                <button onClick={() => removeEditIngredient(idx)} className="p-1 text-red-400 hover:text-red-300">
+                <button onClick={() => removeEditIngredient(idx)} className="p-1 text-red-400 hover:text-red-300 flex-shrink-0">
                   <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
@@ -407,25 +406,9 @@ export default function FoodCostPage() {
           <div className="space-y-4">
             {/* Item header */}
             <div className="card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-fg-primary text-lg">{selectedItem.name}</h3>
-                  {/* Variant/portion selector when yield is set */}
-                  {hasYield && allVariants.length > 0 ? (
-                    <select className="input py-1 text-sm mt-1" value={selectedVariantId || (allVariants.find(v => (v.portion_size ?? 0) > 0)?.id ? String(allVariants.find(v => (v.portion_size ?? 0) > 0)!.id) : 'full')}
-                      onChange={(e) => setSelectedVariantId(e.target.value)}>
-                      {allVariants.filter(v => (v.portion_size ?? 0) > 0).map((v) => (
-                        <option key={v.id} value={String(v.id)}>
-                          {v.name} ({v.portion_size}{v.portion_size_unit || 'g'}) — {v.price.toFixed(2)} ₪
-                        </option>
-                      ))}
-                      <option value="full">{t('fullRecipe')} ({selectedItem.recipe_yield}{selectedItem.recipe_yield_unit})</option>
-                    </select>
-                  ) : (
-                    <p className="text-sm text-fg-secondary">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-fg-primary text-lg">{selectedItem.name}</h3>
+                <div className="flex gap-2 flex-shrink-0">
                   <button onClick={() => setShowImportModal(true)} className="btn-secondary text-sm flex items-center gap-1.5">
                     <SparklesIcon className="w-4 h-4" /> {t('importRecipe')}
                   </button>
@@ -437,6 +420,23 @@ export default function FoodCostPage() {
                   )}
                 </div>
               </div>
+
+              {/* Variant/portion selector */}
+              {hasYield && allVariants.filter(v => (v.portion_size ?? 0) > 0).length > 0 ? (
+                <div className="mb-4">
+                  <select className="input py-1.5 text-sm w-full max-w-xs" value={selectedVariantId || (allVariants.find(v => (v.portion_size ?? 0) > 0)?.id ? String(allVariants.find(v => (v.portion_size ?? 0) > 0)!.id) : 'full')}
+                    onChange={(e) => setSelectedVariantId(e.target.value)}>
+                    {allVariants.filter(v => (v.portion_size ?? 0) > 0).map((v) => (
+                      <option key={v.id} value={String(v.id)}>
+                        {v.name} ({v.portion_size}{v.portion_size_unit || 'g'}) — {v.price.toFixed(2)} ₪
+                      </option>
+                    ))}
+                    <option value="full">{t('fullRecipe')} ({selectedItem.recipe_yield}{selectedItem.recipe_yield_unit})</option>
+                  </select>
+                </div>
+              ) : (
+                <p className="text-sm text-fg-secondary mb-4">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
+              )}
 
               {/* Cost summary */}
               <div className="grid grid-cols-3 gap-4">
@@ -1040,11 +1040,9 @@ function RecipeImportModal({
                       </div>
                     </div>
                     {/* Row 2: Stock item match */}
-                    <select
-                      className="input w-full py-1.5 text-sm"
+                    <SearchableSelect
                       value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
+                      onChange={(val) => {
                         const updated = [...editedIngredients];
                         if (val) {
                           const si = stockItems.find((s) => s.id === +val);
@@ -1054,14 +1052,9 @@ function RecipeImportModal({
                         }
                         setEditedIngredients(updated);
                       }}
-                    >
-                      <option value="">-- {t('newItem')}: {ing.name} --</option>
-                      {stockItems.map((s) => (
-                        <option key={s.id} value={String(s.id)}>
-                          {s.name} ({s.unit})
-                        </option>
-                      ))}
-                    </select>
+                      options={stockItems.map((s) => ({ value: String(s.id), label: s.name, sublabel: s.unit }))}
+                      placeholder={`${t('newItem')}: ${ing.name}`}
+                    />
                     {/* Row 3: Quantity + unit */}
                     <div className="flex items-center gap-2">
                       <input type="number" step="any" min="0" className="input w-24 py-1 text-sm text-right"
