@@ -442,15 +442,6 @@ export default function FoodCostPage() {
                       </button>
                     );
                   })}
-                  <button type="button" onClick={() => setSelectedVariantId('full')}
-                    className={`flex flex-col items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedVariantId === 'full'
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary hover:bg-[var(--divider)]'
-                    }`}>
-                    <span>{t('fullRecipe')}</span>
-                    <span className={`text-xs ${selectedVariantId === 'full' ? 'text-white/80' : 'text-fg-tertiary'}`}>{selectedItem.recipe_yield} {selectedItem.recipe_yield_unit}</span>
-                  </button>
                 </div>
               ) : (
                 <p className="text-sm text-fg-secondary mb-4">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
