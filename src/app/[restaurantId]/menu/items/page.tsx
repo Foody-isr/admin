@@ -310,7 +310,7 @@ export default function ItemLibraryPage() {
                     {/* Parent item row */}
                     <tr
                       className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)]"
-                      onClick={() => hasVariants ? toggleExpand(item.id) : router.push(`/${rid}/menu/items/${item.id}`)}
+                      onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
                     >
                       <td className="py-3.5 px-2" onClick={(e) => { e.stopPropagation(); if (hasVariants) toggleExpand(item.id); }}>
                         {hasVariants ? (
