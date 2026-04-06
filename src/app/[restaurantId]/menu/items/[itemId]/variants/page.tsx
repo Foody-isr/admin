@@ -188,6 +188,8 @@ export default function VariantsEditorPage() {
                   price: parseFloat(row.price) || 0,
                   online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
                   sku: row.sku,
+                  portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
+                  portion_size_unit: row.portionSizeUnit || 'g',
                   is_active: row.isActive,
                 });
               }
@@ -201,6 +203,8 @@ export default function VariantsEditorPage() {
                 price: parseFloat(row.price) || 0,
                 online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
                 sku: row.sku,
+                portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
+                portion_size_unit: row.portionSizeUnit || 'g',
                 is_active: row.isActive,
               });
             }

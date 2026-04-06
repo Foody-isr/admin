@@ -5,11 +5,12 @@ import { useParams } from 'next/navigation';
 import {
   getAllCategories, listStockItems, listPrepItems,
   getMenuItemIngredients, setMenuItemIngredients,
+  getItemOptionPrices,
   updateStockItem,
   importRecipesFromFile, importRecipesFromText, confirmRecipes,
   setRecipeYield,
   MenuCategory, MenuItem, MenuItemIngredient, IngredientInput,
-  StockItem, PrepItem, StockItemInput,
+  StockItem, PrepItem, StockItemInput, ItemOptionOverride,
   RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
 } from '@/lib/api';
 import {
@@ -45,6 +46,7 @@ export default function FoodCostPage() {
   const [yieldUnit, setYieldUnit] = useState('kg');
   const [editingStockItem, setEditingStockItem] = useState<StockItem | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>(''); // '' = full recipe or default
+  const [optionOverrides, setOptionOverrides] = useState<ItemOptionOverride[]>([]);
 
   const reload = useCallback(async () => {
     try {
@@ -67,12 +69,18 @@ export default function FoodCostPage() {
   const selectItem = async (item: MenuItem) => {
     setSelectedItem(item);
     setEditing(false);
+    setSelectedVariantId('');
     setLoadingIngredients(true);
     try {
-      const ings = await getMenuItemIngredients(rid, item.id);
+      const [ings, overrides] = await Promise.all([
+        getMenuItemIngredients(rid, item.id),
+        getItemOptionPrices(rid, item.id).catch(() => [] as ItemOptionOverride[]),
+      ]);
       setIngredients(ings);
+      setOptionOverrides(overrides);
     } catch {
       setIngredients([]);
+      setOptionOverrides([]);
     } finally {
       setLoadingIngredients(false);
     }
@@ -147,10 +155,38 @@ export default function FoodCostPage() {
 
   const totalRecipeCost = ingredients.reduce((sum, ing) => sum + calcLineCost(ing), 0);
 
-  // Build variant options for the selector
-  const allVariants = selectedItem
-    ? (selectedItem.variant_groups ?? []).flatMap(g => g.variants ?? []).filter(v => v.is_active)
-    : [];
+  // Build variant options for the selector — merge option set options with overrides
+  type VariantOption = { id: string; name: string; price: number; portion_size: number; portion_size_unit: string };
+  const allVariants: VariantOption[] = [];
+  if (selectedItem) {
+    // From option sets (primary variant system)
+    for (const os of selectedItem.option_sets ?? []) {
+      for (const opt of os.options ?? []) {
+        if (!opt.is_active) continue;
+        const override = optionOverrides.find(o => o.option_id === opt.id);
+        allVariants.push({
+          id: `opt:${opt.id}`,
+          name: opt.name,
+          price: override?.price ?? opt.price,
+          portion_size: override?.portion_size ?? 0,
+          portion_size_unit: override?.portion_size_unit ?? 'g',
+        });
+      }
+    }
+    // From variant groups (legacy system)
+    for (const g of selectedItem.variant_groups ?? []) {
+      for (const v of g.variants ?? []) {
+        if (!v.is_active) continue;
+        allVariants.push({
+          id: `var:${v.id}`,
+          name: v.name,
+          price: v.price,
+          portion_size: v.portion_size ?? 0,
+          portion_size_unit: v.portion_size_unit ?? 'g',
+        });
+      }
+    }
+  }
   const hasYield = (selectedItem?.recipe_yield ?? 0) > 0;
   const yieldBaseUnit = hasYield ? toBaseUnit(selectedItem!.recipe_yield!, selectedItem!.recipe_yield_unit || 'kg') : 0;
 
