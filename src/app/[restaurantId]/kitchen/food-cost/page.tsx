@@ -182,6 +182,21 @@ export default function FoodCostPage() {
     }
   };
 
+  const handleRemoveRecipe = async () => {
+    if (!selectedItem) return;
+    if (!confirm(t('removeRecipeConfirm'))) return;
+    try {
+      await setMenuItemIngredients(rid, selectedItem.id, []);
+      if ((selectedItem.recipe_yield ?? 0) > 0) {
+        await setRecipeYield(rid, selectedItem.id, 0, '');
+        setSelectedItem({ ...selectedItem, recipe_yield: 0, recipe_yield_unit: '' });
+      }
+      setIngredients([]);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -324,6 +339,11 @@ export default function FoodCostPage() {
                     <SparklesIcon className="w-4 h-4" /> {t('importRecipe')}
                   </button>
                   <button onClick={startEditing} className="btn-secondary text-sm">{t('editIngredients').replace('{name}', '').replace(/[:\s]+$/, '')}</button>
+                  {ingredients.length > 0 && (
+                    <button onClick={handleRemoveRecipe} className="text-sm px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 

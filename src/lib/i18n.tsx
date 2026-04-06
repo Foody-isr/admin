@@ -722,6 +722,7 @@ const translations: Record<Locale, Record<string, string>> = {
     contentPerUnit: 'Content per unit',
     contentUnit: 'Content unit',
     unitMismatchWarning: 'Unit mismatch: recipe uses {ingUnit} but stock is per {stockUnit}. Set content per unit on the stock item.',
+    removeRecipeConfirm: 'Remove all ingredients and recipe yield for this item?',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -1671,6 +1672,7 @@ const translations: Record<Locale, Record<string, string>> = {
     contentPerUnit: 'תכולה ליחידה',
     contentUnit: 'יחידת תכולה',
     unitMismatchWarning: 'אי-התאמת יחידות: המתכון ב-{ingUnit} אבל המלאי ב-{stockUnit}. הגדר תכולה ליחידה בפריט המלאי.',
+    removeRecipeConfirm: 'להסיר את כל המרכיבים ותפוקת המתכון מפריט זה?',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -2619,6 +2621,7 @@ const translations: Record<Locale, Record<string, string>> = {
     contentPerUnit: 'Contenu par unité',
     contentUnit: 'Unité de contenu',
     unitMismatchWarning: "Unités incompatibles : la recette utilise {ingUnit} mais le stock est en {stockUnit}. Définissez le contenu par unité sur l'article de stock.",
+    removeRecipeConfirm: 'Supprimer tous les ingrédients et le rendement de la recette pour cet article ?',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',
