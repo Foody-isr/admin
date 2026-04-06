@@ -710,6 +710,8 @@ const translations: Record<Locale, Record<string, string>> = {
     portionSize: 'Portion',
     packs: 'Packs',
     totalPrice: 'Total',
+    existing: 'Existing',
+    stockReceives: 'Stock receives',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -1647,6 +1649,8 @@ const translations: Record<Locale, Record<string, string>> = {
     portionSize: 'מנה',
     packs: 'חבילות',
     totalPrice: 'סה"כ',
+    existing: 'קיים',
+    stockReceives: 'המלאי מקבל',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -2583,6 +2587,8 @@ const translations: Record<Locale, Record<string, string>> = {
     portionSize: 'Portion',
     packs: 'Paquets',
     totalPrice: 'Total',
+    existing: 'Existant',
+    stockReceives: 'Stock reçoit',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',

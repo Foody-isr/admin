@@ -259,6 +259,7 @@ export default function StockPage() {
       {importModal && (
         <DeliveryImportModal
           rid={rid}
+          stockItems={items}
           onClose={() => setImportModal(false)}
           onImported={reload}
         />
@@ -475,9 +476,10 @@ function TransactionModal({
 // ─── AI Delivery Import Modal ───────────────────────────────────────────────
 
 function DeliveryImportModal({
-  rid, onClose, onImported,
+  rid, stockItems, onClose, onImported,
 }: {
   rid: number;
+  stockItems: StockItem[];
   onClose: () => void;
   onImported: () => void;
 }) {
@@ -534,6 +536,9 @@ function DeliveryImportModal({
     setEditedItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
   };
 
+  // Get unique categories from existing stock items for the category dropdown
+  const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="rounded-modal shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
@@ -573,49 +578,96 @@ function DeliveryImportModal({
 
             <div className="space-y-3 max-h-[50vh] overflow-y-auto">
               {editedItems.map((item, idx) => {
-                const totalQty = (item.pack_count ?? item.quantity) * 1; // unit_size is baked into quantity from AI
-                const totalPr = item.total_price ?? 0;
-                const costPerUnit = totalQty > 0 && totalPr > 0 ? totalPr / item.quantity : item.cost_per_unit;
+                const isExisting = !!item.stock_item_id;
+                const matchedStock = isExisting ? stockItems.find((s) => s.id === item.stock_item_id) : null;
                 return (
                   <div key={idx} className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
+                    {/* Row 1: Name + stock item match */}
                     <div className="flex items-center gap-2">
-                      <input className="input flex-1 py-1.5 text-sm font-medium" value={item.name} onChange={(e) => updateItem(idx, { name: e.target.value })} />
-                      <input className="input w-20 py-1.5 text-xs" value={item.category} onChange={(e) => updateItem(idx, { category: e.target.value })} placeholder={t('category')} />
+                      <select
+                        className="input flex-1 py-1.5 text-sm font-medium"
+                        value={item.stock_item_id ? String(item.stock_item_id) : ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            const si = stockItems.find((s) => s.id === +val);
+                            if (si) updateItem(idx, { stock_item_id: si.id, name: si.name, unit: si.unit, category: si.category });
+                          } else {
+                            updateItem(idx, { stock_item_id: undefined });
+                          }
+                        }}
+                      >
+                        <option value="">{item.name} ({t('newItem')})</option>
+                        {stockItems.map((s) => (
+                          <option key={s.id} value={String(s.id)}>{s.name} ({s.unit})</option>
+                        ))}
+                      </select>
+                      <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${isExisting ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                        {isExisting ? t('existing') : t('new')}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <label className="text-xs text-fg-secondary w-12">{t('packs')}:</label>
-                      <input type="number" step="any" min="0" className="input w-16 py-1 text-sm text-right"
+
+                    {/* Row 2: Category (only for new items) */}
+                    {!isExisting && (
+                      <div className="flex items-center gap-2">
+                        <select className="input w-40 py-1 text-xs" value={item.category}
+                          onChange={(e) => updateItem(idx, { category: e.target.value })}>
+                          <option value="">{t('category')}</option>
+                          {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                          {item.category && !existingCategories.includes(item.category) && (
+                            <option value={item.category}>{item.category}</option>
+                          )}
+                        </select>
+                        {!isExisting && (
+                          <input className="input flex-1 py-1 text-xs" value={item.name}
+                            onChange={(e) => updateItem(idx, { name: e.target.value })}
+                            placeholder={t('name')} />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Row 3: Packs × Price/pack = Total */}
+                    <div className="flex items-center gap-1.5 text-sm flex-wrap">
+                      <label className="text-xs text-fg-secondary">{t('packs')}:</label>
+                      <input type="number" step="any" min="0" className="input w-14 py-1 text-sm text-right"
                         value={item.pack_count ?? ''} onChange={(e) => {
                           const packs = +e.target.value;
-                          const qty = packs > 0 ? packs : item.quantity;
-                          const tp = item.price_per_pack ? packs * item.price_per_pack : item.total_price;
-                          const cpu = qty > 0 && (tp ?? 0) > 0 ? (tp ?? 0) / qty : item.cost_per_unit;
-                          updateItem(idx, { pack_count: packs, quantity: qty, total_price: tp, cost_per_unit: cpu });
+                          const ppk = item.price_per_pack ?? 0;
+                          const tp = packs * ppk;
+                          const qty = item.quantity;
+                          const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
+                          updateItem(idx, { pack_count: packs, total_price: tp || item.total_price, cost_per_unit: cpu || item.cost_per_unit });
                         }} />
                       <span className="text-fg-secondary text-xs">&times;</span>
                       <input type="number" step="any" min="0" className="input w-16 py-1 text-sm text-right"
-                        value={item.quantity} onChange={(e) => {
-                          const qty = +e.target.value;
-                          const tp = item.total_price ?? 0;
-                          const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
-                          updateItem(idx, { quantity: qty, cost_per_unit: cpu });
+                        value={item.price_per_pack ?? ''} onChange={(e) => {
+                          const ppk = +e.target.value;
+                          const packs = item.pack_count ?? 1;
+                          const tp = packs * ppk;
+                          const qty = item.quantity;
+                          const cpu = qty > 0 && tp > 0 ? tp / qty : 0;
+                          updateItem(idx, { price_per_pack: ppk, total_price: tp, cost_per_unit: cpu });
                         }} />
-                      <input className="input w-12 py-1 text-xs" value={item.unit} onChange={(e) => updateItem(idx, { unit: e.target.value })} />
-                      <span className="text-fg-secondary text-xs mx-1">|</span>
+                      <span className="text-xs text-fg-secondary">&#8362;</span>
+                      <span className="text-xs text-fg-secondary">({item.quantity} {item.unit})</span>
+                      <span className="text-fg-secondary text-xs">=</span>
                       <label className="text-xs text-fg-secondary">{t('totalPrice')}:</label>
                       <input type="number" step="any" min="0" className="input w-20 py-1 text-sm text-right"
                         value={item.total_price ?? ''} onChange={(e) => {
                           const tp = +e.target.value;
-                          const qty = item.quantity || 1;
+                          const packs = item.pack_count ?? 1;
+                          const ppk = packs > 0 ? tp / packs : 0;
+                          const qty = item.quantity;
                           const cpu = qty > 0 ? tp / qty : 0;
-                          const ppk = (item.pack_count ?? 0) > 0 ? tp / item.pack_count! : 0;
-                          updateItem(idx, { total_price: tp, cost_per_unit: cpu, price_per_pack: ppk });
+                          updateItem(idx, { total_price: tp, price_per_pack: ppk, cost_per_unit: cpu });
                         }} />
                       <span className="text-xs text-fg-secondary">&#8362;</span>
                     </div>
+
+                    {/* Row 4: Stock summary */}
                     {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
-                      <p className="text-xs text-fg-secondary pl-14">
-                        = {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
+                      <p className="text-xs text-fg-secondary">
+                        &rarr; {t('stockReceives')}: {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
                       </p>
                     )}
                   </div>

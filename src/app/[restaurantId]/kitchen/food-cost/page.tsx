@@ -666,37 +666,54 @@ function RecipeImportModal({
             {/* Ingredients table */}
             <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('ingredients')} ({editedIngredients.length})</div>
             <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-              {editedIngredients.map((ing, idx) => (
-                <div key={idx} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-                  <select
-                    className="input flex-1 py-1.5 text-sm"
-                    value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const updated = [...editedIngredients];
-                      updated[idx] = { ...ing, stock_item_id: val ? +val : null, is_new: !val };
-                      setEditedIngredients(updated);
-                    }}
-                  >
-                    <option value="">{ing.name} ({t('newItem')})</option>
-                    {stockItems.map((s) => <option key={s.id} value={String(s.id)}>{s.name} ({s.unit})</option>)}
-                  </select>
-                  <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-right"
-                    value={ing.quantity_needed || ''} onChange={(e) => {
-                      const updated = [...editedIngredients];
-                      updated[idx] = { ...ing, quantity_needed: +e.target.value };
-                      setEditedIngredients(updated);
-                    }} />
-                  <span className="text-xs text-fg-secondary w-8">{ing.unit}</span>
-                  {ing.is_new && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">{t('new')}</span>
-                  )}
-                  <button onClick={() => setEditedIngredients(editedIngredients.filter((_, i) => i !== idx))}
-                    className="p-1 text-red-400 hover:text-red-300">
-                    <TrashIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+              {editedIngredients.map((ing, idx) => {
+                const matched = ing.stock_item_id ? stockItems.find((s) => s.id === ing.stock_item_id) : null;
+                return (
+                  <div key={idx} className="p-2.5 rounded-lg space-y-1.5" style={{ background: 'var(--surface-subtle)' }}>
+                    {/* Row 1: Name + badge */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-fg-primary">{ing.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${matched ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                          {matched ? t('existing') : t('new')}
+                        </span>
+                        <button onClick={() => setEditedIngredients(editedIngredients.filter((_, i) => i !== idx))}
+                          className="p-1 text-red-400 hover:text-red-300">
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Row 2: Stock match dropdown + qty + unit */}
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="input flex-1 py-1 text-xs"
+                        value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const updated = [...editedIngredients];
+                          if (val) {
+                            const si = stockItems.find((s) => s.id === +val);
+                            updated[idx] = { ...ing, stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit };
+                          } else {
+                            updated[idx] = { ...ing, stock_item_id: null, is_new: true };
+                          }
+                          setEditedIngredients(updated);
+                        }}
+                      >
+                        <option value="">-- {t('newItem')}: {ing.name} --</option>
+                        {stockItems.map((s) => <option key={s.id} value={String(s.id)}>{s.name} ({s.unit})</option>)}
+                      </select>
+                      <input type="number" step="any" min="0" className="input w-20 py-1 text-sm text-right"
+                        value={ing.quantity_needed || ''} onChange={(e) => {
+                          const updated = [...editedIngredients];
+                          updated[idx] = { ...ing, quantity_needed: +e.target.value };
+                          setEditedIngredients(updated);
+                        }} />
+                      <span className="text-xs text-fg-secondary w-8">{ing.unit}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
