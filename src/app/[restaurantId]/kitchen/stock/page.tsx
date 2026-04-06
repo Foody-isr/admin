@@ -384,7 +384,7 @@ function StockItemModal({
     category: editing?.category ?? '',
     notes: editing?.notes ?? '',
     unit_content: editing?.unit_content ?? 0,
-    unit_content_unit: editing?.unit_content_unit ?? '',
+    unit_content_unit: editing?.unit_content_unit || 'g',
     is_active: editing?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
@@ -433,14 +433,13 @@ function StockItemModal({
             <div>
               <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
               <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
-                value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value })}
+                value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
                 placeholder="400" />
             </div>
             <div>
               <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
-              <select className="input w-full py-2 text-sm" value={form.unit_content_unit || ''}
+              <select className="input w-full py-2 text-sm" value={form.unit_content_unit || 'g'}
                 onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
-                <option value="">—</option>
                 <option value="g">g</option><option value="kg">kg</option>
                 <option value="ml">ml</option><option value="l">l</option>
               </select>
