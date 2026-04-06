@@ -312,7 +312,7 @@ export default function ItemLibraryPage() {
                       className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)]"
                       onClick={() => hasVariants ? toggleExpand(item.id) : router.push(`/${rid}/menu/items/${item.id}`)}
                     >
-                      <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3.5 px-2" onClick={(e) => { e.stopPropagation(); if (hasVariants) toggleExpand(item.id); }}>
                         {hasVariants ? (
                           <button className="w-5 h-5 flex items-center justify-center text-fg-tertiary">
                             {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
