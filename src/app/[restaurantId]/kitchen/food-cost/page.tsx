@@ -425,18 +425,32 @@ export default function FoodCostPage() {
                 </div>
               </div>
 
-              {/* Variant/portion selector */}
+              {/* Variant/portion pills */}
               {hasYield && allVariants.filter(v => (v.portion_size ?? 0) > 0).length > 0 ? (
-                <div className="mb-4">
-                  <select className="input py-1.5 text-sm w-full max-w-xs" value={selectedVariantId || (allVariants.find(v => (v.portion_size ?? 0) > 0)?.id ? String(allVariants.find(v => (v.portion_size ?? 0) > 0)!.id) : 'full')}
-                    onChange={(e) => setSelectedVariantId(e.target.value)}>
-                    {allVariants.filter(v => (v.portion_size ?? 0) > 0).map((v) => (
-                      <option key={v.id} value={String(v.id)}>
-                        {v.name} ({v.portion_size}{v.portion_size_unit || 'g'}) — {v.price.toFixed(2)} ₪
-                      </option>
-                    ))}
-                    <option value="full">{t('fullRecipe')} ({selectedItem.recipe_yield}{selectedItem.recipe_yield_unit})</option>
-                  </select>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {allVariants.filter(v => (v.portion_size ?? 0) > 0).map((v) => {
+                    const isActive = (selectedVariantId || String(allVariants.find(vv => (vv.portion_size ?? 0) > 0)?.id ?? 'full')) === String(v.id);
+                    return (
+                      <button key={v.id} type="button" onClick={() => setSelectedVariantId(String(v.id))}
+                        className={`flex flex-col items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-brand-500 text-white'
+                            : 'bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary hover:bg-[var(--divider)]'
+                        }`}>
+                        <span>{v.name} ({v.portion_size}{v.portion_size_unit || 'g'})</span>
+                        <span className={`text-xs ${isActive ? 'text-white/80' : 'text-fg-tertiary'}`}>{v.price.toFixed(2)} &#8362;</span>
+                      </button>
+                    );
+                  })}
+                  <button type="button" onClick={() => setSelectedVariantId('full')}
+                    className={`flex flex-col items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      selectedVariantId === 'full'
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary hover:bg-[var(--divider)]'
+                    }`}>
+                    <span>{t('fullRecipe')}</span>
+                    <span className={`text-xs ${selectedVariantId === 'full' ? 'text-white/80' : 'text-fg-tertiary'}`}>{selectedItem.recipe_yield} {selectedItem.recipe_yield_unit}</span>
+                  </button>
                 </div>
               ) : (
                 <p className="text-sm text-fg-secondary mb-4">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
