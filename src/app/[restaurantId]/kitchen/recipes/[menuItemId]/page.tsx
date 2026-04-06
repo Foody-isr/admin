@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getRecipeDetail, setRecipeSteps, updateRecipeMeta,
-  RecipeDetail, RecipeStep, RecipeStepInput, MenuItemIngredient,
+  RecipeDetail, RecipeStepInput,
 } from '@/lib/api';
 import {
   ArrowLeftIcon,
@@ -111,19 +111,6 @@ export default function RecipeDetailPage() {
     setEditSteps(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
-  // Compute ingredient cost
-  const computeIngredientCost = (ing: MenuItemIngredient): number => {
-    if (ing.stock_item) return ing.quantity_needed * ing.stock_item.cost_per_unit;
-    if (ing.prep_item) {
-      // PrepItem has computed cost_per_unit in JSON
-      const costPerUnit = (ing.prep_item as unknown as { cost_per_unit: number }).cost_per_unit || 0;
-      return ing.quantity_needed * costPerUnit;
-    }
-    return 0;
-  };
-
-  const totalCost = detail?.ingredients.reduce((sum, ing) => sum + computeIngredientCost(ing), 0) ?? 0;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -219,12 +206,15 @@ export default function RecipeDetailPage() {
                     {item.recipe_yield ? `${item.recipe_yield} ${item.recipe_yield_unit}` : '—'}
                   </div>
                 </div>
-                <div className="bg-bg-secondary rounded-lg p-3 col-span-2">
+                <button
+                  onClick={() => router.push(`/${rid}/kitchen/food-cost`)}
+                  className="bg-bg-secondary rounded-lg p-3 col-span-2 text-left hover:bg-bg-tertiary transition-colors group"
+                >
                   <div className="text-[10px] uppercase tracking-wide text-fg-secondary font-medium">{t('recipeCost')}</div>
-                  <div className="text-lg font-semibold text-fg-primary mt-0.5">
-                    {totalCost > 0 ? `${totalCost.toFixed(2)} \u20AA` : '—'}
+                  <div className="text-sm font-medium text-brand mt-0.5 group-hover:underline">
+                    {t('viewFoodCost')} &rarr;
                   </div>
-                </div>
+                </button>
               </div>
             </div>
           </div>
@@ -241,18 +231,12 @@ export default function RecipeDetailPage() {
                 {ingredients.map(ing => {
                   const name = ing.stock_item?.name || ing.prep_item?.name || '—';
                   const unit = ing.unit || ing.stock_item?.unit || '';
-                  const cost = computeIngredientCost(ing);
                   return (
-                    <div key={ing.id} className="px-5 py-3 flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-fg-primary">{name}</div>
-                        <div className="text-xs text-fg-secondary">
-                          {ing.quantity_needed} {unit}
-                          {ing.prep_item && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">PREP</span>}
-                        </div>
-                      </div>
-                      <div className="text-sm text-fg-secondary">
-                        {cost > 0 ? `${cost.toFixed(2)} \u20AA` : '—'}
+                    <div key={ing.id} className="px-5 py-3">
+                      <div className="text-sm font-medium text-fg-primary">{name}</div>
+                      <div className="text-xs text-fg-secondary">
+                        {ing.quantity_needed} {unit}
+                        {ing.prep_item && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-medium">PREP</span>}
                       </div>
                     </div>
                   );

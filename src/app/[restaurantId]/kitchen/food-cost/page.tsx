@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, listStockItems, listPrepItems,
   getMenuItemIngredients, setMenuItemIngredients,
@@ -26,6 +26,7 @@ const COST_THRESHOLD = 0.35; // 35% food cost warning
 export default function FoodCostPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
   const { t, locale } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -413,6 +414,9 @@ export default function FoodCostPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-fg-primary text-lg">{selectedItem.name}</h3>
                 <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={() => router.push(`/${rid}/kitchen/recipes/${selectedItem.id}`)} className="btn-secondary text-sm flex items-center gap-1.5">
+                    {t('viewRecipe')}
+                  </button>
                   <button onClick={() => setShowImportModal(true)} className="btn-secondary text-sm flex items-center gap-1.5">
                     <SparklesIcon className="w-4 h-4" /> {t('importRecipe')}
                   </button>
