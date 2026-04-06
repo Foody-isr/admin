@@ -121,7 +121,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           labelKey: 'stockGroup',
           items: [
             { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
-            { href: `${base}/kitchen/prep`, labelKey: 'recipesAndPrep', badge: lowPrepCount },
+            { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
+            { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
             { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
             { href: `${base}/kitchen/suppliers`, labelKey: 'suppliers' },
           ],

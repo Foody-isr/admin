@@ -251,6 +251,9 @@ export interface MenuItem {
   variant_groups?: ItemVariantGroup[];
   option_sets?: OptionSet[];
   combo_steps?: ComboStep[];
+  prep_time_mins?: number;
+  recipe_notes?: string;
+  recipe_steps?: RecipeStep[];
 }
 
 export interface OrderItemModifier {
@@ -2944,4 +2947,95 @@ export interface OpeningHoursConfig {
   dine_in?: WeeklyHours;
   pickup?: WeeklyHours;
   delivery?: WeeklyHours;
+}
+
+// ─── Recipe Steps (Cooking Instructions) ─────────────────────────────────────
+
+export interface RecipeStep {
+  id: number;
+  menu_item_id: number;
+  step_number: number;
+  instruction: string;
+  image_url: string;
+  duration_mins: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeStepInput {
+  step_number: number;
+  instruction: string;
+  image_url?: string;
+  duration_mins?: number;
+}
+
+export interface RecipeCardItem {
+  id: number;
+  name: string;
+  category_name: string;
+  image_url: string;
+  price: number;
+  recipe_yield: number;
+  recipe_yield_unit: string;
+  prep_time_mins: number;
+  has_steps: boolean;
+  step_count: number;
+  has_ingredients: boolean;
+  ingredient_count: number;
+}
+
+export interface RecipeDetail {
+  item: MenuItem;
+  ingredients: MenuItemIngredient[];
+  steps: RecipeStep[];
+  category_name: string;
+}
+
+export async function listRecipeItems(restaurantId: number): Promise<RecipeCardItem[]> {
+  const res = await apiFetch<{ items: RecipeCardItem[] }>('/api/v1/recipes/items', restaurantId);
+  return res.items;
+}
+
+export async function getRecipeDetail(restaurantId: number, menuItemId: number): Promise<RecipeDetail> {
+  return apiFetch<RecipeDetail>(`/api/v1/recipes/items/${menuItemId}`, restaurantId);
+}
+
+export async function getRecipeSteps(restaurantId: number, menuItemId: number): Promise<RecipeStep[]> {
+  const res = await apiFetch<{ steps: RecipeStep[] }>(`/api/v1/recipes/items/${menuItemId}/steps`, restaurantId);
+  return res.steps;
+}
+
+export async function setRecipeSteps(restaurantId: number, menuItemId: number, steps: RecipeStepInput[]): Promise<RecipeStep[]> {
+  const res = await apiFetch<{ steps: RecipeStep[] }>(`/api/v1/recipes/items/${menuItemId}/steps`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ steps }),
+  });
+  return res.steps;
+}
+
+export async function updateRecipeMeta(restaurantId: number, menuItemId: number, meta: { prep_time_mins: number; recipe_notes: string }): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/recipes/items/${menuItemId}/meta`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(meta),
+  });
+}
+
+export async function uploadRecipeStepImage(restaurantId: number, menuItemId: number, stepId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/recipes/items/${menuItemId}/steps/${stepId}/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
 }
