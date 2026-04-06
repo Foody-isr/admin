@@ -351,44 +351,48 @@ export default function FoodCostPage() {
             <p className="text-sm text-fg-secondary">{t('linkIngredients')}</p>
 
             {editIngredients.map((ing, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <SearchableSelect
-                  className="flex-1"
-                  value={ing.stock_item_id ? `stock:${ing.stock_item_id}` : ing.prep_item_id ? `prep:${ing.prep_item_id}` : ''}
-                  onChange={(val) => {
-                    if (val.startsWith('stock:')) {
-                      const si = stockItems.find(s => s.id === +val.split(':')[1]);
-                      updateEditIngredient(idx, { stock_item_id: +val.split(':')[1], prep_item_id: undefined, unit: si?.unit || ing.unit });
-                    } else if (val.startsWith('prep:')) {
-                      const pi = prepItems.find(p => p.id === +val.split(':')[1]);
-                      updateEditIngredient(idx, { prep_item_id: +val.split(':')[1], stock_item_id: undefined, unit: pi?.unit || ing.unit });
-                    }
-                  }}
-                  options={[
-                    ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
-                    ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
-                  ]}
-                  placeholder={t('selectIngredient')}
-                />
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  className="input w-24 py-2 text-sm text-right flex-shrink-0"
-                  value={ing.quantity_needed || ''}
-                  onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
-                  placeholder={t('qty')}
-                />
-                <select className="input w-16 py-2 text-xs flex-shrink-0" value={ing.unit || ''}
-                  onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
-                  <option value="">—</option>
-                  <option value="g">g</option><option value="kg">kg</option>
-                  <option value="ml">ml</option><option value="l">l</option>
-                  <option value="unit">unit</option>
-                </select>
-                <button onClick={() => removeEditIngredient(idx)} className="p-1 text-red-400 hover:text-red-300 flex-shrink-0">
-                  <TrashIcon className="w-4 h-4" />
-                </button>
+              <div key={idx} className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
+                {/* Row 1: Stock item selector + delete */}
+                <div className="flex items-center gap-2">
+                  <SearchableSelect
+                    className="flex-1"
+                    value={ing.stock_item_id ? `stock:${ing.stock_item_id}` : ing.prep_item_id ? `prep:${ing.prep_item_id}` : ''}
+                    onChange={(val) => {
+                      if (val.startsWith('stock:')) {
+                        const si = stockItems.find(s => s.id === +val.split(':')[1]);
+                        updateEditIngredient(idx, { stock_item_id: +val.split(':')[1], prep_item_id: undefined, unit: si?.unit || ing.unit });
+                      } else if (val.startsWith('prep:')) {
+                        const pi = prepItems.find(p => p.id === +val.split(':')[1]);
+                        updateEditIngredient(idx, { prep_item_id: +val.split(':')[1], stock_item_id: undefined, unit: pi?.unit || ing.unit });
+                      }
+                    }}
+                    options={[
+                      ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
+                      ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
+                    ]}
+                    placeholder={t('selectIngredient')}
+                  />
+                  <button onClick={() => removeEditIngredient(idx)} className="p-1.5 text-red-400 hover:text-red-300 flex-shrink-0">
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                {/* Row 2: Quantity + unit */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" step="any" min="0"
+                    className="input w-24 py-1.5 text-sm text-right"
+                    value={ing.quantity_needed || ''}
+                    onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
+                    placeholder={t('qty')}
+                  />
+                  <select className="input w-20 py-1.5 text-sm" value={ing.unit || ''}
+                    onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
+                    <option value="">—</option>
+                    <option value="g">g</option><option value="kg">kg</option>
+                    <option value="ml">ml</option><option value="l">l</option>
+                    <option value="unit">unit</option>
+                  </select>
+                </div>
               </div>
             ))}
 
