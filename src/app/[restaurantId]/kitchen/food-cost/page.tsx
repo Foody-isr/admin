@@ -564,51 +564,93 @@ export default function FoodCostPage() {
               )}
             </div>
 
-            {/* Recipe Yield */}
-            {ingredients.length > 0 && (
-              <div className="card p-4">
-                <div className="flex items-center justify-between">
+            {/* Recipe Type & Yield */}
+            {ingredients.length > 0 && (() => {
+              const isPerItem = selectedItem.recipe_yield_unit === 'unit' && (selectedItem.recipe_yield ?? 0) === 1;
+              const isBulk = (selectedItem.recipe_yield ?? 0) > 0 && selectedItem.recipe_yield_unit !== 'unit';
+              return (
+                <div className="card p-4 space-y-3">
+                  {/* Recipe type toggle */}
                   <div>
-                    <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1">{t('recipeYield')}</p>
-                    {(selectedItem.recipe_yield ?? 0) > 0 ? (
-                      <p className="text-sm font-medium text-fg-primary">
-                        {selectedItem.recipe_yield} {selectedItem.recipe_yield_unit}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-fg-secondary">{t('yieldNotSet')}</p>
-                    )}
-                  </div>
-                  {editingYield ? (
-                    <div className="flex items-center gap-2">
-                      <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-right"
-                        value={yieldValue || ''} onChange={(e) => setYieldValue(+e.target.value)} />
-                      <select className="input w-20 py-1.5 text-sm" value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)}>
-                        <option value="kg">kg</option><option value="g">g</option>
-                        <option value="l">l</option><option value="ml">ml</option>
-                        <option value="unit">unit</option>
-                      </select>
-                      <button className="btn-primary text-xs py-1.5 px-3" onClick={async () => {
-                        if (yieldValue > 0) {
-                          await setRecipeYield(rid, selectedItem.id, yieldValue, yieldUnit);
-                          setSelectedItem({ ...selectedItem, recipe_yield: yieldValue, recipe_yield_unit: yieldUnit });
-                        }
-                        setEditingYield(false);
-                      }}>{t('save')}</button>
-                      <button className="btn-secondary text-xs py-1.5 px-3" onClick={() => setEditingYield(false)}>{t('cancel')}</button>
+                    <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-2">{t('recipeType')}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          await setRecipeYield(rid, selectedItem.id, 1, 'unit');
+                          setSelectedItem({ ...selectedItem, recipe_yield: 1, recipe_yield_unit: 'unit' });
+                          setEditingYield(false);
+                        }}
+                        className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
+                          isPerItem ? 'border-brand bg-brand/5' : 'border-border hover:border-fg-secondary/30'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-fg-primary">{t('perItemRecipe')}</p>
+                        <p className="text-[11px] text-fg-secondary mt-0.5">{t('perItemRecipeDesc')}</p>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (isPerItem) {
+                            // Switching from per-item to bulk: reset yield so user can set it
+                            setYieldValue(0);
+                            setYieldUnit('kg');
+                            setEditingYield(true);
+                          }
+                        }}
+                        className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
+                          isBulk ? 'border-brand bg-brand/5' : 'border-border hover:border-fg-secondary/30'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-fg-primary">{t('bulkRecipe')}</p>
+                        <p className="text-[11px] text-fg-secondary mt-0.5">{t('bulkRecipeDesc')}</p>
+                      </button>
                     </div>
-                  ) : (
-                    <button className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
-                      onClick={() => {
-                        setYieldValue(selectedItem.recipe_yield ?? 0);
-                        setYieldUnit(selectedItem.recipe_yield_unit || 'kg');
-                        setEditingYield(true);
-                      }}>
-                      <PencilIcon className="w-3.5 h-3.5" /> {(selectedItem.recipe_yield ?? 0) > 0 ? t('edit') : t('setRecipeYield')}
-                    </button>
+                  </div>
+
+                  {/* Yield editor — only for bulk recipes */}
+                  {!isPerItem && (
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1">{t('recipeYield')}</p>
+                        {isBulk ? (
+                          <p className="text-sm font-medium text-fg-primary">
+                            {selectedItem.recipe_yield} {selectedItem.recipe_yield_unit}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-fg-secondary">{t('yieldNotSet')}</p>
+                        )}
+                      </div>
+                      {editingYield ? (
+                        <div className="flex items-center gap-2">
+                          <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-right"
+                            value={yieldValue || ''} onChange={(e) => setYieldValue(+e.target.value)} />
+                          <select className="input w-20 py-1.5 text-sm" value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)}>
+                            <option value="kg">kg</option><option value="g">g</option>
+                            <option value="l">l</option><option value="ml">ml</option>
+                          </select>
+                          <button className="btn-primary text-xs py-1.5 px-3" onClick={async () => {
+                            if (yieldValue > 0) {
+                              await setRecipeYield(rid, selectedItem.id, yieldValue, yieldUnit);
+                              setSelectedItem({ ...selectedItem, recipe_yield: yieldValue, recipe_yield_unit: yieldUnit });
+                            }
+                            setEditingYield(false);
+                          }}>{t('save')}</button>
+                          <button className="btn-secondary text-xs py-1.5 px-3" onClick={() => setEditingYield(false)}>{t('cancel')}</button>
+                        </div>
+                      ) : (
+                        <button className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
+                          onClick={() => {
+                            setYieldValue(selectedItem.recipe_yield ?? 0);
+                            setYieldUnit(selectedItem.recipe_yield_unit || 'kg');
+                            setEditingYield(true);
+                          }}>
+                          <PencilIcon className="w-3.5 h-3.5" /> {isBulk ? t('edit') : t('setRecipeYield')}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Per-variant cost breakdown */}
             {ingredients.length > 0 && (selectedItem.recipe_yield ?? 0) > 0 && (() => {
