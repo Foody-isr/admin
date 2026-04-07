@@ -490,6 +490,7 @@ export interface StockTransaction {
   type: StockTransactionType;
   quantity_delta: number;
   notes: string;
+  batch_id: string;
   created_by_id: number;
   created_at: string;
   stock_item?: StockItem;
@@ -3038,4 +3039,28 @@ export async function uploadRecipeStepImage(restaurantId: number, menuItemId: nu
   }
   const data = await res.json();
   return data.image_url;
+}
+
+// ─── Supplies (Grouped Receive History) ──────────────────────────────────────
+
+export interface SupplySummary {
+  batch_id: string;
+  supplier_name: string;
+  item_count: number;
+  total_cost: number;
+  created_at: string;
+  created_by_id: number;
+}
+
+export async function listSupplies(restaurantId: number, supplier?: string): Promise<SupplySummary[]> {
+  const params = new URLSearchParams();
+  if (supplier) params.set('supplier', supplier);
+  const qs = params.toString();
+  const res = await apiFetch<{ supplies: SupplySummary[] }>(`/api/v1/stock/supplies${qs ? '?' + qs : ''}`, restaurantId);
+  return res.supplies;
+}
+
+export async function getSupplyDetail(restaurantId: number, batchId: string): Promise<StockTransaction[]> {
+  const res = await apiFetch<{ transactions: StockTransaction[] }>(`/api/v1/stock/supplies/${encodeURIComponent(batchId)}`, restaurantId);
+  return res.transactions;
 }

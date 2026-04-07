@@ -124,7 +124,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
             { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
             { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
-            { href: `${base}/kitchen/suppliers`, labelKey: 'suppliers' },
+            { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
           ],
         },
       ],

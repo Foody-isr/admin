@@ -567,6 +567,11 @@ const translations: Record<Locale, Record<string, string>> = {
     preparations: 'Preparations',
     foodCost: 'Food Cost',
     suppliers: 'Suppliers',
+    supplies: 'Supplies',
+    noSupplies: 'No supplies yet',
+    supplyFrom: 'From {name}',
+    supplyItems: '{count} items',
+    supplyTotal: 'Total',
 
     // ── Recipes Page ──
     recipeCards: 'Recipe Cards',
@@ -1567,6 +1572,11 @@ const translations: Record<Locale, Record<string, string>> = {
     preparations: 'הכנות',
     foodCost: 'עלות מזון',
     suppliers: 'ספקים',
+    supplies: 'אספקה',
+    noSupplies: 'אין אספקות עדיין',
+    supplyFrom: 'מ-{name}',
+    supplyItems: '{count} פריטים',
+    supplyTotal: 'סה״כ',
 
     // ── Recipes Page ──
     recipeCards: 'כרטיסי מתכונים',
@@ -2566,6 +2576,11 @@ const translations: Record<Locale, Record<string, string>> = {
     preparations: 'Préparations',
     foodCost: 'Coût alimentaire',
     suppliers: 'Fournisseurs',
+    supplies: 'Approvisionnements',
+    noSupplies: 'Aucun approvisionnement',
+    supplyFrom: 'De {name}',
+    supplyItems: '{count} articles',
+    supplyTotal: 'Total',
 
     // ── Recipes Page ──
     recipeCards: 'Fiches recettes',
