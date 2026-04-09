@@ -2649,7 +2649,7 @@ export async function generateEstimatedSupplies(restaurantId: number, reportId: 
     method: 'POST',
     body: JSON.stringify({ source }),
   });
-  return response.purchase_orders;
+  return response.purchase_orders ?? [];
 }
 
 // ─── Floor Plans & Table Sections ─────────────────────────────────────────────

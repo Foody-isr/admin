@@ -293,30 +293,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               </Link>
             </div>
 
-            {/* Sub-items (flat) */}
-            {activeSection.subItems && (
-              <nav className="px-3 py-1 space-y-0.5">
-                {activeSection.subItems.map((sub) => {
-                  const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
-                  return (
-                    <Link
-                      key={sub.href}
-                      href={sub.href}
-                      onClick={onClose}
-                      className={`sidebar-link ${isActive ? 'active' : ''}`}
-                    >
-                      <span className="flex-1">{t(sub.labelKey)}</span>
-                      {sub.badge !== undefined && sub.badge > 0 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
-                          {sub.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
-
             {/* Sub-groups (collapsible sections) */}
             {activeSection.subGroups && (
               <nav className="flex-1 px-3 py-1 space-y-1">
@@ -362,6 +338,30 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         </div>
                       )}
                     </div>
+                  );
+                })}
+              </nav>
+            )}
+
+            {/* Sub-items (flat) */}
+            {activeSection.subItems && (
+              <nav className="px-3 py-1 space-y-0.5">
+                {activeSection.subItems.map((sub) => {
+                  const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                  return (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      onClick={onClose}
+                      className={`sidebar-link ${isActive ? 'active' : ''}`}
+                    >
+                      <span className="flex-1">{t(sub.labelKey)}</span>
+                      {sub.badge !== undefined && sub.badge > 0 && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
+                          {sub.badge}
+                        </span>
+                      )}
+                    </Link>
                   );
                 })}
               </nav>
