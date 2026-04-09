@@ -1966,11 +1966,12 @@ export async function batchUpdateStockCategory(
 }
 
 export async function listStockTransactions(
-  restaurantId: number, params?: { stock_item_id?: number; limit?: number }
+  restaurantId: number, params?: { stock_item_id?: number; limit?: number; type?: string }
 ): Promise<StockTransaction[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.stock_item_id) qs.set('stock_item_id', String(params.stock_item_id));
   if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.type) qs.set('type', params.type);
   const data = await apiFetch<{ transactions: StockTransaction[] }>(`/api/v1/stock/transactions?${qs}`, restaurantId);
   return data.transactions ?? [];
 }
@@ -3063,4 +3064,175 @@ export async function listSupplies(restaurantId: number, supplier?: string): Pro
 export async function getSupplyDetail(restaurantId: number, batchId: string): Promise<StockTransaction[]> {
   const res = await apiFetch<{ transactions: StockTransaction[] }>(`/api/v1/stock/supplies/${encodeURIComponent(batchId)}`, restaurantId);
   return res.transactions;
+}
+
+// ─── Daily Food Cost Reports ──────────────────────────────────────────────────
+
+export interface DailyFoodCostReport {
+  id: number;
+  restaurant_id: number;
+  report_date: string;
+  status: 'open' | 'closed' | 'reviewed';
+  sales_source: string;
+  total_theoretical_cost: number;
+  total_actual_cost: number;
+  total_sales_revenue: number;
+  total_waste_value: number;
+  total_variance_value: number;
+  food_cost_percent: number;
+  went_well: string;
+  went_wrong: string;
+  to_improve: string;
+  closed_by_id: number | null;
+  closed_at: string | null;
+  created_by_id: number;
+  created_at: string;
+  updated_at: string;
+  items?: DailyFoodCostItem[];
+  sales?: DailySalesEntry[];
+}
+
+export interface DailyFoodCostItem {
+  id: number;
+  report_id: number;
+  stock_item_id: number | null;
+  prep_item_id: number | null;
+  item_name: string;
+  unit: string;
+  cost_per_unit: number;
+  opening_stock: number;
+  closing_stock: number;
+  received_qty: number;
+  waste_qty: number;
+  actual_usage: number;
+  theoretical_usage: number;
+  variance: number;
+  variance_percent: number;
+  variance_cost: number;
+  stock_item?: StockItem;
+}
+
+export interface DailySalesEntry {
+  id: number;
+  report_id: number;
+  menu_item_id: number;
+  menu_item_name: string;
+  quantity: number;
+  source: 'manual' | 'pos';
+}
+
+export interface IngredientBreakdown {
+  stock_item_id: number;
+  item_name: string;
+  unit: string;
+  contributions: IngredientContribution[];
+}
+
+export interface IngredientContribution {
+  menu_item_id: number;
+  menu_item_name: string;
+  qty_sold: number;
+  recipe_qty: number;
+  total_usage: number;
+}
+
+export interface FoodCostSummary {
+  period: string;
+  from: string;
+  to: string;
+  total_revenue: number;
+  total_actual_cost: number;
+  total_variance: number;
+  avg_food_cost_percent: number;
+  daily_breakdown: DailySummaryRow[];
+  top_variance_items: TopVarianceItem[];
+}
+
+export interface DailySummaryRow {
+  date: string;
+  revenue: number;
+  actual_cost: number;
+  theoretical_cost: number;
+  variance: number;
+  food_cost_percent: number;
+  status: string;
+}
+
+export interface TopVarianceItem {
+  stock_item_id: number;
+  item_name: string;
+  unit: string;
+  total_variance: number;
+  variance_cost: number;
+}
+
+export async function getTodayFoodCostReport(restaurantId: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>('/api/v1/stock/daily-reports/today', restaurantId);
+  return res.report;
+}
+
+export async function createFoodCostReport(restaurantId: number, reportDate: string, salesSource?: string): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>('/api/v1/stock/daily-reports', restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ report_date: reportDate, sales_source: salesSource || 'manual' }),
+  });
+  return res.report;
+}
+
+export async function listFoodCostReports(restaurantId: number, from?: string, to?: string): Promise<DailyFoodCostReport[]> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  const res = await apiFetch<{ reports: DailyFoodCostReport[] }>(`/api/v1/stock/daily-reports${qs ? '?' + qs : ''}`, restaurantId);
+  return res.reports;
+}
+
+export async function getFoodCostReport(restaurantId: number, id: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>(`/api/v1/stock/daily-reports/${id}`, restaurantId);
+  return res.report;
+}
+
+export async function upsertSalesEntries(restaurantId: number, reportId: number, entries: { menu_item_id: number; quantity: number }[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/sales`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ entries }),
+  });
+}
+
+export async function updateClosingStock(restaurantId: number, reportId: number, items: { stock_item_id?: number; prep_item_id?: number; quantity: number }[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/closing-stock`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ items }),
+  });
+}
+
+export async function computeFoodCostReport(restaurantId: number, reportId: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>(`/api/v1/stock/daily-reports/${reportId}/compute`, restaurantId, {
+    method: 'POST',
+  });
+  return res.report;
+}
+
+export async function updateRetrospective(restaurantId: number, reportId: number, input: { went_well: string; went_wrong: string; to_improve: string }): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/retrospective`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function closeFoodCostReport(restaurantId: number, reportId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/close`, restaurantId, {
+    method: 'POST',
+  });
+}
+
+export async function getFoodCostBreakdown(restaurantId: number, reportId: number, stockItemId: number): Promise<IngredientBreakdown> {
+  const res = await apiFetch<{ breakdown: IngredientBreakdown }>(`/api/v1/stock/daily-reports/${reportId}/breakdown?stock_item_id=${stockItemId}`, restaurantId);
+  return res.breakdown;
+}
+
+export async function getFoodCostSummary(restaurantId: number, period: string = 'week'): Promise<FoodCostSummary> {
+  const res = await apiFetch<{ summary: FoodCostSummary }>(`/api/v1/stock/food-cost-summary?period=${period}`, restaurantId);
+  return res.summary;
 }
