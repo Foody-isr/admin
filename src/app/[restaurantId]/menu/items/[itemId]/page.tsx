@@ -535,92 +535,115 @@ export default function EditItemPage() {
 
             {/* ── Stock Management ── */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />
-            <div className="space-y-4">
-              <h3 className="text-base font-bold text-fg-primary">{t('stockManagement')}</h3>
+            {(() => {
+              const isPerItem = recipeYieldUnit === 'unit' && recipeYieldValue === 1;
+              return (
+                <div className="space-y-4">
+                  <h3 className="text-base font-bold text-fg-primary">{t('stockManagement')}</h3>
 
-              {/* Default Portion */}
-              <div>
-                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
-                <p className="text-xs text-fg-tertiary mb-2">{t('defaultPortionDesc')}</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    placeholder="0"
-                    value={portionSize || ''}
-                    onChange={(e) => setPortionSize(+e.target.value)}
-                    className="input w-24 py-1.5 text-sm text-right"
-                  />
-                  <select
-                    value={portionSizeUnit}
-                    onChange={(e) => setPortionSizeUnit(e.target.value)}
-                    className="input w-20 py-1.5 text-sm"
-                  >
-                    <option value="g">g</option>
-                    <option value="kg">kg</option>
-                    <option value="ml">ml</option>
-                    <option value="l">l</option>
-                    <option value="unit">unit</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Recipe Type */}
-              <div>
-                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeType')}</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setRecipeYieldValue(1); setRecipeYieldUnit('unit'); }}
-                    className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
-                      recipeYieldUnit === 'unit' && recipeYieldValue === 1 ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-fg-primary">{t('perItemRecipe')}</p>
-                    <p className="text-[11px] text-fg-tertiary mt-0.5">{t('perItemRecipeDesc')}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { if (recipeYieldUnit === 'unit') { setRecipeYieldValue(0); setRecipeYieldUnit('kg'); } }}
-                    className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
-                      recipeYieldUnit !== 'unit' || recipeYieldValue !== 1 ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-fg-primary">{t('bulkRecipe')}</p>
-                    <p className="text-[11px] text-fg-tertiary mt-0.5">{t('bulkRecipeDesc')}</p>
-                  </button>
-                </div>
-              </div>
-
-              {/* Yield editor — only for bulk recipes */}
-              {!(recipeYieldUnit === 'unit' && recipeYieldValue === 1) && (
-                <div>
-                  <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeYield')}</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      placeholder="0"
-                      value={recipeYieldValue || ''}
-                      onChange={(e) => setRecipeYieldValue(+e.target.value)}
-                      className="input w-24 py-1.5 text-sm text-right"
-                    />
-                    <select
-                      value={recipeYieldUnit}
-                      onChange={(e) => setRecipeYieldUnit(e.target.value)}
-                      className="input w-20 py-1.5 text-sm"
-                    >
-                      <option value="kg">kg</option>
-                      <option value="g">g</option>
-                      <option value="l">l</option>
-                      <option value="ml">ml</option>
-                    </select>
+                  {/* 1. Recipe Type — comes first to drive the rest */}
+                  <div>
+                    <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeType')}</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecipeYieldValue(1);
+                          setRecipeYieldUnit('unit');
+                          setPortionSize(1);
+                          setPortionSizeUnit('unit');
+                        }}
+                        className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
+                          isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-fg-primary">{t('perItemRecipe')}</p>
+                        <p className="text-[11px] text-fg-tertiary mt-0.5">{t('perItemRecipeDesc')}</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isPerItem) {
+                            setRecipeYieldValue(0);
+                            setRecipeYieldUnit('kg');
+                            setPortionSize(0);
+                            setPortionSizeUnit('g');
+                          }
+                        }}
+                        className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
+                          !isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold text-fg-primary">{t('bulkRecipe')}</p>
+                        <p className="text-[11px] text-fg-tertiary mt-0.5">{t('bulkRecipeDesc')}</p>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* 2. Portion — auto for per-item, editable for bulk */}
+                  <div>
+                    <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
+                    {isPerItem ? (
+                      <p className="text-sm text-fg-secondary py-1.5">{t('portionAutoUnit')}</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-fg-tertiary mb-2">{t('portionBulkDesc')}</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            placeholder="0"
+                            value={portionSize || ''}
+                            onChange={(e) => setPortionSize(+e.target.value)}
+                            className="input w-24 py-1.5 text-sm text-right"
+                          />
+                          <select
+                            value={portionSizeUnit}
+                            onChange={(e) => setPortionSizeUnit(e.target.value)}
+                            className="input w-20 py-1.5 text-sm"
+                          >
+                            <option value="g">g</option>
+                            <option value="kg">kg</option>
+                            <option value="ml">ml</option>
+                            <option value="l">l</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 3. Yield — only for bulk recipes */}
+                  {!isPerItem && (
+                    <div>
+                      <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeYield')}</label>
+                      <p className="text-xs text-fg-tertiary mb-2">{t('bulkYieldDesc')}</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="0"
+                          value={recipeYieldValue || ''}
+                          onChange={(e) => setRecipeYieldValue(+e.target.value)}
+                          className="input w-24 py-1.5 text-sm text-right"
+                        />
+                        <select
+                          value={recipeYieldUnit}
+                          onChange={(e) => setRecipeYieldUnit(e.target.value)}
+                          className="input w-20 py-1.5 text-sm"
+                        >
+                          <option value="kg">kg</option>
+                          <option value="g">g</option>
+                          <option value="l">l</option>
+                          <option value="ml">ml</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Divider */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />
