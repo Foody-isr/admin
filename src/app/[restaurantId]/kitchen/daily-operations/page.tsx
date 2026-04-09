@@ -182,6 +182,7 @@ export default function DailyOperationsPage() {
   // Estimated supplies
   const [estimatedPOs, setEstimatedPOs] = useState<PurchaseOrder[]>([]);
   const [generatingOrders, setGeneratingOrders] = useState(false);
+  const [generationAttempted, setGenerationAttempted] = useState(false);
   const [sendingEmailPO, setSendingEmailPO] = useState<number | null>(null);
   const [emailModalPO, setEmailModalPO] = useState<PurchaseOrder | null>(null);
   const [emailTo, setEmailTo] = useState('');
@@ -244,6 +245,7 @@ export default function DailyOperationsPage() {
       } else {
         setEstimatedPOs([]);
       }
+      setGenerationAttempted(false);
     } finally {
       setLoading(false);
     }
@@ -406,11 +408,13 @@ export default function DailyOperationsPage() {
   const handleGenerateOrders = async (source: 'pos' | 'manual' | 'both' = 'pos') => {
     if (!report) return;
     setGeneratingOrders(true);
+    setGenerationAttempted(false);
     try {
       const pos = await generateEstimatedSupplies(rid, report.id, source);
       setEstimatedPOs(pos);
+      setGenerationAttempted(true);
     } catch {
-      // silent — user can retry
+      setGenerationAttempted(true);
     } finally {
       setGeneratingOrders(false);
     }
@@ -964,6 +968,12 @@ export default function DailyOperationsPage() {
         >
           {estimatedPOs.length === 0 ? (
             <div className="text-center py-8">
+              {generationAttempted && (
+                <div className="mb-5 mx-auto max-w-md rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+                  <p className="text-sm text-yellow-400 font-medium mb-1">{t('noShortages') || 'All stock levels are sufficient for tomorrow.'}</p>
+                  <p className="text-xs text-[var(--fg-secondary)]">{t('noForecastData') || 'Not enough historical data to estimate yet.'}</p>
+                </div>
+              )}
               <p className="text-sm text-[var(--fg-secondary)] mb-4">
                 {t('generateOrderFor') || 'Generate order for tomorrow'}
               </p>
