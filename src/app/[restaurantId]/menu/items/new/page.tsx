@@ -811,6 +811,7 @@ export default function NewItemPage() {
             <div className="h-1 bg-[var(--divider)] rounded-full" />
             {(() => {
               const isPerItem = recipeYieldUnit === 'unit' && recipeYieldValue === 1;
+              const hasVariants = variantGroups.some(g => g.variants.length > 0) || selectedOptionSetIds.size > 0;
               return (
                 <div className="space-y-4">
                   <h3 className="text-base font-bold text-fg-primary">{t('stockManagement')}</h3>
@@ -854,11 +855,13 @@ export default function NewItemPage() {
                     </div>
                   </div>
 
-                  {/* 2. Portion — auto for per-item, editable for bulk */}
+                  {/* 2. Portion — auto for per-item, disabled when variants exist, editable for bulk */}
                   <div>
                     <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
                     {isPerItem ? (
                       <p className="text-sm text-fg-secondary py-1.5">{t('portionAutoUnit')}</p>
+                    ) : hasVariants ? (
+                      <p className="text-sm text-fg-secondary py-1.5 opacity-60">{t('portionFromVariants')}</p>
                     ) : (
                       <>
                         <p className="text-xs text-fg-tertiary mb-2">{t('portionBulkDesc')}</p>
