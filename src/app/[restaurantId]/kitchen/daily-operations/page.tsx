@@ -763,14 +763,26 @@ export default function DailyOperationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {breakdown.contributions.map((c, i) => (
-                    <tr key={i} className="border-b border-[var(--divider)] border-opacity-50">
-                      <td className="py-2 text-fg-primary">{c.menu_item_name}</td>
-                      <td className="py-2 text-right">{c.qty_sold}</td>
-                      <td className="py-2 text-right text-[var(--fg-secondary)]">{c.recipe_qty}{breakdown.unit}</td>
-                      <td className="py-2 text-right font-medium">{c.total_usage.toFixed(1)}{breakdown.unit}</td>
-                    </tr>
-                  ))}
+                  {breakdown.contributions.map((c, i) => {
+                    const sameUnit = c.recipe_unit === breakdown.unit;
+                    return (
+                      <tr key={i} className="border-b border-[var(--divider)] border-opacity-50">
+                        <td className="py-2 text-fg-primary">{c.menu_item_name}</td>
+                        <td className="py-2 text-right">{c.qty_sold}</td>
+                        <td className="py-2 text-right text-[var(--fg-secondary)]">
+                          {c.recipe_qty}{c.recipe_unit}
+                        </td>
+                        <td className="py-2 text-right font-medium">
+                          {c.total_usage.toFixed(1)}{c.recipe_unit}
+                          {!sameUnit && (
+                            <span className="block text-xs text-[var(--fg-secondary)] font-normal">
+                              ≈ {c.total_usage_converted.toFixed(3)}{breakdown.unit}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

@@ -3058,7 +3058,9 @@ export interface IngredientContribution {
   menu_item_name: string;
   qty_sold: number;
   recipe_qty: number;
+  recipe_unit: string;
   total_usage: number;
+  total_usage_converted: number;
 }
 
 export interface FoodCostSummary {
