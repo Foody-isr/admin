@@ -17,7 +17,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, ArrowPathIcon,
   CheckCircleIcon, ExclamationTriangleIcon,
   ChevronLeftIcon, ChevronRightIcon,
-  XMarkIcon, PlusIcon, TrashIcon,
+  XMarkIcon, PlusIcon, TrashIcon, InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -37,6 +37,16 @@ function varianceBg(pct: number): string {
   if (abs < 5) return 'bg-green-500/10';
   if (abs < 15) return 'bg-yellow-500/10';
   return 'bg-red-500/10';
+}
+
+function computeKpis(report: DailyFoodCostReport) {
+  const items = report.items || [];
+  const actualCost = items.reduce((sum, i) => sum + i.actual_usage * i.cost_per_unit, 0);
+  const wasteCost = items.reduce((sum, i) => sum + i.waste_qty * i.cost_per_unit, 0);
+  const varianceCost = items.reduce((sum, i) => sum + i.variance_cost, 0);
+  const revenue = report.total_sales_revenue;
+  const foodCostPct = revenue > 0 ? (actualCost / revenue) * 100 : 0;
+  return { foodCostPct, revenue, varianceCost, wasteCost };
 }
 
 function statusBadge(status: string) {
