@@ -3236,3 +3236,17 @@ export async function getFoodCostSummary(restaurantId: number, period: string = 
   const res = await apiFetch<{ summary: FoodCostSummary }>(`/api/v1/stock/food-cost-summary?period=${period}`, restaurantId);
   return res.summary;
 }
+
+export async function deleteSalesEntries(restaurantId: number, reportId: number, ids: number[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/sales`, restaurantId, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function deleteCostItems(restaurantId: number, reportId: number, ids: number[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/items`, restaurantId, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  });
+}

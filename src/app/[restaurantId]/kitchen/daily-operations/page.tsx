@@ -6,7 +6,7 @@ import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
   upsertSalesEntries, updateClosingStock, updateRetrospective,
   closeFoodCostReport, createFoodCostReport, listFoodCostReports,
-  getFoodCostBreakdown, getFoodCostSummary,
+  getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems,
   confirmDelivery,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
@@ -17,7 +17,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, ArrowPathIcon,
   CheckCircleIcon, ExclamationTriangleIcon,
   ChevronLeftIcon, ChevronRightIcon,
-  XMarkIcon, PlusIcon,
+  XMarkIcon, PlusIcon, TrashIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -80,6 +80,12 @@ export default function DailyOperationsPage() {
   const [wentWrong, setWentWrong] = useState('');
   const [toImprove, setToImprove] = useState('');
   const [savingRetro, setSavingRetro] = useState(false);
+
+  // Selection for deletion
+  const [selectedSales, setSelectedSales] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [deletingSales, setDeletingSales] = useState(false);
+  const [deletingItems, setDeletingItems] = useState(false);
 
   // Breakdown modal
   const [breakdown, setBreakdown] = useState<IngredientBreakdown | null>(null);
@@ -241,6 +247,66 @@ export default function DailyOperationsPage() {
     }
   };
 
+  const handleDeleteSales = async (ids: number[]) => {
+    if (!report || ids.length === 0) return;
+    setDeletingSales(true);
+    try {
+      await deleteSalesEntries(rid, report.id, ids);
+      setSelectedSales(new Set());
+      await loadReport();
+    } finally {
+      setDeletingSales(false);
+    }
+  };
+
+  const handleDeleteItems = async (ids: number[]) => {
+    if (!report || ids.length === 0) return;
+    setDeletingItems(true);
+    try {
+      await deleteCostItems(rid, report.id, ids);
+      setSelectedItems(new Set());
+      await loadReport();
+    } finally {
+      setDeletingItems(false);
+    }
+  };
+
+  const toggleSalesSelection = (id: number) => {
+    setSelectedSales(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleItemSelection = (id: number) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllSales = () => {
+    if (!report?.sales) return;
+    if (selectedSales.size === report.sales.length) {
+      setSelectedSales(new Set());
+    } else {
+      setSelectedSales(new Set(report.sales.map(s => s.id)));
+    }
+  };
+
+  const toggleAllItems = () => {
+    if (!report?.items) return;
+    if (selectedItems.size === report.items.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(report.items.map(i => i.id)));
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -360,28 +426,64 @@ export default function DailyOperationsPage() {
         ) : undefined}
       >
         {report?.sales && report.sales.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--divider)]">
-                <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
-                <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Qty Sold'}</th>
-                <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('source') || 'Source'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.sales.map(s => (
-                <tr key={s.id} className="border-b border-[var(--divider)] border-opacity-50">
-                  <td className="py-2 text-fg-primary">{s.menu_item_name}</td>
-                  <td className="py-2 text-right text-fg-primary">{s.quantity}</td>
-                  <td className="py-2 text-right">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${s.source === 'pos' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                      {s.source}
-                    </span>
-                  </td>
+          <div className="space-y-2">
+            {isOpen && selectedSales.size > 0 && (
+              <div className="flex items-center gap-2 py-1">
+                <button
+                  onClick={() => handleDeleteSales(Array.from(selectedSales))}
+                  disabled={deletingSales}
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                >
+                  <TrashIcon className="w-3.5 h-3.5" />
+                  {t('deleteSelected') || `Delete (${selectedSales.size})`}
+                </button>
+              </div>
+            )}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--divider)]">
+                  {isOpen && (
+                    <th className="w-8 py-2">
+                      <input type="checkbox" checked={report.sales.length > 0 && selectedSales.size === report.sales.length} onChange={toggleAllSales} className="rounded" />
+                    </th>
+                  )}
+                  <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
+                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Qty Sold'}</th>
+                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('source') || 'Source'}</th>
+                  {isOpen && <th className="w-10 py-2" />}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {report.sales.map(s => (
+                  <tr key={s.id} className="border-b border-[var(--divider)] border-opacity-50 group">
+                    {isOpen && (
+                      <td className="py-2">
+                        <input type="checkbox" checked={selectedSales.has(s.id)} onChange={() => toggleSalesSelection(s.id)} className="rounded" />
+                      </td>
+                    )}
+                    <td className="py-2 text-fg-primary">{s.menu_item_name}</td>
+                    <td className="py-2 text-right text-fg-primary">{s.quantity}</td>
+                    <td className="py-2 text-right">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${s.source === 'pos' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                        {s.source}
+                      </span>
+                    </td>
+                    {isOpen && (
+                      <td className="py-2 text-right">
+                        <button
+                          onClick={() => handleDeleteSales([s.id])}
+                          className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          title={t('delete') || 'Delete'}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p className="text-sm text-[var(--fg-secondary)] py-4">
             {t('noSalesData') || 'No sales data yet. Pull from POS or enter manually.'}
@@ -399,56 +501,92 @@ export default function DailyOperationsPage() {
         <div className="space-y-4">
           {/* Variance table */}
           {report?.items && report.items.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--divider)]">
-                  <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('ingredient') || 'Ingredient'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('opening') || 'Opening'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('received') || 'Received'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('theoretical') || 'Theoretical'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('closing') || 'Closing'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('variance') || 'Variance'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.items.map(item => (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-[var(--divider)] border-opacity-50 cursor-pointer hover:bg-[var(--surface-hover)] ${varianceBg(item.variance_percent)}`}
-                    onClick={() => item.stock_item_id && handleShowBreakdown(item.stock_item_id)}
+            <div className="space-y-2">
+              {isOpen && selectedItems.size > 0 && (
+                <div className="flex items-center gap-2 py-1">
+                  <button
+                    onClick={() => handleDeleteItems(Array.from(selectedItems))}
+                    disabled={deletingItems}
+                    className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                   >
-                    <td className="py-2 text-fg-primary font-medium">{item.item_name} <span className="text-[var(--fg-secondary)] text-xs">({item.unit})</span></td>
-                    <td className="py-2 text-right text-fg-primary">{item.opening_stock.toFixed(1)}</td>
-                    <td className="py-2 text-right text-green-400">+{item.received_qty.toFixed(1)}</td>
-                    <td className="py-2 text-right text-[var(--fg-secondary)]">{item.theoretical_usage.toFixed(1)}</td>
-                    <td className="py-2 text-right">
-                      {isOpen ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={closingStocks[item.stock_item_id!] ?? item.closing_stock}
-                          onChange={(e) => item.stock_item_id && setClosingStocks(prev => ({
-                            ...prev,
-                            [item.stock_item_id!]: parseFloat(e.target.value) || 0,
-                          }))}
-                          className="input w-20 px-2 py-0.5 text-sm text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span>{item.closing_stock.toFixed(1)}</span>
-                      )}
-                    </td>
-                    <td className={`py-2 text-right font-medium ${varianceColor(item.variance_percent)}`}>
-                      {item.variance > 0 ? '+' : ''}{item.variance.toFixed(1)}
-                    </td>
-                    <td className={`py-2 text-right font-medium ${varianceColor(item.variance_percent)}`}>
-                      {item.variance_percent.toFixed(1)}%
-                    </td>
+                    <TrashIcon className="w-3.5 h-3.5" />
+                    {t('deleteSelected') || `Delete (${selectedItems.size})`}
+                  </button>
+                </div>
+              )}
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--divider)]">
+                    {isOpen && (
+                      <th className="w-8 py-2">
+                        <input type="checkbox" checked={report.items.length > 0 && selectedItems.size === report.items.length} onChange={toggleAllItems} className="rounded" />
+                      </th>
+                    )}
+                    <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('ingredient') || 'Ingredient'}</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('opening') || 'Opening'}</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('received') || 'Received'}</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('theoretical') || 'Theoretical'}</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('closing') || 'Closing'}</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('variance') || 'Variance'}</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">%</th>
+                    {isOpen && <th className="w-10 py-2" />}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {report.items.map(item => (
+                    <tr
+                      key={item.id}
+                      className={`border-b border-[var(--divider)] border-opacity-50 cursor-pointer hover:bg-[var(--surface-hover)] group ${varianceBg(item.variance_percent)}`}
+                      onClick={() => item.stock_item_id && handleShowBreakdown(item.stock_item_id)}
+                    >
+                      {isOpen && (
+                        <td className="py-2" onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="rounded" />
+                        </td>
+                      )}
+                      <td className="py-2 text-fg-primary font-medium">{item.item_name} <span className="text-[var(--fg-secondary)] text-xs">({item.unit})</span></td>
+                      <td className="py-2 text-right text-fg-primary">{item.opening_stock.toFixed(1)}</td>
+                      <td className="py-2 text-right text-green-400">+{item.received_qty.toFixed(1)}</td>
+                      <td className="py-2 text-right text-[var(--fg-secondary)]">{item.theoretical_usage.toFixed(1)}</td>
+                      <td className="py-2 text-right">
+                        {isOpen ? (
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={closingStocks[item.stock_item_id!] ?? item.closing_stock}
+                            onChange={(e) => item.stock_item_id && setClosingStocks(prev => ({
+                              ...prev,
+                              [item.stock_item_id!]: parseFloat(e.target.value) || 0,
+                            }))}
+                            className="input w-20 px-2 py-0.5 text-sm text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span>{item.closing_stock.toFixed(1)}</span>
+                        )}
+                      </td>
+                      <td className={`py-2 text-right font-medium ${varianceColor(item.variance_percent)}`}>
+                        {item.variance > 0 ? '+' : ''}{item.variance.toFixed(1)}
+                      </td>
+                      <td className={`py-2 text-right font-medium ${varianceColor(item.variance_percent)}`}>
+                        {item.variance_percent.toFixed(1)}%
+                      </td>
+                      {isOpen && (
+                        <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleDeleteItems([item.id])}
+                            className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                            title={t('delete') || 'Delete'}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <p className="text-sm text-[var(--fg-secondary)] py-4">
               {t('noVarianceData') || 'No variance data yet. Click "Pull from POS" or enter sales to compute.'}

@@ -828,6 +828,7 @@ const translations: Record<Locale, Record<string, string>> = {
     perUnit: 'Per Unit',
     totalUsage: 'Total',
     noContributions: "No menu items contributed to this ingredient's usage.",
+    deleteSelected: 'Delete selected',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -1883,6 +1884,7 @@ const translations: Record<Locale, Record<string, string>> = {
     perUnit: 'ליחידה',
     totalUsage: 'סה"כ',
     noContributions: 'אין פריטי תפריט שתרמו לשימוש במרכיב זה.',
+    deleteSelected: 'מחק נבחרים',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -2937,6 +2939,7 @@ const translations: Record<Locale, Record<string, string>> = {
     perUnit: 'Par unité',
     totalUsage: 'Total',
     noContributions: "Aucun article du menu n'a contribué à l'utilisation de cet ingrédient.",
+    deleteSelected: 'Supprimer la sélection',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',
