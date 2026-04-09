@@ -9,7 +9,7 @@ import {
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems,
   confirmDelivery, deleteStockTransaction,
-  generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders,
+  generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders, EstimatedSuppliesResult,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
   ConfirmDeliveryItemInput, PurchaseOrder,
@@ -183,6 +183,7 @@ export default function DailyOperationsPage() {
   const [estimatedPOs, setEstimatedPOs] = useState<PurchaseOrder[]>([]);
   const [generatingOrders, setGeneratingOrders] = useState(false);
   const [generationAttempted, setGenerationAttempted] = useState(false);
+  const [generationDiag, setGenerationDiag] = useState<EstimatedSuppliesResult | null>(null);
   const [sendingEmailPO, setSendingEmailPO] = useState<number | null>(null);
   const [emailModalPO, setEmailModalPO] = useState<PurchaseOrder | null>(null);
   const [emailTo, setEmailTo] = useState('');
@@ -246,6 +247,7 @@ export default function DailyOperationsPage() {
         setEstimatedPOs([]);
       }
       setGenerationAttempted(false);
+      setGenerationDiag(null);
     } finally {
       setLoading(false);
     }
@@ -409,9 +411,11 @@ export default function DailyOperationsPage() {
     if (!report) return;
     setGeneratingOrders(true);
     setGenerationAttempted(false);
+    setGenerationDiag(null);
     try {
-      const pos = await generateEstimatedSupplies(rid, report.id, source);
-      setEstimatedPOs(pos);
+      const result = await generateEstimatedSupplies(rid, report.id, source);
+      setEstimatedPOs(result.purchase_orders);
+      setGenerationDiag(result);
       setGenerationAttempted(true);
     } catch {
       setGenerationAttempted(true);
@@ -968,10 +972,36 @@ export default function DailyOperationsPage() {
         >
           {estimatedPOs.length === 0 ? (
             <div className="text-center py-8">
-              {generationAttempted && (
-                <div className="mb-5 mx-auto max-w-md rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
-                  <p className="text-sm text-yellow-400 font-medium mb-1">{t('noShortages') || 'All stock levels are sufficient for tomorrow.'}</p>
-                  <p className="text-xs text-[var(--fg-secondary)]">{t('noForecastData') || 'Not enough historical data to estimate yet.'}</p>
+              {generationAttempted && generationDiag && (
+                <div className="mb-5 mx-auto max-w-lg rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 text-left">
+                  {generationDiag.forecasted_items === 0 ? (
+                    <>
+                      <p className="text-sm text-yellow-400 font-medium mb-2">
+                        {t('noForecastData') || 'Not enough historical data to estimate yet.'}
+                      </p>
+                      <p className="text-xs text-[var(--fg-secondary)] leading-relaxed">
+                        No sales found for <strong>{generationDiag.target_day}s</strong> in the last 6 weeks. The system needs at least 1 week of sales history for the same day of the week to make predictions.
+                      </p>
+                    </>
+                  ) : generationDiag.items_with_recipe === 0 ? (
+                    <>
+                      <p className="text-sm text-yellow-400 font-medium mb-2">
+                        No recipes linked
+                      </p>
+                      <p className="text-xs text-[var(--fg-secondary)] leading-relaxed">
+                        Found <strong>{generationDiag.forecasted_items}</strong> predicted menu items for {generationDiag.target_day}, but none have recipes linking them to stock ingredients. Go to <strong>Kitchen &gt; Recipes</strong> and add ingredients to your menu items.
+                      </p>
+                    </>
+                  ) : generationDiag.total_shortages === 0 ? (
+                    <>
+                      <p className="text-sm text-green-400 font-medium mb-2">
+                        {t('noShortages') || 'All stock levels are sufficient for tomorrow.'}
+                      </p>
+                      <p className="text-xs text-[var(--fg-secondary)] leading-relaxed">
+                        Based on <strong>{generationDiag.forecasted_items}</strong> predicted items for {generationDiag.target_day}, your current stock covers all ingredient needs. No orders needed.
+                      </p>
+                    </>
+                  ) : null}
                 </div>
               )}
               <p className="text-sm text-[var(--fg-secondary)] mb-4">

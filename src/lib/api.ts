@@ -2644,12 +2644,23 @@ export async function sendOrderEmail(restaurantId: number, poId: number, to?: st
   });
 }
 
-export async function generateEstimatedSupplies(restaurantId: number, reportId: number, source: 'pos' | 'manual' | 'both' = 'pos'): Promise<PurchaseOrder[]> {
-  const response = await apiFetch<{ purchase_orders: PurchaseOrder[] }>(`/api/v1/stock/daily-reports/${reportId}/estimated-supplies?restaurant_id=${restaurantId}`, restaurantId, {
+export interface EstimatedSuppliesResult {
+  purchase_orders: PurchaseOrder[];
+  forecasted_items: number;
+  items_with_recipe: number;
+  total_shortages: number;
+  target_day: string;
+}
+
+export async function generateEstimatedSupplies(restaurantId: number, reportId: number, source: 'pos' | 'manual' | 'both' = 'pos'): Promise<EstimatedSuppliesResult> {
+  const response = await apiFetch<EstimatedSuppliesResult>(`/api/v1/stock/daily-reports/${reportId}/estimated-supplies?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST',
     body: JSON.stringify({ source }),
   });
-  return response.purchase_orders ?? [];
+  return {
+    ...response,
+    purchase_orders: response.purchase_orders ?? [],
+  };
 }
 
 // ─── Floor Plans & Table Sections ─────────────────────────────────────────────
