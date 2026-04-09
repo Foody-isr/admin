@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme-context';
 import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
   HomeIcon,
@@ -29,6 +30,10 @@ import {
   SparklesIcon,
   UserIcon,
   CalendarIcon,
+  ArrowRightOnRectangleIcon,
+  SunIcon,
+  MoonIcon,
+  LanguageIcon,
 } from '@heroicons/react/24/outline';
 import { useAi } from '@/lib/ai-context';
 
@@ -61,14 +66,17 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית', fr: 'Français' };
+
 export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { restaurantIds } = useAuth();
+  const { user, restaurantIds, logout } = useAuth();
   const ai = useAi();
+  const { theme, toggleTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
   const { hasAnyPermission } = usePermissions();
   const { status: wsStatus } = useWs();
-  const { t, direction } = useI18n();
+  const { t, direction, locale, setLocale } = useI18n();
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
@@ -447,6 +455,138 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           </button>
         </div>
       </aside>
+
+      {/* ── Profile drawer (right side) ── */}
+      {profileOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-50"
+          onClick={() => setProfileOpen(false)}
+        />
+      )}
+      <div
+        className={`
+          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col
+          transition-transform duration-200 ease-in-out
+          ${isRtl ? 'left-0' : 'right-0'}
+          ${profileOpen ? 'translate-x-0' : (isRtl ? '-translate-x-full' : 'translate-x-full')}
+        `}
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--divider)',
+          borderLeftWidth: isRtl ? 0 : 1,
+          borderRightWidth: isRtl ? 1 : 0,
+        }}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--divider)' }}>
+          <button
+            onClick={() => setProfileOpen(false)}
+            className="p-1.5 rounded-lg hover:bg-[var(--hover)]"
+          >
+            <XMarkIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+          </button>
+        </div>
+
+        {/* User info */}
+        <div className="px-5 py-5 border-b" style={{ borderColor: 'var(--divider)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--sidebar-active)', color: '#fff' }}>
+              <span className="text-sm font-bold">
+                {(user?.full_name || user?.email || '?')[0].toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              {user?.full_name && (
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                  {user.full_name}
+                </p>
+              )}
+              {user?.email && (
+                <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                  {user.email}
+                </p>
+              )}
+            </div>
+          </div>
+          {restaurantName && (
+            <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {restaurantName}
+            </p>
+          )}
+        </div>
+
+        {/* Drawer menu items */}
+        <nav className="flex-1 overflow-y-auto py-2">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {theme === 'dark' ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+            {theme === 'dark' ? t('lightMode') : t('darkMode')}
+          </button>
+
+          {/* Language selector */}
+          <div className="px-5 py-3">
+            <div className="flex items-center gap-3 mb-2">
+              <LanguageIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t('language')}</span>
+            </div>
+            <div className="flex gap-2 ml-8">
+              {SUPPORTED_LOCALES.map((loc) => (
+                <button
+                  key={loc}
+                  onClick={() => setLocale(loc)}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                    locale === loc
+                      ? 'border-[var(--sidebar-active)] text-[var(--sidebar-active)] font-semibold'
+                      : 'border-[var(--divider)] hover:border-[var(--text-secondary)]'
+                  }`}
+                  style={{ color: locale === loc ? undefined : 'var(--text-secondary)' }}
+                >
+                  {LOCALE_LABELS[loc]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Switch restaurant */}
+          {restaurantIds.length > 1 && (
+            <Link
+              href="/select-restaurant"
+              onClick={() => setProfileOpen(false)}
+              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              <BuildingStorefrontIcon className="w-5 h-5" />
+              {t('switchRestaurant')}
+            </Link>
+          )}
+
+          {/* Settings */}
+          <Link
+            href={`/${restaurantId}/settings`}
+            onClick={() => setProfileOpen(false)}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            <Cog6ToothIcon className="w-5 h-5" />
+            {t('settings')}
+          </Link>
+        </nav>
+
+        {/* Sign out at bottom */}
+        <div className="border-t px-5 py-4" style={{ borderColor: 'var(--divider)' }}>
+          <button
+            onClick={() => { setProfileOpen(false); logout(); }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors hover:bg-red-500/10 text-red-500"
+          >
+            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            {t('signOut')}
+          </button>
+        </div>
+      </div>
     </>
   );
 }
