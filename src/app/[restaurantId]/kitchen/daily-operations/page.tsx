@@ -70,7 +70,6 @@ export default function DailyOperationsPage() {
   // Sales entry
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [salesEntries, setSalesEntries] = useState<Record<number, number>>({});
-  const [savingSales, setSavingSales] = useState(false);
 
   // Closing stock
   const [closingStocks, setClosingStocks] = useState<Record<number, number>>({});
@@ -87,6 +86,9 @@ export default function DailyOperationsPage() {
 
   // Quick receive modal
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+
+  // Sales entry modal
+  const [showSalesModal, setShowSalesModal] = useState(false);
 
   // Stock items for reference
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -190,18 +192,6 @@ export default function DailyOperationsPage() {
     }
   };
 
-  const handleSaveSales = async () => {
-    if (!report) return;
-    setSavingSales(true);
-    try {
-      const entries = Object.entries(salesEntries)
-        .filter(([, qty]) => qty > 0)
-        .map(([menuItemId, quantity]) => ({ menu_item_id: Number(menuItemId), quantity }));
-      await upsertSalesEntries(rid, report.id, entries);
-    } finally {
-      setSavingSales(false);
-    }
-  };
 
   const handleSaveClosingStock = async () => {
     if (!report) return;
@@ -250,9 +240,6 @@ export default function DailyOperationsPage() {
       // ignore
     }
   };
-
-  // All menu items from categories
-  const allMenuItems = categories.flatMap(c => c.items || []);
 
   if (loading) {
     return (
@@ -352,74 +339,54 @@ export default function DailyOperationsPage() {
         expanded={expandedSections.has('sales')}
         onToggle={toggleSection}
         badge={report?.sales?.length ? `${report.sales.length} items` : undefined}
-      >
-        <div className="space-y-3">
-          {/* POS auto-pull button */}
-          <div className="flex items-center gap-3 mb-3">
+        action={isOpen ? (
+          <div className="flex items-center gap-2">
             <button
               onClick={handleCompute}
-              disabled={computing || !isOpen}
-              className="btn-primary text-sm px-4 py-1.5 flex items-center gap-2"
+              disabled={computing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
             >
-              <ArrowPathIcon className={`w-4 h-4 ${computing ? 'animate-spin' : ''}`} />
+              <ArrowPathIcon className={`w-3.5 h-3.5 ${computing ? 'animate-spin' : ''}`} />
               {t('pullFromPOS') || 'Pull from POS'}
             </button>
-            <span className="text-xs text-[var(--fg-secondary)]">
-              {report?.sales_source === 'pos' ? 'Auto-synced from orders' : 'Manual entry mode'}
-            </span>
+            <button
+              onClick={() => setShowSalesModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4" />
+              {t('manualSalesEntry') || 'Manual Entry'}
+            </button>
           </div>
-
-          {/* Show existing sales */}
-          {report?.sales && report.sales.length > 0 && (
-            <table className="w-full text-sm mb-3">
-              <thead>
-                <tr className="border-b border-[var(--divider)]">
-                  <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Qty Sold'}</th>
-                  <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('source') || 'Source'}</th>
+        ) : undefined}
+      >
+        {report?.sales && report.sales.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--divider)]">
+                <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
+                <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Qty Sold'}</th>
+                <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('source') || 'Source'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.sales.map(s => (
+                <tr key={s.id} className="border-b border-[var(--divider)] border-opacity-50">
+                  <td className="py-2 text-fg-primary">{s.menu_item_name}</td>
+                  <td className="py-2 text-right text-fg-primary">{s.quantity}</td>
+                  <td className="py-2 text-right">
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${s.source === 'pos' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                      {s.source}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {report.sales.map(s => (
-                  <tr key={s.id} className="border-b border-[var(--divider)] border-opacity-50">
-                    <td className="py-2 text-fg-primary">{s.menu_item_name}</td>
-                    <td className="py-2 text-right text-fg-primary">{s.quantity}</td>
-                    <td className="py-2 text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${s.source === 'pos' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                        {s.source}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* Manual sales entry (only for open reports) */}
-          {isOpen && (
-            <div className="border border-[var(--divider)] rounded-lg p-4 space-y-3">
-              <p className="text-sm font-medium text-fg-primary">{t('manualSalesEntry') || 'Manual Sales Entry'}</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                {allMenuItems.map(item => (
-                  <div key={item.id} className="flex items-center gap-2">
-                    <span className="text-sm text-fg-primary flex-1 truncate">{item.name}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={salesEntries[item.id] || ''}
-                      onChange={(e) => setSalesEntries(prev => ({ ...prev, [item.id]: parseInt(e.target.value) || 0 }))}
-                      className="input w-20 px-2 py-1 text-sm text-right"
-                      placeholder="0"
-                    />
-                  </div>
-                ))}
-              </div>
-              <button onClick={handleSaveSales} disabled={savingSales} className="btn-primary text-sm px-4 py-1.5">
-                {savingSales ? t('saving') || 'Saving...' : t('saveSales') || 'Save Sales'}
-              </button>
-            </div>
-          )}
-        </div>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-[var(--fg-secondary)] py-4">
+            {t('noSalesData') || 'No sales data yet. Pull from POS or enter manually.'}
+          </p>
+        )}
       </CollapsibleSection>
 
       {/* Section 3: Stock Count & Variance */}
@@ -607,12 +574,32 @@ export default function DailyOperationsPage() {
       {showReceiveModal && (
         <QuickReceiveModal
           stockItems={stockItems}
-          onConfirm={async (supplierName, items) => {
-            await confirmDelivery(rid, { supplier_name: supplierName, items });
+          onConfirm={async (items) => {
+            await confirmDelivery(rid, { supplier_name: '', items });
             setShowReceiveModal(false);
             loadSupplementary();
           }}
           onClose={() => setShowReceiveModal(false)}
+          t={t}
+        />
+      )}
+
+      {/* Quick Sales Modal */}
+      {showSalesModal && (
+        <QuickSalesModal
+          categories={categories}
+          initialEntries={salesEntries}
+          onConfirm={async (entries: Record<number, number>) => {
+            if (!report) return;
+            setSalesEntries(entries);
+            const items = Object.entries(entries)
+              .filter(([, qty]) => qty > 0)
+              .map(([menuItemId, quantity]) => ({ menu_item_id: Number(menuItemId), quantity: Number(quantity) }));
+            await upsertSalesEntries(rid, report.id, items);
+            setShowSalesModal(false);
+            await loadReport();
+          }}
+          onClose={() => setShowSalesModal(false)}
           t={t}
         />
       )}
@@ -628,11 +615,10 @@ function QuickReceiveModal({
   stockItems, onConfirm, onClose, t,
 }: {
   stockItems: StockItem[];
-  onConfirm: (supplierName: string, items: ConfirmDeliveryItemInput[]) => Promise<void>;
+  onConfirm: (items: ConfirmDeliveryItemInput[]) => Promise<void>;
   onClose: () => void;
   t: (key: string) => string;
 }) {
-  const [supplierName, setSupplierName] = useState('');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -684,7 +670,7 @@ function QuickReceiveModal({
           cost_per_unit: si.cost_per_unit || 0,
         };
       });
-      await onConfirm(supplierName, items);
+      await onConfirm(items);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error');
     } finally {
@@ -713,15 +699,6 @@ function QuickReceiveModal({
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
-
-        {/* Supplier name */}
-        <input
-          type="text"
-          value={supplierName}
-          onChange={e => setSupplierName(e.target.value)}
-          className="input w-full px-3 py-2 text-sm mb-3"
-          placeholder={t('supplierName') || 'Supplier name (optional)'}
-        />
 
         {/* Search */}
         <input
@@ -831,6 +808,184 @@ function QuickReceiveModal({
             {submitting
               ? t('saving') || 'Saving...'
               : `${t('confirmReceive') || 'Confirm'} (${selectedCount})`
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Quick Sales Modal ───────────────────────────────────────────────────────
+
+function QuickSalesModal({
+  categories, initialEntries, onConfirm, onClose, t,
+}: {
+  categories: MenuCategory[];
+  initialEntries: Record<number, number>;
+  onConfirm: (entries: Record<number, number>) => Promise<void>;
+  onClose: () => void;
+  t: (key: string) => string;
+}) {
+  const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  const [quantities, setQuantities] = useState<Record<number, number>>({ ...initialEntries });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // All menu items from categories
+  const allItems = useMemo(() => categories.flatMap(c => c.items || []), [categories]);
+
+  // Filter items
+  const filteredItems = useMemo(() => {
+    let items = allItems;
+    if (activeCategory) items = items.filter(i => i.category_id === activeCategory);
+    if (search) {
+      const lower = search.toLowerCase();
+      items = items.filter(i => i.name.toLowerCase().includes(lower));
+    }
+    return items;
+  }, [allItems, activeCategory, search]);
+
+  const selectedCount = Object.values(quantities).filter(q => q > 0).length;
+
+  const handleConfirm = async () => {
+    if (selectedCount === 0) {
+      setError(t('noSalesData') || 'Enter quantity for at least one item');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      await onConfirm(quantities);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-[var(--surface)] rounded-xl p-6 max-w-2xl w-full mx-4 shadow-xl flex flex-col"
+        style={{ maxHeight: '85vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-fg-primary">{t('manualSalesEntry') || 'Manual Sales Entry'}</h3>
+            {selectedCount > 0 && (
+              <p className="text-xs text-brand-500 mt-0.5">
+                {selectedCount} {selectedCount === 1 ? 'item' : 'items'}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="input w-full px-3 py-2 text-sm mb-3"
+          placeholder={`${t('search') || 'Search'}...`}
+        />
+
+        {/* Category chips */}
+        {categories.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                !activeCategory
+                  ? 'border-brand-500 bg-brand-500/10 text-brand-500 font-semibold'
+                  : 'border-[var(--divider)] text-[var(--fg-secondary)] hover:border-[var(--fg-secondary)]'
+              }`}
+            >
+              {t('all') || 'All'}
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
+                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                  activeCategory === cat.id
+                    ? 'border-brand-500 bg-brand-500/10 text-brand-500 font-semibold'
+                    : 'border-[var(--divider)] text-[var(--fg-secondary)] hover:border-[var(--fg-secondary)]'
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Items list */}
+        <div className="flex-1 overflow-y-auto border border-[var(--divider)] rounded-lg mb-4">
+          <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-3 py-2 border-b border-[var(--divider)] text-xs font-medium text-[var(--fg-secondary)] sticky top-0 bg-[var(--surface)]">
+            <span>{t('menuItem') || 'Menu Item'}</span>
+            <span className="text-right">{t('price') || 'Price'}</span>
+            <span className="text-right">{t('qtySold') || 'Qty'}</span>
+          </div>
+          {filteredItems.length === 0 ? (
+            <p className="px-3 py-6 text-sm text-[var(--fg-secondary)] text-center">
+              {t('noResults') || 'No items found'}
+            </p>
+          ) : (
+            filteredItems.map(item => {
+              const qty = quantities[item.id] || 0;
+              const hasQty = qty > 0;
+              return (
+                <div
+                  key={item.id}
+                  className={`grid grid-cols-[1fr_80px_80px] gap-2 px-3 py-2 border-b border-[var(--divider)] border-opacity-50 items-center ${
+                    hasQty ? 'bg-brand-500/5' : ''
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <span className={`text-sm truncate block ${hasQty ? 'text-brand-500 font-medium' : 'text-fg-primary'}`}>
+                      {item.name}
+                    </span>
+                  </div>
+                  <span className="text-xs text-[var(--fg-secondary)] text-right">₪{item.price}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={qty || ''}
+                    onChange={e => setQuantities(prev => ({
+                      ...prev,
+                      [item.id]: parseInt(e.target.value) || 0,
+                    }))}
+                    className="input px-2 py-1 text-sm text-right w-full"
+                    placeholder="0"
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Error */}
+        {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="btn-secondary text-sm px-4 py-2">
+            {t('cancel') || 'Cancel'}
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={submitting || selectedCount === 0}
+            className="btn-primary text-sm px-4 py-2"
+          >
+            {submitting
+              ? t('saving') || 'Saving...'
+              : `${t('saveSales') || 'Save Sales'} (${selectedCount})`
             }
           </button>
         </div>
