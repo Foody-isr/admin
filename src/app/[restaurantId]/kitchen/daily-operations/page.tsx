@@ -1326,7 +1326,7 @@ function ExplainModal({ title, body, onClose }: { title: string; body: string; o
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
-        <div className="text-sm text-[var(--fg-secondary)] leading-relaxed whitespace-pre-line">{body}</div>
+        <div dir="auto" className="text-sm text-[var(--fg-secondary)] leading-relaxed whitespace-pre-line text-left">{body}</div>
       </div>
     </div>
   );

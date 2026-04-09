@@ -841,7 +841,7 @@ const translations: Record<Locale, Record<string, string>> = {
     retrospectiveDesc: 'A quick end-of-day reflection to track patterns over time.',
     // Column labels (variance table)
     colExpectedLabel: 'Expected',
-    colLossLabel: 'Loss / Over-use',
+    colLossLabel: 'Total Loss',
     colImpactLabel: 'Impact',
     // Variance badge labels
     badgeOk: 'OK',
@@ -857,7 +857,7 @@ const translations: Record<Locale, Record<string, string>> = {
     colClosingTooltip: 'Physical stock count at end of day.',
     colClosingExplain: 'Closing Stock\n\nYour actual physical count of this ingredient at the end of the day.\n\nWhen the report is open, you can edit this field to enter your real count.\nThe more accurate your count, the more useful the variance analysis.\n\nThis value becomes the next day\'s opening stock.',
     colVarianceTooltip: 'Actual − Expected. What you lost or saved.',
-    colVarianceExplain: 'Loss / Over-use\n\nDifference between actual consumption and expected consumption.\n\nCalculation:\nActual usage = Opening + Received − Closing − Waste\nVariance = Actual usage − Expected usage\n\nPositive = you used more than expected (over-portioning, theft, unrecorded waste)\nNegative = you used less than expected (stock count error, missing sale entry)\n\nClick on the ingredient row to see which dishes contributed.',
+    colVarianceExplain: 'Total Loss\n\nDifference between actual consumption and expected consumption.\n\nCalculation:\nActual usage = Opening + Received − Closing − Waste\nVariance = Actual usage − Expected usage\n\nPositive = you used more than expected (over-portioning, theft, unrecorded waste)\nNegative = you used less than expected (stock count error, missing sale entry)\n\nClick on the ingredient row to see which dishes contributed.',
     colVariancePctTooltip: 'Severity of the problem.',
     colVariancePctExplain: 'Impact\n\nHow significant the variance is compared to normal usage.\n\nCalculation:\nImpact % = (Variance / Expected usage) × 100\n\nColor coding:\n🟢 Green (< 5%) — Normal, acceptable deviation\n🟡 Yellow (5–15%) — Needs attention, investigate\n🔴 Red (≥ 15%) — Serious problem, act immediately\n\nFocus on red items first — they have the biggest impact on your margins.',
     // Dish breakdown
@@ -1935,7 +1935,7 @@ const translations: Record<Locale, Record<string, string>> = {
     retrospectiveDesc: 'סיכום יומי קצר למעקב אחר דפוסים לאורך זמן.',
     // Column labels (variance table)
     colExpectedLabel: 'צפוי',
-    colLossLabel: 'פחת / שימוש יתר',
+    colLossLabel: 'סך הפסד',
     colImpactLabel: 'השפעה',
     badgeOk: 'תקין',
     badgeAttention: 'תשומת לב',
@@ -1949,7 +1949,7 @@ const translations: Record<Locale, Record<string, string>> = {
     colClosingTooltip: 'ספירת מלאי פיזית בסוף היום.',
     colClosingExplain: 'מלאי סגירה\n\nהספירה הפיזית שלך של מרכיב זה בסוף היום.\n\nכשהדוח פתוח, ניתן לערוך שדה זה כדי להזין את הספירה האמיתית.\nככל שהספירה מדויקת יותר, ניתוח הסטייה יהיה שימושי יותר.\n\nערך זה הופך למלאי הפתיחה של למחרת.',
     colVarianceTooltip: 'בפועל − צפוי. מה שאבדת או חסכת.',
-    colVarianceExplain: 'פחת / שימוש יתר\n\nההפרש בין צריכה בפועל לצריכה צפויה.\n\nחישוב:\nשימוש בפועל = פתיחה + התקבל − סגירה − פחת\nסטייה = שימוש בפועל − שימוש צפוי\n\nחיובי = השתמשת ביותר מהצפוי (מנות גדולות, גניבה, פחת לא רשום)\nשלילי = השתמשת בפחות מהצפוי (שגיאת ספירה, מכירה חסרה)\n\nלחץ על שורת המרכיב לפירוט לפי מנה.',
+    colVarianceExplain: 'סך הפסד\n\nההפרש בין צריכה בפועל לצריכה צפויה.\n\nחישוב:\nשימוש בפועל = פתיחה + התקבל − סגירה − פחת\nסטייה = שימוש בפועל − שימוש צפוי\n\nחיובי = השתמשת ביותר מהצפוי (מנות גדולות, גניבה, פחת לא רשום)\nשלילי = השתמשת בפחות מהצפוי (שגיאת ספירה, מכירה חסרה)\n\nלחץ על שורת המרכיב לפירוט לפי מנה.',
     colVariancePctTooltip: 'חומרת הבעיה.',
     colVariancePctExplain: 'השפעה\n\nמידת המשמעות של הסטייה בהשוואה לשימוש הרגיל.\n\nחישוב:\nהשפעה % = (סטייה / שימוש צפוי) × 100\n\nקוד צבעים:\n🟢 ירוק (< 5%) — תקין, סטייה מקובלת\n🟡 צהוב (5–15%) — דורש תשומת לב, בדוק\n🔴 אדום (≥ 15%) — בעיה חמורה, פעל מיד\n\nהתמקד בפריטים האדומים קודם — להם ההשפעה הגדולה ביותר על הרווחיות.',
     dishBreakdown: 'פירוט לפי מנה',
@@ -3025,7 +3025,7 @@ const translations: Record<Locale, Record<string, string>> = {
     retrospectiveDesc: 'Un bilan rapide de fin de journée pour suivre les tendances dans le temps.',
     // Column labels (variance table)
     colExpectedLabel: 'Attendu',
-    colLossLabel: 'Perte / Surconsommation',
+    colLossLabel: 'Perte totale',
     colImpactLabel: 'Impact',
     badgeOk: 'OK',
     badgeAttention: 'Attention',
@@ -3039,7 +3039,7 @@ const translations: Record<Locale, Record<string, string>> = {
     colClosingTooltip: 'Comptage physique de stock en fin de journée.',
     colClosingExplain: 'Stock de clôture\n\nVotre comptage physique réel de cet ingrédient en fin de journée.\n\nQuand le rapport est ouvert, vous pouvez modifier ce champ pour saisir votre comptage réel.\nPlus votre comptage est précis, plus l\'analyse des écarts sera utile.\n\nCette valeur devient le stock d\'ouverture du lendemain.',
     colVarianceTooltip: 'Réel − Attendu. Ce que vous avez perdu ou gagné.',
-    colVarianceExplain: 'Perte / Surconsommation\n\nDifférence entre la consommation réelle et la consommation attendue.\n\nCalcul :\nUsage réel = Ouverture + Reçu − Clôture − Gaspillage\nÉcart = Usage réel − Usage attendu\n\nPositif = vous avez utilisé plus que prévu (surdosage, vol, gaspillage non enregistré)\nNégatif = vous avez utilisé moins que prévu (erreur de comptage, vente manquante)\n\nCliquez sur la ligne de l\'ingrédient pour voir quels plats ont contribué.',
+    colVarianceExplain: 'Perte totale\n\nDifférence entre la consommation réelle et la consommation attendue.\n\nCalcul :\nUsage réel = Ouverture + Reçu − Clôture − Gaspillage\nÉcart = Usage réel − Usage attendu\n\nPositif = vous avez utilisé plus que prévu (surdosage, vol, gaspillage non enregistré)\nNégatif = vous avez utilisé moins que prévu (erreur de comptage, vente manquante)\n\nCliquez sur la ligne de l\'ingrédient pour voir quels plats ont contribué.',
     colVariancePctTooltip: 'Gravité du problème.',
     colVariancePctExplain: 'Impact\n\nMesure l\'importance de l\'écart par rapport à l\'utilisation normale.\n\nCalcul :\nImpact % = (Écart / Usage attendu) × 100\n\nCode couleur :\n🟢 Vert (< 5%) — Normal, déviation acceptable\n🟡 Jaune (5–15%) — Attention, à investiguer\n🔴 Rouge (≥ 15%) — Problème important, agir immédiatement\n\nConcentrez-vous d\'abord sur les éléments rouges — ce sont ceux qui impactent le plus vos marges.',
     dishBreakdown: 'Détail par plat',
