@@ -189,19 +189,24 @@ export default function DailyOperationsPage() {
     });
   };
 
+  // Recompute report server-side and refresh local state (KPIs, items, closing stocks).
+  const recomputeAndReload = useCallback(async (reportId: number) => {
+    const updated = await computeFoodCostReport(rid, reportId);
+    setReport(updated);
+    if (updated.items) {
+      const stocks: Record<number, number> = {};
+      updated.items.forEach(i => {
+        if (i.stock_item_id) stocks[i.stock_item_id] = i.closing_stock;
+      });
+      setClosingStocks(stocks);
+    }
+  }, [rid]);
+
   const handleCompute = async () => {
     if (!report) return;
     setComputing(true);
     try {
-      const updated = await computeFoodCostReport(rid, report.id);
-      setReport(updated);
-      if (updated.items) {
-        const stocks: Record<number, number> = {};
-        updated.items.forEach(i => {
-          if (i.stock_item_id) stocks[i.stock_item_id] = i.closing_stock;
-        });
-        setClosingStocks(stocks);
-      }
+      await recomputeAndReload(report.id);
     } finally {
       setComputing(false);
     }
@@ -255,7 +260,7 @@ export default function DailyOperationsPage() {
     try {
       await deleteSalesEntries(rid, report.id, ids);
       setSelectedSales(new Set());
-      await loadReport();
+      await recomputeAndReload(report.id);
     } finally {
       setDeletingSales(false);
     }
@@ -267,7 +272,7 @@ export default function DailyOperationsPage() {
     try {
       await deleteCostItems(rid, report.id, ids);
       setSelectedItems(new Set());
-      await loadReport();
+      await recomputeAndReload(report.id);
     } finally {
       setDeletingItems(false);
     }
@@ -784,7 +789,7 @@ export default function DailyOperationsPage() {
               .map(([menuItemId, quantity]) => ({ menu_item_id: Number(menuItemId), quantity: Number(quantity) }));
             await upsertSalesEntries(rid, report.id, items);
             setShowSalesModal(false);
-            await loadReport();
+            await recomputeAndReload(report.id);
           }}
           onClose={() => setShowSalesModal(false)}
           t={t}
