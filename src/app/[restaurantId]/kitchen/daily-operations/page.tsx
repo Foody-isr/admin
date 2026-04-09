@@ -8,7 +8,7 @@ import {
   closeFoodCostReport, createFoodCostReport, listFoodCostReports,
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems,
-  confirmDelivery,
+  confirmDelivery, deleteStockTransaction,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
   ConfirmDeliveryItemInput,
@@ -380,16 +380,31 @@ export default function DailyOperationsPage() {
                 <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('ingredient') || 'Ingredient'}</th>
                 <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('quantity') || 'Quantity'}</th>
                 <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('time') || 'Time'}</th>
+                {isOpen && <th className="w-10 py-2" />}
               </tr>
             </thead>
             <tbody>
               {todayReceives.map(tx => {
                 const si = stockItems.find(s => s.id === tx.stock_item_id);
                 return (
-                  <tr key={tx.id} className="border-b border-[var(--divider)] border-opacity-50">
+                  <tr key={tx.id} className="border-b border-[var(--divider)] border-opacity-50 group">
                     <td className="py-2 text-fg-primary">{si?.name || `#${tx.stock_item_id}`}</td>
                     <td className="py-2 text-right text-fg-primary">+{tx.quantity_delta} {si?.unit}</td>
                     <td className="py-2 text-right text-[var(--fg-secondary)]">{tx.created_at ? new Date(tx.created_at).toLocaleTimeString() : ''}</td>
+                    {isOpen && (
+                      <td className="py-2 text-right">
+                        <button
+                          onClick={async () => {
+                            await deleteStockTransaction(rid, tx.id);
+                            loadSupplementary();
+                          }}
+                          className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          title={t('delete') || 'Delete'}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -486,7 +501,7 @@ export default function DailyOperationsPage() {
           </div>
         ) : (
           <p className="text-sm text-[var(--fg-secondary)] py-4">
-            {t('noSalesData') || 'No sales data yet. Pull from POS or enter manually.'}
+            {t('noSalesDataYet') || 'No sales data yet. Pull from POS or enter manually.'}
           </p>
         )}
       </CollapsibleSection>
@@ -989,7 +1004,7 @@ function QuickSalesModal({
 
   const handleConfirm = async () => {
     if (selectedCount === 0) {
-      setError(t('noSalesData') || 'Enter quantity for at least one item');
+      setError(t('noSalesDataYet') || 'Enter quantity for at least one item');
       return;
     }
     setError('');

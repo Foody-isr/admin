@@ -3250,3 +3250,16 @@ export async function deleteCostItems(restaurantId: number, reportId: number, id
     body: JSON.stringify({ ids }),
   });
 }
+
+export async function deleteStockTransaction(restaurantId: number, txId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/transactions/${txId}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
+export async function deleteStockTransactions(restaurantId: number, ids: number[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>('/api/v1/stock/transactions', restaurantId, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  });
+}
