@@ -407,6 +407,7 @@ export default function DailyOperationsPage() {
           </button>
         ) : undefined}
       >
+        <SectionDesc>{t('suppliesReceivedDesc') || 'Log all deliveries received today. Each entry updates your stock levels.'}</SectionDesc>
         {todayReceives.length === 0 ? (
           <p className="text-sm text-[var(--fg-secondary)] py-4">{t('noSuppliesReceived') || 'No supplies received today.'}</p>
         ) : (
@@ -476,6 +477,7 @@ export default function DailyOperationsPage() {
           </div>
         ) : undefined}
       >
+        <SectionDesc>{t('salesDesc') || 'Sales data drives the theoretical ingredient usage calculation. Pull from POS or enter manually.'}</SectionDesc>
         {report?.sales && report.sales.length > 0 ? (
           <div className="space-y-2">
             {isOpen && selectedSales.size > 0 && (
@@ -550,6 +552,7 @@ export default function DailyOperationsPage() {
         onToggle={toggleSection}
       >
         <div className="space-y-4">
+          <SectionDesc>{t('stockCountVarianceDesc') || 'Compare actual vs theoretical ingredient consumption. Enter your physical end-of-day stock count to see where losses occur.'}</SectionDesc>
           {/* Variance table */}
           {report?.items && report.items.length > 0 ? (
             <div className="space-y-2">
@@ -574,12 +577,24 @@ export default function DailyOperationsPage() {
                       </th>
                     )}
                     <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('ingredient') || 'Ingredient'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('opening') || 'Opening'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('received') || 'Received'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('theoretical') || 'Theoretical'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('closing') || 'Closing'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('variance') || 'Variance'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">%</th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
+                      <ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip') || "Yesterday's closing stock — quantity on hand at start of today."} />
+                    </th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
+                      <ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip') || "Deliveries added to this ingredient's stock today."} />
+                    </th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
+                      <ThTooltip label={t('theoretical') || 'Theoretical'} tooltip={t('colTheoreticalTooltip') || 'Expected usage based on today\'s sales × recipe quantities.'} />
+                    </th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
+                      <ThTooltip label={t('closing') || 'Closing'} tooltip={t('colClosingTooltip') || 'Your physical stock count at end of day. Edit to reflect actual count.'} />
+                    </th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
+                      <ThTooltip label={t('variance') || 'Variance'} tooltip={t('colVarianceTooltip') || 'Actual usage − Theoretical. Positive = more used than expected.'} />
+                    </th>
+                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
+                      <ThTooltip label="%" tooltip={t('colVariancePctTooltip') || 'Variance as % of theoretical. Green < 5%, yellow < 15%, red ≥ 15%.'} />
+                    </th>
                     {isOpen && <th className="w-10 py-2" />}
                   </tr>
                 </thead>
@@ -663,6 +678,7 @@ export default function DailyOperationsPage() {
         onToggle={toggleSection}
       >
         <div className="space-y-4">
+          <SectionDesc>{t('retrospectiveDesc') || 'A quick end-of-day reflection to track patterns over time.'}</SectionDesc>
           <div>
             <label className="block text-sm font-medium text-fg-primary mb-1">{t('wentWell') || 'What went well?'}</label>
             <textarea
@@ -1202,6 +1218,26 @@ function KpiCard({ label, value, warn, tooltip }: { label: string; value: string
       </div>
       <p className={`text-xl font-bold ${warn ? 'text-red-400' : 'text-fg-primary'}`}>{value}</p>
     </div>
+  );
+}
+
+function ThTooltip({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <div className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <div className="relative group/tip">
+        <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 cursor-help" />
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
+          {tooltip}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionDesc({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs text-[var(--fg-secondary)] mb-4 leading-relaxed">{children}</p>
   );
 }
 
