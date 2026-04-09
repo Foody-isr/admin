@@ -993,6 +993,15 @@ export default function DailyOperationsPage() {
                   </button>
                 </div>
               )}
+              <a
+                href="https://foody-pos.co.il/en/help/kitchen/estimated-supplies"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-brand-500 hover:text-brand-400 transition-colors mt-4"
+              >
+                <InformationCircleIcon className="w-3.5 h-3.5" />
+                {t('learnMore') || 'Learn more'}
+              </a>
             </div>
           ) : (
             <div className="space-y-4">

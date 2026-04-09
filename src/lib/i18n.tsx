@@ -896,6 +896,7 @@ const translations: Record<Locale, Record<string, string>> = {
     regenerate: 'Regenerate',
     emailRecipient: 'Recipient email',
     send: 'Send',
+    learnMore: 'Learn more',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -2009,6 +2010,7 @@ const translations: Record<Locale, Record<string, string>> = {
     regenerate: 'צור מחדש',
     emailRecipient: 'אימייל נמען',
     send: 'שלח',
+    learnMore: 'למד עוד',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -3121,6 +3123,7 @@ const translations: Record<Locale, Record<string, string>> = {
     regenerate: 'Régénérer',
     emailRecipient: 'Email du destinataire',
     send: 'Envoyer',
+    learnMore: 'En savoir plus',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',
