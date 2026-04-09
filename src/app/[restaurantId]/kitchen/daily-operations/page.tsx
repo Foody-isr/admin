@@ -9,15 +9,17 @@ import {
   getFoodCostBreakdown, getFoodCostSummary, deleteSalesEntries, deleteCostItems,
   listStockTransactions, getAllCategories, listStockItems,
   confirmDelivery, deleteStockTransaction,
+  generateEstimatedSupplies, sendOrderEmail, listPurchaseOrders,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
-  ConfirmDeliveryItemInput,
+  ConfirmDeliveryItemInput, PurchaseOrder,
 } from '@/lib/api';
 import {
   ChevronDownIcon, ChevronUpIcon, ArrowPathIcon,
   CheckCircleIcon, ExclamationTriangleIcon,
   ChevronLeftIcon, ChevronRightIcon,
   XMarkIcon, PlusIcon, TrashIcon, InformationCircleIcon,
+  EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -138,7 +140,7 @@ export default function DailyOperationsPage() {
 
   // Section expansion
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['supplies', 'sales', 'variance', 'retro'])
+    new Set(['supplies', 'sales', 'variance', 'retro', 'estimated'])
   );
 
   // Supplies received today
@@ -176,6 +178,13 @@ export default function DailyOperationsPage() {
 
   // Stock items for reference
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+
+  // Estimated supplies
+  const [estimatedPOs, setEstimatedPOs] = useState<PurchaseOrder[]>([]);
+  const [generatingOrders, setGeneratingOrders] = useState(false);
+  const [sendingEmailPO, setSendingEmailPO] = useState<number | null>(null);
+  const [emailModalPO, setEmailModalPO] = useState<PurchaseOrder | null>(null);
+  const [emailTo, setEmailTo] = useState('');
 
   const toggleSection = (key: string) => {
     setExpandedSections(prev => {
@@ -225,6 +234,16 @@ export default function DailyOperationsPage() {
       setWentWell(rpt.went_well || '');
       setWentWrong(rpt.went_wrong || '');
       setToImprove(rpt.to_improve || '');
+
+      // Auto-load estimated supply POs when report is closed
+      if (rpt.status === 'closed') {
+        try {
+          const pos = await listPurchaseOrders(rid, { source_report_id: rpt.id });
+          setEstimatedPOs(pos);
+        } catch { setEstimatedPOs([]); }
+      } else {
+        setEstimatedPOs([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -383,6 +402,38 @@ export default function DailyOperationsPage() {
     }
   };
 
+  // ─── Estimated Supplies handlers ────────────────────────────────────
+  const handleGenerateOrders = async () => {
+    if (!report) return;
+    setGeneratingOrders(true);
+    try {
+      const pos = await generateEstimatedSupplies(rid, report.id);
+      setEstimatedPOs(pos);
+    } catch {
+      // silent — user can retry
+    } finally {
+      setGeneratingOrders(false);
+    }
+  };
+
+  const handleSendEmail = async (po: PurchaseOrder) => {
+    setSendingEmailPO(po.id);
+    try {
+      const to = emailTo || po.supplier?.email || '';
+      await sendOrderEmail(rid, po.id, to);
+      // Refresh POs to get updated status
+      if (report) {
+        const pos = await listPurchaseOrders(rid, { source_report_id: report.id });
+        setEstimatedPOs(pos);
+      }
+      setEmailModalPO(null);
+      setEmailTo('');
+    } catch {
+      // silent
+    } finally {
+      setSendingEmailPO(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -892,6 +943,92 @@ export default function DailyOperationsPage() {
         </div>
       </CollapsibleSection>
 
+      {/* Section 5: Estimated Supplies (shown when report is closed) */}
+      {report?.status === 'closed' && (
+        <CollapsibleSection
+          title={t('estimatedSupplies') || 'Estimated Supplies'}
+          sectionKey="estimated"
+          expanded={expandedSections.has('estimated')}
+          onToggle={toggleSection}
+          badge={estimatedPOs.length > 0 ? `${estimatedPOs.length} ${t('ordersBySupplier') || 'orders'}` : undefined}
+          action={estimatedPOs.length > 0 ? (
+            <button
+              onClick={handleGenerateOrders}
+              disabled={generatingOrders}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              {t('regenerate') || 'Regenerate'}
+            </button>
+          ) : undefined}
+        >
+          {estimatedPOs.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-[var(--fg-secondary)] mb-4">
+                {t('estimatedSales') || 'Estimated sales for tomorrow'}
+              </p>
+              <button
+                onClick={handleGenerateOrders}
+                disabled={generatingOrders}
+                className="px-6 py-2.5 rounded-xl bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors disabled:opacity-50"
+              >
+                {generatingOrders ? (
+                  <span className="flex items-center gap-2">
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" /> ...
+                  </span>
+                ) : (t('generateOrderFor') || 'Generate order for tomorrow')}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {estimatedPOs.map(po => (
+                <SupplierOrderCard
+                  key={po.id}
+                  po={po}
+                  onSendEmail={() => { setEmailModalPO(po); setEmailTo(po.supplier?.email || ''); }}
+                  sendingEmail={sendingEmailPO === po.id}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
+        </CollapsibleSection>
+      )}
+
+      {/* Email modal for sending PO to supplier */}
+      {emailModalPO && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setEmailModalPO(null)}>
+          <div className="bg-[var(--surface)] rounded-2xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-fg-primary mb-4">
+              {t('sendOrder') || 'Send order'}: {emailModalPO.supplier?.name || t('unknownSupplier')}
+            </h3>
+            <label className="text-sm text-[var(--fg-secondary)]">{t('emailRecipient') || 'Recipient email'}</label>
+            <input
+              type="email"
+              value={emailTo}
+              onChange={e => setEmailTo(e.target.value)}
+              placeholder="supplier@example.com"
+              className="w-full mt-1 mb-4 px-3 py-2 rounded-lg border border-[var(--divider)] bg-[var(--bg)] text-fg-primary"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setEmailModalPO(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-[var(--divider)] text-[var(--fg-secondary)] hover:bg-[var(--surface-hover)]"
+              >
+                {t('cancel') || 'Cancel'}
+              </button>
+              <button
+                onClick={() => handleSendEmail(emailModalPO)}
+                disabled={sendingEmailPO !== null || !emailTo}
+                className="px-4 py-2 text-sm rounded-lg bg-brand-500 text-white font-medium hover:bg-brand-600 disabled:opacity-50"
+              >
+                {sendingEmailPO ? (t('sendingEmail') || 'Sending...') : (t('send') || 'Send')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Receive Modal */}
       {showReceiveModal && (
         <QuickReceiveModal
@@ -930,6 +1067,71 @@ export default function DailyOperationsPage() {
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
+
+// ─── Supplier Order Card ─────────────────────────────────────────────────────
+
+function SupplierOrderCard({ po, onSendEmail, sendingEmail, t }: {
+  po: PurchaseOrder;
+  onSendEmail: () => void;
+  sendingEmail: boolean;
+  t: (k: string) => string;
+}) {
+  const statusColor: Record<string, string> = {
+    draft:     'bg-gray-500/15 text-gray-400',
+    sent:      'bg-green-500/15 text-green-400',
+    received:  'bg-blue-500/15 text-blue-400',
+    cancelled: 'bg-red-500/15 text-red-400',
+  };
+
+  return (
+    <div className="border border-[var(--divider)] rounded-xl overflow-hidden bg-[var(--surface)]">
+      {/* Header: supplier name + status badge + send button */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--divider)]">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-fg-primary">{po.supplier?.name || (t('unknownSupplier') || 'Unknown Supplier')}</span>
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[po.status] || statusColor.draft}`}>
+            {po.status}
+          </span>
+        </div>
+        {po.status === 'draft' && (
+          <button
+            onClick={onSendEmail}
+            disabled={sendingEmail}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors disabled:opacity-50"
+          >
+            <EnvelopeIcon className="w-4 h-4" />
+            {sendingEmail ? (t('sendingEmail') || 'Sending...') : (t('sendOrder') || 'Send order')}
+          </button>
+        )}
+        {po.status === 'sent' && (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-400">
+            <CheckCircleIcon className="w-4 h-4" />
+            {t('orderSent') || 'Order sent'}
+          </span>
+        )}
+      </div>
+      {/* Items table */}
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-[var(--divider)]">
+            <th className="text-left py-2 px-4 font-medium text-[var(--fg-secondary)]">Item</th>
+            <th className="text-right py-2 px-4 font-medium text-[var(--fg-secondary)]">{t('qty') || 'Qty'}</th>
+            <th className="text-left py-2 px-4 font-medium text-[var(--fg-secondary)]">Unit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {po.items.map(item => (
+            <tr key={item.id} className="border-b border-[var(--divider)] border-opacity-50">
+              <td className="py-2 px-4 text-fg-primary">{item.name}</td>
+              <td className="py-2 px-4 text-right text-fg-primary font-mono">{item.quantity.toFixed(1)}</td>
+              <td className="py-2 px-4 text-[var(--fg-secondary)]">{item.unit}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 // ─── Quick Receive Modal ─────────────────────────────────────────────────────
 

@@ -2603,10 +2603,11 @@ export async function deleteSupplierProduct(restaurantId: number, supplierId: nu
   await apiFetch<void>(`/api/v1/suppliers/${supplierId}/products/${pid}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
-export async function listPurchaseOrders(restaurantId: number, params?: { supplier_id?: number; status?: string }): Promise<PurchaseOrder[]> {
+export async function listPurchaseOrders(restaurantId: number, params?: { supplier_id?: number; status?: string; source_report_id?: number }): Promise<PurchaseOrder[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.supplier_id) qs.set('supplier_id', String(params.supplier_id));
   if (params?.status) qs.set('status', params.status);
+  if (params?.source_report_id) qs.set('source_report_id', String(params.source_report_id));
   const data = await apiFetch<{ orders: PurchaseOrder[] }>(`/api/v1/purchase-orders?${qs}`, restaurantId);
   return data.orders ?? [];
 }
