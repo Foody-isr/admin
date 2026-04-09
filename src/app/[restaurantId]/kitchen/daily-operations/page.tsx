@@ -83,13 +83,12 @@ export default function DailyOperationsPage() {
 
   // Closing stock
   const [closingStocks, setClosingStocks] = useState<Record<number, number>>({});
-  const [savingStock, setSavingStock] = useState(false);
 
   // Retrospective
   const [wentWell, setWentWell] = useState('');
   const [wentWrong, setWentWrong] = useState('');
   const [toImprove, setToImprove] = useState('');
-  const [savingRetro, setSavingRetro] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   // Selection for deletion
   const [selectedSales, setSelectedSales] = useState<Set<number>>(new Set());
@@ -209,29 +208,22 @@ export default function DailyOperationsPage() {
   };
 
 
-  const handleSaveClosingStock = async () => {
+  const handleSaveDraft = async () => {
     if (!report) return;
-    setSavingStock(true);
+    setSavingDraft(true);
     try {
       const items = Object.entries(closingStocks)
         .map(([stockItemId, quantity]) => ({ stock_item_id: Number(stockItemId), quantity }));
-      await updateClosingStock(rid, report.id, items);
+      await Promise.all([
+        updateClosingStock(rid, report.id, items),
+        updateRetrospective(rid, report.id, {
+          went_well: wentWell,
+          went_wrong: wentWrong,
+          to_improve: toImprove,
+        }),
+      ]);
     } finally {
-      setSavingStock(false);
-    }
-  };
-
-  const handleSaveRetro = async () => {
-    if (!report) return;
-    setSavingRetro(true);
-    try {
-      await updateRetrospective(rid, report.id, {
-        went_well: wentWell,
-        went_wrong: wentWrong,
-        to_improve: toImprove,
-      });
-    } finally {
-      setSavingRetro(false);
+      setSavingDraft(false);
     }
   };
 
@@ -355,14 +347,43 @@ export default function DailyOperationsPage() {
       </div>
 
       {/* KPI Cards */}
-      {report && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard label="Food Cost %" value={`${report.food_cost_percent.toFixed(1)}%`} warn={report.food_cost_percent > 35} />
-          <KpiCard label={t('revenue') || 'Revenue'} value={`₪${report.total_sales_revenue.toFixed(0)}`} />
-          <KpiCard label={t('variance') || 'Variance'} value={`₪${report.total_variance_value.toFixed(0)}`} warn={report.total_variance_value > 0} />
-          <KpiCard label={t('wasteValue') || 'Waste'} value={`₪${report.total_waste_value.toFixed(0)}`} warn={report.total_waste_value > 0} />
-        </div>
-      )}
+      {report && (() => {
+        const kpis = report.status === 'open'
+          ? computeKpis(report)
+          : {
+              foodCostPct: report.food_cost_percent,
+              revenue: report.total_sales_revenue,
+              varianceCost: report.total_variance_value,
+              wasteCost: report.total_waste_value,
+            };
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KpiCard
+              label="Food Cost %"
+              value={`${kpis.foodCostPct.toFixed(1)}%`}
+              warn={kpis.foodCostPct > 35}
+              tooltip={t('foodCostPctTooltip') || 'Actual ingredient cost as a % of revenue. Below 35% is healthy.'}
+            />
+            <KpiCard
+              label={t('revenue') || 'Revenue'}
+              value={`₪${kpis.revenue.toFixed(0)}`}
+              tooltip={t('revenueTooltip') || 'Total revenue from paid orders for this day.'}
+            />
+            <KpiCard
+              label={t('variance') || 'Variance'}
+              value={`₪${kpis.varianceCost.toFixed(0)}`}
+              warn={kpis.varianceCost > 0}
+              tooltip={t('varianceTooltip') || 'Actual vs theoretical ingredient usage in cost. Positive = over-use or loss.'}
+            />
+            <KpiCard
+              label={t('wasteValue') || 'Waste'}
+              value={`₪${kpis.wasteCost.toFixed(0)}`}
+              warn={kpis.wasteCost > 0}
+              tooltip={t('wasteTooltip') || 'Cost of ingredients explicitly logged as waste today.'}
+            />
+          </div>
+        );
+      })()}
 
       {/* Section 1: Supplies Received */}
       <CollapsibleSection
@@ -620,9 +641,6 @@ export default function DailyOperationsPage() {
 
           {isOpen && report?.items && report.items.length > 0 && (
             <div className="flex gap-3">
-              <button onClick={handleSaveClosingStock} disabled={savingStock} className="btn-primary text-sm px-4 py-1.5">
-                {savingStock ? t('saving') || 'Saving...' : t('saveClosingStock') || 'Save Closing Stock'}
-              </button>
               <button onClick={handleCompute} disabled={computing} className="btn-secondary text-sm px-4 py-1.5 flex items-center gap-2">
                 <ArrowPathIcon className={`w-4 h-4 ${computing ? 'animate-spin' : ''}`} />
                 {t('recompute') || 'Recompute'}
@@ -673,23 +691,29 @@ export default function DailyOperationsPage() {
               placeholder={t('toImprovePlaceholder') || 'e.g., Standardize portioning, brief staff on waste...'}
             />
           </div>
-          <div className="flex gap-3">
-            {isOpen && (
-              <>
-                <button onClick={handleSaveRetro} disabled={savingRetro} className="btn-primary text-sm px-4 py-1.5">
-                  {savingRetro ? t('saving') || 'Saving...' : t('saveRetrospective') || 'Save'}
-                </button>
-                <button
-                  onClick={handleClose}
-                  disabled={closing}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex items-center gap-2"
-                >
-                  <CheckCircleIcon className="w-4 h-4" />
-                  {closing ? t('closing') || 'Closing...' : t('closeDay') || 'Close Day'}
-                </button>
-              </>
-            )}
-          </div>
+          {isOpen && (
+            <div className="space-y-3">
+              <div className="flex gap-3 items-start">
+                <div className="flex-1">
+                  <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-primary text-sm px-4 py-1.5 w-full">
+                    {savingDraft ? t('saving') || 'Saving...' : t('saveDraft') || 'Save Draft'}
+                  </button>
+                  <p className="text-xs text-[var(--fg-secondary)] mt-1">{t('saveDraftDesc') || 'Saves your data without finalizing. You can continue editing.'}</p>
+                </div>
+                <div className="flex-1">
+                  <button
+                    onClick={handleClose}
+                    disabled={closing}
+                    className="text-sm px-4 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2 w-full"
+                  >
+                    <CheckCircleIcon className="w-4 h-4" />
+                    {closing ? t('closing') || 'Closing...' : t('closeDay') || 'Close Day'}
+                  </button>
+                  <p className="text-xs text-[var(--fg-secondary)] mt-1">{t('closeDayDesc') || 'Finalizes the report — it cannot be edited afterward.'}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </CollapsibleSection>
 
@@ -1157,10 +1181,20 @@ function QuickSalesModal({
   );
 }
 
-function KpiCard({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+function KpiCard({ label, value, warn, tooltip }: { label: string; value: string; warn?: boolean; tooltip?: string }) {
   return (
     <div className={`rounded-xl p-4 border ${warn ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--divider)] bg-[var(--surface)]'}`}>
-      <p className="text-xs text-[var(--fg-secondary)] mb-1">{label}</p>
+      <div className="flex items-center gap-1 mb-1">
+        <p className="text-xs text-[var(--fg-secondary)]">{label}</p>
+        {tooltip && (
+          <div className="relative group/tip">
+            <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60 cursor-help" />
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-48 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-10 text-left leading-snug">
+              {tooltip}
+            </div>
+          </div>
+        )}
+      </div>
       <p className={`text-xl font-bold ${warn ? 'text-red-400' : 'text-fg-primary'}`}>{value}</p>
     </div>
   );
