@@ -437,24 +437,28 @@ export default function DailyOperationsPage() {
               label="Food Cost %"
               value={`${kpis.foodCostPct.toFixed(1)}%`}
               warn={kpis.foodCostPct > 35}
-              tooltip={t('foodCostPctTooltip') || 'Actual ingredient cost as a % of revenue. Below 35% is healthy.'}
+              tooltip={t('foodCostPctTooltip')}
+              explain={t('foodCostPctExplain')}
             />
             <KpiCard
               label={t('revenue') || 'Revenue'}
               value={`₪${kpis.revenue.toFixed(0)}`}
-              tooltip={t('revenueTooltip') || 'Total revenue from paid orders for this day.'}
+              tooltip={t('revenueTooltip')}
+              explain={t('revenueExplain')}
             />
             <KpiCard
               label={t('variance') || 'Variance'}
               value={`₪${kpis.varianceCost.toFixed(0)}`}
               warn={kpis.varianceCost > 0}
-              tooltip={t('varianceTooltip') || 'Actual vs theoretical ingredient usage in cost. Positive = over-use or loss.'}
+              tooltip={t('varianceTooltip')}
+              explain={t('varianceExplain')}
             />
             <KpiCard
               label={t('wasteValue') || 'Waste'}
               value={`₪${kpis.wasteCost.toFixed(0)}`}
               warn={kpis.wasteCost > 0}
-              tooltip={t('wasteTooltip') || 'Cost of ingredients explicitly logged as waste today.'}
+              tooltip={t('wasteTooltip')}
+              explain={t('wasteExplain')}
             />
           </div>
         );
@@ -643,12 +647,12 @@ export default function DailyOperationsPage() {
                 <div className={`grid text-xs font-medium text-[var(--fg-secondary)] px-3 py-2 border-b border-[var(--divider)] ${isOpen ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4`}>
                   {isOpen && <span />}
                   <span>{t('ingredient') || 'Ingredient'}</span>
-                  <span className="text-right"><ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip') || "Yesterday's closing stock."} /></span>
-                  <span className="text-right"><ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip') || "Deliveries added today."} /></span>
-                  <span className="text-right"><ThTooltip label={t('colExpectedLabel') || 'Expected'} tooltip={t('colTheoreticalTooltip') || 'What you should have consumed based on sales and recipes.'} /></span>
-                  <span className="text-right"><ThTooltip label={t('closing') || 'Closing'} tooltip={t('colClosingTooltip') || 'Physical stock count at end of day.'} /></span>
-                  <span className="text-right"><ThTooltip label={t('colLossLabel') || 'Loss / Over-use'} tooltip={t('colVarianceTooltip') || 'Actual − Expected. Positive = over-used.'} /></span>
-                  <span className="text-right"><ThTooltip label={t('colImpactLabel') || 'Impact'} tooltip={t('colVariancePctTooltip') || 'Green < 5%, yellow 5–15%, red ≥ 15%.'} /></span>
+                  <span className="text-right"><ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip')} explain={t('colOpeningExplain')} /></span>
+                  <span className="text-right"><ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip')} explain={t('colReceivedExplain')} /></span>
+                  <span className="text-right"><ThTooltip label={t('colExpectedLabel') || 'Expected'} tooltip={t('colTheoreticalTooltip')} explain={t('colTheoreticalExplain')} /></span>
+                  <span className="text-right"><ThTooltip label={t('closing') || 'Closing'} tooltip={t('colClosingTooltip')} explain={t('colClosingExplain')} /></span>
+                  <span className="text-right"><ThTooltip label={t('colLossLabel') || 'Loss / Over-use'} tooltip={t('colVarianceTooltip')} explain={t('colVarianceExplain')} /></span>
+                  <span className="text-right"><ThTooltip label={t('colImpactLabel') || 'Impact'} tooltip={t('colVariancePctTooltip')} explain={t('colVariancePctExplain')} /></span>
                   {isOpen && <span />}
                 </div>
                 {/* Rows */}
@@ -1312,36 +1316,74 @@ function QuickSalesModal({
   );
 }
 
-function KpiCard({ label, value, warn, tooltip }: { label: string; value: string; warn?: boolean; tooltip?: string }) {
+function ExplainModal({ title, body, onClose }: { title: string; body: string; onClose: () => void }) {
   return (
-    <div className={`rounded-xl p-4 border ${warn ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--divider)] bg-[var(--surface)]'}`}>
-      <div className="flex items-center gap-1 mb-1">
-        <p className="text-xs text-[var(--fg-secondary)]">{label}</p>
-        {tooltip && (
-          <div className="relative group/tip">
-            <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60 cursor-help" />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-48 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-10 text-left leading-snug">
-              {tooltip}
-            </div>
-          </div>
-        )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-[var(--surface)] rounded-xl p-6 max-w-md w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold text-fg-primary">{title}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="text-sm text-[var(--fg-secondary)] leading-relaxed whitespace-pre-line">{body}</div>
       </div>
-      <p className={`text-xl font-bold ${warn ? 'text-red-400' : 'text-fg-primary'}`}>{value}</p>
     </div>
   );
 }
 
-function ThTooltip({ label, tooltip }: { label: string; tooltip: string }) {
+function KpiCard({ label, value, warn, tooltip, explain }: { label: string; value: string; warn?: boolean; tooltip?: string; explain?: string }) {
+  const [showExplain, setShowExplain] = useState(false);
   return (
-    <div className="inline-flex items-center gap-1">
-      <span>{label}</span>
-      <div className="relative group/tip">
-        <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 cursor-help" />
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
-          {tooltip}
+    <>
+      <div className={`rounded-xl p-4 border ${warn ? 'border-red-500/30 bg-red-500/5' : 'border-[var(--divider)] bg-[var(--surface)]'}`}>
+        <div className="flex items-center gap-1 mb-1">
+          <p className="text-xs text-[var(--fg-secondary)]">{label}</p>
+          {(tooltip || explain) && (
+            <div className="relative group/tip">
+              <InformationCircleIcon
+                className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60 cursor-pointer"
+                onClick={() => explain && setShowExplain(true)}
+              />
+              {tooltip && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-48 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-10 text-left leading-snug">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <p className={`text-xl font-bold ${warn ? 'text-red-400' : 'text-fg-primary'}`}>{value}</p>
+      </div>
+      {showExplain && explain && (
+        <ExplainModal title={label} body={explain} onClose={() => setShowExplain(false)} />
+      )}
+    </>
+  );
+}
+
+function ThTooltip({ label, tooltip, explain }: { label: string; tooltip: string; explain?: string }) {
+  const [showExplain, setShowExplain] = useState(false);
+  return (
+    <>
+      <div className="inline-flex items-center gap-1">
+        <span
+          className={explain ? 'cursor-pointer underline decoration-dotted underline-offset-2 decoration-[var(--fg-secondary)]/40' : ''}
+          onClick={explain ? (e) => { e.stopPropagation(); setShowExplain(true); } : undefined}
+        >
+          {label}
+        </span>
+        <div className="relative group/tip">
+          <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 cursor-help" />
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
+            {tooltip}
+          </div>
         </div>
       </div>
-    </div>
+      {showExplain && explain && (
+        <ExplainModal title={label} body={explain} onClose={() => setShowExplain(false)} />
+      )}
+    </>
   );
 }
 
