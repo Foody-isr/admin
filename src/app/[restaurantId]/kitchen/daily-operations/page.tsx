@@ -403,11 +403,11 @@ export default function DailyOperationsPage() {
   };
 
   // ─── Estimated Supplies handlers ────────────────────────────────────
-  const handleGenerateOrders = async () => {
+  const handleGenerateOrders = async (source: 'pos' | 'manual' | 'both' = 'pos') => {
     if (!report) return;
     setGeneratingOrders(true);
     try {
-      const pos = await generateEstimatedSupplies(rid, report.id);
+      const pos = await generateEstimatedSupplies(rid, report.id, source);
       setEstimatedPOs(pos);
     } catch {
       // silent — user can retry
@@ -953,7 +953,7 @@ export default function DailyOperationsPage() {
           badge={estimatedPOs.length > 0 ? `${estimatedPOs.length} ${t('ordersBySupplier') || 'orders'}` : undefined}
           action={estimatedPOs.length > 0 ? (
             <button
-              onClick={handleGenerateOrders}
+              onClick={() => handleGenerateOrders('both')}
               disabled={generatingOrders}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
             >
@@ -965,19 +965,34 @@ export default function DailyOperationsPage() {
           {estimatedPOs.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-[var(--fg-secondary)] mb-4">
-                {t('estimatedSales') || 'Estimated sales for tomorrow'}
+                {t('generateOrderFor') || 'Generate order for tomorrow'}
               </p>
-              <button
-                onClick={handleGenerateOrders}
-                disabled={generatingOrders}
-                className="px-6 py-2.5 rounded-xl bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors disabled:opacity-50"
-              >
-                {generatingOrders ? (
-                  <span className="flex items-center gap-2">
-                    <ArrowPathIcon className="w-4 h-4 animate-spin" /> ...
-                  </span>
-                ) : (t('generateOrderFor') || 'Generate order for tomorrow')}
-              </button>
+              {generatingOrders ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-[var(--fg-secondary)]">
+                  <ArrowPathIcon className="w-4 h-4 animate-spin" /> ...
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => handleGenerateOrders('pos')}
+                    className="px-5 py-2 rounded-xl bg-brand-500 text-white font-medium hover:bg-brand-600 transition-colors text-sm"
+                  >
+                    {t('fromPOS') || 'From POS'}
+                  </button>
+                  <button
+                    onClick={() => handleGenerateOrders('manual')}
+                    className="px-5 py-2 rounded-xl bg-brand-500/10 text-brand-500 font-medium hover:bg-brand-500/20 transition-colors text-sm border border-brand-500/20"
+                  >
+                    {t('fromManual') || 'From manual sales'}
+                  </button>
+                  <button
+                    onClick={() => handleGenerateOrders('both')}
+                    className="px-5 py-2 rounded-xl bg-[var(--surface)] text-[var(--fg-secondary)] font-medium hover:bg-[var(--surface-hover)] transition-colors text-sm border border-[var(--divider)]"
+                  >
+                    {t('fromBoth') || 'Both'}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">

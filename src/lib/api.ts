@@ -2644,9 +2644,10 @@ export async function sendOrderEmail(restaurantId: number, poId: number, to?: st
   });
 }
 
-export async function generateEstimatedSupplies(restaurantId: number, reportId: number): Promise<PurchaseOrder[]> {
+export async function generateEstimatedSupplies(restaurantId: number, reportId: number, source: 'pos' | 'manual' | 'both' = 'pos'): Promise<PurchaseOrder[]> {
   const response = await apiFetch<{ purchase_orders: PurchaseOrder[] }>(`/api/v1/foodcost/daily-reports/${reportId}/estimated-supplies?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST',
+    body: JSON.stringify({ source }),
   });
   return response.purchase_orders;
 }
