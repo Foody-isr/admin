@@ -251,6 +251,7 @@ export default function EditItemPage() {
     if (!name.trim() || !price) return;
     setSaving(true);
     try {
+      const isPerItemMode = recipeYieldUnit === 'unit' && recipeYieldValue === 1;
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
@@ -261,8 +262,7 @@ export default function EditItemPage() {
         image_url: imageUrl,
         portion_size: portionSize,
         portion_size_unit: portionSizeUnit,
-        recipe_yield: recipeYieldValue,
-        recipe_yield_unit: recipeYieldUnit,
+        ...(isPerItemMode ? { recipe_yield: 1, recipe_yield_unit: 'unit' } : {}),
       };
       if (itemType === 'combo') {
         updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
@@ -616,34 +616,6 @@ export default function EditItemPage() {
                     )}
                   </div>
 
-                  {/* 3. Yield — only for bulk recipes */}
-                  {!isPerItem && (
-                    <div>
-                      <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeYield')}</label>
-                      <p className="text-xs text-fg-tertiary mb-2">{t('bulkYieldDesc')}</p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          placeholder="0"
-                          value={recipeYieldValue || ''}
-                          onChange={(e) => setRecipeYieldValue(+e.target.value)}
-                          className="input w-24 py-1.5 text-sm text-right"
-                        />
-                        <select
-                          value={recipeYieldUnit}
-                          onChange={(e) => setRecipeYieldUnit(e.target.value)}
-                          className="input w-20 py-1.5 text-sm"
-                        >
-                          <option value="kg">kg</option>
-                          <option value="g">g</option>
-                          <option value="l">l</option>
-                          <option value="ml">ml</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })()}
