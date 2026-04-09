@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
   getTodayFoodCostReport, getFoodCostReport, computeFoodCostReport,
@@ -624,17 +624,6 @@ export default function DailyOperationsPage() {
 
 // ─── Quick Receive Modal ─────────────────────────────────────────────────────
 
-interface ReceiveRow {
-  stockItemId: number | null;
-  quantity: number;
-  costPerUnit: number;
-  search: string;
-}
-
-function emptyRow(): ReceiveRow {
-  return { stockItemId: null, quantity: 0, costPerUnit: 0, search: '' };
-}
-
 function QuickReceiveModal({
   stockItems, onConfirm, onClose, t,
 }: {
@@ -644,51 +633,55 @@ function QuickReceiveModal({
   t: (key: string) => string;
 }) {
   const [supplierName, setSupplierName] = useState('');
-  const [rows, setRows] = useState<ReceiveRow[]>([emptyRow()]);
+  const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const updateRow = (idx: number, patch: Partial<ReceiveRow>) => {
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
-  };
+  // Derive unique categories from stock items
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    stockItems.forEach((si: StockItem) => { if (si.category) cats.add(si.category); });
+    return Array.from(cats).sort();
+  }, [stockItems]);
 
-  const removeRow = (idx: number) => {
-    setRows(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
-  };
+  // Filter items by search + category
+  const filteredItems = useMemo(() => {
+    let items = stockItems.filter(si => si.is_active !== false);
+    if (activeCategory) items = items.filter(si => si.category === activeCategory);
+    if (search) {
+      const lower = search.toLowerCase();
+      items = items.filter(si => si.name.toLowerCase().includes(lower));
+    }
+    return items;
+  }, [stockItems, activeCategory, search]);
 
-  const selectItem = (idx: number, item: StockItem) => {
-    updateRow(idx, {
-      stockItemId: item.id,
-      costPerUnit: item.cost_per_unit || 0,
-      search: item.name,
-    });
-  };
-
-  const filteredItems = (search: string) => {
-    if (!search) return stockItems.slice(0, 10);
-    const lower = search.toLowerCase();
-    return stockItems.filter(s => s.name.toLowerCase().includes(lower)).slice(0, 10);
-  };
+  // Count items with quantity > 0
+  const selectedCount = Object.values(quantities).filter(q => q > 0).length;
 
   const handleConfirm = async () => {
-    const validRows = rows.filter(r => r.stockItemId && r.quantity > 0);
-    if (validRows.length === 0) {
-      setError(t('selectIngredient') || 'Select at least one ingredient');
+    const selected = Object.entries(quantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => ({ id: Number(id), qty }));
+
+    if (selected.length === 0) {
+      setError(t('selectIngredient') || 'Enter quantity for at least one item');
       return;
     }
     setError('');
     setSubmitting(true);
     try {
-      const items: ConfirmDeliveryItemInput[] = validRows.map(r => {
-        const si = stockItems.find(s => s.id === r.stockItemId)!;
+      const items: ConfirmDeliveryItemInput[] = selected.map(({ id, qty }) => {
+        const si = stockItems.find(s => s.id === id)!;
         return {
           stock_item_id: si.id,
           name: si.name,
           original_name: si.name,
-          quantity: r.quantity,
+          quantity: qty,
           unit: si.unit,
           category: si.category || '',
-          cost_per_unit: r.costPerUnit,
+          cost_per_unit: si.cost_per_unit || 0,
         };
       });
       await onConfirm(supplierName, items);
@@ -702,118 +695,125 @@ function QuickReceiveModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="bg-[var(--surface)] rounded-xl p-6 max-w-xl w-full mx-4 shadow-xl max-h-[85vh] flex flex-col"
+        className="bg-[var(--surface)] rounded-xl p-6 max-w-2xl w-full mx-4 shadow-xl flex flex-col"
+        style={{ maxHeight: '85vh' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-fg-primary">{t('addSupply') || 'Add Supply'}</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-fg-primary">{t('addSupply') || 'Add Supply'}</h3>
+            {selectedCount > 0 && (
+              <p className="text-xs text-brand-500 mt-0.5">
+                {selectedCount} {selectedCount === 1 ? 'item' : 'items'}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Supplier */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-fg-primary mb-1">{t('supplierName') || 'Supplier Name'}</label>
-          <input
-            type="text"
-            value={supplierName}
-            onChange={e => setSupplierName(e.target.value)}
-            className="input w-full px-3 py-2 text-sm"
-            placeholder={t('supplierName') || 'Supplier Name'}
-          />
-        </div>
+        {/* Supplier name */}
+        <input
+          type="text"
+          value={supplierName}
+          onChange={e => setSupplierName(e.target.value)}
+          className="input w-full px-3 py-2 text-sm mb-3"
+          placeholder={t('supplierName') || 'Supplier name (optional)'}
+        />
 
-        {/* Item rows */}
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-          {rows.map((row, idx) => (
-            <div key={idx} className="border border-[var(--divider)] rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                {/* Ingredient search */}
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={row.search}
-                    onChange={e => {
-                      updateRow(idx, { search: e.target.value, stockItemId: null });
-                    }}
-                    className="input w-full px-3 py-1.5 text-sm"
-                    placeholder={t('selectIngredient') || 'Select ingredient...'}
-                  />
-                  {row.search && !row.stockItemId && (
-                    <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-[var(--surface)] border border-[var(--divider)] rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                      {filteredItems(row.search).map(si => (
-                        <button
-                          key={si.id}
-                          onClick={() => selectItem(idx, si)}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-hover)] transition-colors flex items-center justify-between"
-                        >
-                          <span className="text-fg-primary">{si.name}</span>
-                          <span className="text-xs text-[var(--fg-secondary)]">{si.unit}</span>
-                        </button>
-                      ))}
-                      {filteredItems(row.search).length === 0 && (
-                        <p className="px-3 py-2 text-sm text-[var(--fg-secondary)]">No items found</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {/* Remove row */}
-                {rows.length > 1 && (
-                  <button onClick={() => removeRow(idx)} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg shrink-0">
-                    <XMarkIcon className="w-4 h-4 text-[var(--fg-secondary)]" />
-                  </button>
-                )}
-              </div>
+        {/* Search */}
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="input w-full px-3 py-2 text-sm mb-3"
+          placeholder={`${t('search') || 'Search'}...`}
+        />
 
-              {/* Quantity + Unit + Cost */}
-              {row.stockItemId && (
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs text-[var(--fg-secondary)] mb-0.5">{t('quantity') || 'Quantity'}</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={row.quantity || ''}
-                      onChange={e => updateRow(idx, { quantity: parseFloat(e.target.value) || 0 })}
-                      className="input w-full px-2 py-1.5 text-sm"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="w-16">
-                    <label className="block text-xs text-[var(--fg-secondary)] mb-0.5">{t('unit') || 'Unit'}</label>
-                    <span className="block px-2 py-1.5 text-sm text-[var(--fg-secondary)]">
-                      {stockItems.find(s => s.id === row.stockItemId)?.unit || ''}
+        {/* Category chips */}
+        {allCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                !activeCategory
+                  ? 'border-brand-500 bg-brand-500/10 text-brand-500 font-semibold'
+                  : 'border-[var(--divider)] text-[var(--fg-secondary)] hover:border-[var(--fg-secondary)]'
+              }`}
+            >
+              {t('all') || 'All'}
+            </button>
+            {allCategories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                  activeCategory === cat
+                    ? 'border-brand-500 bg-brand-500/10 text-brand-500 font-semibold'
+                    : 'border-[var(--divider)] text-[var(--fg-secondary)] hover:border-[var(--fg-secondary)]'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Items list */}
+        <div className="flex-1 overflow-y-auto border border-[var(--divider)] rounded-lg mb-4">
+          {/* Header row */}
+          <div className="grid grid-cols-[1fr_80px_50px_80px] gap-2 px-3 py-2 border-b border-[var(--divider)] text-xs font-medium text-[var(--fg-secondary)] sticky top-0 bg-[var(--surface)]">
+            <span>{t('ingredient') || 'Ingredient'}</span>
+            <span className="text-right">{t('quantity') || 'Qty'}</span>
+            <span className="text-center">{t('unit') || 'Unit'}</span>
+            <span className="text-right">{t('costPerUnit') || 'Cost/U'}</span>
+          </div>
+          {filteredItems.length === 0 ? (
+            <p className="px-3 py-6 text-sm text-[var(--fg-secondary)] text-center">
+              {t('noResults') || 'No items found'}
+            </p>
+          ) : (
+            filteredItems.map(si => {
+              const qty = quantities[si.id] || 0;
+              const hasQty = qty > 0;
+              return (
+                <div
+                  key={si.id}
+                  className={`grid grid-cols-[1fr_80px_50px_80px] gap-2 px-3 py-2 border-b border-[var(--divider)] border-opacity-50 items-center ${
+                    hasQty ? 'bg-brand-500/5' : ''
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <span className={`text-sm truncate block ${hasQty ? 'text-brand-500 font-medium' : 'text-fg-primary'}`}>
+                      {si.name}
                     </span>
+                    {si.category && (
+                      <span className="text-[10px] text-[var(--fg-secondary)]">{si.category}</span>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-xs text-[var(--fg-secondary)] mb-0.5">{t('costPerUnit') || 'Cost/Unit'}</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={row.costPerUnit || ''}
-                      onChange={e => updateRow(idx, { costPerUnit: parseFloat(e.target.value) || 0 })}
-                      className="input w-full px-2 py-1.5 text-sm"
-                      placeholder="0"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={qty || ''}
+                    onChange={e => setQuantities(prev => ({
+                      ...prev,
+                      [si.id]: parseFloat(e.target.value) || 0,
+                    }))}
+                    className="input px-2 py-1 text-sm text-right w-full"
+                    placeholder="0"
+                  />
+                  <span className="text-xs text-[var(--fg-secondary)] text-center">{si.unit}</span>
+                  <span className="text-xs text-[var(--fg-secondary)] text-right">
+                    {si.cost_per_unit ? `₪${si.cost_per_unit.toFixed(1)}` : '—'}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            })
+          )}
         </div>
-
-        {/* Add another */}
-        <button
-          onClick={() => setRows(prev => [...prev, emptyRow()])}
-          className="flex items-center gap-1.5 text-sm text-brand-500 hover:text-brand-400 transition-colors mb-4"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('addAnotherItem') || 'Add another item'}
-        </button>
 
         {/* Error */}
         {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
@@ -823,8 +823,15 @@ function QuickReceiveModal({
           <button onClick={onClose} className="btn-secondary text-sm px-4 py-2">
             {t('cancel') || 'Cancel'}
           </button>
-          <button onClick={handleConfirm} disabled={submitting} className="btn-primary text-sm px-4 py-2">
-            {submitting ? t('saving') || 'Saving...' : t('confirmReceive') || 'Confirm Receive'}
+          <button
+            onClick={handleConfirm}
+            disabled={submitting || selectedCount === 0}
+            className="btn-primary text-sm px-4 py-2"
+          >
+            {submitting
+              ? t('saving') || 'Saving...'
+              : `${t('confirmReceive') || 'Confirm'} (${selectedCount})`
+            }
           </button>
         </div>
       </div>
