@@ -31,6 +31,7 @@ import {
   UserIcon,
   CalendarIcon,
   ArrowRightOnRectangleIcon,
+  FireIcon,
   SunIcon,
   MoonIcon,
   LanguageIcon,
@@ -81,9 +82,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
   // All groups start expanded
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    new Set(['articlesGroup', 'stockGroup'])
-  );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
@@ -110,12 +109,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       href: `${base}/menu`,
       labelKey: 'menu',
       icon: Bars3BottomLeftIcon,
-      perm: ['menu.view', 'menu.edit', 'kitchen.view', 'kitchen.manage'],
+      perm: ['menu.view', 'menu.edit'],
+      subItems: [
+        { href: `${base}/menu/menus`, labelKey: 'menus' },
+      ],
       subGroups: [
         {
           labelKey: 'articlesGroup',
           items: [
-            { href: `${base}/menu/menus`, labelKey: 'menus' },
             { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
             { href: `${base}/menu/categories`, labelKey: 'categories' },
             { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
@@ -124,17 +125,20 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             { href: `${base}/menu/import`, labelKey: 'aiImport' },
           ],
         },
-        {
-          labelKey: 'stockGroup',
-          items: [
-            { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
-            { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
-            { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
-            { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
-            { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations' },
-            { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
-          ],
-        },
+      ],
+    },
+    {
+      href: `${base}/kitchen`,
+      labelKey: 'kitchen',
+      icon: FireIcon,
+      perm: ['kitchen.view', 'kitchen.manage'],
+      subItems: [
+        { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
+        { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
+        { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
+        { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
+        { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations' },
+        { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
       ],
     },
     {
@@ -222,8 +226,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   /** The href to use when clicking a nav item in the main list */
   function getNavHref(item: NavItem): string {
-    if (item.subGroups) return item.subGroups[0].items[0].href;
     if (item.subItems) return item.subItems[0].href;
+    if (item.subGroups) return item.subGroups[0].items[0].href;
     return item.href;
   }
 
@@ -321,7 +325,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     (sub) => pathname === sub.href || pathname.startsWith(sub.href + '/')
                   );
                   // Auto-expand the group that contains the active route
-                  const isExpanded = expandedGroups.has(group.labelKey) || hasActiveItem;
+                  const isExpanded = expandedGroups.has(group.labelKey);
                   return (
                     <div key={group.labelKey}>
                       <button
