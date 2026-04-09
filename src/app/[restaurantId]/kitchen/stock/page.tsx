@@ -876,17 +876,17 @@ function StockHistoryModal({ rid, item, onClose, t }: {
             const isPositive = tx.quantity_delta > 0;
             const typeColor = TX_TYPE_COLORS[tx.type] || 'text-fg-secondary bg-[var(--surface-subtle)]';
             return (
-              <div key={tx.id} className="px-4 py-3 flex items-center gap-3">
-                <div className="flex-shrink-0">
-                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${typeColor}`}>
-                    {tx.type}
+              <div key={tx.id} className="px-4 py-3 flex gap-3">
+                <div className="flex-shrink-0 pt-0.5">
+                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase whitespace-nowrap ${typeColor}`}>
+                    {t(tx.type) || tx.type}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-fg-primary truncate">{tx.notes || '—'}</p>
-                  <p className="text-xs text-fg-tertiary">{formatDate(tx.created_at)} {formatTime(tx.created_at)}</p>
+                  <p className="text-sm text-fg-primary break-words">{tx.notes || '—'}</p>
+                  <p className="text-xs text-fg-tertiary mt-0.5">{formatDate(tx.created_at)} {formatTime(tx.created_at)}</p>
                 </div>
-                <div className={`text-sm font-mono font-semibold ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+                <div className={`text-sm font-mono font-semibold whitespace-nowrap flex-shrink-0 ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
                   {isPositive ? '+' : ''}{tx.quantity_delta} {item.unit}
                 </div>
               </div>
