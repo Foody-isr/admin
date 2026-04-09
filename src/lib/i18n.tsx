@@ -875,6 +875,14 @@ const translations: Record<Locale, Record<string, string>> = {
     noContributions: "No menu items contributed to this ingredient's usage.",
     deleteSelected: 'Delete selected',
 
+    // ── Estimated Supplies ──
+    estimatedSupplies: 'Estimated Supplies',
+    generateOrderFor: 'Generate order for tomorrow',
+    ordersBySupplier: 'Orders by supplier',
+    sendOrder: 'Send order',
+    orderSent: 'Order sent',
+    reconciliation: 'Reconciliation',
+
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
     siteDesign: 'Site design',
@@ -1966,6 +1974,14 @@ const translations: Record<Locale, Record<string, string>> = {
     noContributions: 'אין פריטי תפריט שתרמו לשימוש במרכיב זה.',
     deleteSelected: 'מחק נבחרים',
 
+    // ── Estimated Supplies ──
+    estimatedSupplies: 'אספקה משוערת',
+    generateOrderFor: 'צור הזמנה למחר',
+    ordersBySupplier: 'הזמנות לפי ספק',
+    sendOrder: 'שלח הזמנה',
+    orderSent: 'הזמנה נשלחה',
+    reconciliation: 'פיוס / השוואה',
+
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
     siteDesign: 'עיצוב אתר',
@@ -3055,6 +3071,14 @@ const translations: Record<Locale, Record<string, string>> = {
     totalUsage: 'Total',
     noContributions: "Aucun article du menu n'a contribué à l'utilisation de cet ingrédient.",
     deleteSelected: 'Supprimer la sélection',
+
+    // ── Estimated Supplies ──
+    estimatedSupplies: 'Approvisionnements estimés',
+    generateOrderFor: 'Générer la commande pour demain',
+    ordersBySupplier: 'Commandes par fournisseur',
+    sendOrder: 'Envoyer la commande',
+    orderSent: 'Commande envoyée',
+    reconciliation: 'Réconciliation',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',

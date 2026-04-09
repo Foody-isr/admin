@@ -2527,6 +2527,7 @@ export interface PurchaseOrder {
   total_amount: number;
   order_date: string | null;
   received_date: string | null;
+  source_report_id?: number | null;
   created_by_id: number;
   supplier: Supplier;
   items: PurchaseOrderItem[];
@@ -2633,6 +2634,20 @@ export async function receivePurchaseOrder(restaurantId: number, id: number, ite
 
 export async function deletePurchaseOrder(restaurantId: number, id: number): Promise<void> {
   await apiFetch<void>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function sendOrderEmail(restaurantId: number, poId: number, to?: string): Promise<{ sent: boolean }> {
+  return await apiFetch<{ sent: boolean }>(`/api/v1/purchase-orders/${poId}/send-email?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ to: to || '' }),
+  });
+}
+
+export async function generateEstimatedSupplies(restaurantId: number, reportId: number): Promise<PurchaseOrder[]> {
+  const response = await apiFetch<{ purchase_orders: PurchaseOrder[] }>(`/api/v1/foodcost/daily-reports/${reportId}/estimated-supplies?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST',
+  });
+  return response.purchase_orders;
 }
 
 // ─── Floor Plans & Table Sections ─────────────────────────────────────────────
