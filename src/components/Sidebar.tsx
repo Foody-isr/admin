@@ -120,7 +120,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             { href: `${base}/menu/categories`, labelKey: 'categories' },
             { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
             { href: `${base}/menu/options`, labelKey: 'options' },
-            { href: `${base}/menu/combos`, labelKey: 'combos' },
             { href: `${base}/menu/rotation`, labelKey: 'rotation' },
             { href: `${base}/menu/import`, labelKey: 'aiImport' },
           ],

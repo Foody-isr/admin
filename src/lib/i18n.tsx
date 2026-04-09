@@ -1033,14 +1033,8 @@ const translations: Record<Locale, Record<string, string>> = {
     setDefaultOption: 'Set a default option',
     noDefaultSelection: 'No default selection',
 
-    // ── Combo Menus ──
-    combos: 'Combo Menus',
+    // ── Combos ──
     combo: 'Combo',
-    createCombo: 'Create combo',
-    editCombo: 'Edit combo',
-    noCombosYet: 'No combos yet',
-    noCombosDesc: 'Create a combo to bundle menu items at a fixed price.',
-    comboSteps: 'Steps',
     steps: 'steps',
     step: 'Step',
     addStep: 'Add step',
@@ -2088,14 +2082,8 @@ const translations: Record<Locale, Record<string, string>> = {
     setDefaultOption: 'הגדר אפשרות ברירת מחדל',
     noDefaultSelection: 'ללא בחירת ברירת מחדל',
 
-    // ── Combo Menus ──
-    combos: 'קומבו',
+    // ── Combos ──
     combo: 'קומבו',
-    createCombo: 'צור קומבו',
-    editCombo: 'ערוך קומבו',
-    noCombosYet: 'אין קומבו עדיין',
-    noCombosDesc: 'צור קומבו לחבר פריטי תפריט במחיר קבוע.',
-    comboSteps: 'שלבים',
     steps: 'שלבים',
     step: 'שלב',
     addStep: 'הוסף שלב',
@@ -3143,14 +3131,8 @@ const translations: Record<Locale, Record<string, string>> = {
     setDefaultOption: 'Définir une option par défaut',
     noDefaultSelection: 'Pas de sélection par défaut',
 
-    // ── Combo Menus ──
-    combos: 'Menus combinés',
+    // ── Combos ──
     combo: 'Combo',
-    createCombo: 'Créer un combo',
-    editCombo: 'Modifier le combo',
-    noCombosYet: 'Aucun combo pour l\'instant',
-    noCombosDesc: 'Créez un combo pour regrouper des articles à prix fixe.',
-    comboSteps: 'Étapes',
     steps: 'étapes',
     step: 'Étape',
     addStep: 'Ajouter une étape',

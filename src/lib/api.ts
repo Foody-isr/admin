@@ -277,7 +277,6 @@ export interface OrderItem {
   selected_variant_name?: string;
   selected_variant_price?: number;
   modifiers?: OrderItemModifier[];
-  combo_menu_id?: number;
   combo_item_id?: number;
   combo_group?: string;
   combo_name?: string;
@@ -2806,80 +2805,6 @@ export async function reorderFloorPlans(restaurantId: number, ids: number[]): Pr
   );
 }
 
-// ─── Combo Menus (legacy — ComboStep/ComboStepItem/ComboStepInput are defined above with MenuItem) ─
-
-export interface ComboMenu {
-  id: number;
-  restaurant_id: number;
-  name: string;
-  description: string;
-  price: number;
-  image_url: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  steps: ComboStep[];
-}
-
-export interface ComboInput {
-  name: string;
-  description?: string;
-  price: number;
-  image_url?: string;
-  is_active: boolean;
-  sort_order?: number;
-  steps: ComboStepInput[];
-}
-
-export async function listCombos(restaurantId: number): Promise<ComboMenu[]> {
-  const data = await apiFetch<{ combos: ComboMenu[] }>(`/api/v1/combos`, restaurantId);
-  return data.combos;
-}
-
-export async function getCombo(restaurantId: number, id: number): Promise<ComboMenu> {
-  const data = await apiFetch<{ combo: ComboMenu }>(`/api/v1/combos/${id}`, restaurantId);
-  return data.combo;
-}
-
-export async function createCombo(restaurantId: number, input: ComboInput): Promise<ComboMenu> {
-  const data = await apiFetch<{ combo: ComboMenu }>(`/api/v1/combos`, restaurantId, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-  return data.combo;
-}
-
-export async function updateCombo(restaurantId: number, id: number, input: ComboInput): Promise<ComboMenu> {
-  const data = await apiFetch<{ combo: ComboMenu }>(`/api/v1/combos/${id}`, restaurantId, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  });
-  return data.combo;
-}
-
-export async function deleteCombo(restaurantId: number, id: number): Promise<void> {
-  await apiFetch<void>(`/api/v1/combos/${id}`, restaurantId, { method: 'DELETE' });
-}
-
-export async function uploadComboImage(restaurantId: number, comboId: number, file: File): Promise<string> {
-  const form = new FormData();
-  form.append('image', file);
-  const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/combos/${comboId}/image`, {
-    method: 'POST',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      'X-Restaurant-ID': String(restaurantId),
-    },
-    body: form,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-    throw new Error(err.error || 'Upload failed');
-  }
-  const data = await res.json();
-  return data.image_url as string;
-}
 
 // ─── Rotation Schedule ────────────────────────────────────────────────────────
 
