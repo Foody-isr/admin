@@ -25,18 +25,59 @@ function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
 }
 
-function varianceColor(pct: number): string {
+type VarianceLevel = 'ok' | 'attention' | 'problem';
+
+function varianceLevel(pct: number): VarianceLevel {
   const abs = Math.abs(pct);
-  if (abs < 5) return 'text-green-500';
-  if (abs < 15) return 'text-yellow-500';
-  return 'text-red-500';
+  if (abs < 5) return 'ok';
+  if (abs < 15) return 'attention';
+  return 'problem';
+}
+
+function varianceColor(pct: number): string {
+  switch (varianceLevel(pct)) {
+    case 'ok': return 'text-green-500';
+    case 'attention': return 'text-yellow-500';
+    case 'problem': return 'text-red-500';
+  }
 }
 
 function varianceBg(pct: number): string {
-  const abs = Math.abs(pct);
-  if (abs < 5) return 'bg-green-500/10';
-  if (abs < 15) return 'bg-yellow-500/10';
-  return 'bg-red-500/10';
+  switch (varianceLevel(pct)) {
+    case 'ok': return '';
+    case 'attention': return 'bg-yellow-500/5';
+    case 'problem': return 'bg-red-500/5';
+  }
+}
+
+function VarianceBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
+  const level = varianceLevel(pct);
+  const configs = {
+    ok:        { label: t('badgeOk') || 'OK',              cls: 'bg-green-500/15 text-green-400 border-green-500/20' },
+    attention: { label: t('badgeAttention') || 'Attention', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20' },
+    problem:   { label: t('badgeProblem') || 'Problem',     cls: 'bg-red-500/15 text-red-400 border-red-500/20' },
+  };
+  const { label, cls } = configs[level];
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function insightMessage(item: DailyFoodCostItem, t: (k: string) => string): string | null {
+  if (Math.abs(item.variance) < 0.001) return null;
+  const qty = `${Math.abs(item.variance).toFixed(2)}${item.unit}`;
+  const cost = item.variance_cost !== 0 ? ` (≈ ₪${Math.abs(item.variance_cost).toFixed(0)})` : '';
+  if (item.variance > 0) {
+    return t('insightOverUse')
+      .replace('{qty}', qty)
+      .replace('{cost}', cost) ||
+      `Vous avez utilisé ${qty} de trop${cost} → probable perte ou surdosage`;
+  }
+  return t('insightUnderUse')
+    .replace('{qty}', qty) ||
+    `Vous avez utilisé ${qty} de moins → possible erreur de stock ou de saisie`;
 }
 
 function computeKpis(report: DailyFoodCostReport) {
@@ -305,14 +346,6 @@ export default function DailyOperationsPage() {
     }
   };
 
-  const toggleAllItems = () => {
-    if (!report?.items) return;
-    if (selectedItems.size === report.items.length) {
-      setSelectedItems(new Set());
-    } else {
-      setSelectedItems(new Set(report.items.map(i => i.id)));
-    }
-  };
 
   if (loading) {
     return (
@@ -568,90 +601,89 @@ export default function DailyOperationsPage() {
                   </button>
                 </div>
               )}
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--divider)]">
-                    {isOpen && (
-                      <th className="w-8 py-2">
-                        <input type="checkbox" checked={report.items.length > 0 && selectedItems.size === report.items.length} onChange={toggleAllItems} className="rounded" />
-                      </th>
-                    )}
-                    <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('ingredient') || 'Ingredient'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
-                      <ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip') || "Yesterday's closing stock — quantity on hand at start of today."} />
-                    </th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
-                      <ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip') || "Deliveries added to this ingredient's stock today."} />
-                    </th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
-                      <ThTooltip label={t('theoretical') || 'Theoretical'} tooltip={t('colTheoreticalTooltip') || 'Expected usage based on today\'s sales × recipe quantities.'} />
-                    </th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
-                      <ThTooltip label={t('closing') || 'Closing'} tooltip={t('colClosingTooltip') || 'Your physical stock count at end of day. Edit to reflect actual count.'} />
-                    </th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
-                      <ThTooltip label={t('variance') || 'Variance'} tooltip={t('colVarianceTooltip') || 'Actual usage − Theoretical. Positive = more used than expected.'} />
-                    </th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">
-                      <ThTooltip label="%" tooltip={t('colVariancePctTooltip') || 'Variance as % of theoretical. Green < 5%, yellow < 15%, red ≥ 15%.'} />
-                    </th>
-                    {isOpen && <th className="w-10 py-2" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.items.map(item => (
-                    <tr
+              <div className="space-y-1">
+                {/* Table header */}
+                <div className={`grid text-xs font-medium text-[var(--fg-secondary)] px-3 py-2 border-b border-[var(--divider)] ${isOpen ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4`}>
+                  {isOpen && <span />}
+                  <span>{t('ingredient') || 'Ingredient'}</span>
+                  <span className="text-right"><ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip') || "Yesterday's closing stock."} /></span>
+                  <span className="text-right"><ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip') || "Deliveries added today."} /></span>
+                  <span className="text-right"><ThTooltip label={t('colExpectedLabel') || 'Expected'} tooltip={t('colTheoreticalTooltip') || 'What you should have consumed based on sales and recipes.'} /></span>
+                  <span className="text-right"><ThTooltip label={t('closing') || 'Closing'} tooltip={t('colClosingTooltip') || 'Physical stock count at end of day.'} /></span>
+                  <span className="text-right"><ThTooltip label={t('colLossLabel') || 'Loss / Over-use'} tooltip={t('colVarianceTooltip') || 'Actual − Expected. Positive = over-used.'} /></span>
+                  <span className="text-right"><ThTooltip label={t('colImpactLabel') || 'Impact'} tooltip={t('colVariancePctTooltip') || 'Green < 5%, yellow 5–15%, red ≥ 15%.'} /></span>
+                  {isOpen && <span />}
+                </div>
+                {/* Rows */}
+                {report.items.map(item => {
+                  const insight = insightMessage(item, t);
+                  return (
+                    <div
                       key={item.id}
-                      className={`border-b border-[var(--divider)] border-opacity-50 cursor-pointer hover:bg-[var(--surface-hover)] group ${varianceBg(item.variance_percent)}`}
-                      onClick={() => item.stock_item_id && handleShowBreakdown(item.stock_item_id)}
+                      className={`rounded-lg border border-transparent hover:border-[var(--divider)] transition-colors group ${varianceBg(item.variance_percent)}`}
                     >
-                      {isOpen && (
-                        <td className="py-2" onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="rounded" />
-                        </td>
-                      )}
-                      <td className="py-2 text-fg-primary font-medium">{item.item_name} <span className="text-[var(--fg-secondary)] text-xs">({item.unit})</span></td>
-                      <td className="py-2 text-right text-fg-primary">{item.opening_stock.toFixed(1)}</td>
-                      <td className="py-2 text-right text-green-400">+{item.received_qty.toFixed(1)}</td>
-                      <td className="py-2 text-right text-[var(--fg-secondary)]">{item.theoretical_usage.toFixed(1)}</td>
-                      <td className="py-2 text-right">
-                        {isOpen ? (
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={closingStocks[item.stock_item_id!] ?? item.closing_stock}
-                            onChange={(e) => item.stock_item_id && setClosingStocks(prev => ({
-                              ...prev,
-                              [item.stock_item_id!]: parseFloat(e.target.value) || 0,
-                            }))}
-                            className="input w-20 px-2 py-0.5 text-sm text-right"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        ) : (
-                          <span>{item.closing_stock.toFixed(1)}</span>
+                      {/* Main row */}
+                      <div
+                        className={`grid items-center px-3 py-2.5 cursor-pointer ${isOpen ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4 text-sm`}
+                        onClick={() => item.stock_item_id && handleShowBreakdown(item.stock_item_id)}
+                      >
+                        {isOpen && (
+                          <div onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="rounded" />
+                          </div>
                         )}
-                      </td>
-                      <td className={`py-2 text-right font-medium ${varianceColor(item.variance_percent)}`}>
-                        {item.variance > 0 ? '+' : ''}{item.variance.toFixed(1)}
-                      </td>
-                      <td className={`py-2 text-right font-medium ${varianceColor(item.variance_percent)}`}>
-                        {item.variance_percent.toFixed(1)}%
-                      </td>
-                      {isOpen && (
-                        <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => handleDeleteItems([item.id])}
-                            className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                            title={t('delete') || 'Delete'}
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </td>
+                        <div className="min-w-0">
+                          <span className="font-medium text-fg-primary">{item.item_name}</span>
+                          <span className="text-[var(--fg-secondary)] text-xs ml-1">({item.unit})</span>
+                        </div>
+                        <span className="text-right text-fg-primary">{item.opening_stock.toFixed(2)}</span>
+                        <span className="text-right text-green-400">+{item.received_qty.toFixed(2)}</span>
+                        <span className="text-right text-[var(--fg-secondary)]">{item.theoretical_usage.toFixed(2)}</span>
+                        <div className="flex justify-end" onClick={e => e.stopPropagation()}>
+                          {isOpen ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={closingStocks[item.stock_item_id!] ?? item.closing_stock}
+                              onChange={(e) => item.stock_item_id && setClosingStocks(prev => ({
+                                ...prev,
+                                [item.stock_item_id!]: parseFloat(e.target.value) || 0,
+                              }))}
+                              className="input w-20 px-2 py-0.5 text-sm text-right"
+                            />
+                          ) : (
+                            <span>{item.closing_stock.toFixed(2)}</span>
+                          )}
+                        </div>
+                        <span className={`text-right font-medium tabular-nums ${varianceColor(item.variance_percent)}`}>
+                          {item.variance > 0 ? '+' : ''}{item.variance.toFixed(2)}
+                        </span>
+                        <span className="text-right">
+                          <VarianceBadge pct={item.variance_percent} t={t} />
+                        </span>
+                        {isOpen && (
+                          <div onClick={e => e.stopPropagation()} className="flex justify-end">
+                            <button
+                              onClick={() => handleDeleteItems([item.id])}
+                              className="p-1 rounded hover:bg-red-500/10 text-[var(--fg-secondary)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              title={t('delete') || 'Delete'}
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {/* Insight line */}
+                      {insight && (
+                        <div className={`px-3 pb-2 text-xs flex items-center gap-1.5 ${item.variance > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
+                          <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                          {insight}
+                        </div>
                       )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <p className="text-sm text-[var(--fg-secondary)] py-4">
