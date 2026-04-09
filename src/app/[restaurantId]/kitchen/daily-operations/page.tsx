@@ -80,6 +80,32 @@ function insightMessage(item: DailyFoodCostItem, t: (k: string) => string): stri
     `Vous avez utilisé ${qty} de moins → possible erreur de stock ou de saisie`;
 }
 
+function computeRevenueLoss(
+  item: DailyFoodCostItem,
+  breakdown: IngredientBreakdown
+): { dishes: { name: string; servings: number; revenue: number }[]; total: number } | null {
+  if (item.variance <= 0 || breakdown.contributions.length === 0) return null;
+  const totalExpected = breakdown.contributions.reduce((sum, c) => sum + c.total_usage_converted, 0);
+  if (totalExpected <= 0) return null;
+
+  const dishes: { name: string; servings: number; revenue: number }[] = [];
+  let totalRevenue = 0;
+  for (const c of breakdown.contributions) {
+    if (c.total_usage_converted <= 0 || c.menu_item_price <= 0) continue;
+    const share = c.total_usage_converted / totalExpected;
+    const varianceForDish = item.variance * share;
+    const usagePerServing = c.total_usage_converted / c.qty_sold;
+    const servingsLost = varianceForDish / usagePerServing;
+    if (servingsLost >= 0.5) {
+      const revenueLost = servingsLost * c.menu_item_price;
+      dishes.push({ name: c.menu_item_name, servings: Math.round(servingsLost), revenue: revenueLost });
+      totalRevenue += revenueLost;
+    }
+  }
+  if (dishes.length === 0) return null;
+  return { dishes, total: totalRevenue };
+}
+
 function computeKpis(report: DailyFoodCostReport) {
   const items = report.items || [];
   const actualCost = items.reduce((sum, i) => sum + i.actual_usage * i.cost_per_unit, 0);
@@ -137,8 +163,10 @@ export default function DailyOperationsPage() {
   const [deletingSales, setDeletingSales] = useState(false);
   const [deletingItems, setDeletingItems] = useState(false);
 
-  // Breakdown modal
-  const [breakdown, setBreakdown] = useState<IngredientBreakdown | null>(null);
+  // Inline breakdown expand
+  const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
+  const [breakdownCache, setBreakdownCache] = useState<Record<number, IngredientBreakdown>>({});
+  const [breakdownLoading, setBreakdownLoading] = useState<number | null>(null);
 
   // Quick receive modal
   const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -178,6 +206,8 @@ export default function DailyOperationsPage() {
         }
       }
       setReport(rpt);
+      setBreakdownCache({});
+      setExpandedItemId(null);
 
       // Populate form state from report
       if (rpt.sales) {
@@ -234,6 +264,8 @@ export default function DailyOperationsPage() {
   const recomputeAndReload = useCallback(async (reportId: number) => {
     const updated = await computeFoodCostReport(rid, reportId);
     setReport(updated);
+    setBreakdownCache({});
+    setExpandedItemId(null);
     if (updated.items) {
       const stocks: Record<number, number> = {};
       updated.items.forEach(i => {
@@ -285,13 +317,18 @@ export default function DailyOperationsPage() {
     }
   };
 
-  const handleShowBreakdown = async (stockItemId: number) => {
-    if (!report) return;
+  const handleToggleBreakdown = async (itemId: number, stockItemId: number) => {
+    if (expandedItemId === itemId) { setExpandedItemId(null); return; }
+    setExpandedItemId(itemId);
+    if (breakdownCache[stockItemId]) return;
+    setBreakdownLoading(stockItemId);
     try {
-      const bd = await getFoodCostBreakdown(rid, report.id, stockItemId);
-      setBreakdown(bd);
+      const bd = await getFoodCostBreakdown(rid, report!.id, stockItemId);
+      setBreakdownCache(prev => ({ ...prev, [stockItemId]: bd }));
     } catch {
-      // ignore
+      setExpandedItemId(null);
+    } finally {
+      setBreakdownLoading(null);
     }
   };
 
@@ -617,24 +654,31 @@ export default function DailyOperationsPage() {
                 {/* Rows */}
                 {report.items.map(item => {
                   const insight = insightMessage(item, t);
+                  const isExpanded = expandedItemId === item.id;
+                  const bd = item.stock_item_id ? breakdownCache[item.stock_item_id] : undefined;
                   return (
                     <div
                       key={item.id}
-                      className={`rounded-lg border border-transparent hover:border-[var(--divider)] transition-colors group ${varianceBg(item.variance_percent)}`}
+                      className={`rounded-lg border transition-colors group ${isExpanded ? 'border-[var(--divider)] bg-[var(--surface)]' : 'border-transparent hover:border-[var(--divider)]'} ${varianceBg(item.variance_percent)}`}
                     >
                       {/* Main row */}
                       <div
                         className={`grid items-center px-3 py-2.5 cursor-pointer ${isOpen ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4 text-sm`}
-                        onClick={() => item.stock_item_id && handleShowBreakdown(item.stock_item_id)}
+                        onClick={() => item.stock_item_id && handleToggleBreakdown(item.id, item.stock_item_id)}
                       >
                         {isOpen && (
                           <div onClick={e => e.stopPropagation()}>
                             <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="rounded" />
                           </div>
                         )}
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex items-center gap-1.5">
                           <span className="font-medium text-fg-primary">{item.item_name}</span>
-                          <span className="text-[var(--fg-secondary)] text-xs ml-1">({item.unit})</span>
+                          <span className="text-[var(--fg-secondary)] text-xs">({item.unit})</span>
+                          {item.stock_item_id && (
+                            isExpanded
+                              ? <ChevronUpIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)]" />
+                              : <ChevronDownIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
                         </div>
                         <span className="text-right text-fg-primary">{item.opening_stock.toFixed(2)}</span>
                         <span className="text-right text-green-400">+{item.received_qty.toFixed(2)}</span>
@@ -678,6 +722,80 @@ export default function DailyOperationsPage() {
                         <div className={`px-3 pb-2 text-xs flex items-center gap-1.5 ${item.variance > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
                           <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0" />
                           {insight}
+                        </div>
+                      )}
+                      {/* Inline breakdown panel */}
+                      {isExpanded && (
+                        <div className="px-4 py-3 border-t border-[var(--divider)]">
+                          {breakdownLoading === item.stock_item_id ? (
+                            <div className="flex items-center gap-2 text-sm text-[var(--fg-secondary)] py-2">
+                              <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                              {t('loadingBreakdown') || 'Loading breakdown...'}
+                            </div>
+                          ) : bd ? (
+                            bd.contributions.length === 0 ? (
+                              <p className="text-sm text-[var(--fg-secondary)]">
+                                {t('noContributions') || "No menu items contributed to this ingredient's usage."}
+                              </p>
+                            ) : (
+                              <div>
+                                <h4 className="text-sm font-semibold text-fg-primary mb-2">{t('dishBreakdown') || 'Dish Breakdown'}</h4>
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b border-[var(--divider)]">
+                                      <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
+                                      <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Sold'}</th>
+                                      <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('perUnit') || 'Per Unit'}</th>
+                                      <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('totalUsage') || 'Total'}</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {bd.contributions.map((c, i) => {
+                                      const sameUnit = c.recipe_unit === bd.unit;
+                                      return (
+                                        <tr key={i} className="border-b border-[var(--divider)] border-opacity-50">
+                                          <td className="py-2 text-fg-primary">{c.menu_item_name}</td>
+                                          <td className="py-2 text-right">{c.qty_sold}</td>
+                                          <td className="py-2 text-right text-[var(--fg-secondary)]">{c.recipe_qty}{c.recipe_unit}</td>
+                                          <td className="py-2 text-right font-medium">
+                                            {c.total_usage.toFixed(1)}{c.recipe_unit}
+                                            {!sameUnit && (
+                                              <span className="block text-xs text-[var(--fg-secondary)] font-normal">
+                                                ≈ {c.total_usage_converted.toFixed(3)}{bd.unit}
+                                              </span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                                {/* Revenue loss */}
+                                {(() => {
+                                  const loss = computeRevenueLoss(item, bd);
+                                  if (!loss) return null;
+                                  return (
+                                    <div className="mt-3 pt-3 border-t border-[var(--divider)] border-opacity-50">
+                                      <div className="flex items-start gap-2 text-sm">
+                                        <ExclamationTriangleIcon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                        <span className="text-red-400 font-medium">
+                                          {'≈ '}
+                                          {loss.dishes.map((d, i) => (
+                                            <span key={i}>
+                                              {i > 0 && ' + '}
+                                              {d.servings} {d.name}
+                                            </span>
+                                          ))}
+                                          {` → ₪${loss.total.toFixed(0)} `}
+                                          {t('revenueLossSuffix') || 'potential revenue lost'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -769,58 +887,6 @@ export default function DailyOperationsPage() {
           )}
         </div>
       </CollapsibleSection>
-
-      {/* Breakdown Modal */}
-      {breakdown && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setBreakdown(null)}>
-          <div className="bg-[var(--surface)] rounded-xl p-6 max-w-lg w-full mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-fg-primary">
-                {breakdown.item_name} <span className="text-sm font-normal text-[var(--fg-secondary)]">({breakdown.unit})</span>
-              </h3>
-              <button onClick={() => setBreakdown(null)} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-            </div>
-            {breakdown.contributions.length === 0 ? (
-              <p className="text-sm text-[var(--fg-secondary)]">{t('noContributions') || 'No menu items contributed to this ingredient\'s usage.'}</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--divider)]">
-                    <th className="text-left py-2 font-medium text-[var(--fg-secondary)]">{t('menuItem') || 'Menu Item'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('qtySold') || 'Sold'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('perUnit') || 'Per Unit'}</th>
-                    <th className="text-right py-2 font-medium text-[var(--fg-secondary)]">{t('totalUsage') || 'Total'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {breakdown.contributions.map((c, i) => {
-                    const sameUnit = c.recipe_unit === breakdown.unit;
-                    return (
-                      <tr key={i} className="border-b border-[var(--divider)] border-opacity-50">
-                        <td className="py-2 text-fg-primary">{c.menu_item_name}</td>
-                        <td className="py-2 text-right">{c.qty_sold}</td>
-                        <td className="py-2 text-right text-[var(--fg-secondary)]">
-                          {c.recipe_qty}{c.recipe_unit}
-                        </td>
-                        <td className="py-2 text-right font-medium">
-                          {c.total_usage.toFixed(1)}{c.recipe_unit}
-                          {!sameUnit && (
-                            <span className="block text-xs text-[var(--fg-secondary)] font-normal">
-                              ≈ {c.total_usage_converted.toFixed(3)}{breakdown.unit}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Quick Receive Modal */}
       {showReceiveModal && (

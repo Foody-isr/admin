@@ -3056,6 +3056,7 @@ export interface IngredientBreakdown {
 export interface IngredientContribution {
   menu_item_id: number;
   menu_item_name: string;
+  menu_item_price: number;
   qty_sold: number;
   recipe_qty: number;
   recipe_unit: string;
