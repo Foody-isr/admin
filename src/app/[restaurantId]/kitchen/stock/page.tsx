@@ -4,9 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
-  getStockCategories, createStockTransaction, importDelivery, confirmDelivery,
+  getStockCategories, createStockTransaction, listStockTransactions, importDelivery, confirmDelivery,
   batchUpdateStockCategory,
-  StockItem, StockCategory, StockItemInput, StockUnit, StockTransactionType,
+  StockItem, StockCategory, StockItemInput, StockUnit, StockTransactionType, StockTransaction,
   DeliveryExtraction, ConfirmDeliveryItemInput,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
@@ -14,7 +14,7 @@ import {
   MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
-  SparklesIcon,
+  SparklesIcon, ClockIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -44,6 +44,7 @@ export default function StockPage() {
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: StockItem }>({ open: false });
   const [txModal, setTxModal] = useState<{ open: boolean; item?: StockItem; type?: StockTransactionType }>({ open: false });
+  const [historyItem, setHistoryItem] = useState<StockItem | null>(null);
   const [importModal, setImportModal] = useState(false);
 
   const reload = useCallback(async () => {
@@ -278,6 +279,13 @@ export default function StockPage() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={() => setHistoryItem(item)}
+                          className="p-1 rounded hover:bg-[var(--surface-subtle)]"
+                          title={t('stockHistory')}
+                        >
+                          <ClockIcon className="w-4 h-4 text-fg-secondary" />
+                        </button>
+                        <button
                           onClick={() => setTxModal({ open: true, item, type: 'receive' })}
                           className="p-1 rounded hover:bg-[var(--surface-subtle)]"
                           title={t('receiveStock')}
@@ -327,6 +335,16 @@ export default function StockPage() {
           defaultType={txModal.type}
           onClose={() => setTxModal({ open: false })}
           onSaved={reload}
+        />
+      )}
+
+      {/* Transaction History Modal */}
+      {historyItem && (
+        <StockHistoryModal
+          rid={rid}
+          item={historyItem}
+          onClose={() => setHistoryItem(null)}
+          t={t}
         />
       )}
 
@@ -807,5 +825,75 @@ function DeliveryImportModal({
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Stock History Modal ────────────────────────────────────────────
+
+const TX_TYPE_COLORS: Record<string, string> = {
+  receive: 'text-emerald-600 bg-emerald-50',
+  deduct: 'text-red-600 bg-red-50',
+  waste: 'text-orange-600 bg-orange-50',
+  adjust: 'text-blue-600 bg-blue-50',
+  produce: 'text-purple-600 bg-purple-50',
+};
+
+function StockHistoryModal({ rid, item, onClose, t }: {
+  rid: number;
+  item: StockItem;
+  onClose: () => void;
+  t: (key: string) => string;
+}) {
+  const [transactions, setTransactions] = useState<StockTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    listStockTransactions(rid, { stock_item_id: item.id, limit: 50 })
+      .then(setTransactions)
+      .finally(() => setLoading(false));
+  }, [rid, item.id]);
+
+  const formatDate = (d: string) => {
+    const date = new Date(d);
+    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  };
+  const formatTime = (d: string) => {
+    const date = new Date(d);
+    return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <Modal title={`${t('stockHistoryTitle')} — ${item.name}`} onClose={onClose}>
+      {loading ? (
+        <div className="flex items-center justify-center py-10">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand" />
+        </div>
+      ) : transactions.length === 0 ? (
+        <div className="text-center py-10 text-fg-secondary text-sm">{t('noTransactions')}</div>
+      ) : (
+        <div className="divide-y divide-[var(--divider)] max-h-[60vh] overflow-y-auto">
+          {transactions.map(tx => {
+            const isPositive = tx.quantity_delta > 0;
+            const typeColor = TX_TYPE_COLORS[tx.type] || 'text-fg-secondary bg-[var(--surface-subtle)]';
+            return (
+              <div key={tx.id} className="px-4 py-3 flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${typeColor}`}>
+                    {tx.type}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-fg-primary truncate">{tx.notes || '—'}</p>
+                  <p className="text-xs text-fg-tertiary">{formatDate(tx.created_at)} {formatTime(tx.created_at)}</p>
+                </div>
+                <div className={`text-sm font-mono font-semibold ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {isPositive ? '+' : ''}{tx.quantity_delta} {item.unit}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Modal>
   );
 }
