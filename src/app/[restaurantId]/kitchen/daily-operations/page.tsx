@@ -570,7 +570,7 @@ export default function DailyOperationsPage() {
               <thead>
                 <tr className="border-b border-[var(--divider)]">
                   {isOpen && (
-                    <th className="w-8 py-2">
+                    <th className="w-8 py-2 align-middle">
                       <input type="checkbox" checked={report.sales.length > 0 && selectedSales.size === report.sales.length} onChange={toggleAllSales} className="rounded" />
                     </th>
                   )}
@@ -584,7 +584,7 @@ export default function DailyOperationsPage() {
                 {report.sales.map(s => (
                   <tr key={s.id} className="border-b border-[var(--divider)] border-opacity-50 group">
                     {isOpen && (
-                      <td className="py-2">
+                      <td className="w-8 py-2 align-middle">
                         <input type="checkbox" checked={selectedSales.has(s.id)} onChange={() => toggleSalesSelection(s.id)} className="rounded" />
                       </td>
                     )}
@@ -644,8 +644,8 @@ export default function DailyOperationsPage() {
               )}
               <div className="space-y-1">
                 {/* Table header */}
-                <div className={`grid text-xs font-medium text-[var(--fg-secondary)] px-3 py-2 border-b border-[var(--divider)] ${isOpen ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4`}>
-                  {isOpen && <span />}
+                <div className={`grid text-xs font-medium text-[var(--fg-secondary)] px-3 py-2 border-b border-[var(--divider)] ${isOpen ? 'grid-cols-[2rem_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4`}>
+                  {isOpen && <span className="w-8" />}
                   <span>{t('ingredient') || 'Ingredient'}</span>
                   <span className="text-right"><ThTooltip label={t('opening') || 'Opening'} tooltip={t('colOpeningTooltip')} explain={t('colOpeningExplain')} /></span>
                   <span className="text-right"><ThTooltip label={t('received') || 'Received'} tooltip={t('colReceivedTooltip')} explain={t('colReceivedExplain')} /></span>
@@ -667,11 +667,11 @@ export default function DailyOperationsPage() {
                     >
                       {/* Main row */}
                       <div
-                        className={`grid items-center px-3 py-2.5 cursor-pointer ${isOpen ? 'grid-cols-[auto_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4 text-sm`}
+                        className={`grid items-center px-3 py-2.5 cursor-pointer ${isOpen ? 'grid-cols-[2rem_1fr_auto_auto_auto_auto_auto_auto_auto]' : 'grid-cols-[1fr_auto_auto_auto_auto_auto_auto_auto]'} gap-x-4 text-sm`}
                         onClick={() => item.stock_item_id && handleToggleBreakdown(item.id, item.stock_item_id)}
                       >
                         {isOpen && (
-                          <div onClick={e => e.stopPropagation()}>
+                          <div className="w-8 flex items-center" onClick={e => e.stopPropagation()}>
                             <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="rounded" />
                           </div>
                         )}
