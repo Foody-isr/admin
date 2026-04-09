@@ -1367,14 +1367,12 @@ function ThTooltip({ label, tooltip, explain }: { label: string; tooltip: string
   return (
     <>
       <div className="inline-flex items-center gap-1">
-        <span
-          className={explain ? 'cursor-pointer underline decoration-dotted underline-offset-2 decoration-[var(--fg-secondary)]/40' : ''}
-          onClick={explain ? (e) => { e.stopPropagation(); setShowExplain(true); } : undefined}
-        >
-          {label}
-        </span>
+        <span>{label}</span>
         <div className="relative group/tip">
-          <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 cursor-help" />
+          <InformationCircleIcon
+            className={`w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 ${explain ? 'cursor-pointer' : 'cursor-help'}`}
+            onClick={explain ? (e) => { e.stopPropagation(); setShowExplain(true); } : undefined}
+          />
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
             {tooltip}
           </div>
