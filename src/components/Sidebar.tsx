@@ -295,7 +295,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
             {/* Sub-items (flat) */}
             {activeSection.subItems && (
-              <nav className="flex-1 px-3 py-1 space-y-0.5">
+              <nav className="px-3 py-1 space-y-0.5">
                 {activeSection.subItems.map((sub) => {
                   const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
                   return (
