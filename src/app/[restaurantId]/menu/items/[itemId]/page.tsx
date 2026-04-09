@@ -36,6 +36,10 @@ export default function EditItemPage() {
   const [isActive, setIsActive] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [imageUrl, setImageUrl] = useState('');
+  const [portionSize, setPortionSize] = useState(0);
+  const [portionSizeUnit, setPortionSizeUnit] = useState('g');
+  const [recipeYieldValue, setRecipeYieldValue] = useState(0);
+  const [recipeYieldUnit, setRecipeYieldUnit] = useState('kg');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +121,10 @@ export default function EditItemPage() {
           setIsActive(found.is_active);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
+          setPortionSize(found.portion_size ?? 0);
+          setPortionSizeUnit(found.portion_size_unit || 'g');
+          setRecipeYieldValue(found.recipe_yield ?? 0);
+          setRecipeYieldUnit(found.recipe_yield_unit || 'kg');
           // Load combo steps if this is a combo item
           if (found.item_type === 'combo' && found.combo_steps) {
             setComboSteps(found.combo_steps.map((s) => ({
@@ -251,6 +259,10 @@ export default function EditItemPage() {
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
+        portion_size: portionSize,
+        portion_size_unit: portionSizeUnit,
+        recipe_yield: recipeYieldValue,
+        recipe_yield_unit: recipeYieldUnit,
       };
       if (itemType === 'combo') {
         updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
@@ -520,6 +532,95 @@ export default function EditItemPage() {
                 </div>
               </div>
             )}
+
+            {/* ── Stock Management ── */}
+            <div className="h-1 bg-[var(--divider)] rounded-full" />
+            <div className="space-y-4">
+              <h3 className="text-base font-bold text-fg-primary">{t('stockManagement')}</h3>
+
+              {/* Default Portion */}
+              <div>
+                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
+                <p className="text-xs text-fg-tertiary mb-2">{t('defaultPortionDesc')}</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="0"
+                    value={portionSize || ''}
+                    onChange={(e) => setPortionSize(+e.target.value)}
+                    className="input w-24 py-1.5 text-sm text-right"
+                  />
+                  <select
+                    value={portionSizeUnit}
+                    onChange={(e) => setPortionSizeUnit(e.target.value)}
+                    className="input w-20 py-1.5 text-sm"
+                  >
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="l">l</option>
+                    <option value="unit">unit</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Recipe Type */}
+              <div>
+                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeType')}</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setRecipeYieldValue(1); setRecipeYieldUnit('unit'); }}
+                    className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
+                      recipeYieldUnit === 'unit' && recipeYieldValue === 1 ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-fg-primary">{t('perItemRecipe')}</p>
+                    <p className="text-[11px] text-fg-tertiary mt-0.5">{t('perItemRecipeDesc')}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (recipeYieldUnit === 'unit') { setRecipeYieldValue(0); setRecipeYieldUnit('kg'); } }}
+                    className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
+                      recipeYieldUnit !== 'unit' || recipeYieldValue !== 1 ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-fg-primary">{t('bulkRecipe')}</p>
+                    <p className="text-[11px] text-fg-tertiary mt-0.5">{t('bulkRecipeDesc')}</p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Yield editor — only for bulk recipes */}
+              {!(recipeYieldUnit === 'unit' && recipeYieldValue === 1) && (
+                <div>
+                  <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeYield')}</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="0"
+                      value={recipeYieldValue || ''}
+                      onChange={(e) => setRecipeYieldValue(+e.target.value)}
+                      className="input w-24 py-1.5 text-sm text-right"
+                    />
+                    <select
+                      value={recipeYieldUnit}
+                      onChange={(e) => setRecipeYieldUnit(e.target.value)}
+                      className="input w-20 py-1.5 text-sm"
+                    >
+                      <option value="kg">kg</option>
+                      <option value="g">g</option>
+                      <option value="l">l</option>
+                      <option value="ml">ml</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Divider */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />
