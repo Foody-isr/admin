@@ -8,14 +8,16 @@ import {
   closeFoodCostReport, createFoodCostReport, listFoodCostReports,
   getFoodCostBreakdown, getFoodCostSummary,
   listStockTransactions, getAllCategories, listStockItems,
+  confirmDelivery,
   DailyFoodCostReport, DailyFoodCostItem, DailySalesEntry,
   IngredientBreakdown, StockTransaction, MenuCategory, MenuItem, StockItem,
+  ConfirmDeliveryItemInput,
 } from '@/lib/api';
 import {
   ChevronDownIcon, ChevronUpIcon, ArrowPathIcon,
   CheckCircleIcon, ExclamationTriangleIcon,
   ChevronLeftIcon, ChevronRightIcon,
-  XMarkIcon,
+  XMarkIcon, PlusIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -82,6 +84,9 @@ export default function DailyOperationsPage() {
 
   // Breakdown modal
   const [breakdown, setBreakdown] = useState<IngredientBreakdown | null>(null);
+
+  // Quick receive modal
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
 
   // Stock items for reference
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -303,6 +308,15 @@ export default function DailyOperationsPage() {
         expanded={expandedSections.has('supplies')}
         onToggle={toggleSection}
         badge={todayReceives.length > 0 ? `${todayReceives.length} items` : undefined}
+        action={isOpen ? (
+          <button
+            onClick={() => setShowReceiveModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            {t('addSupply') || 'Add Supply'}
+          </button>
+        ) : undefined}
       >
         {todayReceives.length === 0 ? (
           <p className="text-sm text-[var(--fg-secondary)] py-4">{t('noSuppliesReceived') || 'No supplies received today.'}</p>
@@ -588,11 +602,235 @@ export default function DailyOperationsPage() {
           </div>
         </div>
       )}
+
+      {/* Quick Receive Modal */}
+      {showReceiveModal && (
+        <QuickReceiveModal
+          stockItems={stockItems}
+          onConfirm={async (supplierName, items) => {
+            await confirmDelivery(rid, { supplier_name: supplierName, items });
+            setShowReceiveModal(false);
+            loadSupplementary();
+          }}
+          onClose={() => setShowReceiveModal(false)}
+          t={t}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
+
+// ─── Quick Receive Modal ─────────────────────────────────────────────────────
+
+interface ReceiveRow {
+  stockItemId: number | null;
+  quantity: number;
+  costPerUnit: number;
+  search: string;
+}
+
+function emptyRow(): ReceiveRow {
+  return { stockItemId: null, quantity: 0, costPerUnit: 0, search: '' };
+}
+
+function QuickReceiveModal({
+  stockItems, onConfirm, onClose, t,
+}: {
+  stockItems: StockItem[];
+  onConfirm: (supplierName: string, items: ConfirmDeliveryItemInput[]) => Promise<void>;
+  onClose: () => void;
+  t: (key: string) => string;
+}) {
+  const [supplierName, setSupplierName] = useState('');
+  const [rows, setRows] = useState<ReceiveRow[]>([emptyRow()]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const updateRow = (idx: number, patch: Partial<ReceiveRow>) => {
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
+  };
+
+  const removeRow = (idx: number) => {
+    setRows(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+  };
+
+  const selectItem = (idx: number, item: StockItem) => {
+    updateRow(idx, {
+      stockItemId: item.id,
+      costPerUnit: item.cost_per_unit || 0,
+      search: item.name,
+    });
+  };
+
+  const filteredItems = (search: string) => {
+    if (!search) return stockItems.slice(0, 10);
+    const lower = search.toLowerCase();
+    return stockItems.filter(s => s.name.toLowerCase().includes(lower)).slice(0, 10);
+  };
+
+  const handleConfirm = async () => {
+    const validRows = rows.filter(r => r.stockItemId && r.quantity > 0);
+    if (validRows.length === 0) {
+      setError(t('selectIngredient') || 'Select at least one ingredient');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      const items: ConfirmDeliveryItemInput[] = validRows.map(r => {
+        const si = stockItems.find(s => s.id === r.stockItemId)!;
+        return {
+          stock_item_id: si.id,
+          name: si.name,
+          original_name: si.name,
+          quantity: r.quantity,
+          unit: si.unit,
+          category: si.category || '',
+          cost_per_unit: r.costPerUnit,
+        };
+      });
+      await onConfirm(supplierName, items);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-[var(--surface)] rounded-xl p-6 max-w-xl w-full mx-4 shadow-xl max-h-[85vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-bold text-fg-primary">{t('addSupply') || 'Add Supply'}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Supplier */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-fg-primary mb-1">{t('supplierName') || 'Supplier Name'}</label>
+          <input
+            type="text"
+            value={supplierName}
+            onChange={e => setSupplierName(e.target.value)}
+            className="input w-full px-3 py-2 text-sm"
+            placeholder={t('supplierName') || 'Supplier Name'}
+          />
+        </div>
+
+        {/* Item rows */}
+        <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+          {rows.map((row, idx) => (
+            <div key={idx} className="border border-[var(--divider)] rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                {/* Ingredient search */}
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={row.search}
+                    onChange={e => {
+                      updateRow(idx, { search: e.target.value, stockItemId: null });
+                    }}
+                    className="input w-full px-3 py-1.5 text-sm"
+                    placeholder={t('selectIngredient') || 'Select ingredient...'}
+                  />
+                  {row.search && !row.stockItemId && (
+                    <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-[var(--surface)] border border-[var(--divider)] rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                      {filteredItems(row.search).map(si => (
+                        <button
+                          key={si.id}
+                          onClick={() => selectItem(idx, si)}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-hover)] transition-colors flex items-center justify-between"
+                        >
+                          <span className="text-fg-primary">{si.name}</span>
+                          <span className="text-xs text-[var(--fg-secondary)]">{si.unit}</span>
+                        </button>
+                      ))}
+                      {filteredItems(row.search).length === 0 && (
+                        <p className="px-3 py-2 text-sm text-[var(--fg-secondary)]">No items found</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Remove row */}
+                {rows.length > 1 && (
+                  <button onClick={() => removeRow(idx)} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg shrink-0">
+                    <XMarkIcon className="w-4 h-4 text-[var(--fg-secondary)]" />
+                  </button>
+                )}
+              </div>
+
+              {/* Quantity + Unit + Cost */}
+              {row.stockItemId && (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs text-[var(--fg-secondary)] mb-0.5">{t('quantity') || 'Quantity'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={row.quantity || ''}
+                      onChange={e => updateRow(idx, { quantity: parseFloat(e.target.value) || 0 })}
+                      className="input w-full px-2 py-1.5 text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="w-16">
+                    <label className="block text-xs text-[var(--fg-secondary)] mb-0.5">{t('unit') || 'Unit'}</label>
+                    <span className="block px-2 py-1.5 text-sm text-[var(--fg-secondary)]">
+                      {stockItems.find(s => s.id === row.stockItemId)?.unit || ''}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-[var(--fg-secondary)] mb-0.5">{t('costPerUnit') || 'Cost/Unit'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={row.costPerUnit || ''}
+                      onChange={e => updateRow(idx, { costPerUnit: parseFloat(e.target.value) || 0 })}
+                      className="input w-full px-2 py-1.5 text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Add another */}
+        <button
+          onClick={() => setRows(prev => [...prev, emptyRow()])}
+          className="flex items-center gap-1.5 text-sm text-brand-500 hover:text-brand-400 transition-colors mb-4"
+        >
+          <PlusIcon className="w-4 h-4" />
+          {t('addAnotherItem') || 'Add another item'}
+        </button>
+
+        {/* Error */}
+        {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
+          <button onClick={onClose} className="btn-secondary text-sm px-4 py-2">
+            {t('cancel') || 'Cancel'}
+          </button>
+          <button onClick={handleConfirm} disabled={submitting} className="btn-primary text-sm px-4 py-2">
+            {submitting ? t('saving') || 'Saving...' : t('confirmReceive') || 'Confirm Receive'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function KpiCard({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
@@ -604,27 +842,29 @@ function KpiCard({ label, value, warn }: { label: string; value: string; warn?: 
 }
 
 function CollapsibleSection({
-  title, sectionKey, expanded, onToggle, badge, children,
+  title, sectionKey, expanded, onToggle, badge, action, children,
 }: {
   title: string;
   sectionKey: string;
   expanded: boolean;
   onToggle: (key: string) => void;
   badge?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="border border-[var(--divider)] rounded-xl overflow-hidden bg-[var(--surface)]">
-      <button
-        onClick={() => onToggle(sectionKey)}
-        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[var(--surface-hover)] transition-colors"
-      >
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-5 py-3">
+        <button
+          onClick={() => onToggle(sectionKey)}
+          className="flex-1 flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
           <h2 className="text-base font-semibold text-fg-primary">{title}</h2>
           {badge && <span className="px-2 py-0.5 rounded-full text-xs bg-brand-500/20 text-brand-500">{badge}</span>}
-        </div>
-        {expanded ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
-      </button>
+          {expanded ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
+        </button>
+        {action}
+      </div>
       {expanded && <div className="px-5 pb-5">{children}</div>}
     </div>
   );
