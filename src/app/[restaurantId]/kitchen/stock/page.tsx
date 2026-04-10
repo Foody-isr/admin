@@ -48,6 +48,15 @@ export default function StockPage() {
   const [importModal, setImportModal] = useState(false);
   const [vatRate, setVatRate] = useState(18);
   const [showExVat, setShowExVat] = useState(false);
+  const [hasImportDraft, setHasImportDraft] = useState(false);
+
+  // Check for import draft on mount
+  useEffect(() => {
+    try {
+      const key = `delivery-import-draft-${rid}`;
+      setHasImportDraft(!!localStorage.getItem(key));
+    } catch {}
+  }, [rid, importModal]); // re-check when modal closes
 
   // Load VAT rate from restaurant settings
   useEffect(() => {
@@ -214,8 +223,11 @@ export default function StockPage() {
 
         <div className="flex-1" />
 
-        <button onClick={() => setImportModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
+        <button onClick={() => setImportModal(true)} className="btn-secondary flex items-center gap-2 text-sm relative">
           <SparklesIcon className="w-4 h-4" /> {t('importDelivery')}
+          {hasImportDraft && (
+            <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-brand-500 border-2 border-[var(--surface)]" title={t('draftAvailable')} />
+          )}
         </button>
         <button onClick={() => setItemModal({ open: true })} className="btn-primary flex items-center gap-2 text-sm">
           <PlusIcon className="w-4 h-4" /> {t('addItem')}
