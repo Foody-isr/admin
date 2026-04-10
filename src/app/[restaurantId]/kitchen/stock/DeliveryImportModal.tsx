@@ -37,7 +37,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
     if (!file) return;
     setLoading(true);
     try {
-      const result = await importDelivery(rid, file, locale);
+      const result = await importDelivery(rid, file, locale, 'hybrid');
       setExtraction(result);
       setEditedItems(result.items.map((i) => ({
         stock_item_id: i.matched_item_id ?? undefined,
