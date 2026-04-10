@@ -281,6 +281,13 @@ function ItemsList({
               </span>
             </div>
 
+            {/* Original name (supplier language) */}
+            {item.original_name && item.original_name !== item.name && (
+              <p className="text-xs text-fg-secondary" dir="auto">
+                <span className="text-fg-tertiary">{t('originalName')}:</span> {item.original_name}
+              </p>
+            )}
+
             {/* Row 2: Name + Category (new items only) */}
             {!isExisting && (
               <div className="grid grid-cols-2 gap-3">
