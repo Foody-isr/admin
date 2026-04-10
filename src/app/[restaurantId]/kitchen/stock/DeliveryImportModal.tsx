@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import {
-  importDelivery, confirmDelivery,
-  DeliveryExtraction, ConfirmDeliveryItemInput, StockItem,
+  importDelivery, confirmDelivery, listSuppliers,
+  DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier,
 } from '@/lib/api';
 import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
@@ -25,6 +25,13 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const [editedItems, setEditedItems] = useState<ConfirmDeliveryItemInput[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
+
+  // Load restaurant suppliers on mount
+  useEffect(() => {
+    listSuppliers(rid).then(setSuppliers).catch(() => {});
+  }, [rid]);
 
   // Cleanup blob URL on unmount
   useEffect(() => {
@@ -37,7 +44,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
     if (!file) return;
     setLoading(true);
     try {
-      const result = await importDelivery(rid, file, locale, 'hybrid');
+      const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId || undefined);
       setExtraction(result);
       setEditedItems(result.items.map((i) => ({
         stock_item_id: i.matched_item_id ?? undefined,
@@ -105,6 +112,20 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
 
           <div className="space-y-4">
             <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
+            {/* Supplier selector */}
+            <div>
+              <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')}</label>
+              <select
+                className="input w-full py-2 text-sm"
+                value={selectedSupplierId}
+                onChange={(e) => setSelectedSupplierId(+e.target.value)}
+              >
+                <option value={0}>{t('autoDetect')}</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
             <input
               type="file"
               accept="image/*,.pdf"

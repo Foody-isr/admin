@@ -435,6 +435,7 @@ function SupplierFormModal({ editing, onClose, onSave, t }: {
   const [email, setEmail] = useState(editing?.email ?? '');
   const [address, setAddress] = useState(editing?.address ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [extractionHints, setExtractionHints] = useState(editing?.extraction_hints ?? '');
 
   return (
     <Modal title={editing ? t('editSupplier') : t('addSupplier')} onClose={onClose}>
@@ -465,9 +466,15 @@ function SupplierFormModal({ editing, onClose, onSave, t }: {
           <label className="block text-xs font-medium text-fg-secondary mb-1">{t('notes')}</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
         </div>
+        {/* AI Extraction Hints — auto-generated on first import, editable */}
+        <div>
+          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('extractionHints')}</label>
+          <textarea value={extractionHints} onChange={(e) => setExtractionHints(e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} placeholder={t('extractionHintsHelp')} />
+          <p className="text-xs text-fg-tertiary mt-1">{t('extractionHintsHelp')}</p>
+        </div>
         <button
           disabled={!name.trim()}
-          onClick={() => onSave({ name, contact_name: contactName, phone, email, address, notes })}
+          onClick={() => onSave({ name, contact_name: contactName, phone, email, address, notes, extraction_hints: extractionHints })}
           className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
         >
           {editing ? t('save') : t('addSupplier')}

@@ -2020,7 +2020,7 @@ export async function getStockItemMenuLinks(restaurantId: number, stockItemId: n
   return data.menu_items ?? [];
 }
 
-export async function importDelivery(restaurantId: number, file: File, lang?: string, method?: string, supplier?: string): Promise<DeliveryExtraction> {
+export async function importDelivery(restaurantId: number, file: File, lang?: string, method?: string, supplier?: string, supplierId?: number): Promise<DeliveryExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
@@ -2028,6 +2028,7 @@ export async function importDelivery(restaurantId: number, file: File, lang?: st
   if (lang) params.set('lang', lang);
   if (method) params.set('method', method);
   if (supplier) params.set('supplier', supplier);
+  if (supplierId) params.set('supplier_id', String(supplierId));
   const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?${params}`, {
     method: 'POST',
     headers: {
@@ -2476,6 +2477,7 @@ export interface Supplier {
   email: string;
   address: string;
   notes: string;
+  extraction_hints: string;
   is_active: boolean;
   products?: SupplierProduct[];
   created_at: string;
@@ -2489,6 +2491,7 @@ export interface SupplierInput {
   email?: string;
   address?: string;
   notes?: string;
+  extraction_hints?: string;
   is_active?: boolean;
 }
 
