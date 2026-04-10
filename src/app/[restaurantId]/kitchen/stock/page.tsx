@@ -14,7 +14,7 @@ import {
   MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
-  SparklesIcon, ClockIcon,
+  SparklesIcon, ClockIcon, InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -145,6 +145,17 @@ export default function StockPage() {
           <p className="text-2xl font-bold text-fg-primary mt-1">{totalValue.toFixed(2)} &#8362;</p>
         </div>
       </div>
+
+      {/* Help link */}
+      <a
+        href="https://foody-pos.co.il/en/help/kitchen/stock-management"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-brand-500 hover:text-brand-400 transition-colors"
+      >
+        <InformationCircleIcon className="w-4 h-4" />
+        {t('learnMore') || 'Learn more'} — {t('stockManagement') || 'Stock Management'}
+      </a>
 
       {/* Filters + actions */}
       <div className="flex flex-wrap items-center gap-3">
