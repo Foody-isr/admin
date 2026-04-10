@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import {
   importDelivery, confirmDelivery, listSuppliers,
-  DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier,
+  DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
 } from '@/lib/api';
+
+const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
@@ -361,11 +363,12 @@ function ItemsList({
                 <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
                   value={item.pack_count ?? ''} onChange={(e) => {
                     const packs = +e.target.value;
+                    const us = item.unit_size ?? 1;
+                    const qty = us > 0 ? packs * us : packs;
                     const ppk = item.price_per_pack ?? 0;
                     const tp = packs * ppk;
-                    const qty = item.quantity;
                     const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
-                    updateItem(idx, { pack_count: packs, total_price: tp || item.total_price, cost_per_unit: cpu || item.cost_per_unit });
+                    updateItem(idx, { pack_count: packs, quantity: qty, total_price: tp || item.total_price, cost_per_unit: cpu || item.cost_per_unit });
                   }} />
               </div>
               <div>
@@ -394,20 +397,38 @@ function ItemsList({
               </div>
             </div>
 
-            {/* Row 4: Unit size + Stock quantity info */}
-            {(item.unit_size ?? 0) > 0 && (
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unitSize')}</label>
-                  <p className="text-sm text-fg-primary py-1.5">{item.unit_size} {item.unit_size_unit}</p>
-                </div>
-                <div>
-                  <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('stockQuantity')}</label>
-                  <p className="text-sm text-fg-primary py-1.5">{item.quantity} {item.unit}</p>
-                </div>
-                <div />
+            {/* Row 4: Unit size / Unit / Stock quantity — all editable */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unitSize')}</label>
+                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
+                  value={item.unit_size ?? ''} onChange={(e) => {
+                    const us = +e.target.value;
+                    const packs = item.pack_count ?? 1;
+                    const qty = us > 0 ? packs * us : packs;
+                    const tp = item.total_price ?? 0;
+                    const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
+                    updateItem(idx, { unit_size: us, quantity: qty, cost_per_unit: cpu });
+                  }} />
               </div>
-            )}
+              <div>
+                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unit')}</label>
+                <select className="input w-full py-1.5 text-sm" value={item.unit}
+                  onChange={(e) => updateItem(idx, { unit: e.target.value, unit_size_unit: e.target.value })}>
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('stockQuantity')}</label>
+                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
+                  value={item.quantity} onChange={(e) => {
+                    const qty = +e.target.value;
+                    const tp = item.total_price ?? 0;
+                    const cpu = qty > 0 && tp > 0 ? tp / qty : 0;
+                    updateItem(idx, { quantity: qty, cost_per_unit: cpu });
+                  }} />
+              </div>
+            </div>
 
             {/* Row 5: Stock summary */}
             {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
