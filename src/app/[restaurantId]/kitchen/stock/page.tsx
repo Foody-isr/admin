@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
@@ -24,6 +24,7 @@ const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 
 
 export default function StockPage() {
   const { restaurantId } = useParams();
+  const searchParams = useSearchParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
 
@@ -46,17 +47,18 @@ export default function StockPage() {
   const [txModal, setTxModal] = useState<{ open: boolean; item?: StockItem; type?: StockTransactionType }>({ open: false });
   const [historyItem, setHistoryItem] = useState<StockItem | null>(null);
   const [importModal, setImportModal] = useState(false);
+  const [importDraftId, setImportDraftId] = useState<number | undefined>(undefined);
   const [vatRate, setVatRate] = useState(18);
   const [showExVat, setShowExVat] = useState(false);
-  const [hasImportDraft, setHasImportDraft] = useState(false);
 
-  // Check for import draft on mount
+  // Open import modal with draft if ?draft=ID is in URL
   useEffect(() => {
-    try {
-      const key = `delivery-import-draft-${rid}`;
-      setHasImportDraft(!!localStorage.getItem(key));
-    } catch {}
-  }, [rid, importModal]); // re-check when modal closes
+    const draftParam = searchParams.get('draft');
+    if (draftParam) {
+      setImportDraftId(Number(draftParam));
+      setImportModal(true);
+    }
+  }, [searchParams]);
 
   // Load VAT rate from restaurant settings
   useEffect(() => {
@@ -223,11 +225,8 @@ export default function StockPage() {
 
         <div className="flex-1" />
 
-        <button onClick={() => setImportModal(true)} className="btn-secondary flex items-center gap-2 text-sm relative">
+        <button onClick={() => { setImportDraftId(undefined); setImportModal(true); }} className="btn-secondary flex items-center gap-2 text-sm">
           <SparklesIcon className="w-4 h-4" /> {t('importDelivery')}
-          {hasImportDraft && (
-            <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-brand-500 border-2 border-[var(--surface)]" title={t('draftAvailable')} />
-          )}
         </button>
         <button onClick={() => setItemModal({ open: true })} className="btn-primary flex items-center gap-2 text-sm">
           <PlusIcon className="w-4 h-4" /> {t('addItem')}
@@ -404,7 +403,8 @@ export default function StockPage() {
         <DeliveryImportModal
           rid={rid}
           stockItems={items}
-          onClose={() => setImportModal(false)}
+          draftId={importDraftId}
+          onClose={() => { setImportModal(false); setImportDraftId(undefined); }}
           onImported={reload}
         />
       )}

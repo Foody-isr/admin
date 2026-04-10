@@ -2056,6 +2056,73 @@ export async function confirmDelivery(restaurantId: number, input: ConfirmDelive
   });
 }
 
+// ─── Delivery Import Drafts ───────────────────────────────────────
+
+export interface DeliveryImportDraft {
+  id: number;
+  restaurant_id: number;
+  supplier_id?: number;
+  supplier_name: string;
+  item_count: number;
+  document_url: string;
+  document_type: string;
+  created_by_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryImportDraftDetail {
+  draft: DeliveryImportDraft;
+  extraction: DeliveryExtraction;
+  edited_items: ConfirmDeliveryItemInput[];
+}
+
+export async function listImportDrafts(restaurantId: number): Promise<DeliveryImportDraft[]> {
+  const data = await apiFetch<{ drafts: DeliveryImportDraft[] }>(
+    `/api/v1/stock/import/drafts?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.drafts;
+}
+
+export async function getImportDraft(restaurantId: number, draftId: number): Promise<DeliveryImportDraftDetail> {
+  const data = await apiFetch<DeliveryImportDraftDetail>(
+    `/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data;
+}
+
+export async function createImportDraft(
+  restaurantId: number, file: File | null, input: {
+    supplier_id?: number; supplier_name: string;
+    extraction: DeliveryExtraction; edited_items: ConfirmDeliveryItemInput[];
+  }
+): Promise<DeliveryImportDraft> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('input', JSON.stringify(input));
+  if (file) formData.append('file', file);
+  const res = await fetch(`${API_URL}/api/v1/stock/import/drafts?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to create draft (${res.status})`);
+  }
+  const data = await res.json();
+  return data.draft;
+}
+
+export async function deleteImportDraft(restaurantId: number, draftId: number): Promise<void> {
+  await apiFetch(`/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
 // ─── Recipe Import ────────────────────────────────────────────────
 
 export interface ExtractedIngredient {

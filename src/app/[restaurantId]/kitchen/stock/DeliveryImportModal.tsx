@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import {
   importDelivery, confirmDelivery, listSuppliers, getRestaurantSettings,
+  getImportDraft, createImportDraft, deleteImportDraft,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
+  DeliveryImportDraftDetail,
 } from '@/lib/api';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
@@ -14,44 +16,12 @@ import SearchableSelect from '@/components/SearchableSelect';
 interface DeliveryImportModalProps {
   rid: number;
   stockItems: StockItem[];
+  draftId?: number; // If provided, resume this draft on open
   onClose: () => void;
   onImported: () => void;
 }
 
-// Draft shape stored in localStorage
-interface DeliveryImportDraft {
-  extraction: DeliveryExtraction;
-  editedItems: ConfirmDeliveryItemInput[];
-  selectedSupplierId: number;
-  newSupplierName: string;
-  savedAt: string; // ISO date
-}
-
-function getDraftKey(rid: number) { return `delivery-import-draft-${rid}`; }
-
-function loadDraft(rid: number): DeliveryImportDraft | null {
-  try {
-    const raw = localStorage.getItem(getDraftKey(rid));
-    if (!raw) return null;
-    const draft = JSON.parse(raw) as DeliveryImportDraft;
-    // Expire drafts older than 7 days
-    if (new Date().getTime() - new Date(draft.savedAt).getTime() > 7 * 24 * 60 * 60 * 1000) {
-      localStorage.removeItem(getDraftKey(rid));
-      return null;
-    }
-    return draft;
-  } catch { return null; }
-}
-
-function saveDraft(rid: number, draft: DeliveryImportDraft) {
-  try { localStorage.setItem(getDraftKey(rid), JSON.stringify(draft)); } catch {}
-}
-
-function clearDraft(rid: number) {
-  try { localStorage.removeItem(getDraftKey(rid)); } catch {}
-}
-
-export default function DeliveryImportModal({ rid, stockItems, onClose, onImported }: DeliveryImportModalProps) {
+export default function DeliveryImportModal({ rid, stockItems, draftId, onClose, onImported }: DeliveryImportModalProps) {
   const { t, locale, direction } = useI18n();
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [file, setFile] = useState<File | null>(null);
@@ -64,44 +34,53 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [vatRate, setVatRate] = useState(18);
-  const [hasDraft, setHasDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
+  const [savingDraft, setSavingDraft] = useState(false);
 
-  // Load restaurant suppliers, VAT rate, and check for existing draft
+  // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
   useEffect(() => {
     listSuppliers(rid).then(setSuppliers).catch(() => {});
     getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
-    setHasDraft(!!loadDraft(rid));
-  }, [rid]);
-
-  // Auto-save draft whenever review state changes
-  useEffect(() => {
-    if (step === 'review' && extraction && editedItems.length > 0) {
-      saveDraft(rid, {
-        extraction,
-        editedItems,
-        selectedSupplierId,
-        newSupplierName,
-        savedAt: new Date().toISOString(),
-      });
+    if (draftId) {
+      getImportDraft(rid, draftId).then((detail) => {
+        setExtraction(detail.extraction);
+        setEditedItems(detail.edited_items);
+        setSelectedSupplierId(detail.draft.supplier_id ?? 0);
+        setNewSupplierName('');
+        // Use the S3 document URL for preview
+        if (detail.draft.document_url) {
+          setPreviewUrl(detail.draft.document_url);
+        }
+        setStep('review');
+      }).catch(() => {});
     }
-  }, [step, extraction, editedItems, selectedSupplierId, newSupplierName, rid]);
+  }, [rid, draftId]);
 
-  const resumeDraft = () => {
-    const draft = loadDraft(rid);
-    if (!draft) return;
-    setExtraction(draft.extraction);
-    setEditedItems(draft.editedItems);
-    setSelectedSupplierId(draft.selectedSupplierId);
-    setNewSupplierName(draft.newSupplierName);
-    setStep('review');
+  const handleSaveDraft = async () => {
+    if (!extraction) return;
+    setSavingDraft(true);
+    try {
+      const supplierName = selectedSupplierId === -1
+        ? newSupplierName.trim()
+        : (selectedSupplierId > 0
+          ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+          : extraction.supplier_name) ?? '';
+      const draft = await createImportDraft(rid, file, {
+        supplier_id: selectedSupplierId > 0 ? selectedSupplierId : undefined,
+        supplier_name: supplierName,
+        extraction,
+        edited_items: editedItems,
+      });
+      setCurrentDraftId(draft.id);
+      onClose();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
-  const discardDraft = () => {
-    clearDraft(rid);
-    setHasDraft(false);
-  };
-
-  // Cleanup blob URL on unmount
+  // Cleanup blob URL on unmount (only for locally created blob URLs, not S3 URLs)
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -155,7 +134,10 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
         supplier_name: supplierName,
         items: editedItems,
       });
-      clearDraft(rid);
+      // Delete draft if this was resumed from one
+      if (currentDraftId) {
+        deleteImportDraft(rid, currentDraftId).catch(() => {});
+      }
       onImported();
       onClose();
     } catch (err: any) {
@@ -192,17 +174,6 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
 
           <div className="space-y-4">
             <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
-
-            {/* Resume draft banner */}
-            {hasDraft && (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-brand-500/30 bg-brand-500/5">
-                <p className="text-sm text-fg-primary">{t('draftAvailable')}</p>
-                <div className="flex items-center gap-2">
-                  <button onClick={discardDraft} className="text-xs text-fg-secondary hover:text-fg-primary">{t('discard')}</button>
-                  <button onClick={resumeDraft} className="btn-primary text-xs px-3 py-1">{t('resumeDraft')}</button>
-                </div>
-              </div>
-            )}
 
             {/* Supplier selector */}
             <div>
@@ -285,6 +256,9 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
+          <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-secondary text-sm">
+            {savingDraft ? t('saving') : t('saveDraft')}
+          </button>
           <button onClick={handleConfirm} disabled={loading} className="btn-primary text-sm">
             {loading ? t('confirming') : t('confirmImport')}
           </button>

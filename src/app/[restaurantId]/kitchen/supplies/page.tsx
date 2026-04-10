@@ -4,12 +4,16 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listSupplies, getSupplyDetail,
-  SupplySummary, StockTransaction,
+  listImportDrafts, deleteImportDraft,
+  SupplySummary, StockTransaction, DeliveryImportDraft,
 } from '@/lib/api';
 import {
   TruckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  SparklesIcon,
+  TrashIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -24,17 +28,28 @@ export default function SuppliesPage() {
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [batchDetails, setBatchDetails] = useState<Record<string, StockTransaction[]>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<DeliveryImportDraft[]>([]);
 
   const reload = useCallback(async () => {
     try {
-      const data = await listSupplies(rid, supplierFilter || undefined);
+      const [data, draftData] = await Promise.all([
+        listSupplies(rid, supplierFilter || undefined),
+        listImportDrafts(rid),
+      ]);
       setSupplies(data);
+      setDrafts(draftData);
     } finally {
       setLoading(false);
     }
   }, [rid, supplierFilter]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const handleDeleteDraft = async (draftId: number) => {
+    if (!confirm(t('deleteDraft') || 'Delete this draft?')) return;
+    await deleteImportDraft(rid, draftId);
+    setDrafts(prev => prev.filter(d => d.id !== draftId));
+  };
 
   const toggleBatch = async (batchId: string) => {
     if (expandedBatch === batchId) {
@@ -92,6 +107,48 @@ export default function SuppliesPage() {
           </select>
         </div>
       </div>
+
+      {/* Pending import drafts */}
+      {drafts.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-fg-secondary uppercase tracking-wider flex items-center gap-2">
+            <SparklesIcon className="w-4 h-4 text-brand-500" />
+            {t('pendingImports')} ({drafts.length})
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {drafts.map(draft => (
+              <div key={draft.id} className="rounded-xl border border-brand-500/20 p-4 space-y-3" style={{ background: 'var(--surface-subtle)' }}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    {draft.document_url && draft.document_type?.startsWith('image/') ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={draft.document_url} alt="" className="w-10 h-10 rounded object-cover border border-[var(--divider)]" />
+                    ) : (
+                      <DocumentTextIcon className="w-10 h-10 text-fg-tertiary" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-fg-primary">{draft.supplier_name || t('unknownSupplier')}</p>
+                      <p className="text-xs text-fg-secondary">{draft.item_count} {t('items')} &middot; {formatDate(draft.created_at)}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeleteDraft(draft.id)} className="p-1 text-red-400 hover:text-red-300">
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    // Navigate to stock page with draft ID to resume
+                    window.location.href = `/${rid}/kitchen/stock?draft=${draft.id}`;
+                  }}
+                  className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors"
+                >
+                  {t('resumeDraft')}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Supply list */}
       {supplies.length === 0 ? (
