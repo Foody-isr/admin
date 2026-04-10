@@ -533,25 +533,32 @@ function ItemsList({
             </div>
 
             {/* Row 5: VAT + Stock summary */}
-            <div className="pt-2 border-t border-[var(--divider)] space-y-1">
+            <div className="pt-2 border-t border-[var(--divider)] space-y-1.5">
               <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
                 <input type="checkbox" checked={item.price_includes_vat ?? false}
                   onChange={(e) => updateItem(idx, { price_includes_vat: e.target.checked })}
                   className="rounded border-fg-secondary" />
                 {t('priceIncludesVat')}
               </label>
-              {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
-                <p className="text-xs text-fg-secondary">
-                  &rarr; {t('stockReceives')}: {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
-                  {' '}
-                  <span className="text-fg-tertiary">
-                    ({item.price_includes_vat
-                      ? `${t('exVat')}: ${((item.total_price ?? 0) / vatMultiplier).toFixed(2)} ₪`
-                      : `${t('incVat')}: ${((item.total_price ?? 0) * vatMultiplier).toFixed(2)} ₪`
-                    })
-                  </span>
-                </p>
-              )}
+              {item.quantity > 0 && (item.total_price ?? 0) > 0 && (() => {
+                const tp = item.total_price ?? 0;
+                const qty = item.quantity;
+                const incVat = item.price_includes_vat ?? false;
+                const totalUnits = (item.pack_count ?? 1) * (item.units_per_pack ?? 1);
+                const totalHT = incVat ? tp / vatMultiplier : tp;
+                const totalTTC = incVat ? tp : tp * vatMultiplier;
+                const unitPriceHT = totalUnits > 0 ? totalHT / totalUnits : 0;
+                const unitPriceTTC = totalUnits > 0 ? totalTTC / totalUnits : 0;
+                return (
+                  <div className="text-xs text-fg-secondary space-y-0.5">
+                    {totalUnits > 1 && (
+                      <p>&rarr; {t('pricePerUnit')}: {unitPriceHT.toFixed(2)} &#8362; {t('exVat')} | {unitPriceTTC.toFixed(2)} &#8362; {t('incVat')}</p>
+                    )}
+                    <p>&rarr; {t('stockReceives')}: {qty} {item.unit} @ {(totalHT / qty).toFixed(4)} &#8362;/{item.unit} {t('exVat')}</p>
+                    <p className="text-fg-tertiary">{t('totalPrice')}: {totalHT.toFixed(2)} &#8362; {t('exVat')} | {totalTTC.toFixed(2)} &#8362; {t('incVat')}</p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
