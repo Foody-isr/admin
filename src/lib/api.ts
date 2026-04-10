@@ -60,6 +60,7 @@ export interface RestaurantSettings {
   table_yellow_after_minutes: number;
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
+  vat_rate: number;
 }
 
 export interface MenuAvailabilityHour {
@@ -471,6 +472,7 @@ export interface StockItem {
   notes: string;
   unit_content?: number;
   unit_content_unit?: string;
+  price_includes_vat: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -506,6 +508,7 @@ export interface StockItemInput {
   notes?: string;
   unit_content?: number;
   unit_content_unit?: string;
+  price_includes_vat?: boolean;
   is_active?: boolean;
 }
 
@@ -658,10 +661,12 @@ export interface ConfirmDeliveryItemInput {
   category: string;
   cost_per_unit: number;
   pack_count?: number;
+  units_per_pack?: number;
   price_per_pack?: number;
   total_price?: number;
   unit_size?: number;
   unit_size_unit?: string;
+  price_includes_vat?: boolean;
 }
 
 export interface ConfirmDeliveryInput {

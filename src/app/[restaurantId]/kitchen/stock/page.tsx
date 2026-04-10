@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
-  batchUpdateStockCategory,
+  batchUpdateStockCategory, getRestaurantSettings,
   StockItem, StockCategory, StockItemInput, StockUnit, StockTransactionType, StockTransaction,
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
@@ -46,6 +46,13 @@ export default function StockPage() {
   const [txModal, setTxModal] = useState<{ open: boolean; item?: StockItem; type?: StockTransactionType }>({ open: false });
   const [historyItem, setHistoryItem] = useState<StockItem | null>(null);
   const [importModal, setImportModal] = useState(false);
+  const [vatRate, setVatRate] = useState(18);
+  const [showExVat, setShowExVat] = useState(false);
+
+  // Load VAT rate from restaurant settings
+  useEffect(() => {
+    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+  }, [rid]);
 
   const reload = useCallback(async () => {
     try {
@@ -71,7 +78,17 @@ export default function StockPage() {
   });
 
   const lowStockCount = items.filter((i) => i.quantity <= i.reorder_threshold && i.reorder_threshold > 0).length;
-  const totalValue = items.reduce((sum, i) => sum + i.quantity * i.cost_per_unit, 0);
+  const vatMultiplier = 1 + vatRate / 100;
+
+  // Adjust cost based on VAT toggle: normalize all items to the same basis
+  const adjustedCost = (item: StockItem) => {
+    const raw = item.cost_per_unit;
+    if (showExVat && item.price_includes_vat) return raw / vatMultiplier;
+    if (!showExVat && !item.price_includes_vat) return raw * vatMultiplier;
+    return raw;
+  };
+
+  const totalValue = items.reduce((sum, i) => sum + i.quantity * adjustedCost(i), 0);
   const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
 
   const handleDelete = async (id: number) => {
@@ -143,6 +160,12 @@ export default function StockPage() {
         <div className="card p-4">
           <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('inventoryValue')}</p>
           <p className="text-2xl font-bold text-fg-primary mt-1">{totalValue.toFixed(2)} &#8362;</p>
+          <button
+            onClick={() => setShowExVat((v) => !v)}
+            className="text-xs mt-1 text-brand-500 hover:text-brand-400 transition-colors"
+          >
+            {showExVat ? t('showIncVat') : t('showExVat')}
+          </button>
         </div>
       </div>
 
@@ -275,7 +298,12 @@ export default function StockPage() {
                       {item.quantity} <span className="text-fg-secondary text-xs">{item.unit}</span>
                     </td>
                     <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                      {item.cost_per_unit > 0 ? `${item.cost_per_unit.toFixed(2)} ₪` : '—'}
+                      {item.cost_per_unit > 0 ? (
+                        <span>
+                          {adjustedCost(item).toFixed(2)} ₪
+                          <span className="text-xs text-fg-tertiary ml-1">{item.price_includes_vat ? t('incVat') : t('exVat')}</span>
+                        </span>
+                      ) : '—'}
                     </td>
                     <td className="py-3 px-4 text-fg-secondary">{item.supplier || '—'}</td>
                     <td className="py-3 px-4">

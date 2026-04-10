@@ -30,6 +30,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
   const [newSupplierName, setNewSupplierName] = useState('');
+  const [priceIncludesVat, setPriceIncludesVat] = useState(true);
 
   // Load restaurant suppliers on mount
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
         category: i.category,
         cost_per_unit: i.estimated_cost,
         pack_count: i.pack_count || i.quantity,
+        units_per_pack: 1,
         price_per_pack: i.price_per_pack || 0,
         total_price: i.total_price || (i.estimated_cost * i.quantity),
         unit_size: i.unit_size || 0,
@@ -83,7 +85,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
           : extraction?.supplier_name) ?? '';
       await confirmDelivery(rid, {
         supplier_name: supplierName,
-        items: editedItems,
+        items: editedItems.map((item) => ({ ...item, price_includes_vat: priceIncludesVat })),
       });
       onImported();
       onClose();
@@ -200,7 +202,17 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
             {editedItems.length} {t('items')}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* VAT toggle */}
+          <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={priceIncludesVat}
+              onChange={(e) => setPriceIncludesVat(e.target.checked)}
+              className="rounded border-fg-secondary"
+            />
+            {t('priceIncludesVat')}
+          </label>
           <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
           <button onClick={handleConfirm} disabled={loading} className="btn-primary text-sm">
             {loading ? t('confirming') : t('confirmImport')}
@@ -356,19 +368,33 @@ function ItemsList({
               </div>
             )}
 
-            {/* Row 3: Packs / Price per pack / Total — grid layout */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Row 3: Packs / Units per pack / Price per pack / Total */}
+            <div className="grid grid-cols-4 gap-3">
               <div>
                 <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('packCount')}</label>
                 <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
                   value={item.pack_count ?? ''} onChange={(e) => {
                     const packs = +e.target.value;
+                    const upp = item.units_per_pack ?? 1;
                     const us = item.unit_size ?? 1;
-                    const qty = us > 0 ? packs * us : packs;
+                    const qty = packs * (upp > 0 ? upp : 1) * (us > 0 ? us : 1);
                     const ppk = item.price_per_pack ?? 0;
                     const tp = packs * ppk;
                     const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
                     updateItem(idx, { pack_count: packs, quantity: qty, total_price: tp || item.total_price, cost_per_unit: cpu || item.cost_per_unit });
+                  }} />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unitsPerPack')}</label>
+                <input type="number" step="1" min="1" className="input w-full py-1.5 text-sm text-right"
+                  value={item.units_per_pack ?? 1} onChange={(e) => {
+                    const upp = +e.target.value;
+                    const packs = item.pack_count ?? 1;
+                    const us = item.unit_size ?? 1;
+                    const qty = packs * (upp > 0 ? upp : 1) * (us > 0 ? us : 1);
+                    const tp = item.total_price ?? 0;
+                    const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
+                    updateItem(idx, { units_per_pack: upp, quantity: qty, cost_per_unit: cpu });
                   }} />
               </div>
               <div>
@@ -405,7 +431,8 @@ function ItemsList({
                   value={item.unit_size ?? ''} onChange={(e) => {
                     const us = +e.target.value;
                     const packs = item.pack_count ?? 1;
-                    const qty = us > 0 ? packs * us : packs;
+                    const upp = item.units_per_pack ?? 1;
+                    const qty = packs * (upp > 0 ? upp : 1) * (us > 0 ? us : 1);
                     const tp = item.total_price ?? 0;
                     const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
                     updateItem(idx, { unit_size: us, quantity: qty, cost_per_unit: cpu });

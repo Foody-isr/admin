@@ -6,6 +6,7 @@ import {
   getRestaurant, updateRestaurant,
   Restaurant,
   getSpokeConfig, updateSpokeConfig, SpokeConfigResponse,
+  getRestaurantSettings, updateRestaurantSettings,
 } from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 
@@ -40,6 +41,11 @@ export default function SettingsPage() {
   // Restaurant info form
   const [info, setInfo] = useState({ name: '', address: '', phone: '', description: '' });
 
+  // VAT rate
+  const [vatRate, setVatRate] = useState<number>(18);
+  const [vatSaving, setVatSaving] = useState(false);
+  const [vatSaved, setVatSaved] = useState(false);
+
   useEffect(() => {
     getSpokeConfig(rid).then((cfg) => {
       setSpokeConfig(cfg);
@@ -57,6 +63,9 @@ export default function SettingsPage() {
       setRestaurant(r);
       setInfo({ name: r.name, address: r.address, phone: r.phone, description: r.description });
     }).finally(() => setLoading(false));
+    getRestaurantSettings(rid).then((s) => {
+      setVatRate(s.vat_rate ?? 18);
+    }).catch(() => {});
   }, [rid]);
 
   const handleSave = async () => {
@@ -125,6 +134,42 @@ export default function SettingsPage() {
           {saving ? t('saving') : t('saveChanges')}
         </button>
         {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
+      </div>
+
+      {/* VAT / Tax configuration */}
+      <div className="card space-y-4">
+        <h2 className="font-semibold text-fg-primary">{t('vatRate')}</h2>
+        <div className="flex items-end gap-3">
+          <div className="flex-1 max-w-[200px]">
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('vatRate')}</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              className="input w-full"
+              value={vatRate}
+              onChange={(e) => setVatRate(+e.target.value)}
+            />
+          </div>
+          <button
+            onClick={async () => {
+              setVatSaving(true);
+              try {
+                await updateRestaurantSettings(rid, { vat_rate: vatRate });
+                setVatSaved(true);
+                setTimeout(() => setVatSaved(false), 2000);
+              } finally {
+                setVatSaving(false);
+              }
+            }}
+            disabled={vatSaving}
+            className="btn-primary disabled:opacity-50"
+          >
+            {vatSaving ? t('saving') : t('saveChanges')}
+          </button>
+          {vatSaved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
+        </div>
       </div>
 
       {/* Spoke delivery integration */}

@@ -9,6 +9,7 @@ import {
   updateStockItem,
   importRecipesFromFile, importRecipesFromText, confirmRecipes,
   setRecipeYield,
+  getRestaurantSettings,
   MenuCategory, MenuItem, MenuItemIngredient, IngredientInput,
   StockItem, PrepItem, StockItemInput, ItemOptionOverride,
   RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
@@ -49,6 +50,8 @@ export default function FoodCostPage() {
   const [editingStockItem, setEditingStockItem] = useState<StockItem | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string>(''); // '' = full recipe or default
   const [optionOverrides, setOptionOverrides] = useState<ItemOptionOverride[]>([]);
+  const [vatRate, setVatRate] = useState(18);
+  const [showCostsExVat, setShowCostsExVat] = useState(true); // Industry standard: food cost uses ex-VAT
 
   const reload = useCallback(async () => {
     try {
@@ -66,6 +69,18 @@ export default function FoodCostPage() {
   }, [rid]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+  }, [rid]);
+
+  const vatMultiplier = 1 + vatRate / 100;
+
+  // Normalize a cost_per_unit to ex-VAT if needed
+  const toExVat = (cost: number, includesVat: boolean) =>
+    includesVat ? cost / vatMultiplier : cost;
+  // Normalize a cost_per_unit to inc-VAT if needed
+  const toIncVat = (cost: number, includesVat: boolean) =>
+    includesVat ? cost : cost * vatMultiplier;
 
   // Load ingredients when item selected
   const selectItem = async (item: MenuItem) => {
@@ -104,7 +119,9 @@ export default function FoodCostPage() {
     const stockUnit = stock?.unit ?? prep?.unit ?? '';
     // Only fallback to stock unit when it's a measurable unit (g/kg/ml/l), not package units
     const ingUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
-    const unitCost = stock?.cost_per_unit ?? prep?.cost_per_unit ?? 0;
+    const rawCost = stock?.cost_per_unit ?? prep?.cost_per_unit ?? 0;
+    const includesVat = stock?.price_includes_vat ?? false;
+    const unitCost = showCostsExVat ? toExVat(rawCost, includesVat) : toIncVat(rawCost, includesVat);
 
     // Same unit or no unit info (both measurable) — direct multiply
     if (ingUnit === stockUnit || !ingUnit) {
@@ -221,7 +238,9 @@ export default function FoodCostPage() {
     displayPrice = selectedItem!.price;
   }
 
-  const costPct = displayPrice > 0 ? displayCost / displayPrice : 0;
+  // Selling prices include VAT — normalize to same basis as costs for accurate %
+  const normalizedPrice = showCostsExVat ? displayPrice / vatMultiplier : displayPrice;
+  const costPct = normalizedPrice > 0 ? displayCost / normalizedPrice : 0;
   // Keep totalCost for backward compat in the ingredients table total row
   const totalCost = totalRecipeCost;
 
@@ -451,7 +470,15 @@ export default function FoodCostPage() {
                 <p className="text-sm text-fg-secondary mb-4">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
               )}
 
-              {/* Cost summary */}
+              {/* VAT toggle + Cost summary */}
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={() => setShowCostsExVat((v) => !v)}
+                  className="text-xs text-brand-500 hover:text-brand-400 transition-colors"
+                >
+                  {showCostsExVat ? t('showIncVat') : t('showExVat')}
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
                   <p className="text-xs text-fg-secondary">{t('foodCostLabel')}</p>
@@ -465,7 +492,7 @@ export default function FoodCostPage() {
                 </div>
                 <div className="rounded-lg p-3" style={{ background: 'var(--surface-subtle)' }}>
                   <p className="text-xs text-fg-secondary">{t('grossProfit')}</p>
-                  <p className={`text-xl font-bold ${(displayPrice - displayCost) >= 0 ? 'text-status-ready' : 'text-red-500'}`}>{(displayPrice - displayCost).toFixed(2)} &#8362;</p>
+                  <p className={`text-xl font-bold ${(normalizedPrice - displayCost) >= 0 ? 'text-status-ready' : 'text-red-500'}`}>{(normalizedPrice - displayCost).toFixed(2)} &#8362;</p>
                 </div>
               </div>
 
@@ -514,7 +541,9 @@ export default function FoodCostPage() {
                       const name = ing.stock_item?.name ?? ing.prep_item?.name ?? '?';
                       const unit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
                       const stockUnit = ing.stock_item?.unit ?? '';
-                      const unitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
+                      const rawUnitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
+                      const incVat = ing.stock_item?.price_includes_vat ?? false;
+                      const unitCost = showCostsExVat ? toExVat(rawUnitCost, incVat) : toIncVat(rawUnitCost, incVat);
                       const lineCost = calcLineCost(ing);
                       const mismatch = hasUnitMismatch(ing);
                       const type = ing.stock_item_id ? t('raw') : t('prep');
