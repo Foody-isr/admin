@@ -27,6 +27,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
+  const [newSupplierName, setNewSupplierName] = useState('');
 
   // Load restaurant suppliers on mount
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
     if (!file) return;
     setLoading(true);
     try {
-      const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId || undefined);
+      const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId > 0 ? selectedSupplierId : undefined);
       setExtraction(result);
       setEditedItems(result.items.map((i) => ({
         stock_item_id: i.matched_item_id ?? undefined,
@@ -72,8 +73,14 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const handleConfirm = async () => {
     setLoading(true);
     try {
+      // Use user-typed name for new suppliers, otherwise use AI-extracted or DB supplier name
+      const supplierName = selectedSupplierId === -1
+        ? newSupplierName.trim()
+        : (selectedSupplierId > 0
+          ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+          : extraction?.supplier_name) ?? '';
       await confirmDelivery(rid, {
-        supplier_name: extraction?.supplier_name ?? '',
+        supplier_name: supplierName,
         items: editedItems,
       });
       onImported();
@@ -114,17 +121,33 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
             <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
             {/* Supplier selector */}
             <div>
-              <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')}</label>
-              <select
-                className="input w-full py-2 text-sm"
-                value={selectedSupplierId}
-                onChange={(e) => setSelectedSupplierId(+e.target.value)}
-              >
-                <option value={0}>{t('autoDetect')}</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')} *</label>
+              <SearchableSelect
+                value={selectedSupplierId === -1 ? '__new__' : selectedSupplierId ? String(selectedSupplierId) : ''}
+                onChange={(val) => {
+                  if (val === '__new__') {
+                    setSelectedSupplierId(-1);
+                    setNewSupplierName('');
+                  } else {
+                    setSelectedSupplierId(val ? +val : 0);
+                    setNewSupplierName('');
+                  }
+                }}
+                options={[
+                  ...suppliers.map((s) => ({ value: String(s.id), label: s.name })),
+                  { value: '__new__', label: `+ ${t('newSupplier')}` },
+                ]}
+                placeholder={t('selectSupplier')}
+              />
+              {selectedSupplierId === -1 && (
+                <input
+                  className="input w-full py-2 text-sm mt-2"
+                  value={newSupplierName}
+                  onChange={(e) => setNewSupplierName(e.target.value)}
+                  placeholder={t('supplierName')}
+                  autoFocus
+                />
+              )}
             </div>
             <input
               type="file"
@@ -147,7 +170,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
             )}
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button onClick={handleUpload} disabled={!file || loading} className="btn-primary text-sm">
+              <button onClick={handleUpload} disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())} className="btn-primary text-sm">
                 {loading ? t('analyzing') : t('uploadAndAnalyze')}
               </button>
             </div>
