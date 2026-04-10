@@ -2092,6 +2092,8 @@ export interface ConfirmRecipeIngredientInput {
   quantity_needed: number;
   unit: string;
   category: string;
+  cost_per_unit?: number;
+  price_includes_vat?: boolean;
 }
 
 export interface ConfirmRecipeItemInput {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  importDelivery, confirmDelivery, listSuppliers,
+  importDelivery, confirmDelivery, listSuppliers, getRestaurantSettings,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
 } from '@/lib/api';
 
@@ -24,7 +24,6 @@ interface DeliveryImportDraft {
   editedItems: ConfirmDeliveryItemInput[];
   selectedSupplierId: number;
   newSupplierName: string;
-  priceIncludesVat: boolean;
   savedAt: string; // ISO date
 }
 
@@ -64,12 +63,13 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
   const [newSupplierName, setNewSupplierName] = useState('');
-  const [priceIncludesVat, setPriceIncludesVat] = useState(true);
+  const [vatRate, setVatRate] = useState(18);
   const [hasDraft, setHasDraft] = useState(false);
 
-  // Load restaurant suppliers on mount + check for existing draft
+  // Load restaurant suppliers, VAT rate, and check for existing draft
   useEffect(() => {
     listSuppliers(rid).then(setSuppliers).catch(() => {});
+    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
     setHasDraft(!!loadDraft(rid));
   }, [rid]);
 
@@ -81,11 +81,10 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
         editedItems,
         selectedSupplierId,
         newSupplierName,
-        priceIncludesVat,
         savedAt: new Date().toISOString(),
       });
     }
-  }, [step, extraction, editedItems, selectedSupplierId, newSupplierName, priceIncludesVat, rid]);
+  }, [step, extraction, editedItems, selectedSupplierId, newSupplierName, rid]);
 
   const resumeDraft = () => {
     const draft = loadDraft(rid);
@@ -94,7 +93,6 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
     setEditedItems(draft.editedItems);
     setSelectedSupplierId(draft.selectedSupplierId);
     setNewSupplierName(draft.newSupplierName);
-    setPriceIncludesVat(draft.priceIncludesVat);
     setStep('review');
   };
 
@@ -116,21 +114,25 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
     try {
       const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId > 0 ? selectedSupplierId : undefined);
       setExtraction(result);
-      setEditedItems(result.items.map((i) => ({
-        stock_item_id: i.matched_item_id ?? undefined,
-        name: i.translated_name || i.original_name,
-        original_name: i.original_name,
-        quantity: i.quantity,
-        unit: i.unit,
-        category: i.category,
-        cost_per_unit: i.estimated_cost,
-        pack_count: i.pack_count || i.quantity,
-        units_per_pack: 1,
-        price_per_pack: i.price_per_pack || 0,
-        total_price: i.total_price || (i.estimated_cost * i.quantity),
-        unit_size: i.unit_size || 0,
-        unit_size_unit: i.unit_size_unit || '',
-      })));
+      setEditedItems(result.items.map((i) => {
+        const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
+        return {
+          stock_item_id: i.matched_item_id ?? undefined,
+          name: i.translated_name || i.original_name,
+          original_name: i.original_name,
+          quantity: i.quantity,
+          unit: i.unit,
+          category: i.category,
+          cost_per_unit: i.estimated_cost,
+          pack_count: i.pack_count || i.quantity,
+          units_per_pack: 1,
+          price_per_pack: i.price_per_pack || 0,
+          total_price: i.total_price || (i.estimated_cost * i.quantity),
+          unit_size: i.unit_size || 0,
+          unit_size_unit: i.unit_size_unit || '',
+          price_includes_vat: matched?.price_includes_vat ?? true,
+        };
+      }));
       setPreviewUrl(URL.createObjectURL(file));
       setStep('review');
     } catch (err: any) {
@@ -151,7 +153,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
           : extraction?.supplier_name) ?? '';
       await confirmDelivery(rid, {
         supplier_name: supplierName,
-        items: editedItems.map((item) => ({ ...item, price_includes_vat: priceIncludesVat })),
+        items: editedItems,
       });
       clearDraft(rid);
       onImported();
@@ -281,17 +283,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
             {editedItems.length} {t('items')}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          {/* VAT toggle */}
-          <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={priceIncludesVat}
-              onChange={(e) => setPriceIncludesVat(e.target.checked)}
-              className="rounded border-fg-secondary"
-            />
-            {t('priceIncludesVat')}
-          </label>
+        <div className="flex items-center gap-2">
           <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
           <button onClick={handleConfirm} disabled={loading} className="btn-primary text-sm">
             {loading ? t('confirming') : t('confirmImport')}
@@ -355,6 +347,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
             stockOptions={stockOptions}
             existingCategories={existingCategories}
             updateItem={updateItem}
+            vatRate={vatRate}
             t={t}
           />
         </div>
@@ -368,6 +361,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
               stockOptions={stockOptions}
               existingCategories={existingCategories}
               updateItem={updateItem}
+              vatRate={vatRate}
               t={t}
             />
           </div>
@@ -380,15 +374,17 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
 function ItemsList({
-  editedItems, stockItems, stockOptions, existingCategories, updateItem, t,
+  editedItems, stockItems, stockOptions, existingCategories, updateItem, vatRate, t,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
   stockItems: StockItem[];
   stockOptions: { value: string; label: string; sublabel?: string }[];
   existingCategories: string[];
   updateItem: (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => void;
+  vatRate: number;
   t: (key: string) => string;
 }) {
+  const vatMultiplier = 1 + vatRate / 100;
   return (
     <div className="space-y-3">
       {editedItems.map((item, idx) => {
@@ -536,12 +532,27 @@ function ItemsList({
               </div>
             </div>
 
-            {/* Row 5: Stock summary */}
-            {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
-              <p className="text-xs text-fg-secondary pt-1 border-t border-[var(--divider)]">
-                &rarr; {t('stockReceives')}: {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
-              </p>
-            )}
+            {/* Row 5: VAT + Stock summary */}
+            <div className="pt-2 border-t border-[var(--divider)] space-y-1">
+              <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
+                <input type="checkbox" checked={item.price_includes_vat ?? true}
+                  onChange={(e) => updateItem(idx, { price_includes_vat: e.target.checked })}
+                  className="rounded border-fg-secondary" />
+                {t('priceIncludesVat')}
+              </label>
+              {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
+                <p className="text-xs text-fg-secondary">
+                  &rarr; {t('stockReceives')}: {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
+                  {' '}
+                  <span className="text-fg-tertiary">
+                    ({item.price_includes_vat
+                      ? `${t('exVat')}: ${((item.total_price ?? 0) / vatMultiplier).toFixed(2)} ₪`
+                      : `${t('incVat')}: ${((item.total_price ?? 0) * vatMultiplier).toFixed(2)} ₪`
+                    })
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
         );
       })}

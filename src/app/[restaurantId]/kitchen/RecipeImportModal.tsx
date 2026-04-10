@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   importRecipesFromFile, importRecipesFromText, confirmRecipes,
+  getRestaurantSettings,
   RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
   StockItem, MenuItem,
 } from '@/lib/api';
@@ -39,8 +40,16 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
     quantity_needed: number;
     unit: string;
     category: string;
+    cost_per_unit: number;
+    price_includes_vat: boolean;
     is_new: boolean;
   }>>([]);
+  const [vatRate, setVatRate] = useState(18);
+
+  // Load VAT rate
+  useEffect(() => {
+    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+  }, [rid]);
 
   // Cleanup blob URL on unmount
   useEffect(() => {
@@ -67,15 +76,20 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
         const recipe = result.recipes[0];
         setEditedYield(recipe.total_yield || 0);
         setEditedYieldUnit(recipe.total_yield_unit || 'kg');
-        setEditedIngredients(recipe.ingredients.map((ing) => ({
-          stock_item_id: ing.matched_item_id ?? null,
-          name: ing.translated_name || ing.original_name,
-          original_name: ing.original_name,
-          quantity_needed: ing.quantity,
-          unit: ing.unit,
-          category: '',
-          is_new: ing.is_new,
-        })));
+        setEditedIngredients(recipe.ingredients.map((ing) => {
+          const matched = ing.matched_item_id ? stockItems.find((s) => s.id === ing.matched_item_id) : null;
+          return {
+            stock_item_id: ing.matched_item_id ?? null,
+            name: ing.translated_name || ing.original_name,
+            original_name: ing.original_name,
+            quantity_needed: ing.quantity,
+            unit: ing.unit,
+            category: matched?.category || '',
+            cost_per_unit: matched?.cost_per_unit || 0,
+            price_includes_vat: matched?.price_includes_vat || false,
+            is_new: ing.is_new,
+          };
+        }));
       }
       if (file) setPreviewUrl(URL.createObjectURL(file));
       setStep('review');
@@ -101,6 +115,8 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
           quantity_needed: ing.quantity_needed,
           unit: ing.unit,
           category: ing.category,
+          cost_per_unit: ing.cost_per_unit,
+          price_includes_vat: ing.price_includes_vat,
         })),
       };
       await confirmRecipes(rid, { recipes: [input] });
@@ -118,6 +134,8 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
   };
 
   const stockOptions = stockItems.map((s) => ({ value: String(s.id), label: s.name, sublabel: s.unit }));
+  const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
+  const vatMultiplier = 1 + vatRate / 100;
 
   // ─── Input Step (compact dialog) ──────────────────────────────────────
 
@@ -308,7 +326,13 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                       onChange={(val) => {
                         if (val) {
                           const si = stockItems.find((s) => s.id === +val);
-                          updateIngredient(idx, { stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit });
+                          updateIngredient(idx, {
+                            stock_item_id: +val, is_new: false,
+                            unit: si?.unit || ing.unit,
+                            cost_per_unit: si?.cost_per_unit || ing.cost_per_unit,
+                            price_includes_vat: si?.price_includes_vat || false,
+                            category: si?.category || ing.category,
+                          });
                         } else {
                           updateIngredient(idx, { stock_item_id: null, is_new: true });
                         }
@@ -318,8 +342,8 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                     />
                   </div>
 
-                  {/* Row 3: Quantity + unit */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Row 3: Quantity + unit + category (for new items) */}
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('quantity')}</label>
                       <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
@@ -334,6 +358,45 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                         ))}
                       </select>
                     </div>
+                    {!matched && (
+                      <div>
+                        <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
+                        <select className="input w-full py-1.5 text-sm" value={ing.category}
+                          onChange={(e) => updateIngredient(idx, { category: e.target.value })}>
+                          <option value="">{t('category')}</option>
+                          {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                          {ing.category && !existingCategories.includes(ing.category) && (
+                            <option value={ing.category}>{ing.category}</option>
+                          )}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Row 4: Cost per unit + VAT */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('costPerUnit')} &#8362;</label>
+                      <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
+                        value={ing.cost_per_unit || ''} onChange={(e) => updateIngredient(idx, { cost_per_unit: +e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-fg-secondary font-medium mb-1 block flex items-center gap-1.5">
+                        <input type="checkbox" checked={ing.price_includes_vat}
+                          onChange={(e) => updateIngredient(idx, { price_includes_vat: e.target.checked })}
+                          className="rounded border-fg-secondary" />
+                        {t('priceIncludesVat')}
+                      </label>
+                      {ing.cost_per_unit > 0 && (
+                        <p className="text-xs text-fg-secondary py-1.5">
+                          {ing.price_includes_vat
+                            ? `${t('exVat')}: ${(ing.cost_per_unit / vatMultiplier).toFixed(4)} ₪`
+                            : `${t('incVat')}: ${(ing.cost_per_unit * vatMultiplier).toFixed(4)} ₪`
+                          }
+                        </p>
+                      )}
+                    </div>
+                    <div />
                   </div>
                 </div>
               );
