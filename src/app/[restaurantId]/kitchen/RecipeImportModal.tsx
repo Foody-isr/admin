@@ -1,0 +1,346 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  importRecipesFromFile, importRecipesFromText, confirmRecipes,
+  RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
+  StockItem, MenuItem,
+} from '@/lib/api';
+import { SparklesIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { useI18n } from '@/lib/i18n';
+import SearchableSelect from '@/components/SearchableSelect';
+
+interface RecipeImportModalProps {
+  rid: number;
+  menuItem: MenuItem;
+  stockItems: StockItem[];
+  onClose: () => void;
+  onImported: () => void;
+}
+
+export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, onImported }: RecipeImportModalProps) {
+  const { t, locale, direction } = useI18n();
+  const [step, setStep] = useState<'input' | 'review'>('input');
+  const [tab, setTab] = useState<'text' | 'upload'>('text');
+  const [file, setFile] = useState<File | null>(null);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Review state
+  const [extraction, setExtraction] = useState<RecipeExtraction | null>(null);
+  const [editedYield, setEditedYield] = useState(0);
+  const [editedYieldUnit, setEditedYieldUnit] = useState('kg');
+  const [editedIngredients, setEditedIngredients] = useState<Array<{
+    stock_item_id?: number | null;
+    name: string;
+    original_name: string;
+    quantity_needed: number;
+    unit: string;
+    category: string;
+    is_new: boolean;
+  }>>([]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const handleExtract = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      let result: RecipeExtraction;
+      if (tab === 'upload') {
+        if (!file) return;
+        result = await importRecipesFromFile(rid, file, locale);
+      } else {
+        if (!text.trim()) return;
+        result = await importRecipesFromText(rid, text, locale);
+      }
+      setExtraction(result);
+      // Auto-select first recipe
+      if (result.recipes.length > 0) {
+        const recipe = result.recipes[0];
+        setEditedYield(recipe.total_yield || 0);
+        setEditedYieldUnit(recipe.total_yield_unit || 'kg');
+        setEditedIngredients(recipe.ingredients.map((ing) => ({
+          stock_item_id: ing.matched_item_id ?? null,
+          name: ing.translated_name || ing.original_name,
+          original_name: ing.original_name,
+          quantity_needed: ing.quantity,
+          unit: ing.unit,
+          category: '',
+          is_new: ing.is_new,
+        })));
+      }
+      if (file) setPreviewUrl(URL.createObjectURL(file));
+      setStep('review');
+    } catch (err: any) {
+      setError(err.message || 'Extraction failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const input: ConfirmRecipeItemInput = {
+        menu_item_id: menuItem.id,
+        recipe_yield: editedYield,
+        recipe_yield_unit: editedYieldUnit,
+        ingredients: editedIngredients.map((ing) => ({
+          stock_item_id: ing.stock_item_id ?? null,
+          name: ing.name,
+          original_name: ing.original_name,
+          quantity_needed: ing.quantity_needed,
+          unit: ing.unit,
+          category: ing.category,
+        })),
+      };
+      await confirmRecipes(rid, { recipes: [input] });
+      onImported();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Confirm failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateIngredient = (idx: number, patch: Partial<typeof editedIngredients[0]>) => {
+    setEditedIngredients((prev) => prev.map((ing, i) => i === idx ? { ...ing, ...patch } : ing));
+  };
+
+  const stockOptions = stockItems.map((s) => ({ value: String(s.id), label: s.name, sublabel: s.unit }));
+
+  // ─── Input Step (compact dialog) ──────────────────────────────────────
+
+  if (step === 'input') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="rounded-modal shadow-xl p-6 w-full max-w-md mx-4" style={{ background: 'var(--surface)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-fg-primary flex items-center gap-2">
+              <SparklesIcon className="w-5 h-5 text-brand-500" />
+              {t('importRecipe')} — {menuItem.name}
+            </h3>
+            <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-500 text-sm">{error}</div>
+          )}
+
+          <div className="space-y-4">
+            {/* Tabs */}
+            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+              <button onClick={() => setTab('text')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'text' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+                {t('pasteRecipeText')}
+              </button>
+              <button onClick={() => setTab('upload')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'upload' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+                {t('uploadRecipeFile')}
+              </button>
+            </div>
+
+            {tab === 'text' ? (
+              <textarea
+                className="input w-full py-3 text-sm"
+                rows={8}
+                placeholder={t('pasteRecipePlaceholder')}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            ) : (
+              <>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="input w-full py-2 text-sm"
+                />
+                {file && file.type.startsWith('image/') && (
+                  <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
+                  </div>
+                )}
+                {file && file.type === 'application/pdf' && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
+                    <DocumentTextIcon className="w-5 h-5" />
+                    {file.name}
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+              <button
+                onClick={handleExtract}
+                disabled={loading || (tab === 'text' ? !text.trim() : !file)}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                {loading ? (
+                  <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> {t('extracting')}</>
+                ) : (
+                  <><SparklesIcon className="w-4 h-4" /> {t('extractRecipe')}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Review Step (full-screen split) ──────────────────────────────────
+
+  const isRtl = direction === 'rtl';
+  const hasDocumentPreview = tab === 'upload' && previewUrl;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
+      {/* ─ Header ─ */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
+        <div className="flex items-center gap-3">
+          <SparklesIcon className="w-5 h-5 text-brand-500" />
+          <h3 className="font-semibold text-fg-primary">{t('importRecipe')}</h3>
+          <span className="text-sm text-fg-secondary">— {menuItem.name}</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
+            {editedIngredients.length} {t('ingredients')}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setStep('input'); setExtraction(null); }} className="btn-secondary text-sm">{t('back')}</button>
+          <button onClick={handleConfirm} disabled={loading || editedIngredients.length === 0} className="btn-primary text-sm">
+            {loading ? t('saving') : t('confirmImport')}
+          </button>
+          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="px-5 py-2 bg-red-500/10 text-red-500 text-sm">{error}</div>
+      )}
+
+      {/* ─ Main content ─ */}
+      <div className={`flex flex-1 min-h-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+        {/* ─ Document preview (left) — only for file uploads ─ */}
+        {hasDocumentPreview && (
+          <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
+            <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalDocument')}</h4>
+            <div className="flex-1 rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
+              {file?.type.startsWith('image/') && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl!} alt="Recipe document" className="w-full h-auto" />
+              )}
+              {file?.type === 'application/pdf' && (
+                <iframe src={previewUrl!} className="w-full h-full min-h-[70vh]" title="Recipe document" />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─ For text input, show the original text on the left ─ */}
+        {!hasDocumentPreview && tab === 'text' && (
+          <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
+            <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalText')}</h4>
+            <pre className="flex-1 rounded-lg p-4 text-sm text-fg-primary whitespace-pre-wrap overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }} dir="auto">
+              {text}
+            </pre>
+          </div>
+        )}
+
+        {/* ─ Ingredients editor (right) ─ */}
+        <div className={`${hasDocumentPreview || tab === 'text' ? 'w-1/2' : 'w-full'} overflow-y-auto p-4`}>
+          {/* Recipe yield */}
+          <div className="flex items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+            <label className="text-sm text-fg-secondary font-medium">{t('recipeYield')}:</label>
+            <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-right"
+              value={editedYield || ''} onChange={(e) => setEditedYield(+e.target.value)} />
+            <select className="input w-20 py-1.5 text-sm" value={editedYieldUnit} onChange={(e) => setEditedYieldUnit(e.target.value)}>
+              <option value="kg">kg</option><option value="g">g</option>
+              <option value="l">l</option><option value="ml">ml</option>
+              <option value="unit">unit</option>
+            </select>
+          </div>
+
+          {/* Ingredients list */}
+          <div className="space-y-3">
+            {editedIngredients.map((ing, idx) => {
+              const matched = ing.stock_item_id ? stockItems.find((s) => s.id === ing.stock_item_id) : null;
+              return (
+                <div key={idx} className="p-4 rounded-lg space-y-3" style={{ background: 'var(--surface-subtle)' }}>
+                  {/* Row 1: Name + badge + delete */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-fg-primary">{ing.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${matched ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                        {matched ? t('existing') : t('new')}
+                      </span>
+                      <button onClick={() => setEditedIngredients(prev => prev.filter((_, i) => i !== idx))}
+                        className="p-1 text-red-400 hover:text-red-300">
+                        <TrashIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Original name */}
+                  {ing.original_name && ing.original_name !== ing.name && (
+                    <p className="text-xs text-fg-secondary" dir="auto">
+                      <span className="text-fg-tertiary">{t('originalName')}:</span> {ing.original_name}
+                    </p>
+                  )}
+
+                  {/* Row 2: Stock item match */}
+                  <div>
+                    <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('matchToStockItem')}</label>
+                    <SearchableSelect
+                      value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
+                      onChange={(val) => {
+                        if (val) {
+                          const si = stockItems.find((s) => s.id === +val);
+                          updateIngredient(idx, { stock_item_id: +val, is_new: false, unit: si?.unit || ing.unit });
+                        } else {
+                          updateIngredient(idx, { stock_item_id: null, is_new: true });
+                        }
+                      }}
+                      options={stockOptions}
+                      placeholder={`${t('newItem')}: ${ing.name}`}
+                    />
+                  </div>
+
+                  {/* Row 3: Quantity + unit */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('quantity')}</label>
+                      <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
+                        value={ing.quantity_needed || ''} onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unit')}</label>
+                      <select className="input w-full py-1.5 text-sm" value={ing.unit}
+                        onChange={(e) => updateIngredient(idx, { unit: e.target.value })}>
+                        {['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'].map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

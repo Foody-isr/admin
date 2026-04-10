@@ -18,6 +18,40 @@ interface DeliveryImportModalProps {
   onImported: () => void;
 }
 
+// Draft shape stored in localStorage
+interface DeliveryImportDraft {
+  extraction: DeliveryExtraction;
+  editedItems: ConfirmDeliveryItemInput[];
+  selectedSupplierId: number;
+  newSupplierName: string;
+  priceIncludesVat: boolean;
+  savedAt: string; // ISO date
+}
+
+function getDraftKey(rid: number) { return `delivery-import-draft-${rid}`; }
+
+function loadDraft(rid: number): DeliveryImportDraft | null {
+  try {
+    const raw = localStorage.getItem(getDraftKey(rid));
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as DeliveryImportDraft;
+    // Expire drafts older than 7 days
+    if (new Date().getTime() - new Date(draft.savedAt).getTime() > 7 * 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(getDraftKey(rid));
+      return null;
+    }
+    return draft;
+  } catch { return null; }
+}
+
+function saveDraft(rid: number, draft: DeliveryImportDraft) {
+  try { localStorage.setItem(getDraftKey(rid), JSON.stringify(draft)); } catch {}
+}
+
+function clearDraft(rid: number) {
+  try { localStorage.removeItem(getDraftKey(rid)); } catch {}
+}
+
 export default function DeliveryImportModal({ rid, stockItems, onClose, onImported }: DeliveryImportModalProps) {
   const { t, locale, direction } = useI18n();
   const [step, setStep] = useState<'upload' | 'review'>('upload');
@@ -31,11 +65,43 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [priceIncludesVat, setPriceIncludesVat] = useState(true);
+  const [hasDraft, setHasDraft] = useState(false);
 
-  // Load restaurant suppliers on mount
+  // Load restaurant suppliers on mount + check for existing draft
   useEffect(() => {
     listSuppliers(rid).then(setSuppliers).catch(() => {});
+    setHasDraft(!!loadDraft(rid));
   }, [rid]);
+
+  // Auto-save draft whenever review state changes
+  useEffect(() => {
+    if (step === 'review' && extraction && editedItems.length > 0) {
+      saveDraft(rid, {
+        extraction,
+        editedItems,
+        selectedSupplierId,
+        newSupplierName,
+        priceIncludesVat,
+        savedAt: new Date().toISOString(),
+      });
+    }
+  }, [step, extraction, editedItems, selectedSupplierId, newSupplierName, priceIncludesVat, rid]);
+
+  const resumeDraft = () => {
+    const draft = loadDraft(rid);
+    if (!draft) return;
+    setExtraction(draft.extraction);
+    setEditedItems(draft.editedItems);
+    setSelectedSupplierId(draft.selectedSupplierId);
+    setNewSupplierName(draft.newSupplierName);
+    setPriceIncludesVat(draft.priceIncludesVat);
+    setStep('review');
+  };
+
+  const discardDraft = () => {
+    clearDraft(rid);
+    setHasDraft(false);
+  };
 
   // Cleanup blob URL on unmount
   useEffect(() => {
@@ -87,6 +153,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
         supplier_name: supplierName,
         items: editedItems.map((item) => ({ ...item, price_includes_vat: priceIncludesVat })),
       });
+      clearDraft(rid);
       onImported();
       onClose();
     } catch (err: any) {
@@ -123,6 +190,18 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
 
           <div className="space-y-4">
             <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
+
+            {/* Resume draft banner */}
+            {hasDraft && (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-brand-500/30 bg-brand-500/5">
+                <p className="text-sm text-fg-primary">{t('draftAvailable')}</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={discardDraft} className="text-xs text-fg-secondary hover:text-fg-primary">{t('discard')}</button>
+                  <button onClick={resumeDraft} className="btn-primary text-xs px-3 py-1">{t('resumeDraft')}</button>
+                </div>
+              </div>
+            )}
+
             {/* Supplier selector */}
             <div>
               <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')} *</label>

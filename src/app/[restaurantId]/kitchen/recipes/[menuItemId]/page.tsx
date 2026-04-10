@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getRecipeDetail, setRecipeSteps, updateRecipeMeta,
-  RecipeDetail, RecipeStepInput,
+  listStockItems,
+  RecipeDetail, RecipeStepInput, StockItem,
 } from '@/lib/api';
 import {
   ArrowLeftIcon,
@@ -15,8 +16,10 @@ import {
   TrashIcon,
   ChevronUpIcon,
   ChevronDownIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
+import RecipeImportModal from '../../RecipeImportModal';
 
 export default function RecipeDetailPage() {
   const { restaurantId, menuItemId } = useParams();
@@ -29,6 +32,8 @@ export default function RecipeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
   // Edit state
   const [editSteps, setEditSteps] = useState<RecipeStepInput[]>([]);
@@ -45,6 +50,7 @@ export default function RecipeDetailPage() {
   }, [rid, itemId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { listStockItems(rid).then(setStockItems).catch(() => {}); }, [rid]);
 
   const enterEditMode = () => {
     if (!detail) return;
@@ -141,6 +147,13 @@ export default function RecipeDetailPage() {
           {t('backToRecipes')}
         </button>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-border text-brand-500 hover:bg-brand-500/5 transition-colors"
+          >
+            <SparklesIcon className="h-4 w-4" />
+            {t('importRecipe')}
+          </button>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-border text-fg-secondary hover:bg-bg-secondary transition-colors"
@@ -412,6 +425,20 @@ export default function RecipeDetailPage() {
           * { color: black !important; border-color: #e5e5e5 !important; }
         }
       `}</style>
+
+      {/* Recipe Import Modal */}
+      {showImportModal && detail && (
+        <RecipeImportModal
+          rid={rid}
+          menuItem={detail.item}
+          stockItems={stockItems}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            setShowImportModal(false);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 }
