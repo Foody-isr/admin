@@ -130,7 +130,7 @@ export default function DeliveryImportModal({ rid, stockItems, onClose, onImport
           total_price: i.total_price || (i.estimated_cost * i.quantity),
           unit_size: i.unit_size || 0,
           unit_size_unit: i.unit_size_unit || '',
-          price_includes_vat: matched?.price_includes_vat ?? true,
+          price_includes_vat: matched?.price_includes_vat ?? false,
         };
       }));
       setPreviewUrl(URL.createObjectURL(file));
@@ -535,7 +535,7 @@ function ItemsList({
             {/* Row 5: VAT + Stock summary */}
             <div className="pt-2 border-t border-[var(--divider)] space-y-1">
               <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
-                <input type="checkbox" checked={item.price_includes_vat ?? true}
+                <input type="checkbox" checked={item.price_includes_vat ?? false}
                   onChange={(e) => updateItem(idx, { price_includes_vat: e.target.checked })}
                   className="rounded border-fg-secondary" />
                 {t('priceIncludesVat')}
