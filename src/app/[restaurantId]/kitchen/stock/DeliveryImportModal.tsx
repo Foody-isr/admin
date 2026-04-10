@@ -485,7 +485,14 @@ function ItemsList({
                   }} />
               </div>
               <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('totalPrice')} &#8362;</label>
+                <label className="text-xs text-fg-secondary font-medium mb-1 flex items-center gap-1">
+                  {t('totalPrice')} &#8362;
+                  <button type="button"
+                    onClick={() => updateItem(idx, { price_includes_vat: !item.price_includes_vat })}
+                    className={`text-xs px-1.5 py-0.5 rounded font-medium transition-colors ${item.price_includes_vat ? 'bg-brand-500/10 text-brand-500' : 'bg-[var(--surface)] text-fg-tertiary hover:text-fg-secondary'}`}>
+                    {item.price_includes_vat ? t('incVat') : t('exVat')}
+                  </button>
+                </label>
                 <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
                   value={item.total_price ?? ''} onChange={(e) => {
                     const tp = +e.target.value;
@@ -532,15 +539,8 @@ function ItemsList({
               </div>
             </div>
 
-            {/* Row 5: VAT + Stock summary */}
-            <div className="pt-2 border-t border-[var(--divider)] space-y-1.5">
-              <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
-                <input type="checkbox" checked={item.price_includes_vat ?? false}
-                  onChange={(e) => updateItem(idx, { price_includes_vat: e.target.checked })}
-                  className="rounded border-fg-secondary" />
-                {t('priceIncludesVat')}
-              </label>
-              {item.quantity > 0 && (item.total_price ?? 0) > 0 && (() => {
+            {/* Row 5: Stock summary with HT/TTC breakdown */}
+            {item.quantity > 0 && (item.total_price ?? 0) > 0 && (() => {
                 const tp = item.total_price ?? 0;
                 const qty = item.quantity;
                 const incVat = item.price_includes_vat ?? false;
@@ -559,7 +559,6 @@ function ItemsList({
                   </div>
                 );
               })()}
-            </div>
           </div>
         );
       })}
