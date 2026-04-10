@@ -788,6 +788,11 @@ const translations: Record<Locale, Record<string, string>> = {
     recipeCostBreakdown: 'Ingredient cost for',
     stockUnit: 'Stock unit',
     pricePerPackage: 'Price per package',
+    originalDocument: 'Original Document',
+    matchToStockItem: 'Match to stock item',
+    packCount: 'Pack count',
+    unitSize: 'Unit size',
+    stockQuantity: 'Stock quantity',
     effectiveCost: 'Effective cost',
     perItem: 'per item',
     grams: 'grams',
@@ -897,6 +902,7 @@ const translations: Record<Locale, Record<string, string>> = {
     emailRecipient: 'Recipient email',
     send: 'Send',
     learnMore: 'Learn more',
+    learnMoreAbout: 'Learn more about',
 
     // ── Website Builder ──
     backToDashboard: 'Back to dashboard',
@@ -1906,6 +1912,11 @@ const translations: Record<Locale, Record<string, string>> = {
     recipeCostBreakdown: 'עלות מרכיבים עבור',
     stockUnit: 'יחידת מלאי',
     pricePerPackage: 'מחיר לאריזה',
+    originalDocument: 'מסמך מקורי',
+    matchToStockItem: 'התאמה לפריט מלאי',
+    packCount: 'מספר אריזות',
+    unitSize: 'גודל יחידה',
+    stockQuantity: 'כמות מלאי',
     effectiveCost: 'עלות בפועל',
     perItem: 'ליחידה',
     grams: 'גרם',
@@ -2011,6 +2022,7 @@ const translations: Record<Locale, Record<string, string>> = {
     emailRecipient: 'אימייל נמען',
     send: 'שלח',
     learnMore: 'למד עוד',
+    learnMoreAbout: 'למד עוד על',
 
     // ── Website Builder ──
     backToDashboard: 'חזרה ללוח המחוונים',
@@ -3019,6 +3031,11 @@ const translations: Record<Locale, Record<string, string>> = {
     recipeCostBreakdown: 'Coût des ingrédients pour',
     stockUnit: 'Unité de stock',
     pricePerPackage: 'Prix par paquet',
+    originalDocument: 'Document original',
+    matchToStockItem: 'Associer à un article',
+    packCount: 'Nombre de paquets',
+    unitSize: 'Taille unitaire',
+    stockQuantity: 'Quantité en stock',
     effectiveCost: 'Coût effectif',
     perItem: 'par unité',
     grams: 'grammes',
@@ -3124,6 +3141,7 @@ const translations: Record<Locale, Record<string, string>> = {
     emailRecipient: 'Email du destinataire',
     send: 'Envoyer',
     learnMore: 'En savoir plus',
+    learnMoreAbout: 'En savoir plus sur',
 
     // ── Website Builder ──
     backToDashboard: 'Retour au tableau de bord',

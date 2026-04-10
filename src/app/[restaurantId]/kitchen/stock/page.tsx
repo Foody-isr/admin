@@ -4,11 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
-  getStockCategories, createStockTransaction, listStockTransactions, importDelivery, confirmDelivery,
+  getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory,
   StockItem, StockCategory, StockItemInput, StockUnit, StockTransactionType, StockTransaction,
-  DeliveryExtraction, ConfirmDeliveryItemInput,
 } from '@/lib/api';
+import DeliveryImportModal from './DeliveryImportModal';
 import Modal from '@/components/Modal';
 import {
   MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
@@ -154,7 +154,7 @@ export default function StockPage() {
         className="inline-flex items-center gap-1.5 text-xs text-brand-500 hover:text-brand-400 transition-colors"
       >
         <InformationCircleIcon className="w-4 h-4" />
-        {t('learnMore') || 'Learn more'} — {t('stockManagement') || 'Stock Management'}
+        {t('learnMoreAbout') || 'Learn more about'} {t('stockManagement') || 'Stock Management'}
       </a>
 
       {/* Filters + actions */}
@@ -619,223 +619,6 @@ function TransactionModal({
         </div>
       </form>
     </Modal>
-  );
-}
-
-// ─── AI Delivery Import Modal ───────────────────────────────────────────────
-
-function DeliveryImportModal({
-  rid, stockItems, onClose, onImported,
-}: {
-  rid: number;
-  stockItems: StockItem[];
-  onClose: () => void;
-  onImported: () => void;
-}) {
-  const { t, locale } = useI18n();
-  const [step, setStep] = useState<'upload' | 'review'>('upload');
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [extraction, setExtraction] = useState<DeliveryExtraction | null>(null);
-  const [editedItems, setEditedItems] = useState<ConfirmDeliveryItemInput[]>([]);
-
-  const handleUpload = async () => {
-    if (!file) return;
-    setLoading(true);
-    try {
-      const result = await importDelivery(rid, file, locale);
-      setExtraction(result);
-      setEditedItems(result.items.map((i) => ({
-        stock_item_id: i.matched_item_id ?? undefined,
-        name: i.translated_name || i.original_name,
-        original_name: i.original_name,
-        quantity: i.quantity,
-        unit: i.unit,
-        category: i.category,
-        cost_per_unit: i.estimated_cost,
-        pack_count: i.pack_count || i.quantity,
-        price_per_pack: i.price_per_pack || 0,
-        total_price: i.total_price || (i.estimated_cost * i.quantity),
-        unit_size: i.unit_size || 0,
-        unit_size_unit: i.unit_size_unit || '',
-      })));
-      setStep('review');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirm = async () => {
-    setLoading(true);
-    try {
-      await confirmDelivery(rid, {
-        supplier_name: extraction?.supplier_name ?? '',
-        items: editedItems,
-      });
-      onImported();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateItem = (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => {
-    setEditedItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
-  };
-
-  // Get unique categories from existing stock items for the category dropdown
-  const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-fg-primary flex items-center gap-2">
-            <SparklesIcon className="w-5 h-5 text-brand-500" />
-            {t('aiDeliveryImport')}
-          </h3>
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
-        </div>
-
-        {step === 'upload' && (
-          <div className="space-y-4">
-            <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="input w-full py-2 text-sm"
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button onClick={handleUpload} disabled={!file || loading} className="btn-primary text-sm">
-                {loading ? t('analyzing') : t('uploadAndAnalyze')}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 'review' && (
-          <div className="space-y-4">
-            <p className="text-sm text-fg-secondary">
-              {t('foundItemsFromSupplier')
-                .replace('{count}', String(editedItems.length))
-                .replace('{supplier}', extraction?.supplier_name || 'supplier')}
-            </p>
-
-            <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-              {editedItems.map((item, idx) => {
-                const isExisting = !!item.stock_item_id;
-                const matchedStock = isExisting ? stockItems.find((s) => s.id === item.stock_item_id) : null;
-                return (
-                  <div key={idx} className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
-                    {/* Row 1: Name + stock item match */}
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="input flex-1 py-1.5 text-sm font-medium"
-                        value={item.stock_item_id ? String(item.stock_item_id) : ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val) {
-                            const si = stockItems.find((s) => s.id === +val);
-                            if (si) updateItem(idx, { stock_item_id: si.id, name: si.name, unit: si.unit, category: si.category });
-                          } else {
-                            updateItem(idx, { stock_item_id: undefined });
-                          }
-                        }}
-                      >
-                        <option value="">{item.name} ({t('newItem')})</option>
-                        {stockItems.map((s) => (
-                          <option key={s.id} value={String(s.id)}>{s.name} ({s.unit})</option>
-                        ))}
-                      </select>
-                      <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${isExisting ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                        {isExisting ? t('existing') : t('new')}
-                      </span>
-                    </div>
-
-                    {/* Row 2: Category (only for new items) */}
-                    {!isExisting && (
-                      <div className="flex items-center gap-2">
-                        <select className="input w-40 py-1 text-xs" value={item.category}
-                          onChange={(e) => updateItem(idx, { category: e.target.value })}>
-                          <option value="">{t('category')}</option>
-                          {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-                          {item.category && !existingCategories.includes(item.category) && (
-                            <option value={item.category}>{item.category}</option>
-                          )}
-                        </select>
-                        {!isExisting && (
-                          <input className="input flex-1 py-1 text-xs" value={item.name}
-                            onChange={(e) => updateItem(idx, { name: e.target.value })}
-                            placeholder={t('name')} />
-                        )}
-                      </div>
-                    )}
-
-                    {/* Row 3: Packs × Price/pack = Total */}
-                    <div className="flex items-center gap-1.5 text-sm flex-wrap">
-                      <label className="text-xs text-fg-secondary">{t('packs')}:</label>
-                      <input type="number" step="any" min="0" className="input w-14 py-1 text-sm text-right"
-                        value={item.pack_count ?? ''} onChange={(e) => {
-                          const packs = +e.target.value;
-                          const ppk = item.price_per_pack ?? 0;
-                          const tp = packs * ppk;
-                          const qty = item.quantity;
-                          const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
-                          updateItem(idx, { pack_count: packs, total_price: tp || item.total_price, cost_per_unit: cpu || item.cost_per_unit });
-                        }} />
-                      <span className="text-fg-secondary text-xs">&times;</span>
-                      <input type="number" step="any" min="0" className="input w-16 py-1 text-sm text-right"
-                        value={item.price_per_pack ?? ''} onChange={(e) => {
-                          const ppk = +e.target.value;
-                          const packs = item.pack_count ?? 1;
-                          const tp = packs * ppk;
-                          const qty = item.quantity;
-                          const cpu = qty > 0 && tp > 0 ? tp / qty : 0;
-                          updateItem(idx, { price_per_pack: ppk, total_price: tp, cost_per_unit: cpu });
-                        }} />
-                      <span className="text-xs text-fg-secondary">&#8362;</span>
-                      <span className="text-xs text-fg-secondary">({item.quantity} {item.unit})</span>
-                      <span className="text-fg-secondary text-xs">=</span>
-                      <label className="text-xs text-fg-secondary">{t('totalPrice')}:</label>
-                      <input type="number" step="any" min="0" className="input w-20 py-1 text-sm text-right"
-                        value={item.total_price ?? ''} onChange={(e) => {
-                          const tp = +e.target.value;
-                          const packs = item.pack_count ?? 1;
-                          const ppk = packs > 0 ? tp / packs : 0;
-                          const qty = item.quantity;
-                          const cpu = qty > 0 ? tp / qty : 0;
-                          updateItem(idx, { total_price: tp, price_per_pack: ppk, cost_per_unit: cpu });
-                        }} />
-                      <span className="text-xs text-fg-secondary">&#8362;</span>
-                    </div>
-
-                    {/* Row 4: Stock summary */}
-                    {item.quantity > 0 && (item.total_price ?? 0) > 0 && (
-                      <p className="text-xs text-fg-secondary">
-                        &rarr; {t('stockReceives')}: {item.quantity} {item.unit} @ {((item.total_price ?? 0) / item.quantity).toFixed(2)} &#8362;/{item.unit}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setStep('upload')} className="btn-secondary text-sm">{t('back')}</button>
-              <button onClick={handleConfirm} disabled={loading} className="btn-primary text-sm">
-                {loading ? t('confirming') : t('confirmImport')}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
