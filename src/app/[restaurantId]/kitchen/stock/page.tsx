@@ -579,12 +579,11 @@ function StockItemModal({
     is_active: editing?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<'general' | 'packaging'>('general');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setSaving(true);
     try {
-      // Ensure unit_content_unit is never empty when unit_content is set
       const payload = { ...form };
       if (payload.unit_content && !payload.unit_content_unit) {
         payload.unit_content_unit = 'g';
@@ -603,139 +602,154 @@ function StockItemModal({
     }
   };
 
+  const cpu = form.cost_per_unit ?? 0;
+  const uc = form.unit_content ?? 0;
+  const ps = form.pack_size ?? 0;
+  const hasUnitContent = uc > 0;
+  const pricePerUnit = hasUnitContent ? cpu * uc : 0;
+  const pricePerUnitTTC = pricePerUnit * vatMultiplier;
+  const pricePerPackage = ps > 0 && hasUnitContent ? pricePerUnit * ps : 0;
+  const pricePerPackageTTC = pricePerPackage * vatMultiplier;
+
   return (
     <Modal title={editing ? t('editStockItem') : t('addStockItem')} onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('nameLabel')}</label>
-          <input className="input w-full py-2 text-sm" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      <div className="space-y-4">
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+          <button type="button" onClick={() => setTab('general')}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'general' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+            {t('general')}
+          </button>
+          <button type="button" onClick={() => setTab('packaging')}
+            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${tab === 'packaging' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+            {t('packagingAndPricing')}
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('unitLabel')}</label>
-            <select className="input w-full py-2 text-sm" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value as StockUnit })}>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('quantity')}</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} />
-          </div>
-        </div>
-
-        {/* Packaging */}
-        <div className="grid grid-cols-4 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
-            <input type="number" step="1" min="0" className="input w-full py-2 text-sm"
-              value={form.pack_size || ''} onChange={(e) => setForm({ ...form, pack_size: +e.target.value })}
-              placeholder="12" />
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
-            <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
-              value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
-              placeholder="400" />
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
-            <select className="input w-full py-2 text-sm" value={form.unit_content_unit || 'g'}
-              onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
-              <option value="g">g</option><option value="kg">kg</option>
-              <option value="ml">ml</option><option value="l">l</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold || ''} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
-          </div>
-        </div>
-
-        {/* Cost per stock unit */}
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
-          <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
-        </div>
-
-        {/* Live price summary */}
-        {(form.cost_per_unit ?? 0) > 0 && (() => {
-          const cpu = form.cost_per_unit ?? 0;
-          const uc = form.unit_content ?? 0;
-          const ps = form.pack_size ?? 0;
-          const hasUnitContent = uc > 0;
-          const pricePerUnit = hasUnitContent ? cpu * uc : 0;
-          const pricePerUnitTTC = pricePerUnit * vatMultiplier;
-          const pricePerPackage = ps > 0 && hasUnitContent ? pricePerUnit * ps : 0;
-          const pricePerPackageTTC = pricePerPackage * vatMultiplier;
-          return (
-            <div className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
-              {/* Cost per stock unit */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{form.unit_content_unit || form.unit})</span>
-                <span className="text-xs text-fg-secondary">
-                  {cpu.toFixed(4)} &#8362; {t('exVat')} | {(cpu * vatMultiplier).toFixed(4)} &#8362; {t('incVat')}
-                </span>
-              </div>
-              {/* Price per unit (can/bottle) */}
-              {hasUnitContent && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-fg-secondary">{t('pricePerUnit')} ({uc}{form.unit_content_unit || 'g'})</span>
-                  <span className="text-sm font-semibold text-fg-primary">
-                    {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
-                    {' | '}
-                    {pricePerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
-                  </span>
-                </div>
-              )}
-              {/* Price per package (box/carton) */}
-              {pricePerPackage > 0 && (
-                <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
-                  <span className="text-xs text-fg-secondary">{t('pricePerPackage')} (×{ps})</span>
-                  <span className="text-xs text-fg-secondary">
-                    {pricePerPackage.toFixed(2)} &#8362; {t('exVat')} | {pricePerPackageTTC.toFixed(2)} &#8362; {t('incVat')}
-                  </span>
-                </div>
-              )}
+        {/* Tab: General */}
+        {tab === 'general' && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('nameLabel')} *</label>
+              <input className="input w-full py-2 text-sm" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-          );
-        })()}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('supplier')}</label>
-            <input className="input w-full py-2 text-sm" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('category')}</label>
-            <input
-              className="input w-full py-2 text-sm"
-              list="stock-cats"
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-            />
-            <datalist id="stock-cats">
-              {categories.map((c) => <option key={c} value={c} />)}
-            </datalist>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('unitLabel')}</label>
+                <select className="input w-full py-2 text-sm" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value as StockUnit })}>
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('quantity')}</label>
+                <input type="number" step="any" className="input w-full py-2 text-sm" value={form.quantity || ''} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} />
+              </div>
+            </div>
 
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
-          <textarea className="input w-full py-2 text-sm" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('supplier')}</label>
+                <input className="input w-full py-2 text-sm" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('category')}</label>
+                <input className="input w-full py-2 text-sm" list="stock-cats" value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                <datalist id="stock-cats">
+                  {categories.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+            </div>
 
-        <div className="flex items-center justify-between pt-2">
-          <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
-            <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded" />
-            {t('active')}
-          </label>
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-            <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : editing ? t('update') : t('create')}</button>
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
+              <textarea className="input w-full py-2 text-sm" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
+              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded" />
+              {t('active')}
+            </label>
           </div>
+        )}
+
+        {/* Tab: Packaging & Pricing */}
+        {tab === 'packaging' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
+                <input type="number" step="1" min="0" className="input w-full py-2 text-sm"
+                  value={form.pack_size || ''} onChange={(e) => setForm({ ...form, pack_size: +e.target.value })}
+                  placeholder="12" />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
+                <div className="flex gap-1.5">
+                  <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
+                    value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
+                    placeholder="400" />
+                  <select className="input w-16 py-2 text-sm" value={form.unit_content_unit || 'g'}
+                    onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+                    <option value="g">g</option><option value="kg">kg</option>
+                    <option value="ml">ml</option><option value="l">l</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
+                <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
+                <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold || ''} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
+              </div>
+            </div>
+
+            {/* Live price summary */}
+            {cpu > 0 && (
+              <div className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{form.unit_content_unit || form.unit})</span>
+                  <span className="text-xs text-fg-secondary">
+                    {cpu.toFixed(4)} &#8362; {t('exVat')} | {(cpu * vatMultiplier).toFixed(4)} &#8362; {t('incVat')}
+                  </span>
+                </div>
+                {hasUnitContent && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-secondary">{t('pricePerUnit')} ({uc}{form.unit_content_unit || 'g'})</span>
+                    <span className="text-sm font-semibold text-fg-primary">
+                      {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                      {' | '}
+                      {pricePerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                    </span>
+                  </div>
+                )}
+                {pricePerPackage > 0 && (
+                  <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
+                    <span className="text-xs text-fg-secondary">{t('pricePerPackage')} (×{ps})</span>
+                    <span className="text-xs text-fg-secondary">
+                      {pricePerPackage.toFixed(2)} &#8362; {t('exVat')} | {pricePerPackageTTC.toFixed(2)} &#8362; {t('incVat')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer — always visible */}
+        <div className="flex justify-end gap-2 pt-2 border-t border-[var(--divider)]">
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+          <button type="button" onClick={handleSubmit} disabled={saving || !form.name.trim()} className="btn-primary text-sm">
+            {saving ? t('saving') : editing ? t('update') : t('create')}
+          </button>
         </div>
-      </form>
+      </div>
     </Modal>
   );
 }
