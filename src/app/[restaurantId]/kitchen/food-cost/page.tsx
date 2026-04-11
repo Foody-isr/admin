@@ -523,6 +523,12 @@ export default function FoodCostPage() {
                     <span className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">
                       {t('recipeCostBreakdown')} — {t('fullRecipe')} ({selectedItem.recipe_yield} {selectedItem.recipe_yield_unit})
                     </span>
+                    <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
+                      <input type="checkbox" checked={!showCostsExVat}
+                        onChange={(e) => setShowCostsExVat(!e.target.checked)}
+                        className="rounded border-fg-secondary" />
+                      {t('showIncVat')}
+                    </label>
                   </div>
                 )}
                 <table className="w-full text-sm">
