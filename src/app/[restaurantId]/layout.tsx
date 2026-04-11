@@ -121,7 +121,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
                 isOpen={sidebarOpen}
                 onClose={closeSidebar}
               />
-              <main className={`flex-1 overflow-y-auto overflow-x-hidden ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
+              <main className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
                 <div className={isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}>
                   {children}
                 </div>
