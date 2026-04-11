@@ -472,6 +472,7 @@ export interface StockItem {
   notes: string;
   unit_content?: number;
   unit_content_unit?: string;
+  pack_size: number;
   price_includes_vat: boolean;
   is_active: boolean;
   created_at: string;
@@ -508,6 +509,7 @@ export interface StockItemInput {
   notes?: string;
   unit_content?: number;
   unit_content_unit?: string;
+  pack_size?: number;
   price_includes_vat?: boolean;
   is_active?: boolean;
 }
