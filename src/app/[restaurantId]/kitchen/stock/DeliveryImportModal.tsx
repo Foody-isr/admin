@@ -462,14 +462,7 @@ function ItemsList({
                   }} />
               </div>
               <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 flex items-center gap-1">
-                  {t('totalPrice')} &#8362;
-                  <button type="button"
-                    onClick={() => updateItem(idx, { price_includes_vat: !item.price_includes_vat })}
-                    className={`text-xs px-1.5 py-0.5 rounded font-medium transition-colors ${item.price_includes_vat ? 'bg-brand-500/10 text-brand-500' : 'bg-[var(--surface)] text-fg-tertiary hover:text-fg-secondary'}`}>
-                    {item.price_includes_vat ? t('incVat') : t('exVat')}
-                  </button>
-                </label>
+                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('totalPrice')} &#8362;</label>
                 <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
                   value={item.total_price ?? ''} onChange={(e) => {
                     const tp = +e.target.value;
@@ -520,20 +513,15 @@ function ItemsList({
             {item.quantity > 0 && (item.total_price ?? 0) > 0 && (() => {
                 const tp = item.total_price ?? 0;
                 const qty = item.quantity;
-                const incVat = item.price_includes_vat ?? false;
-                const totalUnits = (item.pack_count ?? 1) * (item.units_per_pack ?? 1);
-                const totalHT = incVat ? tp / vatMultiplier : tp;
-                const totalTTC = incVat ? tp : tp * vatMultiplier;
-                const unitPriceHT = totalUnits > 0 ? totalHT / totalUnits : 0;
-                const unitPriceTTC = totalUnits > 0 ? totalTTC / totalUnits : 0;
+                const packs = item.pack_count ?? 1;
                 const upp = item.units_per_pack ?? 1;
+                const totalUnits = packs * upp;
+                // Always treat entered price as HT (invoice default) and compute TTC
                 return (
-                  <div className="text-xs text-fg-secondary space-y-0.5">
-                    {upp > 1 && (
-                      <p>&rarr; {t('pricePerUnit')}: {unitPriceHT.toFixed(2)} &#8362; {t('exVat')} | {unitPriceTTC.toFixed(2)} &#8362; {t('incVat')}</p>
-                    )}
-                    <p>&rarr; {t('stockReceives')}: {qty} {item.unit} @ {(totalHT / qty).toFixed(4)} &#8362;/{item.unit} {t('exVat')}</p>
-                    <p className="text-fg-tertiary">{t('totalPrice')}: {totalHT.toFixed(2)} &#8362; {t('exVat')} | {totalTTC.toFixed(2)} &#8362; {t('incVat')}</p>
+                  <div className="text-xs text-fg-secondary space-y-0.5 pt-2 border-t border-[var(--divider)]">
+                    <p>&rarr; {t('pricePerUnit')}: <strong>{(tp / totalUnits).toFixed(2)} &#8362;</strong> {t('exVat')} | <strong>{(tp * vatMultiplier / totalUnits).toFixed(2)} &#8362;</strong> {t('incVat')}</p>
+                    <p>&rarr; {t('stockReceives')}: {qty} {item.unit} @ {(tp / qty).toFixed(4)} &#8362;/{item.unit} {t('exVat')}</p>
+                    <p className="text-fg-tertiary">{t('totalPrice')}: {tp.toFixed(2)} &#8362; {t('exVat')} | {(tp * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}</p>
                   </div>
                 );
               })()}
