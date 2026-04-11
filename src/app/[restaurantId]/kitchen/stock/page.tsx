@@ -490,6 +490,7 @@ export default function StockPage() {
           rid={rid}
           editing={itemModal.editing}
           categories={categoryNames}
+          vatRate={vatRate}
           onClose={() => setItemModal({ open: false })}
           onSaved={reload}
         />
@@ -552,15 +553,17 @@ export default function StockPage() {
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
 function StockItemModal({
-  rid, editing, categories, onClose, onSaved,
+  rid, editing, categories, vatRate, onClose, onSaved,
 }: {
   rid: number;
   editing?: StockItem;
   categories: string[];
+  vatRate: number;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useI18n();
+  const vatMultiplier = 1 + vatRate / 100;
   const [form, setForm] = useState<StockItemInput>({
     name: editing?.name ?? '',
     unit: editing?.unit ?? 'unit',
@@ -572,6 +575,7 @@ function StockItemModal({
     notes: editing?.notes ?? '',
     unit_content: editing?.unit_content ?? 0,
     unit_content_unit: editing?.unit_content_unit || 'g',
+    pack_size: editing?.pack_size ?? 0,
     is_active: editing?.is_active ?? true,
   });
   const [saving, setSaving] = useState(false);
@@ -620,35 +624,69 @@ function StockItemModal({
           </div>
         </div>
 
-        {['unit', 'pack', 'box', 'bag'].includes(form.unit) && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
-              <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
-                value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
-                placeholder="400" />
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
-              <select className="input w-full py-2 text-sm" value={form.unit_content_unit || 'g'}
-                onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
-                <option value="g">g</option><option value="kg">kg</option>
-                <option value="ml">ml</option><option value="l">l</option>
-              </select>
-            </div>
+        {/* Packaging: units per pack + unit content */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
+            <input type="number" step="1" min="0" className="input w-full py-2 text-sm"
+              value={form.pack_size || ''} onChange={(e) => setForm({ ...form, pack_size: +e.target.value })}
+              placeholder="12" />
           </div>
-        )}
+          <div>
+            <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
+            <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
+              value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
+              placeholder="400" />
+          </div>
+          <div>
+            <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
+            <select className="input w-full py-2 text-sm" value={form.unit_content_unit || 'g'}
+              onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+              <option value="g">g</option><option value="kg">kg</option>
+              <option value="ml">ml</option><option value="l">l</option>
+            </select>
+          </div>
+        </div>
 
+        {/* Cost + reorder */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')}</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
+            <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
+            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
           </div>
           <div>
             <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
+            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold || ''} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
           </div>
         </div>
+
+        {/* Price summary — same as delivery import */}
+        {(form.cost_per_unit ?? 0) > 0 && (form.unit_content ?? 0) > 0 && (() => {
+          const cpu = form.cost_per_unit ?? 0;
+          const uc = form.unit_content ?? 0;
+          const pricePerUnit = cpu * uc;
+          const pricePerUnitTTC = pricePerUnit * vatMultiplier;
+          return (
+            <div className="p-3 rounded-lg space-y-1.5" style={{ background: 'var(--surface-subtle)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-fg-secondary">{t('pricePerUnit')}</span>
+                <span className="text-sm font-semibold text-fg-primary">
+                  {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                  {' | '}
+                  {pricePerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-fg-secondary">{t('costPerUnit')}</span>
+                <span className="text-xs text-fg-secondary">
+                  {cpu.toFixed(4)} &#8362;/{form.unit_content_unit || form.unit} {t('exVat')}
+                  {' | '}
+                  {(cpu * vatMultiplier).toFixed(4)} &#8362;/{form.unit_content_unit || form.unit} {t('incVat')}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
