@@ -309,7 +309,7 @@ export default function StockPage() {
           </p>
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
+        <div className="card p-0 overflow-hidden max-w-[calc(100vw-2rem)] lg:max-w-[calc(100vw-18rem)]">
           {/* Bulk action bar */}
           {selected.size > 0 && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-500/10" style={{ borderBottom: '1px solid var(--divider)' }}>
