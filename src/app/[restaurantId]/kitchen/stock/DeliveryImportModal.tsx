@@ -29,6 +29,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [extraction, setExtraction] = useState<DeliveryExtraction | null>(null);
   const [editedItems, setEditedItems] = useState<ConfirmDeliveryItemInput[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string>(''); // MIME type for preview (from file or draft)
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
@@ -50,6 +51,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         // Use the S3 document URL for preview
         if (detail.draft.document_url) {
           setPreviewUrl(detail.draft.document_url);
+          setPreviewType(detail.draft.document_type || '');
         }
         setStep('review');
       }).catch(() => {});
@@ -113,6 +115,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         };
       }));
       setPreviewUrl(URL.createObjectURL(file));
+      setPreviewType(file.type);
       setStep('review');
     } catch (err: any) {
       alert(err.message);
@@ -288,11 +291,11 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 hidden lg:flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
           <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalDocument')}</h4>
           <div className="flex-1 rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-            {previewUrl && file?.type.startsWith('image/') && (
+            {previewUrl && previewType.startsWith('image/') && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
             )}
-            {previewUrl && file?.type === 'application/pdf' && (
+            {previewUrl && previewType === 'application/pdf' && (
               <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
             )}
           </div>
@@ -302,11 +305,11 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         {reviewTab === 'document' && (
           <div className="flex-1 overflow-auto p-4 lg:hidden">
             <div className="rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-              {previewUrl && file?.type.startsWith('image/') && (
+              {previewUrl && previewType.startsWith('image/') && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
               )}
-              {previewUrl && file?.type === 'application/pdf' && (
+              {previewUrl && previewType === 'application/pdf' && (
                 <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
               )}
             </div>
