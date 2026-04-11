@@ -309,7 +309,7 @@ export default function StockPage() {
           </p>
         </div>
       ) : (
-        <div className="card p-0 overflow-x-auto">
+        <div className="card p-0 overflow-hidden">
           {/* Bulk action bar */}
           {selected.size > 0 && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-500/10" style={{ borderBottom: '1px solid var(--divider)' }}>
@@ -329,6 +329,7 @@ export default function StockPage() {
             </div>
           )}
 
+          <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[800px]">
             <thead>
               <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
@@ -479,6 +480,7 @@ export default function StockPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
