@@ -165,3 +165,65 @@ input::placeholder, textarea::placeholder {
   background: rgba(96, 165, 250, 0.15);
   color: #60A5FA;
 }
+
+/* ── Dashboard grid (Square-style) ── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 2rem;
+}
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── AI Prompt Bar ── */
+.ai-prompt-bar {
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.ai-prompt-bar:focus-within {
+  border-color: var(--sidebar-active);
+  box-shadow: 0 0 0 2px rgba(241, 138, 71, 0.12);
+}
+.ai-prompt-placeholder {
+  transition: opacity 0.4s ease-in-out;
+  position: absolute;
+  pointer-events: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 120px);
+}
+
+/* ── Comparison badge ── */
+.comparison-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.comparison-badge.up {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34D399;
+}
+.comparison-badge.down {
+  background: rgba(247, 56, 56, 0.12);
+  color: #F73838;
+}
+.comparison-badge.neutral {
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}

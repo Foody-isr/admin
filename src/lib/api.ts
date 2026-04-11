@@ -380,6 +380,39 @@ export interface TopSeller {
   revenue: number;
 }
 
+// ─── Dashboard Analytics Types ──────────────────────────────────────────────
+
+export interface HourlyBucket {
+  hour: number;
+  order_count: number;
+  total_amount: number;
+}
+
+export interface DaySummary {
+  date: string;
+  gross_sales: number;
+  net_sales: number;
+  transactions: number;
+  avg_sale: number;
+  tips: number;
+  discounts: number;
+  labor_percent: number;
+}
+
+export interface HourlyPair {
+  hour: number;
+  current_amt: number;
+  previous_amt: number;
+  current_count: number;
+  previous_count: number;
+}
+
+export interface ComparisonResult {
+  current: DaySummary;
+  previous: DaySummary;
+  hourly: HourlyPair[];
+}
+
 // ─── Customer Insights Types ────────────────────────────────────────────────
 
 export interface FavoriteItem {
@@ -1668,6 +1701,33 @@ export async function getTopSellers(restaurantId: number): Promise<TopSeller[]> 
     `/api/v1/analytics/top-sellers?restaurant_id=${restaurantId}`, restaurantId
   );
   return data.top_items ?? [];
+}
+
+// ─── Dashboard Analytics ────────────────────────────────────────────────────
+
+export async function getHourlyAnalytics(
+  restaurantId: number,
+  date?: string
+): Promise<HourlyBucket[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (date) params.set('date', date);
+  const data = await apiFetch<{ buckets: HourlyBucket[] }>(
+    `/api/v1/analytics/hourly?${params}`, restaurantId
+  );
+  return data.buckets ?? [];
+}
+
+export async function getDayComparison(
+  restaurantId: number,
+  date?: string,
+  compare?: string
+): Promise<ComparisonResult> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (date) params.set('date', date);
+  if (compare) params.set('compare', compare);
+  return apiFetch<ComparisonResult>(
+    `/api/v1/analytics/comparison?${params}`, restaurantId
+  );
 }
 
 // ─── Customer Insights ──────────────────────────────────────────────────────

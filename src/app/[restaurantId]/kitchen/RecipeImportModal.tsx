@@ -342,8 +342,35 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                     />
                   </div>
 
-                  {/* Row 3: Quantity + unit + category (for new items) */}
+                  {/* Row 3: Category (new items only) */}
+                  {!matched && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
+                        <input className="input w-full py-1.5 text-sm" value={ing.name}
+                          onChange={(e) => updateIngredient(idx, { name: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
+                        <select className="input w-full py-1.5 text-sm" value={ing.category}
+                          onChange={(e) => updateIngredient(idx, { category: e.target.value })}>
+                          <option value="">{t('category')}</option>
+                          {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                          {ing.category && !existingCategories.includes(ing.category) && (
+                            <option value={ing.category}>{ing.category}</option>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Row 4: Cost per unit / Price per pack / Total */}
                   <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('costPerUnit')} &#8362;</label>
+                      <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
+                        value={ing.cost_per_unit || ''} onChange={(e) => updateIngredient(idx, { cost_per_unit: +e.target.value })} />
+                    </div>
                     <div>
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('quantity')}</label>
                       <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
@@ -358,46 +385,31 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                         ))}
                       </select>
                     </div>
-                    {!matched && (
-                      <div>
-                        <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
-                        <select className="input w-full py-1.5 text-sm" value={ing.category}
-                          onChange={(e) => updateIngredient(idx, { category: e.target.value })}>
-                          <option value="">{t('category')}</option>
-                          {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-                          {ing.category && !existingCategories.includes(ing.category) && (
-                            <option value={ing.category}>{ing.category}</option>
-                          )}
-                        </select>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Row 4: Cost per unit + VAT */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('costPerUnit')} &#8362;</label>
-                      <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                        value={ing.cost_per_unit || ''} onChange={(e) => updateIngredient(idx, { cost_per_unit: +e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-fg-secondary font-medium mb-1 block flex items-center gap-1.5">
-                        <input type="checkbox" checked={ing.price_includes_vat}
-                          onChange={(e) => updateIngredient(idx, { price_includes_vat: e.target.checked })}
-                          className="rounded border-fg-secondary" />
-                        {t('priceIncludesVat')}
-                      </label>
-                      {ing.cost_per_unit > 0 && (
-                        <p className="text-xs text-fg-secondary py-1.5">
-                          {ing.price_includes_vat
-                            ? `${t('exVat')}: ${(ing.cost_per_unit / vatMultiplier).toFixed(4)} ₪`
-                            : `${t('incVat')}: ${(ing.cost_per_unit * vatMultiplier).toFixed(4)} ₪`
-                          }
-                        </p>
-                      )}
-                    </div>
-                    <div />
-                  </div>
+                  {/* Row 5: Price summary footer */}
+                  {ing.cost_per_unit > 0 && ing.quantity_needed > 0 && (() => {
+                    const lineCost = ing.cost_per_unit * ing.quantity_needed;
+                    const lineCostTTC = lineCost * vatMultiplier;
+                    return (
+                      <div className="mt-2 p-3 rounded-lg space-y-2" style={{ background: 'var(--surface)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-fg-secondary">{t('costPerUnit')}</span>
+                          <span className="text-sm font-semibold text-fg-primary">
+                            {ing.cost_per_unit.toFixed(4)} &#8362;/{ing.unit} <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                            {' | '}
+                            {(ing.cost_per_unit * vatMultiplier).toFixed(4)} &#8362;/{ing.unit} <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
+                          <span className="text-xs text-fg-secondary">{t('totalPrice')} ({ing.quantity_needed} {ing.unit})</span>
+                          <span className="text-xs text-fg-secondary">
+                            {lineCost.toFixed(2)} &#8362; {t('exVat')} | {lineCostTTC.toFixed(2)} &#8362; {t('incVat')}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
