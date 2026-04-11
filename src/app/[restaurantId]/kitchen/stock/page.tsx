@@ -581,6 +581,13 @@ function StockItemModal({
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<'general' | 'packaging'>('general');
 
+  // Packaging mode: auto-detect from existing data
+  const [packMode, setPackMode] = useState<'simple' | 'units' | 'packages'>(() => {
+    if ((editing?.pack_size ?? 0) > 0) return 'packages';
+    if ((editing?.unit_content ?? 0) > 0) return 'units';
+    return 'simple';
+  });
+
   const handleSubmit = async () => {
     setSaving(true);
     try {
@@ -677,37 +684,96 @@ function StockItemModal({
         {/* Tab: Packaging & Pricing */}
         {tab === 'packaging' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
-                <input type="number" step="1" min="0" className="input w-full py-2 text-sm"
-                  value={form.pack_size || ''} onChange={(e) => setForm({ ...form, pack_size: +e.target.value })}
-                  placeholder="12" />
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
-                <div className="flex gap-1.5">
-                  <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
-                    value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
-                    placeholder="400" />
-                  <select className="input w-16 py-2 text-sm" value={form.unit_content_unit || 'g'}
-                    onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
-                    <option value="g">g</option><option value="kg">kg</option>
-                    <option value="ml">ml</option><option value="l">l</option>
-                  </select>
-                </div>
-              </div>
+            {/* Mode selector */}
+            <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+              {(['simple', 'units', 'packages'] as const).map((mode) => (
+                <button key={mode} type="button"
+                  onClick={() => {
+                    setPackMode(mode);
+                    if (mode === 'simple') setForm({ ...form, unit_content: 0, pack_size: 0 });
+                    if (mode === 'units') setForm({ ...form, pack_size: 0 });
+                  }}
+                  className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-colors ${packMode === mode ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+                  {mode === 'simple' && t('simple')}
+                  {mode === 'units' && t('byUnits')}
+                  {mode === 'packages' && t('byPackages')}
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Mode description */}
+            <p className="text-xs text-fg-tertiary">
+              {packMode === 'simple' && t('simpleModeDesc')}
+              {packMode === 'units' && t('unitsModeDesc')}
+              {packMode === 'packages' && t('packagesModeDesc')}
+            </p>
+
+            {/* Fields per mode */}
+            {packMode === 'simple' && (
               <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
+                <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit})</label>
                 <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
               </div>
-              <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
-                <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold || ''} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
-              </div>
+            )}
+
+            {packMode === 'units' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
+                    <div className="flex gap-1.5">
+                      <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
+                        value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
+                        placeholder="1.5" />
+                      <select className="input w-16 py-2 text-sm" value={form.unit_content_unit || 'g'}
+                        onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+                        <option value="g">g</option><option value="kg">kg</option>
+                        <option value="ml">ml</option><option value="l">l</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
+                    <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {packMode === 'packages' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
+                    <input type="number" step="1" min="1" className="input w-full py-2 text-sm"
+                      value={form.pack_size || ''} onChange={(e) => setForm({ ...form, pack_size: +e.target.value })}
+                      placeholder="12" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
+                    <div className="flex gap-1.5">
+                      <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
+                        value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
+                        placeholder="400" />
+                      <select className="input w-16 py-2 text-sm" value={form.unit_content_unit || 'g'}
+                        onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+                        <option value="g">g</option><option value="kg">kg</option>
+                        <option value="ml">ml</option><option value="l">l</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
+                  <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
+                </div>
+              </>
+            )}
+
+            {/* Reorder threshold — always visible */}
+            <div>
+              <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
+              <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold || ''} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
             </div>
 
             {/* Live price summary */}
