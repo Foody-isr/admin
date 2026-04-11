@@ -679,19 +679,20 @@ function StockItemModal({
 
         {packMode === 'units' && (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
-                <div className="flex gap-1.5">
-                  <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
-                    value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
-                    placeholder="1.5" />
-                  <select className="input w-16 py-2 text-sm" value={form.unit_content_unit || 'g'}
-                    onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
-                    <option value="g">g</option><option value="kg">kg</option>
-                    <option value="ml">ml</option><option value="l">l</option>
-                  </select>
-                </div>
+                <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
+                  value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
+                  placeholder="1.5" />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
+                <select className="input w-full py-2 text-sm" value={form.unit_content_unit || 'g'}
+                  onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+                  <option value="g">g</option><option value="kg">kg</option>
+                  <option value="ml">ml</option><option value="l">l</option>
+                </select>
               </div>
               <div>
                 <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
@@ -707,7 +708,7 @@ function StockItemModal({
 
         {packMode === 'packages' && (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
                 <input type="number" step="1" min="1" className="input w-full py-2 text-sm"
@@ -716,16 +717,17 @@ function StockItemModal({
               </div>
               <div>
                 <label className="text-xs text-fg-secondary block mb-1">{t('unitSize')}</label>
-                <div className="flex gap-1.5">
-                  <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
-                    value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
-                    placeholder="400" />
-                  <select className="input w-16 py-2 text-sm" value={form.unit_content_unit || 'g'}
-                    onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
-                    <option value="g">g</option><option value="kg">kg</option>
-                    <option value="ml">ml</option><option value="l">l</option>
-                  </select>
-                </div>
+                <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
+                  value={form.unit_content || ''} onChange={(e) => setForm({ ...form, unit_content: +e.target.value, unit_content_unit: form.unit_content_unit || 'g' })}
+                  placeholder="400" />
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('contentUnit')}</label>
+                <select className="input w-full py-2 text-sm" value={form.unit_content_unit || 'g'}
+                  onChange={(e) => setForm({ ...form, unit_content_unit: e.target.value })}>
+                  <option value="g">g</option><option value="kg">kg</option>
+                  <option value="ml">ml</option><option value="l">l</option>
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
