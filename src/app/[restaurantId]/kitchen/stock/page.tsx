@@ -202,7 +202,7 @@ export default function StockPage() {
   }
 
   return (
-    <div className="space-y-5" style={{ maxWidth: '100%', overflowX: 'hidden' }}>
+    <div className="space-y-5 w-full overflow-hidden">
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-4">
