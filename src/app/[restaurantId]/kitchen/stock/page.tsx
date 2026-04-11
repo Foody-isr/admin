@@ -202,7 +202,7 @@ export default function StockPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 overflow-x-hidden">
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-4">
@@ -309,7 +309,7 @@ export default function StockPage() {
           </p>
         </div>
       ) : (
-        <div className="card overflow-hidden p-0">
+        <div className="card p-0 overflow-hidden">
           {/* Bulk action bar */}
           {selected.size > 0 && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-500/10" style={{ borderBottom: '1px solid var(--divider)' }}>
