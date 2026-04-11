@@ -624,8 +624,8 @@ function StockItemModal({
           </div>
         </div>
 
-        {/* Packaging: units per pack + unit content */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Packaging */}
+        <div className="grid grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-fg-secondary block mb-1">{t('unitsPerPack')}</label>
             <input type="number" step="1" min="0" className="input w-full py-2 text-sm"
@@ -646,44 +646,57 @@ function StockItemModal({
               <option value="ml">ml</option><option value="l">l</option>
             </select>
           </div>
-        </div>
-
-        {/* Cost + reorder */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
-          </div>
           <div>
             <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
             <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold || ''} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
           </div>
         </div>
 
-        {/* Price summary — same as delivery import */}
-        {(form.cost_per_unit ?? 0) > 0 && (form.unit_content ?? 0) > 0 && (() => {
+        {/* Cost per stock unit */}
+        <div>
+          <label className="text-xs text-fg-secondary block mb-1">{t('costPerUnit')} (&#8362;/{form.unit_content_unit || form.unit})</label>
+          <input type="number" step="any" className="input w-full py-2 text-sm" value={form.cost_per_unit || ''} onChange={(e) => setForm({ ...form, cost_per_unit: +e.target.value })} />
+        </div>
+
+        {/* Live price summary */}
+        {(form.cost_per_unit ?? 0) > 0 && (() => {
           const cpu = form.cost_per_unit ?? 0;
           const uc = form.unit_content ?? 0;
-          const pricePerUnit = cpu * uc;
+          const ps = form.pack_size ?? 0;
+          const hasUnitContent = uc > 0;
+          const pricePerUnit = hasUnitContent ? cpu * uc : 0;
           const pricePerUnitTTC = pricePerUnit * vatMultiplier;
+          const pricePerPackage = ps > 0 && hasUnitContent ? pricePerUnit * ps : 0;
+          const pricePerPackageTTC = pricePerPackage * vatMultiplier;
           return (
-            <div className="p-3 rounded-lg space-y-1.5" style={{ background: 'var(--surface-subtle)' }}>
+            <div className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
+              {/* Cost per stock unit */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-secondary">{t('pricePerUnit')}</span>
-                <span className="text-sm font-semibold text-fg-primary">
-                  {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
-                  {' | '}
-                  {pricePerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-secondary">{t('costPerUnit')}</span>
+                <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{form.unit_content_unit || form.unit})</span>
                 <span className="text-xs text-fg-secondary">
-                  {cpu.toFixed(4)} &#8362;/{form.unit_content_unit || form.unit} {t('exVat')}
-                  {' | '}
-                  {(cpu * vatMultiplier).toFixed(4)} &#8362;/{form.unit_content_unit || form.unit} {t('incVat')}
+                  {cpu.toFixed(4)} &#8362; {t('exVat')} | {(cpu * vatMultiplier).toFixed(4)} &#8362; {t('incVat')}
                 </span>
               </div>
+              {/* Price per unit (can/bottle) */}
+              {hasUnitContent && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-fg-secondary">{t('pricePerUnit')} ({uc}{form.unit_content_unit || 'g'})</span>
+                  <span className="text-sm font-semibold text-fg-primary">
+                    {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                    {' | '}
+                    {pricePerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                  </span>
+                </div>
+              )}
+              {/* Price per package (box/carton) */}
+              {pricePerPackage > 0 && (
+                <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
+                  <span className="text-xs text-fg-secondary">{t('pricePerPackage')} (×{ps})</span>
+                  <span className="text-xs text-fg-secondary">
+                    {pricePerPackage.toFixed(2)} &#8362; {t('exVat')} | {pricePerPackageTTC.toFixed(2)} &#8362; {t('incVat')}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })()}
