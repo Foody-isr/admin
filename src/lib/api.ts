@@ -2309,17 +2309,15 @@ export async function getPrepItem(restaurantId: number, id: number): Promise<Pre
 }
 
 export async function createPrepItem(restaurantId: number, input: PrepItemInput): Promise<PrepItem> {
-  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items?restaurant_id=${restaurantId}`, restaurantId, {
+  return apiFetch<PrepItem>(`/api/v1/prep/items?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
   });
-  return data.item;
 }
 
 export async function updatePrepItem(restaurantId: number, id: number, input: Partial<PrepItemInput>): Promise<PrepItem> {
-  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+  return apiFetch<PrepItem>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify(input),
   });
-  return data.item;
 }
 
 export async function deletePrepItem(restaurantId: number, id: number): Promise<void> {

@@ -114,7 +114,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
       <WsProvider restaurantId={restaurantId}>
         <AiChatProvider restaurantId={restaurantId}>
           <div className="min-h-screen flex">
-            <div className="flex flex-1">
+            <div className="flex flex-1 min-w-0">
               <Sidebar
                 restaurantId={restaurantId}
                 restaurantName={restaurant.name}
@@ -122,7 +122,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
                 onClose={closeSidebar}
               />
               <main className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
-                <div className={isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}>
+                <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
                   {children}
                 </div>
               </main>
