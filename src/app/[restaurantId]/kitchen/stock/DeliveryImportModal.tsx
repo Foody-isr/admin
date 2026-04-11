@@ -523,9 +523,10 @@ function ItemsList({
                 const totalTTC = incVat ? tp : tp * vatMultiplier;
                 const unitPriceHT = totalUnits > 0 ? totalHT / totalUnits : 0;
                 const unitPriceTTC = totalUnits > 0 ? totalTTC / totalUnits : 0;
+                const upp = item.units_per_pack ?? 1;
                 return (
                   <div className="text-xs text-fg-secondary space-y-0.5">
-                    {totalUnits > 1 && (
+                    {upp > 1 && (
                       <p>&rarr; {t('pricePerUnit')}: {unitPriceHT.toFixed(2)} &#8362; {t('exVat')} | {unitPriceTTC.toFixed(2)} &#8362; {t('incVat')}</p>
                     )}
                     <p>&rarr; {t('stockReceives')}: {qty} {item.unit} @ {(totalHT / qty).toFixed(4)} &#8362;/{item.unit} {t('exVat')}</p>
