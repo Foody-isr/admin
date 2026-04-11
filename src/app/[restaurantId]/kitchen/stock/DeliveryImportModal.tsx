@@ -250,9 +250,14 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         <div className="flex items-center gap-3">
           <SparklesIcon className="w-5 h-5 text-brand-500" />
           <h3 className="font-semibold text-fg-primary">{t('aiDeliveryImport')}</h3>
-          {extraction?.supplier_name && (
-            <span className="text-sm text-fg-secondary">— {extraction.supplier_name}</span>
-          )}
+          {(() => {
+            const displaySupplier = selectedSupplierId === -1
+              ? newSupplierName
+              : selectedSupplierId > 0
+                ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+                : extraction?.supplier_name;
+            return displaySupplier ? <span className="text-sm text-fg-secondary">— {displaySupplier}</span> : null;
+          })()}
           <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
             {editedItems.length} {t('items')}
           </span>
@@ -517,11 +522,34 @@ function ItemsList({
                 const upp = item.units_per_pack ?? 1;
                 const totalUnits = packs * upp;
                 // Always treat entered price as HT (invoice default) and compute TTC
+                const costPerUnit = tp / totalUnits;
+                const costPerUnitTTC = costPerUnit * vatMultiplier;
+                const costPerStock = tp / qty;
                 return (
-                  <div className="text-xs text-fg-secondary space-y-0.5 pt-2 border-t border-[var(--divider)]">
-                    <p>&rarr; {t('pricePerUnit')}: <strong>{(tp / totalUnits).toFixed(2)} &#8362;</strong> {t('exVat')} | <strong>{(tp * vatMultiplier / totalUnits).toFixed(2)} &#8362;</strong> {t('incVat')}</p>
-                    <p>&rarr; {t('stockReceives')}: {qty} {item.unit} @ {(tp / qty).toFixed(4)} &#8362;/{item.unit} {t('exVat')}</p>
-                    <p className="text-fg-tertiary">{t('totalPrice')}: {tp.toFixed(2)} &#8362; {t('exVat')} | {(tp * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}</p>
+                  <div className="mt-3 p-3 rounded-lg space-y-2" style={{ background: 'var(--surface)' }}>
+                    {/* Price per unit — highlighted */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-fg-secondary">{t('pricePerUnit')}</span>
+                      <span className="text-sm font-semibold text-fg-primary">
+                        {costPerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                        {' | '}
+                        {costPerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                      </span>
+                    </div>
+                    {/* Cost per stock unit */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-fg-secondary">{t('stockReceives')}</span>
+                      <span className="text-xs text-fg-secondary">
+                        {qty} {item.unit} @ {costPerStock.toFixed(4)} &#8362;/{item.unit}
+                      </span>
+                    </div>
+                    {/* Total HT | TTC */}
+                    <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
+                      <span className="text-xs text-fg-secondary">{t('totalPrice')}</span>
+                      <span className="text-xs text-fg-secondary">
+                        {tp.toFixed(2)} &#8362; {t('exVat')} | {(tp * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}
+                      </span>
+                    </div>
                   </div>
                 );
               })()}
