@@ -737,8 +737,10 @@ export default function FoodCostPage() {
           onClose={() => setShowImportModal(false)}
           onImported={async () => {
             setShowImportModal(false);
-            await reload();
-            selectItem(selectedItem);
+            const [cats] = await Promise.all([getAllCategories(rid), reload()]);
+            // Find the fresh item from reloaded data (with updated recipe_yield)
+            const freshItem = cats.flatMap(c => c.items || []).find(i => i.id === selectedItem.id);
+            if (freshItem) selectItem(freshItem); else selectItem(selectedItem);
           }}
         />
       )}
