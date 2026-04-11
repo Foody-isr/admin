@@ -552,172 +552,211 @@ export default function StockPage() {
 
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
-function StockItemModal({
-  rid, editing, categories, vatRate, onClose, onSaved,
-}: {
-  rid: number;
-  editing?: StockItem;
-  categories: string[];
-  vatRate: number;
-  onClose: () => void;
-  onSaved: () => void;
+function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }: {
+  rid: number; editing?: StockItem; categories: string[]; vatRate: number; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const vatMultiplier = 1 + vatRate / 100;
+  const vm = 1 + vatRate / 100;
 
-  // Natural flow state: user enters what they know
-  const [name, setName] = useState(editing?.name ?? '');
-  const [buyQty, setBuyQty] = useState(() => {
-    if ((editing?.pack_size ?? 0) > 0) return editing!.pack_size;
-    if ((editing?.unit_content ?? 0) > 0 && editing!.quantity > 0) return editing!.quantity / editing!.unit_content!;
-    return editing?.quantity ?? 0;
+  // Mode: auto-detect from existing data
+  const [mode, setMode] = useState<'bulk' | 'units' | 'packages'>(() => {
+    if ((editing?.pack_size ?? 0) > 0 && (editing?.unit_content ?? 0) > 0) return 'packages';
+    if ((editing?.unit_content ?? 0) > 0) return 'units';
+    return 'bulk';
   });
-  const [contentPerUnit, setContentPerUnit] = useState(editing?.unit_content ?? 0);
-  const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'unit');
-  const [totalPrice, setTotalPrice] = useState(() => {
+
+  // State
+  const [name, setName] = useState(editing?.name ?? '');
+  const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'kg');
+  // Bulk: qty is stock quantity. Units/Packages: qty is number of units/packages bought.
+  const [qty, setQty] = useState(() => {
     if (!editing) return 0;
-    const stockQty = editing.quantity || 0;
-    return stockQty > 0 ? editing.cost_per_unit * stockQty : 0;
+    if ((editing.pack_size ?? 0) > 0 && (editing.unit_content ?? 0) > 0) {
+      // packages mode: qty = total stock / (pack_size * unit_content) = number of packages
+      return Math.round(editing.quantity / (editing.pack_size * editing.unit_content!));
+    }
+    if ((editing.unit_content ?? 0) > 0) {
+      // units mode: qty = total stock / unit_content = number of units
+      return Math.round(editing.quantity / editing.unit_content!);
+    }
+    return editing.quantity;
+  });
+  const [unitsPerPkg, setUnitsPerPkg] = useState(editing?.pack_size ?? 0);
+  const [contentPerUnit, setContentPerUnit] = useState(editing?.unit_content ?? 0);
+  const [pricePerLevel, setPricePerLevel] = useState(() => {
+    // Price per package (packages), per unit (units), or total (bulk)
+    if (!editing || editing.cost_per_unit === 0) return 0;
+    if ((editing.pack_size ?? 0) > 0 && (editing.unit_content ?? 0) > 0)
+      return editing.cost_per_unit * editing.unit_content! * editing.pack_size; // per package
+    if ((editing.unit_content ?? 0) > 0)
+      return editing.cost_per_unit * editing.unit_content!; // per unit
+    return editing.cost_per_unit * editing.quantity; // total for bulk
+  });
+  const [totalPriceField, setTotalPriceField] = useState(() => {
+    if (!editing || editing.cost_per_unit === 0) return 0;
+    return editing.cost_per_unit * editing.quantity;
   });
   const [supplier, setSupplier] = useState(editing?.supplier ?? '');
   const [category, setCategory] = useState(editing?.category ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
-  const [reorderThreshold, setReorderThreshold] = useState(editing?.reorder_threshold ?? 0);
+  const [reorder, setReorder] = useState(editing?.reorder_threshold ?? 0);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
-  const [showPackages, setShowPackages] = useState((editing?.pack_size ?? 0) > 0 && (editing?.unit_content ?? 0) > 0);
-  const [unitsPerPackage, setUnitsPerPackage] = useState(() => {
-    // If pack_size is set and there's unit_content, pack_size means units/package
-    // and buyQty would be number of packages
-    if ((editing?.pack_size ?? 0) > 0 && (editing?.unit_content ?? 0) > 0) return editing!.pack_size;
-    return 0;
-  });
   const [saving, setSaving] = useState(false);
 
-  // Derived calculations
-  const hasContent = contentPerUnit > 0;
-  const effectiveUnits = showPackages && unitsPerPackage > 0 ? buyQty * unitsPerPackage : buyQty;
-  const stockQty = hasContent ? effectiveUnits * contentPerUnit : effectiveUnits;
-  const costPerStockUnit = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
-  const pricePerItem = effectiveUnits > 0 && totalPrice > 0 ? totalPrice / effectiveUnits : 0;
-  const pricePerItemTTC = pricePerItem * vatMultiplier;
+  // Derived
+  const totalUnits = mode === 'packages' ? qty * (unitsPerPkg || 1) : qty;
+  const stockQty = mode === 'bulk' ? qty : totalUnits * (contentPerUnit || 1);
+  const totalPrice = mode === 'bulk' ? pricePerLevel : qty > 0 ? pricePerLevel * qty : totalPriceField;
+  const costPerStock = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
+  const pricePerUnit = mode === 'packages' && unitsPerPkg > 0 && pricePerLevel > 0 ? pricePerLevel / unitsPerPkg : (mode === 'units' ? pricePerLevel : 0);
+
+  // Sync total <-> per-level price
+  const updatePerLevel = (v: number) => { setPricePerLevel(v); if (qty > 0) setTotalPriceField(v * qty); };
+  const updateTotal = (v: number) => { setTotalPriceField(v); if (qty > 0) setPricePerLevel(v / qty); };
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
       const payload: StockItemInput = {
-        name,
-        unit,
+        name, unit,
         quantity: stockQty,
-        cost_per_unit: costPerStockUnit,
-        unit_content: hasContent ? contentPerUnit : 0,
-        unit_content_unit: hasContent ? unit : '',
-        pack_size: showPackages && unitsPerPackage > 0 ? unitsPerPackage : (hasContent ? effectiveUnits : 0),
-        reorder_threshold: reorderThreshold,
-        supplier,
-        category,
-        notes,
+        cost_per_unit: costPerStock,
+        unit_content: mode !== 'bulk' ? contentPerUnit : 0,
+        unit_content_unit: mode !== 'bulk' && contentPerUnit > 0 ? unit : '',
+        pack_size: mode === 'packages' ? unitsPerPkg : (mode === 'units' ? totalUnits : 0),
+        reorder_threshold: reorder,
+        supplier, category, notes,
         is_active: isActive,
       };
-      if (editing) {
-        await updateStockItem(rid, editing.id, payload);
-      } else {
-        await createStockItem(rid, payload);
-      }
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
+      if (editing) await updateStockItem(rid, editing.id, payload);
+      else await createStockItem(rid, payload);
+      onSaved(); onClose();
+    } catch (err: any) { alert(err.message); }
+    finally { setSaving(false); }
   };
 
   return (
     <Modal title={editing ? t('editStockItem') : t('addStockItem')} onClose={onClose}>
-      <div className="space-y-4 max-h-[75vh] overflow-y-auto">
+      <div className="space-y-5 max-h-[75vh] overflow-y-auto">
         {/* Name */}
         <div>
           <label className="text-xs text-fg-secondary block mb-1">{t('nameLabel')} *</label>
-          <input className="input w-full py-2 text-sm" required value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="input w-full py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
 
-        {/* How did you buy it? */}
-        <div>
-          <label className="text-xs text-fg-secondary block mb-2">{t('howDidYouBuyIt')}</label>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs text-fg-tertiary block mb-1">{t('quantity')}</label>
-              <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
-                value={buyQty || ''} onChange={(e) => setBuyQty(+e.target.value)}
-                placeholder="15" />
-            </div>
-            <div>
-              <label className="text-xs text-fg-tertiary block mb-1">{t('contentPerUnit')}</label>
-              <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
-                value={contentPerUnit || ''} onChange={(e) => setContentPerUnit(+e.target.value)}
-                placeholder="900" />
-            </div>
-            <div>
-              <label className="text-xs text-fg-tertiary block mb-1">{t('unit')}</label>
-              <select className="input w-full py-2 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
+        {/* Mode selector */}
+        <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+          {(['bulk', 'units', 'packages'] as const).map((m) => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${mode === m ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+              {t(m)}
+            </button>
+          ))}
+        </div>
+
+        {/* Sentence builder */}
+        <div className="p-4 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm text-fg-primary">
+
+            {mode === 'bulk' && (
+              <>
+                <span className="text-fg-secondary">{t('iBought')}</span>
+                <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-center"
+                  value={qty || ''} onChange={(e) => setQty(+e.target.value)} placeholder="4" />
+                <select className="input w-20 py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+                <span className="text-fg-secondary">{t('forPrice')}</span>
+                <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-center"
+                  value={pricePerLevel || ''} onChange={(e) => updatePerLevel(+e.target.value)} placeholder="20" />
+                <span className="text-fg-secondary">&#8362;</span>
+              </>
+            )}
+
+            {mode === 'units' && (
+              <>
+                <span className="text-fg-secondary">{t('iBought')}</span>
+                <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-center"
+                  value={qty || ''} onChange={(e) => { setQty(+e.target.value); if (pricePerLevel > 0) setTotalPriceField(pricePerLevel * +e.target.value); }} placeholder="15" />
+                <span className="text-fg-secondary">{t('unitsOf')}</span>
+                <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-center"
+                  value={contentPerUnit || ''} onChange={(e) => setContentPerUnit(+e.target.value)} placeholder="900" />
+                <select className="input w-20 py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </>
+            )}
+
+            {mode === 'packages' && (
+              <>
+                <span className="text-fg-secondary">{t('iBought')}</span>
+                <input type="number" step="any" min="0" className="input w-16 py-1.5 text-sm text-center"
+                  value={qty || ''} onChange={(e) => { setQty(+e.target.value); if (pricePerLevel > 0) setTotalPriceField(pricePerLevel * +e.target.value); }} placeholder="2" />
+                <span className="text-fg-secondary">{t('packagesOf')}</span>
+                <input type="number" step="1" min="1" className="input w-16 py-1.5 text-sm text-center"
+                  value={unitsPerPkg || ''} onChange={(e) => setUnitsPerPkg(+e.target.value)} placeholder="12" />
+                <span className="text-fg-secondary">{t('unitsOf')}</span>
+                <input type="number" step="any" min="0" className="input w-16 py-1.5 text-sm text-center"
+                  value={contentPerUnit || ''} onChange={(e) => setContentPerUnit(+e.target.value)} placeholder="400" />
+                <select className="input w-20 py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+                <span className="text-fg-secondary">{t('each')}</span>
+              </>
+            )}
           </div>
 
-          {/* Optional: package breakdown */}
-          {!showPackages ? (
-            <button type="button" onClick={() => setShowPackages(true)}
-              className="text-xs text-brand-500 hover:text-brand-400 mt-2 transition-colors">
-              + {t('thisIsAPackage')}
-            </button>
-          ) : (
-            <div className="mt-2 flex items-center gap-2">
-              <label className="text-xs text-fg-tertiary">{t('unitsPerPackageDetail')}:</label>
-              <input type="number" step="1" min="1" className="input w-20 py-1.5 text-sm"
-                value={unitsPerPackage || ''} onChange={(e) => setUnitsPerPackage(+e.target.value)}
-                placeholder="12" />
-              <button type="button" onClick={() => { setShowPackages(false); setUnitsPerPackage(0); }}
-                className="text-xs text-fg-tertiary hover:text-fg-secondary">&times;</button>
+          {/* Price line */}
+          {mode !== 'bulk' && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm text-fg-primary mt-3 pt-3 border-t border-[var(--divider)]">
+              <span className="text-fg-secondary">{t('forPrice')}</span>
+              <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-center"
+                value={pricePerLevel || ''} onChange={(e) => updatePerLevel(+e.target.value)} />
+              <span className="text-fg-secondary">&#8362;{mode === 'packages' ? t('perPkg') : t('perUnitLabel')}</span>
+              <span className="text-fg-tertiary mx-1">|</span>
+              <span className="text-fg-secondary">{t('total')}</span>
+              <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-center"
+                value={totalPriceField || ''} onChange={(e) => updateTotal(+e.target.value)} />
+              <span className="text-fg-secondary">&#8362;</span>
             </div>
           )}
         </div>
 
-        {/* How much did you pay? */}
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('totalPricePaid')} (&#8362;)</label>
-          <input type="number" step="any" min="0" className="input w-full py-2 text-sm"
-            value={totalPrice || ''} onChange={(e) => setTotalPrice(+e.target.value)}
-            placeholder="83" />
-        </div>
-
-        {/* Live calculated summary */}
+        {/* Live summary */}
         {stockQty > 0 && totalPrice > 0 && (
           <div className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
             <div className="flex items-center justify-between">
               <span className="text-xs text-fg-secondary">{t('stockTotal')}</span>
               <span className="text-sm font-medium text-fg-primary">{stockQty.toLocaleString()} {unit}</span>
             </div>
-            {hasContent && (
+            {mode !== 'bulk' && contentPerUnit > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-fg-secondary">{t('pricePerUnit')} ({contentPerUnit}{unit})</span>
                 <span className="text-sm font-semibold text-fg-primary">
-                  {pricePerItem.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                  {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
                   {' | '}
-                  {pricePerItemTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                  {(pricePerUnit * vm).toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                </span>
+              </div>
+            )}
+            {mode === 'packages' && pricePerLevel > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-fg-secondary">{t('pricePerPackage')} (×{unitsPerPkg})</span>
+                <span className="text-xs text-fg-secondary">
+                  {pricePerLevel.toFixed(2)} &#8362; {t('exVat')} | {(pricePerLevel * vm).toFixed(2)} &#8362; {t('incVat')}
                 </span>
               </div>
             )}
             <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
               <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{unit})</span>
               <span className="text-xs text-fg-secondary">
-                {costPerStockUnit.toFixed(4)} &#8362; {t('exVat')} | {(costPerStockUnit * vatMultiplier).toFixed(4)} &#8362; {t('incVat')}
+                {costPerStock.toFixed(4)} &#8362; {t('exVat')} | {(costPerStock * vm).toFixed(4)} &#8362; {t('incVat')}
               </span>
             </div>
           </div>
         )}
 
-        {/* Supplier + Category */}
+        {/* Details */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-fg-secondary block mb-1">{t('supplier')}</label>
@@ -727,17 +766,13 @@ function StockItemModal({
             <label className="text-xs text-fg-secondary block mb-1">{t('category')}</label>
             <input className="input w-full py-2 text-sm" list="stock-cats" value={category}
               onChange={(e) => setCategory(e.target.value)} />
-            <datalist id="stock-cats">
-              {categories.map((c) => <option key={c} value={c} />)}
-            </datalist>
+            <datalist id="stock-cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
           </div>
         </div>
-
-        {/* Reorder + Notes */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={reorderThreshold || ''} onChange={(e) => setReorderThreshold(+e.target.value)} />
+            <input type="number" step="any" className="input w-full py-2 text-sm" value={reorder || ''} onChange={(e) => setReorder(+e.target.value)} />
           </div>
           <div>
             <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
@@ -745,7 +780,7 @@ function StockItemModal({
           </div>
         </div>
 
-        {/* Active + Footer */}
+        {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-[var(--divider)]">
           <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
