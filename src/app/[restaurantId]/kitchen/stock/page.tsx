@@ -552,6 +552,9 @@ export default function StockPage() {
 
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
+const OUTER_CONTAINERS = ['carton', 'pack', 'crate', 'sack', 'case'] as const;
+const INNER_UNITS = ['bottle', 'can', 'jar', 'bag', 'brick', 'packet', 'box', 'sachet', 'tub'] as const;
+
 function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }: {
   rid: number; editing?: StockItem; categories: string[]; vatRate: number; onClose: () => void; onSaved: () => void;
 }) {
@@ -559,43 +562,14 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   const vm = 1 + vatRate / 100;
 
   // Mode: auto-detect from existing data
-  const [mode, setMode] = useState<'bulk' | 'units' | 'packages'>(() => {
-    if ((editing?.pack_size ?? 0) > 0 && (editing?.unit_content ?? 0) > 0) return 'packages';
-    if ((editing?.unit_content ?? 0) > 0) return 'units';
-    return 'bulk';
+  const [mode, setMode] = useState<'basic' | 'advanced'>(() => {
+    if ((editing?.unit_content ?? 0) > 0 || (editing?.pack_size ?? 0) > 0) return 'advanced';
+    return 'basic';
   });
 
   // State
   const [name, setName] = useState(editing?.name ?? '');
   const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'kg');
-  // Bulk: qty is stock quantity. Units/Packages: qty is number of units/packages bought.
-  const [qty, setQty] = useState(() => {
-    if (!editing) return 0;
-    if ((editing.pack_size ?? 0) > 0 && (editing.unit_content ?? 0) > 0) {
-      // packages mode: qty = total stock / (pack_size * unit_content) = number of packages
-      return Math.round(editing.quantity / (editing.pack_size * editing.unit_content!));
-    }
-    if ((editing.unit_content ?? 0) > 0) {
-      // units mode: qty = total stock / unit_content = number of units
-      return Math.round(editing.quantity / editing.unit_content!);
-    }
-    return editing.quantity;
-  });
-  const [unitsPerPkg, setUnitsPerPkg] = useState(editing?.pack_size ?? 0);
-  const [contentPerUnit, setContentPerUnit] = useState(editing?.unit_content ?? 0);
-  const [pricePerLevel, setPricePerLevel] = useState(() => {
-    // Price per package (packages), per unit (units), or total (bulk)
-    if (!editing || editing.cost_per_unit === 0) return 0;
-    if ((editing.pack_size ?? 0) > 0 && (editing.unit_content ?? 0) > 0)
-      return editing.cost_per_unit * editing.unit_content! * editing.pack_size; // per package
-    if ((editing.unit_content ?? 0) > 0)
-      return editing.cost_per_unit * editing.unit_content!; // per unit
-    return editing.cost_per_unit * editing.quantity; // total for bulk
-  });
-  const [totalPriceField, setTotalPriceField] = useState(() => {
-    if (!editing || editing.cost_per_unit === 0) return 0;
-    return editing.cost_per_unit * editing.quantity;
-  });
   const [supplier, setSupplier] = useState(editing?.supplier ?? '');
   const [category, setCategory] = useState(editing?.category ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
@@ -603,27 +577,59 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
-  // Derived
-  const totalUnits = mode === 'packages' ? qty * (unitsPerPkg || 1) : qty;
-  const stockQty = mode === 'bulk' ? qty : totalUnits * (contentPerUnit || 1);
-  const totalPrice = mode === 'bulk' ? pricePerLevel : qty > 0 ? pricePerLevel * qty : totalPriceField;
-  const costPerStock = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
-  const pricePerUnit = mode === 'packages' && unitsPerPkg > 0 && pricePerLevel > 0 ? pricePerLevel / unitsPerPkg : (mode === 'units' ? pricePerLevel : 0);
+  // Basic mode state
+  const [basicQty, setBasicQty] = useState(editing && mode === 'basic' ? editing.quantity : 0);
+  const [basicPrice, setBasicPrice] = useState(editing && mode === 'basic' ? editing.cost_per_unit * editing.quantity : 0);
 
-  // Sync total <-> per-level price
-  const updatePerLevel = (v: number) => { setPricePerLevel(v); if (qty > 0) setTotalPriceField(v * qty); };
-  const updateTotal = (v: number) => { setTotalPriceField(v); if (qty > 0) setPricePerLevel(v / qty); };
+  // Advanced mode state
+  const [outerQty, setOuterQty] = useState(() => {
+    if (!editing || mode !== 'advanced') return 0;
+    const ps = editing.pack_size ?? 0;
+    const uc = editing.unit_content ?? 0;
+    if (ps > 0 && uc > 0) return Math.round(editing.quantity / (ps * uc));
+    if (uc > 0) return Math.round(editing.quantity / uc);
+    return 0;
+  });
+  const [outerType, setOuterType] = useState(editing?.container_type || 'carton');
+  const [innerQty, setInnerQty] = useState(editing?.pack_size ?? 0);
+  const [innerType, setInnerType] = useState(editing?.unit_type || 'can');
+  const [contentQty, setContentQty] = useState(editing?.unit_content ?? 0);
+  const [pricePerOuter, setPricePerOuter] = useState(() => {
+    if (!editing || mode !== 'advanced' || editing.cost_per_unit === 0) return 0;
+    const ps = editing.pack_size ?? 1;
+    const uc = editing.unit_content ?? 1;
+    return editing.cost_per_unit * uc * ps;
+  });
+  const [advTotalPrice, setAdvTotalPrice] = useState(() => {
+    if (!editing || editing.cost_per_unit === 0) return 0;
+    return editing.cost_per_unit * editing.quantity;
+  });
+
+  // Derived calculations
+  const totalInnerUnits = innerQty > 0 ? outerQty * innerQty : outerQty;
+  const advStockQty = contentQty > 0 ? totalInnerUnits * contentQty : totalInnerUnits;
+  const advTotal = outerQty > 0 && pricePerOuter > 0 ? outerQty * pricePerOuter : advTotalPrice;
+  const advCostPerStock = advStockQty > 0 && advTotal > 0 ? advTotal / advStockQty : 0;
+  const advPricePerInner = totalInnerUnits > 0 && advTotal > 0 ? advTotal / totalInnerUnits : 0;
+  const basicCostPerUnit = basicQty > 0 && basicPrice > 0 ? basicPrice / basicQty : 0;
+
+  // Sync price per outer <-> total
+  const updateOuterPrice = (v: number) => { setPricePerOuter(v); if (outerQty > 0) setAdvTotalPrice(v * outerQty); };
+  const updateAdvTotal = (v: number) => { setAdvTotalPrice(v); if (outerQty > 0) setPricePerOuter(v / outerQty); };
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
+      const isAdv = mode === 'advanced';
       const payload: StockItemInput = {
         name, unit,
-        quantity: stockQty,
-        cost_per_unit: costPerStock,
-        unit_content: mode !== 'bulk' ? contentPerUnit : 0,
-        unit_content_unit: mode !== 'bulk' && contentPerUnit > 0 ? unit : '',
-        pack_size: mode === 'packages' ? unitsPerPkg : (mode === 'units' ? totalUnits : 0),
+        quantity: isAdv ? advStockQty : basicQty,
+        cost_per_unit: isAdv ? advCostPerStock : basicCostPerUnit,
+        unit_content: isAdv && contentQty > 0 ? contentQty : 0,
+        unit_content_unit: isAdv && contentQty > 0 ? unit : '',
+        pack_size: isAdv && innerQty > 0 ? innerQty : 0,
+        container_type: isAdv ? outerType : '',
+        unit_type: isAdv ? innerType : '',
         reorder_threshold: reorder,
         supplier, category, notes,
         is_active: isActive,
@@ -636,165 +642,223 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   };
 
   return (
-    <Modal title={editing ? t('editStockItem') : t('addStockItem')} onClose={onClose}>
-      <div className="space-y-5 max-h-[75vh] overflow-y-auto">
-        {/* Name */}
-        <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('nameLabel')} *</label>
-          <input className="input w-full py-2 text-sm" value={name} onChange={(e) => setName(e.target.value)} />
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
+      {/* Sticky header */}
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--surface)] transition-colors">
+            <ArrowDownTrayIcon className="w-5 h-5 text-fg-secondary rotate-90" />
+          </button>
+          <h2 className="text-lg font-semibold text-fg-primary">{editing ? t('editStockItem') : t('addStockItem')}</h2>
         </div>
-
-        {/* Mode selector */}
-        <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-          {(['bulk', 'units', 'packages'] as const).map((m) => (
-            <button key={m} type="button" onClick={() => setMode(m)}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${mode === m ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
-              {t(m)}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+          <button type="button" onClick={handleSubmit} disabled={saving || !name.trim()} className="btn-primary text-sm">
+            {saving ? t('saving') : editing ? t('update') : t('create')}
+          </button>
         </div>
+      </div>
 
-        {/* Sentence builder */}
-        <div className="p-4 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm text-fg-primary">
-
-            {mode === 'bulk' && (
-              <>
-                <span className="text-fg-secondary">{t('iBought')}</span>
-                <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-center"
-                  value={qty || ''} onChange={(e) => setQty(+e.target.value)} placeholder="4" />
-                <select className="input w-20 py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-                <span className="text-fg-secondary">{t('forPrice')}</span>
-                <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-center"
-                  value={pricePerLevel || ''} onChange={(e) => updatePerLevel(+e.target.value)} placeholder="20" />
-                <span className="text-fg-secondary">&#8362;</span>
-              </>
-            )}
-
-            {mode === 'units' && (
-              <>
-                <span className="text-fg-secondary">{t('iBought')}</span>
-                <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-center"
-                  value={qty || ''} onChange={(e) => { setQty(+e.target.value); if (pricePerLevel > 0) setTotalPriceField(pricePerLevel * +e.target.value); }} placeholder="15" />
-                <span className="text-fg-secondary">{t('unitsOf')}</span>
-                <input type="number" step="any" min="0" className="input w-20 py-1.5 text-sm text-center"
-                  value={contentPerUnit || ''} onChange={(e) => setContentPerUnit(+e.target.value)} placeholder="900" />
-                <select className="input w-20 py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </>
-            )}
-
-            {mode === 'packages' && (
-              <>
-                <span className="text-fg-secondary">{t('iBought')}</span>
-                <input type="number" step="any" min="0" className="input w-16 py-1.5 text-sm text-center"
-                  value={qty || ''} onChange={(e) => { setQty(+e.target.value); if (pricePerLevel > 0) setTotalPriceField(pricePerLevel * +e.target.value); }} placeholder="2" />
-                <span className="text-fg-secondary">{t('packagesOf')}</span>
-                <input type="number" step="1" min="1" className="input w-16 py-1.5 text-sm text-center"
-                  value={unitsPerPkg || ''} onChange={(e) => setUnitsPerPkg(+e.target.value)} placeholder="12" />
-                <span className="text-fg-secondary">{t('unitsOf')}</span>
-                <input type="number" step="any" min="0" className="input w-16 py-1.5 text-sm text-center"
-                  value={contentPerUnit || ''} onChange={(e) => setContentPerUnit(+e.target.value)} placeholder="400" />
-                <select className="input w-20 py-1.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-                <span className="text-fg-secondary">{t('each')}</span>
-              </>
-            )}
+      {/* Two-column layout */}
+      <div className="flex flex-1 min-h-0 overflow-y-auto">
+        {/* Left: main form */}
+        <div className="flex-1 p-6 lg:p-8 space-y-6 max-w-3xl">
+          {/* Name */}
+          <div>
+            <input className="input w-full py-3 text-lg font-medium" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder={t('nameLabel') + ' *'} autoFocus />
           </div>
 
-          {/* Price line */}
-          {mode !== 'bulk' && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-3 text-sm text-fg-primary mt-3 pt-3 border-t border-[var(--divider)]">
-              <span className="text-fg-secondary">{t('forPrice')}</span>
-              <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-center"
-                value={pricePerLevel || ''} onChange={(e) => updatePerLevel(+e.target.value)} />
-              <span className="text-fg-secondary">&#8362;{mode === 'packages' ? t('perPkg') : t('perUnitLabel')}</span>
-              <span className="text-fg-tertiary mx-1">|</span>
-              <span className="text-fg-secondary">{t('total')}</span>
-              <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-center"
-                value={totalPriceField || ''} onChange={(e) => updateTotal(+e.target.value)} />
-              <span className="text-fg-secondary">&#8362;</span>
+          {/* Mode selector */}
+          <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+            <button type="button" onClick={() => setMode('basic')}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${mode === 'basic' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+              {t('basic')}
+            </button>
+            <button type="button" onClick={() => setMode('advanced')}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${mode === 'advanced' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
+              {t('advanced')}
+            </button>
+          </div>
+
+          {/* Basic mode */}
+          {mode === 'basic' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-fg-secondary block mb-1">{t('quantity')}</label>
+                  <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
+                    value={basicQty || ''} onChange={(e) => setBasicQty(+e.target.value)} placeholder="4" />
+                </div>
+                <div>
+                  <label className="text-xs text-fg-secondary block mb-1">{t('unit')}</label>
+                  <select className="input w-full py-2.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
+                    {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-fg-secondary block mb-1">{t('totalPricePaid')} (&#8362;)</label>
+                <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
+                  value={basicPrice || ''} onChange={(e) => setBasicPrice(+e.target.value)} placeholder="20" />
+              </div>
+              {basicCostPerUnit > 0 && (
+                <div className="p-4 rounded-xl space-y-2" style={{ background: 'var(--surface-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{unit})</span>
+                    <span className="text-sm font-semibold text-fg-primary">
+                      {basicCostPerUnit.toFixed(4)} &#8362; {t('exVat')} | {(basicCostPerUnit * vm).toFixed(4)} &#8362; {t('incVat')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Advanced mode */}
+          {mode === 'advanced' && (
+            <div className="space-y-4">
+              {/* Outer container */}
+              <div className="p-4 rounded-xl border border-[var(--divider)] space-y-3">
+                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('outerContainer')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-tertiary block mb-1">{t('quantity')}</label>
+                    <input type="number" step="1" min="0" className="input w-full py-2.5 text-sm"
+                      value={outerQty || ''} onChange={(e) => { setOuterQty(+e.target.value); if (pricePerOuter > 0) setAdvTotalPrice(pricePerOuter * +e.target.value); }}
+                      placeholder="2" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-tertiary block mb-1">{t('type')}</label>
+                    <select className="input w-full py-2.5 text-sm" value={outerType} onChange={(e) => setOuterType(e.target.value)}>
+                      {OUTER_CONTAINERS.map((c) => <option key={c} value={c}>{t(`ct_${c}`)}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Inner unit */}
+              <div className="p-4 rounded-xl border border-[var(--divider)] space-y-3">
+                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('innerUnit')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-tertiary block mb-1">{t('quantity')} / {t(`ct_${outerType}`)}</label>
+                    <input type="number" step="1" min="0" className="input w-full py-2.5 text-sm"
+                      value={innerQty || ''} onChange={(e) => setInnerQty(+e.target.value)} placeholder="12" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-tertiary block mb-1">{t('type')}</label>
+                    <select className="input w-full py-2.5 text-sm" value={innerType} onChange={(e) => setInnerType(e.target.value)}>
+                      {INNER_UNITS.map((u) => <option key={u} value={u}>{t(`ut_${u}`)}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-tertiary block mb-1">{t('contentPer')} {t(`ut_${innerType}`)}</label>
+                    <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
+                      value={contentQty || ''} onChange={(e) => setContentQty(+e.target.value)} placeholder="400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-tertiary block mb-1">{t('unit')}</label>
+                    <select className="input w-full py-2.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
+                      {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Price */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-fg-secondary block mb-1">{t('pricePerPackage')} (&#8362;/{t(`ct_${outerType}`)})</label>
+                  <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
+                    value={pricePerOuter || ''} onChange={(e) => updateOuterPrice(+e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs text-fg-secondary block mb-1">{t('total')} (&#8362;)</label>
+                  <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
+                    value={advTotalPrice || ''} onChange={(e) => updateAdvTotal(+e.target.value)} />
+                </div>
+              </div>
+
+              {/* Summary */}
+              {advStockQty > 0 && advTotal > 0 && (
+                <div className="p-4 rounded-xl space-y-2.5" style={{ background: 'var(--surface-subtle)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-fg-secondary">{t('stockTotal')}</span>
+                    <span className="text-sm font-medium text-fg-primary">{advStockQty.toLocaleString()} {unit}</span>
+                  </div>
+                  {contentQty > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-fg-secondary">/{t(`ut_${innerType}`)} ({contentQty}{unit})</span>
+                      <span className="text-sm font-semibold text-fg-primary">
+                        {advPricePerInner.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
+                        {' | '}
+                        {(advPricePerInner * vm).toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
+                      </span>
+                    </div>
+                  )}
+                  {pricePerOuter > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-fg-secondary">/{t(`ct_${outerType}`)}</span>
+                      <span className="text-xs text-fg-secondary">
+                        {pricePerOuter.toFixed(2)} &#8362; {t('exVat')} | {(pricePerOuter * vm).toFixed(2)} &#8362; {t('incVat')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between pt-2 border-t border-[var(--divider)]">
+                    <span className="text-xs text-fg-secondary">/{unit}</span>
+                    <span className="text-xs text-fg-secondary">
+                      {advCostPerStock.toFixed(4)} &#8362; {t('exVat')} | {(advCostPerStock * vm).toFixed(4)} &#8362; {t('incVat')}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Live summary */}
-        {stockQty > 0 && totalPrice > 0 && (
-          <div className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-fg-secondary">{t('stockTotal')}</span>
-              <span className="text-sm font-medium text-fg-primary">{stockQty.toLocaleString()} {unit}</span>
-            </div>
-            {mode !== 'bulk' && contentPerUnit > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-secondary">{t('pricePerUnit')} ({contentPerUnit}{unit})</span>
-                <span className="text-sm font-semibold text-fg-primary">
-                  {pricePerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
-                  {' | '}
-                  {(pricePerUnit * vm).toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
-                </span>
-              </div>
-            )}
-            {mode === 'packages' && pricePerLevel > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-fg-secondary">{t('pricePerPackage')} (×{unitsPerPkg})</span>
-                <span className="text-xs text-fg-secondary">
-                  {pricePerLevel.toFixed(2)} &#8362; {t('exVat')} | {(pricePerLevel * vm).toFixed(2)} &#8362; {t('incVat')}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
-              <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{unit})</span>
-              <span className="text-xs text-fg-secondary">
-                {costPerStock.toFixed(4)} &#8362; {t('exVat')} | {(costPerStock * vm).toFixed(4)} &#8362; {t('incVat')}
-              </span>
-            </div>
+        {/* Right: sidebar */}
+        <div className="hidden lg:block w-72 p-6 space-y-4 border-l border-[var(--divider)]">
+          {/* Status */}
+          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
+            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('status')}</span>
+            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
+              {t('active')}
+            </label>
           </div>
-        )}
 
-        {/* Details */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('supplier')}</label>
+          {/* Supplier */}
+          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
+            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('supplier')}</span>
             <input className="input w-full py-2 text-sm" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
           </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('category')}</label>
+
+          {/* Category */}
+          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
+            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('category')}</span>
             <input className="input w-full py-2 text-sm" list="stock-cats" value={category}
               onChange={(e) => setCategory(e.target.value)} />
             <datalist id="stock-cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
           </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={reorder || ''} onChange={(e) => setReorder(+e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
-            <input className="input w-full py-2 text-sm" value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 border-t border-[var(--divider)]">
-          <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
-            {t('active')}
-          </label>
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-            <button type="button" onClick={handleSubmit} disabled={saving || !name.trim()} className="btn-primary text-sm">
-              {saving ? t('saving') : editing ? t('update') : t('create')}
-            </button>
+          {/* Reorder */}
+          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
+            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('reorderThreshold')}</span>
+            <input type="number" step="any" className="input w-full py-2 text-sm" value={reorder || ''}
+              onChange={(e) => setReorder(+e.target.value)} />
+          </div>
+
+          {/* Notes */}
+          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
+            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('notes')}</span>
+            <textarea className="input w-full py-2 text-sm" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
