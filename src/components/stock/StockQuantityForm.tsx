@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, XMarkIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
@@ -108,9 +109,13 @@ export function deriveStockQuantity(v: StockQuantityValue): DerivedStockQuantity
     const costPerStockUnit = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
     return { stockQty, costPerStockUnit, pricePerInner: 0, totalInnerUnits: stockQty, totalPrice };
   }
-  const totalInnerUnits = v.innerQty > 0 ? v.outerQty * v.innerQty : v.outerQty;
+  // Advanced: outer is optional (outerQty=0 means "no outer grouping" — just inner).
+  const effOuter = v.outerQty > 0 ? v.outerQty : 1;
+  const totalInnerUnits = v.innerQty > 0 ? effOuter * v.innerQty : (v.outerQty > 0 ? v.outerQty : 0);
   const stockQty = v.contentQty > 0 ? totalInnerUnits * v.contentQty : totalInnerUnits;
-  const totalPrice = v.outerQty > 0 && v.pricePerOuter > 0 ? v.outerQty * v.pricePerOuter : v.totalPrice;
+  const totalPrice = v.outerQty > 0 && v.pricePerOuter > 0
+    ? v.outerQty * v.pricePerOuter
+    : v.totalPrice;
   const costPerStockUnit = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
   const pricePerInner = totalInnerUnits > 0 && totalPrice > 0 ? totalPrice / totalInnerUnits : 0;
   return { stockQty, costPerStockUnit, pricePerInner, totalInnerUnits, totalPrice };
@@ -211,11 +216,29 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   const set = (patch: Partial<StockQuantityValue>) => onChange({ ...v, ...patch });
 
   const expand = () => {
-    // Seed structured fields from simple if user had entered something
-    const seed: Partial<StockQuantityValue> = { mode: 'advanced' };
-    if (v.basicQty > 0 && !v.outerQty) seed.outerQty = 1;
+    // Seed structured mode WITHOUT forcing outer grouping. Inner is the primary level.
+    const seed: Partial<StockQuantityValue> = {
+      mode: 'advanced',
+      outerQty: 0,                                  // no outer grouping by default
+      innerQty: v.basicQty > 0 ? v.basicQty : 1,    // carry simple qty forward
+    };
     if (v.basicPrice > 0 && !v.totalPrice) seed.totalPrice = v.basicPrice;
     onChange({ ...v, ...seed });
+  };
+
+  const addOuter = () => {
+    set({ outerQty: v.outerQty > 0 ? v.outerQty : 1, outerType: v.outerType || 'carton' });
+  };
+  const removeOuter = () => {
+    // Move totalPrice context: when outer goes away, pricePerOuter becomes moot
+    set({ outerQty: 0, pricePerOuter: 0 });
+  };
+
+  const addContent = () => {
+    set({ contentQty: 1, unit: INNER_TYPE_DEFAULT_UNIT[v.innerType] || v.unit });
+  };
+  const removeContent = () => {
+    set({ contentQty: 0 });
   };
 
   const collapse = () => {
@@ -308,10 +331,12 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   // ─── Structured mode ────────────────────────────────────────────────────
   const outerLabel = t(`ct_${v.outerType}`) || v.outerType;
   const innerLabel = t(`ut_${v.innerType}`) || v.innerType;
+  const hasOuter = v.outerQty > 0;
+  const hasContent = v.contentQty > 0;
 
   return (
     <div className="space-y-4">
-      {/* Retirer le conditionnement */}
+      {/* Retirer le conditionnement → back to simple */}
       <div className="flex justify-end -mb-2">
         <button
           type="button"
@@ -323,90 +348,90 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
         </button>
       </div>
 
-      {/* Step 1: "J'ai acheté 2 cartons" */}
-      <div>
-        <label className={labelCls}>{t('iBought') || "J'ai acheté"}</label>
-        <div className="grid grid-cols-[2fr_1fr] gap-2">
-          <input
-            type="number" step="1" min="0" className={inputCls}
-            value={v.outerQty || ''}
-            onChange={(e) => {
-              const outerQty = +e.target.value;
-              const nextTotal = v.pricePerOuter > 0 ? v.pricePerOuter * outerQty : v.totalPrice;
-              onChange({ ...v, outerQty, totalPrice: nextTotal });
-            }}
-            placeholder="2"
-          />
-          <select className={inputCls} value={v.outerType} onChange={(e) => onOuterTypeChange(e.target.value)}>
-            {OUTER_CONTAINERS.map((c) => <option key={c} value={c}>{t(`ct_${c}`)}</option>)}
-          </select>
-        </div>
-      </div>
+      {/* Outer level (optional) */}
+      {hasOuter && (
+        <LevelRow
+          label={t('deliveredIn') || 'Livré en'}
+          qtyStep={1}
+          qty={v.outerQty}
+          onQtyChange={(outerQty) => {
+            const nextTotal = v.pricePerOuter > 0 ? v.pricePerOuter * outerQty : v.totalPrice;
+            onChange({ ...v, outerQty, totalPrice: nextTotal });
+          }}
+          type={v.outerType}
+          onTypeChange={onOuterTypeChange}
+          typeOptions={OUTER_CONTAINERS.map((c) => ({ value: c, label: t(`ct_${c}`) || c }))}
+          onRemove={removeOuter}
+          inputCls={inputCls}
+          labelCls={labelCls}
+        />
+      )}
 
-      {/* Step 2: "Chaque carton contient 12 boîtes" */}
-      <div>
-        <label className={labelCls}>
-          {(t('eachContains') || 'Chaque {name} contient').replace('{name}', outerLabel.toLowerCase())}
-        </label>
-        <div className="grid grid-cols-[2fr_1fr] gap-2">
-          <input
-            type="number" step="1" min="0" className={inputCls}
-            value={v.innerQty || ''}
-            onChange={(e) => set({ innerQty: +e.target.value })}
-            placeholder="12"
-          />
-          <select className={inputCls} value={v.innerType} onChange={(e) => onInnerTypeChange(e.target.value)}>
-            {INNER_UNITS.map((u) => <option key={u} value={u}>{t(`ut_${u}`)}</option>)}
-          </select>
-        </div>
-      </div>
+      {/* Inner level (always — the primary count) */}
+      <LevelRow
+        label={hasOuter
+          ? (t('eachContains') || 'Chaque {name} contient').replace('{name}', outerLabel.toLowerCase())
+          : (t('iBought') || "J'ai acheté")}
+        qtyStep={1}
+        qty={v.innerQty}
+        onQtyChange={(innerQty) => set({ innerQty })}
+        type={v.innerType}
+        onTypeChange={onInnerTypeChange}
+        typeOptions={INNER_UNITS.map((u) => ({ value: u, label: t(`ut_${u}`) || u }))}
+        inputCls={inputCls}
+        labelCls={labelCls}
+      />
 
-      {/* Step 3: "Chaque boîte contient 400 g" */}
-      <div>
-        <label className={labelCls}>
-          {(t('eachContains') || 'Chaque {name} contient').replace('{name}', innerLabel.toLowerCase())}
-        </label>
-        <div className="grid grid-cols-[2fr_1fr] gap-2">
-          <input
-            type="number" step="any" min="0" className={inputCls}
-            value={v.contentQty || ''}
-            onChange={(e) => set({ contentQty: +e.target.value })}
-            placeholder="400"
-          />
-          <select className={inputCls} value={v.unit} onChange={(e) => set({ unit: e.target.value as StockUnit })}>
-            {STOCK_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-          </select>
-        </div>
-      </div>
+      {/* Content level (optional) */}
+      {hasContent ? (
+        <LevelRow
+          label={(t('eachContains') || 'Chaque {name} contient').replace('{name}', innerLabel.toLowerCase())}
+          qtyStep="any"
+          qty={v.contentQty}
+          onQtyChange={(contentQty) => set({ contentQty })}
+          type={v.unit}
+          onTypeChange={(u) => set({ unit: u as StockUnit })}
+          typeOptions={STOCK_UNITS.map((u) => ({ value: u, label: u }))}
+          onRemove={removeContent}
+          inputCls={inputCls}
+          labelCls={labelCls}
+        />
+      ) : (
+        <AddLevelButton
+          label={(t('specifyContent') || 'Préciser le contenu d\'une {name}').replace('{name}', innerLabel.toLowerCase())}
+          onClick={addContent}
+        />
+      )}
 
-      {/* Step 4: Price — three synced fields */}
-      <div>
-        <label className={labelCls}>{t('price') || 'Prix'}</label>
-        <div className={`grid gap-2 ${v.innerQty > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-          <PriceField
-            label={(t('priceOf') || "Prix d'un {name}").replace('{name}', outerLabel.toLowerCase())}
-            value={v.pricePerOuter}
-            onChange={updateOuterPrice}
-            compact={compact}
-          />
-          {v.innerQty > 0 && (
-            <PriceField
-              label={(t('priceOf') || "Prix d'un {name}").replace('{name}', innerLabel.toLowerCase())}
-              value={d.pricePerInner}
-              onChange={updateInnerPrice}
-              compact={compact}
-            />
-          )}
-          <PriceField
-            label={t('totalPrice') || 'Prix total'}
-            value={v.totalPrice}
-            onChange={updateTotalPrice}
-            compact={compact}
-          />
-        </div>
-      </div>
+      {!hasOuter && (
+        <AddLevelButton
+          label={t('addOuterPackaging') || 'Livré dans un conditionnement'}
+          onClick={addOuter}
+        />
+      )}
 
-      {/* Live summary panel — the money panel that makes the math legible */}
+      {/* Price — single input + level selector. No more "typed in the wrong field". */}
+      <PriceInputWithLevel
+        v={v}
+        d={d}
+        hasOuter={hasOuter}
+        hasContent={hasContent}
+        outerLabel={outerLabel}
+        innerLabel={innerLabel}
+        updateOuterPrice={updateOuterPrice}
+        updateInnerPrice={updateInnerPrice}
+        updateTotalPrice={updateTotalPrice}
+        updateContentPrice={(perUnit) => {
+          // total = perUnit × stockQty (derived from current levels)
+          const total = perUnit * (d.stockQty || 0);
+          set({ totalPrice: total, pricePerOuter: v.outerQty > 0 ? total / v.outerQty : v.pricePerOuter });
+        }}
+        compact={compact}
+        labelCls={labelCls}
+        t={t}
+      />
+
+      {/* Live summary panel */}
       <LiveSummary v={v} d={d} vm={vm} outerLabel={outerLabel} innerLabel={innerLabel} t={t} />
 
       <Warnings messages={warnings} onApply={onChange} t={t} />
@@ -430,22 +455,130 @@ function LiveFeedback({ cost, costTTC, unit, t }: { cost: number; costTTC: numbe
   );
 }
 
-function PriceField({ label, value, onChange, compact }: {
+function LevelRow({
+  label, qty, qtyStep, onQtyChange, type, onTypeChange, typeOptions, onRemove, inputCls, labelCls,
+}: {
   label: string;
-  value: number;
-  onChange: (v: number) => void;
-  compact?: boolean;
+  qty: number;
+  qtyStep: number | 'any';
+  onQtyChange: (n: number) => void;
+  type: string;
+  onTypeChange: (v: string) => void;
+  typeOptions: { value: string; label: string }[];
+  onRemove?: () => void;
+  inputCls: string;
+  labelCls: string;
 }) {
-  const cls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
   return (
     <div>
-      <label className="text-xs text-fg-secondary block mb-1">{label} (&#8362;)</label>
-      <input
-        type="number" step="any" min="0"
-        className={cls}
-        value={value ? Number(value.toFixed(4)) : ''}
-        onChange={(e) => onChange(+e.target.value)}
-      />
+      <div className="flex items-center justify-between mb-1.5">
+        <label className={labelCls + ' mb-0'}>{label}</label>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="flex items-center gap-1 text-xs text-fg-secondary hover:text-fg-primary transition-colors"
+          >
+            <XMarkIcon className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-[2fr_1fr] gap-2">
+        <input
+          type="number" step={qtyStep} min="0" className={inputCls}
+          value={qty || ''}
+          onChange={(e) => onQtyChange(+e.target.value)}
+        />
+        <select className={inputCls} value={type} onChange={(e) => onTypeChange(e.target.value)}>
+          {typeOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function AddLevelButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-sm font-medium text-brand-500 hover:text-brand-400 transition-colors"
+    >
+      <PlusIcon className="w-4 h-4" /> {label}
+    </button>
+  );
+}
+
+type PriceLevel = 'total' | 'outer' | 'inner' | 'content';
+
+function PriceInputWithLevel({
+  v, d, hasOuter, hasContent, outerLabel, innerLabel,
+  updateOuterPrice, updateInnerPrice, updateTotalPrice, updateContentPrice,
+  compact, labelCls, t,
+}: {
+  v: StockQuantityValue;
+  d: DerivedStockQuantity;
+  hasOuter: boolean;
+  hasContent: boolean;
+  outerLabel: string;
+  innerLabel: string;
+  updateOuterPrice: (n: number) => void;
+  updateInnerPrice: (n: number) => void;
+  updateTotalPrice: (n: number) => void;
+  updateContentPrice: (n: number) => void;
+  compact?: boolean;
+  labelCls: string;
+  t: (k: string) => string;
+}) {
+  // Local UI state: which level the user is entering price at. Defaults to Total.
+  // We use useState — safe across re-renders; the form instance is stable per line.
+  const [level, setLevel] = useState<PriceLevel>('total');
+
+  // If the user had picked a level that no longer applies (e.g., removed outer), fall back.
+  const effectiveLevel: PriceLevel =
+    (level === 'outer' && !hasOuter) ? 'total'
+    : (level === 'content' && !hasContent) ? 'total'
+    : level;
+
+  const displayed = (() => {
+    switch (effectiveLevel) {
+      case 'outer':   return v.pricePerOuter;
+      case 'inner':   return d.pricePerInner;
+      case 'content': return d.costPerStockUnit;
+      case 'total':
+      default:        return v.totalPrice;
+    }
+  })();
+
+  const onInput = (n: number) => {
+    switch (effectiveLevel) {
+      case 'outer':   updateOuterPrice(n); break;
+      case 'inner':   updateInnerPrice(n); break;
+      case 'content': updateContentPrice(n); break;
+      case 'total':
+      default:        updateTotalPrice(n); break;
+    }
+  };
+
+  const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
+
+  return (
+    <div>
+      <label className={labelCls}>{t('price') || 'Prix'} (&#8362;)</label>
+      <div className="grid grid-cols-[2fr_1fr] gap-2">
+        <input
+          type="number" step="any" min="0" className={inputCls}
+          value={displayed ? Number(displayed.toFixed(4)) : ''}
+          onChange={(e) => onInput(+e.target.value)}
+          placeholder="0.00"
+        />
+        <select className={inputCls} value={effectiveLevel} onChange={(e) => setLevel(e.target.value as PriceLevel)}>
+          <option value="total">{t('perTotal') || 'Total'}</option>
+          {hasOuter && <option value="outer">{(t('perLabel') || 'par {name}').replace('{name}', outerLabel.toLowerCase())}</option>}
+          <option value="inner">{(t('perLabel') || 'par {name}').replace('{name}', innerLabel.toLowerCase())}</option>
+          {hasContent && <option value="content">{(t('perLabel') || 'par {name}').replace('{name}', v.unit)}</option>}
+        </select>
+      </div>
     </div>
   );
 }
