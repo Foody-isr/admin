@@ -44,6 +44,16 @@ const BASE_UNITS: BaseUnit[] = ['g', 'kg', 'ml', 'l', 'unit'];
 const OUTER_UNITS: PackagingUnit[] = ['carton', 'crate', 'case', 'pack', 'sack', 'bag', 'box'];
 const INNER_UNITS: PackagingUnit[] = ['bottle', 'can', 'jar', 'box', 'bag', 'brick', 'packet', 'sachet', 'tub', 'pack'];
 
+/** Canonical i18n key per packaging unit. Traditionally-outer types use `ct_`,
+ *  traditionally-inner types use `ut_`. Some (bag, box, pack) can appear on
+ *  either level — we pick one canonical key so the label is consistent. */
+const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
+  carton: 'ct_carton', pack: 'ct_pack', crate: 'ct_crate', sack: 'ct_sack', case: 'ct_case',
+  bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
+  packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
+};
+const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
+
 const BASE_UNIT_SET = new Set<BaseUnit>(BASE_UNITS);
 function isBaseUnit(u: string): u is BaseUnit {
   return BASE_UNIT_SET.has(u as BaseUnit);
@@ -381,8 +391,8 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   }
 
   // ─── Packaged (direct or nested) ────────────────────────────────────────
-  const outerLabel = t(`ct_${value.outerUnit}`) || t(`ut_${value.outerUnit}`) || value.outerUnit;
-  const innerLabel = value.type === 'packaged-nested' ? (t(`ut_${value.innerUnit}`) || value.innerUnit) : '';
+  const outerLabel = labelFor(value.outerUnit, t);
+  const innerLabel = value.type === 'packaged-nested' ? labelFor(value.innerUnit, t) : '';
 
   return (
     <div className="space-y-4">
@@ -409,7 +419,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           qty={value.innerQuantity} qtyStep={1}
           onQtyChange={(q) => onChange({ ...value, innerQuantity: q })}
           unit={value.innerUnit}
-          unitOptions={INNER_UNITS.map((u) => ({ value: u, label: t(`ut_${u}`) || u }))}
+          unitOptions={INNER_UNITS.map((u) => ({ value: u, label: labelFor(u, t) }))}
           onUnitChange={(u) => onChange({ ...value, innerUnit: u as PackagingUnit, contentUnit: PACKAGING_CONTENT_DEFAULT[u as PackagingUnit] || value.contentUnit })}
           onRemove={() => onChange(demoteToDirect(value))}
         />
@@ -494,7 +504,7 @@ function Step1Row({
           </optgroup>
           <optgroup label={t('packagingUnits') || 'Conditionnements'}>
             {Array.from(new Set([...OUTER_UNITS, ...INNER_UNITS])).map((u) => (
-              <option key={u} value={u}>{t(`ct_${u}`) || t(`ut_${u}`) || u}</option>
+              <option key={u} value={u}>{labelFor(u, t)}</option>
             ))}
           </optgroup>
         </select>
