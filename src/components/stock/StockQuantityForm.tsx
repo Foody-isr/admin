@@ -650,9 +650,26 @@ function LiveSummary({
 }) {
   if (d.totalBase <= 0 && d.totalPrice <= 0) return null;
   const isPackaged = input.type !== 'simple';
+  const isNested = input.type === 'packaged-nested';
+
+  const priceRow = (label: string, priceEx: number) => (
+    <div className="flex items-center justify-between">
+      <span className="text-fg-secondary">{label}</span>
+      <span className="text-fg-primary font-medium">
+        {fmtPrice(priceEx)} &#8362;
+        <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
+        {' · '}
+        {fmtPrice(priceEx * vm)} &#8362;
+        <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
+      </span>
+    </div>
+  );
 
   return (
-    <div className="p-3 rounded-lg border border-brand-500/20 space-y-2.5" style={{ background: 'var(--surface-subtle)' }}>
+    <div
+      className="p-3 rounded-lg border border-brand-500/20 grid gap-3 sm:grid-cols-2"
+      style={{ background: 'var(--surface-subtle)' }}
+    >
       {d.totalBase > 0 && isPackaged && (
         <div>
           <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
@@ -665,7 +682,7 @@ function LiveSummary({
                 <span className="text-fg-primary font-medium">{d.totalOuterCount.toLocaleString()}</span>
               </div>
             )}
-            {d.totalInnerCount > 0 && input.type === 'packaged-nested' && (
+            {d.totalInnerCount > 0 && isNested && (
               <div className="flex items-center justify-between">
                 <span className="text-fg-secondary">{innerLabel}</span>
                 <span className="text-fg-primary font-medium">{d.totalInnerCount.toLocaleString()}</span>
@@ -680,33 +697,15 @@ function LiveSummary({
       )}
 
       {d.totalPrice > 0 && (
-        <div className={isPackaged ? 'pt-2 border-t border-[var(--divider)]' : ''}>
+        <div>
           <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
             💰 {t('price') || 'Prix'}
           </div>
           <div className="space-y-1 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-fg-secondary">{t('totalPrice') || 'Prix total'}</span>
-              <span className="text-fg-primary font-semibold">
-                {fmtPrice(d.totalPrice)} &#8362;
-                <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
-                {' · '}
-                {fmtPrice(d.totalPrice * vm)} &#8362;
-                <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
-              </span>
-            </div>
-            {d.costPerBase > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-fg-secondary">/ {d.baseUnit}</span>
-                <span className="text-fg-primary font-medium">
-                  {fmtPrice(d.costPerBase)} &#8362;
-                  <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
-                  {' · '}
-                  {fmtPrice(d.costPerBase * vm)} &#8362;
-                  <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
-                </span>
-              </div>
-            )}
+            {priceRow(t('totalPrice') || 'Prix total', d.totalPrice)}
+            {isPackaged && d.pricePerOuter > 0 && priceRow(`/ ${outerLabel.toLowerCase()}`, d.pricePerOuter)}
+            {isNested && d.pricePerInner > 0 && priceRow(`/ ${innerLabel.toLowerCase()}`, d.pricePerInner)}
+            {d.costPerBase > 0 && priceRow(`/ ${d.baseUnit}`, d.costPerBase)}
           </div>
         </div>
       )}
