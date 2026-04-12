@@ -23,11 +23,6 @@ export function getPackaging(item: StockItem): Packaging {
   return { mode: 'simple', levels: ['L3'], defaultLevel: 'L3' };
 }
 
-export function cycleLevel(current: Level, levels: Level[]): Level {
-  const idx = levels.indexOf(current);
-  return levels[(idx + 1) % levels.length];
-}
-
 function pluralize(word: string, count: number): string {
   if (!word) return word;
   if (count === 1) return word;

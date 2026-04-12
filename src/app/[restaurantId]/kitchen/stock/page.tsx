@@ -26,12 +26,11 @@ import {
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
   SparklesIcon, ClockIcon, InformationCircleIcon,
-  AdjustmentsHorizontalIcon,
+  AdjustmentsHorizontalIcon, ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import {
   getPackaging,
-  cycleLevel,
   formatQuantityAtLevel,
   formatUnitPriceAtLevel,
   loadLevel,
@@ -92,6 +91,7 @@ export default function StockPage() {
 
   // Per-item display level for Quantity/Price cells
   const [itemLevels, setItemLevels] = useState<Record<number, Level>>({});
+  const [levelPopover, setLevelPopover] = useState<number | null>(null);
 
   const getItemLevel = useCallback((item: StockItem): Level => {
     const stored = itemLevels[item.id];
@@ -99,14 +99,11 @@ export default function StockPage() {
     return loadLevel(rid, item.id) ?? getPackaging(item).defaultLevel;
   }, [itemLevels, rid]);
 
-  const advanceItemLevel = useCallback((item: StockItem) => {
-    const pkg = getPackaging(item);
-    if (pkg.levels.length < 2) return;
-    const current = getItemLevel(item);
-    const next = cycleLevel(current, pkg.levels);
-    setItemLevels((prev) => ({ ...prev, [item.id]: next }));
-    saveLevel(rid, item.id, next);
-  }, [getItemLevel, rid]);
+  const selectItemLevel = useCallback((itemId: number, level: Level) => {
+    setItemLevels((prev) => ({ ...prev, [itemId]: level }));
+    saveLevel(rid, itemId, level);
+    setLevelPopover(null);
+  }, [rid]);
 
   const toggleColumn = (key: ColumnKey) => {
     setVisibleColumns(prev => {
@@ -384,7 +381,7 @@ export default function StockPage() {
                 const catColor = categories.find((c) => c.name === item.category)?.color;
                 const pkg = getPackaging(item);
                 const level = getItemLevel(item);
-                const clickable = pkg.levels.length > 1;
+                const popoverOpen = levelPopover === item.id;
                 return (
                   <tr
                     key={item.id}
@@ -410,18 +407,54 @@ export default function StockPage() {
                     )}
                     {isColVisible('quantity') && (
                       <td
-                        className={`py-3 px-4 text-right font-mono text-fg-primary ${clickable ? 'cursor-pointer hover:bg-[var(--surface-subtle)]' : ''}`}
-                        onClick={clickable ? () => advanceItemLevel(item) : undefined}
-                        title={clickable ? t('clickToChangeLevel') || 'Click to change unit' : undefined}
+                        className="py-3 px-4 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)] relative"
+                        onClick={() => setLevelPopover(item.id)}
+                        title={t('displayAs') || 'Display as'}
                       >
-                        {formatQuantityAtLevel(item, level)}
+                        <span className="inline-flex items-center gap-1.5 justify-end">
+                          {formatQuantityAtLevel(item, level)}
+                          <ChevronDownIcon className="w-3.5 h-3.5 text-fg-tertiary" />
+                        </span>
+                        {popoverOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setLevelPopover(null); }} />
+                            <div
+                              className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg shadow-lg border border-[var(--divider)] p-1 text-left"
+                              style={{ background: 'var(--surface)' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="px-3 py-2 text-xs text-fg-secondary uppercase tracking-wider">
+                                {t('displayAs') || 'Display as'}
+                              </div>
+                              {pkg.levels.map((lvl) => (
+                                <button
+                                  key={lvl}
+                                  onClick={(e) => { e.stopPropagation(); selectItemLevel(item.id, lvl); }}
+                                  className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${lvl === level ? 'bg-brand-500/10 text-brand-500' : 'text-fg-primary hover:bg-[var(--surface-subtle)]'}`}
+                                >
+                                  <div className="min-w-0">
+                                    <div className="font-medium text-sm truncate">{formatQuantityAtLevel(item, lvl)}</div>
+                                    <div className="font-mono text-xs text-fg-secondary truncate">
+                                      {formatUnitPriceAtLevel(item, lvl, adjustedCost(item))}
+                                    </div>
+                                  </div>
+                                  {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
+                                    <span className="text-[10px] uppercase tracking-wider text-fg-tertiary flex-shrink-0">
+                                      {t('default') || 'default'}
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </td>
                     )}
                     {isColVisible('price') && (
                       <td
-                        className={`py-3 px-4 text-right font-mono text-fg-primary ${clickable ? 'cursor-pointer hover:bg-[var(--surface-subtle)]' : ''}`}
-                        onClick={clickable ? () => advanceItemLevel(item) : undefined}
-                        title={clickable ? t('clickToChangeLevel') || 'Click to change unit' : undefined}
+                        className="py-3 px-4 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)]"
+                        onClick={() => setLevelPopover(item.id)}
+                        title={t('displayAs') || 'Display as'}
                       >
                         {formatUnitPriceAtLevel(item, level, adjustedCost(item))}
                       </td>
