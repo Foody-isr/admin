@@ -15,6 +15,8 @@ import StockQuantityForm, {
   serverToStockInput,
   stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
+import CategoryBadgeRow from '@/components/stock/CategoryBadgeRow';
+import CategoryFilterDrawer from '@/components/stock/CategoryFilterDrawer';
 import Modal from '@/components/Modal';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
@@ -77,8 +79,18 @@ export default function StockPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [lowStockOnly, setLowStockOnly] = useState(false);
+
+  const toggleCategory = (name: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   // Selection for bulk actions
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -123,7 +135,6 @@ export default function StockPage() {
   const [importModal, setImportModal] = useState(false);
   const [importDraftId, setImportDraftId] = useState<number | undefined>(undefined);
   const [vatRate, setVatRate] = useState(18);
-  const [showExVat, setShowExVat] = useState(false);
 
   // Open import modal with draft if ?draft=ID is in URL
   useEffect(() => {
@@ -157,24 +168,19 @@ export default function StockPage() {
   // Derived
   const filtered = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (categoryFilter && item.category !== categoryFilter) return false;
+    if (selectedCategories.size > 0 && !selectedCategories.has(item.category)) return false;
     if (lowStockOnly && item.quantity > item.reorder_threshold) return false;
     return true;
   });
 
-  const lowStockCount = items.filter((i) => i.quantity <= i.reorder_threshold && i.reorder_threshold > 0).length;
   const vatMultiplier = 1 + vatRate / 100;
 
-  // Adjust cost based on VAT toggle: normalize all items to the same basis
+  // Normalize cost to VAT-inclusive so price cells compare on the same basis
   const adjustedCost = (item: StockItem) => {
     const raw = item.cost_per_unit;
-    if (showExVat && item.price_includes_vat) return raw / vatMultiplier;
-    if (!showExVat && !item.price_includes_vat) return raw * vatMultiplier;
+    if (!item.price_includes_vat) return raw * vatMultiplier;
     return raw;
   };
-
-  const totalValue = items.reduce((sum, i) => sum + i.quantity * adjustedCost(i), 0);
-  const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
 
   const handleDelete = async (id: number) => {
     if (!confirm(t('deleteStockItem'))) return;
@@ -230,30 +236,6 @@ export default function StockPage() {
 
   return (
     <div className="space-y-5 w-full overflow-hidden">
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('totalItems')}</p>
-          <p className="text-2xl font-bold text-fg-primary mt-1">{items.length}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('lowStock')}</p>
-          <p className={`text-2xl font-bold mt-1 ${lowStockCount > 0 ? 'text-red-500' : 'text-fg-primary'}`}>
-            {lowStockCount}
-          </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('inventoryValue')}</p>
-          <p className="text-2xl font-bold text-fg-primary mt-1">{totalValue.toFixed(2)} &#8362;</p>
-          <button
-            onClick={() => setShowExVat((v) => !v)}
-            className="text-xs mt-1 text-brand-500 hover:text-brand-400 transition-colors"
-          >
-            {showExVat ? t('showIncVat') : t('showExVat')}
-          </button>
-        </div>
-      </div>
-
       {/* Help link */}
       <a
         href="https://foody-pos.co.il/en/help/kitchen/stock-management"
@@ -278,14 +260,12 @@ export default function StockPage() {
           />
         </div>
 
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="input py-2 text-sm"
-        >
-          <option value="">{t('allCategories')}</option>
-          {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <CategoryBadgeRow
+          categories={categories}
+          selected={selectedCategories}
+          onToggle={toggleCategory}
+          onMoreClick={() => setCategoryDrawerOpen(true)}
+        />
 
         <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
           <input
@@ -519,7 +499,7 @@ export default function StockPage() {
         <StockItemModal
           rid={rid}
           editing={itemModal.editing}
-          categories={categoryNames}
+          categories={categories.map((c) => c.name)}
           vatRate={vatRate}
           onClose={() => setItemModal({ open: false })}
           onSaved={reload}
@@ -547,6 +527,15 @@ export default function StockPage() {
         />
       )}
 
+      {/* Category Filter Drawer */}
+      <CategoryFilterDrawer
+        open={categoryDrawerOpen}
+        onClose={() => setCategoryDrawerOpen(false)}
+        categories={categories}
+        selected={selectedCategories}
+        onChange={setSelectedCategories}
+      />
+
       {/* AI Delivery Import Modal */}
       {importModal && (
         <DeliveryImportModal
@@ -566,7 +555,7 @@ export default function StockPage() {
           </p>
           <select className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}>
             <option value="">{t('selectCategory')}</option>
-            {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
+            {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
           </select>
           <input className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}
             placeholder={t('orTypeNewCategory')} />

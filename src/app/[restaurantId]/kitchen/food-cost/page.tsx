@@ -20,6 +20,9 @@ import {
 } from '@heroicons/react/24/outline';
 import SearchableSelect from '@/components/SearchableSelect';
 import { useI18n } from '@/lib/i18n';
+import StockQuantityForm, {
+  StockInput, serverToStockInput, stockInputToServer,
+} from '@/components/stock/StockQuantityForm';
 
 const COST_THRESHOLD = 0.35; // 35% food cost warning
 
@@ -756,6 +759,7 @@ export default function FoodCostPage() {
         <StockCostEditor
           rid={rid}
           item={editingStockItem}
+          vatRate={vatRate}
           onClose={() => setEditingStockItem(null)}
           onSaved={async () => {
             setEditingStockItem(null);
@@ -774,43 +778,33 @@ export default function FoodCostPage() {
 // ─── Stock Cost Editor (inline from food cost page) ─────────────────
 
 function StockCostEditor({
-  rid, item, onClose, onSaved, t,
+  rid, item, vatRate, onClose, onSaved, t,
 }: {
   rid: number;
   item: StockItem;
+  vatRate: number;
   onClose: () => void;
   onSaved: () => void;
   t: (key: string) => string;
 }) {
-  const [unit, setUnit] = useState<string>(item.unit);
-  const [pricePerPackage, setPricePerPackage] = useState(item.cost_per_unit);
-  const [unitContent, setUnitContent] = useState(item.unit_content ?? 0);
-  const [unitContentUnit, setUnitContentUnit] = useState(item.unit_content_unit ?? 'g');
+  const [qty, setQty] = useState<StockInput>(() => serverToStockInput(item));
   const [saving, setSaving] = useState(false);
-
-  const isPackage = ['unit', 'pack', 'box', 'bag', 'dose'].includes(unit);
-
-  // For measurable units (g/kg/ml/l), cost_per_unit IS the price per that unit
-  // For package units, cost_per_unit is the price per package
-  // The calculated cost per content unit is shown as a summary
-  const costPerContentUnit = isPackage && unitContent > 0 ? pricePerPackage / unitContent : 0;
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const serverFields = stockInputToServer(qty);
       await updateStockItem(rid, item.id, {
         name: item.name,
-        unit: unit as any,
+        ...serverFields,
+        // Food-cost edits price/packaging only; preserve the stock quantity.
         quantity: item.quantity,
         reorder_threshold: item.reorder_threshold,
-        cost_per_unit: pricePerPackage,
         supplier: item.supplier,
         category: item.category,
         notes: item.notes,
-        unit_content: isPackage ? unitContent : 0,
-        unit_content_unit: isPackage ? (unitContentUnit || 'g') : '',
         is_active: item.is_active,
-      });
+      } as StockItemInput);
       onSaved();
     } catch (err: any) {
       alert(err.message);
@@ -821,80 +815,17 @@ function StockCostEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-5 w-full max-w-md mx-4" style={{ background: 'var(--surface)' }}>
+      <div className="rounded-modal shadow-xl p-5 w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-fg-primary">{item.name}</h3>
           <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
         </div>
 
-        <div className="space-y-4">
-          {/* Stock unit */}
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('stockUnit')}</label>
-            <select className="input w-full py-2 text-sm" value={unit} onChange={(e) => {
-              const newUnit = e.target.value;
-              setUnit(newUnit);
-              // When switching to a measurable unit, suggest converting the price
-              if (!['unit', 'pack', 'box', 'bag', 'dose'].includes(newUnit) && unitContent > 0) {
-                setPricePerPackage(+(pricePerPackage / unitContent).toFixed(4));
-              }
-            }}>
-              <option value="g">g ({t('grams')})</option>
-              <option value="kg">kg ({t('kilograms')})</option>
-              <option value="ml">ml ({t('milliliters')})</option>
-              <option value="l">l ({t('liters')})</option>
-              <option value="unit">unit ({t('perItem')})</option>
-              <option value="pack">pack</option>
-              <option value="box">box</option>
-              <option value="bag">bag</option>
-              <option value="dose">dose</option>
-            </select>
-          </div>
+        <StockQuantityForm value={qty} onChange={setQty} vatRate={vatRate} />
 
-          {/* Price */}
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">
-              {isPackage ? t('pricePerPackage') : t('costPerUnit')}
-            </label>
-            <div className="flex items-center gap-2">
-              <input type="number" step="any" min="0" className="input flex-1 py-2 text-sm"
-                value={pricePerPackage} onChange={(e) => setPricePerPackage(+e.target.value)} />
-              <span className="text-sm text-fg-secondary">&#8362; / {unit}</span>
-            </div>
-          </div>
-
-          {/* Package content (only for package units) */}
-          {isPackage && (
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('contentPerUnit')}</label>
-              <div className="flex items-center gap-2">
-                <input type="number" step="any" min="0" className="input w-24 py-2 text-sm"
-                  value={unitContent || ''} onChange={(e) => setUnitContent(+e.target.value)} placeholder="400" />
-                <select className="input w-20 py-2 text-sm" value={unitContentUnit}
-                  onChange={(e) => setUnitContentUnit(e.target.value)}>
-                  <option value="g">g</option><option value="kg">kg</option>
-                  <option value="ml">ml</option><option value="l">l</option>
-                </select>
-                <span className="text-sm text-fg-secondary">{t('perItem')}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Summary */}
-          {isPackage && unitContent > 0 && pricePerPackage > 0 && (
-            <div className="rounded-lg p-3 text-sm" style={{ background: 'var(--surface-subtle)' }}>
-              <span className="text-fg-secondary">{t('effectiveCost')}: </span>
-              <span className="font-mono font-bold text-fg-primary">
-                {costPerContentUnit.toFixed(4)} &#8362;/{unitContentUnit}
-              </span>
-              <span className="text-fg-secondary"> ({pricePerPackage} &#8362; &divide; {unitContent}{unitContentUnit})</span>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-            <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('save')}</button>
-          </div>
+        <div className="flex justify-end gap-2 pt-4">
+          <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('save')}</button>
         </div>
       </div>
     </div>
