@@ -5,14 +5,19 @@ import {
   importRecipesFromFile, importRecipesFromText, confirmRecipes,
   getRestaurantSettings,
   RecipeExtraction, ConfirmRecipeItemInput,
-  StockItem, MenuItem, StockUnit,
+  StockItem, MenuItem,
 } from '@/lib/api';
 import { SparklesIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
-  StockQuantityValue, defaultStockQuantityValue, deriveStockQuantity,
+  StockInput, BaseUnit, defaultStockInput, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
+
+const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
+function coerceBaseUnit(u: string): BaseUnit {
+  return (BASE_SET.has(u) ? (u as BaseUnit) : 'kg');
+}
 
 interface RecipeImportModalProps {
   rid: number;
@@ -47,7 +52,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
     price_includes_vat: boolean;
     is_new: boolean;
     /** Captured packaging/pricing form state for new items (UI-only, not persisted). */
-    stockForm?: StockQuantityValue;
+    stockForm?: StockInput;
   }>>([]);
   const [vatRate, setVatRate] = useState(18);
 
@@ -95,7 +100,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
             price_includes_vat: matched?.price_includes_vat || false,
             is_new: ing.is_new,
             stockForm: isNew
-              ? defaultStockQuantityValue({ unit: (ing.unit as StockUnit) || 'kg' })
+              ? defaultStockInput({ type: 'simple', quantity: 0, unit: coerceBaseUnit(ing.unit), totalPrice: 0 })
               : undefined,
           };
         }));
@@ -347,7 +352,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                           updateIngredient(idx, {
                             stock_item_id: null,
                             is_new: true,
-                            stockForm: ing.stockForm ?? defaultStockQuantityValue({ unit: (ing.unit as StockUnit) || 'kg' }),
+                            stockForm: ing.stockForm ?? defaultStockInput({ type: 'simple', quantity: 0, unit: coerceBaseUnit(ing.unit), totalPrice: 0 }),
                           });
                         }
                       }}
@@ -427,11 +432,11 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                       <StockQuantityForm
                         value={ing.stockForm}
                         onChange={(v) => {
-                          const d = deriveStockQuantity(v);
+                          const d = deriveTotals(v);
                           updateIngredient(idx, {
                             stockForm: v,
-                            unit: v.unit,
-                            cost_per_unit: d.costPerStockUnit || ing.cost_per_unit,
+                            unit: d.baseUnit,
+                            cost_per_unit: d.costPerBase || ing.cost_per_unit,
                           });
                         }}
                         vatRate={vatRate}

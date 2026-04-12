@@ -11,42 +11,94 @@ import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
-  StockQuantityValue, deriveStockQuantity,
+  StockInput, BaseUnit, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
 
-function lineToQuantityValue(item: ConfirmDeliveryItemInput): StockQuantityValue {
+const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
+
+/** Map the AI-extracted delivery line into our union.
+ *  Strategy: if pack/units-per-pack/unit-size suggest multi-level packaging,
+ *  produce packaged-nested. If only a single packaging level is present,
+ *  packaged-direct. Otherwise fall back to simple. */
+function lineToStockInput(item: ConfirmDeliveryItemInput): StockInput {
   const packs = item.pack_count ?? 0;
   const upp = item.units_per_pack ?? 0;
   const us = item.unit_size ?? 0;
-  const isAdv = packs > 0 || upp > 1 || us > 0;
+  const unit = (item.unit || 'kg') as StockUnit;
+  const isBase = BASE_SET.has(unit);
+
+  // Nested: outer × inner × content
+  if (packs > 0 && upp > 1 && us > 0 && isBase) {
+    return {
+      type: 'packaged-nested',
+      outerUnit: 'carton',
+      outerQuantity: packs,
+      innerUnit: 'can',
+      innerQuantity: upp,
+      contentQuantity: us,
+      contentUnit: unit as BaseUnit,
+      totalPrice: item.total_price ?? 0,
+    };
+  }
+  // Direct: outer × content (no inner layer)
+  if (packs > 0 && us > 0 && isBase) {
+    return {
+      type: 'packaged-direct',
+      outerUnit: 'carton',
+      outerQuantity: packs,
+      contentQuantity: us,
+      contentUnit: unit as BaseUnit,
+      totalPrice: item.total_price ?? 0,
+    };
+  }
+  // Simple
   return {
-    mode: isAdv ? 'advanced' : 'basic',
-    unit: (item.unit as StockUnit) || 'kg',
-    basicQty: !isAdv ? item.quantity : 0,
-    basicPrice: !isAdv ? (item.total_price ?? 0) : 0,
-    outerQty: packs,
-    outerType: 'carton',
-    innerQty: upp,
-    innerType: 'can',
-    contentQty: us,
-    pricePerOuter: item.price_per_pack ?? 0,
-    totalPrice: item.total_price ?? 0,
+    type: 'simple',
+    unit: (isBase ? unit : 'kg') as BaseUnit,
+    quantity: item.quantity,
+    totalPrice: item.total_price ?? (item.cost_per_unit * item.quantity),
   };
 }
 
-function quantityValueToLinePatch(v: StockQuantityValue): Partial<ConfirmDeliveryItemInput> {
-  const d = deriveStockQuantity(v);
-  const isAdv = v.mode === 'advanced';
+/** Map our union back into DB-facing line fields. */
+function stockInputToLinePatch(i: StockInput): Partial<ConfirmDeliveryItemInput> {
+  const d = deriveTotals(i);
+  if (i.type === 'simple') {
+    return {
+      unit: i.unit,
+      quantity: i.quantity,
+      cost_per_unit: d.costPerBase,
+      pack_count: 0,
+      units_per_pack: 0,
+      unit_size: 0,
+      unit_size_unit: '',
+      price_per_pack: 0,
+      total_price: i.totalPrice,
+    };
+  }
+  if (i.type === 'packaged-direct') {
+    return {
+      unit: i.contentUnit,
+      quantity: d.totalBase,
+      cost_per_unit: d.costPerBase,
+      pack_count: i.outerQuantity,
+      units_per_pack: 0,
+      unit_size: i.contentQuantity,
+      unit_size_unit: i.contentUnit,
+      price_per_pack: d.pricePerOuter,
+      total_price: i.totalPrice,
+    };
+  }
   return {
-    unit: v.unit,
-    quantity: d.stockQty,
-    cost_per_unit: d.costPerStockUnit,
-    pack_count: isAdv ? v.outerQty : 0,
-    units_per_pack: isAdv ? v.innerQty : 0,
-    unit_size: isAdv ? v.contentQty : 0,
-    unit_size_unit: isAdv && v.contentQty > 0 ? v.unit : '',
-    price_per_pack: isAdv ? v.pricePerOuter : 0,
-    total_price: d.totalPrice,
+    unit: i.contentUnit,
+    quantity: d.totalBase,
+    cost_per_unit: d.costPerBase,
+    pack_count: i.outerQuantity,
+    units_per_pack: i.innerQuantity,
+    unit_size: i.contentQuantity,
+    unit_size_unit: i.contentUnit,
+    price_per_pack: d.pricePerOuter,
+    total_price: i.totalPrice,
   };
 }
 
@@ -69,7 +121,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   // persist across renders (the line item alone can't represent mode when all
   // packaging fields are zero — that's why toggling Basic→Advanced on an empty
   // line used to snap back).
-  const [formStates, setFormStates] = useState<StockQuantityValue[]>([]);
+  const [formStates, setFormStates] = useState<StockInput[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string>(''); // MIME type for preview (from file or draft)
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
@@ -88,7 +140,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
       getImportDraft(rid, draftId).then((detail) => {
         setExtraction(detail.extraction);
         setEditedItems(detail.edited_items);
-        setFormStates(detail.edited_items.map(lineToQuantityValue));
+        setFormStates(detail.edited_items.map(lineToStockInput));
         setSelectedSupplierId(detail.draft.supplier_id ?? 0);
         setNewSupplierName('');
         // Use the S3 document URL for preview
@@ -158,7 +210,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         };
       });
       setEditedItems(newItems);
-      setFormStates(newItems.map(lineToQuantityValue));
+      setFormStates(newItems.map(lineToStockInput));
       setPreviewUrl(URL.createObjectURL(file));
       setPreviewType(file.type);
       setStep('review');
@@ -199,14 +251,14 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setEditedItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
   };
 
-  const updateFormState = (idx: number, v: StockQuantityValue) => {
+  const updateFormState = (idx: number, v: StockInput) => {
     setFormStates((prev) => {
       if (prev[idx] === v) return prev;
       const next = prev.slice();
       next[idx] = v;
       return next;
     });
-    updateItem(idx, quantityValueToLinePatch(v));
+    updateItem(idx, stockInputToLinePatch(v));
   };
 
   const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
@@ -418,12 +470,12 @@ function ItemsList({
   editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, t,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
-  formStates: StockQuantityValue[];
+  formStates: StockInput[];
   stockItems: StockItem[];
   stockOptions: { value: string; label: string; sublabel?: string }[];
   existingCategories: string[];
   updateItem: (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => void;
-  updateFormState: (idx: number, v: StockQuantityValue) => void;
+  updateFormState: (idx: number, v: StockInput) => void;
   vatRate: number;
   t: (key: string) => string;
 }) {
@@ -489,7 +541,7 @@ function ItemsList({
                 Reads from persisted per-line formStates so mode + packaging
                 fields stick across renders (e.g. empty Advanced mode). */}
             <StockQuantityForm
-              value={formStates[idx] ?? lineToQuantityValue(item)}
+              value={formStates[idx] ?? lineToStockInput(item)}
               onChange={(v) => updateFormState(idx, v)}
               vatRate={vatRate}
               compact

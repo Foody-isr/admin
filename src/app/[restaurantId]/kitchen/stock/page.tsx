@@ -10,10 +10,10 @@ import {
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
 import StockQuantityForm, {
-  StockQuantityValue,
-  defaultStockQuantityValue,
-  stockItemToQuantityValue,
-  quantityValueToStockFields,
+  StockInput,
+  defaultStockInput,
+  serverToStockInput,
+  stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
 import Modal from '@/components/Modal';
 import FormModal from '@/components/FormModal';
@@ -567,8 +567,8 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   const { t } = useI18n();
 
   // Shared quantity/packaging/price form state
-  const [qty, setQty] = useState<StockQuantityValue>(() =>
-    editing ? stockItemToQuantityValue(editing) : defaultStockQuantityValue(),
+  const [qty, setQty] = useState<StockInput>(() =>
+    editing ? serverToStockInput(editing) : defaultStockInput(),
   );
 
   // Item-level fields (not part of the quantity form)
@@ -585,7 +585,7 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
     try {
       const payload: StockItemInput = {
         name,
-        ...quantityValueToStockFields(qty),
+        ...stockInputToServer(qty),
         reorder_threshold: reorder,
         supplier, category, notes,
         is_active: isActive,

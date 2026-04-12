@@ -3,468 +3,516 @@
 import { useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, XMarkIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
-const STOCK_UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
-const OUTER_CONTAINERS = ['carton', 'pack', 'crate', 'sack', 'case'] as const;
-const INNER_UNITS = ['bottle', 'can', 'jar', 'bag', 'brick', 'packet', 'box', 'sachet', 'tub'] as const;
+// ─── Types ─────────────────────────────────────────────────────────────────
 
-// Smart defaults — when the user picks an inner packaging type, the most likely
-// measurable unit is pre-selected. User can always override.
-const INNER_TYPE_DEFAULT_UNIT: Record<string, StockUnit> = {
-  bottle: 'ml',
-  brick: 'ml',
-  can: 'g',
-  jar: 'g',
-  bag: 'kg',
-  packet: 'g',
-  box: 'g',
-  sachet: 'g',
-  tub: 'g',
-};
+export type BaseUnit = 'g' | 'kg' | 'ml' | 'l' | 'unit';
+export type PackagingUnit =
+  | 'carton' | 'pack' | 'box' | 'bag' | 'bottle'
+  | 'can' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
+  | 'crate' | 'sack' | 'case';
 
-const OUTER_TYPE_DEFAULT_UNIT: Record<string, StockUnit> = {
-  sack: 'kg',
-};
+export type StockInput =
+  | {
+      type: 'simple';
+      quantity: number;
+      unit: BaseUnit;
+      totalPrice: number;
+    }
+  | {
+      type: 'packaged-direct';       // outer → base (e.g. sac → 25 kg)
+      outerUnit: PackagingUnit;
+      outerQuantity: number;
+      contentQuantity: number;
+      contentUnit: BaseUnit;
+      totalPrice: number;
+    }
+  | {
+      type: 'packaged-nested';       // outer → inner → base (e.g. carton → bouteille → ml)
+      outerUnit: PackagingUnit;
+      outerQuantity: number;
+      innerUnit: PackagingUnit;
+      innerQuantity: number;
+      contentQuantity: number;
+      contentUnit: BaseUnit;
+      totalPrice: number;
+    };
 
-/** Value shape for the shared stock quantity / packaging / price form.
- *  `mode`: 'basic' = simple (just qty + price). 'advanced' = structured packaging.
- *  The field is still called `mode` for data compat; the UI no longer exposes tabs. */
-export interface StockQuantityValue {
-  mode: 'basic' | 'advanced';
-  unit: StockUnit;
-  // simple (basic) mode
-  basicQty: number;
-  basicPrice: number;       // total paid
-  // structured (advanced) — outer container (pack_count)
-  outerQty: number;
-  outerType: string;        // carton | pack | crate | sack | case
-  // structured — inner unit per outer (pack_size)
-  innerQty: number;
-  innerType: string;        // bottle | can | jar | ...
-  // structured — measurable content per inner (unit_content)
-  contentQty: number;
-  // pricing
-  pricePerOuter: number;
-  totalPrice: number;
+const BASE_UNITS: BaseUnit[] = ['g', 'kg', 'ml', 'l', 'unit'];
+
+const OUTER_UNITS: PackagingUnit[] = ['carton', 'crate', 'case', 'pack', 'sack', 'bag', 'box'];
+const INNER_UNITS: PackagingUnit[] = ['bottle', 'can', 'jar', 'box', 'bag', 'brick', 'packet', 'sachet', 'tub', 'pack'];
+
+const BASE_UNIT_SET = new Set<BaseUnit>(BASE_UNITS);
+function isBaseUnit(u: string): u is BaseUnit {
+  return BASE_UNIT_SET.has(u as BaseUnit);
 }
 
-export function defaultStockQuantityValue(overrides: Partial<StockQuantityValue> = {}): StockQuantityValue {
-  return {
-    mode: 'basic',
-    unit: 'kg',
-    basicQty: 0,
-    basicPrice: 0,
-    outerQty: 0,
-    outerType: 'carton',
-    innerQty: 0,
-    innerType: 'can',
-    contentQty: 0,
-    pricePerOuter: 0,
-    totalPrice: 0,
-    ...overrides,
-  };
+// Smart defaults: when a packaging unit is chosen, pre-fill the measurable unit below it.
+const PACKAGING_CONTENT_DEFAULT: Partial<Record<PackagingUnit, BaseUnit>> = {
+  bottle: 'ml', brick: 'ml',
+  can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g',
+  bag: 'kg', sack: 'kg',
+  carton: 'g', crate: 'kg', case: 'g', pack: 'g',
+};
+
+// ─── Defaults / constructors ──────────────────────────────────────────────
+
+export function defaultStockInput(overrides: Partial<StockInput> = {}): StockInput {
+  return { type: 'simple', quantity: 0, unit: 'kg', totalPrice: 0, ...overrides } as StockInput;
 }
 
-export function stockItemToQuantityValue(item: StockItem): StockQuantityValue {
-  const ps = item.pack_size ?? 0;
-  const uc = item.unit_content ?? 0;
-  const isAdv = uc > 0 || ps > 0;
-  const outerQty = isAdv
-    ? (ps > 0 && uc > 0
-      ? Math.round(item.quantity / (ps * uc))
-      : uc > 0
-        ? Math.round(item.quantity / uc)
-        : ps > 0
-          ? Math.round(item.quantity / ps)
-          : 0)
-    : 0;
+/** Load a server-side StockItem into the union. */
+export function serverToStockInput(item: StockItem): StockInput {
+  const pack = item.pack_size ?? 0;
+  const content = item.unit_content ?? 0;
+  const outerType = (item.container_type || '') as PackagingUnit | '';
+  const innerType = (item.unit_type || '') as PackagingUnit | '';
+  const base = item.unit as BaseUnit;
+
+  // Nested: pack_size + unit_content + container_type + unit_type all present
+  if (outerType && innerType && pack > 0 && content > 0) {
+    const outerQuantity = Math.max(1, Math.round(item.quantity / (pack * content)));
+    return {
+      type: 'packaged-nested',
+      outerUnit: outerType as PackagingUnit,
+      outerQuantity,
+      innerUnit: innerType as PackagingUnit,
+      innerQuantity: pack,
+      contentQuantity: content,
+      contentUnit: base,
+      totalPrice: item.cost_per_unit * item.quantity,
+    };
+  }
+
+  // Direct: one packaging level + measurable content, no inner
+  if (outerType && content > 0 && pack === 0) {
+    const outerQuantity = Math.max(1, Math.round(item.quantity / content));
+    return {
+      type: 'packaged-direct',
+      outerUnit: outerType as PackagingUnit,
+      outerQuantity,
+      contentQuantity: content,
+      contentUnit: base,
+      totalPrice: item.cost_per_unit * item.quantity,
+    };
+  }
+
+  // Fallback: simple
   return {
-    mode: isAdv ? 'advanced' : 'basic',
-    unit: item.unit,
-    basicQty: !isAdv ? item.quantity : 0,
-    basicPrice: !isAdv ? item.cost_per_unit * item.quantity : 0,
-    outerQty,
-    outerType: item.container_type || 'carton',
-    innerQty: ps,
-    innerType: item.unit_type || 'can',
-    contentQty: uc,
-    pricePerOuter: isAdv && item.cost_per_unit > 0 ? item.cost_per_unit * (uc || 1) * (ps || 1) : 0,
+    type: 'simple',
+    quantity: item.quantity,
+    unit: base,
     totalPrice: item.cost_per_unit * item.quantity,
   };
 }
 
-export interface DerivedStockQuantity {
-  stockQty: number;
-  costPerStockUnit: number;
-  pricePerInner: number;
-  totalInnerUnits: number;
+// ─── Totals / derivations ─────────────────────────────────────────────────
+
+export interface Totals {
+  totalBase: number;           // stock quantity in base unit → maps to StockItem.quantity
+  baseUnit: BaseUnit;          // what contentUnit / unit resolves to
+  costPerBase: number;         // price per base unit → maps to cost_per_unit
+  pricePerOuter: number;       // display
+  pricePerInner: number;       // display
+  totalInnerCount: number;     // outer × inner (or outer when no inner)
+  totalOuterCount: number;     // outer
   totalPrice: number;
 }
 
-export function deriveStockQuantity(v: StockQuantityValue): DerivedStockQuantity {
-  if (v.mode === 'basic') {
-    const stockQty = v.basicQty;
-    const totalPrice = v.basicPrice;
-    const costPerStockUnit = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
-    return { stockQty, costPerStockUnit, pricePerInner: 0, totalInnerUnits: stockQty, totalPrice };
+export function deriveTotals(i: StockInput): Totals {
+  if (i.type === 'simple') {
+    return {
+      totalBase: i.quantity,
+      baseUnit: i.unit,
+      costPerBase: i.quantity > 0 && i.totalPrice > 0 ? i.totalPrice / i.quantity : 0,
+      pricePerOuter: 0,
+      pricePerInner: 0,
+      totalInnerCount: 0,
+      totalOuterCount: 0,
+      totalPrice: i.totalPrice,
+    };
   }
-  // Advanced: outer is optional (outerQty=0 means "no outer grouping" — just inner).
-  const effOuter = v.outerQty > 0 ? v.outerQty : 1;
-  const totalInnerUnits = v.innerQty > 0 ? effOuter * v.innerQty : (v.outerQty > 0 ? v.outerQty : 0);
-  const stockQty = v.contentQty > 0 ? totalInnerUnits * v.contentQty : totalInnerUnits;
-  const totalPrice = v.outerQty > 0 && v.pricePerOuter > 0
-    ? v.outerQty * v.pricePerOuter
-    : v.totalPrice;
-  const costPerStockUnit = stockQty > 0 && totalPrice > 0 ? totalPrice / stockQty : 0;
-  const pricePerInner = totalInnerUnits > 0 && totalPrice > 0 ? totalPrice / totalInnerUnits : 0;
-  return { stockQty, costPerStockUnit, pricePerInner, totalInnerUnits, totalPrice };
-}
-
-export function quantityValueToStockFields(v: StockQuantityValue) {
-  const d = deriveStockQuantity(v);
-  const isAdv = v.mode === 'advanced';
+  if (i.type === 'packaged-direct') {
+    const totalBase = i.outerQuantity * i.contentQuantity;
+    const costPerBase = totalBase > 0 && i.totalPrice > 0 ? i.totalPrice / totalBase : 0;
+    const pricePerOuter = i.outerQuantity > 0 ? i.totalPrice / i.outerQuantity : 0;
+    return {
+      totalBase,
+      baseUnit: i.contentUnit,
+      costPerBase,
+      pricePerOuter,
+      pricePerInner: 0,
+      totalInnerCount: 0,
+      totalOuterCount: i.outerQuantity,
+      totalPrice: i.totalPrice,
+    };
+  }
+  // packaged-nested
+  const totalInnerCount = i.outerQuantity * i.innerQuantity;
+  const totalBase = totalInnerCount * i.contentQuantity;
+  const costPerBase = totalBase > 0 && i.totalPrice > 0 ? i.totalPrice / totalBase : 0;
+  const pricePerOuter = i.outerQuantity > 0 ? i.totalPrice / i.outerQuantity : 0;
+  const pricePerInner = totalInnerCount > 0 ? i.totalPrice / totalInnerCount : 0;
   return {
-    unit: v.unit,
-    quantity: d.stockQty,
-    cost_per_unit: d.costPerStockUnit,
-    unit_content: isAdv && v.contentQty > 0 ? v.contentQty : 0,
-    unit_content_unit: isAdv && v.contentQty > 0 ? v.unit : '',
-    pack_size: isAdv && v.innerQty > 0 ? v.innerQty : 0,
-    container_type: isAdv ? v.outerType : '',
-    unit_type: isAdv ? v.innerType : '',
+    totalBase,
+    baseUnit: i.contentUnit,
+    costPerBase,
+    pricePerOuter,
+    pricePerInner,
+    totalInnerCount,
+    totalOuterCount: i.outerQuantity,
+    totalPrice: i.totalPrice,
   };
 }
 
-// ─── Validation helpers ────────────────────────────────────────────────────
+/** Convert the union → server-side StockItem fields. */
+export function stockInputToServer(i: StockInput) {
+  const d = deriveTotals(i);
+  if (i.type === 'simple') {
+    return {
+      unit: i.unit as StockUnit,
+      quantity: i.quantity,
+      cost_per_unit: d.costPerBase,
+      unit_content: 0,
+      unit_content_unit: '',
+      pack_size: 0,
+      container_type: '',
+      unit_type: '',
+    };
+  }
+  if (i.type === 'packaged-direct') {
+    return {
+      unit: i.contentUnit as StockUnit,
+      quantity: d.totalBase,
+      cost_per_unit: d.costPerBase,
+      unit_content: i.contentQuantity,
+      unit_content_unit: i.contentUnit,
+      pack_size: 0,
+      container_type: i.outerUnit,
+      unit_type: '',
+    };
+  }
+  return {
+    unit: i.contentUnit as StockUnit,
+    quantity: d.totalBase,
+    cost_per_unit: d.costPerBase,
+    unit_content: i.contentQuantity,
+    unit_content_unit: i.contentUnit,
+    pack_size: i.innerQuantity,
+    container_type: i.outerUnit,
+    unit_type: i.innerUnit,
+  };
+}
+
+// ─── Transitions (preserve adjacent data) ─────────────────────────────────
+
+/** From simple → packaged-direct when user picks a packaging unit in Step 1. */
+function simpleToDirect(simple: Extract<StockInput, { type: 'simple' }>, outerUnit: PackagingUnit): StockInput {
+  const contentUnit: BaseUnit = PACKAGING_CONTENT_DEFAULT[outerUnit] || simple.unit;
+  return {
+    type: 'packaged-direct',
+    outerUnit,
+    outerQuantity: simple.quantity > 0 ? Math.max(1, Math.round(simple.quantity)) : 1,
+    contentQuantity: 0,
+    contentUnit,
+    totalPrice: simple.totalPrice,
+  };
+}
+
+/** Demote packaged → simple when user switches Step 1 back to a base unit. */
+function packagedToSimple(p: Extract<StockInput, { type: 'packaged-direct' | 'packaged-nested' }>, unit: BaseUnit): StockInput {
+  return {
+    type: 'simple',
+    quantity: p.outerQuantity > 0 ? p.outerQuantity : 0,
+    unit,
+    totalPrice: p.totalPrice,
+  };
+}
+
+/** Promote packaged-direct → packaged-nested. */
+function promoteToNested(direct: Extract<StockInput, { type: 'packaged-direct' }>): StockInput {
+  return {
+    type: 'packaged-nested',
+    outerUnit: direct.outerUnit,
+    outerQuantity: direct.outerQuantity,
+    innerUnit: 'bottle',                       // sensible starting default
+    innerQuantity: 1,
+    contentQuantity: direct.contentQuantity,
+    contentUnit: direct.contentUnit,
+    totalPrice: direct.totalPrice,
+  };
+}
+
+/** Demote packaged-nested → packaged-direct (user clicked ✕ on inner row). */
+function demoteToDirect(nested: Extract<StockInput, { type: 'packaged-nested' }>): StockInput {
+  return {
+    type: 'packaged-direct',
+    outerUnit: nested.outerUnit,
+    outerQuantity: nested.outerQuantity,
+    contentQuantity: nested.contentQuantity,
+    contentUnit: nested.contentUnit,
+    totalPrice: nested.totalPrice,
+  };
+}
+
+// ─── Validation ───────────────────────────────────────────────────────────
 
 interface ValidationMessage {
   kind: 'warning' | 'suggestion';
   text: string;
-  /** Optional action — a button to apply the fix (e.g. convert g → kg). */
-  action?: { label: string; apply: () => StockQuantityValue };
+  action?: { label: string; apply: () => StockInput };
 }
 
-function validateQuantity(v: StockQuantityValue, d: DerivedStockQuantity, t: (k: string) => string): ValidationMessage[] {
+function validate(input: StockInput, d: Totals, t: (k: string) => string): ValidationMessage[] {
   const msgs: ValidationMessage[] = [];
-  if (d.stockQty > 0) {
-    if (v.unit === 'kg' && d.stockQty > 50) {
-      msgs.push({
-        kind: 'warning',
-        text: (t('warnLargeKg') || 'Grande quantité — êtes-vous sûr ?').replace('{qty}', d.stockQty.toString()),
-      });
-    }
-    if (v.unit === 'g' && d.stockQty > 5000) {
-      msgs.push({
-        kind: 'suggestion',
-        text: (t('suggestKgFromG') || 'Passer en kg ?'),
-        action: {
-          label: t('convertToKg') || 'Convertir en kg',
-          apply: () => convertGramsToKg(v),
-        },
-      });
-    }
-    if (v.unit === 'ml' && d.stockQty > 5000) {
-      msgs.push({
-        kind: 'suggestion',
-        text: (t('suggestLFromMl') || 'Passer en L ?'),
-        action: {
-          label: t('convertToL') || 'Convertir en L',
-          apply: () => convertMlToL(v),
-        },
-      });
-    }
+  const unit = d.baseUnit;
+  const qty = d.totalBase;
+  if (qty <= 0) return msgs;
+  if (unit === 'kg' && qty > 50) {
+    msgs.push({ kind: 'warning', text: (t('warnLargeKg') || 'Grande quantité ({qty} kg) — à vérifier.').replace('{qty}', qty.toString()) });
+  }
+  if (unit === 'g' && qty > 5000) {
+    msgs.push({
+      kind: 'suggestion',
+      text: t('suggestKgFromG') || 'Passer en kg ?',
+      action: { label: t('convertToKg') || 'Convertir en kg', apply: () => convertBase(input, 'kg', qty / 1000) },
+    });
+  }
+  if (unit === 'ml' && qty > 5000) {
+    msgs.push({
+      kind: 'suggestion',
+      text: t('suggestLFromMl') || 'Passer en L ?',
+      action: { label: t('convertToL') || 'Convertir en L', apply: () => convertBase(input, 'l', qty / 1000) },
+    });
   }
   return msgs;
 }
 
-function convertGramsToKg(v: StockQuantityValue): StockQuantityValue {
-  if (v.mode === 'basic') return { ...v, unit: 'kg', basicQty: v.basicQty / 1000 };
-  return { ...v, unit: 'kg', contentQty: v.contentQty / 1000 };
-}
-function convertMlToL(v: StockQuantityValue): StockQuantityValue {
-  if (v.mode === 'basic') return { ...v, unit: 'l', basicQty: v.basicQty / 1000 };
-  return { ...v, unit: 'l', contentQty: v.contentQty / 1000 };
+function convertBase(input: StockInput, nextUnit: BaseUnit, nextTotal: number): StockInput {
+  if (input.type === 'simple') return { ...input, unit: nextUnit, quantity: nextTotal };
+  if (input.type === 'packaged-direct') {
+    return { ...input, contentUnit: nextUnit, contentQuantity: nextTotal / (input.outerQuantity || 1) };
+  }
+  const innerTotal = input.outerQuantity * input.innerQuantity || 1;
+  return { ...input, contentUnit: nextUnit, contentQuantity: nextTotal / innerTotal };
 }
 
+// ─── Display helpers ──────────────────────────────────────────────────────
+
+function fmtNum(n: number, maxDecimals = 4): string {
+  if (!isFinite(n) || n === 0) return '';
+  const rounded = Number(n.toFixed(maxDecimals));
+  return String(rounded);
+}
+function fmtPrice(n: number): string {
+  if (!isFinite(n) || n === 0) return '0.00';
+  return n < 1 ? n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') : n.toFixed(2);
+}
+
+// ─── Component ────────────────────────────────────────────────────────────
+
 interface Props {
-  value: StockQuantityValue;
-  onChange: (next: StockQuantityValue) => void;
+  value: StockInput;
+  onChange: (next: StockInput) => void;
   vatRate: number;
   /** Compact layout — smaller paddings, for per-line usage inside larger modals. */
   compact?: boolean;
 }
 
-/**
- * Shared stock quantity + packaging + price form.
- * Used in: manual stock item modal, delivery import lines, recipe import (new items).
- *
- * UX: progressive disclosure. Starts in simple mode (qty + price). User clicks
- * "+ Ajouter un conditionnement" to reveal structured packaging flow
- * (outer → inner → content). Conversational copy, smart defaults on type change,
- * live summary of resolved totals, and inline warnings for out-of-range values.
- */
 export default function StockQuantityForm({ value, onChange, vatRate, compact }: Props) {
   const { t } = useI18n();
   const vm = 1 + vatRate / 100;
-  const v = value;
-  const d = deriveStockQuantity(v);
-  const warnings = validateQuantity(v, d, t);
+  const d = deriveTotals(value);
+  const warnings = validate(value, d, t);
 
   const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
   const labelCls = 'text-sm font-medium text-fg-primary mb-1.5 block';
-  const set = (patch: Partial<StockQuantityValue>) => onChange({ ...v, ...patch });
 
-  const expand = () => {
-    // Seed structured mode WITHOUT forcing outer grouping. Inner is the primary level.
-    const seed: Partial<StockQuantityValue> = {
-      mode: 'advanced',
-      outerQty: 0,                                  // no outer grouping by default
-      innerQty: v.basicQty > 0 ? v.basicQty : 1,    // carry simple qty forward
-    };
-    if (v.basicPrice > 0 && !v.totalPrice) seed.totalPrice = v.basicPrice;
-    onChange({ ...v, ...seed });
-  };
-
-  const addOuter = () => {
-    set({ outerQty: v.outerQty > 0 ? v.outerQty : 1, outerType: v.outerType || 'carton' });
-  };
-  const removeOuter = () => {
-    // Move totalPrice context: when outer goes away, pricePerOuter becomes moot
-    set({ outerQty: 0, pricePerOuter: 0 });
-  };
-
-  const addContent = () => {
-    set({ contentQty: 1, unit: INNER_TYPE_DEFAULT_UNIT[v.innerType] || v.unit });
-  };
-  const removeContent = () => {
-    set({ contentQty: 0 });
-  };
-
-  const collapse = () => {
-    // Carry resolved totals back into simple mode so data isn't lost
-    const patch: Partial<StockQuantityValue> = {
-      mode: 'basic',
-      basicQty: d.stockQty || v.basicQty,
-      basicPrice: d.totalPrice || v.basicPrice,
-    };
-    onChange({ ...v, ...patch });
-  };
-
-  // Three-way price sync: pricePerOuter × outerQty = totalPrice ; pricePerOuter = pricePerInner × innerQty
-  const updateOuterPrice = (price: number) => {
-    set({ pricePerOuter: price, totalPrice: v.outerQty > 0 ? price * v.outerQty : v.totalPrice });
-  };
-  const updateInnerPrice = (price: number) => {
-    const outer = v.innerQty > 0 ? price * v.innerQty : price;
-    const total = v.outerQty > 0 ? outer * v.outerQty : v.totalPrice;
-    set({ pricePerOuter: outer, totalPrice: total });
-  };
-  const updateTotalPrice = (total: number) => {
-    set({ totalPrice: total, pricePerOuter: v.outerQty > 0 ? total / v.outerQty : v.pricePerOuter });
-  };
-
-  const onOuterTypeChange = (outerType: string) => {
-    const patch: Partial<StockQuantityValue> = { outerType };
-    // Smart default only if no inner level is defined yet (sacks go straight to kg)
-    if (v.innerQty === 0 && OUTER_TYPE_DEFAULT_UNIT[outerType]) {
-      patch.unit = OUTER_TYPE_DEFAULT_UNIT[outerType];
+  // Step 1: unit change (pivot — may change the variant type)
+  const onStep1UnitChange = (u: string) => {
+    if (isBaseUnit(u)) {
+      // Target = simple
+      if (value.type === 'simple') onChange({ ...value, unit: u });
+      else onChange(packagedToSimple(value, u));
+      return;
     }
-    set(patch);
-  };
-
-  const onInnerTypeChange = (innerType: string) => {
-    const patch: Partial<StockQuantityValue> = { innerType };
-    if (INNER_TYPE_DEFAULT_UNIT[innerType]) {
-      patch.unit = INNER_TYPE_DEFAULT_UNIT[innerType];
+    // Target = packaging
+    const outerUnit = u as PackagingUnit;
+    if (value.type === 'simple') {
+      onChange(simpleToDirect(value, outerUnit));
+    } else {
+      onChange({ ...value, outerUnit });
     }
-    set(patch);
   };
 
-  // ─── Simple mode ────────────────────────────────────────────────────────
-  if (v.mode === 'basic') {
+  // ─── Simple ─────────────────────────────────────────────────────────────
+  if (value.type === 'simple') {
     return (
       <div className="space-y-4">
-        <div>
-          <label className={labelCls}>{t('youBought') || 'Vous avez acheté'}</label>
-          <div className="grid grid-cols-[2fr_1fr] gap-2">
-            <input
-              type="number" step="any" min="0" className={inputCls}
-              value={v.basicQty || ''}
-              onChange={(e) => set({ basicQty: +e.target.value })}
-              placeholder="4"
-            />
-            <select className={inputCls} value={v.unit} onChange={(e) => set({ unit: e.target.value as StockUnit })}>
-              {STOCK_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-        </div>
+        <Step1Row
+          labelCls={labelCls} inputCls={inputCls}
+          label={t('youBought') || 'Vous avez acheté'}
+          qty={value.quantity}
+          onQtyChange={(q) => onChange({ ...value, quantity: q })}
+          unit={value.unit}
+          onUnitChange={onStep1UnitChange}
+          t={t}
+        />
 
         <div>
           <label className={labelCls}>{t('totalPricePaid') || 'Prix total payé'} (&#8362;)</label>
           <input
             type="number" step="any" min="0" className={inputCls}
-            value={v.basicPrice || ''}
-            onChange={(e) => set({ basicPrice: +e.target.value })}
-            placeholder="20"
+            value={fmtNum(value.totalPrice)}
+            onChange={(e) => onChange({ ...value, totalPrice: +e.target.value })}
+            placeholder="0.00"
           />
         </div>
 
-        {d.costPerStockUnit > 0 && (
-          <LiveFeedback cost={d.costPerStockUnit} costTTC={d.costPerStockUnit * vm} unit={v.unit} t={t} />
+        {d.costPerBase > 0 && (
+          <LiveFeedback cost={d.costPerBase} costTTC={d.costPerBase * vm} unit={value.unit} t={t} />
         )}
 
-        <Warnings messages={warnings} onApply={onChange} t={t} />
-
-        <button
-          type="button"
-          onClick={expand}
-          className="flex items-center gap-1.5 text-sm font-medium text-brand-500 hover:text-brand-400 transition-colors"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('addPackaging') || 'Ajouter un conditionnement'}
-        </button>
+        <Warnings messages={warnings} onApply={onChange} />
       </div>
     );
   }
 
-  // ─── Structured mode ────────────────────────────────────────────────────
-  const outerLabel = t(`ct_${v.outerType}`) || v.outerType;
-  const innerLabel = t(`ut_${v.innerType}`) || v.innerType;
-  const hasOuter = v.outerQty > 0;
-  const hasContent = v.contentQty > 0;
+  // ─── Packaged (direct or nested) ────────────────────────────────────────
+  const outerLabel = t(`ct_${value.outerUnit}`) || t(`ut_${value.outerUnit}`) || value.outerUnit;
+  const innerLabel = value.type === 'packaged-nested' ? (t(`ut_${value.innerUnit}`) || value.innerUnit) : '';
 
   return (
     <div className="space-y-4">
-      {/* Retirer le conditionnement → back to simple */}
-      <div className="flex justify-end -mb-2">
-        <button
-          type="button"
-          onClick={collapse}
-          className="flex items-center gap-1 text-xs text-fg-secondary hover:text-fg-primary transition-colors"
-        >
-          <XMarkIcon className="w-3.5 h-3.5" />
-          {t('removePackaging') || 'Retirer le conditionnement'}
-        </button>
-      </div>
-
-      {/* Outer level (optional) */}
-      {hasOuter && (
-        <LevelRow
-          label={t('deliveredIn') || 'Livré en'}
-          qtyStep={1}
-          qty={v.outerQty}
-          onQtyChange={(outerQty) => {
-            const nextTotal = v.pricePerOuter > 0 ? v.pricePerOuter * outerQty : v.totalPrice;
-            onChange({ ...v, outerQty, totalPrice: nextTotal });
-          }}
-          type={v.outerType}
-          onTypeChange={onOuterTypeChange}
-          typeOptions={OUTER_CONTAINERS.map((c) => ({ value: c, label: t(`ct_${c}`) || c }))}
-          onRemove={removeOuter}
-          inputCls={inputCls}
-          labelCls={labelCls}
-        />
-      )}
-
-      {/* Inner level (always — the primary count) */}
-      <LevelRow
-        label={hasOuter
-          ? (t('eachContains') || 'Chaque {name} contient').replace('{name}', outerLabel.toLowerCase())
-          : (t('iBought') || "J'ai acheté")}
+      {/* Step 1 */}
+      <Step1Row
+        labelCls={labelCls} inputCls={inputCls}
+        label={t('youBought') || 'Vous avez acheté'}
+        qty={value.outerQuantity}
         qtyStep={1}
-        qty={v.innerQty}
-        onQtyChange={(innerQty) => set({ innerQty })}
-        type={v.innerType}
-        onTypeChange={onInnerTypeChange}
-        typeOptions={INNER_UNITS.map((u) => ({ value: u, label: t(`ut_${u}`) || u }))}
-        inputCls={inputCls}
-        labelCls={labelCls}
+        onQtyChange={(q) => {
+          const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
+          onChange({ ...value, outerQuantity: q, totalPrice: total });
+        }}
+        unit={value.outerUnit}
+        onUnitChange={onStep1UnitChange}
+        t={t}
       />
 
-      {/* Content level (optional) */}
-      {hasContent ? (
+      {/* Step 2a: inner (only if nested) */}
+      {value.type === 'packaged-nested' && (
         <LevelRow
-          label={(t('eachContains') || 'Chaque {name} contient').replace('{name}', innerLabel.toLowerCase())}
-          qtyStep="any"
-          qty={v.contentQty}
-          onQtyChange={(contentQty) => set({ contentQty })}
-          type={v.unit}
-          onTypeChange={(u) => set({ unit: u as StockUnit })}
-          typeOptions={STOCK_UNITS.map((u) => ({ value: u, label: u }))}
-          onRemove={removeContent}
-          inputCls={inputCls}
-          labelCls={labelCls}
-        />
-      ) : (
-        <AddLevelButton
-          label={(t('specifyContent') || 'Préciser le contenu d\'une {name}').replace('{name}', innerLabel.toLowerCase())}
-          onClick={addContent}
+          labelCls={labelCls} inputCls={inputCls}
+          label={(t('eachContains') || 'Chaque {name} contient').replace('{name}', outerLabel.toLowerCase())}
+          qty={value.innerQuantity} qtyStep={1}
+          onQtyChange={(q) => onChange({ ...value, innerQuantity: q })}
+          unit={value.innerUnit}
+          unitOptions={INNER_UNITS.map((u) => ({ value: u, label: t(`ut_${u}`) || u }))}
+          onUnitChange={(u) => onChange({ ...value, innerUnit: u as PackagingUnit, contentUnit: PACKAGING_CONTENT_DEFAULT[u as PackagingUnit] || value.contentUnit })}
+          onRemove={() => onChange(demoteToDirect(value))}
         />
       )}
 
-      {!hasOuter && (
-        <AddLevelButton
-          label={t('addOuterPackaging') || 'Livré dans un conditionnement'}
-          onClick={addOuter}
-        />
+      {/* Step 2b/3: content row (always for packaged, labelled by inner or outer) */}
+      <LevelRow
+        labelCls={labelCls} inputCls={inputCls}
+        label={(t('eachContains') || 'Chaque {name} contient').replace(
+          '{name}',
+          (value.type === 'packaged-nested' ? innerLabel : outerLabel).toLowerCase(),
+        )}
+        qty={value.contentQuantity}
+        onQtyChange={(q) => onChange({ ...value, contentQuantity: q })}
+        unit={value.contentUnit}
+        unitOptions={BASE_UNITS.map((u) => ({ value: u, label: u }))}
+        onUnitChange={(u) => onChange({ ...value, contentUnit: u as BaseUnit })}
+      />
+
+      {/* Promote link (direct → nested) */}
+      {value.type === 'packaged-direct' && (
+        <button
+          type="button"
+          onClick={() => onChange(promoteToNested(value))}
+          className="text-sm font-medium text-brand-500 hover:text-brand-400 transition-colors"
+        >
+          + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
+        </button>
       )}
 
-      {/* Price — single input + level selector. No more "typed in the wrong field". */}
+      {/* Price */}
       <PriceInputWithLevel
-        v={v}
+        input={value}
         d={d}
-        hasOuter={hasOuter}
-        hasContent={hasContent}
         outerLabel={outerLabel}
         innerLabel={innerLabel}
-        updateOuterPrice={updateOuterPrice}
-        updateInnerPrice={updateInnerPrice}
-        updateTotalPrice={updateTotalPrice}
-        updateContentPrice={(perUnit) => {
-          // total = perUnit × stockQty (derived from current levels)
-          const total = perUnit * (d.stockQty || 0);
-          set({ totalPrice: total, pricePerOuter: v.outerQty > 0 ? total / v.outerQty : v.pricePerOuter });
-        }}
+        onTotalChange={(total) => onChange({ ...value, totalPrice: total })}
+        onOuterChange={(perOuter) => onChange({ ...value, totalPrice: perOuter * value.outerQuantity })}
+        onInnerChange={value.type === 'packaged-nested'
+          ? (perInner) => onChange({ ...value, totalPrice: perInner * (value.outerQuantity * value.innerQuantity) })
+          : undefined}
+        onBaseChange={(perBase) => onChange({ ...value, totalPrice: perBase * d.totalBase })}
         compact={compact}
         labelCls={labelCls}
         t={t}
       />
 
-      {/* Live summary panel */}
-      <LiveSummary v={v} d={d} vm={vm} outerLabel={outerLabel} innerLabel={innerLabel} t={t} />
-
-      <Warnings messages={warnings} onApply={onChange} t={t} />
+      <LiveSummary input={value} d={d} vm={vm} outerLabel={outerLabel} innerLabel={innerLabel} t={t} />
+      <Warnings messages={warnings} onApply={onChange} />
     </div>
   );
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-function LiveFeedback({ cost, costTTC, unit, t }: { cost: number; costTTC: number; unit: string; t: (k: string) => string }) {
+function Step1Row({
+  label, qty, qtyStep, onQtyChange, unit, onUnitChange, inputCls, labelCls, t,
+}: {
+  label: string;
+  qty: number;
+  qtyStep?: number | 'any';
+  onQtyChange: (n: number) => void;
+  unit: string;
+  onUnitChange: (u: string) => void;
+  inputCls: string;
+  labelCls: string;
+  t: (k: string) => string;
+}) {
   return (
-    <div className="p-3 rounded-lg text-sm" style={{ background: 'var(--surface-subtle)' }}>
-      <div className="flex items-center justify-between">
-        <span className="text-fg-secondary">→ {t('perUnitLabel') || 'Par unité'}</span>
-        <span className="font-semibold text-fg-primary">
-          {cost.toFixed(cost < 1 ? 4 : 2)} &#8362;/{unit} {t('exVat')}
-          <span className="text-fg-tertiary font-normal"> · {costTTC.toFixed(costTTC < 1 ? 4 : 2)} {t('incVat')}</span>
-        </span>
+    <div>
+      <label className={labelCls}>{label}</label>
+      <div className="grid grid-cols-[2fr_1fr] gap-2">
+        <input
+          type="number" step={qtyStep ?? 'any'} min="0" className={inputCls}
+          value={fmtNum(qty)}
+          onChange={(e) => onQtyChange(+e.target.value)}
+          placeholder="0"
+        />
+        <select className={inputCls} value={unit} onChange={(e) => onUnitChange(e.target.value)}>
+          <optgroup label={t('measurableUnits') || 'Mesurables'}>
+            {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+          </optgroup>
+          <optgroup label={t('packagingUnits') || 'Conditionnements'}>
+            {Array.from(new Set([...OUTER_UNITS, ...INNER_UNITS])).map((u) => (
+              <option key={u} value={u}>{t(`ct_${u}`) || t(`ut_${u}`) || u}</option>
+            ))}
+          </optgroup>
+        </select>
       </div>
     </div>
   );
 }
 
 function LevelRow({
-  label, qty, qtyStep, onQtyChange, type, onTypeChange, typeOptions, onRemove, inputCls, labelCls,
+  label, qty, qtyStep, onQtyChange, unit, unitOptions, onUnitChange, onRemove, inputCls, labelCls,
 }: {
   label: string;
   qty: number;
-  qtyStep: number | 'any';
+  qtyStep?: number | 'any';
   onQtyChange: (n: number) => void;
-  type: string;
-  onTypeChange: (v: string) => void;
-  typeOptions: { value: string; label: string }[];
+  unit: string;
+  unitOptions: { value: string; label: string }[];
+  onUnitChange: (u: string) => void;
   onRemove?: () => void;
   inputCls: string;
   labelCls: string;
@@ -474,89 +522,86 @@ function LevelRow({
       <div className="flex items-center justify-between mb-1.5">
         <label className={labelCls + ' mb-0'}>{label}</label>
         {onRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="flex items-center gap-1 text-xs text-fg-secondary hover:text-fg-primary transition-colors"
-          >
-            <XMarkIcon className="w-3.5 h-3.5" />
+          <button type="button" onClick={onRemove} className="text-fg-secondary hover:text-fg-primary transition-colors">
+            <XMarkIcon className="w-4 h-4" />
           </button>
         )}
       </div>
       <div className="grid grid-cols-[2fr_1fr] gap-2">
         <input
-          type="number" step={qtyStep} min="0" className={inputCls}
-          value={qty || ''}
+          type="number" step={qtyStep ?? 'any'} min="0" className={inputCls}
+          value={fmtNum(qty)}
           onChange={(e) => onQtyChange(+e.target.value)}
+          placeholder="0"
         />
-        <select className={inputCls} value={type} onChange={(e) => onTypeChange(e.target.value)}>
-          {typeOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        <select className={inputCls} value={unit} onChange={(e) => onUnitChange(e.target.value)}>
+          {unitOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
       </div>
     </div>
   );
 }
 
-function AddLevelButton({ label, onClick }: { label: string; onClick: () => void }) {
+function LiveFeedback({ cost, costTTC, unit, t }: { cost: number; costTTC: number; unit: string; t: (k: string) => string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-1.5 text-sm font-medium text-brand-500 hover:text-brand-400 transition-colors"
-    >
-      <PlusIcon className="w-4 h-4" /> {label}
-    </button>
+    <div className="p-3 rounded-lg text-sm" style={{ background: 'var(--surface-subtle)' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-fg-secondary">→ {t('perUnitLabel') || 'Par unité'}</span>
+        <span className="font-semibold text-fg-primary">
+          {fmtPrice(cost)} &#8362;/{unit} {t('exVat')}
+          <span className="text-fg-tertiary font-normal"> · {fmtPrice(costTTC)} {t('incVat')}</span>
+        </span>
+      </div>
+    </div>
   );
 }
 
-type PriceLevel = 'total' | 'outer' | 'inner' | 'content';
+type PriceLevel = 'total' | 'outer' | 'inner' | 'base';
 
 function PriceInputWithLevel({
-  v, d, hasOuter, hasContent, outerLabel, innerLabel,
-  updateOuterPrice, updateInnerPrice, updateTotalPrice, updateContentPrice,
+  input, d, outerLabel, innerLabel,
+  onTotalChange, onOuterChange, onInnerChange, onBaseChange,
   compact, labelCls, t,
 }: {
-  v: StockQuantityValue;
-  d: DerivedStockQuantity;
-  hasOuter: boolean;
-  hasContent: boolean;
+  input: Extract<StockInput, { type: 'packaged-direct' | 'packaged-nested' }>;
+  d: Totals;
   outerLabel: string;
   innerLabel: string;
-  updateOuterPrice: (n: number) => void;
-  updateInnerPrice: (n: number) => void;
-  updateTotalPrice: (n: number) => void;
-  updateContentPrice: (n: number) => void;
+  onTotalChange: (n: number) => void;
+  onOuterChange: (n: number) => void;
+  onInnerChange?: (n: number) => void;
+  onBaseChange: (n: number) => void;
   compact?: boolean;
   labelCls: string;
   t: (k: string) => string;
 }) {
-  // Local UI state: which level the user is entering price at. Defaults to Total.
-  // We use useState — safe across re-renders; the form instance is stable per line.
-  const [level, setLevel] = useState<PriceLevel>('total');
+  const [level, setLevel] = useState<PriceLevel>('outer');
+  const hasInner = input.type === 'packaged-nested';
+  const hasBase = input.contentQuantity > 0;
 
-  // If the user had picked a level that no longer applies (e.g., removed outer), fall back.
+  // Default gracefully if the selected level no longer applies
   const effectiveLevel: PriceLevel =
-    (level === 'outer' && !hasOuter) ? 'total'
-    : (level === 'content' && !hasContent) ? 'total'
+    (level === 'inner' && !hasInner) ? 'outer'
+    : (level === 'base' && !hasBase) ? 'outer'
     : level;
 
   const displayed = (() => {
     switch (effectiveLevel) {
-      case 'outer':   return v.pricePerOuter;
-      case 'inner':   return d.pricePerInner;
-      case 'content': return d.costPerStockUnit;
+      case 'outer': return d.pricePerOuter;
+      case 'inner': return d.pricePerInner;
+      case 'base':  return d.costPerBase;
       case 'total':
-      default:        return v.totalPrice;
+      default:      return d.totalPrice;
     }
   })();
 
   const onInput = (n: number) => {
     switch (effectiveLevel) {
-      case 'outer':   updateOuterPrice(n); break;
-      case 'inner':   updateInnerPrice(n); break;
-      case 'content': updateContentPrice(n); break;
+      case 'outer': onOuterChange(n); break;
+      case 'inner': onInnerChange?.(n); break;
+      case 'base':  onBaseChange(n); break;
       case 'total':
-      default:        updateTotalPrice(n); break;
+      default:      onTotalChange(n); break;
     }
   };
 
@@ -568,15 +613,15 @@ function PriceInputWithLevel({
       <div className="grid grid-cols-[2fr_1fr] gap-2">
         <input
           type="number" step="any" min="0" className={inputCls}
-          value={displayed ? Number(displayed.toFixed(4)) : ''}
+          value={fmtNum(displayed)}
           onChange={(e) => onInput(+e.target.value)}
           placeholder="0.00"
         />
         <select className={inputCls} value={effectiveLevel} onChange={(e) => setLevel(e.target.value as PriceLevel)}>
+          <option value="outer">{(t('perLabel') || 'par {name}').replace('{name}', outerLabel.toLowerCase())}</option>
+          {hasInner && <option value="inner">{(t('perLabel') || 'par {name}').replace('{name}', innerLabel.toLowerCase())}</option>}
+          {hasBase && <option value="base">{(t('perLabel') || 'par {name}').replace('{name}', d.baseUnit)}</option>}
           <option value="total">{t('perTotal') || 'Total'}</option>
-          {hasOuter && <option value="outer">{(t('perLabel') || 'par {name}').replace('{name}', outerLabel.toLowerCase())}</option>}
-          <option value="inner">{(t('perLabel') || 'par {name}').replace('{name}', innerLabel.toLowerCase())}</option>
-          {hasContent && <option value="content">{(t('perLabel') || 'par {name}').replace('{name}', v.unit)}</option>}
         </select>
       </div>
     </div>
@@ -584,49 +629,48 @@ function PriceInputWithLevel({
 }
 
 function LiveSummary({
-  v, d, vm, outerLabel, innerLabel, t,
+  input, d, vm, outerLabel, innerLabel, t,
 }: {
-  v: StockQuantityValue;
-  d: DerivedStockQuantity;
+  input: StockInput;
+  d: Totals;
   vm: number;
   outerLabel: string;
   innerLabel: string;
   t: (k: string) => string;
 }) {
-  if (d.stockQty <= 0 && d.totalPrice <= 0) return null;
+  if (d.totalBase <= 0 && d.totalPrice <= 0) return null;
+  const isPackaged = input.type !== 'simple';
 
   return (
     <div className="p-3 rounded-lg border border-brand-500/20 space-y-2.5" style={{ background: 'var(--surface-subtle)' }}>
-      {/* Packaging recap */}
-      {d.stockQty > 0 && (
+      {d.totalBase > 0 && isPackaged && (
         <div>
           <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
             📦 {t('summary') || 'Résumé'}
           </div>
           <div className="space-y-1 text-sm">
-            {v.outerQty > 0 && (
+            {d.totalOuterCount > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-fg-secondary">{outerLabel}</span>
-                <span className="text-fg-primary font-medium">{v.outerQty.toLocaleString()}</span>
+                <span className="text-fg-primary font-medium">{d.totalOuterCount.toLocaleString()}</span>
               </div>
             )}
-            {d.totalInnerUnits > 0 && v.innerQty > 0 && (
+            {d.totalInnerCount > 0 && input.type === 'packaged-nested' && (
               <div className="flex items-center justify-between">
                 <span className="text-fg-secondary">{innerLabel}</span>
-                <span className="text-fg-primary font-medium">{d.totalInnerUnits.toLocaleString()}</span>
+                <span className="text-fg-primary font-medium">{d.totalInnerCount.toLocaleString()}</span>
               </div>
             )}
             <div className="flex items-center justify-between">
               <span className="text-fg-secondary">{t('totalStock') || 'Total'}</span>
-              <span className="text-fg-primary font-semibold">{d.stockQty.toLocaleString()} {v.unit}</span>
+              <span className="text-fg-primary font-semibold">{fmtNum(d.totalBase, 3)} {d.baseUnit}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Price recap */}
       {d.totalPrice > 0 && (
-        <div className="pt-2 border-t border-[var(--divider)]">
+        <div className={isPackaged ? 'pt-2 border-t border-[var(--divider)]' : ''}>
           <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
             💰 {t('price') || 'Prix'}
           </div>
@@ -634,21 +678,21 @@ function LiveSummary({
             <div className="flex items-center justify-between">
               <span className="text-fg-secondary">{t('totalPrice') || 'Prix total'}</span>
               <span className="text-fg-primary font-semibold">
-                {d.totalPrice.toFixed(2)} &#8362;
+                {fmtPrice(d.totalPrice)} &#8362;
                 <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
                 {' · '}
-                {(d.totalPrice * vm).toFixed(2)} &#8362;
+                {fmtPrice(d.totalPrice * vm)} &#8362;
                 <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
               </span>
             </div>
-            {d.costPerStockUnit > 0 && (
+            {d.costPerBase > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-fg-secondary">/ {v.unit}</span>
+                <span className="text-fg-secondary">/ {d.baseUnit}</span>
                 <span className="text-fg-primary font-medium">
-                  {d.costPerStockUnit.toFixed(d.costPerStockUnit < 1 ? 4 : 2)} &#8362;
+                  {fmtPrice(d.costPerBase)} &#8362;
                   <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
                   {' · '}
-                  {(d.costPerStockUnit * vm).toFixed(d.costPerStockUnit < 1 ? 4 : 2)} &#8362;
+                  {fmtPrice(d.costPerBase * vm)} &#8362;
                   <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
                 </span>
               </div>
@@ -660,11 +704,7 @@ function LiveSummary({
   );
 }
 
-function Warnings({ messages, onApply, t }: {
-  messages: ValidationMessage[];
-  onApply: (v: StockQuantityValue) => void;
-  t: (k: string) => string;
-}) {
+function Warnings({ messages, onApply }: { messages: ValidationMessage[]; onApply: (v: StockInput) => void }) {
   if (messages.length === 0) return null;
   return (
     <div className="space-y-2">
@@ -694,8 +734,6 @@ function Warnings({ messages, onApply, t }: {
           )}
         </div>
       ))}
-      {/* Keep `t` consumer silent when not needed */}
-      <span className="sr-only">{t('warnings') || ''}</span>
     </div>
   );
 }
