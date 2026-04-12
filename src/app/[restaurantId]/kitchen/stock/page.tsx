@@ -27,7 +27,7 @@ import {
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
   SparklesIcon, ClockIcon, InformationCircleIcon,
-  ChevronDownIcon,
+  ChevronDownIcon, EllipsisVerticalIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -70,6 +70,7 @@ export default function StockPage() {
   // Per-item display level for Quantity/Price cells
   const [itemLevels, setItemLevels] = useState<Record<number, Level>>({});
   const [levelPopover, setLevelPopover] = useState<number | null>(null);
+  const [actionsMenu, setActionsMenu] = useState<number | null>(null);
 
   const getItemLevel = useCallback((item: StockItem): Level => {
     const stored = itemLevels[item.id];
@@ -386,37 +387,52 @@ export default function StockPage() {
                         <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                       )}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setHistoryItem(item)}
-                          className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title={t('stockHistory')}
-                        >
-                          <ClockIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button
-                          onClick={() => setTxModal({ open: true, item, type: 'receive' })}
-                          className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title={t('receiveStock')}
-                        >
-                          <ArrowDownTrayIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button
-                          onClick={() => setItemModal({ open: true, editing: item })}
-                          className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title={t('edit')}
-                        >
-                          <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1 rounded hover:bg-[var(--surface-subtle)]"
-                          title={t('delete')}
-                        >
-                          <TrashIcon className="w-4 h-4 text-red-400" />
-                        </button>
-                      </div>
+                    <td className="py-3 px-4 relative">
+                      <button
+                        onClick={() => setActionsMenu((prev) => (prev === item.id ? null : item.id))}
+                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)]"
+                        title={t('actions') || 'Actions'}
+                      >
+                        <EllipsisVerticalIcon className="w-4 h-4 text-fg-secondary" />
+                      </button>
+                      {actionsMenu === item.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setActionsMenu(null)} />
+                          <div
+                            className="absolute right-2 top-full mt-1 z-50 w-48 rounded-lg shadow-lg border border-[var(--divider)] p-1"
+                            style={{ background: 'var(--surface)' }}
+                          >
+                            <button
+                              onClick={() => { setActionsMenu(null); setHistoryItem(item); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-primary hover:bg-[var(--surface-subtle)] rounded"
+                            >
+                              <ClockIcon className="w-4 h-4 text-fg-secondary" />
+                              {t('stockHistory')}
+                            </button>
+                            <button
+                              onClick={() => { setActionsMenu(null); setTxModal({ open: true, item, type: 'receive' }); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-primary hover:bg-[var(--surface-subtle)] rounded"
+                            >
+                              <ArrowDownTrayIcon className="w-4 h-4 text-fg-secondary" />
+                              {t('receiveStock')}
+                            </button>
+                            <button
+                              onClick={() => { setActionsMenu(null); setItemModal({ open: true, editing: item }); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-primary hover:bg-[var(--surface-subtle)] rounded"
+                            >
+                              <PencilIcon className="w-4 h-4 text-fg-secondary" />
+                              {t('edit')}
+                            </button>
+                            <button
+                              onClick={() => { setActionsMenu(null); handleDelete(item.id); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                              {t('delete')}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 );
