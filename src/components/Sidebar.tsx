@@ -295,7 +295,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
             {/* Sub-groups (collapsible sections) */}
             {activeSection.subGroups && (
-              <nav className="flex-1 px-3 py-1 space-y-1">
+              <nav className="px-3 py-1 space-y-1">
                 {activeSection.subGroups.map((group) => {
                   const hasActiveItem = group.items.some(
                     (sub) => pathname === sub.href || pathname.startsWith(sub.href + '/')
