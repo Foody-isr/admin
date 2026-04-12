@@ -10,6 +10,9 @@ import {
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
 import Modal from '@/components/Modal';
+import FormModal from '@/components/FormModal';
+import FormSection from '@/components/FormSection';
+import FormField from '@/components/FormField';
 import {
   MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
@@ -641,28 +644,46 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
     finally { setSaving(false); }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
-      {/* Sticky header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-        <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--surface)] transition-colors">
-            <ArrowDownTrayIcon className="w-5 h-5 text-fg-secondary rotate-90" />
-          </button>
-          <h2 className="text-lg font-semibold text-fg-primary">{editing ? t('editStockItem') : t('addStockItem')}</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-          <button type="button" onClick={handleSubmit} disabled={saving || !name.trim()} className="btn-primary text-sm">
-            {saving ? t('saving') : editing ? t('update') : t('create')}
-          </button>
-        </div>
-      </div>
+  const sidebar = (
+    <>
+      <FormSection title={t('status')}>
+        <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
+          {t('active')}
+        </label>
+      </FormSection>
 
-      {/* Two-column layout */}
-      <div className="flex flex-1 min-h-0 overflow-y-auto">
-        {/* Left: main form */}
-        <div className="flex-1 p-6 lg:p-8 space-y-6 max-w-3xl">
+      <FormSection title={t('supplier')}>
+        <input className="input w-full py-2 text-sm" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+      </FormSection>
+
+      <FormSection title={t('category')}>
+        <input className="input w-full py-2 text-sm" list="stock-cats" value={category}
+          onChange={(e) => setCategory(e.target.value)} />
+        <datalist id="stock-cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+      </FormSection>
+
+      <FormSection title={t('reorderThreshold')}>
+        <input type="number" step="any" className="input w-full py-2 text-sm" value={reorder || ''}
+          onChange={(e) => setReorder(+e.target.value)} />
+      </FormSection>
+
+      <FormSection title={t('notes')}>
+        <textarea className="input w-full py-2 text-sm" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </FormSection>
+    </>
+  );
+
+  return (
+    <FormModal
+      title={editing ? t('editStockItem') : t('addStockItem')}
+      onClose={onClose}
+      onSave={handleSubmit}
+      saveLabel={editing ? t('update') : t('create')}
+      saving={saving}
+      saveDisabled={!name.trim()}
+      sidebar={sidebar}
+    >
           {/* Name */}
           <div>
             <input className="input w-full py-3 text-lg font-medium" value={name} onChange={(e) => setName(e.target.value)}
@@ -817,48 +838,7 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
               )}
             </div>
           )}
-        </div>
-
-        {/* Right: sidebar */}
-        <div className="hidden lg:block w-72 p-6 space-y-4 border-l border-[var(--divider)]">
-          {/* Status */}
-          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
-            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('status')}</span>
-            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
-              {t('active')}
-            </label>
-          </div>
-
-          {/* Supplier */}
-          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
-            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('supplier')}</span>
-            <input className="input w-full py-2 text-sm" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
-          </div>
-
-          {/* Category */}
-          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
-            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('category')}</span>
-            <input className="input w-full py-2 text-sm" list="stock-cats" value={category}
-              onChange={(e) => setCategory(e.target.value)} />
-            <datalist id="stock-cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
-          </div>
-
-          {/* Reorder */}
-          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
-            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('reorderThreshold')}</span>
-            <input type="number" step="any" className="input w-full py-2 text-sm" value={reorder || ''}
-              onChange={(e) => setReorder(+e.target.value)} />
-          </div>
-
-          {/* Notes */}
-          <div className="rounded-xl border border-[var(--divider)] p-4 space-y-2" style={{ background: 'var(--surface)' }}>
-            <span className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('notes')}</span>
-            <textarea className="input w-full py-2 text-sm" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
-        </div>
-      </div>
-    </div>
+    </FormModal>
   );
 }
 
