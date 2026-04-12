@@ -11,8 +11,18 @@ import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
-  StockInput, BaseUnit, deriveTotals,
+  StockInput, BaseUnit, PackagingUnit, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
+
+const PACKAGING_UNITS: Set<string> = new Set([
+  'carton', 'pack', 'box', 'bag', 'bottle',
+  'can', 'jar', 'sachet', 'tub', 'brick', 'packet',
+  'crate', 'sack', 'case',
+]);
+
+function coercePackagingUnit(value: string | undefined, fallback: PackagingUnit): PackagingUnit {
+  return value && PACKAGING_UNITS.has(value) ? (value as PackagingUnit) : fallback;
+}
 
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
 
@@ -28,12 +38,15 @@ function lineToStockInput(item: ConfirmDeliveryItemInput): StockInput {
   const isBase = BASE_SET.has(unit);
 
   // Nested: outer × inner × content
-  if (packs > 0 && upp > 1 && us > 0 && isBase) {
+  // Present when we have inner-layer hints: either units_per_pack > 1, or
+  // the saved packaging carries a unit_type (e.g. "can" in "cartons of 12 cans").
+  const hasInnerLayer = upp > 1 || (item.unit_type ?? '') !== '';
+  if (packs > 0 && hasInnerLayer && us > 0 && isBase) {
     return {
       type: 'packaged-nested',
-      outerUnit: 'carton',
+      outerUnit: coercePackagingUnit(item.container_type, 'carton'),
       outerQuantity: packs,
-      innerUnit: 'can',
+      innerUnit: coercePackagingUnit(item.unit_type, 'can'),
       innerQuantity: upp,
       contentQuantity: us,
       contentUnit: unit as BaseUnit,
@@ -44,7 +57,7 @@ function lineToStockInput(item: ConfirmDeliveryItemInput): StockInput {
   if (packs > 0 && us > 0 && isBase) {
     return {
       type: 'packaged-direct',
-      outerUnit: 'carton',
+      outerUnit: coercePackagingUnit(item.container_type, 'carton'),
       outerQuantity: packs,
       contentQuantity: us,
       contentUnit: unit as BaseUnit,
@@ -72,6 +85,8 @@ function stockInputToLinePatch(i: StockInput): Partial<ConfirmDeliveryItemInput>
       units_per_pack: 0,
       unit_size: 0,
       unit_size_unit: '',
+      container_type: '',
+      unit_type: '',
       price_per_pack: 0,
       total_price: i.totalPrice,
     };
@@ -85,6 +100,8 @@ function stockInputToLinePatch(i: StockInput): Partial<ConfirmDeliveryItemInput>
       units_per_pack: 0,
       unit_size: i.contentQuantity,
       unit_size_unit: i.contentUnit,
+      container_type: i.outerUnit,
+      unit_type: '',
       price_per_pack: d.pricePerOuter,
       total_price: i.totalPrice,
     };
@@ -97,6 +114,8 @@ function stockInputToLinePatch(i: StockInput): Partial<ConfirmDeliveryItemInput>
     units_per_pack: i.innerQuantity,
     unit_size: i.contentQuantity,
     unit_size_unit: i.contentUnit,
+    container_type: i.outerUnit,
+    unit_type: i.innerUnit,
     price_per_pack: d.pricePerOuter,
     total_price: i.totalPrice,
   };
@@ -201,11 +220,13 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           category: i.category,
           cost_per_unit: i.estimated_cost,
           pack_count: i.pack_count || i.quantity,
-          units_per_pack: 1,
+          units_per_pack: i.units_per_pack || 1,
           price_per_pack: i.price_per_pack || 0,
           total_price: i.total_price || (i.estimated_cost * i.quantity),
           unit_size: i.unit_size || 0,
           unit_size_unit: i.unit_size_unit || '',
+          container_type: i.container_type || '',
+          unit_type: i.unit_type || '',
           price_includes_vat: matched?.price_includes_vat ?? false,
         };
       });

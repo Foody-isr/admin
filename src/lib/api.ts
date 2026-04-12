@@ -672,8 +672,11 @@ export interface DeliveryItem {
   quantity: number;
   unit: string;
   pack_count: number;
+  units_per_pack: number;
   unit_size: number;
   unit_size_unit: string;
+  container_type: string;
+  unit_type: string;
   category: string;
   estimated_cost: number;
   price_per_pack: number;
@@ -705,6 +708,8 @@ export interface ConfirmDeliveryItemInput {
   total_price?: number;
   unit_size?: number;
   unit_size_unit?: string;
+  container_type?: string;
+  unit_type?: string;
   price_includes_vat?: boolean;
 }
 
