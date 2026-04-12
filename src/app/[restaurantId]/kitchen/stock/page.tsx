@@ -289,7 +289,7 @@ export default function StockPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden">
+        <div>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-fg-secondary tracking-wider border-b-2 border-fg-primary">
