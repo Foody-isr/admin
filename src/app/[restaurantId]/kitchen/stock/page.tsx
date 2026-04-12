@@ -13,6 +13,8 @@ import Modal from '@/components/Modal';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
 import FormField from '@/components/FormField';
+import StatusPill from '@/components/StatusPill';
+import SearchableListField from '@/components/SearchableListField';
 import {
   MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
@@ -646,30 +648,40 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
 
   const sidebar = (
     <>
-      <FormSection title={t('status')}>
-        <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
-          {t('active')}
-        </label>
-      </FormSection>
-
-      <FormSection title={t('supplier')}>
-        <input className="input w-full py-2 text-sm" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+      <FormSection>
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-fg-primary">{t('status')}</h3>
+          <StatusPill
+            active={isActive}
+            onToggle={() => setIsActive(!isActive)}
+            activeLabel={t('active')}
+            inactiveLabel={t('inactive')}
+          />
+        </div>
       </FormSection>
 
       <FormSection title={t('category')}>
-        <input className="input w-full py-2 text-sm" list="stock-cats" value={category}
-          onChange={(e) => setCategory(e.target.value)} />
-        <datalist id="stock-cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
+        <SearchableListField
+          mode="single"
+          allowCustom
+          placeholder={t('category')}
+          options={categories.map((c) => ({ value: c, label: c }))}
+          value={category}
+          onChange={setCategory}
+        />
+      </FormSection>
+
+      <FormSection title={t('supplier')}>
+        <input className="input text-sm w-full" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
       </FormSection>
 
       <FormSection title={t('reorderThreshold')}>
-        <input type="number" step="any" className="input w-full py-2 text-sm" value={reorder || ''}
+        <input type="number" step="any" className="input text-sm w-full" value={reorder || ''}
           onChange={(e) => setReorder(+e.target.value)} />
       </FormSection>
 
       <FormSection title={t('notes')}>
-        <textarea className="input w-full py-2 text-sm" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <textarea className="input text-sm w-full" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </FormSection>
     </>
   );
@@ -685,10 +697,8 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
       sidebar={sidebar}
     >
           {/* Name */}
-          <div>
-            <input className="input w-full py-3 text-lg font-medium" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder={t('nameLabel') + ' *'} autoFocus />
-          </div>
+          <input className="input w-full text-base" value={name} onChange={(e) => setName(e.target.value)}
+            placeholder={t('nameLabel') + ' *'} autoFocus />
 
           {/* Mode selector */}
           <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>

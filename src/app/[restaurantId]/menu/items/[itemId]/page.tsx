@@ -14,6 +14,8 @@ import {
 import { useI18n } from '@/lib/i18n';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
+import StatusPill from '@/components/StatusPill';
+import SearchableListField from '@/components/SearchableListField';
 import {
   XMarkIcon, PhotoIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon,
   ArrowUpTrayIcon, MagnifyingGlassIcon, PlusIcon, ArrowLeftIcon,
@@ -72,10 +74,6 @@ export default function EditItemPage() {
   const [modalDefaultKey, setModalDefaultKey] = useState<PickKey | ''>('');
   const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
 
-  // Categories search
-  const [categorySearch, setCategorySearch] = useState('');
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-
   // Modifier sets modal
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
@@ -89,8 +87,6 @@ export default function EditItemPage() {
   const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
   const [initialMenuIds, setInitialMenuIds] = useState<Set<number>>(new Set());
   const [menuGroupMap, setMenuGroupMap] = useState<Map<number, number>>(new Map());
-  const [menuSearch, setMenuSearch] = useState('');
-  const [menuDropdownOpen, setMenuDropdownOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -118,8 +114,6 @@ export default function EditItemPage() {
           setPrice(String(found.price));
           setDescription(found.description ?? '');
           setCategoryId(found.category_id);
-          const foundCat = cats.find((c) => c.id === found.category_id);
-          if (foundCat) setCategorySearch(foundCat.name);
           setIsActive(found.is_active);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
@@ -349,96 +343,38 @@ export default function EditItemPage() {
 
   const sidebar = (
     <>
-      {/* Status */}
       <FormSection>
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-fg-primary">{t('status')}</h3>
-          <button
-            onClick={() => setIsActive(!isActive)}
-            className={`text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1 ${
-              isActive ? 'text-status-ready' : 'text-fg-secondary'
-            }`}
-            style={{ background: isActive ? 'rgba(119,186,75,0.12)' : 'var(--surface-subtle)' }}
-          >
-            {isActive ? t('available') : t('unavailable')}
-            <ChevronDownIcon className="w-3 h-3" />
-          </button>
-        </div>
-      </FormSection>
-
-      {/* Categories */}
-      <FormSection>
-        <h3 className="font-bold text-fg-primary">{t('categories')}</h3>
-        <div className="relative">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
-          <input
-            type="text"
-            placeholder={t('addToCategories')}
-            value={categorySearch}
-            onChange={(e) => setCategorySearch(e.target.value)}
-            onFocus={() => setCategoryDropdownOpen(true)}
-            className="input text-sm w-full pl-9"
+          <StatusPill
+            active={isActive}
+            onToggle={() => setIsActive(!isActive)}
+            activeLabel={t('available')}
+            inactiveLabel={t('unavailable')}
           />
         </div>
-        {categoryDropdownOpen && (
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {categories
-              .filter((c) => !categorySearch || c.name.toLowerCase().includes(categorySearch.toLowerCase()))
-              .map((cat) => (
-              <label key={cat.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors">
-                <input
-                  type="radio"
-                  name="category"
-                  checked={categoryId === cat.id}
-                  onChange={() => { setCategoryId(cat.id); setCategorySearch(cat.name); setCategoryDropdownOpen(false); }}
-                  className="rounded-full border-[var(--divider)] text-brand-500"
-                />
-                <span className="text-sm text-fg-primary">{cat.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
       </FormSection>
 
-      {/* Cartes / Menus */}
-      <FormSection>
-        <h3 className="font-bold text-fg-primary">{t('menus')}</h3>
+      <FormSection title={t('categories')}>
+        <SearchableListField
+          mode="single"
+          placeholder={t('addToCategories')}
+          options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
+          value={categoryId ? String(categoryId) : ''}
+          onChange={(v) => setCategoryId(v ? Number(v) : 0)}
+        />
+      </FormSection>
+
+      <FormSection title={t('menus')}>
         <p className="text-xs text-fg-tertiary">{t('cartesDescription')}</p>
-        <div className="relative">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
-          <input
-            type="text"
-            placeholder={t('addToMenus')}
-            value={menuSearch}
-            onChange={(e) => setMenuSearch(e.target.value)}
-            onFocus={() => setMenuDropdownOpen(true)}
-            className="input text-sm w-full pl-9"
-          />
-        </div>
-        {menuDropdownOpen && menus.length > 0 ? (
-          <div className="space-y-1 max-h-40 overflow-y-auto">
-            {menus
-              .filter((m) => !menuSearch || m.name.toLowerCase().includes(menuSearch.toLowerCase()))
-              .map((menu) => (
-              <label key={menu.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors">
-                <input
-                  type="checkbox"
-                  checked={selectedMenuIds.has(menu.id)}
-                  onChange={() => {
-                    const next = new Set(selectedMenuIds);
-                    if (next.has(menu.id)) next.delete(menu.id);
-                    else next.add(menu.id);
-                    setSelectedMenuIds(next);
-                  }}
-                  className="rounded border-[var(--divider)]"
-                />
-                <span className="text-sm text-fg-primary">{menu.name}</span>
-              </label>
-            ))}
-          </div>
-        ) : menuDropdownOpen ? (
-          <p className="text-xs text-fg-tertiary italic">{t('noMenusAvailable') || 'No menus available'}</p>
-        ) : null}
+        <SearchableListField
+          mode="multi"
+          placeholder={t('addToMenus')}
+          emptyLabel={t('noMenusAvailable') || 'No menus available'}
+          options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
+          values={Array.from(selectedMenuIds).map(String)}
+          onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
+        />
       </FormSection>
     </>
   );
