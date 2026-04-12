@@ -6,9 +6,15 @@ import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, getRestaurantSettings,
-  StockItem, StockCategory, StockItemInput, StockUnit, StockTransactionType, StockTransaction,
+  StockItem, StockCategory, StockItemInput, StockTransactionType, StockTransaction,
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
+import StockQuantityForm, {
+  StockQuantityValue,
+  defaultStockQuantityValue,
+  stockItemToQuantityValue,
+  quantityValueToStockFields,
+} from '@/components/stock/StockQuantityForm';
 import Modal from '@/components/Modal';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
@@ -23,8 +29,6 @@ import {
   AdjustmentsHorizontalIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
-
-const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 
 // Column keys for configurable table
 type ColumnKey = 'category' | 'quantity' | 'costPerUnit' | 'pricePerUnit' | 'pricePerUnitTTC' | 'packSize' | 'unitContent' | 'supplier' | 'status' | 'notes' | 'reorderThreshold';
@@ -557,24 +561,18 @@ export default function StockPage() {
 
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
-const OUTER_CONTAINERS = ['carton', 'pack', 'crate', 'sack', 'case'] as const;
-const INNER_UNITS = ['bottle', 'can', 'jar', 'bag', 'brick', 'packet', 'box', 'sachet', 'tub'] as const;
-
 function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }: {
   rid: number; editing?: StockItem; categories: string[]; vatRate: number; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const vm = 1 + vatRate / 100;
 
-  // Mode: auto-detect from existing data
-  const [mode, setMode] = useState<'basic' | 'advanced'>(() => {
-    if ((editing?.unit_content ?? 0) > 0 || (editing?.pack_size ?? 0) > 0) return 'advanced';
-    return 'basic';
-  });
+  // Shared quantity/packaging/price form state
+  const [qty, setQty] = useState<StockQuantityValue>(() =>
+    editing ? stockItemToQuantityValue(editing) : defaultStockQuantityValue(),
+  );
 
-  // State
+  // Item-level fields (not part of the quantity form)
   const [name, setName] = useState(editing?.name ?? '');
-  const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'kg');
   const [supplier, setSupplier] = useState(editing?.supplier ?? '');
   const [category, setCategory] = useState(editing?.category ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
@@ -582,59 +580,12 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
-  // Basic mode state
-  const [basicQty, setBasicQty] = useState(editing && mode === 'basic' ? editing.quantity : 0);
-  const [basicPrice, setBasicPrice] = useState(editing && mode === 'basic' ? editing.cost_per_unit * editing.quantity : 0);
-
-  // Advanced mode state
-  const [outerQty, setOuterQty] = useState(() => {
-    if (!editing || mode !== 'advanced') return 0;
-    const ps = editing.pack_size ?? 0;
-    const uc = editing.unit_content ?? 0;
-    if (ps > 0 && uc > 0) return Math.round(editing.quantity / (ps * uc));
-    if (uc > 0) return Math.round(editing.quantity / uc);
-    return 0;
-  });
-  const [outerType, setOuterType] = useState(editing?.container_type || 'carton');
-  const [innerQty, setInnerQty] = useState(editing?.pack_size ?? 0);
-  const [innerType, setInnerType] = useState(editing?.unit_type || 'can');
-  const [contentQty, setContentQty] = useState(editing?.unit_content ?? 0);
-  const [pricePerOuter, setPricePerOuter] = useState(() => {
-    if (!editing || mode !== 'advanced' || editing.cost_per_unit === 0) return 0;
-    const ps = editing.pack_size ?? 1;
-    const uc = editing.unit_content ?? 1;
-    return editing.cost_per_unit * uc * ps;
-  });
-  const [advTotalPrice, setAdvTotalPrice] = useState(() => {
-    if (!editing || editing.cost_per_unit === 0) return 0;
-    return editing.cost_per_unit * editing.quantity;
-  });
-
-  // Derived calculations
-  const totalInnerUnits = innerQty > 0 ? outerQty * innerQty : outerQty;
-  const advStockQty = contentQty > 0 ? totalInnerUnits * contentQty : totalInnerUnits;
-  const advTotal = outerQty > 0 && pricePerOuter > 0 ? outerQty * pricePerOuter : advTotalPrice;
-  const advCostPerStock = advStockQty > 0 && advTotal > 0 ? advTotal / advStockQty : 0;
-  const advPricePerInner = totalInnerUnits > 0 && advTotal > 0 ? advTotal / totalInnerUnits : 0;
-  const basicCostPerUnit = basicQty > 0 && basicPrice > 0 ? basicPrice / basicQty : 0;
-
-  // Sync price per outer <-> total
-  const updateOuterPrice = (v: number) => { setPricePerOuter(v); if (outerQty > 0) setAdvTotalPrice(v * outerQty); };
-  const updateAdvTotal = (v: number) => { setAdvTotalPrice(v); if (outerQty > 0) setPricePerOuter(v / outerQty); };
-
   const handleSubmit = async () => {
     setSaving(true);
     try {
-      const isAdv = mode === 'advanced';
       const payload: StockItemInput = {
-        name, unit,
-        quantity: isAdv ? advStockQty : basicQty,
-        cost_per_unit: isAdv ? advCostPerStock : basicCostPerUnit,
-        unit_content: isAdv && contentQty > 0 ? contentQty : 0,
-        unit_content_unit: isAdv && contentQty > 0 ? unit : '',
-        pack_size: isAdv && innerQty > 0 ? innerQty : 0,
-        container_type: isAdv ? outerType : '',
-        unit_type: isAdv ? innerType : '',
+        name,
+        ...quantityValueToStockFields(qty),
         reorder_threshold: reorder,
         supplier, category, notes,
         is_active: isActive,
@@ -700,154 +651,8 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
           <input className="input w-full text-base" value={name} onChange={(e) => setName(e.target.value)}
             placeholder={t('nameLabel') + ' *'} autoFocus />
 
-          {/* Mode selector */}
-          <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-            <button type="button" onClick={() => setMode('basic')}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${mode === 'basic' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
-              {t('basic')}
-            </button>
-            <button type="button" onClick={() => setMode('advanced')}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${mode === 'advanced' ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:text-fg-primary'}`}>
-              {t('advanced')}
-            </button>
-          </div>
+          <StockQuantityForm value={qty} onChange={setQty} vatRate={vatRate} />
 
-          {/* Basic mode */}
-          {mode === 'basic' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-fg-secondary block mb-1">{t('quantity')}</label>
-                  <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
-                    value={basicQty || ''} onChange={(e) => setBasicQty(+e.target.value)} placeholder="4" />
-                </div>
-                <div>
-                  <label className="text-xs text-fg-secondary block mb-1">{t('unit')}</label>
-                  <select className="input w-full py-2.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
-                    {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary block mb-1">{t('totalPricePaid')} (&#8362;)</label>
-                <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
-                  value={basicPrice || ''} onChange={(e) => setBasicPrice(+e.target.value)} placeholder="20" />
-              </div>
-              {basicCostPerUnit > 0 && (
-                <div className="p-4 rounded-xl space-y-2" style={{ background: 'var(--surface-subtle)' }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-secondary">{t('costPerUnit')} (/{unit})</span>
-                    <span className="text-sm font-semibold text-fg-primary">
-                      {basicCostPerUnit.toFixed(4)} &#8362; {t('exVat')} | {(basicCostPerUnit * vm).toFixed(4)} &#8362; {t('incVat')}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Advanced mode */}
-          {mode === 'advanced' && (
-            <div className="space-y-4">
-              {/* Outer container */}
-              <div className="p-4 rounded-xl border border-[var(--divider)] space-y-3">
-                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('outerContainer')}</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-fg-tertiary block mb-1">{t('quantity')}</label>
-                    <input type="number" step="1" min="0" className="input w-full py-2.5 text-sm"
-                      value={outerQty || ''} onChange={(e) => { setOuterQty(+e.target.value); if (pricePerOuter > 0) setAdvTotalPrice(pricePerOuter * +e.target.value); }}
-                      placeholder="2" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-fg-tertiary block mb-1">{t('type')}</label>
-                    <select className="input w-full py-2.5 text-sm" value={outerType} onChange={(e) => setOuterType(e.target.value)}>
-                      {OUTER_CONTAINERS.map((c) => <option key={c} value={c}>{t(`ct_${c}`)}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Inner unit */}
-              <div className="p-4 rounded-xl border border-[var(--divider)] space-y-3">
-                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('innerUnit')}</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-fg-tertiary block mb-1">{t('quantity')} / {t(`ct_${outerType}`)}</label>
-                    <input type="number" step="1" min="0" className="input w-full py-2.5 text-sm"
-                      value={innerQty || ''} onChange={(e) => setInnerQty(+e.target.value)} placeholder="12" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-fg-tertiary block mb-1">{t('type')}</label>
-                    <select className="input w-full py-2.5 text-sm" value={innerType} onChange={(e) => setInnerType(e.target.value)}>
-                      {INNER_UNITS.map((u) => <option key={u} value={u}>{t(`ut_${u}`)}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-fg-tertiary block mb-1">{t('contentPer')} {t(`ut_${innerType}`)}</label>
-                    <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
-                      value={contentQty || ''} onChange={(e) => setContentQty(+e.target.value)} placeholder="400" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-fg-tertiary block mb-1">{t('unit')}</label>
-                    <select className="input w-full py-2.5 text-sm" value={unit} onChange={(e) => setUnit(e.target.value as StockUnit)}>
-                      {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Price */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-fg-secondary block mb-1">{t('pricePerPackage')} (&#8362;/{t(`ct_${outerType}`)})</label>
-                  <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
-                    value={pricePerOuter || ''} onChange={(e) => updateOuterPrice(+e.target.value)} />
-                </div>
-                <div>
-                  <label className="text-xs text-fg-secondary block mb-1">{t('total')} (&#8362;)</label>
-                  <input type="number" step="any" min="0" className="input w-full py-2.5 text-sm"
-                    value={advTotalPrice || ''} onChange={(e) => updateAdvTotal(+e.target.value)} />
-                </div>
-              </div>
-
-              {/* Summary */}
-              {advStockQty > 0 && advTotal > 0 && (
-                <div className="p-4 rounded-xl space-y-2.5" style={{ background: 'var(--surface-subtle)' }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-fg-secondary">{t('stockTotal')}</span>
-                    <span className="text-sm font-medium text-fg-primary">{advStockQty.toLocaleString()} {unit}</span>
-                  </div>
-                  {contentQty > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-fg-secondary">/{t(`ut_${innerType}`)} ({contentQty}{unit})</span>
-                      <span className="text-sm font-semibold text-fg-primary">
-                        {advPricePerInner.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
-                        {' | '}
-                        {(advPricePerInner * vm).toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
-                      </span>
-                    </div>
-                  )}
-                  {pricePerOuter > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-fg-secondary">/{t(`ct_${outerType}`)}</span>
-                      <span className="text-xs text-fg-secondary">
-                        {pricePerOuter.toFixed(2)} &#8362; {t('exVat')} | {(pricePerOuter * vm).toFixed(2)} &#8362; {t('incVat')}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2 border-t border-[var(--divider)]">
-                    <span className="text-xs text-fg-secondary">/{unit}</span>
-                    <span className="text-xs text-fg-secondary">
-                      {advCostPerStock.toFixed(4)} &#8362; {t('exVat')} | {(advCostPerStock * vm).toFixed(4)} &#8362; {t('incVat')}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
     </FormModal>
   );
 }

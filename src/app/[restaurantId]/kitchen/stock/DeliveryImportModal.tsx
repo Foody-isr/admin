@@ -8,10 +8,48 @@ import {
   DeliveryImportDraftDetail,
 } from '@/lib/api';
 
-const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
+import StockQuantityForm, {
+  StockQuantityValue, deriveStockQuantity,
+} from '@/components/stock/StockQuantityForm';
+
+function lineToQuantityValue(item: ConfirmDeliveryItemInput): StockQuantityValue {
+  const packs = item.pack_count ?? 0;
+  const upp = item.units_per_pack ?? 0;
+  const us = item.unit_size ?? 0;
+  const isAdv = packs > 0 || upp > 1 || us > 0;
+  return {
+    mode: isAdv ? 'advanced' : 'basic',
+    unit: (item.unit as StockUnit) || 'kg',
+    basicQty: !isAdv ? item.quantity : 0,
+    basicPrice: !isAdv ? (item.total_price ?? 0) : 0,
+    outerQty: packs,
+    outerType: 'carton',
+    innerQty: upp,
+    innerType: 'can',
+    contentQty: us,
+    pricePerOuter: item.price_per_pack ?? 0,
+    totalPrice: item.total_price ?? 0,
+  };
+}
+
+function quantityValueToLinePatch(v: StockQuantityValue): Partial<ConfirmDeliveryItemInput> {
+  const d = deriveStockQuantity(v);
+  const isAdv = v.mode === 'advanced';
+  return {
+    unit: v.unit,
+    quantity: d.stockQty,
+    cost_per_unit: d.costPerStockUnit,
+    pack_count: isAdv ? v.outerQty : 0,
+    units_per_pack: isAdv ? v.innerQty : 0,
+    unit_size: isAdv ? v.contentQty : 0,
+    unit_size_unit: isAdv && v.contentQty > 0 ? v.unit : '',
+    price_per_pack: isAdv ? v.pricePerOuter : 0,
+    total_price: d.totalPrice,
+  };
+}
 
 interface DeliveryImportModalProps {
   rid: number;
@@ -366,7 +404,6 @@ function ItemsList({
   vatRate: number;
   t: (key: string) => string;
 }) {
-  const vatMultiplier = 1 + vatRate / 100;
   return (
     <div className="space-y-3">
       {editedItems.map((item, idx) => {
@@ -425,134 +462,13 @@ function ItemsList({
               </div>
             )}
 
-            {/* Row 3: Packs / Units per pack / Price per pack / Total */}
-            <div className="grid grid-cols-4 gap-3">
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('packCount')}</label>
-                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                  value={item.pack_count ?? ''} onChange={(e) => {
-                    const packs = +e.target.value;
-                    const upp = item.units_per_pack ?? 1;
-                    const us = item.unit_size ?? 1;
-                    const qty = packs * (upp > 0 ? upp : 1) * (us > 0 ? us : 1);
-                    const ppk = item.price_per_pack ?? 0;
-                    const tp = packs * ppk;
-                    const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
-                    updateItem(idx, { pack_count: packs, quantity: qty, total_price: tp || item.total_price, cost_per_unit: cpu || item.cost_per_unit });
-                  }} />
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unitsPerPack')}</label>
-                <input type="number" step="1" min="1" className="input w-full py-1.5 text-sm text-right"
-                  value={item.units_per_pack ?? 1} onChange={(e) => {
-                    const upp = +e.target.value;
-                    const packs = item.pack_count ?? 1;
-                    const us = item.unit_size ?? 1;
-                    const qty = packs * (upp > 0 ? upp : 1) * (us > 0 ? us : 1);
-                    const tp = item.total_price ?? 0;
-                    const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
-                    updateItem(idx, { units_per_pack: upp, quantity: qty, cost_per_unit: cpu });
-                  }} />
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('pricePerPackage')} &#8362;</label>
-                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                  value={item.price_per_pack ?? ''} onChange={(e) => {
-                    const ppk = +e.target.value;
-                    const packs = item.pack_count ?? 1;
-                    const tp = packs * ppk;
-                    const qty = item.quantity;
-                    const cpu = qty > 0 && tp > 0 ? tp / qty : 0;
-                    updateItem(idx, { price_per_pack: ppk, total_price: tp, cost_per_unit: cpu });
-                  }} />
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('totalPrice')} &#8362;</label>
-                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                  value={item.total_price ?? ''} onChange={(e) => {
-                    const tp = +e.target.value;
-                    const packs = item.pack_count ?? 1;
-                    const ppk = packs > 0 ? tp / packs : 0;
-                    const qty = item.quantity;
-                    const cpu = qty > 0 ? tp / qty : 0;
-                    updateItem(idx, { total_price: tp, price_per_pack: ppk, cost_per_unit: cpu });
-                  }} />
-              </div>
-            </div>
-
-            {/* Row 4: Unit size / Unit / Stock quantity — all editable */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unitSize')}</label>
-                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                  value={item.unit_size ?? ''} onChange={(e) => {
-                    const us = +e.target.value;
-                    const packs = item.pack_count ?? 1;
-                    const upp = item.units_per_pack ?? 1;
-                    const qty = packs * (upp > 0 ? upp : 1) * (us > 0 ? us : 1);
-                    const tp = item.total_price ?? 0;
-                    const cpu = qty > 0 && tp > 0 ? tp / qty : item.cost_per_unit;
-                    updateItem(idx, { unit_size: us, quantity: qty, cost_per_unit: cpu });
-                  }} />
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unit')}</label>
-                <select className="input w-full py-1.5 text-sm" value={item.unit}
-                  onChange={(e) => updateItem(idx, { unit: e.target.value, unit_size_unit: e.target.value })}>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('stockQuantity')}</label>
-                <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                  value={item.quantity} onChange={(e) => {
-                    const qty = +e.target.value;
-                    const tp = item.total_price ?? 0;
-                    const cpu = qty > 0 && tp > 0 ? tp / qty : 0;
-                    updateItem(idx, { quantity: qty, cost_per_unit: cpu });
-                  }} />
-              </div>
-            </div>
-
-            {/* Row 5: Stock summary with HT/TTC breakdown */}
-            {item.quantity > 0 && (item.total_price ?? 0) > 0 && (() => {
-                const tp = item.total_price ?? 0;
-                const qty = item.quantity;
-                const packs = item.pack_count ?? 1;
-                const upp = item.units_per_pack ?? 1;
-                const totalUnits = packs * upp;
-                // Always treat entered price as HT (invoice default) and compute TTC
-                const costPerUnit = tp / totalUnits;
-                const costPerUnitTTC = costPerUnit * vatMultiplier;
-                const costPerStock = tp / qty;
-                return (
-                  <div className="mt-3 p-3 rounded-lg space-y-2" style={{ background: 'var(--surface)' }}>
-                    {/* Price per unit — highlighted */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-fg-secondary">{t('pricePerUnit')}</span>
-                      <span className="text-sm font-semibold text-fg-primary">
-                        {costPerUnit.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
-                        {' | '}
-                        {costPerUnitTTC.toFixed(2)} &#8362; <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
-                      </span>
-                    </div>
-                    {/* Cost per stock unit */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-fg-secondary">{t('stockReceives')}</span>
-                      <span className="text-xs text-fg-secondary">
-                        {qty} {item.unit} @ {costPerStock.toFixed(4)} &#8362;/{item.unit}
-                      </span>
-                    </div>
-                    {/* Total HT | TTC */}
-                    <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
-                      <span className="text-xs text-fg-secondary">{t('totalPrice')}</span>
-                      <span className="text-xs text-fg-secondary">
-                        {tp.toFixed(2)} &#8362; {t('exVat')} | {(tp * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+            {/* Shared quantity / packaging / price form */}
+            <StockQuantityForm
+              value={lineToQuantityValue(item)}
+              onChange={(v) => updateItem(idx, quantityValueToLinePatch(v))}
+              vatRate={vatRate}
+              compact
+            />
           </div>
         );
       })}

@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import {
   importRecipesFromFile, importRecipesFromText, confirmRecipes,
   getRestaurantSettings,
-  RecipeExtraction, ExtractedRecipe, ConfirmRecipeItemInput,
-  StockItem, MenuItem,
+  RecipeExtraction, ConfirmRecipeItemInput,
+  StockItem, MenuItem, StockUnit,
 } from '@/lib/api';
 import { SparklesIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
+import StockQuantityForm, {
+  StockQuantityValue, defaultStockQuantityValue, deriveStockQuantity,
+} from '@/components/stock/StockQuantityForm';
 
 interface RecipeImportModalProps {
   rid: number;
@@ -43,6 +46,8 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
     cost_per_unit: number;
     price_includes_vat: boolean;
     is_new: boolean;
+    /** Captured packaging/pricing form state for new items (UI-only, not persisted). */
+    stockForm?: StockQuantityValue;
   }>>([]);
   const [vatRate, setVatRate] = useState(18);
 
@@ -78,6 +83,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
         setEditedYieldUnit(recipe.total_yield_unit || 'kg');
         setEditedIngredients(recipe.ingredients.map((ing) => {
           const matched = ing.matched_item_id ? stockItems.find((s) => s.id === ing.matched_item_id) : null;
+          const isNew = ing.is_new || !matched;
           return {
             stock_item_id: ing.matched_item_id ?? null,
             name: ing.translated_name || ing.original_name,
@@ -88,6 +94,9 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
             cost_per_unit: matched?.cost_per_unit || 0,
             price_includes_vat: matched?.price_includes_vat || false,
             is_new: ing.is_new,
+            stockForm: isNew
+              ? defaultStockQuantityValue({ unit: (ing.unit as StockUnit) || 'kg' })
+              : undefined,
           };
         }));
       }
@@ -332,9 +341,14 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                             cost_per_unit: si?.cost_per_unit || ing.cost_per_unit,
                             price_includes_vat: si?.price_includes_vat || false,
                             category: si?.category || ing.category,
+                            stockForm: undefined,
                           });
                         } else {
-                          updateIngredient(idx, { stock_item_id: null, is_new: true });
+                          updateIngredient(idx, {
+                            stock_item_id: null,
+                            is_new: true,
+                            stockForm: ing.stockForm ?? defaultStockQuantityValue({ unit: (ing.unit as StockUnit) || 'kg' }),
+                          });
                         }
                       }}
                       options={stockOptions}
@@ -364,52 +378,67 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
                     </div>
                   )}
 
-                  {/* Row 4: Cost per unit / Price per pack / Total */}
-                  <div className="grid grid-cols-3 gap-3">
+                  {/* Quantity needed per serving */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('costPerUnit')} &#8362;</label>
-                      <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                        value={ing.cost_per_unit || ''} onChange={(e) => updateIngredient(idx, { cost_per_unit: +e.target.value })} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('quantity')}</label>
-                      <input type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                        value={ing.quantity_needed || ''} onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })} />
+                      <label className="text-xs text-fg-secondary font-medium mb-1 block">
+                        {t('quantityNeededPerServing') || `${t('quantity')} / ${t('recipeYield') || 'serving'}`}
+                      </label>
+                      <input
+                        type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
+                        value={ing.quantity_needed || ''}
+                        onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })}
+                      />
                     </div>
                     <div>
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unit')}</label>
-                      <select className="input w-full py-1.5 text-sm" value={ing.unit}
-                        onChange={(e) => updateIngredient(idx, { unit: e.target.value })}>
-                        {['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'].map((u) => (
-                          <option key={u} value={u}>{u}</option>
-                        ))}
-                      </select>
+                      <div className="input w-full py-1.5 text-sm bg-[var(--surface)] text-fg-secondary cursor-not-allowed">
+                        {ing.unit || '—'}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Row 5: Price summary footer */}
-                  {ing.cost_per_unit > 0 && ing.quantity_needed > 0 && (() => {
-                    const lineCost = ing.cost_per_unit * ing.quantity_needed;
-                    const lineCostTTC = lineCost * vatMultiplier;
-                    return (
-                      <div className="mt-2 p-3 rounded-lg space-y-2" style={{ background: 'var(--surface)' }}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-fg-secondary">{t('costPerUnit')}</span>
-                          <span className="text-sm font-semibold text-fg-primary">
-                            {ing.cost_per_unit.toFixed(4)} &#8362;/{ing.unit} <span className="text-fg-tertiary font-normal">{t('exVat')}</span>
-                            {' | '}
-                            {(ing.cost_per_unit * vatMultiplier).toFixed(4)} &#8362;/{ing.unit} <span className="text-fg-tertiary font-normal">{t('incVat')}</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between pt-1 border-t border-[var(--divider)]">
-                          <span className="text-xs text-fg-secondary">{t('totalPrice')} ({ing.quantity_needed} {ing.unit})</span>
-                          <span className="text-xs text-fg-secondary">
-                            {lineCost.toFixed(2)} &#8362; {t('exVat')} | {lineCostTTC.toFixed(2)} &#8362; {t('incVat')}
-                          </span>
-                        </div>
+                  {/* Matched: cost pulled from stock */}
+                  {matched && ing.cost_per_unit > 0 && (
+                    <div className="p-3 rounded-lg text-xs text-fg-secondary" style={{ background: 'var(--surface)' }}>
+                      <div className="flex items-center justify-between">
+                        <span>{t('costPerUnit')} ({t('fromStock') || 'from stock'})</span>
+                        <span className="font-semibold text-fg-primary">
+                          {ing.cost_per_unit.toFixed(4)} &#8362;/{ing.unit} {t('exVat')} | {(ing.cost_per_unit * vatMultiplier).toFixed(4)} &#8362;/{ing.unit} {t('incVat')}
+                        </span>
                       </div>
-                    );
-                  })()}
+                      {ing.quantity_needed > 0 && (
+                        <div className="flex items-center justify-between mt-1 pt-1 border-t border-[var(--divider)]">
+                          <span>{t('totalPrice')} ({ing.quantity_needed} {ing.unit})</span>
+                          <span>
+                            {(ing.cost_per_unit * ing.quantity_needed).toFixed(2)} &#8362; {t('exVat')} | {(ing.cost_per_unit * ing.quantity_needed * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* New item: define stock (same UX as manual add) */}
+                  {!matched && ing.stockForm && (
+                    <div className="pt-2 mt-2 border-t border-[var(--divider)]">
+                      <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-2 block">
+                        {t('defineStockItem') || t('addStockItem')}
+                      </label>
+                      <StockQuantityForm
+                        value={ing.stockForm}
+                        onChange={(v) => {
+                          const d = deriveStockQuantity(v);
+                          updateIngredient(idx, {
+                            stockForm: v,
+                            unit: v.unit,
+                            cost_per_unit: d.costPerStockUnit || ing.cost_per_unit,
+                          });
+                        }}
+                        vatRate={vatRate}
+                        compact
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}
