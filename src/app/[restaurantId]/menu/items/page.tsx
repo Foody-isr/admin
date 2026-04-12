@@ -9,9 +9,10 @@ import {
 import { useI18n } from '@/lib/i18n';
 import {
   MagnifyingGlassIcon, PlusIcon, ChevronDownIcon, ChevronUpIcon,
-  EllipsisHorizontalIcon, PhotoIcon,
-  ArrowPathIcon,
+  PhotoIcon, ArrowPathIcon,
 } from '@heroicons/react/24/outline';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import RowActionsMenu from '@/components/common/RowActionsMenu';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -181,7 +182,11 @@ export default function ItemLibraryPage() {
         <div className="flex-1" />
 
         {/* Actions dropdown */}
-        <ActionsDropdown onRefresh={reload} />
+        <ActionsDropdown
+          actions={[
+            { label: t('refresh'), onClick: reload, icon: <ArrowPathIcon className="w-4 h-4" /> },
+          ]}
+        />
 
         {/* Create item button */}
         <button
@@ -359,9 +364,11 @@ export default function ItemLibraryPage() {
                         {hasVariants ? '-' : `₪${(item.price ?? 0).toFixed(2)}/ea`}
                       </td>
                       <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
-                        <ItemRowMenu
-                          onEdit={() => router.push(`/${rid}/menu/items/${item.id}`)}
-                          onDelete={() => handleDeleteItem(item.id)}
+                        <RowActionsMenu
+                          actions={[
+                            { label: t('edit'), onClick: () => router.push(`/${rid}/menu/items/${item.id}`) },
+                            { label: t('delete'), onClick: () => handleDeleteItem(item.id), variant: 'danger' },
+                          ]}
                         />
                       </td>
                     </tr>
@@ -441,68 +448,3 @@ function FilterDropdown({ label, value, onChange, options }: {
   );
 }
 
-// ─── Actions Dropdown ────────────────────────────────────────────────────────
-
-function ActionsDropdown({ onRefresh }: { onRefresh: () => void }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(!open)} className="btn-secondary rounded-full px-5 py-2 flex items-center gap-2">
-        {t('actions')} <ChevronDownIcon className="w-3.5 h-3.5" />
-      </button>
-      {open && (
-        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden z-30">
-          <button
-            onClick={() => { onRefresh(); setOpen(false); }}
-            className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-          >
-            <ArrowPathIcon className="w-4 h-4" /> {t('refresh')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Item Row Menu (···) ─────────────────────────────────────────────────────
-
-function ItemRowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(!open)} className="p-1.5 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] text-fg-primary transition-colors">
-        <EllipsisHorizontalIcon className="w-5 h-5" />
-      </button>
-      {open && (
-        <div className="absolute top-full right-0 mt-1 w-48 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden z-30">
-          <button onClick={() => { onEdit(); setOpen(false); }}
-            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors">
-            {t('edit')}
-          </button>
-          <button onClick={() => { onDelete(); setOpen(false); }}
-            className="w-full text-left px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors border-t border-[var(--divider)]">
-            {t('delete')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}

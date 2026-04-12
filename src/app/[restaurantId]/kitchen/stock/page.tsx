@@ -26,9 +26,11 @@ import {
   MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
-  SparklesIcon, ClockIcon, InformationCircleIcon,
-  ChevronDownIcon, EllipsisVerticalIcon,
+  SparklesIcon, ClockIcon, ArrowPathIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import RowActionsMenu from '@/components/common/RowActionsMenu';
 import { useI18n } from '@/lib/i18n';
 import {
   getPackaging,
@@ -70,7 +72,6 @@ export default function StockPage() {
   // Per-item display level for Quantity/Price cells
   const [itemLevels, setItemLevels] = useState<Record<number, Level>>({});
   const [levelPopover, setLevelPopover] = useState<number | null>(null);
-  const [actionsMenu, setActionsMenu] = useState<number | null>(null);
 
   const getItemLevel = useCallback((item: StockItem): Level => {
     const stored = itemLevels[item.id];
@@ -190,113 +191,121 @@ export default function StockPage() {
   }
 
   return (
-    <div className="space-y-5 w-full overflow-hidden">
-      {/* Page header: help link + primary actions */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <a
-          href="https://foody-pos.co.il/en/help/kitchen/stock-management"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-brand-500 hover:text-brand-400 transition-colors"
-        >
-          <InformationCircleIcon className="w-4 h-4" />
-          {t('learnMoreAbout') || 'Learn more about'} {t('stockManagement') || 'Stock Management'}
-        </a>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setImportDraftId(undefined); setImportModal(true); }} className="btn-secondary flex items-center gap-2 text-sm">
-            <SparklesIcon className="w-4 h-4" /> {t('importDelivery')}
-          </button>
-          <button onClick={() => setItemModal({ open: true })} className="btn-primary flex items-center gap-2 text-sm">
-            <PlusIcon className="w-4 h-4" /> {t('addItem')}
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 max-w-sm min-w-[200px]">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none z-10" />
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Filters + actions row */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 max-w-xs">
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
           <input
             type="text"
             placeholder={t('searchItems')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input !pl-9 !pr-3 py-2 text-sm w-full"
+            className="input !pl-10 text-sm h-11 w-full rounded-full"
           />
         </div>
 
+        {/* Category filter (opens multi-select drawer) */}
         <button
           type="button"
           onClick={() => openFiltersDrawer('category')}
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm transition-colors border ${
-            selectedCategories.size > 0
-              ? 'bg-brand-500/10 text-brand-500 border-brand-500/40 hover:bg-brand-500/20'
-              : 'text-fg-primary border-[var(--divider)] hover:bg-[var(--surface-subtle)]'
-          }`}
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
         >
-          {t('category')}
-          {selectedCategories.size > 0 && (
-            <span className="text-xs font-medium">({selectedCategories.size})</span>
-          )}
+          {t('category')}{' '}
+          <span className="font-semibold text-fg-primary">
+            {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
+          </span>
           <ChevronDownIcon className="w-3.5 h-3.5" />
         </button>
 
+        {/* All Filters (navigable drawer) */}
         <button
           type="button"
           onClick={() => openFiltersDrawer('index')}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm text-fg-primary border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
         >
           {t('allFilters')}
           <ChevronDownIcon className="w-3.5 h-3.5" />
         </button>
+
+        <div className="flex-1" />
+
+        {/* Actions dropdown */}
+        <ActionsDropdown
+          actions={[
+            {
+              label: t('importDelivery'),
+              onClick: () => { setImportDraftId(undefined); setImportModal(true); },
+              icon: <SparklesIcon className="w-4 h-4" />,
+            },
+            {
+              label: t('refresh'),
+              onClick: reload,
+              icon: <ArrowPathIcon className="w-4 h-4" />,
+            },
+          ]}
+        />
+
+        {/* Create item */}
+        <button
+          onClick={() => setItemModal({ open: true })}
+          className="btn-primary rounded-full px-5 py-2 flex items-center gap-1.5"
+        >
+          <PlusIcon className="w-4 h-4" />
+          {t('addItem')}
+        </button>
       </div>
 
-      {/* Table */}
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-brand-500/10 border border-brand-500/20">
+          <span className="text-sm font-medium text-brand-500">
+            {t('itemsSelected').replace('{count}', String(selected.size))}
+          </span>
+          <div className="flex-1" />
+          <button onClick={() => setBulkCategoryModal(true)} className="btn-secondary text-xs py-1.5 px-3 rounded-full">
+            {t('updateCategory')}
+          </button>
+          <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
+            {t('delete')} ({selected.size})
+          </button>
+          <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
+            {t('cancel')}
+          </button>
+        </div>
+      )}
+
+      {/* Items table */}
       {filtered.length === 0 ? (
-        <div className="card text-center py-16 space-y-3">
-          <p className="text-lg font-semibold text-fg-primary">{t('noStockItemsFound')}</p>
-          <p className="text-sm text-fg-secondary">
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <p className="text-base text-fg-secondary text-center max-w-md">
             {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
+          {items.length === 0 && (
+            <button onClick={() => setItemModal({ open: true })} className="btn-primary mt-2 rounded-full">
+              {t('addItem')}
+            </button>
+          )}
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          {/* Bulk action bar */}
-          {selected.size > 0 && (
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-500/10" style={{ borderBottom: '1px solid var(--divider)' }}>
-              <span className="text-sm font-medium text-brand-500">
-                {t('itemsSelected').replace('{count}', String(selected.size))}
-              </span>
-              <div className="flex-1" />
-              <button onClick={() => setBulkCategoryModal(true)} className="btn-secondary text-xs py-1.5 px-3">
-                {t('updateCategory')}
-              </button>
-              <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
-                {t('delete')} ({selected.size})
-              </button>
-              <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
-                {t('cancel')}
-              </button>
-            </div>
-          )}
-
-          <div className="overflow-auto max-h-[calc(100vh-280px)]">
-          <table className="w-full text-sm min-w-[800px]">
+        <div className="overflow-hidden">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider">
-                <th className="py-3 px-3 w-10 sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">
+              <tr className="text-left text-xs text-fg-secondary tracking-wider border-b-2 border-fg-primary">
+                <th className="py-3 px-2 font-medium w-10">
                   <input type="checkbox"
                     checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
                     onChange={toggleSelectAll}
-                    className="rounded border-fg-secondary" />
+                    className="rounded border-[var(--divider)]" />
                 </th>
-                <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('item')}</th>
-                <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('category')}</th>
-                <th className="py-3 px-4 font-medium text-right sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('quantity')}</th>
-                <th className="py-3 px-4 font-medium text-right sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('price')}</th>
-                <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('supplier')}</th>
-                <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('status')}</th>
-                <th className="py-3 px-4 font-medium w-10 sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]" />
+                <th className="py-3 px-2 font-medium">{t('item')}</th>
+                <th className="py-3 px-2 font-medium">{t('category')}</th>
+                <th className="py-3 px-2 font-medium text-right">{t('quantity')}</th>
+                <th className="py-3 px-2 font-medium text-right">{t('price')}</th>
+                <th className="py-3 px-2 font-medium">{t('supplier')}</th>
+                <th className="py-3 px-2 font-medium">{t('status')}</th>
+                <th className="py-3 px-2 font-medium w-10" />
               </tr>
             </thead>
             <tbody>
@@ -309,26 +318,25 @@ export default function StockPage() {
                 return (
                   <tr
                     key={item.id}
-                    className={`hover:bg-[var(--surface-subtle)] transition-colors ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
-                    style={{ borderBottom: '1px solid var(--divider)' }}
+                    className={`hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
                   >
-                    <td className="py-3 px-3 w-10">
+                    <td className="py-3.5 px-2 w-10">
                       <input type="checkbox"
                         checked={selected.has(item.id)}
                         onChange={() => toggleSelect(item.id)}
-                        className="rounded border-fg-secondary" />
+                        className="rounded border-[var(--divider)]" />
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-2">
                       <span className="font-medium text-fg-primary">{item.name}</span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-2">
                       <div className="flex items-center gap-2">
                         {catColor && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: catColor }} />}
                         <span className="text-fg-secondary">{item.category || '—'}</span>
                       </div>
                     </td>
                     <td
-                      className="py-3 px-4 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)] relative"
+                      className="py-3.5 px-2 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)] relative"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
@@ -371,14 +379,14 @@ export default function StockPage() {
                         )}
                       </td>
                     <td
-                      className="py-3 px-4 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)]"
+                      className="py-3.5 px-2 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)]"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
                       {formatUnitPriceAtLevel(item, level, adjustedCost(item))}
                     </td>
-                    <td className="py-3 px-4 text-fg-secondary">{item.supplier || '—'}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-2 text-fg-secondary">{item.supplier || '—'}</td>
+                    <td className="py-3.5 px-2">
                       {isLow ? (
                         <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
                           <ExclamationTriangleIcon className="w-4 h-4" /> {t('lowStock')}
@@ -387,59 +395,21 @@ export default function StockPage() {
                         <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 relative">
-                      <button
-                        onClick={() => setActionsMenu((prev) => (prev === item.id ? null : item.id))}
-                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)]"
-                        title={t('actions') || 'Actions'}
-                      >
-                        <EllipsisVerticalIcon className="w-4 h-4 text-fg-secondary" />
-                      </button>
-                      {actionsMenu === item.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setActionsMenu(null)} />
-                          <div
-                            className="absolute right-2 top-full mt-1 z-50 w-48 rounded-lg shadow-lg border border-[var(--divider)] p-1"
-                            style={{ background: 'var(--surface)' }}
-                          >
-                            <button
-                              onClick={() => { setActionsMenu(null); setHistoryItem(item); }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-primary hover:bg-[var(--surface-subtle)] rounded"
-                            >
-                              <ClockIcon className="w-4 h-4 text-fg-secondary" />
-                              {t('stockHistory')}
-                            </button>
-                            <button
-                              onClick={() => { setActionsMenu(null); setTxModal({ open: true, item, type: 'receive' }); }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-primary hover:bg-[var(--surface-subtle)] rounded"
-                            >
-                              <ArrowDownTrayIcon className="w-4 h-4 text-fg-secondary" />
-                              {t('receiveStock')}
-                            </button>
-                            <button
-                              onClick={() => { setActionsMenu(null); setItemModal({ open: true, editing: item }); }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-fg-primary hover:bg-[var(--surface-subtle)] rounded"
-                            >
-                              <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                              {t('edit')}
-                            </button>
-                            <button
-                              onClick={() => { setActionsMenu(null); handleDelete(item.id); }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                              {t('delete')}
-                            </button>
-                          </div>
-                        </>
-                      )}
+                    <td className="py-3.5 px-2">
+                      <RowActionsMenu
+                        actions={[
+                          { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
+                          { label: t('receiveStock'), onClick: () => setTxModal({ open: true, item, type: 'receive' }), icon: <ArrowDownTrayIcon className="w-4 h-4" /> },
+                          { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
+                          { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          </div>
         </div>
       )}
 
