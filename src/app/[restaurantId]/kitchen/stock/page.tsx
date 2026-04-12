@@ -214,13 +214,13 @@ export default function StockPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 max-w-sm min-w-[200px]">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none z-10" />
           <input
             type="text"
             placeholder={t('searchItems')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input pl-9 pr-3 py-2 text-sm w-full"
+            className="input !pl-9 !pr-3 py-2 text-sm w-full"
           />
         </div>
 

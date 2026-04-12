@@ -174,7 +174,7 @@ export default function StockFiltersDrawer({
             <div className="px-4 pb-3 shrink-0">
               <div className="relative">
                 <MagnifyingGlassIcon
-                  className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 text-fg-secondary ${
+                  className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none z-10 ${
                     isRtl ? 'right-3' : 'left-3'
                   }`}
                 />
@@ -183,7 +183,7 @@ export default function StockFiltersDrawer({
                   value={categorySearch}
                   onChange={(e) => setCategorySearch(e.target.value)}
                   placeholder={t('searchCategories')}
-                  className={`input py-2 text-sm w-full ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'}`}
+                  className={`input py-2 text-sm w-full ${isRtl ? '!pr-9 !pl-3' : '!pl-9 !pr-3'}`}
                 />
               </div>
             </div>
