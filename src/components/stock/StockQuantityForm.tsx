@@ -139,9 +139,15 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact, f
     ? 'p-3 rounded-lg border border-[var(--divider)] space-y-2.5'
     : 'p-4 rounded-xl border border-[var(--divider)] space-y-3';
 
-  // Two-way sync: price-per-outer ↔ total-price
+  // Three-way sync: price-per-outer ↔ price-per-inner ↔ total
+  // Invariants: pricePerOuter = pricePerInner × innerQty ; totalPrice = pricePerOuter × outerQty
   const updateOuterPrice = (price: number) => {
     set({ pricePerOuter: price, totalPrice: v.outerQty > 0 ? price * v.outerQty : v.totalPrice });
+  };
+  const updateInnerPrice = (price: number) => {
+    const outer = v.innerQty > 0 ? price * v.innerQty : price;
+    const total = v.outerQty > 0 ? outer * v.outerQty : v.totalPrice;
+    set({ pricePerOuter: outer, totalPrice: total });
   };
   const updateTotalPrice = (total: number) => {
     set({ totalPrice: total, pricePerOuter: v.outerQty > 0 ? total / v.outerQty : v.pricePerOuter });
@@ -279,8 +285,8 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact, f
             </div>
           </div>
 
-          {/* Price */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Price — three fields stay in sync */}
+          <div className={`grid gap-3 ${v.innerQty > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div>
               <label className={labelCls}>{t('pricePerPackage')} (&#8362;/{t(`ct_${v.outerType}`)})</label>
               <input
@@ -289,6 +295,16 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact, f
                 onChange={(e) => updateOuterPrice(+e.target.value)}
               />
             </div>
+            {v.innerQty > 0 && (
+              <div>
+                <label className={labelCls}>{t('pricePerInner') || `${t('price') || 'Price'} / ${t(`ut_${v.innerType}`)}`} (&#8362;)</label>
+                <input
+                  type="number" step="any" min="0" className={inputCls}
+                  value={d.pricePerInner ? Number(d.pricePerInner.toFixed(4)) : ''}
+                  onChange={(e) => updateInnerPrice(+e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <label className={labelCls}>{t('total')} (&#8362;)</label>
               <input
