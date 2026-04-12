@@ -468,8 +468,26 @@ function SupplierFormModal({ editing, onClose, onSave, t }: {
         </div>
         {/* AI Extraction Hints — auto-generated on first import, editable */}
         <div>
-          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('extractionHints')}</label>
-          <textarea value={extractionHints} onChange={(e) => setExtractionHints(e.target.value)} rows={3} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} placeholder={t('extractionHintsHelp')} />
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-medium text-fg-secondary">{t('extractionHints')}</label>
+            {extractionHints && (
+              <button
+                type="button"
+                onClick={() => setExtractionHints('')}
+                className="text-xs text-fg-tertiary hover:text-fg-primary transition-colors"
+              >
+                {t('extractionHintsReset')}
+              </button>
+            )}
+          </div>
+          <textarea
+            value={extractionHints}
+            onChange={(e) => setExtractionHints(e.target.value)}
+            rows={5}
+            className="w-full px-3 py-2 rounded-lg border text-sm font-mono"
+            style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
+            placeholder={t('extractionHintsPlaceholder')}
+          />
           <p className="text-xs text-fg-tertiary mt-1">{t('extractionHintsHelp')}</p>
         </div>
         <button
