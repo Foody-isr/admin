@@ -395,7 +395,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
               value={d.pricePerInner}
               onChange={updateInnerPrice}
               compact={compact}
-              readOnlyLike
             />
           )}
           <PriceField
@@ -403,7 +402,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
             value={v.totalPrice}
             onChange={updateTotalPrice}
             compact={compact}
-            emphasised
           />
         </div>
       </div>
@@ -432,16 +430,13 @@ function LiveFeedback({ cost, costTTC, unit, t }: { cost: number; costTTC: numbe
   );
 }
 
-function PriceField({ label, value, onChange, compact, emphasised, readOnlyLike }: {
+function PriceField({ label, value, onChange, compact }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   compact?: boolean;
-  emphasised?: boolean;
-  readOnlyLike?: boolean;
 }) {
-  const base = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
-  const cls = emphasised ? `${base} font-semibold` : readOnlyLike ? `${base} text-fg-secondary` : base;
+  const cls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
   return (
     <div>
       <label className="text-xs text-fg-secondary block mb-1">{label} (&#8362;)</label>
