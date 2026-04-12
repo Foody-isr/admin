@@ -5,7 +5,6 @@ import {
   importDelivery, confirmDelivery, listSuppliers, getRestaurantSettings,
   getImportDraft, createImportDraft, deleteImportDraft,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
-  DeliveryImportDraftDetail,
 } from '@/lib/api';
 
 import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
@@ -66,6 +65,11 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [loading, setLoading] = useState(false);
   const [extraction, setExtraction] = useState<DeliveryExtraction | null>(null);
   const [editedItems, setEditedItems] = useState<ConfirmDeliveryItemInput[]>([]);
+  // Per-line form state. Stored alongside editedItems so mode+packaging fields
+  // persist across renders (the line item alone can't represent mode when all
+  // packaging fields are zero — that's why toggling Basic→Advanced on an empty
+  // line used to snap back).
+  const [formStates, setFormStates] = useState<StockQuantityValue[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string>(''); // MIME type for preview (from file or draft)
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
@@ -84,6 +88,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
       getImportDraft(rid, draftId).then((detail) => {
         setExtraction(detail.extraction);
         setEditedItems(detail.edited_items);
+        setFormStates(detail.edited_items.map(lineToQuantityValue));
         setSelectedSupplierId(detail.draft.supplier_id ?? 0);
         setNewSupplierName('');
         // Use the S3 document URL for preview
@@ -133,7 +138,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     try {
       const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId > 0 ? selectedSupplierId : undefined);
       setExtraction(result);
-      setEditedItems(result.items.map((i) => {
+      const newItems: ConfirmDeliveryItemInput[] = result.items.map((i) => {
         const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
         return {
           stock_item_id: i.matched_item_id ?? undefined,
@@ -151,7 +156,9 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           unit_size_unit: i.unit_size_unit || '',
           price_includes_vat: matched?.price_includes_vat ?? false,
         };
-      }));
+      });
+      setEditedItems(newItems);
+      setFormStates(newItems.map(lineToQuantityValue));
       setPreviewUrl(URL.createObjectURL(file));
       setPreviewType(file.type);
       setStep('review');
@@ -190,6 +197,16 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
   const updateItem = (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => {
     setEditedItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
+  };
+
+  const updateFormState = (idx: number, v: StockQuantityValue) => {
+    setFormStates((prev) => {
+      if (prev[idx] === v) return prev;
+      const next = prev.slice();
+      next[idx] = v;
+      return next;
+    });
+    updateItem(idx, quantityValueToLinePatch(v));
   };
 
   const existingCategories = Array.from(new Set(stockItems.map((s) => s.category).filter(Boolean)));
@@ -363,10 +380,12 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         <div className={`w-1/2 overflow-y-auto p-4 hidden lg:block`}>
           <ItemsList
             editedItems={editedItems}
+            formStates={formStates}
             stockItems={stockItems}
             stockOptions={stockOptions}
             existingCategories={existingCategories}
             updateItem={updateItem}
+            updateFormState={updateFormState}
             vatRate={vatRate}
             t={t}
           />
@@ -377,10 +396,12 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           <div className="flex-1 overflow-y-auto p-4 lg:hidden">
             <ItemsList
               editedItems={editedItems}
+              formStates={formStates}
               stockItems={stockItems}
               stockOptions={stockOptions}
               existingCategories={existingCategories}
               updateItem={updateItem}
+              updateFormState={updateFormState}
               vatRate={vatRate}
               t={t}
             />
@@ -394,13 +415,15 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
 function ItemsList({
-  editedItems, stockItems, stockOptions, existingCategories, updateItem, vatRate, t,
+  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, t,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
+  formStates: StockQuantityValue[];
   stockItems: StockItem[];
   stockOptions: { value: string; label: string; sublabel?: string }[];
   existingCategories: string[];
   updateItem: (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => void;
+  updateFormState: (idx: number, v: StockQuantityValue) => void;
   vatRate: number;
   t: (key: string) => string;
 }) {
@@ -462,10 +485,12 @@ function ItemsList({
               </div>
             )}
 
-            {/* Shared quantity / packaging / price form */}
+            {/* Shared quantity / packaging / price form.
+                Reads from persisted per-line formStates so mode + packaging
+                fields stick across renders (e.g. empty Advanced mode). */}
             <StockQuantityForm
-              value={lineToQuantityValue(item)}
-              onChange={(v) => updateItem(idx, quantityValueToLinePatch(v))}
+              value={formStates[idx] ?? lineToQuantityValue(item)}
+              onChange={(v) => updateFormState(idx, v)}
               vatRate={vatRate}
               compact
             />
