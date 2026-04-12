@@ -29,22 +29,25 @@ import {
   AdjustmentsHorizontalIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
+import {
+  getPackaging,
+  cycleLevel,
+  formatQuantityAtLevel,
+  formatUnitPriceAtLevel,
+  loadLevel,
+  saveLevel,
+  Level,
+} from '@/lib/stock/levels';
 
 // Column keys for configurable table
-type ColumnKey = 'category' | 'quantity' | 'costPerUnit' | 'pricePerUnit' | 'pricePerUnitTTC' | 'packSize' | 'unitContent' | 'supplier' | 'status' | 'notes' | 'reorderThreshold';
+type ColumnKey = 'category' | 'quantity' | 'price' | 'supplier' | 'status';
 
 const ALL_COLUMNS: { key: ColumnKey; labelKey: string; defaultVisible: boolean; align?: string }[] = [
   { key: 'category', labelKey: 'category', defaultVisible: true },
   { key: 'quantity', labelKey: 'quantity', defaultVisible: true },
-  { key: 'costPerUnit', labelKey: 'costPerUnit', defaultVisible: true, align: 'right' },
-  { key: 'pricePerUnit', labelKey: 'pricePerUnit', defaultVisible: false, align: 'right' },
-  { key: 'pricePerUnitTTC', labelKey: 'pricePerUnitTTC', defaultVisible: false, align: 'right' },
-  { key: 'packSize', labelKey: 'unitsPerPack', defaultVisible: false, align: 'right' },
-  { key: 'unitContent', labelKey: 'unitSize', defaultVisible: false, align: 'right' },
+  { key: 'price', labelKey: 'price', defaultVisible: true, align: 'right' },
   { key: 'supplier', labelKey: 'supplier', defaultVisible: true },
   { key: 'status', labelKey: 'status', defaultVisible: true },
-  { key: 'notes', labelKey: 'notes', defaultVisible: false },
-  { key: 'reorderThreshold', labelKey: 'reorderLevel', defaultVisible: false, align: 'right' },
 ];
 
 const DEFAULT_VISIBLE = new Set(ALL_COLUMNS.filter(c => c.defaultVisible).map(c => c.key));
@@ -86,6 +89,24 @@ export default function StockPage() {
   // Column configuration
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(() => loadColumnPrefs(rid));
   const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+  // Per-item display level for Quantity/Price cells
+  const [itemLevels, setItemLevels] = useState<Record<number, Level>>({});
+
+  const getItemLevel = useCallback((item: StockItem): Level => {
+    const stored = itemLevels[item.id];
+    if (stored) return stored;
+    return loadLevel(rid, item.id) ?? getPackaging(item).defaultLevel;
+  }, [itemLevels, rid]);
+
+  const advanceItemLevel = useCallback((item: StockItem) => {
+    const pkg = getPackaging(item);
+    if (pkg.levels.length < 2) return;
+    const current = getItemLevel(item);
+    const next = cycleLevel(current, pkg.levels);
+    setItemLevels((prev) => ({ ...prev, [item.id]: next }));
+    saveLevel(rid, item.id, next);
+  }, [getItemLevel, rid]);
 
   const toggleColumn = (key: ColumnKey) => {
     setVisibleColumns(prev => {
@@ -338,40 +359,32 @@ export default function StockPage() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[calc(100vh-280px)]">
           <table className="w-full text-sm min-w-[800px]">
             <thead>
-              <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-3 px-3 w-10">
+              <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider">
+                <th className="py-3 px-3 w-10 sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">
                   <input type="checkbox"
                     checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
                     onChange={toggleSelectAll}
                     className="rounded border-fg-secondary" />
                 </th>
-                <th className="py-3 px-4 font-medium">{t('item')}</th>
-                {isColVisible('category') && <th className="py-3 px-4 font-medium">{t('category')}</th>}
-                {isColVisible('quantity') && <th className="py-3 px-4 font-medium text-right">{t('quantity')}</th>}
-                {isColVisible('costPerUnit') && <th className="py-3 px-4 font-medium text-right">{t('costPerUnit')}</th>}
-                {isColVisible('pricePerUnit') && <th className="py-3 px-4 font-medium text-right">{t('pricePerUnit')} {t('exVat')}</th>}
-                {isColVisible('pricePerUnitTTC') && <th className="py-3 px-4 font-medium text-right">{t('pricePerUnit')} {t('incVat')}</th>}
-                {isColVisible('packSize') && <th className="py-3 px-4 font-medium text-right">{t('unitsPerPack')}</th>}
-                {isColVisible('unitContent') && <th className="py-3 px-4 font-medium text-right">{t('unitSize')}</th>}
-                {isColVisible('supplier') && <th className="py-3 px-4 font-medium">{t('supplier')}</th>}
-                {isColVisible('status') && <th className="py-3 px-4 font-medium">{t('status')}</th>}
-                {isColVisible('notes') && <th className="py-3 px-4 font-medium">{t('notes')}</th>}
-                {isColVisible('reorderThreshold') && <th className="py-3 px-4 font-medium text-right">{t('reorderLevel')}</th>}
-                <th className="py-3 px-4 font-medium w-10" />
+                <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('item')}</th>
+                {isColVisible('category') && <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('category')}</th>}
+                {isColVisible('quantity') && <th className="py-3 px-4 font-medium text-right sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('quantity')}</th>}
+                {isColVisible('price') && <th className="py-3 px-4 font-medium text-right sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('price')}</th>}
+                {isColVisible('supplier') && <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('supplier')}</th>}
+                {isColVisible('status') && <th className="py-3 px-4 font-medium sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]">{t('status')}</th>}
+                <th className="py-3 px-4 font-medium w-10 sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)]" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((item) => {
                 const isLow = item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
                 const catColor = categories.find((c) => c.name === item.category)?.color;
-                // Price per individual unit (per can/bottle) = cost_per_unit * unit_content
-                const pricePerUnit = (item.unit_content ?? 0) > 0 && item.cost_per_unit > 0
-                  ? adjustedCost(item) * item.unit_content!
-                  : null;
-                const pricePerUnitTTC = pricePerUnit !== null ? pricePerUnit * vatMultiplier : null;
+                const pkg = getPackaging(item);
+                const level = getItemLevel(item);
+                const clickable = pkg.levels.length > 1;
                 return (
                   <tr
                     key={item.id}
@@ -396,38 +409,21 @@ export default function StockPage() {
                       </td>
                     )}
                     {isColVisible('quantity') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                        {item.quantity} <span className="text-fg-secondary text-xs">{item.unit}</span>
+                      <td
+                        className={`py-3 px-4 text-right font-mono text-fg-primary ${clickable ? 'cursor-pointer hover:bg-[var(--surface-subtle)]' : ''}`}
+                        onClick={clickable ? () => advanceItemLevel(item) : undefined}
+                        title={clickable ? t('clickToChangeLevel') || 'Click to change unit' : undefined}
+                      >
+                        {formatQuantityAtLevel(item, level)}
                       </td>
                     )}
-                    {isColVisible('costPerUnit') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                        {item.cost_per_unit > 0 ? (
-                          <span>
-                            {adjustedCost(item).toFixed(4)} ₪
-                            <span className="text-xs text-fg-tertiary ml-1">/{item.unit}</span>
-                          </span>
-                        ) : '—'}
-                      </td>
-                    )}
-                    {isColVisible('pricePerUnit') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                        {pricePerUnit !== null ? `${pricePerUnit.toFixed(2)} ₪` : '—'}
-                      </td>
-                    )}
-                    {isColVisible('pricePerUnitTTC') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                        {pricePerUnitTTC !== null ? `${pricePerUnitTTC.toFixed(2)} ₪` : '—'}
-                      </td>
-                    )}
-                    {isColVisible('packSize') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-secondary">
-                        {item.pack_size > 0 ? item.pack_size : '—'}
-                      </td>
-                    )}
-                    {isColVisible('unitContent') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-secondary">
-                        {(item.unit_content ?? 0) > 0 ? `${item.unit_content} ${item.unit_content_unit || ''}` : '—'}
+                    {isColVisible('price') && (
+                      <td
+                        className={`py-3 px-4 text-right font-mono text-fg-primary ${clickable ? 'cursor-pointer hover:bg-[var(--surface-subtle)]' : ''}`}
+                        onClick={clickable ? () => advanceItemLevel(item) : undefined}
+                        title={clickable ? t('clickToChangeLevel') || 'Click to change unit' : undefined}
+                      >
+                        {formatUnitPriceAtLevel(item, level, adjustedCost(item))}
                       </td>
                     )}
                     {isColVisible('supplier') && (
@@ -442,14 +438,6 @@ export default function StockPage() {
                         ) : (
                           <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                         )}
-                      </td>
-                    )}
-                    {isColVisible('notes') && (
-                      <td className="py-3 px-4 text-fg-secondary text-xs max-w-[200px] truncate">{item.notes || '—'}</td>
-                    )}
-                    {isColVisible('reorderThreshold') && (
-                      <td className="py-3 px-4 text-right font-mono text-fg-secondary">
-                        {item.reorder_threshold > 0 ? `${item.reorder_threshold} ${item.unit}` : '—'}
                       </td>
                     )}
                     <td className="py-3 px-4">
