@@ -337,8 +337,11 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   const d = deriveTotals(value);
   const warnings = validate(value, d, t);
 
-  const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
-  const labelCls = 'text-sm font-medium text-fg-primary mb-1.5 block';
+  const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2 text-sm';
+  const labelCls = compact
+    ? 'text-xs font-medium text-fg-primary mb-1 block'
+    : 'text-sm font-medium text-fg-primary mb-1 block';
+  const stackCls = compact ? 'space-y-2.5' : 'space-y-3';
 
   // Step 1: unit change (pivot — may change the variant type)
   const onStep1UnitChange = (u: string) => {
@@ -360,7 +363,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   // ─── Simple ─────────────────────────────────────────────────────────────
   if (value.type === 'simple') {
     return (
-      <div className="space-y-4">
+      <div className={stackCls}>
         <Step1Row
           labelCls={labelCls} inputCls={inputCls}
           label={t('youBought') || 'Vous avez acheté'}
@@ -395,7 +398,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   const innerLabel = value.type === 'packaged-nested' ? labelFor(value.innerUnit, t) : '';
 
   return (
-    <div className="space-y-4">
+    <div className={stackCls}>
       {/* Step 1 */}
       <Step1Row
         labelCls={labelCls} inputCls={inputCls}
@@ -652,6 +655,20 @@ function LiveSummary({
   const isPackaged = input.type !== 'simple';
   const isNested = input.type === 'packaged-nested';
 
+  // A packaging level is "redundant" when its price equals the base price —
+  // e.g. "1 carton = 1 kg" makes /carton and /kg the same number.
+  const samePrice = (a: number, b: number) => Math.abs(a - b) < 0.005;
+  const showOuterPrice = isPackaged && d.pricePerOuter > 0 && !samePrice(d.pricePerOuter, d.costPerBase);
+  const showInnerPrice = isNested && d.pricePerInner > 0
+    && !samePrice(d.pricePerInner, d.costPerBase)
+    && !samePrice(d.pricePerInner, d.pricePerOuter);
+
+  // Résumé rows collapse too: when total count at a level equals the base total
+  // (pack/content = 1 of the base unit), that row adds no information.
+  const showOuterCount = d.totalOuterCount > 0 && d.totalOuterCount !== d.totalBase;
+  const showInnerCount = isNested && d.totalInnerCount > 0 && d.totalInnerCount !== d.totalBase;
+  const showTotalStock = d.totalBase > 0 && (showOuterCount || showInnerCount || !isPackaged);
+
   const priceRow = (label: string, priceEx: number) => (
     <div className="flex items-center justify-between">
       <span className="text-fg-secondary">{label}</span>
@@ -670,28 +687,30 @@ function LiveSummary({
       className="p-3 rounded-lg border border-brand-500/20 grid gap-3 sm:grid-cols-2"
       style={{ background: 'var(--surface-subtle)' }}
     >
-      {d.totalBase > 0 && isPackaged && (
+      {d.totalBase > 0 && isPackaged && (showOuterCount || showInnerCount || showTotalStock) && (
         <div>
           <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
             📦 {t('summary') || 'Résumé'}
           </div>
           <div className="space-y-1 text-sm">
-            {d.totalOuterCount > 0 && (
+            {showOuterCount && (
               <div className="flex items-center justify-between">
                 <span className="text-fg-secondary">{outerLabel}</span>
                 <span className="text-fg-primary font-medium">{d.totalOuterCount.toLocaleString()}</span>
               </div>
             )}
-            {d.totalInnerCount > 0 && isNested && (
+            {showInnerCount && (
               <div className="flex items-center justify-between">
                 <span className="text-fg-secondary">{innerLabel}</span>
                 <span className="text-fg-primary font-medium">{d.totalInnerCount.toLocaleString()}</span>
               </div>
             )}
-            <div className="flex items-center justify-between">
-              <span className="text-fg-secondary">{t('totalStock') || 'Total'}</span>
-              <span className="text-fg-primary font-semibold">{fmtNum(d.totalBase, 3)} {d.baseUnit}</span>
-            </div>
+            {showTotalStock && (
+              <div className="flex items-center justify-between">
+                <span className="text-fg-secondary">{t('totalStock') || 'Total'}</span>
+                <span className="text-fg-primary font-semibold">{fmtNum(d.totalBase, 3)} {d.baseUnit}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -703,8 +722,8 @@ function LiveSummary({
           </div>
           <div className="space-y-1 text-sm">
             {priceRow(t('totalPrice') || 'Prix total', d.totalPrice)}
-            {isPackaged && d.pricePerOuter > 0 && priceRow(`/ ${outerLabel.toLowerCase()}`, d.pricePerOuter)}
-            {isNested && d.pricePerInner > 0 && priceRow(`/ ${innerLabel.toLowerCase()}`, d.pricePerInner)}
+            {showOuterPrice && priceRow(`/ ${outerLabel.toLowerCase()}`, d.pricePerOuter)}
+            {showInnerPrice && priceRow(`/ ${innerLabel.toLowerCase()}`, d.pricePerInner)}
             {d.costPerBase > 0 && priceRow(`/ ${d.baseUnit}`, d.costPerBase)}
           </div>
         </div>
