@@ -329,17 +329,12 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           t={t}
         />
 
-        <PriceSentence value={value} d={d} onChange={onChange} t={t} />
-
-        <LiveSummary input={value} d={d} vm={vm} outerLabel="" innerLabel="" t={t} />
+        <PriceSentence value={value} d={d} vm={vm} onChange={onChange} t={t} />
       </div>
     );
   }
 
   // ─── Packaged (direct or nested) ────────────────────────────────────────
-  const outerLabel = labelFor(value.outerUnit, t);
-  const innerLabel = value.type === 'packaged-nested' ? labelFor(value.innerUnit, t) : '';
-
   return (
     <div className={stackCls}>
       <SentenceBuilder
@@ -362,9 +357,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
         </button>
       )}
 
-      <PriceSentence value={value} d={d} onChange={onChange} t={t} />
-
-      <LiveSummary input={value} d={d} vm={vm} outerLabel={outerLabel} innerLabel={innerLabel} t={t} />
+      <PriceSentence value={value} d={d} vm={vm} onChange={onChange} t={t} />
     </div>
   );
 }
@@ -530,10 +523,11 @@ type PriceLevel = 'total' | 'outer' | 'inner' | 'base';
 //   simple:    "Prix au [kg ↻]  [ N ] ₪"
 //   packaged:  "Chaque [carton ↻] coûte  [ N ] ₪"
 function PriceSentence({
-  value, d, onChange, t,
+  value, d, vm, onChange, t,
 }: {
   value: StockInput;
   d: Totals;
+  vm: number;
   onChange: (v: StockInput) => void;
   t: (k: string) => string;
 }) {
@@ -543,14 +537,14 @@ function PriceSentence({
     ? (value as Extract<StockInput, { type: 'packaged-direct' | 'packaged-nested' }>).contentQuantity > 0
     : true;
 
+  // Cycle only through the packaging levels; Total is always shown separately.
   const cycle: PriceLevel[] = isPackaged
     ? [
         'outer',
         ...(hasInner ? (['inner'] as PriceLevel[]) : []),
         ...(hasBase ? (['base'] as PriceLevel[]) : []),
-        'total',
       ]
-    : ['base', 'total'];
+    : ['base'];
 
   const defaultLevel: PriceLevel = cycle[0];
   const [level, setLevel] = useState<PriceLevel>(defaultLevel);
@@ -592,11 +586,11 @@ function PriceSentence({
       );
     }
     if (l === 'inner' && value.type === 'packaged-nested') return labelFor(value.innerUnit, t);
-    if (l === 'base') return d.baseUnit;
-    return t('total') || 'Total';
+    return d.baseUnit;
   };
 
-  const cycleBtn = (label: React.ReactNode) => (
+  const canCycle = cycle.length > 1;
+  const levelLabel = (label: React.ReactNode) => canCycle ? (
     <button
       type="button"
       onClick={cycleNext}
@@ -605,136 +599,48 @@ function PriceSentence({
     >
       {label}
     </button>
+  ) : (
+    <span className="font-medium text-fg-primary">{label}</span>
   );
 
   const renderLeading = () => {
     const name = labelForLevel(effective);
-    if (effective === 'outer' || effective === 'inner') {
-      const tmpl = t('eachCosts') || 'Chaque {name} coûte';
-      const [before, after] = tmpl.split('{name}');
-      return (
-        <>
-          {before && <span className={connectorCls}>{before.trim()}</span>}
-          {cycleBtn(name.toLowerCase())}
-          {after && <span className={connectorCls}>{after.trim()}</span>}
-        </>
-      );
-    }
-    if (effective === 'base') {
-      const tmpl = t('pricePer') || 'Prix au {name}';
-      const [before, after] = tmpl.split('{name}');
-      return (
-        <>
-          {before && <span className={connectorCls}>{before.trim()}</span>}
-          {cycleBtn(name)}
-          {after && <span className={connectorCls}>{after.trim()}</span>}
-        </>
-      );
-    }
-    return cycleBtn(t('totalPrice') || 'Prix total');
+    const tmpl = (effective === 'base')
+      ? (t('pricePer') || 'Prix au {name}')
+      : (t('eachCosts') || 'Chaque {name} coûte');
+    const [before, after] = tmpl.split('{name}');
+    const displayName = effective === 'base' ? name : name.toLowerCase();
+    return (
+      <>
+        {before && <span className={connectorCls}>{before.trim()}</span>}
+        {levelLabel(displayName)}
+        {after && <span className={connectorCls}>{after.trim()}</span>}
+      </>
+    );
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {renderLeading()}
-      <span className={pairCls}>
-        <input
-          type="number" step="any" min="0" className={priceNumCls} style={fieldStyle}
-          value={fmtNum(displayed)}
-          onChange={(e) => setFromInput(+e.target.value)}
-          placeholder="0.00"
-        />
-        <span className={connectorCls}>&#8362;</span>
-      </span>
-    </div>
-  );
-}
-
-function LiveSummary({
-  input, d, vm, outerLabel, innerLabel, t,
-}: {
-  input: StockInput;
-  d: Totals;
-  vm: number;
-  outerLabel: string;
-  innerLabel: string;
-  t: (k: string) => string;
-}) {
-  if (d.totalBase <= 0 && d.totalPrice <= 0) return null;
-  const isPackaged = input.type !== 'simple';
-  const isNested = input.type === 'packaged-nested';
-
-  // A packaging level is "redundant" when its price equals the base price —
-  // e.g. "1 carton = 1 kg" makes /carton and /kg the same number.
-  const samePrice = (a: number, b: number) => Math.abs(a - b) < 0.005;
-  const showOuterPrice = isPackaged && d.pricePerOuter > 0 && !samePrice(d.pricePerOuter, d.costPerBase);
-  const showInnerPrice = isNested && d.pricePerInner > 0
-    && !samePrice(d.pricePerInner, d.costPerBase)
-    && !samePrice(d.pricePerInner, d.pricePerOuter);
-
-  // Résumé rows collapse too: when total count at a level equals the base total
-  // (pack/content = 1 of the base unit), that row adds no information.
-  const showOuterCount = d.totalOuterCount > 0 && d.totalOuterCount !== d.totalBase;
-  const showInnerCount = isNested && d.totalInnerCount > 0 && d.totalInnerCount !== d.totalBase;
-  const showTotalStock = d.totalBase > 0 && (showOuterCount || showInnerCount || !isPackaged);
-
-  const priceRow = (label: string, priceEx: number) => (
-    <div className="flex items-center justify-between">
-      <span className="text-fg-secondary">{label}</span>
-      <span className="text-fg-primary font-medium">
-        {fmtPrice(priceEx)} &#8362;
-        <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
-        {' · '}
-        {fmtPrice(priceEx * vm)} &#8362;
-        <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
-      </span>
-    </div>
-  );
-
-  return (
-    <div
-      className="p-3 rounded-lg border border-brand-500/20 grid gap-3 sm:grid-cols-2"
-      style={{ background: 'var(--surface-subtle)' }}
-    >
-      {d.totalBase > 0 && isPackaged && (showOuterCount || showInnerCount || showTotalStock) && (
-        <div>
-          <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
-            📦 {t('summary') || 'Résumé'}
-          </div>
-          <div className="space-y-1 text-sm">
-            {showOuterCount && (
-              <div className="flex items-center justify-between">
-                <span className="text-fg-secondary">{outerLabel}</span>
-                <span className="text-fg-primary font-medium">{d.totalOuterCount.toLocaleString()}</span>
-              </div>
-            )}
-            {showInnerCount && (
-              <div className="flex items-center justify-between">
-                <span className="text-fg-secondary">{innerLabel}</span>
-                <span className="text-fg-primary font-medium">{d.totalInnerCount.toLocaleString()}</span>
-              </div>
-            )}
-            {showTotalStock && (
-              <div className="flex items-center justify-between">
-                <span className="text-fg-secondary">{t('totalStock') || 'Total'}</span>
-                <span className="text-fg-primary font-semibold">{fmtNum(d.totalBase, 3)} {d.baseUnit}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {renderLeading()}
+        <span className={pairCls}>
+          <input
+            type="number" step="any" min="0" className={priceNumCls} style={fieldStyle}
+            value={fmtNum(displayed)}
+            onChange={(e) => setFromInput(+e.target.value)}
+            placeholder="0.00"
+          />
+          <span className={connectorCls}>&#8362;</span>
+        </span>
+      </div>
       {d.totalPrice > 0 && (
-        <div>
-          <div className="text-xs text-fg-secondary uppercase tracking-wider font-medium mb-1.5">
-            💰 {t('price') || 'Prix'}
-          </div>
-          <div className="space-y-1 text-sm">
-            {priceRow(t('totalPrice') || 'Prix total', d.totalPrice)}
-            {showOuterPrice && priceRow(`/ ${outerLabel.toLowerCase()}`, d.pricePerOuter)}
-            {showInnerPrice && priceRow(`/ ${innerLabel.toLowerCase()}`, d.pricePerInner)}
-            {d.costPerBase > 0 && priceRow(`/ ${d.baseUnit}`, d.costPerBase)}
-          </div>
+        <div className="text-sm">
+          <span className="text-fg-secondary">{t('totalPrice') || 'Prix total'} : </span>
+          <span className="font-semibold text-fg-primary">
+            {fmtPrice(d.totalPrice)} &#8362;<span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
+            {' · '}
+            {fmtPrice(d.totalPrice * vm)} &#8362;<span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
+          </span>
         </div>
       )}
     </div>
