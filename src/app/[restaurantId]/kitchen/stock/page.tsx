@@ -327,7 +327,11 @@ export default function StockPage() {
                         className="rounded border-[var(--divider)]" />
                     </td>
                     <td className="py-3.5 px-2">
-                      <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setItemModal({ open: true, editing: item })}
+                        className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
+                      >
                         {item.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
@@ -337,7 +341,7 @@ export default function StockPage() {
                           </div>
                         )}
                         <span className="font-medium text-fg-primary">{item.name}</span>
-                      </div>
+                      </button>
                     </td>
                     <td className="py-3.5 px-2">
                       <div className="flex items-center gap-2">
