@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon, ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -267,48 +267,6 @@ function demoteToDirect(nested: Extract<StockInput, { type: 'packaged-nested' }>
   };
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────
-
-interface ValidationMessage {
-  kind: 'warning' | 'suggestion';
-  text: string;
-  action?: { label: string; apply: () => StockInput };
-}
-
-function validate(input: StockInput, d: Totals, t: (k: string) => string): ValidationMessage[] {
-  const msgs: ValidationMessage[] = [];
-  const unit = d.baseUnit;
-  const qty = d.totalBase;
-  if (qty <= 0) return msgs;
-  if (unit === 'kg' && qty > 50) {
-    msgs.push({ kind: 'warning', text: (t('warnLargeKg') || 'Grande quantité ({qty} kg) — à vérifier.').replace('{qty}', qty.toString()) });
-  }
-  if (unit === 'g' && qty > 5000) {
-    msgs.push({
-      kind: 'suggestion',
-      text: t('suggestKgFromG') || 'Passer en kg ?',
-      action: { label: t('convertToKg') || 'Convertir en kg', apply: () => convertBase(input, 'kg', qty / 1000) },
-    });
-  }
-  if (unit === 'ml' && qty > 5000) {
-    msgs.push({
-      kind: 'suggestion',
-      text: t('suggestLFromMl') || 'Passer en L ?',
-      action: { label: t('convertToL') || 'Convertir en L', apply: () => convertBase(input, 'l', qty / 1000) },
-    });
-  }
-  return msgs;
-}
-
-function convertBase(input: StockInput, nextUnit: BaseUnit, nextTotal: number): StockInput {
-  if (input.type === 'simple') return { ...input, unit: nextUnit, quantity: nextTotal };
-  if (input.type === 'packaged-direct') {
-    return { ...input, contentUnit: nextUnit, contentQuantity: nextTotal / (input.outerQuantity || 1) };
-  }
-  const innerTotal = input.outerQuantity * input.innerQuantity || 1;
-  return { ...input, contentUnit: nextUnit, contentQuantity: nextTotal / innerTotal };
-}
-
 // ─── Display helpers ──────────────────────────────────────────────────────
 
 function fmtNum(n: number, maxDecimals = 4): string {
@@ -335,7 +293,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   const { t } = useI18n();
   const vm = 1 + vatRate / 100;
   const d = deriveTotals(value);
-  const warnings = validate(value, d, t);
 
   const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2 text-sm';
   const labelCls = compact
@@ -387,7 +344,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           <LiveFeedback cost={d.costPerBase} costTTC={d.costPerBase * vm} unit={value.unit} t={t} />
         )}
 
-        <Warnings messages={warnings} onApply={onChange} />
       </div>
     );
   }
@@ -436,7 +392,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
       />
 
       <LiveSummary input={value} d={d} vm={vm} outerLabel={outerLabel} innerLabel={innerLabel} t={t} />
-      <Warnings messages={warnings} onApply={onChange} />
     </div>
   );
 }
@@ -770,36 +725,3 @@ function LiveSummary({
   );
 }
 
-function Warnings({ messages, onApply }: { messages: ValidationMessage[]; onApply: (v: StockInput) => void }) {
-  if (messages.length === 0) return null;
-  return (
-    <div className="space-y-2">
-      {messages.map((m, i) => (
-        <div
-          key={i}
-          className={`flex items-start gap-2 p-2.5 rounded-lg text-sm ${
-            m.kind === 'warning'
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-          }`}
-        >
-          {m.kind === 'warning' ? (
-            <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          ) : (
-            <ArrowPathIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
-          )}
-          <span className="flex-1">{m.text}</span>
-          {m.action && (
-            <button
-              type="button"
-              onClick={() => onApply(m.action!.apply())}
-              className="text-xs font-medium underline hover:no-underline"
-            >
-              {m.action.label}
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
