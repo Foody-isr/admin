@@ -509,6 +509,7 @@ export interface StockItem {
   container_type: string;
   unit_type: string;
   price_includes_vat: boolean;
+  image_url: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -548,6 +549,7 @@ export interface StockItemInput {
   container_type?: string;
   unit_type?: string;
   price_includes_vat?: boolean;
+  image_url?: string;
   is_active?: boolean;
 }
 
@@ -2030,6 +2032,23 @@ export async function updateStockItem(restaurantId: number, id: number, input: P
 
 export async function deleteStockItem(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function uploadStockItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/stock/items/${itemId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
 }
 
 export async function batchUpdateStockCategory(

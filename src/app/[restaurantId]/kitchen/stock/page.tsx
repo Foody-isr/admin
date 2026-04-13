@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
-  batchUpdateStockCategory, getRestaurantSettings,
+  batchUpdateStockCategory, getRestaurantSettings, uploadStockItemImage,
   StockItem, StockCategory, StockItemInput, StockTransactionType, StockTransaction,
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
@@ -27,7 +27,7 @@ import {
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
   SparklesIcon, ClockIcon, ArrowPathIcon,
-  ChevronDownIcon,
+  ChevronDownIcon, PhotoIcon, ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -327,7 +327,17 @@ export default function StockPage() {
                         className="rounded border-[var(--divider)]" />
                     </td>
                     <td className="py-3.5 px-2">
-                      <span className="font-medium text-fg-primary">{item.name}</span>
+                      <div className="flex items-center gap-3">
+                        {item.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                            <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                          </div>
+                        )}
+                        <span className="font-medium text-fg-primary">{item.name}</span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-2">
                       <div className="flex items-center gap-2">
@@ -510,6 +520,47 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
+  // Image upload state
+  const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    };
+  }, [pendingPreview]);
+
+  const handleImagePick = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    if (editing) {
+      // Upload immediately for existing items
+      setUploading(true);
+      try {
+        const url = await uploadStockItemImage(rid, editing.id, file);
+        setImageUrl(url);
+        await updateStockItem(rid, editing.id, { image_url: url });
+      } catch (err: any) {
+        alert(err.message || 'Upload failed');
+      } finally {
+        setUploading(false);
+      }
+    } else {
+      // Queue for upload after create
+      if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+      setPendingFile(file);
+      setPendingPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleImagePick(file);
+  };
+
   const handleSubmit = async () => {
     setSaving(true);
     try {
@@ -520,12 +571,25 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
         supplier, category, notes,
         is_active: isActive,
       };
-      if (editing) await updateStockItem(rid, editing.id, payload);
-      else await createStockItem(rid, payload);
+      if (editing) {
+        await updateStockItem(rid, editing.id, payload);
+      } else {
+        const created = await createStockItem(rid, payload);
+        if (pendingFile && created?.id) {
+          try {
+            const url = await uploadStockItemImage(rid, created.id, pendingFile);
+            await updateStockItem(rid, created.id, { image_url: url });
+          } catch (err: any) {
+            alert(err.message || 'Image upload failed');
+          }
+        }
+      }
       onSaved(); onClose();
     } catch (err: any) { alert(err.message); }
     finally { setSaving(false); }
   };
+
+  const displayImage = imageUrl || pendingPreview;
 
   const sidebar = (
     <>
@@ -580,6 +644,58 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
           {/* Name */}
           <input className="input w-full text-base" value={name} onChange={(e) => setName(e.target.value)}
             placeholder={t('nameLabel') + ' *'} autoFocus />
+
+          {/* Image upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImagePick(file);
+              e.target.value = '';
+            }}
+          />
+          {displayImage ? (
+            <div
+              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)]"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={displayImage} alt={name} className="w-full h-52 object-cover" />
+              {uploading && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">
+                  {t('dropImagesHere')}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              {uploading ? (
+                <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+              ) : (
+                <>
+                  <ArrowUpTrayIcon className="w-10 h-10" />
+                  <p className="text-base text-center">
+                    {t('dropImagesHere')}, <span className="text-brand-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           <StockQuantityForm value={qty} onChange={setQty} vatRate={vatRate} />
 
