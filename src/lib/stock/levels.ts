@@ -1,4 +1,9 @@
 import type { StockItem } from '@/lib/api';
+import { labelForRaw } from '@/components/stock/StockQuantityForm';
+
+/** Identity translator for callers that don't have an i18n context available.
+ *  Returns the raw enum value unchanged (e.g. 'can' → 'can'). */
+const identityT = (k: string) => k;
 
 export type Level = 'L1' | 'L2' | 'L3';
 
@@ -42,11 +47,11 @@ function formatBaseAmount(amount: number, unit: string): string {
   return `${fmtCount(amount)} ${unit}`;
 }
 
-export function formatQuantityAtLevel(item: StockItem, level: Level): string {
+export function formatQuantityAtLevel(item: StockItem, level: Level, t: (k: string) => string = identityT): string {
   const pack = item.pack_size ?? 0;
   const content = item.unit_content ?? 0;
-  const outer = item.container_type || '';
-  const inner = item.unit_type || '';
+  const outer = labelForRaw(item.container_type || '', t);
+  const inner = labelForRaw(item.unit_type || '', t);
   const contentUnit = item.unit_content_unit || item.unit || '';
   const baseUnit = item.unit || '';
 
@@ -78,11 +83,12 @@ export function formatUnitPriceAtLevel(
   item: StockItem,
   level: Level,
   costPerBase: number,
+  t: (k: string) => string = identityT,
 ): string {
   const pack = item.pack_size ?? 0;
   const content = item.unit_content ?? 0;
-  const outer = item.container_type || '';
-  const inner = item.unit_type || '';
+  const outer = labelForRaw(item.container_type || '', t);
+  const inner = labelForRaw(item.unit_type || '', t);
   const baseUnit = item.unit_content_unit || item.unit || '';
 
   if (!(costPerBase > 0)) return '—';

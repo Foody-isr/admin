@@ -55,12 +55,23 @@ function withCurrent<T extends string>(list: T[], current: T | undefined): T[] {
 /** Canonical i18n key per packaging unit. Traditionally-outer types use `ct_`,
  *  traditionally-inner types use `ut_`. Some (bag, box, pack) can appear on
  *  either level — we pick one canonical key so the label is consistent. */
-const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
+export const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   carton: 'ct_carton', pack: 'ct_pack', crate: 'ct_crate', sack: 'ct_sack', case: 'ct_case',
   bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
 };
-const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
+export const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
+
+/** Translate a raw packaging-unit string (as persisted in StockItem.container_type
+ *  or .unit_type) to its display label. Unknown values pass through as-is so
+ *  legacy free-text isn't lost. */
+export function labelForRaw(raw: string, t: (k: string) => string): string {
+  if (!raw) return '';
+  const key = UNIT_I18N_KEY[raw as PackagingUnit];
+  if (!key) return raw;
+  const translated = t(key);
+  return translated && translated !== key ? translated : raw;
+}
 
 /** Full human name for a base unit, used in the "Display price in" menu
  *  ("Par litre" reads better than "Par l"). Falls back to the abbreviation. */

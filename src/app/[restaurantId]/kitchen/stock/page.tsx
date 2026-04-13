@@ -355,7 +355,7 @@ export default function StockPage() {
                       title={t('displayAs') || 'Display as'}
                     >
                         <span className="inline-flex items-center gap-1.5 justify-end">
-                          {formatQuantityAtLevel(item, level)}
+                          {formatQuantityAtLevel(item, level, t)}
                           <ChevronDownIcon className="w-3.5 h-3.5 text-fg-tertiary" />
                         </span>
                         {popoverOpen && (
@@ -376,9 +376,9 @@ export default function StockPage() {
                                   className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${lvl === level ? 'bg-brand-500/10 text-brand-500' : 'text-fg-primary hover:bg-[var(--surface-subtle)]'}`}
                                 >
                                   <div className="min-w-0">
-                                    <div className="font-medium text-sm truncate">{formatQuantityAtLevel(item, lvl)}</div>
+                                    <div className="font-medium text-sm truncate">{formatQuantityAtLevel(item, lvl, t)}</div>
                                     <div className="font-mono text-xs text-fg-secondary truncate">
-                                      {formatUnitPriceAtLevel(item, lvl, adjustedCost(item))}
+                                      {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), t)}
                                     </div>
                                   </div>
                                   {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
@@ -397,7 +397,7 @@ export default function StockPage() {
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
-                      {formatUnitPriceAtLevel(item, level, adjustedCost(item))}
+                      {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
                     </td>
                     <td className="py-3.5 px-2 text-fg-secondary">{item.supplier || '—'}</td>
                     <td className="py-3.5 px-2">
