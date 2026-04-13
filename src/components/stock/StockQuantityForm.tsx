@@ -294,10 +294,10 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   const vm = 1 + vatRate / 100;
   const d = deriveTotals(value);
 
-  const labelCls = compact
-    ? 'text-xs font-medium text-fg-primary mb-1 block'
-    : 'text-sm font-medium text-fg-primary mb-1 block';
-  const stackCls = compact ? 'space-y-2.5' : 'space-y-3';
+  // Typography scale (8px grid): labels 13px medium muted, inputs 15px, price 18px, helper 12px.
+  const labelCls = 'text-[13px] font-medium text-fg-secondary mb-2 block tracking-wide';
+  // Section rhythm: 20px between rows in compact (per-line in delivery review), 24px otherwise.
+  const stackCls = compact ? 'space-y-5' : 'space-y-6';
 
   // Step 1: unit change (pivot — may change the variant type)
   const onStep1UnitChange = (u: string) => {
@@ -371,18 +371,19 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
 // Inline-sentence inputs intentionally bypass the global `.input` class because
 // it pins `width: 100%` and large padding via @apply, which would force every
 // segment onto its own line and defeat the sentence layout.
-const fieldBase = 'rounded-standard border px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent';
+// Field treatment: subtle fill, light border, 10px radius, 15px medium type.
+const fieldBase = 'rounded-[10px] border px-3 py-2 text-[15px] font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors';
 const fieldStyle: React.CSSProperties = {
-  background: 'var(--surface)',
+  background: 'rgba(255,255,255,0.02)',
   color: 'var(--text-primary)',
-  borderColor: 'var(--divider)',
+  borderColor: 'rgba(255,255,255,0.08)',
 };
-const numCls = `${fieldBase} w-16 text-center`;
-const priceNumCls = `${fieldBase} w-28 text-center text-base font-semibold tabular-nums`;
-const selectCls = `${fieldBase} pr-7 max-w-[8rem]`;
-const connectorCls = 'text-sm text-fg-secondary whitespace-nowrap';
-// Each [number][unit] pair wraps as one atomic unit so the unit can't break
-// onto a line by itself when the row gets tight.
+const numCls = `${fieldBase} w-16 text-center tabular-nums`;
+const priceNumCls = `${fieldBase} w-28 text-center text-[18px] font-semibold tabular-nums`;
+const selectCls = `${fieldBase} pr-7 max-w-[9rem]`;
+const connectorCls = 'text-[13px] text-fg-secondary whitespace-nowrap';
+// Each [number][unit] pair wraps atomically so the unit never drops alone.
+// 6px inside a pair (tight coupling), 8px between pairs/connectors (sentence rhythm).
 const pairCls = 'inline-flex items-center gap-1.5';
 
 function SentenceBuilder({
@@ -613,7 +614,7 @@ function PriceSentence({
         onClick={() => setMenuOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        className="font-semibold text-fg-primary decoration-dotted decoration-fg-tertiary underline underline-offset-[5px] hover:text-brand-500 hover:decoration-brand-500 transition-colors"
+        className="text-[13px] font-semibold text-fg-primary decoration-dotted decoration-fg-tertiary underline underline-offset-[5px] hover:text-brand-500 hover:decoration-brand-500 transition-colors"
       >
         {label}
       </button>
@@ -649,7 +650,7 @@ function PriceSentence({
       )}
     </span>
   ) : (
-    <span className="font-semibold text-fg-primary">{label}</span>
+    <span className="text-[13px] font-semibold text-fg-primary">{label}</span>
   );
 
   const renderLeading = () => {
@@ -669,27 +670,27 @@ function PriceSentence({
   };
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         {renderLeading()}
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1.5">
           <input
             type="number" step="any" min="0" className={priceNumCls} style={fieldStyle}
             value={fmtNum(displayed)}
             onChange={(e) => setFromInput(+e.target.value)}
             placeholder="0.00"
           />
-          <span className="text-sm font-medium text-fg-secondary">&#8362;</span>
+          <span className="text-[15px] font-semibold text-fg-secondary">&#8362;</span>
         </span>
       </div>
       {d.totalPrice > 0 && (
-        <div className="text-sm tabular-nums">
-          <span className="text-fg-secondary">{t('totalPrice') || 'Prix total'} : </span>
+        <div className="text-[12px] tabular-nums pt-0.5">
+          <span className="text-fg-tertiary">{t('totalPrice') || 'Prix total'} · </span>
           <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice)} &#8362;</span>
-          <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
+          <span className="text-fg-tertiary"> {t('exVat')}</span>
           <span className="text-fg-tertiary"> · </span>
           <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * vm)} &#8362;</span>
-          <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
+          <span className="text-fg-tertiary"> {t('incVat')}</span>
         </div>
       )}
     </div>
