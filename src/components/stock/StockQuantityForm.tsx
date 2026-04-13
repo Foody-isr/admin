@@ -376,13 +376,12 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           >
             + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
           </button>
-          <span
-            className="inline-flex items-center text-fg-tertiary hover:text-fg-secondary cursor-help transition-colors"
-            title={t('intermediateLevelHelp') || 'Ajoutez un niveau entre le contenant extérieur et le contenu : par exemple un carton (extérieur) contenant des conserves (niveau intermédiaire) de 400 g chacune.'}
-            aria-label={t('intermediateLevelHelp') || ''}
-          >
-            <InformationCircleIcon className="w-4 h-4" />
-          </span>
+          <div className="relative group/tip">
+            <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60" />
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
+              {t('intermediateLevelHelp') || 'Ajoutez une couche entre le contenant extérieur et le contenu — par exemple un carton (extérieur) contenant des conserves (intermédiaire) de 400 g chacune.'}
+            </div>
+          </div>
         </div>
       )}
 

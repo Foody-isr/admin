@@ -215,11 +215,11 @@ export default function ItemLibraryPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden">
+        <div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-fg-secondary tracking-wider border-b-2 border-fg-primary">
-                <th className="py-3 px-2 font-medium w-10">
+              <tr className="text-left text-xs text-fg-secondary tracking-wider">
+                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
                   <input
                     type="checkbox"
                     checked={selected.size === filtered.length && filtered.length > 0}
@@ -227,11 +227,11 @@ export default function ItemLibraryPage() {
                     className="rounded border-[var(--divider)]"
                   />
                 </th>
-                <th className="py-3 px-2 font-medium">{t('item')}</th>
-                <th className="py-3 px-2 font-medium">{t('category')}</th>
-                <th className="py-3 px-2 font-medium">{t('availability')}</th>
-                <th className="py-3 px-2 font-medium text-right">{t('price')}</th>
-                <th className="py-3 px-2 font-medium w-10" />
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('item')}</th>
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('availability')}</th>
+                <th className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('price')}</th>
+                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
               </tr>
             </thead>
             <tbody>
