@@ -294,7 +294,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   const vm = 1 + vatRate / 100;
   const d = deriveTotals(value);
 
-  const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2 text-sm';
   const labelCls = compact
     ? 'text-xs font-medium text-fg-primary mb-1 block'
     : 'text-sm font-medium text-fg-primary mb-1 block';
@@ -330,20 +329,9 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           t={t}
         />
 
-        <div>
-          <label className={labelCls}>{t('totalPricePaid') || 'Prix total payé'} (&#8362;)</label>
-          <input
-            type="number" step="any" min="0" className={inputCls}
-            value={fmtNum(value.totalPrice)}
-            onChange={(e) => onChange({ ...value, totalPrice: +e.target.value })}
-            placeholder="0.00"
-          />
-        </div>
+        <PriceSentence value={value} d={d} onChange={onChange} t={t} />
 
-        {d.costPerBase > 0 && (
-          <LiveFeedback cost={d.costPerBase} costTTC={d.costPerBase * vm} unit={value.unit} t={t} />
-        )}
-
+        <LiveSummary input={value} d={d} vm={vm} outerLabel="" innerLabel="" t={t} />
       </div>
     );
   }
@@ -374,22 +362,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
         </button>
       )}
 
-      {/* Price */}
-      <PriceInputWithLevel
-        input={value}
-        d={d}
-        outerLabel={outerLabel}
-        innerLabel={innerLabel}
-        onTotalChange={(total) => onChange({ ...value, totalPrice: total })}
-        onOuterChange={(perOuter) => onChange({ ...value, totalPrice: perOuter * value.outerQuantity })}
-        onInnerChange={value.type === 'packaged-nested'
-          ? (perInner) => onChange({ ...value, totalPrice: perInner * (value.outerQuantity * value.innerQuantity) })
-          : undefined}
-        onBaseChange={(perBase) => onChange({ ...value, totalPrice: perBase * d.totalBase })}
-        compact={compact}
-        labelCls={labelCls}
-        t={t}
-      />
+      <PriceSentence value={value} d={d} onChange={onChange} t={t} />
 
       <LiveSummary input={value} d={d} vm={vm} outerLabel={outerLabel} innerLabel={innerLabel} t={t} />
     </div>
@@ -412,6 +385,7 @@ const fieldStyle: React.CSSProperties = {
   borderColor: 'var(--divider)',
 };
 const numCls = `${fieldBase} w-16 text-center`;
+const priceNumCls = `${fieldBase} w-24 text-center`;
 const selectCls = `${fieldBase} pr-7 max-w-[8rem]`;
 const connectorCls = 'text-sm text-fg-secondary whitespace-nowrap';
 // Each [number][unit] pair wraps as one atomic unit so the unit can't break
@@ -548,88 +522,130 @@ function Step1UnitSelect({
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-function LiveFeedback({ cost, costTTC, unit, t }: { cost: number; costTTC: number; unit: string; t: (k: string) => string }) {
-  return (
-    <div className="p-3 rounded-lg text-sm" style={{ background: 'var(--surface-subtle)' }}>
-      <div className="flex items-center justify-between">
-        <span className="text-fg-secondary">→ {t('perUnitLabel') || 'Par unité'}</span>
-        <span className="font-semibold text-fg-primary">
-          {fmtPrice(cost)} &#8362;/{unit} {t('exVat')}
-          <span className="text-fg-tertiary font-normal"> · {fmtPrice(costTTC)} {t('incVat')}</span>
-        </span>
-      </div>
-    </div>
-  );
-}
 
 type PriceLevel = 'total' | 'outer' | 'inner' | 'base';
 
-function PriceInputWithLevel({
-  input, d, outerLabel, innerLabel,
-  onTotalChange, onOuterChange, onInnerChange, onBaseChange,
-  compact, labelCls, t,
+// Sentence-form price input that auto-picks the natural level and lets the
+// user click the unit label to cycle through the other levels (no dropdown).
+//   simple:    "Prix au [kg ↻]  [ N ] ₪"
+//   packaged:  "Chaque [carton ↻] coûte  [ N ] ₪"
+function PriceSentence({
+  value, d, onChange, t,
 }: {
-  input: Extract<StockInput, { type: 'packaged-direct' | 'packaged-nested' }>;
+  value: StockInput;
   d: Totals;
-  outerLabel: string;
-  innerLabel: string;
-  onTotalChange: (n: number) => void;
-  onOuterChange: (n: number) => void;
-  onInnerChange?: (n: number) => void;
-  onBaseChange: (n: number) => void;
-  compact?: boolean;
-  labelCls: string;
+  onChange: (v: StockInput) => void;
   t: (k: string) => string;
 }) {
-  const [level, setLevel] = useState<PriceLevel>('outer');
-  const hasInner = input.type === 'packaged-nested';
-  const hasBase = input.contentQuantity > 0;
+  const isPackaged = value.type !== 'simple';
+  const hasInner = value.type === 'packaged-nested';
+  const hasBase = isPackaged
+    ? (value as Extract<StockInput, { type: 'packaged-direct' | 'packaged-nested' }>).contentQuantity > 0
+    : true;
 
-  // Default gracefully if the selected level no longer applies
-  const effectiveLevel: PriceLevel =
-    (level === 'inner' && !hasInner) ? 'outer'
-    : (level === 'base' && !hasBase) ? 'outer'
-    : level;
+  const cycle: PriceLevel[] = isPackaged
+    ? [
+        'outer',
+        ...(hasInner ? (['inner'] as PriceLevel[]) : []),
+        ...(hasBase ? (['base'] as PriceLevel[]) : []),
+        'total',
+      ]
+    : ['base', 'total'];
+
+  const defaultLevel: PriceLevel = cycle[0];
+  const [level, setLevel] = useState<PriceLevel>(defaultLevel);
+  const effective: PriceLevel = cycle.includes(level) ? level : defaultLevel;
+
+  const cycleNext = () => {
+    const i = cycle.indexOf(effective);
+    setLevel(cycle[(i + 1) % cycle.length]);
+  };
 
   const displayed = (() => {
-    switch (effectiveLevel) {
+    switch (effective) {
       case 'outer': return d.pricePerOuter;
       case 'inner': return d.pricePerInner;
       case 'base':  return d.costPerBase;
-      case 'total':
-      default:      return d.totalPrice;
+      case 'total': return d.totalPrice;
     }
   })();
 
-  const onInput = (n: number) => {
-    switch (effectiveLevel) {
-      case 'outer': onOuterChange(n); break;
-      case 'inner': onInnerChange?.(n); break;
-      case 'base':  onBaseChange(n); break;
-      case 'total':
-      default:      onTotalChange(n); break;
+  const setFromInput = (n: number) => {
+    if (value.type === 'simple') {
+      const total = effective === 'base' ? n * value.quantity : n;
+      onChange({ ...value, totalPrice: total });
+      return;
     }
+    let total = n;
+    if (effective === 'outer') total = n * value.outerQuantity;
+    else if (effective === 'inner' && value.type === 'packaged-nested') {
+      total = n * (value.outerQuantity * value.innerQuantity);
+    } else if (effective === 'base') total = n * d.totalBase;
+    onChange({ ...value, totalPrice: total });
   };
 
-  const inputCls = compact ? 'input w-full py-1.5 text-sm' : 'input w-full py-2.5 text-sm';
+  const labelForLevel = (l: PriceLevel): string => {
+    if (l === 'outer' && isPackaged) {
+      return labelFor(
+        (value as Extract<StockInput, { type: 'packaged-direct' | 'packaged-nested' }>).outerUnit,
+        t,
+      );
+    }
+    if (l === 'inner' && value.type === 'packaged-nested') return labelFor(value.innerUnit, t);
+    if (l === 'base') return d.baseUnit;
+    return t('total') || 'Total';
+  };
+
+  const cycleBtn = (label: React.ReactNode) => (
+    <button
+      type="button"
+      onClick={cycleNext}
+      title={t('changeLevel') || 'Changer le niveau'}
+      className="font-medium text-fg-primary border-b border-dashed border-fg-tertiary hover:border-brand-500 hover:text-brand-500 transition-colors"
+    >
+      {label}
+    </button>
+  );
+
+  const renderLeading = () => {
+    const name = labelForLevel(effective);
+    if (effective === 'outer' || effective === 'inner') {
+      const tmpl = t('eachCosts') || 'Chaque {name} coûte';
+      const [before, after] = tmpl.split('{name}');
+      return (
+        <>
+          {before && <span className={connectorCls}>{before.trim()}</span>}
+          {cycleBtn(name.toLowerCase())}
+          {after && <span className={connectorCls}>{after.trim()}</span>}
+        </>
+      );
+    }
+    if (effective === 'base') {
+      const tmpl = t('pricePer') || 'Prix au {name}';
+      const [before, after] = tmpl.split('{name}');
+      return (
+        <>
+          {before && <span className={connectorCls}>{before.trim()}</span>}
+          {cycleBtn(name)}
+          {after && <span className={connectorCls}>{after.trim()}</span>}
+        </>
+      );
+    }
+    return cycleBtn(t('totalPrice') || 'Prix total');
+  };
 
   return (
-    <div>
-      <label className={labelCls}>{t('price') || 'Prix'} (&#8362;)</label>
-      <div className="grid grid-cols-[2fr_1fr] gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {renderLeading()}
+      <span className={pairCls}>
         <input
-          type="number" step="any" min="0" className={inputCls}
+          type="number" step="any" min="0" className={priceNumCls} style={fieldStyle}
           value={fmtNum(displayed)}
-          onChange={(e) => onInput(+e.target.value)}
+          onChange={(e) => setFromInput(+e.target.value)}
           placeholder="0.00"
         />
-        <select className={inputCls} value={effectiveLevel} onChange={(e) => setLevel(e.target.value as PriceLevel)}>
-          <option value="outer">{(t('perLabel') || 'par {name}').replace('{name}', outerLabel.toLowerCase())}</option>
-          {hasInner && <option value="inner">{(t('perLabel') || 'par {name}').replace('{name}', innerLabel.toLowerCase())}</option>}
-          {hasBase && <option value="base">{(t('perLabel') || 'par {name}').replace('{name}', d.baseUnit)}</option>}
-          <option value="total">{t('perTotal') || 'Total'}</option>
-        </select>
-      </div>
+        <span className={connectorCls}>&#8362;</span>
+      </span>
     </div>
   );
 }
