@@ -501,6 +501,7 @@ export interface StockItem {
   reorder_threshold: number;
   cost_per_unit: number;
   supplier: string;
+  supplier_id?: number | null;
   category: string;
   notes: string;
   unit_content?: number;
@@ -541,6 +542,7 @@ export interface StockItemInput {
   reorder_threshold?: number;
   cost_per_unit?: number;
   supplier?: string;
+  supplier_id?: number | null;
   category?: string;
   notes?: string;
   unit_content?: number;

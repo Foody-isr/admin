@@ -6,7 +6,9 @@ import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, getRestaurantSettings, uploadStockItemImage,
+  listSuppliers,
   StockItem, StockCategory, StockItemInput, StockTransactionType, StockTransaction,
+  Supplier,
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
 import StockQuantityForm, {
@@ -51,6 +53,7 @@ export default function StockPage() {
 
   const [items, setItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<StockCategory[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -109,12 +112,14 @@ export default function StockPage() {
 
   const reload = useCallback(async () => {
     try {
-      const [stockItems, stockCats] = await Promise.all([
+      const [stockItems, stockCats, sups] = await Promise.all([
         listStockItems(rid),
         getStockCategories(rid),
+        listSuppliers(rid).catch(() => [] as Supplier[]),
       ]);
       setItems(stockItems);
       setCategories(stockCats);
+      setSuppliers(sups);
     } finally {
       setLoading(false);
     }
@@ -433,6 +438,7 @@ export default function StockPage() {
           rid={rid}
           editing={itemModal.editing}
           categories={categories.map((c) => c.name)}
+          suppliers={suppliers}
           vatRate={vatRate}
           onClose={() => setItemModal({ open: false })}
           onSaved={reload}
@@ -505,8 +511,8 @@ export default function StockPage() {
 
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
-function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }: {
-  rid: number; editing?: StockItem; categories: string[]; vatRate: number; onClose: () => void; onSaved: () => void;
+function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose, onSaved }: {
+  rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; vatRate: number; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
 
@@ -518,6 +524,7 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
   // Item-level fields (not part of the quantity form)
   const [name, setName] = useState(editing?.name ?? '');
   const [supplier, setSupplier] = useState(editing?.supplier ?? '');
+  const [supplierId, setSupplierId] = useState<number | null>(editing?.supplier_id ?? null);
   const [category, setCategory] = useState(editing?.category ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [reorder, setReorder] = useState(editing?.reorder_threshold ?? 0);
@@ -572,7 +579,9 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
         name,
         ...stockInputToServer(qty),
         reorder_threshold: reorder,
-        supplier, category, notes,
+        supplier,
+        supplier_id: supplierId ?? null,
+        category, notes,
         is_active: isActive,
       };
       if (editing) {
@@ -621,7 +630,23 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
       </FormSection>
 
       <FormSection title={t('supplier')}>
-        <input className="input text-sm w-full" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+        <SearchableListField
+          mode="single"
+          allowCustom
+          placeholder={t('supplier')}
+          options={suppliers.map((s) => ({ value: String(s.id), label: s.name }))}
+          value={supplierId != null ? String(supplierId) : supplier}
+          onChange={(next) => {
+            const picked = suppliers.find((s) => String(s.id) === next);
+            if (picked) {
+              setSupplierId(picked.id);
+              setSupplier(picked.name);
+            } else {
+              setSupplierId(null);
+              setSupplier(next);
+            }
+          }}
+        />
       </FormSection>
 
       <FormSection title={t('reorderThreshold')}>
