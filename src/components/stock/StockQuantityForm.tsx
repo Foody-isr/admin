@@ -364,13 +364,12 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   if (value.type === 'simple') {
     return (
       <div className={stackCls}>
-        <Step1Row
-          labelCls={labelCls} inputCls={inputCls}
-          label={t('youBought') || 'Vous avez acheté'}
-          qty={value.quantity}
-          onQtyChange={(q) => onChange({ ...value, quantity: q })}
-          unit={value.unit}
-          onUnitChange={onStep1UnitChange}
+        <SentenceBuilder
+          value={value}
+          onChange={onChange}
+          onStep1UnitChange={onStep1UnitChange}
+          d={d}
+          labelCls={labelCls}
           t={t}
         />
 
@@ -399,47 +398,13 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
 
   return (
     <div className={stackCls}>
-      {/* Step 1 */}
-      <Step1Row
-        labelCls={labelCls} inputCls={inputCls}
-        label={t('youBought') || 'Vous avez acheté'}
-        qty={value.outerQuantity}
-        qtyStep={1}
-        onQtyChange={(q) => {
-          const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
-          onChange({ ...value, outerQuantity: q, totalPrice: total });
-        }}
-        unit={value.outerUnit}
-        onUnitChange={onStep1UnitChange}
+      <SentenceBuilder
+        value={value}
+        onChange={onChange}
+        onStep1UnitChange={onStep1UnitChange}
+        d={d}
+        labelCls={labelCls}
         t={t}
-      />
-
-      {/* Step 2a: inner (only if nested) */}
-      {value.type === 'packaged-nested' && (
-        <LevelRow
-          labelCls={labelCls} inputCls={inputCls}
-          label={(t('eachContains') || 'Chaque {name} contient').replace('{name}', outerLabel.toLowerCase())}
-          qty={value.innerQuantity} qtyStep={1}
-          onQtyChange={(q) => onChange({ ...value, innerQuantity: q })}
-          unit={value.innerUnit}
-          unitOptions={INNER_UNITS.map((u) => ({ value: u, label: labelFor(u, t) }))}
-          onUnitChange={(u) => onChange({ ...value, innerUnit: u as PackagingUnit, contentUnit: PACKAGING_CONTENT_DEFAULT[u as PackagingUnit] || value.contentUnit })}
-          onRemove={() => onChange(demoteToDirect(value))}
-        />
-      )}
-
-      {/* Step 2b/3: content row (always for packaged, labelled by inner or outer) */}
-      <LevelRow
-        labelCls={labelCls} inputCls={inputCls}
-        label={(t('eachContains') || 'Chaque {name} contient').replace(
-          '{name}',
-          (value.type === 'packaged-nested' ? innerLabel : outerLabel).toLowerCase(),
-        )}
-        qty={value.contentQuantity}
-        onQtyChange={(q) => onChange({ ...value, contentQuantity: q })}
-        unit={value.contentUnit}
-        unitOptions={BASE_UNITS.map((u) => ({ value: u, label: u }))}
-        onUnitChange={(u) => onChange({ ...value, contentUnit: u as BaseUnit })}
       />
 
       {/* Promote link (direct → nested) */}
@@ -476,84 +441,137 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
   );
 }
 
-// ─── Sub-components ────────────────────────────────────────────────────────
+// ─── Sentence Builder ─────────────────────────────────────────────────────
+// Renders the packaging spec as one inline sentence:
+//   simple:   [qty] [unit ▾]
+//   direct:   [outerQty] [outerUnit ▾]   de   [contentQty] [contentUnit ▾]
+//   nested:   [outerQty] [outerUnit ▾]   contenant   [innerQty] [innerUnit ▾] [×]   de   [contentQty] [contentUnit ▾]
 
-function Step1Row({
-  label, qty, qtyStep, onQtyChange, unit, onUnitChange, inputCls, labelCls, t,
+const numCls = 'input py-1.5 text-sm w-20 text-center';
+const selectCls = 'input py-1.5 text-sm w-auto pr-7 max-w-[10rem]';
+const connectorCls = 'text-sm text-fg-secondary';
+
+function SentenceBuilder({
+  value, onChange, onStep1UnitChange, d, labelCls, t,
 }: {
-  label: string;
-  qty: number;
-  qtyStep?: number | 'any';
-  onQtyChange: (n: number) => void;
-  unit: string;
-  onUnitChange: (u: string) => void;
-  inputCls: string;
+  value: StockInput;
+  onChange: (v: StockInput) => void;
+  onStep1UnitChange: (u: string) => void;
+  d: Totals;
   labelCls: string;
   t: (k: string) => string;
 }) {
+  const containing = t('containing') || 'contenant';
+  const of = t('of') || 'de';
+
   return (
     <div>
-      <label className={labelCls}>{label}</label>
-      <div className="grid grid-cols-[2fr_1fr] gap-2">
-        <input
-          type="number" step={qtyStep ?? 'any'} min="0" className={inputCls}
-          value={fmtNum(qty)}
-          onChange={(e) => onQtyChange(+e.target.value)}
-          placeholder="0"
-        />
-        <select className={inputCls} value={unit} onChange={(e) => onUnitChange(e.target.value)}>
-          <optgroup label={t('measurableUnits') || 'Mesurables'}>
-            {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-          </optgroup>
-          <optgroup label={t('packagingUnits') || 'Conditionnements'}>
-            {Array.from(new Set([...OUTER_UNITS, ...INNER_UNITS])).map((u) => (
-              <option key={u} value={u}>{labelFor(u, t)}</option>
-            ))}
-          </optgroup>
-        </select>
+      <label className={labelCls}>{t('youBought') || 'Vous avez acheté'}</label>
+      <div className="flex flex-wrap items-center gap-2">
+        {value.type === 'simple' ? (
+          <>
+            <input
+              type="number" step="any" min="0" className={numCls}
+              value={fmtNum(value.quantity)}
+              onChange={(e) => onChange({ ...value, quantity: +e.target.value })}
+              placeholder="0"
+            />
+            <Step1UnitSelect unit={value.unit} onChange={onStep1UnitChange} t={t} />
+          </>
+        ) : (
+          <>
+            {/* Outer */}
+            <input
+              type="number" step={1} min="0" className={numCls}
+              value={fmtNum(value.outerQuantity)}
+              onChange={(e) => {
+                const q = +e.target.value;
+                const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
+                onChange({ ...value, outerQuantity: q, totalPrice: total });
+              }}
+              placeholder="0"
+            />
+            <Step1UnitSelect unit={value.outerUnit} onChange={onStep1UnitChange} t={t} />
+
+            {/* Inner (nested only) */}
+            {value.type === 'packaged-nested' && (
+              <>
+                <span className={connectorCls}>{containing}</span>
+                <input
+                  type="number" step={1} min="0" className={numCls}
+                  value={fmtNum(value.innerQuantity)}
+                  onChange={(e) => onChange({ ...value, innerQuantity: +e.target.value })}
+                  placeholder="0"
+                />
+                <select
+                  className={selectCls}
+                  value={value.innerUnit}
+                  onChange={(e) => {
+                    const u = e.target.value as PackagingUnit;
+                    onChange({
+                      ...value,
+                      innerUnit: u,
+                      contentUnit: PACKAGING_CONTENT_DEFAULT[u] || value.contentUnit,
+                    });
+                  }}
+                >
+                  {INNER_UNITS.map((u) => <option key={u} value={u}>{labelFor(u, t)}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => onChange(demoteToDirect(value))}
+                  className="text-fg-tertiary hover:text-fg-primary transition-colors p-1 -ml-1"
+                  aria-label={t('removeLevel') || 'Retirer ce niveau'}
+                >
+                  <XMarkIcon className="w-4 h-4" />
+                </button>
+              </>
+            )}
+
+            {/* Content */}
+            <span className={connectorCls}>{of}</span>
+            <input
+              type="number" step="any" min="0" className={numCls}
+              value={fmtNum(value.contentQuantity)}
+              onChange={(e) => onChange({ ...value, contentQuantity: +e.target.value })}
+              placeholder="0"
+            />
+            <select
+              className={selectCls}
+              value={value.contentUnit}
+              onChange={(e) => onChange({ ...value, contentUnit: e.target.value as BaseUnit })}
+            >
+              {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function LevelRow({
-  label, qty, qtyStep, onQtyChange, unit, unitOptions, onUnitChange, onRemove, inputCls, labelCls,
+function Step1UnitSelect({
+  unit, onChange, t,
 }: {
-  label: string;
-  qty: number;
-  qtyStep?: number | 'any';
-  onQtyChange: (n: number) => void;
   unit: string;
-  unitOptions: { value: string; label: string }[];
-  onUnitChange: (u: string) => void;
-  onRemove?: () => void;
-  inputCls: string;
-  labelCls: string;
+  onChange: (u: string) => void;
+  t: (k: string) => string;
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className={labelCls + ' mb-0'}>{label}</label>
-        {onRemove && (
-          <button type="button" onClick={onRemove} className="text-fg-secondary hover:text-fg-primary transition-colors">
-            <XMarkIcon className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-      <div className="grid grid-cols-[2fr_1fr] gap-2">
-        <input
-          type="number" step={qtyStep ?? 'any'} min="0" className={inputCls}
-          value={fmtNum(qty)}
-          onChange={(e) => onQtyChange(+e.target.value)}
-          placeholder="0"
-        />
-        <select className={inputCls} value={unit} onChange={(e) => onUnitChange(e.target.value)}>
-          {unitOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
-      </div>
-    </div>
+    <select className={selectCls} value={unit} onChange={(e) => onChange(e.target.value)}>
+      <optgroup label={t('measurableUnits') || 'Mesurables'}>
+        {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+      </optgroup>
+      <optgroup label={t('packagingUnits') || 'Conditionnements'}>
+        {Array.from(new Set([...OUTER_UNITS, ...INNER_UNITS])).map((u) => (
+          <option key={u} value={u}>{labelFor(u, t)}</option>
+        ))}
+      </optgroup>
+    </select>
   );
 }
+
+// ─── Sub-components ────────────────────────────────────────────────────────
 
 function LiveFeedback({ cost, costTTC, unit, t }: { cost: number; costTTC: number; unit: string; t: (k: string) => string }) {
   return (
