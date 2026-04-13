@@ -372,7 +372,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
         <button
           type="button"
           onClick={() => onChange(demoteToDirect(value))}
-          className="text-[13px] font-medium text-fg-tertiary hover:text-fg-primary transition-colors"
+          className="text-[12px] font-normal text-fg-tertiary hover:text-fg-secondary hover:underline underline-offset-2 transition-colors self-start"
         >
           − {t('removeIntermediateLevel') || 'Retirer le niveau intermédiaire'}
         </button>
@@ -400,6 +400,9 @@ const fieldStyle: React.CSSProperties = {
   borderColor: 'rgba(255,255,255,0.08)',
 };
 const numCls = `${fieldBase} w-16 text-center tabular-nums`;
+// Content quantities are commonly 3–4 digits (400, 500, 1000, 1500), so the
+// content-pair number gets a wider field than the outer/inner pairs.
+const numClsWide = `${fieldBase} w-24 text-center tabular-nums`;
 const priceNumCls = `${fieldBase} w-24 text-center text-[15px] font-semibold tabular-nums`;
 const selectCls = `${fieldBase} pr-7 max-w-[9rem]`;
 const connectorCls = 'text-[13px] text-fg-secondary whitespace-nowrap';
@@ -467,7 +470,7 @@ function SentenceBuilder({
   const contentPair = value.type !== 'simple' && (
     <span className={pairCls}>
       <input
-        type="number" step="any" min="0" className={numCls} style={fieldStyle}
+        type="number" step="any" min="0" className={numClsWide} style={fieldStyle}
         value={fmtNum(value.contentQuantity)}
         onChange={(e) => onChange({ ...value, contentQuantity: +e.target.value })}
         placeholder="0"
