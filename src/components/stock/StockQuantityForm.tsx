@@ -447,8 +447,17 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
 //   direct:   [outerQty] [outerUnit ▾]   de   [contentQty] [contentUnit ▾]
 //   nested:   [outerQty] [outerUnit ▾]   contenant   [innerQty] [innerUnit ▾] [×]   de   [contentQty] [contentUnit ▾]
 
-const numCls = 'input py-1.5 text-sm w-20 text-center';
-const selectCls = 'input py-1.5 text-sm w-auto pr-7 max-w-[10rem]';
+// Inline-sentence inputs intentionally bypass the global `.input` class because
+// it pins `width: 100%` and large padding via @apply, which would force every
+// segment onto its own line and defeat the sentence layout.
+const fieldBase = 'rounded-standard border px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent';
+const fieldStyle: React.CSSProperties = {
+  background: 'var(--surface)',
+  color: 'var(--text-primary)',
+  borderColor: 'var(--divider)',
+};
+const numCls = `${fieldBase} w-20 text-center`;
+const selectCls = `${fieldBase} pr-7 max-w-[10rem]`;
 const connectorCls = 'text-sm text-fg-secondary';
 
 function SentenceBuilder({
@@ -471,7 +480,7 @@ function SentenceBuilder({
         {value.type === 'simple' ? (
           <>
             <input
-              type="number" step="any" min="0" className={numCls}
+              type="number" step="any" min="0" className={numCls} style={fieldStyle}
               value={fmtNum(value.quantity)}
               onChange={(e) => onChange({ ...value, quantity: +e.target.value })}
               placeholder="0"
@@ -482,7 +491,7 @@ function SentenceBuilder({
           <>
             {/* Outer */}
             <input
-              type="number" step={1} min="0" className={numCls}
+              type="number" step={1} min="0" className={numCls} style={fieldStyle}
               value={fmtNum(value.outerQuantity)}
               onChange={(e) => {
                 const q = +e.target.value;
@@ -498,13 +507,14 @@ function SentenceBuilder({
               <>
                 <span className={connectorCls}>{containing}</span>
                 <input
-                  type="number" step={1} min="0" className={numCls}
+                  type="number" step={1} min="0" className={numCls} style={fieldStyle}
                   value={fmtNum(value.innerQuantity)}
                   onChange={(e) => onChange({ ...value, innerQuantity: +e.target.value })}
                   placeholder="0"
                 />
                 <select
                   className={selectCls}
+                  style={fieldStyle}
                   value={value.innerUnit}
                   onChange={(e) => {
                     const u = e.target.value as PackagingUnit;
@@ -531,13 +541,14 @@ function SentenceBuilder({
             {/* Content */}
             <span className={connectorCls}>{of}</span>
             <input
-              type="number" step="any" min="0" className={numCls}
+              type="number" step="any" min="0" className={numCls} style={fieldStyle}
               value={fmtNum(value.contentQuantity)}
               onChange={(e) => onChange({ ...value, contentQuantity: +e.target.value })}
               placeholder="0"
             />
             <select
               className={selectCls}
+              style={fieldStyle}
               value={value.contentUnit}
               onChange={(e) => onChange({ ...value, contentUnit: e.target.value as BaseUnit })}
             >
@@ -558,7 +569,7 @@ function Step1UnitSelect({
   t: (k: string) => string;
 }) {
   return (
-    <select className={selectCls} value={unit} onChange={(e) => onChange(e.target.value)}>
+    <select className={selectCls} style={fieldStyle} value={unit} onChange={(e) => onChange(e.target.value)}>
       <optgroup label={t('measurableUnits') || 'Mesurables'}>
         {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
       </optgroup>
