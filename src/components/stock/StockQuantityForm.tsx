@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type BaseUnit = 'g' | 'kg' | 'ml' | 'l' | 'unit';
 export type PackagingUnit =
   | 'carton' | 'pack' | 'box' | 'bag' | 'bottle'
-  | 'can' | 'preserve' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
+  | 'can' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
   | 'crate' | 'sack' | 'case';
 
 export type StockInput =
@@ -44,7 +44,7 @@ const BASE_UNITS: BaseUnit[] = ['g', 'kg', 'ml', 'l', 'unit'];
 // Curated per-level option sets. Kept short on purpose so the dropdown is
 // a quick choice; legacy values not in the list are surfaced via `withCurrent`.
 const OUTER_UNITS: PackagingUnit[] = ['carton', 'pack'];
-const INNER_UNITS: PackagingUnit[] = ['preserve', 'jar', 'packet', 'brick'];
+const INNER_UNITS: PackagingUnit[] = ['can', 'jar', 'packet', 'brick'];
 
 /** Render a curated option list while still surfacing a legacy value (e.g.
  *  `crate`, `bottle`) at the top so existing data isn't silently dropped. */
@@ -57,7 +57,7 @@ function withCurrent<T extends string>(list: T[], current: T | undefined): T[] {
  *  either level — we pick one canonical key so the label is consistent. */
 const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   carton: 'ct_carton', pack: 'ct_pack', crate: 'ct_crate', sack: 'ct_sack', case: 'ct_case',
-  bottle: 'ut_bottle', can: 'ut_can', preserve: 'ut_preserve', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
+  bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
 };
 const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
@@ -80,7 +80,7 @@ function isBaseUnit(u: string): u is BaseUnit {
 // Smart defaults: when a packaging unit is chosen, pre-fill the measurable unit below it.
 const PACKAGING_CONTENT_DEFAULT: Partial<Record<PackagingUnit, BaseUnit>> = {
   bottle: 'ml', brick: 'ml',
-  can: 'g', preserve: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g',
+  can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g',
   bag: 'kg', sack: 'kg',
   carton: 'g', crate: 'kg', case: 'g', pack: 'g',
 };
@@ -368,13 +368,22 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           The "−" link replaces the old XMarkIcon next to the inner pair, which
           read as multiplication in a sentence already full of × semantics. */}
       {value.type === 'packaged-direct' && (
-        <button
-          type="button"
-          onClick={() => onChange(promoteToNested(value))}
-          className="text-[13px] font-medium text-brand-500 hover:text-brand-400 transition-colors"
-        >
-          + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onChange(promoteToNested(value))}
+            className="text-[13px] font-medium text-brand-500 hover:text-brand-400 transition-colors"
+          >
+            + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
+          </button>
+          <span
+            className="inline-flex items-center text-fg-tertiary hover:text-fg-secondary cursor-help transition-colors"
+            title={t('intermediateLevelHelp') || 'Ajoutez un niveau entre le contenant extérieur et le contenu : par exemple un carton (extérieur) contenant des conserves (niveau intermédiaire) de 400 g chacune.'}
+            aria-label={t('intermediateLevelHelp') || ''}
+          >
+            <InformationCircleIcon className="w-4 h-4" />
+          </span>
+        </div>
       )}
 
       <PriceSentence value={value} d={d} vm={vm} onChange={onChange} t={t} />
