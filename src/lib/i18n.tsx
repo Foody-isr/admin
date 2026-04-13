@@ -705,6 +705,14 @@ const translations: Record<Locale, Record<string, string>> = {
     skipped: 'Skipped',
     nothingToImport: 'All items are skipped — nothing to import.',
     deleteStockItem: 'Delete this stock item?',
+    reviewNeededBanner: 'Check this row against the voucher before importing.',
+    reviewReasonMathMismatch: 'The quantities do not match the line total on the voucher.',
+    reviewReasonMissingSize: 'The size per unit (e.g. 240 g, 1 L) is missing — please enter it.',
+    reviewReasonMissingPackCount: 'The outer-container count looks wrong — please verify.',
+    reviewReasonLowConfidence: 'The AI was unsure about this row — please verify.',
+    reviewReasonDuplicateRow: 'Two items were read from the same voucher row — please verify.',
+    reviewAcknowledge: 'Mark as checked',
+    reviewBlockedBanner: '{n} row(s) still need review — edit or acknowledge them before importing.',
 
     // ── Kitchen Prep ──
     prepItems: 'Prep Items',
@@ -1952,6 +1960,14 @@ const translations: Record<Locale, Record<string, string>> = {
     skipped: 'דולג',
     nothingToImport: 'כל הפריטים דולגו — אין מה לייבא.',
     deleteStockItem: 'למחוק פריט מלאי זה?',
+    reviewNeededBanner: 'בדוק שורה זו מול תעודת המשלוח לפני הייבוא.',
+    reviewReasonMathMismatch: 'הכמויות לא תואמות את סך השורה בתעודה.',
+    reviewReasonMissingSize: 'גודל היחידה (למשל 240 גר, 1 ליטר) חסר — הזן אותו.',
+    reviewReasonMissingPackCount: 'מספר האריזות נראה שגוי — אמת את השדה.',
+    reviewReasonLowConfidence: 'ה-AI לא היה בטוח בשורה זו — אמת את הנתונים.',
+    reviewReasonDuplicateRow: 'שני פריטים נקראו מאותה שורה בתעודה — אמת את הנתונים.',
+    reviewAcknowledge: 'סמן כנבדק',
+    reviewBlockedBanner: '{n} שורות עדיין דורשות בדיקה — ערוך או סמן אותן כנבדקות לפני הייבוא.',
 
     // ── Kitchen Prep ──
     prepItems: 'פריטי הכנה',
@@ -3194,6 +3210,14 @@ const translations: Record<Locale, Record<string, string>> = {
     skipped: 'Ignoré',
     nothingToImport: 'Tous les articles sont ignorés — rien à importer.',
     deleteStockItem: 'Supprimer cet article en stock ?',
+    reviewNeededBanner: 'Vérifiez cette ligne avec le bon de livraison avant de valider.',
+    reviewReasonMathMismatch: 'Les quantités ne correspondent pas au total de la ligne du bon.',
+    reviewReasonMissingSize: "La taille par unité (ex. 240 g, 1 L) est manquante — saisissez-la.",
+    reviewReasonMissingPackCount: "Le nombre d'emballages semble incorrect — vérifiez le champ.",
+    reviewReasonLowConfidence: "L'IA n'était pas sûre de cette ligne — vérifiez les données.",
+    reviewReasonDuplicateRow: "Deux articles ont été lus sur la même ligne du bon — vérifiez les données.",
+    reviewAcknowledge: 'Marquer comme vérifié',
+    reviewBlockedBanner: '{n} ligne(s) restent à vérifier — modifiez-les ou marquez-les comme vérifiées avant de valider.',
 
     // ── Kitchen Prep ──
     prepItems: 'Articles de prép.',

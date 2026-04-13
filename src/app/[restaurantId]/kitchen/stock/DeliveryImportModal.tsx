@@ -141,6 +141,10 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   // packaging fields are zero — that's why toggling Basic→Advanced on an empty
   // line used to snap back).
   const [formStates, setFormStates] = useState<StockInput[]>([]);
+  // Indexes of flagged rows (`needs_review === true`) that the user has
+  // acknowledged — either by clicking "Mark as checked" or by editing any
+  // field on the row. Used to gate the "Confirm import" button.
+  const [reviewedItems, setReviewedItems] = useState<Set<number>>(new Set());
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string>(''); // MIME type for preview (from file or draft)
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
@@ -160,6 +164,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         setExtraction(detail.extraction);
         setEditedItems(detail.edited_items);
         setFormStates(detail.edited_items.map(lineToStockInput));
+        setReviewedItems(new Set());
         setSelectedSupplierId(detail.draft.supplier_id ?? 0);
         setNewSupplierName('');
         // Use the S3 document URL for preview
@@ -219,8 +224,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           unit: i.unit,
           category: i.category,
           cost_per_unit: i.estimated_cost,
-          pack_count: i.pack_count || i.quantity,
-          units_per_pack: i.units_per_pack || 1,
+          pack_count: i.pack_count ?? 0,
+          units_per_pack: i.units_per_pack ?? 0,
           price_per_pack: i.price_per_pack || 0,
           total_price: i.total_price || (i.estimated_cost * i.quantity),
           unit_size: i.unit_size || 0,
@@ -228,10 +233,14 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           container_type: i.container_type || '',
           unit_type: i.unit_type || '',
           price_includes_vat: matched?.price_includes_vat ?? false,
+          row_index: i.row_index,
+          needs_review: i.needs_review,
+          review_reason: i.review_reason,
         };
       });
       setEditedItems(newItems);
       setFormStates(newItems.map(lineToStockInput));
+      setReviewedItems(new Set());
       setPreviewUrl(URL.createObjectURL(file));
       setPreviewType(file.type);
       setStep('review');
@@ -242,10 +251,28 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     }
   };
 
+  // Count of flagged rows that haven't been edited/acknowledged and aren't skipped.
+  const unreviewedFlaggedCount = editedItems.reduce((n, it, idx) => (
+    it.needs_review && !it.skipped && !reviewedItems.has(idx) ? n + 1 : n
+  ), 0);
+
+  const markReviewed = (idx: number) => {
+    setReviewedItems((prev) => {
+      if (prev.has(idx)) return prev;
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+  };
+
   const handleConfirm = async () => {
     const itemsToImport = editedItems.filter((i) => !i.skipped);
     if (itemsToImport.length === 0) {
       alert(t('nothingToImport'));
+      return;
+    }
+    if (unreviewedFlaggedCount > 0) {
+      alert(t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)));
       return;
     }
     setLoading(true);
@@ -275,6 +302,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
   const updateItem = (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => {
     setEditedItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
+    // Editing any field implicitly acknowledges the warning.
+    markReviewed(idx);
   };
 
   const updateFormState = (idx: number, v: StockInput) => {
@@ -407,7 +436,12 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-secondary text-sm">
             {savingDraft ? t('saving') : t('saveDraft')}
           </button>
-          <button onClick={handleConfirm} disabled={loading} className="btn-primary text-sm">
+          <button
+            onClick={handleConfirm}
+            disabled={loading || unreviewedFlaggedCount > 0}
+            title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+            className="btn-primary text-sm"
+          >
             {loading ? t('confirming') : t('confirmImport')}
           </button>
           <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
@@ -473,6 +507,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             updateFormState={updateFormState}
             vatRate={vatRate}
             t={t}
+            reviewedItems={reviewedItems}
+            markReviewed={markReviewed}
           />
         </div>
 
@@ -489,6 +525,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               updateFormState={updateFormState}
               vatRate={vatRate}
               t={t}
+              reviewedItems={reviewedItems}
+              markReviewed={markReviewed}
             />
           </div>
         )}
@@ -500,7 +538,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
 function ItemsList({
-  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, t,
+  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, t, reviewedItems, markReviewed,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
   formStates: StockInput[];
@@ -511,18 +549,44 @@ function ItemsList({
   updateFormState: (idx: number, v: StockInput) => void;
   vatRate: number;
   t: (key: string) => string;
+  reviewedItems: Set<number>;
+  markReviewed: (idx: number) => void;
 }) {
   return (
     <div className="space-y-3">
       {editedItems.map((item, idx) => {
         const isExisting = !!item.stock_item_id;
         const isSkipped = !!item.skipped;
+        const isFlagged = !!item.needs_review && !isSkipped && !reviewedItems.has(idx);
+        const reasonKey = (() => {
+          switch (item.review_reason) {
+            case 'math_mismatch':       return 'reviewReasonMathMismatch';
+            case 'missing_size':        return 'reviewReasonMissingSize';
+            case 'missing_pack_count':  return 'reviewReasonMissingPackCount';
+            case 'low_confidence':      return 'reviewReasonLowConfidence';
+            case 'duplicate_row':       return 'reviewReasonDuplicateRow';
+            default:                    return 'reviewNeededBanner';
+          }
+        })();
         return (
           <div
             key={idx}
-            className="p-4 rounded-lg space-y-3"
+            className={`p-4 rounded-lg space-y-3 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
             style={{ background: 'var(--surface-subtle)', opacity: isSkipped ? 0.5 : 1 }}
           >
+            {isFlagged && (
+              <div className="flex items-start gap-2 p-2 rounded-md bg-amber-500/10 text-amber-600 text-xs">
+                <span aria-hidden className="mt-0.5">⚠</span>
+                <span className="flex-1">{t(reasonKey)}</span>
+                <button
+                  type="button"
+                  onClick={() => markReviewed(idx)}
+                  className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-amber-500/40 hover:bg-amber-500/20"
+                >
+                  {t('reviewAcknowledge')}
+                </button>
+              </div>
+            )}
             {/* Row 1: Stock item match */}
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0" style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>

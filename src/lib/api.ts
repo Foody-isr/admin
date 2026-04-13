@@ -689,6 +689,9 @@ export interface DeliveryItem {
   matched_item_name: string;
   confidence: number;
   is_new: boolean;
+  row_index?: number;
+  needs_review?: boolean;
+  review_reason?: string;
 }
 
 export interface DeliveryExtraction {
@@ -716,6 +719,9 @@ export interface ConfirmDeliveryItemInput {
   unit_type?: string;
   price_includes_vat?: boolean;
   skipped?: boolean;
+  row_index?: number;
+  needs_review?: boolean;
+  review_reason?: string;
 }
 
 export interface ConfirmDeliveryInput {
