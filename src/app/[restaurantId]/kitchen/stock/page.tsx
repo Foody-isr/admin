@@ -290,7 +290,7 @@ export default function StockPage() {
         </div>
       ) : (
         <div>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-xs text-fg-secondary tracking-wider">
                 <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
@@ -318,7 +318,7 @@ export default function StockPage() {
                 return (
                   <tr
                     key={item.id}
-                    className={`hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
+                    className={`hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
                   >
                     <td className="py-3.5 px-2 w-10">
                       <input type="checkbox"

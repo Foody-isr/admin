@@ -216,7 +216,7 @@ export default function ItemLibraryPage() {
         </div>
       ) : (
         <div>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-xs text-fg-secondary tracking-wider">
                 <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
@@ -238,7 +238,7 @@ export default function ItemLibraryPage() {
               {/* Quick Create row */}
               {!quickCreateOpen ? (
                 <tr
-                  className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)]"
+                  className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)]"
                   onClick={() => { setQuickCreateOpen(true); if (!qcCategoryId && categories.length > 0) setQcCategoryId(categories[0].id); }}
                 >
                   <td colSpan={6} className="py-3 px-2">
@@ -248,7 +248,7 @@ export default function ItemLibraryPage() {
                   </td>
                 </tr>
               ) : (
-                <tr className="bg-[var(--surface-subtle)] border-b border-[var(--divider)]">
+                <tr className="bg-[var(--surface-subtle)] [&>td]:border-b [&>td]:border-[var(--divider)]">
                   <td className="py-3 px-2" />
                   <td className="py-3 px-2">
                     <input
@@ -314,7 +314,7 @@ export default function ItemLibraryPage() {
                   <React.Fragment key={item.id}>
                     {/* Parent item row */}
                     <tr
-                      className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)]"
+                      className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)]"
                       onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
                     >
                       <td className="py-3.5 px-2" onClick={(e) => { e.stopPropagation(); if (hasVariants) toggleExpand(item.id); }}>
@@ -377,7 +377,7 @@ export default function ItemLibraryPage() {
                     {hasVariants && isExpanded && variants.map((v) => (
                       <tr
                         key={`${item.id}-v-${v.id}`}
-                        className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors border-b border-[var(--divider)] bg-[var(--surface-subtle)]/30"
+                        className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)] bg-[var(--surface-subtle)]/30"
                         onClick={() => router.push(`/${rid}/menu/items/${item.id}/variants`)}
                       >
                         <td className="py-2.5 px-2" />
