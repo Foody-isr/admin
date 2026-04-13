@@ -663,13 +663,13 @@ function StockItemModal({ rid, editing, categories, vatRate, onClose, onSaved }:
           />
           {displayImage ? (
             <div
-              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)]"
+              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)] bg-[var(--surface-muted,rgba(0,0,0,0.2))]"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={displayImage} alt={name} className="w-full h-52 object-cover" />
+              <img src={displayImage} alt={name} className="w-full h-52 object-contain" />
               {uploading && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                   <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
