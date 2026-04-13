@@ -368,15 +368,6 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
         </button>
       )}
-      {value.type === 'packaged-nested' && (
-        <button
-          type="button"
-          onClick={() => onChange(demoteToDirect(value))}
-          className="text-[12px] font-normal text-fg-tertiary hover:text-fg-secondary hover:underline underline-offset-2 transition-colors self-start"
-        >
-          − {t('removeIntermediateLevel') || 'Retirer le niveau intermédiaire'}
-        </button>
-      )}
 
       <PriceSentence value={value} d={d} vm={vm} onChange={onChange} t={t} />
     </div>
@@ -454,7 +445,14 @@ function SentenceBuilder({
         style={fieldStyle}
         value={value.innerUnit}
         onChange={(e) => {
-          const u = e.target.value as PackagingUnit;
+          const v = e.target.value;
+          // Sentinel option at the bottom of the dropdown lets the user collapse
+          // the intermediate level without an extra control on the page.
+          if (v === '__remove__') {
+            onChange(demoteToDirect(value));
+            return;
+          }
+          const u = v as PackagingUnit;
           onChange({
             ...value,
             innerUnit: u,
@@ -463,6 +461,8 @@ function SentenceBuilder({
         }}
       >
         {INNER_UNITS.map((u) => <option key={u} value={u}>{labelFor(u, t)}</option>)}
+        <option disabled>──────────</option>
+        <option value="__remove__">— {t('removeIntermediateLevel') || 'Retirer le niveau intermédiaire'}</option>
       </select>
     </span>
   );
