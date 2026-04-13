@@ -10,7 +10,7 @@ import { ChevronDownIcon } from '@heroicons/react/24/outline';
 export type BaseUnit = 'g' | 'kg' | 'ml' | 'l' | 'unit';
 export type PackagingUnit =
   | 'carton' | 'pack' | 'box' | 'bag' | 'bottle'
-  | 'can' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
+  | 'can' | 'preserve' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
   | 'crate' | 'sack' | 'case';
 
 export type StockInput =
@@ -41,15 +41,23 @@ export type StockInput =
 
 const BASE_UNITS: BaseUnit[] = ['g', 'kg', 'ml', 'l', 'unit'];
 
-const OUTER_UNITS: PackagingUnit[] = ['carton', 'crate', 'case', 'pack', 'sack', 'bag', 'box'];
-const INNER_UNITS: PackagingUnit[] = ['bottle', 'can', 'jar', 'box', 'bag', 'brick', 'packet', 'sachet', 'tub', 'pack'];
+// Curated per-level option sets. Kept short on purpose so the dropdown is
+// a quick choice; legacy values not in the list are surfaced via `withCurrent`.
+const OUTER_UNITS: PackagingUnit[] = ['carton', 'pack'];
+const INNER_UNITS: PackagingUnit[] = ['preserve', 'jar', 'packet', 'brick'];
+
+/** Render a curated option list while still surfacing a legacy value (e.g.
+ *  `crate`, `bottle`) at the top so existing data isn't silently dropped. */
+function withCurrent<T extends string>(list: T[], current: T | undefined): T[] {
+  return current && !list.includes(current) ? [current, ...list] : list;
+}
 
 /** Canonical i18n key per packaging unit. Traditionally-outer types use `ct_`,
  *  traditionally-inner types use `ut_`. Some (bag, box, pack) can appear on
  *  either level — we pick one canonical key so the label is consistent. */
 const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   carton: 'ct_carton', pack: 'ct_pack', crate: 'ct_crate', sack: 'ct_sack', case: 'ct_case',
-  bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
+  bottle: 'ut_bottle', can: 'ut_can', preserve: 'ut_preserve', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
 };
 const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
@@ -72,7 +80,7 @@ function isBaseUnit(u: string): u is BaseUnit {
 // Smart defaults: when a packaging unit is chosen, pre-fill the measurable unit below it.
 const PACKAGING_CONTENT_DEFAULT: Partial<Record<PackagingUnit, BaseUnit>> = {
   bottle: 'ml', brick: 'ml',
-  can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g',
+  can: 'g', preserve: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g',
   bag: 'kg', sack: 'kg',
   carton: 'g', crate: 'kg', case: 'g', pack: 'g',
 };
@@ -460,7 +468,9 @@ function SentenceBuilder({
           });
         }}
       >
-        {INNER_UNITS.map((u) => <option key={u} value={u}>{labelFor(u, t)}</option>)}
+        {withCurrent(INNER_UNITS, value.innerUnit).map((u) => (
+          <option key={u} value={u}>{labelFor(u, t)}</option>
+        ))}
         <option disabled>──────────</option>
         <option value="__remove__">— {t('removeIntermediateLevel') || 'Retirer le niveau intermédiaire'}</option>
       </select>
@@ -535,13 +545,18 @@ function Step1UnitSelect({
   onChange: (u: string) => void;
   t: (k: string) => string;
 }) {
+  // First-level select: measurables + curated outer packaging only.
+  // Surface a legacy packaging value (e.g. 'crate', 'sack') if the existing
+  // item uses one not in OUTER_UNITS, so nothing silently disappears.
+  const currentPackaging = !isBaseUnit(unit) ? (unit as PackagingUnit) : undefined;
+  const outerOptions = withCurrent(OUTER_UNITS, currentPackaging);
   return (
     <select className={selectCls} style={fieldStyle} value={unit} onChange={(e) => onChange(e.target.value)}>
       <optgroup label={t('measurableUnits') || 'Mesurables'}>
         {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
       </optgroup>
       <optgroup label={t('packagingUnits') || 'Conditionnements'}>
-        {Array.from(new Set([...OUTER_UNITS, ...INNER_UNITS])).map((u) => (
+        {outerOptions.map((u) => (
           <option key={u} value={u}>{labelFor(u, t)}</option>
         ))}
       </optgroup>

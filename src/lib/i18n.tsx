@@ -852,7 +852,7 @@ const translations: Record<Locale, Record<string, string>> = {
     innerUnit: 'Inner unit',
     contentPer: 'Content per',
     ct_carton: 'Carton', ct_pack: 'Pack', ct_crate: 'Crate', ct_sack: 'Sack', ct_case: 'Case',
-    ut_bottle: 'Bottle', ut_can: 'Can', ut_jar: 'Jar', ut_bag: 'Bag', ut_brick: 'Brick',
+    ut_bottle: 'Bottle', ut_can: 'Can', ut_preserve: 'Preserve', ut_jar: 'Jar', ut_bag: 'Bag', ut_brick: 'Brick',
     ut_packet: 'Packet', ut_box: 'Box', ut_sachet: 'Sachet', ut_tub: 'Tub',
     // Stock quantity form — conversational copy
     youBought: 'You bought',
@@ -2094,7 +2094,7 @@ const translations: Record<Locale, Record<string, string>> = {
     innerUnit: 'יחידה פנימית',
     contentPer: 'תכולה ל',
     ct_carton: 'קרטון', ct_pack: 'חבילה', ct_crate: 'ארגז', ct_sack: 'שק', ct_case: 'מארז',
-    ut_bottle: 'בקבוק', ut_can: 'פחית', ut_jar: 'צנצנת', ut_bag: 'שקית', ut_brick: 'קרטונית',
+    ut_bottle: 'בקבוק', ut_can: 'פחית', ut_preserve: 'קופסת שימור', ut_jar: 'צנצנת', ut_bag: 'שקית', ut_brick: 'קרטונית',
     ut_packet: 'חבילה', ut_box: 'קופסה', ut_sachet: 'שקיק', ut_tub: 'קופסת פלסטיק',
     // Stock quantity form — conversational copy
     youBought: 'קנית',
@@ -3331,7 +3331,7 @@ const translations: Record<Locale, Record<string, string>> = {
     innerUnit: 'Unité intérieure',
     contentPer: 'Contenu par',
     ct_carton: 'Carton', ct_pack: 'Pack', ct_crate: 'Cageot', ct_sack: 'Sac', ct_case: 'Caisse',
-    ut_bottle: 'Bouteille', ut_can: 'Canette', ut_jar: 'Bocal', ut_bag: 'Sac', ut_brick: 'Brique',
+    ut_bottle: 'Bouteille', ut_can: 'Canette', ut_preserve: 'Conserve', ut_jar: 'Pot', ut_bag: 'Sac', ut_brick: 'Plaquette',
     ut_packet: 'Paquet', ut_box: 'Boîte', ut_sachet: 'Sachet', ut_tub: 'Pot',
     // Stock quantity form — conversational copy
     youBought: 'Vous avez acheté',
