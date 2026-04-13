@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon } from '@heroicons/react/24/outline';
@@ -550,10 +550,22 @@ function PriceSentence({
   const [level, setLevel] = useState<PriceLevel>(defaultLevel);
   const effective: PriceLevel = cycle.includes(level) ? level : defaultLevel;
 
-  const cycleNext = () => {
-    const i = cycle.indexOf(effective);
-    setLevel(cycle[(i + 1) % cycle.length]);
-  };
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   const displayed = (() => {
     switch (effective) {
@@ -590,16 +602,52 @@ function PriceSentence({
   };
 
   const canCycle = cycle.length > 1;
+  const levelOptionLabel = (l: PriceLevel) => {
+    const raw = labelForLevel(l);
+    return l === 'base' ? raw : raw.toLowerCase();
+  };
   const levelLabel = (label: React.ReactNode) => canCycle ? (
-    <button
-      type="button"
-      onClick={cycleNext}
-      title={t('changeLevel') || 'Changer le niveau'}
-      aria-label={t('changeLevel') || 'Changer le niveau'}
-      className="font-semibold text-fg-primary decoration-dotted decoration-fg-tertiary underline underline-offset-[5px] hover:text-brand-500 hover:decoration-brand-500 cursor-help transition-colors"
-    >
-      {label}
-    </button>
+    <span className="relative inline-block" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setMenuOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        className="font-semibold text-fg-primary decoration-dotted decoration-fg-tertiary underline underline-offset-[5px] hover:text-brand-500 hover:decoration-brand-500 transition-colors"
+      >
+        {label}
+      </button>
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute left-0 top-full mt-1.5 z-20 min-w-[10rem] rounded-lg border shadow-lg py-1"
+          style={{ background: 'var(--surface)', borderColor: 'var(--divider)' }}
+        >
+          <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-fg-tertiary">
+            {t('displayPriceIn') || 'Afficher le prix en'}
+          </div>
+          {cycle.map((l) => {
+            const active = l === effective;
+            return (
+              <button
+                key={l}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => { setLevel(l); setMenuOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+                  active
+                    ? 'text-brand-500 font-semibold'
+                    : 'text-fg-primary hover:bg-[var(--surface-subtle)]'
+                }`}
+              >
+                {active ? '• ' : '   '}{levelOptionLabel(l)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </span>
   ) : (
     <span className="font-semibold text-fg-primary">{label}</span>
   );
