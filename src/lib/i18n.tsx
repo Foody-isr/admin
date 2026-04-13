@@ -700,6 +700,10 @@ const translations: Record<Locale, Record<string, string>> = {
     unit: 'Unit',
     confirming: 'Confirming...',
     confirmImport: 'Confirm Import',
+    skip: 'Skip',
+    unskip: 'Restore',
+    skipped: 'Skipped',
+    nothingToImport: 'All items are skipped — nothing to import.',
     deleteStockItem: 'Delete this stock item?',
 
     // ── Kitchen Prep ──
@@ -1943,6 +1947,10 @@ const translations: Record<Locale, Record<string, string>> = {
     unit: 'יחידה',
     confirming: 'מאשר...',
     confirmImport: 'אשר ייבוא',
+    skip: 'דלג',
+    unskip: 'שחזר',
+    skipped: 'דולג',
+    nothingToImport: 'כל הפריטים דולגו — אין מה לייבא.',
     deleteStockItem: 'למחוק פריט מלאי זה?',
 
     // ── Kitchen Prep ──
@@ -3181,6 +3189,10 @@ const translations: Record<Locale, Record<string, string>> = {
     unit: 'Unité',
     confirming: 'Confirmation...',
     confirmImport: "Confirmer l'import",
+    skip: 'Ignorer',
+    unskip: 'Rétablir',
+    skipped: 'Ignoré',
+    nothingToImport: 'Tous les articles sont ignorés — rien à importer.',
     deleteStockItem: 'Supprimer cet article en stock ?',
 
     // ── Kitchen Prep ──

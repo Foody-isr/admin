@@ -243,6 +243,11 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   };
 
   const handleConfirm = async () => {
+    const itemsToImport = editedItems.filter((i) => !i.skipped);
+    if (itemsToImport.length === 0) {
+      alert(t('nothingToImport'));
+      return;
+    }
     setLoading(true);
     try {
       // Use user-typed name for new suppliers, otherwise use AI-extracted or DB supplier name
@@ -253,7 +258,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           : extraction?.supplier_name) ?? '';
       await confirmDelivery(rid, {
         supplier_name: supplierName,
-        items: editedItems,
+        items: itemsToImport,
       });
       // Delete draft if this was resumed from one
       if (currentDraftId) {
@@ -386,9 +391,16 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 : extraction?.supplier_name;
             return displaySupplier ? <span className="text-sm text-fg-secondary">— {displaySupplier}</span> : null;
           })()}
-          <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
-            {editedItems.length} {t('items')}
-          </span>
+          {(() => {
+            const skipped = editedItems.filter((i) => i.skipped).length;
+            const active = editedItems.length - skipped;
+            return (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
+                {active} {t('items')}
+                {skipped > 0 && <> · {skipped} {t('skipped').toLowerCase()}</>}
+              </span>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
@@ -504,11 +516,16 @@ function ItemsList({
     <div className="space-y-3">
       {editedItems.map((item, idx) => {
         const isExisting = !!item.stock_item_id;
+        const isSkipped = !!item.skipped;
         return (
-          <div key={idx} className="p-4 rounded-lg space-y-3" style={{ background: 'var(--surface-subtle)' }}>
+          <div
+            key={idx}
+            className="p-4 rounded-lg space-y-3"
+            style={{ background: 'var(--surface-subtle)', opacity: isSkipped ? 0.5 : 1 }}
+          >
             {/* Row 1: Stock item match */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0" style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>
                 <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('matchToStockItem')}</label>
                 <SearchableSelect
                   value={item.stock_item_id ? String(item.stock_item_id) : ''}
@@ -524,14 +541,28 @@ function ItemsList({
                   placeholder={t('matchToStockItem')}
                 />
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 ${isExisting ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                {isExisting ? t('existing') : t('new')}
-              </span>
+              {isSkipped ? (
+                <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 bg-fg-tertiary/10 text-fg-secondary">
+                  {t('skipped')}
+                </span>
+              ) : (
+                <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 ${isExisting ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                  {isExisting ? t('existing') : t('new')}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => updateItem(idx, { skipped: !isSkipped })}
+                className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary"
+                style={{ opacity: 1 }}
+              >
+                {isSkipped ? t('unskip') : t('skip')}
+              </button>
             </div>
 
             {/* Original name (supplier language) */}
             {item.original_name && item.original_name !== item.name && (
-              <p className="text-xs text-fg-secondary" dir="auto">
+              <p className="text-xs text-fg-secondary" dir="auto" style={{ textDecoration: isSkipped ? 'line-through' : undefined }}>
                 <span className="text-fg-tertiary">{t('originalName')}:</span> {item.original_name}
               </p>
             )}
@@ -542,11 +573,13 @@ function ItemsList({
                 <div>
                   <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
                   <input className="input w-full py-1.5 text-sm" value={item.name}
+                    disabled={isSkipped}
                     onChange={(e) => updateItem(idx, { name: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
                   <select className="input w-full py-1.5 text-sm" value={item.category}
+                    disabled={isSkipped}
                     onChange={(e) => updateItem(idx, { category: e.target.value })}>
                     <option value="">{t('category')}</option>
                     {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -561,12 +594,14 @@ function ItemsList({
             {/* Shared quantity / packaging / price form.
                 Reads from persisted per-line formStates so mode + packaging
                 fields stick across renders (e.g. empty Advanced mode). */}
-            <StockQuantityForm
-              value={formStates[idx] ?? lineToStockInput(item)}
-              onChange={(v) => updateFormState(idx, v)}
-              vatRate={vatRate}
-              compact
-            />
+            <div style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>
+              <StockQuantityForm
+                value={formStates[idx] ?? lineToStockInput(item)}
+                onChange={(v) => updateFormState(idx, v)}
+                vatRate={vatRate}
+                compact
+              />
+            </div>
           </div>
         );
       })}

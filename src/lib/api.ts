@@ -713,6 +713,7 @@ export interface ConfirmDeliveryItemInput {
   container_type?: string;
   unit_type?: string;
   price_includes_vat?: boolean;
+  skipped?: boolean;
 }
 
 export interface ConfirmDeliveryInput {
