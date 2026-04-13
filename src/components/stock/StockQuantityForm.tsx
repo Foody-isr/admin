@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -356,14 +356,25 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
         t={t}
       />
 
-      {/* Promote link (direct → nested) */}
+      {/* Grow / shrink the packaging structure — matched pair of text links.
+          The "−" link replaces the old XMarkIcon next to the inner pair, which
+          read as multiplication in a sentence already full of × semantics. */}
       {value.type === 'packaged-direct' && (
         <button
           type="button"
           onClick={() => onChange(promoteToNested(value))}
-          className="text-sm font-medium text-brand-500 hover:text-brand-400 transition-colors"
+          className="text-[13px] font-medium text-brand-500 hover:text-brand-400 transition-colors"
         >
           + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
+        </button>
+      )}
+      {value.type === 'packaged-nested' && (
+        <button
+          type="button"
+          onClick={() => onChange(demoteToDirect(value))}
+          className="text-[13px] font-medium text-fg-tertiary hover:text-fg-primary transition-colors"
+        >
+          − {t('removeIntermediateLevel') || 'Retirer le niveau intermédiaire'}
         </button>
       )}
 
@@ -389,7 +400,7 @@ const fieldStyle: React.CSSProperties = {
   borderColor: 'rgba(255,255,255,0.08)',
 };
 const numCls = `${fieldBase} w-16 text-center tabular-nums`;
-const priceNumCls = `${fieldBase} w-28 text-center text-[18px] font-semibold tabular-nums`;
+const priceNumCls = `${fieldBase} w-24 text-center text-[15px] font-semibold tabular-nums`;
 const selectCls = `${fieldBase} pr-7 max-w-[9rem]`;
 const connectorCls = 'text-[13px] text-fg-secondary whitespace-nowrap';
 // Each [number][unit] pair wraps atomically so the unit never drops alone.
@@ -409,11 +420,74 @@ function SentenceBuilder({
   const containing = t('containing') || 'contenant';
   const of = t('of') || 'de';
 
+  const rowCls = 'flex flex-wrap items-center gap-2';
+
+  const outerPair = value.type !== 'simple' && (
+    <span className={pairCls}>
+      <input
+        type="number" step={1} min="0" className={numCls} style={fieldStyle}
+        value={fmtNum(value.outerQuantity)}
+        onChange={(e) => {
+          const q = +e.target.value;
+          const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
+          onChange({ ...value, outerQuantity: q, totalPrice: total });
+        }}
+        placeholder="0"
+      />
+      <Step1UnitSelect unit={value.outerUnit} onChange={onStep1UnitChange} t={t} />
+    </span>
+  );
+
+  const innerPair = value.type === 'packaged-nested' && (
+    <span className={pairCls}>
+      <input
+        type="number" step={1} min="0" className={numCls} style={fieldStyle}
+        value={fmtNum(value.innerQuantity)}
+        onChange={(e) => onChange({ ...value, innerQuantity: +e.target.value })}
+        placeholder="0"
+      />
+      <select
+        className={selectCls}
+        style={fieldStyle}
+        value={value.innerUnit}
+        onChange={(e) => {
+          const u = e.target.value as PackagingUnit;
+          onChange({
+            ...value,
+            innerUnit: u,
+            contentUnit: PACKAGING_CONTENT_DEFAULT[u] || value.contentUnit,
+          });
+        }}
+      >
+        {INNER_UNITS.map((u) => <option key={u} value={u}>{labelFor(u, t)}</option>)}
+      </select>
+    </span>
+  );
+
+  const contentPair = value.type !== 'simple' && (
+    <span className={pairCls}>
+      <input
+        type="number" step="any" min="0" className={numCls} style={fieldStyle}
+        value={fmtNum(value.contentQuantity)}
+        onChange={(e) => onChange({ ...value, contentQuantity: +e.target.value })}
+        placeholder="0"
+      />
+      <select
+        className={selectCls}
+        style={fieldStyle}
+        value={value.contentUnit}
+        onChange={(e) => onChange({ ...value, contentUnit: e.target.value as BaseUnit })}
+      >
+        {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+      </select>
+    </span>
+  );
+
   return (
     <div>
       <label className={labelCls}>{t('youBought') || 'Vous avez acheté'}</label>
-      <div className="flex flex-wrap items-center gap-2">
-        {value.type === 'simple' ? (
+      {value.type === 'simple' && (
+        <div className={rowCls}>
           <span className={pairCls}>
             <input
               type="number" step="any" min="0" className={numCls} style={fieldStyle}
@@ -423,82 +497,30 @@ function SentenceBuilder({
             />
             <Step1UnitSelect unit={value.unit} onChange={onStep1UnitChange} t={t} />
           </span>
-        ) : (
-          <>
-            {/* Outer */}
-            <span className={pairCls}>
-              <input
-                type="number" step={1} min="0" className={numCls} style={fieldStyle}
-                value={fmtNum(value.outerQuantity)}
-                onChange={(e) => {
-                  const q = +e.target.value;
-                  const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
-                  onChange({ ...value, outerQuantity: q, totalPrice: total });
-                }}
-                placeholder="0"
-              />
-              <Step1UnitSelect unit={value.outerUnit} onChange={onStep1UnitChange} t={t} />
-            </span>
-
-            {/* Inner (nested only) */}
-            {value.type === 'packaged-nested' && (
-              <>
-                <span className={connectorCls}>{containing}</span>
-                <span className={pairCls}>
-                  <input
-                    type="number" step={1} min="0" className={numCls} style={fieldStyle}
-                    value={fmtNum(value.innerQuantity)}
-                    onChange={(e) => onChange({ ...value, innerQuantity: +e.target.value })}
-                    placeholder="0"
-                  />
-                  <select
-                    className={selectCls}
-                    style={fieldStyle}
-                    value={value.innerUnit}
-                    onChange={(e) => {
-                      const u = e.target.value as PackagingUnit;
-                      onChange({
-                        ...value,
-                        innerUnit: u,
-                        contentUnit: PACKAGING_CONTENT_DEFAULT[u] || value.contentUnit,
-                      });
-                    }}
-                  >
-                    {INNER_UNITS.map((u) => <option key={u} value={u}>{labelFor(u, t)}</option>)}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => onChange(demoteToDirect(value))}
-                    className="text-fg-tertiary hover:text-fg-primary transition-colors p-1 -ml-1"
-                    aria-label={t('removeLevel') || 'Retirer ce niveau'}
-                  >
-                    <XMarkIcon className="w-4 h-4" />
-                  </button>
-                </span>
-              </>
-            )}
-
-            {/* Content */}
+        </div>
+      )}
+      {value.type === 'packaged-direct' && (
+        <div className={rowCls}>
+          {outerPair}
+          <span className={connectorCls}>{of}</span>
+          {contentPair}
+        </div>
+      )}
+      {value.type === 'packaged-nested' && (
+        // Break by clause, not by overflow: each "of …" clause gets its own row
+        // so the connector never dangles at end-of-line when the parent wraps.
+        <div className="space-y-1.5">
+          <div className={rowCls}>
+            {outerPair}
+            <span className={connectorCls}>{containing}</span>
+            {innerPair}
+          </div>
+          <div className={rowCls}>
             <span className={connectorCls}>{of}</span>
-            <span className={pairCls}>
-              <input
-                type="number" step="any" min="0" className={numCls} style={fieldStyle}
-                value={fmtNum(value.contentQuantity)}
-                onChange={(e) => onChange({ ...value, contentQuantity: +e.target.value })}
-                placeholder="0"
-              />
-              <select
-                className={selectCls}
-                style={fieldStyle}
-                value={value.contentUnit}
-                onChange={(e) => onChange({ ...value, contentUnit: e.target.value as BaseUnit })}
-              >
-                {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </span>
-          </>
-        )}
-      </div>
+            {contentPair}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
