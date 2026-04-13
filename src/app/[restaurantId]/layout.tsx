@@ -113,7 +113,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
         <AiChatProvider restaurantId={restaurantId}>
-          <div className="min-h-screen flex">
+          <div className="h-screen flex">
             <div className="flex flex-1 min-w-0">
               <Sidebar
                 restaurantId={restaurantId}
