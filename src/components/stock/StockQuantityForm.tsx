@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -53,6 +53,16 @@ const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
 };
 const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
+
+/** Full human name for a base unit, used in the "Display price in" menu
+ *  ("Par litre" reads better than "Par l"). Falls back to the abbreviation. */
+const BASE_UNIT_NAME_KEY: Record<BaseUnit, string> = {
+  g: 'unit_gram', kg: 'unit_kilogram', ml: 'unit_milliliter', l: 'unit_liter', unit: 'unit_piece',
+};
+const baseUnitName = (u: BaseUnit, t: (k: string) => string) => {
+  const translated = t(BASE_UNIT_NAME_KEY[u]);
+  return translated && translated !== BASE_UNIT_NAME_KEY[u] ? translated : u;
+};
 
 const BASE_UNIT_SET = new Set<BaseUnit>(BASE_UNITS);
 function isBaseUnit(u: string): u is BaseUnit {
@@ -568,6 +578,17 @@ function PriceSentence({
     };
   }, [menuOpen]);
 
+  // Brief highlight on the price input when the display level changes, so the
+  // user sees the number has been recomputed, not just renamed.
+  const [flash, setFlash] = useState(false);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    setFlash(true);
+    const id = setTimeout(() => setFlash(false), 450);
+    return () => clearTimeout(id);
+  }, [effective]);
+
   const displayed = (() => {
     switch (effective) {
       case 'outer': return d.pricePerOuter;
@@ -603,9 +624,12 @@ function PriceSentence({
   };
 
   const canCycle = cycle.length > 1;
-  const levelOptionLabel = (l: PriceLevel) => {
-    const raw = labelForLevel(l);
-    return l === 'base' ? raw : raw.toLowerCase();
+  // Menu rows read "Par bouteille" / "Par litre" — the user is picking a
+  // display mode, not changing a unit. Packaging names are lowercased.
+  const menuRowLabel = (l: PriceLevel): string => {
+    const par = t('perLevel') || 'Par';
+    if (l === 'base') return `${par} ${baseUnitName(d.baseUnit, t)}`;
+    return `${par} ${labelForLevel(l).toLowerCase()}`;
   };
   const levelLabel = (label: React.ReactNode) => canCycle ? (
     <span className="relative inline-block" ref={menuRef}>
@@ -614,17 +638,24 @@ function PriceSentence({
         onClick={() => setMenuOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        className="text-[13px] font-semibold text-fg-primary decoration-dotted decoration-fg-tertiary underline underline-offset-[5px] hover:text-brand-500 hover:decoration-brand-500 transition-colors"
+        className={`inline-flex items-center gap-0.5 text-[13px] font-semibold rounded-md px-1.5 py-0.5 -mx-1 -my-0.5 transition-colors ${
+          menuOpen
+            ? 'text-brand-500 bg-brand-500/10'
+            : 'text-fg-primary hover:text-brand-500 hover:bg-[var(--surface-subtle)]'
+        }`}
       >
         {label}
+        <ChevronDownIcon
+          className={`w-3.5 h-3.5 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+        />
       </button>
       {menuOpen && (
         <div
           role="menu"
-          className="absolute left-0 top-full mt-1.5 z-20 min-w-[10rem] rounded-lg border shadow-lg py-1"
+          className="absolute left-0 top-full mt-1.5 z-20 min-w-[11rem] rounded-lg border shadow-lg py-1"
           style={{ background: 'var(--surface)', borderColor: 'var(--divider)' }}
         >
-          <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-fg-tertiary">
+          <div className="px-3 py-1.5 text-[11px] uppercase tracking-wider text-fg-tertiary">
             {t('displayPriceIn') || 'Afficher le prix en'}
           </div>
           {cycle.map((l) => {
@@ -636,13 +667,14 @@ function PriceSentence({
                 role="menuitemradio"
                 aria-checked={active}
                 onClick={() => { setLevel(l); setMenuOpen(false); }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
+                className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-[13px] transition-colors ${
                   active
                     ? 'text-brand-500 font-semibold'
                     : 'text-fg-primary hover:bg-[var(--surface-subtle)]'
                 }`}
               >
-                {active ? '• ' : '   '}{levelOptionLabel(l)}
+                <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-brand-500' : 'bg-transparent'}`} />
+                {menuRowLabel(l)}
               </button>
             );
           })}
@@ -669,19 +701,43 @@ function PriceSentence({
     );
   };
 
+  // When the user switches level, pulse the price input so it's obvious the
+  // number has been recomputed (not renamed).
+  const flashStyle: React.CSSProperties = flash
+    ? {
+        ...fieldStyle,
+        background: 'rgba(241,138,71,0.12)',
+        borderColor: 'rgba(241,138,71,0.45)',
+      }
+    : fieldStyle;
+
+  // Secondary derived price — when the primary is per-pack, show the
+  // normalised per-base price alongside (and vice-versa). Lets the user see
+  // both "intuition" and "precision" without switching.
+  const showSecondary = isPackaged
+    && effective !== 'base'
+    && d.costPerBase > 0
+    && d.baseUnit
+    && Math.abs(d.costPerBase - displayed) > 0.005;
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         {renderLeading()}
         <span className="inline-flex items-center gap-1.5">
           <input
-            type="number" step="any" min="0" className={priceNumCls} style={fieldStyle}
+            type="number" step="any" min="0" className={priceNumCls} style={flashStyle}
             value={fmtNum(displayed)}
             onChange={(e) => setFromInput(+e.target.value)}
             placeholder="0.00"
           />
           <span className="text-[15px] font-semibold text-fg-secondary">&#8362;</span>
         </span>
+        {showSecondary && (
+          <span className="text-[12px] text-fg-tertiary tabular-nums">
+            ({t('equivalentTo') || 'soit'} {fmtPrice(d.costPerBase)} &#8362;&nbsp;/&nbsp;{d.baseUnit})
+          </span>
+        )}
       </div>
       {d.totalPrice > 0 && (
         <div className="text-[12px] tabular-nums pt-0.5">
