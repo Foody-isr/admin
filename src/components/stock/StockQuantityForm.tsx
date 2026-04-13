@@ -378,7 +378,7 @@ const fieldStyle: React.CSSProperties = {
   borderColor: 'var(--divider)',
 };
 const numCls = `${fieldBase} w-16 text-center`;
-const priceNumCls = `${fieldBase} w-24 text-center`;
+const priceNumCls = `${fieldBase} w-28 text-center text-base font-semibold tabular-nums`;
 const selectCls = `${fieldBase} pr-7 max-w-[8rem]`;
 const connectorCls = 'text-sm text-fg-secondary whitespace-nowrap';
 // Each [number][unit] pair wraps as one atomic unit so the unit can't break
@@ -595,12 +595,13 @@ function PriceSentence({
       type="button"
       onClick={cycleNext}
       title={t('changeLevel') || 'Changer le niveau'}
-      className="font-medium text-fg-primary border-b border-dashed border-fg-tertiary hover:border-brand-500 hover:text-brand-500 transition-colors"
+      aria-label={t('changeLevel') || 'Changer le niveau'}
+      className="font-semibold text-fg-primary decoration-dotted decoration-fg-tertiary underline underline-offset-[5px] hover:text-brand-500 hover:decoration-brand-500 cursor-help transition-colors"
     >
       {label}
     </button>
   ) : (
-    <span className="font-medium text-fg-primary">{label}</span>
+    <span className="font-semibold text-fg-primary">{label}</span>
   );
 
   const renderLeading = () => {
@@ -620,27 +621,27 @@ function PriceSentence({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         {renderLeading()}
-        <span className={pairCls}>
+        <span className="inline-flex items-center gap-1">
           <input
             type="number" step="any" min="0" className={priceNumCls} style={fieldStyle}
             value={fmtNum(displayed)}
             onChange={(e) => setFromInput(+e.target.value)}
             placeholder="0.00"
           />
-          <span className={connectorCls}>&#8362;</span>
+          <span className="text-sm font-medium text-fg-secondary">&#8362;</span>
         </span>
       </div>
       {d.totalPrice > 0 && (
-        <div className="text-sm">
+        <div className="text-sm tabular-nums">
           <span className="text-fg-secondary">{t('totalPrice') || 'Prix total'} : </span>
-          <span className="font-semibold text-fg-primary">
-            {fmtPrice(d.totalPrice)} &#8362;<span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
-            {' · '}
-            {fmtPrice(d.totalPrice * vm)} &#8362;<span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
-          </span>
+          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice)} &#8362;</span>
+          <span className="text-fg-tertiary font-normal"> {t('exVat')}</span>
+          <span className="text-fg-tertiary"> · </span>
+          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * vm)} &#8362;</span>
+          <span className="text-fg-tertiary font-normal"> {t('incVat')}</span>
         </div>
       )}
     </div>
