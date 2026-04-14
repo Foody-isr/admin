@@ -29,7 +29,7 @@ import {
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
   SparklesIcon, ClockIcon, ArrowPathIcon,
-  ChevronDownIcon, PhotoIcon, ArrowUpTrayIcon,
+  ChevronDownIcon, ChevronUpIcon, PhotoIcon, ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -58,6 +58,17 @@ export default function StockPage() {
 
   // Filters
   const [search, setSearch] = useState('');
+  type SortKey = 'name' | 'quantity' | 'price';
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
     open: false,
@@ -142,6 +153,15 @@ export default function StockPage() {
     if (!item.price_includes_vat) return raw * vatMultiplier;
     return raw;
   };
+
+  // Sort by base values: quantity/cost are always stored in base units, so order
+  // stays stable even when individual rows display at different packaging levels.
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
+    if (sortKey === 'quantity') return (a.quantity - b.quantity) * dir;
+    return (adjustedCost(a) - adjustedCost(b)) * dir;
+  });
 
   const handleDelete = async (id: number) => {
     if (!confirm(t('deleteStockItem'))) return;
@@ -304,17 +324,65 @@ export default function StockPage() {
                     onChange={toggleSelectAll}
                     className="rounded border-[var(--divider)]" />
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('item')}</th>
+                <th
+                  aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('name')}
+                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors"
+                  >
+                    {t('item')}
+                    {sortKey === 'name' && (
+                      sortDir === 'asc'
+                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                        : <ChevronDownIcon className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
-                <th className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('quantity')}</th>
-                <th className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('price')}</th>
+                <th
+                  aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('quantity')}
+                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
+                  >
+                    {t('quantity')}
+                    {sortKey === 'quantity' && (
+                      sortDir === 'asc'
+                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                        : <ChevronDownIcon className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </th>
+                <th
+                  aria-sort={sortKey === 'price' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('price')}
+                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
+                  >
+                    {t('price')}
+                    {sortKey === 'price' && (
+                      sortDir === 'asc'
+                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                        : <ChevronDownIcon className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('supplier')}</th>
                 <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('status')}</th>
                 <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => {
+              {sorted.map((item) => {
                 const isLow = item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
                 const catColor = categories.find((c) => c.name === item.category)?.color;
                 const pkg = getPackaging(item);
