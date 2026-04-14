@@ -58,6 +58,8 @@ interface NavItem {
   subItems?: SubItem[];
   /** Grouped sub-items with collapsible section headers (for complex sections) */
   subGroups?: SubItemGroup[];
+  /** Override the href used when clicking the main nav item (defaults to first sub-item). */
+  clickHref?: string;
 }
 
 interface SidebarProps {
@@ -110,6 +112,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'menu',
       icon: Bars3BottomLeftIcon,
       perm: ['menu.view', 'menu.edit'],
+      clickHref: `${base}/menu/items`,
       subItems: [
         { href: `${base}/menu/menus`, labelKey: 'menus' },
       ],
@@ -226,6 +229,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   /** The href to use when clicking a nav item in the main list */
   function getNavHref(item: NavItem): string {
+    if (item.clickHref) return item.clickHref;
     if (item.subItems) return item.subItems[0].href;
     if (item.subGroups) return item.subGroups[0].items[0].href;
     return item.href;

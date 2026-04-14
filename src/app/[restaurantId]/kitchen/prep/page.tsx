@@ -16,6 +16,7 @@ import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
 import SearchableListField from '@/components/SearchableListField';
 import StatusPill from '@/components/StatusPill';
+import StockItemPickerModal from '@/components/stock/StockItemPickerModal';
 import StockFiltersDrawer, {
   FilterView,
   FilterCategory,
@@ -27,7 +28,7 @@ import {
   MagnifyingGlassIcon, PlusIcon, TrashIcon, PencilIcon,
   BeakerIcon, CalendarDaysIcon, ArrowsRightLeftIcon,
   ExclamationTriangleIcon, PlayIcon, DocumentDuplicateIcon,
-  ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, ClockIcon,
+  ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, ClockIcon, PhotoIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -465,13 +466,34 @@ function PrepItemModal({
       .finally(() => setLoadingIngs(false));
   }, [rid, editing]);
 
-  const addIngredient = () => {
-    const unused = stockItems.find((s) => !ingredients.some((i) => i.stock_item_id === s.id));
-    if (unused) setIngredients([...ingredients, { stock_item_id: unused.id, quantity_needed: 0 }]);
-  };
   const removeIngredient = (idx: number) => setIngredients(ingredients.filter((_, i) => i !== idx));
   const updateIngredient = (idx: number, patch: Partial<PrepIngredientInput>) => {
     setIngredients(ingredients.map((ing, i) => i === idx ? { ...ing, ...patch } : ing));
+  };
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'add' | 'swap'>('add');
+  const [pickerSwapIdx, setPickerSwapIdx] = useState<number | null>(null);
+
+  const openAddPicker = () => {
+    setPickerMode('add');
+    setPickerSwapIdx(null);
+    setPickerOpen(true);
+  };
+  const openSwapPicker = (idx: number) => {
+    setPickerMode('swap');
+    setPickerSwapIdx(idx);
+    setPickerOpen(true);
+  };
+  const onPickerConfirm = (ids: number[]) => {
+    if (pickerMode === 'swap' && pickerSwapIdx != null) {
+      if (ids[0] != null) updateIngredient(pickerSwapIdx, { stock_item_id: ids[0] });
+    } else {
+      setIngredients((prev) => [
+        ...prev,
+        ...ids.map((id) => ({ stock_item_id: id, quantity_needed: 0 })),
+      ]);
+    }
   };
 
   const handleSubmit = async () => {
@@ -638,18 +660,28 @@ function PrepItemModal({
                 : '';
               return (
                 <div key={idx} className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <SearchableListField
-                      mode="single"
-                      placeholder={t('selectIngredient') || t('addIngredient')}
-                      options={stockItems.map((s) => ({
-                        value: String(s.id),
-                        label: `${s.name} (${s.unit})`,
-                      }))}
-                      value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
-                      onChange={(v) => updateIngredient(idx, { stock_item_id: Number(v) })}
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openSwapPicker(idx)}
+                    className="flex-1 min-w-0 flex items-center gap-3 px-2 py-1.5 rounded-lg border border-[var(--divider)] hover:border-brand-500 hover:bg-brand-500/5 transition-colors text-left"
+                  >
+                    {si?.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={si.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                        <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-fg-primary truncate">
+                        {si?.name || '—'}
+                      </div>
+                      <div className="text-xs text-fg-secondary truncate">
+                        {si ? `${si.category || '—'} · ${si.unit}` : ''}
+                      </div>
+                    </div>
+                  </button>
                   <div className="relative w-32 shrink-0">
                     <input
                       type="number"
@@ -677,7 +709,7 @@ function PrepItemModal({
             })}
             <button
               type="button"
-              onClick={addIngredient}
+              onClick={openAddPicker}
               className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
             >
               <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
@@ -685,6 +717,25 @@ function PrepItemModal({
           </div>
         )}
       </FormSection>
+
+      {pickerOpen && (
+        <StockItemPickerModal
+          stockItems={stockItems}
+          mode={pickerMode}
+          excludeIds={
+            pickerMode === 'add'
+              ? new Set(ingredients.map((i) => i.stock_item_id))
+              : undefined
+          }
+          initialSelectedId={
+            pickerMode === 'swap' && pickerSwapIdx != null
+              ? ingredients[pickerSwapIdx]?.stock_item_id
+              : undefined
+          }
+          onConfirm={onPickerConfirm}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </FormModal>
   );
 }
