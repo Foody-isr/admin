@@ -12,10 +12,18 @@ import {
   RecipeCardItem,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
+import StockFiltersDrawer, {
+  FilterView,
+  FilterCategory,
+  FilterStatusOption,
+} from '@/components/stock/StockFiltersDrawer';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
+import RowActionsMenu from '@/components/common/RowActionsMenu';
 import {
   MagnifyingGlassIcon, PlusIcon, TrashIcon, PencilIcon,
   BeakerIcon, CalendarDaysIcon, ArrowsRightLeftIcon,
   ExclamationTriangleIcon, PlayIcon, DocumentDuplicateIcon,
+  ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, ClockIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 
@@ -30,8 +38,27 @@ export default function PrepPage() {
   const [items, setItems] = useState<PrepItem[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  type SortKey = 'name' | 'quantity' | 'yield' | 'cost' | 'shelf';
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
+    open: false,
+    view: 'index',
+  });
+  const openFiltersDrawer = (view: FilterView) => setFiltersDrawer({ open: true, view });
+  const closeFiltersDrawer = () => setFiltersDrawer((prev) => ({ ...prev, open: false }));
+
+  // Selection
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: PrepItem }>({ open: false });
@@ -55,18 +82,63 @@ export default function PrepPage() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
+  const categories: FilterCategory[] = categoryNames.sort().map((name) => ({ name }));
+  const statuses: FilterStatusOption[] = [
+    { value: 'ok', label: t('ok'), color: '#10b981' },
+    { value: 'low', label: t('low'), color: '#ef4444' },
+  ];
+
+  const isLow = (item: PrepItem) =>
+    item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
+
   const filtered = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (categoryFilter && item.category !== categoryFilter) return false;
+    if (selectedCategories.size > 0 && !selectedCategories.has(item.category)) return false;
+    if (selectedStatuses.size > 0) {
+      const s = isLow(item) ? 'low' : 'ok';
+      if (!selectedStatuses.has(s)) return false;
+    }
     return true;
   });
 
-  const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
-  const lowCount = items.filter((i) => i.reorder_threshold > 0 && i.quantity <= i.reorder_threshold).length;
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
+    if (sortKey === 'quantity') return (a.quantity - b.quantity) * dir;
+    if (sortKey === 'yield') return (a.yield_per_batch - b.yield_per_batch) * dir;
+    if (sortKey === 'cost') return (a.cost_per_unit - b.cost_per_unit) * dir;
+    return (a.shelf_life_hours - b.shelf_life_hours) * dir;
+  });
+
+  const lowCount = items.filter(isLow).length;
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this prep item?')) return;
+    if (!confirm(t('deletePrepItemConfirm'))) return;
     await deletePrepItem(rid, id);
+    reload();
+  };
+
+  const toggleSelectAll = () => {
+    const ids = filtered.map((i) => i.id);
+    const all = ids.every((id) => selected.has(id));
+    if (all) setSelected(new Set());
+    else setSelected(new Set(ids));
+  };
+  const toggleSelect = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(t('bulkDeleteConfirm').replace('{count}', String(selected.size)))) return;
+    for (const id of Array.from(selected)) {
+      await deletePrepItem(rid, id);
+    }
+    setSelected(new Set());
     reload();
   };
 
@@ -79,7 +151,7 @@ export default function PrepPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-4">
@@ -96,75 +168,210 @@ export default function PrepPage() {
         </div>
       </div>
 
-      {/* Filters + actions */}
+      {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
-          <input type="text" placeholder={t('searchPrepItems')} value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9 pr-3 py-2 text-sm w-full" />
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+          <input
+            type="text"
+            placeholder={t('searchPrepItems')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input !pl-10 text-sm h-11 w-full rounded-full"
+          />
         </div>
 
-        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="input py-2 text-sm">
-          <option value="">{t('allCategories')}</option>
-          {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <button
+          type="button"
+          onClick={() => openFiltersDrawer('category')}
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+        >
+          {t('category')}{' '}
+          <span className="font-semibold text-fg-primary">
+            {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
+          </span>
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openFiltersDrawer('status')}
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+        >
+          {t('status')}{' '}
+          <span className="font-semibold text-fg-primary">
+            {selectedStatuses.size === 0 ? t('all') : `${selectedStatuses.size}`}
+          </span>
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openFiltersDrawer('index')}
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+        >
+          {t('allFilters')}
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
 
         <div className="flex-1" />
 
-        <button onClick={() => setPlanModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
-          <CalendarDaysIcon className="w-4 h-4" /> {t('dailyPlan')}
-        </button>
-        <button onClick={() => setFromRecipeModal(true)} className="btn-secondary flex items-center gap-2 text-sm">
-          <DocumentDuplicateIcon className="w-4 h-4" /> {t('createFromRecipe')}
-        </button>
-        <button onClick={() => setItemModal({ open: true })} className="btn-primary flex items-center gap-2 text-sm">
-          <PlusIcon className="w-4 h-4" /> {t('addPrepItem')}
+        <ActionsDropdown
+          actions={[
+            { label: t('dailyPlan'), onClick: () => setPlanModal(true), icon: <CalendarDaysIcon className="w-4 h-4" /> },
+            { label: t('createFromRecipe'), onClick: () => setFromRecipeModal(true), icon: <DocumentDuplicateIcon className="w-4 h-4" /> },
+            { label: t('refresh'), onClick: reload, icon: <ArrowPathIcon className="w-4 h-4" /> },
+          ]}
+        />
+
+        <button
+          onClick={() => setItemModal({ open: true })}
+          className="btn-primary rounded-full px-5 py-2 flex items-center gap-1.5"
+        >
+          <PlusIcon className="w-4 h-4" />
+          {t('addPrepItem')}
         </button>
       </div>
 
-      {/* Table */}
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-brand-500/10 border border-brand-500/20">
+          <span className="text-sm font-medium text-brand-500">
+            {t('itemsSelected').replace('{count}', String(selected.size))}
+          </span>
+          <div className="flex-1" />
+          <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
+            {t('delete')} ({selected.size})
+          </button>
+          <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
+            {t('cancel')}
+          </button>
+        </div>
+      )}
+
+      {/* Items table */}
       {filtered.length === 0 ? (
-        <div className="card text-center py-16 space-y-3">
-          <p className="text-lg font-semibold text-fg-primary">{t('noPrepItemsFound')}</p>
-          <p className="text-sm text-fg-secondary">
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <p className="text-base text-fg-secondary text-center max-w-md">
             {items.length === 0 ? t('addFirstPrepRecipe') : t('tryAdjustingFilters')}
           </p>
+          {items.length === 0 && (
+            <button onClick={() => setItemModal({ open: true })} className="btn-primary mt-2 rounded-full">
+              {t('addPrepItem')}
+            </button>
+          )}
         </div>
       ) : (
-        <div className="card overflow-hidden p-0">
-          <table className="w-full text-sm">
+        <div>
+          <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
-              <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-3 px-4 font-medium">{t('name')}</th>
-                <th className="py-3 px-4 font-medium">{t('category')}</th>
-                <th className="py-3 px-4 font-medium text-right">{t('stock')}</th>
-                <th className="py-3 px-4 font-medium text-right">{t('yieldPerBatch')}</th>
-                <th className="py-3 px-4 font-medium text-right">{t('costPerUnit')}</th>
-                <th className="py-3 px-4 font-medium text-right">{t('shelfLife')}</th>
-                <th className="py-3 px-4 font-medium">{t('status')}</th>
-                <th className="py-3 px-4 font-medium w-10" />
+              <tr className="text-left text-xs text-fg-secondary tracking-wider">
+                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
+                    onChange={toggleSelectAll}
+                    className="rounded border-[var(--divider)]"
+                  />
+                </th>
+                <th
+                  aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button type="button" onClick={() => toggleSort('name')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors">
+                    {t('item')}
+                    {sortKey === 'name' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                  </button>
+                </th>
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
+                <th
+                  aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button type="button" onClick={() => toggleSort('quantity')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                    {t('stock')}
+                    {sortKey === 'quantity' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                  </button>
+                </th>
+                <th
+                  aria-sort={sortKey === 'yield' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button type="button" onClick={() => toggleSort('yield')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                    {t('yieldPerBatch')}
+                    {sortKey === 'yield' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                  </button>
+                </th>
+                <th
+                  aria-sort={sortKey === 'cost' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button type="button" onClick={() => toggleSort('cost')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                    {t('costPerUnit')}
+                    {sortKey === 'cost' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                  </button>
+                </th>
+                <th
+                  aria-sort={sortKey === 'shelf' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button type="button" onClick={() => toggleSort('shelf')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                    {t('shelfLife')}
+                    {sortKey === 'shelf' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                  </button>
+                </th>
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('status')}</th>
+                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => {
-                const isLow = item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
+              {sorted.map((item) => {
+                const low = isLow(item);
                 return (
-                  <tr key={item.id} className="hover:bg-[var(--surface-subtle)] transition-colors" style={{ borderBottom: '1px solid var(--divider)' }}>
-                    <td className="py-3 px-4 font-medium text-fg-primary">{item.name}</td>
-                    <td className="py-3 px-4 text-fg-secondary">{item.category || '—'}</td>
-                    <td className="py-3 px-4 text-right font-mono text-fg-primary">
+                  <tr
+                    key={item.id}
+                    className={`hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
+                  >
+                    <td className="py-3.5 px-2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                        className="rounded border-[var(--divider)]"
+                      />
+                    </td>
+                    <td className="py-3.5 px-2">
+                      <button
+                        type="button"
+                        onClick={() => setItemModal({ open: true, editing: item })}
+                        className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                          <BeakerIcon className="w-5 h-5 text-fg-tertiary" />
+                        </div>
+                        <span className="font-medium text-fg-primary">{item.name}</span>
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-2 text-fg-secondary">{item.category || '—'}</td>
+                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
                       {item.quantity} <span className="text-fg-secondary text-xs">{item.unit}</span>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-fg-primary">
+                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
                       {item.yield_per_batch > 0 ? `${item.yield_per_batch} ${item.unit}` : '—'}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-fg-primary">
+                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
                       {item.cost_per_unit > 0 ? `${item.cost_per_unit.toFixed(2)} ₪` : '—'}
                     </td>
-                    <td className="py-3 px-4 text-right text-fg-secondary">
-                      {item.shelf_life_hours > 0 ? `${item.shelf_life_hours}h` : '—'}
+                    <td className="py-3.5 px-2 text-right font-mono text-fg-secondary">
+                      {item.shelf_life_hours > 0 ? (
+                        <span className="inline-flex items-center gap-1 justify-end">
+                          <ClockIcon className="w-3.5 h-3.5 text-fg-tertiary" />
+                          {item.shelf_life_hours}h
+                        </span>
+                      ) : '—'}
                     </td>
-                    <td className="py-3 px-4">
-                      {isLow ? (
+                    <td className="py-3.5 px-2">
+                      {low ? (
                         <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
                           <ExclamationTriangleIcon className="w-4 h-4" /> {t('low')}
                         </span>
@@ -172,24 +379,15 @@ export default function PrepPage() {
                         <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                       )}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setBatchModal({ open: true, item })} className="p-1 rounded hover:bg-[var(--surface-subtle)]" title={t('produceBatch')}>
-                          <PlayIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button onClick={() => setItemModal({ open: true, editing: item })} className="p-1 rounded hover:bg-[var(--surface-subtle)]" title={t('editRecipe')}>
-                          <BeakerIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button onClick={() => setTxModal({ open: true, item })} className="p-1 rounded hover:bg-[var(--surface-subtle)]" title={t('wasteAdjust')}>
-                          <ArrowsRightLeftIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button onClick={() => setItemModal({ open: true, editing: item })} className="p-1 rounded hover:bg-[var(--surface-subtle)]" title={t('edit')}>
-                          <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                        </button>
-                        <button onClick={() => handleDelete(item.id)} className="p-1 rounded hover:bg-[var(--surface-subtle)]" title={t('delete')}>
-                          <TrashIcon className="w-4 h-4 text-red-400" />
-                        </button>
-                      </div>
+                    <td className="py-3.5 px-2">
+                      <RowActionsMenu
+                        actions={[
+                          { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
+                          { label: t('wasteAdjust'), onClick: () => setTxModal({ open: true, item }), icon: <ArrowsRightLeftIcon className="w-4 h-4" /> },
+                          { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
+                          { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
@@ -198,6 +396,18 @@ export default function PrepPage() {
           </table>
         </div>
       )}
+
+      <StockFiltersDrawer
+        open={filtersDrawer.open}
+        initialView={filtersDrawer.view}
+        onClose={closeFiltersDrawer}
+        categories={categories}
+        selectedCategories={selectedCategories}
+        onCategoryChange={setSelectedCategories}
+        statuses={statuses}
+        selectedStatuses={selectedStatuses}
+        onStatusChange={setSelectedStatuses}
+      />
 
       {/* Modals */}
       {itemModal.open && (

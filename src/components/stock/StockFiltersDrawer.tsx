@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { StockCategory } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
   XMarkIcon,
@@ -11,15 +10,30 @@ import {
   CheckIcon,
 } from '@heroicons/react/24/outline';
 
-export type FilterView = 'index' | 'category';
+export type FilterView = 'index' | 'category' | 'status';
+
+export interface FilterCategory {
+  name: string;
+  color?: string;
+}
+
+export interface FilterStatusOption {
+  value: string;
+  label: string;
+  color?: string;
+}
 
 interface Props {
   open: boolean;
   initialView: FilterView;
   onClose: () => void;
-  categories: StockCategory[];
+  categories: FilterCategory[];
   selectedCategories: Set<string>;
   onCategoryChange: (next: Set<string>) => void;
+  statuses?: FilterStatusOption[];
+  selectedStatuses?: Set<string>;
+  onStatusChange?: (next: Set<string>) => void;
+  statusLabel?: string;
 }
 
 export default function StockFiltersDrawer({
@@ -29,6 +43,10 @@ export default function StockFiltersDrawer({
   categories,
   selectedCategories,
   onCategoryChange,
+  statuses,
+  selectedStatuses,
+  onStatusChange,
+  statusLabel,
 }: Props) {
   const { t, direction } = useI18n();
   const isRtl = direction === 'rtl';
@@ -60,7 +78,18 @@ export default function StockFiltersDrawer({
 
   const resetAll = () => {
     onCategoryChange(new Set());
+    onStatusChange?.(new Set());
   };
+
+  const toggleStatus = (value: string) => {
+    if (!onStatusChange) return;
+    const next = new Set(selectedStatuses ?? new Set<string>());
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    onStatusChange(next);
+  };
+
+  const statusText = statusLabel ?? t('status');
 
   const goBack = () => {
     if (view === entryView) {
@@ -162,8 +191,76 @@ export default function StockFiltersDrawer({
                   <ForwardIcon className="w-4 h-4 text-fg-secondary shrink-0" />
                 </button>
               </li>
+              {statuses && statuses.length > 0 && onStatusChange && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setView('status')}
+                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-left border-t"
+                    style={{ borderColor: 'var(--divider)' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-fg-primary">{statusText}</div>
+                      <div className="text-xs text-fg-secondary truncate">
+                        {(selectedStatuses?.size ?? 0) === 0
+                          ? t('all')
+                          : statuses
+                              .filter((s) => selectedStatuses?.has(s.value))
+                              .map((s) => s.label)
+                              .join(', ')}
+                      </div>
+                    </div>
+                    <ForwardIcon className="w-4 h-4 text-fg-secondary shrink-0" />
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
+        )}
+
+        {view === 'status' && statuses && onStatusChange && (
+          <>
+            <div className="px-4 pt-4 pb-2 shrink-0">
+              <h2 className="text-lg font-semibold text-fg-primary">{statusText}</h2>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <ul>
+                {statuses.map((s) => {
+                  const isSelected = selectedStatuses?.has(s.value) ?? false;
+                  return (
+                    <li key={s.value}>
+                      <button
+                        type="button"
+                        onClick={() => toggleStatus(s.value)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors text-left"
+                      >
+                        {s.color && (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: s.color }}
+                          />
+                        )}
+                        <span className="flex-1 text-sm text-fg-primary truncate">
+                          {s.label}
+                        </span>
+                        <span
+                          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? 'bg-brand-500 border-brand-500'
+                              : 'border border-fg-secondary/40'
+                          }`}
+                        >
+                          {isSelected && (
+                            <CheckIcon className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                          )}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </>
         )}
 
         {view === 'category' && (
