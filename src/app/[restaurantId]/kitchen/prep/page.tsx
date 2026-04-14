@@ -458,7 +458,10 @@ function PrepItemModal({
   useEffect(() => {
     if (!editing) return;
     getPrepIngredients(rid, editing.id)
-      .then((ings) => setIngredients(ings.map((i) => ({ stock_item_id: i.stock_item_id, quantity_needed: i.quantity_needed }))))
+      .then((ings) => setIngredients(ings.map((i) => ({
+        stock_item_id: i.stock_item_id,
+        quantity_needed: Math.round(i.quantity_needed * 10000) / 10000,
+      }))))
       .finally(() => setLoadingIngs(false));
   }, [rid, editing]);
 
@@ -630,31 +633,42 @@ function PrepItemModal({
           <div className="space-y-2">
             {ingredients.map((ing, idx) => {
               const si = stockItems.find((s) => s.id === ing.stock_item_id);
+              const qtyStr = ing.quantity_needed
+                ? String(Math.round(ing.quantity_needed * 10000) / 10000)
+                : '';
               return (
                 <div key={idx} className="flex items-center gap-2">
-                  <select
-                    className="input flex-1 py-2 text-sm"
-                    value={ing.stock_item_id}
-                    onChange={(e) => updateIngredient(idx, { stock_item_id: +e.target.value })}
-                  >
-                    {stockItems.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    className="input w-24 py-2 text-sm text-right"
-                    value={ing.quantity_needed || ''}
-                    onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })}
-                    placeholder={t('qty')}
-                  />
-                  <span className="text-xs text-fg-secondary w-8">{si?.unit}</span>
+                  <div className="flex-1 min-w-0">
+                    <SearchableListField
+                      mode="single"
+                      placeholder={t('selectIngredient') || t('addIngredient')}
+                      options={stockItems.map((s) => ({
+                        value: String(s.id),
+                        label: `${s.name} (${s.unit})`,
+                      }))}
+                      value={ing.stock_item_id ? String(ing.stock_item_id) : ''}
+                      onChange={(v) => updateIngredient(idx, { stock_item_id: Number(v) })}
+                    />
+                  </div>
+                  <div className="relative w-32 shrink-0">
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      className="input w-full text-sm text-right pr-9"
+                      value={qtyStr}
+                      onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })}
+                      placeholder={t('qty')}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-fg-secondary pointer-events-none">
+                      {si?.unit || ''}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeIngredient(idx)}
-                    className="p-1 text-red-400 hover:text-red-300"
+                    className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
+                    aria-label={t('delete')}
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
