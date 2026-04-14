@@ -12,6 +12,10 @@ import {
   RecipeCardItem,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
+import FormModal from '@/components/FormModal';
+import FormSection from '@/components/FormSection';
+import SearchableListField from '@/components/SearchableListField';
+import StatusPill from '@/components/StatusPill';
 import StockFiltersDrawer, {
   FilterView,
   FilterCategory,
@@ -437,22 +441,20 @@ function PrepItemModal({
   rid: number; editing?: PrepItem; categories: string[]; stockItems: StockItem[]; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const [form, setForm] = useState<PrepItemInput>({
-    name: editing?.name ?? '',
-    unit: editing?.unit ?? 'unit',
-    quantity: editing?.quantity ?? 0,
-    yield_per_batch: editing?.yield_per_batch ?? 0,
-    reorder_threshold: editing?.reorder_threshold ?? 0,
-    shelf_life_hours: editing?.shelf_life_hours ?? 0,
-    category: editing?.category ?? '',
-    notes: editing?.notes ?? '',
-    is_active: editing?.is_active ?? true,
-  });
+  const [name, setName] = useState(editing?.name ?? '');
+  const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'unit');
+  const [quantity, setQuantity] = useState(editing?.quantity ?? 0);
+  const [yieldPerBatch, setYieldPerBatch] = useState(editing?.yield_per_batch ?? 0);
+  const [reorder, setReorder] = useState(editing?.reorder_threshold ?? 0);
+  const [shelfLife, setShelfLife] = useState(editing?.shelf_life_hours ?? 0);
+  const [category, setCategory] = useState(editing?.category ?? '');
+  const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [isActive, setIsActive] = useState(editing?.is_active ?? true);
+
   const [ingredients, setIngredients] = useState<PrepIngredientInput[]>([]);
   const [loadingIngs, setLoadingIngs] = useState(!!editing);
   const [saving, setSaving] = useState(false);
 
-  // Load existing ingredients when editing
   useEffect(() => {
     if (!editing) return;
     getPrepIngredients(rid, editing.id)
@@ -464,26 +466,27 @@ function PrepItemModal({
     const unused = stockItems.find((s) => !ingredients.some((i) => i.stock_item_id === s.id));
     if (unused) setIngredients([...ingredients, { stock_item_id: unused.id, quantity_needed: 0 }]);
   };
-
   const removeIngredient = (idx: number) => setIngredients(ingredients.filter((_, i) => i !== idx));
-
   const updateIngredient = (idx: number, patch: Partial<PrepIngredientInput>) => {
     setIngredients(ingredients.map((ing, i) => i === idx ? { ...ing, ...patch } : ing));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setSaving(true);
     try {
+      const payload: PrepItemInput = {
+        name, unit, quantity, yield_per_batch: yieldPerBatch,
+        reorder_threshold: reorder, shelf_life_hours: shelfLife,
+        category, notes, is_active: isActive,
+      };
       let itemId: number;
       if (editing) {
-        await updatePrepItem(rid, editing.id, form);
+        await updatePrepItem(rid, editing.id, payload);
         itemId = editing.id;
       } else {
-        const created = await createPrepItem(rid, form);
+        const created = await createPrepItem(rid, payload);
         itemId = created.id;
       }
-      // Save ingredients together with the item
       if (ingredients.length > 0) {
         await setPrepIngredients(rid, itemId, ingredients);
       }
@@ -496,111 +499,179 @@ function PrepItemModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-fg-primary">{editing ? t('editPrepItem') : t('addPrepItem')}</h3>
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
+  const sidebar = (
+    <>
+      <FormSection>
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-fg-primary">{t('status')}</h3>
+          <StatusPill
+            active={isActive}
+            onToggle={() => setIsActive(!isActive)}
+            activeLabel={t('active')}
+            inactiveLabel={t('inactive')}
+          />
         </div>
+      </FormSection>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <FormSection title={t('category')}>
+        <SearchableListField
+          mode="single"
+          allowCustom
+          placeholder={t('category')}
+          options={categories.map((c) => ({ value: c, label: c }))}
+          value={category}
+          onChange={setCategory}
+        />
+      </FormSection>
+
+      <FormSection title={t('shelfLifeHours')}>
+        <input
+          type="number"
+          className="input text-sm w-full"
+          value={shelfLife || ''}
+          onChange={(e) => setShelfLife(+e.target.value)}
+        />
+      </FormSection>
+
+      <FormSection title={t('reorderThreshold')}>
+        <input
+          type="number"
+          step="any"
+          className="input text-sm w-full"
+          value={reorder || ''}
+          onChange={(e) => setReorder(+e.target.value)}
+        />
+      </FormSection>
+
+      <FormSection title={t('notes')}>
+        <textarea
+          className="input text-sm w-full"
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </FormSection>
+    </>
+  );
+
+  return (
+    <FormModal
+      title={editing ? t('editPrepItem') : t('addPrepItem')}
+      onClose={onClose}
+      onSave={handleSubmit}
+      saveLabel={editing ? t('update') : t('create')}
+      saving={saving}
+      saveDisabled={!name.trim()}
+      sidebar={sidebar}
+    >
+      {/* Name */}
+      <input
+        className="input w-full text-base"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={t('nameLabel') + ' *'}
+        autoFocus
+      />
+
+      {/* Quantity / Yield / Unit section */}
+      <FormSection title={t('quantity')}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('nameLabel')}</label>
-            <input className="input w-full py-2 text-sm" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('unitLabel')}</label>
-              <select className="input w-full py-2 text-sm" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value as StockUnit })}>
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('yieldPerBatchLabel')}</label>
-              <input type="number" step="any" className="input w-full py-2 text-sm" value={form.yield_per_batch} onChange={(e) => setForm({ ...form, yield_per_batch: +e.target.value })} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('currentStock')}</label>
-              <input type="number" step="any" className="input w-full py-2 text-sm" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: +e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('shelfLifeHours')}</label>
-              <input type="number" className="input w-full py-2 text-sm" value={form.shelf_life_hours} onChange={(e) => setForm({ ...form, shelf_life_hours: +e.target.value })} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('reorderThreshold')}</label>
-              <input type="number" step="any" className="input w-full py-2 text-sm" value={form.reorder_threshold} onChange={(e) => setForm({ ...form, reorder_threshold: +e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs text-fg-secondary block mb-1">{t('category')}</label>
-              <input className="input w-full py-2 text-sm" list="prep-cats" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-              <datalist id="prep-cats">{categories.map((c) => <option key={c} value={c} />)}</datalist>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
-            <textarea className="input w-full py-2 text-sm" rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          </div>
-
-          {/* ── Inline Ingredients Section ── */}
-          <div className="pt-2" style={{ borderTop: '1px solid var(--divider)' }}>
-            <p className="text-xs font-semibold text-fg-primary uppercase tracking-wider mb-2">{t('prepRecipeSection')}</p>
-            {(form.yield_per_batch ?? 0) > 0 && (
-              <p className="text-xs text-fg-secondary mb-3">
-                {t('rawIngredientsDesc').replace('{yield}', String(form.yield_per_batch)).replace('{unit}', form.unit)}
-              </p>
-            )}
-
-            {loadingIngs ? (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {ingredients.map((ing, idx) => {
-                  const si = stockItems.find((s) => s.id === ing.stock_item_id);
-                  return (
-                    <div key={idx} className="flex items-center gap-2">
-                      <select className="input flex-1 py-2 text-sm" value={ing.stock_item_id} onChange={(e) => updateIngredient(idx, { stock_item_id: +e.target.value })}>
-                        {stockItems.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
-                      </select>
-                      <input type="number" step="any" min="0" className="input w-24 py-2 text-sm text-right" value={ing.quantity_needed || ''} onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })} placeholder={t('qty')} />
-                      <span className="text-xs text-fg-secondary w-8">{si?.unit}</span>
-                      <button type="button" onClick={() => removeIngredient(idx)} className="p-1 text-red-400 hover:text-red-300">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-                <button type="button" onClick={addIngredient} className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1">
-                  <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer">
-              <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded" />
-              {t('active')}
+            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
+              {t('unitLabel')}
             </label>
-            <div className="flex gap-2">
-              <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : editing ? t('update') : t('create')}</button>
-            </div>
+            <select
+              className="input w-full text-sm"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value as StockUnit)}
+            >
+              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
           </div>
-        </form>
-      </div>
-    </div>
+          <div>
+            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
+              {t('yieldPerBatchLabel')}
+            </label>
+            <input
+              type="number"
+              step="any"
+              className="input w-full text-sm"
+              value={yieldPerBatch || ''}
+              onChange={(e) => setYieldPerBatch(+e.target.value)}
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
+              {t('currentStock')}
+            </label>
+            <input
+              type="number"
+              step="any"
+              className="input w-full text-sm"
+              value={quantity || ''}
+              onChange={(e) => setQuantity(+e.target.value)}
+            />
+          </div>
+        </div>
+      </FormSection>
+
+      {/* Ingredients section */}
+      <FormSection title={t('prepRecipeSection')}>
+        {(yieldPerBatch ?? 0) > 0 && (
+          <p className="text-xs text-fg-secondary">
+            {t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)}
+          </p>
+        )}
+        {loadingIngs ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {ingredients.map((ing, idx) => {
+              const si = stockItems.find((s) => s.id === ing.stock_item_id);
+              return (
+                <div key={idx} className="flex items-center gap-2">
+                  <select
+                    className="input flex-1 py-2 text-sm"
+                    value={ing.stock_item_id}
+                    onChange={(e) => updateIngredient(idx, { stock_item_id: +e.target.value })}
+                  >
+                    {stockItems.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="input w-24 py-2 text-sm text-right"
+                    value={ing.quantity_needed || ''}
+                    onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })}
+                    placeholder={t('qty')}
+                  />
+                  <span className="text-xs text-fg-secondary w-8">{si?.unit}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeIngredient(idx)}
+                    className="p-1 text-red-400 hover:text-red-300"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={addIngredient}
+              className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
+            >
+              <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
+            </button>
+          </div>
+        )}
+      </FormSection>
+    </FormModal>
   );
 }
 
