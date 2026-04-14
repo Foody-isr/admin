@@ -11,7 +11,7 @@ export type BaseUnit = 'g' | 'kg' | 'ml' | 'l' | 'unit';
 export type PackagingUnit =
   | 'carton' | 'pack' | 'box' | 'bag' | 'bottle'
   | 'can' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
-  | 'crate' | 'sack' | 'case';
+  | 'crate' | 'sack' | 'case' | 'pot' | 'jug';
 
 export type StockInput =
   | {
@@ -45,6 +45,11 @@ const BASE_UNITS: BaseUnit[] = ['g', 'kg', 'ml', 'l', 'unit'];
 // a quick choice; legacy values not in the list are surfaced via `withCurrent`.
 const OUTER_UNITS: PackagingUnit[] = ['carton', 'pack'];
 const INNER_UNITS: PackagingUnit[] = ['can', 'jar', 'packet', 'brick'];
+// Mid-tier individual containers that can sit at L1 in packaged-direct mode
+// (e.g. 1 bottle × 500 ml, 1 bidon × 3.44 kg). Kept curated — the full
+// PackagingUnit set is broader, but these six cover the business cases we
+// want surfaced in the sentence-builder's Step 1.
+const CONTAINER_UNITS: PackagingUnit[] = ['bottle', 'pot', 'jug', 'brick', 'can', 'packet'];
 
 /** Render a curated option list while still surfacing a legacy value (e.g.
  *  `crate`, `bottle`) at the top so existing data isn't silently dropped. */
@@ -59,6 +64,7 @@ export const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   carton: 'ct_carton', pack: 'ct_pack', crate: 'ct_crate', sack: 'ct_sack', case: 'ct_case',
   bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
+  pot: 'ut_pot', jug: 'ut_jug',
 };
 export const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
 
@@ -90,8 +96,8 @@ function isBaseUnit(u: string): u is BaseUnit {
 
 // Smart defaults: when a packaging unit is chosen, pre-fill the measurable unit below it.
 const PACKAGING_CONTENT_DEFAULT: Partial<Record<PackagingUnit, BaseUnit>> = {
-  bottle: 'ml', brick: 'ml',
-  can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g',
+  bottle: 'ml', brick: 'ml', jug: 'l',
+  can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g', pot: 'g',
   bag: 'kg', sack: 'kg',
   carton: 'g', crate: 'kg', case: 'g', pack: 'g',
 };
@@ -564,15 +570,26 @@ function Step1UnitSelect({
   onChange: (u: string) => void;
   t: (k: string) => string;
 }) {
-  // First-level select: measurables + curated outer packaging only.
-  // Surface a legacy packaging value (e.g. 'crate', 'sack') if the existing
-  // item uses one not in OUTER_UNITS, so nothing silently disappears.
+  // First-level select: three groups.
+  //   - Mesurables: raw base units (g, kg, ml, l, unit) → simple mode.
+  //   - Contenants: individual containers that directly hold a measurable
+  //     (bottle, pot, bidon, plaquette, conserve, paquet) → packaged-direct.
+  //   - Conditionnements: wholesale aggregators (carton, pack) → typically
+  //     nested, inner unit filled in Step 2.
+  // Surface a legacy packaging value if the existing item uses one not in
+  // the curated lists, so nothing silently disappears.
   const currentPackaging = !isBaseUnit(unit) ? (unit as PackagingUnit) : undefined;
-  const outerOptions = withCurrent(OUTER_UNITS, currentPackaging);
+  const containerOptions = withCurrent(CONTAINER_UNITS, currentPackaging && !OUTER_UNITS.includes(currentPackaging) ? currentPackaging : undefined);
+  const outerOptions = withCurrent(OUTER_UNITS, currentPackaging && OUTER_UNITS.includes(currentPackaging) ? currentPackaging : undefined);
   return (
     <select className={selectCls} style={fieldStyle} value={unit} onChange={(e) => onChange(e.target.value)}>
       <optgroup label={t('measurableUnits') || 'Mesurables'}>
         {BASE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+      </optgroup>
+      <optgroup label={t('containerUnits') || 'Contenants'}>
+        {containerOptions.map((u) => (
+          <option key={u} value={u}>{labelFor(u, t)}</option>
+        ))}
       </optgroup>
       <optgroup label={t('packagingUnits') || 'Conditionnements'}>
         {outerOptions.map((u) => (

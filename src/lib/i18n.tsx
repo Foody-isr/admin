@@ -866,6 +866,7 @@ const translations: Record<Locale, Record<string, string>> = {
     ct_carton: 'Carton', ct_pack: 'Pack', ct_crate: 'Crate', ct_sack: 'Sack', ct_case: 'Case',
     ut_bottle: 'Bottle', ut_can: 'Can', ut_jar: 'Jar', ut_bag: 'Bag', ut_brick: 'Brick',
     ut_packet: 'Packet', ut_box: 'Box', ut_sachet: 'Sachet', ut_tub: 'Tub',
+    ut_pot: 'Pot', ut_jug: 'Jug',
     // Stock quantity form — conversational copy
     youBought: 'You bought',
     addPackaging: 'Add packaging',
@@ -891,6 +892,7 @@ const translations: Record<Locale, Record<string, string>> = {
     addIntermediateLevel: 'Add an intermediate level',
     intermediateLevelHelp: 'Add a layer between the outer container and its contents — e.g. a carton (outer) containing cans (intermediate) of 400 g each.',
     measurableUnits: 'Measurable',
+    containerUnits: 'Containers',
     packagingUnits: 'Packaging',
     simple: 'Simple',
     byUnits: 'By units',
@@ -2121,6 +2123,7 @@ const translations: Record<Locale, Record<string, string>> = {
     ct_carton: 'קרטון', ct_pack: 'חבילה', ct_crate: 'ארגז', ct_sack: 'שק', ct_case: 'מארז',
     ut_bottle: 'בקבוק', ut_can: 'קופסת שימור', ut_jar: 'צנצנת', ut_bag: 'שקית', ut_brick: 'קרטונית',
     ut_packet: 'חבילה', ut_box: 'קופסה', ut_sachet: 'שקיק', ut_tub: 'קופסת פלסטיק',
+    ut_pot: 'כלי', ut_jug: 'מיכל',
     // Stock quantity form — conversational copy
     youBought: 'קנית',
     addPackaging: 'הוסף אריזה',
@@ -2146,6 +2149,7 @@ const translations: Record<Locale, Record<string, string>> = {
     addIntermediateLevel: 'הוסף רמת ביניים',
     intermediateLevelHelp: 'הוסף שכבה בין המיכל החיצוני לתוכן — למשל קרטון (חיצוני) המכיל קופסאות שימור (ביניים) של 400 גרם כל אחת.',
     measurableUnits: 'מדידות',
+    containerUnits: 'מיכלים',
     packagingUnits: 'אריזות',
     simple: 'פשוט',
     byUnits: 'לפי יחידות',
@@ -3371,6 +3375,7 @@ const translations: Record<Locale, Record<string, string>> = {
     ct_carton: 'Carton', ct_pack: 'Pack', ct_crate: 'Cageot', ct_sack: 'Sac', ct_case: 'Caisse',
     ut_bottle: 'Bouteille', ut_can: 'Conserve', ut_jar: 'Pot', ut_bag: 'Sac', ut_brick: 'Plaquette',
     ut_packet: 'Paquet', ut_box: 'Boîte', ut_sachet: 'Sachet', ut_tub: 'Pot',
+    ut_pot: 'Pot', ut_jug: 'Bidon',
     // Stock quantity form — conversational copy
     youBought: 'Vous avez acheté',
     addPackaging: 'Ajouter un conditionnement',
@@ -3396,6 +3401,7 @@ const translations: Record<Locale, Record<string, string>> = {
     addIntermediateLevel: 'Ajouter un niveau intermédiaire',
     intermediateLevelHelp: 'Ajoutez une couche entre le contenant extérieur et le contenu — par exemple un carton (extérieur) contenant des conserves (intermédiaire) de 400 g chacune.',
     measurableUnits: 'Mesurables',
+    containerUnits: 'Contenants',
     packagingUnits: 'Conditionnements',
     simple: 'Simple',
     byUnits: 'Par unités',

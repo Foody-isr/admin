@@ -17,7 +17,7 @@ import StockQuantityForm, {
 const PACKAGING_UNITS: Set<string> = new Set([
   'carton', 'pack', 'box', 'bag', 'bottle',
   'can', 'jar', 'sachet', 'tub', 'brick', 'packet',
-  'crate', 'sack', 'case',
+  'crate', 'sack', 'case', 'pot', 'jug',
 ]);
 
 function coercePackagingUnit(value: string | undefined, fallback: PackagingUnit): PackagingUnit {
