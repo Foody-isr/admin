@@ -8,9 +8,12 @@ import {
   listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
   listModifierSets, attachModifierSetToItems,
   listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
+  listStockItems, listPrepItems, getMenuItemIngredients,
   MenuCategory, MenuItem, MenuItemModifier, ModifierSet, Menu,
   OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
+  StockItem, PrepItem, MenuItemIngredient,
 } from '@/lib/api';
+import MenuItemIngredientsEditor from '@/components/food-cost/MenuItemIngredientsEditor';
 import { useI18n } from '@/lib/i18n';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
@@ -88,19 +91,30 @@ export default function EditItemPage() {
   const [initialMenuIds, setInitialMenuIds] = useState<Set<number>>(new Set());
   const [menuGroupMap, setMenuGroupMap] = useState<Map<number, number>>(new Map());
 
+  // Food cost / ingredients state
+  const [ingredients, setIngredients] = useState<MenuItemIngredient[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
+
   const loadData = useCallback(async () => {
     try {
-      const [cats, allMenus, ms, optSets, optOverrides] = await Promise.all([
+      const [cats, allMenus, ms, optSets, optOverrides, stock, prep, ings] = await Promise.all([
         getAllCategories(rid),
         listMenus(rid),
         listModifierSets(rid),
         listOptionSets(rid),
         getItemOptionPrices(rid, iid),
+        listStockItems(rid),
+        listPrepItems(rid),
+        getMenuItemIngredients(rid, iid),
       ]);
       setCategories(cats);
       setMenus(allMenus);
       setAllModifierSets(ms ?? []);
       setItemOptionOverrides(optOverrides ?? []);
+      setStockItems(stock ?? []);
+      setPrepItems(prep ?? []);
+      setIngredients(ings ?? []);
       // Find option sets attached to this item
       setAttachedOptionSets((optSets ?? []).filter((os) =>
         (os.menu_items ?? []).some((mi) => mi.id === iid)
@@ -764,6 +778,33 @@ export default function EditItemPage() {
                 </button>
               )}
             </div>
+
+            {/* Food Cost / Ingredients */}
+            {item && (
+              <div className="space-y-3 pt-6 border-t border-[var(--divider)]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-fg-primary">{t('foodCostIngredients')}</h3>
+                    <p className="text-xs text-fg-tertiary mt-0.5">{t('ingredientsManageHint')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/${rid}/kitchen/food-cost`)}
+                    className="text-xs text-brand-500 hover:text-brand-400 whitespace-nowrap"
+                  >
+                    {t('seeFullBreakdown')} &rarr;
+                  </button>
+                </div>
+                <MenuItemIngredientsEditor
+                  rid={rid}
+                  menuItem={item}
+                  initialIngredients={ingredients}
+                  stockItems={stockItems}
+                  prepItems={prepItems}
+                  onSaved={(ings) => setIngredients(ings)}
+                />
+              </div>
+            )}
       </FormModal>
 
       {/* Modifier Sets Modal */}

@@ -950,6 +950,12 @@ export default function NewItemPage() {
                 </div>
               )}
             </div>
+
+            {/* Food Cost / Ingredients — editable only after the item is created */}
+            <div className="space-y-2 pt-6 border-t border-[var(--divider)]">
+              <h3 className="font-semibold text-fg-primary">{t('foodCostIngredients')}</h3>
+              <p className="text-sm text-fg-secondary">{t('saveItemFirst')}</p>
+            </div>
       </FormModal>
 
       {/* ── Variant Editor Modal (Square-style full-screen) ──────────── */}

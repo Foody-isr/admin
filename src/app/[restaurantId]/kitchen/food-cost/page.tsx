@@ -9,21 +9,21 @@ import {
   updateStockItem,
   setRecipeYield,
   getRestaurantSettings,
-  MenuCategory, MenuItem, MenuItemIngredient, IngredientInput,
+  MenuCategory, MenuItem, MenuItemIngredient,
   StockItem, PrepItem, StockItemInput, ItemOptionOverride,
 } from '@/lib/api';
 import RecipeImportModal from '../RecipeImportModal';
 import {
-  MagnifyingGlassIcon, PlusIcon, TrashIcon,
+  MagnifyingGlassIcon,
   ExclamationTriangleIcon, CurrencyDollarIcon,
   SparklesIcon, PencilIcon,
 } from '@heroicons/react/24/outline';
-import SearchableSelect from '@/components/SearchableSelect';
 import { useI18n } from '@/lib/i18n';
 import StockQuantityForm, {
   StockInput, serverToStockInput, stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
 import { convertQuantity, toBaseUnit } from '@/lib/units';
+import { detectPrepSwaps } from '@/lib/prep-swap';
 
 const COST_THRESHOLD = 0.35; // 35% food cost warning
 
@@ -43,9 +43,6 @@ export default function FoodCostPage() {
   const [loadingIngredients, setLoadingIngredients] = useState(false);
 
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [editIngredients, setEditIngredients] = useState<IngredientInput[]>([]);
-  const [saving, setSaving] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingYield, setEditingYield] = useState(false);
   const [yieldValue, setYieldValue] = useState(0);
@@ -89,7 +86,6 @@ export default function FoodCostPage() {
   // Load ingredients when item selected
   const selectItem = async (item: MenuItem) => {
     setSelectedItem(item);
-    setEditing(false);
     setSelectedVariantId('');
     setLoadingIngredients(true);
     try {
@@ -333,59 +329,6 @@ export default function FoodCostPage() {
   const hasMissingVariantPortion =
     ingredients.some((i) => i.scales_with_variant) && !currentPortion;
 
-  // Edit mode
-  const startEditing = () => {
-    setEditIngredients(ingredients.map((i) => ({
-      stock_item_id: i.stock_item_id ?? undefined,
-      prep_item_id: i.prep_item_id ?? undefined,
-      quantity_needed: i.quantity_needed,
-      unit: i.unit || i.stock_item?.unit || i.prep_item?.unit || '',
-      scales_with_variant: i.scales_with_variant ?? false,
-    })));
-    setEditing(true);
-  };
-
-  const addEditIngredient = () => {
-    setEditIngredients([...editIngredients, { quantity_needed: 0, unit: '', scales_with_variant: false }]);
-  };
-
-  const removeEditIngredient = (idx: number) => {
-    setEditIngredients(editIngredients.filter((_, i) => i !== idx));
-  };
-
-  const updateEditIngredient = (idx: number, patch: Partial<IngredientInput>) => {
-    setEditIngredients(editIngredients.map((ing, i) => i === idx ? { ...ing, ...patch } : ing));
-  };
-
-  const handleSave = async () => {
-    if (!selectedItem) return;
-    setSaving(true);
-    try {
-      const saved = await setMenuItemIngredients(rid, selectedItem.id, editIngredients);
-      setIngredients(saved);
-      setEditing(false);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveRecipe = async () => {
-    if (!selectedItem) return;
-    if (!confirm(t('removeRecipeConfirm'))) return;
-    try {
-      await setMenuItemIngredients(rid, selectedItem.id, []);
-      if ((selectedItem.recipe_yield ?? 0) > 0) {
-        await setRecipeYield(rid, selectedItem.id, 0, '');
-        setSelectedItem({ ...selectedItem, recipe_yield: 0, recipe_yield_unit: '' });
-      }
-      setIngredients([]);
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -451,89 +394,8 @@ export default function FoodCostPage() {
           <div className="card flex justify-center py-16">
             <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full" />
           </div>
-        ) : editing ? (
-          /* Edit mode */
-          <div className="card p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-fg-primary text-lg">{t('editIngredients').replace('{name}', selectedItem.name)}</h3>
-            </div>
-
-            <p className="text-sm text-fg-secondary">{t('linkIngredients')}</p>
-
-            {editIngredients.map((ing, idx) => (
-              <div key={idx} className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
-                {/* Row 1: Stock item selector + delete */}
-                <div className="flex items-center gap-2">
-                  <SearchableSelect
-                    className="flex-1"
-                    value={ing.stock_item_id ? `stock:${ing.stock_item_id}` : ing.prep_item_id ? `prep:${ing.prep_item_id}` : ''}
-                    onChange={(val) => {
-                      if (val.startsWith('stock:')) {
-                        const si = stockItems.find(s => s.id === +val.split(':')[1]);
-                        updateEditIngredient(idx, { stock_item_id: +val.split(':')[1], prep_item_id: undefined, unit: si?.unit || ing.unit });
-                      } else if (val.startsWith('prep:')) {
-                        const pi = prepItems.find(p => p.id === +val.split(':')[1]);
-                        updateEditIngredient(idx, { prep_item_id: +val.split(':')[1], stock_item_id: undefined, unit: pi?.unit || ing.unit });
-                      }
-                    }}
-                    options={[
-                      ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
-                      ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
-                    ]}
-                    placeholder={t('selectIngredient')}
-                  />
-                  <button onClick={() => removeEditIngredient(idx)} className="p-1.5 text-red-400 hover:text-red-300 flex-shrink-0">
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                {/* Row 2: Quantity + unit (hidden when following variant portion) */}
-                {!ing.scales_with_variant && (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number" step="any" min="0"
-                      className="input w-24 py-1.5 text-sm text-right"
-                      value={ing.quantity_needed || ''}
-                      onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
-                      placeholder={t('qty')}
-                    />
-                    <select className="input w-20 py-1.5 text-sm" value={ing.unit || ''}
-                      onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
-                      <option value="">—</option>
-                      <option value="g">g</option><option value="kg">kg</option>
-                      <option value="ml">ml</option><option value="l">l</option>
-                      <option value="unit">unit</option>
-                    </select>
-                  </div>
-                )}
-                {/* Row 3: Follow variant portion toggle */}
-                <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={ing.scales_with_variant ?? false}
-                    onChange={(e) => updateEditIngredient(idx, { scales_with_variant: e.target.checked })}
-                    className="rounded border-[var(--divider)]"
-                  />
-                  <span>{t('followVariantPortion')}</span>
-                </label>
-                {ing.scales_with_variant && (
-                  <p className="text-xs text-fg-tertiary italic">
-                    {t('followVariantPortionHint')}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            <button onClick={addEditIngredient} className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1">
-              <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
-            </button>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setEditing(false)} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('save')}</button>
-            </div>
-          </div>
         ) : (
-          /* View mode */
+          /* View mode (read-only dashboard) */
           <div className="space-y-4">
             {/* Item header */}
             <div className="card p-5">
@@ -546,12 +408,12 @@ export default function FoodCostPage() {
                   <button onClick={() => setShowImportModal(true)} className="btn-secondary text-sm flex items-center gap-1.5">
                     <SparklesIcon className="w-4 h-4" /> {t('importRecipe')}
                   </button>
-                  <button onClick={startEditing} className="btn-secondary text-sm">{t('editIngredients').replace('{name}', '').replace(/[:\s]+$/, '')}</button>
-                  {ingredients.length > 0 && (
-                    <button onClick={handleRemoveRecipe} className="text-sm px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => router.push(`/${rid}/menu/items/${selectedItem.id}`)}
+                    className="btn-primary text-sm flex items-center gap-1.5"
+                  >
+                    {t('editIngredients').replace('{name}', '').replace(/[:\s]+$/, '')} &rarr;
+                  </button>
                 </div>
               </div>
 
@@ -617,6 +479,29 @@ export default function FoodCostPage() {
               )}
             </div>
 
+            {(() => {
+              const top = detectPrepSwaps(ingredients, prepItems)[0];
+              if (!top) return null;
+              const rawCount = ingredients.filter((i) => i.stock_item_id).length;
+              return (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-brand-500/30 bg-brand-500/10 text-sm">
+                  <span className="text-xl leading-none shrink-0">💡</span>
+                  <div className="flex-1 text-fg-primary">
+                    {t('swapSuggestionBanner')
+                      .replace('{prep}', top.prep.name)
+                      .replace('{matched}', String(top.matchedIngredients.length))
+                      .replace('{total}', String(rawCount))}
+                  </div>
+                  <button
+                    onClick={() => router.push(`/${rid}/menu/items/${selectedItem.id}`)}
+                    className="btn-primary text-xs py-1.5 px-3 rounded-full whitespace-nowrap"
+                  >
+                    {t('replaceWithPrep')} &rarr;
+                  </button>
+                </div>
+              );
+            })()}
+
             {hasMissingVariantPortion && (
               <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
                 <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -638,7 +523,12 @@ export default function FoodCostPage() {
                 <div className="text-center py-8 space-y-2">
                   <p className="text-sm text-fg-secondary">{t('noIngredientsLinked')}</p>
                   <div className="flex items-center justify-center gap-3">
-                    <button onClick={startEditing} className="text-sm text-brand-500 hover:text-brand-400">{t('addIngredients')}</button>
+                    <button
+                      onClick={() => router.push(`/${rid}/menu/items/${selectedItem.id}`)}
+                      className="text-sm text-brand-500 hover:text-brand-400"
+                    >
+                      {t('addIngredients')}
+                    </button>
                     <span className="text-fg-secondary text-xs">{t('or')}</span>
                     <button onClick={() => setShowImportModal(true)} className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1">
                       <SparklesIcon className="w-3.5 h-3.5" /> {t('importRecipe')}
