@@ -123,7 +123,11 @@ export default function MenuItemCostPanel({
     let qty: number;
     let qtyUnit: string;
     qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
-    if (ing.scales_with_variant) {
+    // Batch items prorate ALL ingredients uniformly via calcVariantLineCost's
+    // (portion / yield) ratio — the per-ingredient scales_with_variant flag
+    // is meaningless and ignored here, even if legacy data still has it true.
+    const batchMode = (item.recipe_yield ?? 0) > 0;
+    if (ing.scales_with_variant && !batchMode) {
       // Linear scaling: ingredient's authored qty × (variant.portion / item.portion).
       // Ratio is 1 (no scaling) when item has no base portion set, or when the
       // variant and item portions are in incompatible unit families.
@@ -186,10 +190,14 @@ export default function MenuItemCostPanel({
     portion: { qty: number; unit: string } | null,
   ) => {
     const raw = calcLineCost(ing, portion);
-    if (ing.scales_with_variant) return raw;
-    if (!portion || !hasYield || yieldBaseUnit <= 0) return raw;
-    const portionBase = toBaseUnit(portion.qty, portion.unit);
-    return raw * (portionBase / yieldBaseUnit);
+    // Batch items: always prorate by (variant portion / yield), regardless of
+    // any legacy scales_with_variant flag on the ingredient.
+    if (hasYield && portion && yieldBaseUnit > 0) {
+      const portionBase = toBaseUnit(portion.qty, portion.unit);
+      return raw * (portionBase / yieldBaseUnit);
+    }
+    // Per-portion items: scales_with_variant already baked into calcLineCost.
+    return raw;
   };
 
   const sumVariantCost = (portion: { qty: number; unit: string } | null) =>

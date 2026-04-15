@@ -17,14 +17,23 @@ interface Props {
   stockItems: StockItem[];
   prepItems: PrepItem[];
   onSaved?: (ings: MenuItemIngredient[]) => void;
+  // Optional override for the item's yield — used when the Recipe tab's unsaved
+  // yield input should drive the batch-mode detection (so the toggle hides
+  // immediately instead of waiting for the main modal save).
+  effectiveYield?: number;
 }
 
 // Shared editor for a menu item's `menu_item_ingredients`. Used on the
 // Menu Item edit page (primary home) and (read-only elsewhere).
 export default function MenuItemIngredientsEditor({
-  rid, menuItem, initialIngredients, stockItems, prepItems, onSaved,
+  rid, menuItem, initialIngredients, stockItems, prepItems, onSaved, effectiveYield,
 }: Props) {
   const { t } = useI18n();
+
+  // Batch mode = the item has a recipe yield. Prefer the live prop (reflects
+  // the user's current unsaved yield input) over the persisted value.
+  const yieldForBatchCheck = effectiveYield ?? menuItem.recipe_yield ?? 0;
+  const isBatchMode = yieldForBatchCheck > 0;
 
   const toInputs = (ings: MenuItemIngredient[]): IngredientInput[] =>
     ings.map((i) => ({
@@ -54,7 +63,14 @@ export default function MenuItemIngredientsEditor({
   const save = async (input: IngredientInput[] = rows) => {
     setSaving(true);
     try {
-      const saved = await setMenuItemIngredients(rid, menuItem.id, input);
+      // Batch items prorate uniformly via (variant.portion / item.yield), so the
+      // per-ingredient scales_with_variant flag doesn't apply. Force it off on
+      // save to avoid carrying stale `true` values from pre-batch configs, which
+      // would otherwise shortcut the proration path and over-charge the cost.
+      const normalized = isBatchMode
+        ? input.map((r) => ({ ...r, scales_with_variant: false }))
+        : input;
+      const saved = await setMenuItemIngredients(rid, menuItem.id, normalized);
       setCurrent(saved);
       setRows(toInputs(saved));
       onSaved?.(saved);
@@ -188,7 +204,7 @@ export default function MenuItemIngredientsEditor({
                 Batch items (recipe_yield > 0) prorate all ingredients uniformly
                 by the variant's portion / yield ratio, so a per-ingredient flag
                 would contradict that and is hidden here. */}
-            {(menuItem.recipe_yield ?? 0) <= 0 && (
+            {!isBatchMode && (
               <>
                 <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
                   <input
