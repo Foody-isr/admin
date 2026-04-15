@@ -792,11 +792,12 @@ function CreateFromRecipeModal({
         is_active: true,
       });
 
-      // Map ingredients: scale from per-serving to per-batch
+      // Recipe ingredient quantities are already the full-batch amounts
+      // (e.g. 600 g of tomato pulp for the whole 1.2 kg yield), so copy as-is.
       if (stockIngs.length > 0) {
         await setPrepIngredients(rid, prepItem.id, stockIngs.map((ing) => ({
           stock_item_id: ing.stock_item_id!,
-          quantity_needed: ing.quantity_needed * recipeYield,
+          quantity_needed: ing.quantity_needed,
         })));
       }
 
