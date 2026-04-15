@@ -489,17 +489,22 @@ export default function MenuItemCostPanel({
                   const lineCost = calcVariantLineCost(ing, currentPortion, currentOptionId);
                   const mismatch = hasUnitMismatch(ing);
                   const type = ing.stock_item_id ? t('raw') : t('prep');
-                  // Effective qty = what the cost math actually uses.
-                  // Precedence: per-variant override → scales_with_variant ratio → base.
+                  // Effective qty display — MUST mirror calcLineCost precedence:
+                  //   1) batch mode: ignore variant ratio / scales flag (the batch
+                  //      proration applies later; this column shows the base qty).
+                  //   2) per-variant override.
+                  //   3) legacy scales_with_variant flag.
+                  //   4) base qty.
+                  const batchModeRow = (item.recipe_yield ?? 0) > 0;
                   let effectiveQty = ing.quantity_needed;
                   let effectiveUnit = unit;
-                  const override = currentOptionId != null
+                  const override = !batchModeRow && currentOptionId != null
                     ? (ing.variant_overrides ?? []).find((o) => o.option_id === currentOptionId)
                     : undefined;
                   if (override && override.quantity > 0) {
                     effectiveQty = override.quantity;
                     effectiveUnit = override.unit || unit;
-                  } else if (ing.scales_with_variant && currentPortion) {
+                  } else if (!batchModeRow && ing.scales_with_variant && currentPortion) {
                     const itemQty = item.portion_size ?? 0;
                     const itemUnit = item.portion_size_unit || '';
                     if (itemQty > 0 && sameUnitFamily(currentPortion.unit, itemUnit)) {
@@ -535,7 +540,7 @@ export default function MenuItemCostPanel({
                               {t('variantOverride') || 'variant override'}
                             </span>
                           </span>
-                        ) : ing.scales_with_variant ? (
+                        ) : !batchModeRow && ing.scales_with_variant ? (
                           <span className="inline-flex flex-col items-end">
                             <span>{qtyDisplay}</span>
                             <span className="text-[10px] uppercase text-fg-tertiary tracking-wider">
@@ -545,7 +550,7 @@ export default function MenuItemCostPanel({
                             </span>
                           </span>
                         ) : (
-                          <>{ing.quantity_needed} <span className="text-fg-secondary text-xs">{unit}</span></>
+                          <>{Number(effectiveQty.toFixed(3))} <span className="text-fg-secondary text-xs">{effectiveUnit}</span></>
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
