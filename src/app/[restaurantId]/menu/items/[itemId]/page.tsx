@@ -272,7 +272,6 @@ export default function EditItemPage() {
     if (!name.trim() || !price) return;
     setSaving(true);
     try {
-      const isPerItemMode = recipeYieldUnit === 'unit' && recipeYieldValue === 1;
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
@@ -283,7 +282,8 @@ export default function EditItemPage() {
         image_url: imageUrl,
         portion_size: portionSize,
         portion_size_unit: portionSizeUnit,
-        ...(isPerItemMode ? { recipe_yield: 1, recipe_yield_unit: 'unit' } : {}),
+        recipe_yield: recipeYieldValue,
+        recipe_yield_unit: recipeYieldUnit,
       };
       if (itemType === 'combo') {
         updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
@@ -438,6 +438,9 @@ export default function EditItemPage() {
                 prepItems={prepItems}
                 onIngredientsSaved={(ings) => setIngredients(ings)}
                 onRecipeSaved={loadData}
+                yieldValue={recipeYieldValue}
+                yieldUnit={recipeYieldUnit}
+                onYieldChange={(q, u) => { setRecipeYieldValue(q); setRecipeYieldUnit(u); }}
               />
             )}
 

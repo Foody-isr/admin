@@ -31,6 +31,11 @@ interface Props {
   onIngredientsSaved: (ings: MenuItemIngredient[]) => void;
   // Invoked after save so the shell can reload the item (yield may have changed).
   onRecipeSaved?: () => void;
+  // Yield is owned by the shell so the Details tab's Type-de-recette toggle and
+  // this tab's numeric input share one state — no race on save.
+  yieldValue: number;
+  yieldUnit: string;
+  onYieldChange: (qty: number, unit: string) => void;
 }
 
 // Recipe tab — replaces the standalone Recipe detail page. Owns:
@@ -43,7 +48,8 @@ interface Props {
 // Exposes an imperative handle so the FormModal's Save button can flush the
 // steps/meta buffer alongside the Details tab's updateMenuItem.
 const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function MenuItemRecipeTab(
-  { rid, item, ingredients, stockItems, prepItems, onIngredientsSaved, onRecipeSaved },
+  { rid, item, ingredients, stockItems, prepItems, onIngredientsSaved, onRecipeSaved,
+    yieldValue, yieldUnit, onYieldChange },
   ref,
 ) {
   const { t } = useI18n();
@@ -51,8 +57,6 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
   const [steps, setSteps] = useState<RecipeStepInput[]>([]);
   const [prepTime, setPrepTime] = useState(item.prep_time_mins ?? 0);
   const [notes, setNotes] = useState(item.recipe_notes ?? '');
-  const [yieldValue, setYieldValue] = useState(item.recipe_yield ?? 0);
-  const [yieldUnit, setYieldUnit] = useState(item.recipe_yield_unit || 'kg');
   const [showImportModal, setShowImportModal] = useState(false);
   const [loadedSteps, setLoadedSteps] = useState<RecipeStepInput[]>([]);
 
@@ -96,11 +100,11 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
     setSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
   };
 
+  // Yield is owned by the shell; the Details tab's updateMenuItem call writes
+  // it. This tab no longer touches recipe_yield to avoid two writers racing.
   const isDirty = () =>
     prepTime !== (item.prep_time_mins ?? 0)
     || notes !== (item.recipe_notes ?? '')
-    || yieldValue !== (item.recipe_yield ?? 0)
-    || yieldUnit !== (item.recipe_yield_unit || 'kg')
     || JSON.stringify(steps) !== JSON.stringify(loadedSteps);
 
   const save = async () => {
@@ -108,9 +112,6 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
     await Promise.all([
       setRecipeSteps(rid, item.id, numbered),
       updateRecipeMeta(rid, item.id, { prep_time_mins: prepTime, recipe_notes: notes }),
-      (yieldValue !== (item.recipe_yield ?? 0) || yieldUnit !== (item.recipe_yield_unit || 'kg'))
-        ? setRecipeYield(rid, item.id, yieldValue, yieldUnit)
-        : Promise.resolve(),
     ]);
     setLoadedSteps(numbered);
     onRecipeSaved?.();
@@ -150,12 +151,12 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
             min={0}
             className="input text-sm flex-1"
             value={yieldValue || ''}
-            onChange={(e) => setYieldValue(+e.target.value)}
+            onChange={(e) => onYieldChange(+e.target.value, yieldUnit)}
           />
           <select
             className="input text-sm w-24"
             value={yieldUnit}
-            onChange={(e) => setYieldUnit(e.target.value)}
+            onChange={(e) => onYieldChange(yieldValue, e.target.value)}
           >
             <option value="kg">kg</option>
             <option value="g">g</option>
