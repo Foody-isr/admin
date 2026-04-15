@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   listOptionSets, createOptionSet, attachOptionSetToItems,
   detachOptionSetFromItem, getItemOptionPrices, setItemOptionPrice,
-  createOptionInSet,
+  createOptionInSet, listAllItems,
   OptionSet, OptionSetInput, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -32,12 +32,12 @@ interface GroupState {
   rows: VariantRow[];
 }
 
-function newRow(): VariantRow {
-  return { key: crypto.randomUUID(), name: '', price: '', onlinePrice: '', sku: '', portionSize: '', portionSizeUnit: 'g', isActive: true };
+function newRow(defaultUnit: string = 'g'): VariantRow {
+  return { key: crypto.randomUUID(), name: '', price: '', onlinePrice: '', sku: '', portionSize: '', portionSizeUnit: defaultUnit, isActive: true };
 }
 
-function newGroup(): GroupState {
-  return { key: crypto.randomUUID(), title: '', rows: [newRow()] };
+function newGroup(defaultUnit: string = 'g'): GroupState {
+  return { key: crypto.randomUUID(), title: '', rows: [newRow(defaultUnit)] };
 }
 
 /* ── Page ─────────────────────────────────────────────────────────── */
@@ -52,6 +52,10 @@ export default function VariantsEditorPage() {
   const [groups, setGroups] = useState<GroupState[]>([newGroup()]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // The parent item's portion unit — used as the default unit when the user
+  // adds new variants, so a "1 portion" item (item.portion_size_unit === 'unit')
+  // auto-populates variant portions in 'unit' instead of the generic 'g' default.
+  const [itemPortionUnit, setItemPortionUnit] = useState('g');
 
   // Existing option sets for the dropdown
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
@@ -59,11 +63,15 @@ export default function VariantsEditorPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [optSets, overrides] = await Promise.all([
+      const [optSets, overrides, items] = await Promise.all([
         listOptionSets(rid),
         getItemOptionPrices(rid, iid),
+        listAllItems(rid),
       ]);
       setAllOptionSets(optSets ?? []);
+      const parentItem = (items ?? []).find((i) => i.id === iid);
+      const defaultUnit = parentItem?.portion_size_unit || 'g';
+      setItemPortionUnit(defaultUnit);
 
       // Build override lookup
       const overrideMap = new Map<number, ItemOptionOverride>();
@@ -89,7 +97,7 @@ export default function VariantsEditorPage() {
                 onlinePrice: ov?.online_price != null ? String(ov.online_price) : '',
                 sku: ov?.sku ?? opt.sku ?? '',
                 portionSize: (ov?.portion_size ?? 0) > 0 ? String(ov!.portion_size) : '',
-                portionSizeUnit: ov?.portion_size_unit || 'g',
+                portionSizeUnit: ov?.portion_size_unit || defaultUnit,
                 isActive: ov?.is_active ?? opt.is_active,
               };
             }),
@@ -98,6 +106,10 @@ export default function VariantsEditorPage() {
       }
       if (attached.length > 0) {
         setGroups(attached);
+      } else {
+        // No attached option sets yet — replace the initial placeholder group
+        // so its portion unit matches the item's default rather than 'g'.
+        setGroups([newGroup(defaultUnit)]);
       }
     } finally {
       setLoading(false);
@@ -234,7 +246,7 @@ export default function VariantsEditorPage() {
 
   const addRow = (groupKey: string) => {
     setGroups((prev) => prev.map((g) =>
-      g.key === groupKey ? { ...g, rows: [...g.rows, newRow()] } : g
+      g.key === groupKey ? { ...g, rows: [...g.rows, newRow(itemPortionUnit)] } : g
     ));
   };
 
@@ -265,7 +277,7 @@ export default function VariantsEditorPage() {
         onlinePrice: opt.online_price != null ? String(opt.online_price) : '',
         sku: opt.sku ?? '',
         portionSize: '',
-        portionSizeUnit: 'g',
+        portionSizeUnit: itemPortionUnit,
         isActive: opt.is_active,
       })),
     });
@@ -373,6 +385,7 @@ export default function VariantsEditorPage() {
                     <select value={row.portionSizeUnit}
                       onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
                       className="text-xs bg-transparent border-0 outline-none text-fg-tertiary w-8">
+                      <option value="unit">unit</option>
                       <option value="g">g</option><option value="kg">kg</option>
                       <option value="ml">ml</option><option value="l">l</option>
                     </select>
@@ -407,7 +420,7 @@ export default function VariantsEditorPage() {
           </div>
         ))}
 
-        <button onClick={() => setGroups((prev) => [...prev, newGroup()])}
+        <button onClick={() => setGroups((prev) => [...prev, newGroup(itemPortionUnit)])}
           className="flex items-center gap-2 text-base font-medium text-fg-primary underline">
           <PlusIcon className="w-4 h-4" />
           {t('addAnotherSet')}

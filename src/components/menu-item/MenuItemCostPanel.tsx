@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MenuItem, MenuItemIngredient, PrepItem, StockItem, ItemOptionOverride } from '@/lib/api';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
-import { convertQuantity, toBaseUnit } from '@/lib/units';
+import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
 import { detectPrepSwaps } from '@/lib/prep-swap';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 
@@ -38,7 +38,7 @@ interface Props {
 // Used both on the standalone Food Cost page (right panel) and on the
 // Menu Item edit page Cost tab. Extracted so the two places stay in lockstep.
 export default function MenuItemCostPanel({
-  rid, item, ingredients, prepItems, vatRate, itemOptionOverrides,
+  rid, item, ingredients, prepItems, stockItems, vatRate, itemOptionOverrides,
   onGoToRecipe, onEditStockItem,
 }: Props) {
   const { t } = useI18n();
@@ -122,13 +122,20 @@ export default function MenuItemCostPanel({
 
     let qty: number;
     let qtyUnit: string;
+    qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
     if (ing.scales_with_variant) {
-      if (!portionOverride) return 0;
-      qty = portionOverride.qty;
-      qtyUnit = portionOverride.unit;
+      // Linear scaling: ingredient's authored qty × (variant.portion / item.portion).
+      // Ratio is 1 (no scaling) when item has no base portion set, or when the
+      // variant and item portions are in incompatible unit families.
+      const itemQty = item.portion_size ?? 0;
+      const itemUnit = item.portion_size_unit || '';
+      let ratio = 1;
+      if (portionOverride && itemQty > 0 && sameUnitFamily(portionOverride.unit, itemUnit)) {
+        ratio = toBaseUnit(portionOverride.qty, portionOverride.unit) / toBaseUnit(itemQty, itemUnit);
+      }
+      qty = ing.quantity_needed * ratio;
     } else {
       qty = ing.quantity_needed;
-      qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
     }
 
     let rawCost: number;
@@ -202,11 +209,68 @@ export default function MenuItemCostPanel({
   const hasMissingVariantPortion =
     ingredients.some((i) => i.scales_with_variant) && !currentPortion;
 
+  // ── Modifier consumption ─────────────────────────────────────
+  // A modifier with stock_item_id or prep_item_id consumes inventory when
+  // selected. Multi-pick count is applied at order time; the cost row below
+  // shows per-selection cost (count = 1).
+  type ModCostRow = {
+    id: number;
+    name: string;
+    setName: string;
+    source: string;   // e.g. "Cheese (stock)" / "Sauce special (prep)"
+    qty: number;
+    unit: string;
+    perSelectionCost: number;
+  };
+  const modCostRows: ModCostRow[] = [];
+  const collectMod = (m: { id: number; name: string; stock_item_id?: number; prep_item_id?: number; quantity?: number; unit?: string }, setName: string) => {
+    const q = m.quantity ?? 0;
+    if (q <= 0) return;
+    if (!m.stock_item_id && !m.prep_item_id) return;
+    let rawCost = 0;
+    let includesVat = false;
+    let sourceName = '';
+    if (m.stock_item_id) {
+      const s = (stockItems ?? []).find((x) => x.id === m.stock_item_id);
+      if (!s) return;
+      rawCost = s.cost_per_unit ?? 0;
+      includesVat = s.price_includes_vat ?? false;
+      sourceName = `${s.name} (stock)`;
+      // Convert qty to stock unit when possible so cost math aligns.
+      const converted = convertQuantity(q, m.unit || s.unit, s.unit);
+      const unitCost = showCostsExVat ? toExVat(rawCost, includesVat) : toIncVat(rawCost, includesVat);
+      modCostRows.push({
+        id: m.id, name: m.name, setName,
+        source: sourceName, qty: q, unit: m.unit || s.unit,
+        perSelectionCost: converted * unitCost,
+      });
+      return;
+    }
+    if (m.prep_item_id) {
+      const p = (prepItems ?? []).find((x) => x.id === m.prep_item_id);
+      if (!p) return;
+      const prepExVat = computePrepUnitCostExVat(p);
+      const baseCost = prepExVat != null ? prepExVat : (p.cost_per_unit ?? 0);
+      const unitCost = showCostsExVat ? baseCost : baseCost * vatMultiplier;
+      sourceName = `${p.name} (prep)`;
+      const converted = convertQuantity(q, m.unit || p.unit, p.unit);
+      modCostRows.push({
+        id: m.id, name: m.name, setName,
+        source: sourceName, qty: q, unit: m.unit || p.unit,
+        perSelectionCost: converted * unitCost,
+      });
+    }
+  };
+  for (const ms of item.modifier_sets ?? []) {
+    for (const m of ms.modifiers ?? []) collectMod(m, ms.name);
+  }
+  for (const m of item.modifiers ?? []) collectMod(m, '');
+
   return (
     <div className="space-y-4">
       {/* Item header: variant pills OR mini P&L */}
       <div className="card p-5">
-        {hasYield && allVariants.filter((v) => (v.portion_size ?? 0) > 0).length > 0 ? (
+        {allVariants.filter((v) => (v.portion_size ?? 0) > 0).length > 0 ? (
           <div className="flex flex-wrap gap-2 mb-4">
             {allVariants.filter((v) => (v.portion_size ?? 0) > 0).map((v) => {
               const isActive = (selectedVariantId || String(allVariants.find((vv) => (vv.portion_size ?? 0) > 0)?.id ?? 'full')) === String(v.id);
@@ -440,6 +504,40 @@ export default function MenuItemCostPanel({
           </>
         )}
       </div>
+
+      {/* Modifier consumption — per-selection cost for modifiers linked to a
+          stock/prep item. Customers can pick multiple, so total impact scales
+          with selected count at order time. */}
+      {modCostRows.length > 0 && (
+        <div className="card overflow-hidden p-0">
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
+            <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('modifierConsumption') || 'Modifier consumption'}</p>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
+                <th className="py-2 px-4 font-medium">{t('modifier') || 'Modifier'}</th>
+                <th className="py-2 px-4 font-medium">{t('consumesFromStock') || 'Consumes'}</th>
+                <th className="py-2 px-4 font-medium text-right">{t('qty') || 'Qty'}</th>
+                <th className="py-2 px-4 font-medium text-right">{t('perSelectionCost') || 'Per selection'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modCostRows.map((r) => (
+                <tr key={`mod-${r.id}`} style={{ borderBottom: '1px solid var(--divider)' }}>
+                  <td className="py-2.5 px-4 font-medium text-fg-primary">
+                    {r.name}
+                    {r.setName && <span className="text-xs text-fg-tertiary ml-2">({r.setName})</span>}
+                  </td>
+                  <td className="py-2.5 px-4 text-fg-secondary">{r.source}</td>
+                  <td className="py-2.5 px-4 text-right font-mono text-fg-primary">{r.qty} {r.unit}</td>
+                  <td className="py-2.5 px-4 text-right font-mono text-fg-primary">{r.perSelectionCost.toFixed(2)} &#8362;</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Per-variant cost breakdown */}
       {ingredients.length > 0 && (item.recipe_yield ?? 0) > 0 && (() => {

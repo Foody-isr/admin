@@ -83,7 +83,8 @@ export default function MenuItemIngredientsEditor({
         prep_item_id: s.prep.id,
         quantity_needed: 0,
         unit: '',
-        scales_with_variant: true,
+        // User fills in the base qty after the swap; variant scaling is opt-in.
+        scales_with_variant: false,
       },
     ];
     setSwapConfirm(null);
@@ -162,40 +163,46 @@ export default function MenuItemIngredientsEditor({
                 <TrashIcon className="w-4 h-4" />
               </button>
             </div>
-            {/* Qty + unit (hidden when scales_with_variant) */}
-            {!ing.scales_with_variant && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="number" step="any" min="0"
-                  className="input w-24 py-1.5 text-sm text-right"
-                  value={ing.quantity_needed || ''}
-                  onChange={(e) => updateRow(idx, { quantity_needed: +e.target.value })}
-                  placeholder={t('qty')}
-                />
-                <select
-                  className="input w-20 py-1.5 text-sm"
-                  value={ing.unit || ''}
-                  onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                >
-                  <option value="">—</option>
-                  <option value="g">g</option><option value="kg">kg</option>
-                  <option value="ml">ml</option><option value="l">l</option>
-                  <option value="unit">unit</option>
-                </select>
-              </div>
-            )}
-            {/* Follow variant portion */}
-            <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
+            {/* Qty + unit: always authored (base quantity for the item's default
+                portion). Variant scaling multiplies this by a ratio at cost time. */}
+            <div className="flex items-center gap-2">
               <input
-                type="checkbox"
-                checked={ing.scales_with_variant ?? false}
-                onChange={(e) => updateRow(idx, { scales_with_variant: e.target.checked })}
-                className="rounded border-[var(--divider)]"
+                type="number" step="any" min="0"
+                className="input w-24 py-1.5 text-sm text-right"
+                value={ing.quantity_needed || ''}
+                onChange={(e) => updateRow(idx, { quantity_needed: +e.target.value })}
+                placeholder={t('qty')}
               />
-              <span>{t('followVariantPortion')}</span>
-            </label>
-            {ing.scales_with_variant && (
-              <p className="text-xs text-fg-tertiary italic">{t('followVariantPortionHint')}</p>
+              <select
+                className="input w-20 py-1.5 text-sm"
+                value={ing.unit || ''}
+                onChange={(e) => updateRow(idx, { unit: e.target.value })}
+              >
+                <option value="">—</option>
+                <option value="g">g</option><option value="kg">kg</option>
+                <option value="ml">ml</option><option value="l">l</option>
+                <option value="unit">unit</option>
+              </select>
+            </div>
+            {/* Follow variant portion — only meaningful for per-portion items.
+                Batch items (recipe_yield > 0) prorate all ingredients uniformly
+                by the variant's portion / yield ratio, so a per-ingredient flag
+                would contradict that and is hidden here. */}
+            {(menuItem.recipe_yield ?? 0) <= 0 && (
+              <>
+                <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={ing.scales_with_variant ?? false}
+                    onChange={(e) => updateRow(idx, { scales_with_variant: e.target.checked })}
+                    className="rounded border-[var(--divider)]"
+                  />
+                  <span>{t('followVariantPortion')}</span>
+                </label>
+                {ing.scales_with_variant && (
+                  <p className="text-xs text-fg-tertiary italic">{t('followVariantPortionHint')}</p>
+                )}
+              </>
             )}
           </div>
         ))

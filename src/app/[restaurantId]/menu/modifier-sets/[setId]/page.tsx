@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getModifierSet, createModifierSet, updateModifierSet,
   deleteModifier, createModifierInSet, reorderModifierSetModifiers,
-  ModifierSetInput,
+  listStockItems, listPrepItems,
+  ModifierSetInput, StockItem, PrepItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -23,6 +24,12 @@ interface ModifierRow {
   is_preselected: boolean;
   hide_online: boolean;
   sort_order: number;
+  // Stock consumption — when a customer picks this modifier, it consumes
+  // `quantity` of the linked stock or prep item. Empty = no inventory impact.
+  stock_item_id?: number | null;
+  prep_item_id?: number | null;
+  quantity: number;
+  unit: string;
   isNew?: boolean;
 }
 
@@ -36,6 +43,10 @@ function blankRow(sortOrder: number): ModifierRow {
     is_preselected: false,
     hide_online: false,
     sort_order: sortOrder,
+    stock_item_id: null,
+    prep_item_id: null,
+    quantity: 0,
+    unit: 'g',
     isNew: true,
   };
 }
@@ -59,6 +70,11 @@ export default function ModifierSetEditorPage() {
   const [rows, setRows] = useState<ModifierRow[]>([blankRow(0)]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  // Inventory sources for the per-row stock picker.
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
+  // Which row has its stock-consumption subrow expanded.
+  const [expandedStockIdx, setExpandedStockIdx] = useState<number | null>(null);
 
   const loadSet = useCallback(async () => {
     if (isNew) return;
@@ -83,11 +99,20 @@ export default function ModifierSetEditorPage() {
       is_preselected: m.is_preselected,
       hide_online: m.hide_online,
       sort_order: m.sort_order,
+      stock_item_id: m.stock_item_id ?? null,
+      prep_item_id: m.prep_item_id ?? null,
+      quantity: m.quantity ?? 0,
+      unit: m.unit || 'g',
     })));
     setLoading(false);
   }, [rid, setId, isNew]);
 
   useEffect(() => { loadSet(); }, [loadSet]);
+  useEffect(() => {
+    Promise.all([listStockItems(rid), listPrepItems(rid)])
+      .then(([s, p]) => { setStockItems(s); setPrepItems(p); })
+      .catch(() => {});
+  }, [rid]);
 
   const updateRow = (index: number, patch: Partial<ModifierRow>) => {
     setRows((prev) => prev.map((r, i) => i === index ? { ...r, ...patch } : r));
@@ -260,8 +285,8 @@ export default function ModifierSetEditorPage() {
               </thead>
               <tbody>
                 {rows.map((row, i) => (
+                  <Fragment key={i}>
                   <tr
-                    key={i}
                     className="group"
                     style={{ borderTop: '1px solid var(--divider)' }}
                   >
@@ -360,6 +385,86 @@ export default function ModifierSetEditorPage() {
                       </div>
                     </td>
                   </tr>
+                  {/* Stock-consumption subrow — opt-in per modifier. A closed
+                      state shows a single link to open; an open state shows the
+                      picker + qty + unit. Picking "None" collapses back. */}
+                  <tr>
+                    <td colSpan={8} className="px-3 pb-3" style={{ borderTop: '1px dashed var(--divider)' }}>
+                      {(() => {
+                        const hasLink = !!(row.stock_item_id || row.prep_item_id);
+                        const isOpen = expandedStockIdx === i || hasLink;
+                        if (!isOpen) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedStockIdx(i)}
+                              className="text-xs text-fg-tertiary hover:text-brand-500 transition-colors pl-12"
+                            >
+                              + {t('linkStockConsumption') || 'Link stock consumption'}
+                            </button>
+                          );
+                        }
+                        const pickerValue = row.stock_item_id ? `s:${row.stock_item_id}` : row.prep_item_id ? `p:${row.prep_item_id}` : '';
+                        return (
+                          <div className="flex items-center gap-2 text-xs text-fg-secondary pl-12">
+                            <span className="text-fg-tertiary">{t('consumesFromStock') || 'Consumes'}:</span>
+                            <select
+                              value={pickerValue}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v) {
+                                  updateRow(i, { stock_item_id: null, prep_item_id: null });
+                                  setExpandedStockIdx(null);
+                                } else if (v.startsWith('s:')) {
+                                  updateRow(i, { stock_item_id: Number(v.slice(2)), prep_item_id: null });
+                                } else {
+                                  updateRow(i, { prep_item_id: Number(v.slice(2)), stock_item_id: null });
+                                }
+                              }}
+                              className="px-2 py-1 rounded text-xs bg-transparent"
+                              style={{ border: '1px solid var(--divider)' }}
+                            >
+                              <option value="">— {t('none') || 'None'} —</option>
+                              <optgroup label={t('stockItems') || 'Stock items'}>
+                                {stockItems.map((s) => (
+                                  <option key={`s-${s.id}`} value={`s:${s.id}`}>{s.name}</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label={t('prepItems') || 'Prep items'}>
+                                {prepItems.map((p) => (
+                                  <option key={`p-${p.id}`} value={`p:${p.id}`}>{p.name}</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                            <input
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={row.quantity || ''}
+                              onChange={(e) => updateRow(i, { quantity: parseFloat(e.target.value) || 0 })}
+                              placeholder={t('qty') || 'Qty'}
+                              className="w-20 px-2 py-1 rounded text-xs bg-transparent text-right"
+                              style={{ border: '1px solid var(--divider)' }}
+                            />
+                            <select
+                              value={row.unit || 'g'}
+                              onChange={(e) => updateRow(i, { unit: e.target.value })}
+                              className="px-2 py-1 rounded text-xs bg-transparent"
+                              style={{ border: '1px solid var(--divider)' }}
+                            >
+                              <option value="g">g</option>
+                              <option value="kg">kg</option>
+                              <option value="ml">ml</option>
+                              <option value="l">l</option>
+                              <option value="unit">unit</option>
+                            </select>
+                            <span className="text-fg-tertiary">{t('perSelection') || 'per selection'}</span>
+                          </div>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

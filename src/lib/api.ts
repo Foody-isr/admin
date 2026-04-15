@@ -160,6 +160,12 @@ export interface MenuItemModifier {
   hide_online: boolean;
   is_required: boolean;
   sort_order: number;
+  // Stock consumption: picking this modifier consumes `quantity` of the linked
+  // stock/prep item (`unit`). Multi-pick count multiplies consumption at cost time.
+  stock_item_id?: number;
+  prep_item_id?: number;
+  quantity?: number;
+  unit?: string;
 }
 
 export interface ModifierSet {
@@ -1248,6 +1254,10 @@ export interface ModifierInput {
   is_active?: boolean;
   is_required?: boolean;
   sort_order?: number;
+  stock_item_id?: number | null;
+  prep_item_id?: number | null;
+  quantity?: number;
+  unit?: string;
 }
 
 export async function createModifier(restaurantId: number, input: ModifierInput): Promise<MenuItemModifier> {
@@ -1284,6 +1294,10 @@ export interface ModifierInSetInput {
   is_preselected?: boolean;
   hide_online?: boolean;
   sort_order?: number;
+  stock_item_id?: number | null;
+  prep_item_id?: number | null;
+  quantity?: number;
+  unit?: string;
 }
 
 export interface ModifierSetInput {
