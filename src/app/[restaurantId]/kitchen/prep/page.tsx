@@ -46,7 +46,7 @@ export default function PrepPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  type SortKey = 'name' | 'quantity' | 'yield' | 'cost' | 'shelf';
+  type SortKey = 'name' | 'quantity' | 'yield' | 'shelf';
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const toggleSort = (key: SortKey) => {
@@ -112,7 +112,6 @@ export default function PrepPage() {
     if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
     if (sortKey === 'quantity') return (a.quantity - b.quantity) * dir;
     if (sortKey === 'yield') return (a.yield_per_batch - b.yield_per_batch) * dir;
-    if (sortKey === 'cost') return (a.cost_per_unit - b.cost_per_unit) * dir;
     return (a.shelf_life_hours - b.shelf_life_hours) * dir;
   });
 
@@ -308,15 +307,6 @@ export default function PrepPage() {
                   </button>
                 </th>
                 <th
-                  aria-sort={sortKey === 'cost' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
-                >
-                  <button type="button" onClick={() => toggleSort('cost')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
-                    {t('costPerUnit')}
-                    {sortKey === 'cost' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
-                  </button>
-                </th>
-                <th
                   aria-sort={sortKey === 'shelf' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
                 >
@@ -363,9 +353,6 @@ export default function PrepPage() {
                     </td>
                     <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
                       {item.yield_per_batch > 0 ? `${item.yield_per_batch} ${item.unit}` : '—'}
-                    </td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
-                      {item.cost_per_unit > 0 ? `${item.cost_per_unit.toFixed(2)} ₪` : '—'}
                     </td>
                     <td className="py-3.5 px-2 text-right font-mono text-fg-secondary">
                       {item.shelf_life_hours > 0 ? (
