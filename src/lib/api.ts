@@ -652,6 +652,14 @@ export interface ProduceBatchResult {
   insufficient: Shortage[];
 }
 
+export interface IngredientVariantOverride {
+  id?: number;
+  ingredient_id?: number;
+  option_id: number;
+  quantity: number;
+  unit?: string;
+}
+
 export interface MenuItemIngredient {
   id: number;
   menu_item_id: number;
@@ -663,6 +671,7 @@ export interface MenuItemIngredient {
   created_at: string;
   stock_item?: StockItem;
   prep_item?: PrepItem;
+  variant_overrides?: IngredientVariantOverride[];
 }
 
 export interface IngredientInput {
@@ -671,6 +680,7 @@ export interface IngredientInput {
   quantity_needed: number;
   unit?: string;
   scales_with_variant?: boolean;
+  variant_overrides?: IngredientVariantOverride[];
 }
 
 export interface PrepIngredientInput {

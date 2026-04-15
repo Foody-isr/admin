@@ -116,6 +116,7 @@ export default function MenuItemCostPanel({
   const calcLineCost = (
     ing: MenuItemIngredient,
     portionOverride?: { qty: number; unit: string } | null,
+    variantOptionId?: number | null,
   ) => {
     const stock = ing.stock_item;
     const prep = ing.prep_item;
@@ -124,14 +125,19 @@ export default function MenuItemCostPanel({
     let qty: number;
     let qtyUnit: string;
     qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
-    // Batch items prorate ALL ingredients uniformly via calcVariantLineCost's
-    // (portion / yield) ratio — the per-ingredient scales_with_variant flag
-    // is meaningless and ignored here, even if legacy data still has it true.
     const batchMode = (item.recipe_yield ?? 0) > 0;
-    if (ing.scales_with_variant && !batchMode) {
-      // Linear scaling: ingredient's authored qty × (variant.portion / item.portion).
-      // Ratio is 1 (no scaling) when item has no base portion set, or when the
-      // variant and item portions are in incompatible unit families.
+
+    // 1) Per-variant override wins when present — the user authored the exact
+    //    quantity for this variant (e.g. "Grand uses 400 g of beef").
+    const override = !batchMode && variantOptionId != null
+      ? (ing.variant_overrides ?? []).find((o) => o.option_id === variantOptionId)
+      : undefined;
+    if (override && override.quantity > 0) {
+      qty = override.quantity;
+      qtyUnit = override.unit || qtyUnit;
+    } else if (ing.scales_with_variant && !batchMode) {
+      // 2) Legacy scales_with_variant flag — kept as a fallback for rows that
+      //    haven't been migrated yet. Same ratio math as before.
       const itemQty = item.portion_size ?? 0;
       const itemUnit = item.portion_size_unit || '';
       let ratio = 1;
@@ -140,6 +146,7 @@ export default function MenuItemCostPanel({
       }
       qty = ing.quantity_needed * ratio;
     } else {
+      // 3) Fixed ingredient (per-portion mode) or base qty for batch items.
       qty = ing.quantity_needed;
     }
 
@@ -186,26 +193,36 @@ export default function MenuItemCostPanel({
     return false;
   };
 
+  // Extract the OptionSetOption ID from an `opt:N` variant id (null for `var:N`
+  // or no variant). Used to look up per-ingredient variant overrides.
+  const optionIdFromVariant = (variantId: string): number | null => {
+    if (!variantId.startsWith('opt:')) return null;
+    const n = Number(variantId.slice(4));
+    return Number.isFinite(n) ? n : null;
+  };
+
   const calcVariantLineCost = (
     ing: MenuItemIngredient,
     portion: { qty: number; unit: string } | null,
+    optionId?: number | null,
   ) => {
-    const raw = calcLineCost(ing, portion);
+    const raw = calcLineCost(ing, portion, optionId);
     // Batch items: always prorate by (variant portion / yield), regardless of
     // any legacy scales_with_variant flag on the ingredient.
     if (hasYield && portion && yieldBaseUnit > 0) {
       const portionBase = toBaseUnit(portion.qty, portion.unit);
       return raw * (portionBase / yieldBaseUnit);
     }
-    // Per-portion items: scales_with_variant already baked into calcLineCost.
+    // Per-portion items: override (or scales flag) already baked into calcLineCost.
     return raw;
   };
 
-  const sumVariantCost = (portion: { qty: number; unit: string } | null) =>
-    ingredients.reduce((sum, ing) => sum + calcVariantLineCost(ing, portion), 0);
+  const sumVariantCost = (portion: { qty: number; unit: string } | null, optionId?: number | null) =>
+    ingredients.reduce((sum, ing) => sum + calcVariantLineCost(ing, portion, optionId), 0);
 
   const currentPortion = resolveIngredientPortion(activeVariantId);
-  const displayCost = currentPortion ? sumVariantCost(currentPortion) : ingredients.reduce((s, i) => s + calcLineCost(i), 0);
+  const currentOptionId = optionIdFromVariant(activeVariantId);
+  const displayCost = currentPortion ? sumVariantCost(currentPortion, currentOptionId) : ingredients.reduce((s, i) => s + calcLineCost(i), 0);
   let displayPrice = item.price ?? 0;
   if (activeVariantId) {
     const v = allVariants.find((vv) => String(vv.id) === activeVariantId);
@@ -469,20 +486,27 @@ export default function MenuItemCostPanel({
                     incVat = ing.stock_item?.price_includes_vat ?? false;
                   }
                   const unitCost = showCostsExVat ? toExVat(rawUnitCost, incVat) : toIncVat(rawUnitCost, incVat);
-                  const lineCost = calcVariantLineCost(ing, currentPortion);
+                  const lineCost = calcVariantLineCost(ing, currentPortion, currentOptionId);
                   const mismatch = hasUnitMismatch(ing);
                   const type = ing.stock_item_id ? t('raw') : t('prep');
                   // Effective qty = what the cost math actually uses.
-                  // For scales_with_variant: base × ratio (same-unit-family) or base × 1 otherwise.
+                  // Precedence: per-variant override → scales_with_variant ratio → base.
                   let effectiveQty = ing.quantity_needed;
-                  if (ing.scales_with_variant && currentPortion) {
+                  let effectiveUnit = unit;
+                  const override = currentOptionId != null
+                    ? (ing.variant_overrides ?? []).find((o) => o.option_id === currentOptionId)
+                    : undefined;
+                  if (override && override.quantity > 0) {
+                    effectiveQty = override.quantity;
+                    effectiveUnit = override.unit || unit;
+                  } else if (ing.scales_with_variant && currentPortion) {
                     const itemQty = item.portion_size ?? 0;
                     const itemUnit = item.portion_size_unit || '';
                     if (itemQty > 0 && sameUnitFamily(currentPortion.unit, itemUnit)) {
                       effectiveQty = ing.quantity_needed * (toBaseUnit(currentPortion.qty, currentPortion.unit) / toBaseUnit(itemQty, itemUnit));
                     }
                   }
-                  const qtyDisplay = `${Number(effectiveQty.toFixed(3))} ${unit}`;
+                  const qtyDisplay = `${Number(effectiveQty.toFixed(3))} ${effectiveUnit}`;
                   return (
                     <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                       <td className="py-3 px-4">
@@ -504,7 +528,14 @@ export default function MenuItemCostPanel({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                        {ing.scales_with_variant ? (
+                        {override && override.quantity > 0 ? (
+                          <span className="inline-flex flex-col items-end">
+                            <span>{qtyDisplay}</span>
+                            <span className="text-[10px] uppercase text-brand-500/80 tracking-wider">
+                              {t('variantOverride') || 'variant override'}
+                            </span>
+                          </span>
+                        ) : ing.scales_with_variant ? (
                           <span className="inline-flex flex-col items-end">
                             <span>{qtyDisplay}</span>
                             <span className="text-[10px] uppercase text-fg-tertiary tracking-wider">
@@ -647,6 +678,7 @@ export default function MenuItemCostPanel({
           ing={breakdownIng}
           item={item}
           portion={currentPortion}
+          optionId={currentOptionId}
           showExVat={showCostsExVat}
           vatMultiplier={vatMultiplier}
           onClose={() => setBreakdownIng(null)}

@@ -445,6 +445,11 @@ export default function EditItemPage() {
                 yieldValue={recipeYieldValue}
                 yieldUnit={recipeYieldUnit}
                 onYieldChange={(q, u) => { setRecipeYieldValue(q); setRecipeYieldUnit(u); }}
+                portionSize={portionSize}
+                portionSizeUnit={portionSizeUnit}
+                onPortionChange={(q, u) => { setPortionSize(q); setPortionSizeUnit(u); }}
+                attachedOptionSets={attachedOptionSets}
+                itemOptionOverrides={itemOptionOverrides}
               />
             )}
 
@@ -629,104 +634,7 @@ export default function EditItemPage() {
               </div>
             )}
 
-            {/* ── Stock Management ── */}
-            <div className="h-1 bg-[var(--divider)] rounded-full" />
-            {(() => {
-              // Per-portion mode = no batch yield. "En lot" = recipe_yield > 0.
-              // The portion itself can be any unit (1 unit for a burger, 250 g
-              // for a plate of OR ROUGE) — it's no longer locked to '1 unit'.
-              const isPerItem = recipeYieldValue === 0;
-              const hasVariants = (item?.variant_groups ?? []).some(g => (g.variants ?? []).length > 0) || attachedOptionSets.length > 0;
-              return (
-                <div className="space-y-4">
-                  <h3 className="text-base font-bold text-fg-primary">{t('stockManagement')}</h3>
-
-                  {/* 1. Recipe Type — comes first to drive the rest */}
-                  <div>
-                    <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeType')}</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Per-portion: clear any batch yield. Keep whatever
-                          // portion the user already has, defaulting to 1 unit
-                          // only if none is set yet.
-                          setRecipeYieldValue(0);
-                          setRecipeYieldUnit('kg');
-                          if ((portionSize ?? 0) <= 0) {
-                            setPortionSize(1);
-                            setPortionSizeUnit('unit');
-                          }
-                        }}
-                        className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
-                          isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-fg-primary">{t('perItemRecipe')}</p>
-                        <p className="text-[11px] text-fg-tertiary mt-0.5">{t('perItemRecipeDesc')}</p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isPerItem) {
-                            setRecipeYieldValue(0);
-                            setRecipeYieldUnit('kg');
-                            setPortionSize(0);
-                            setPortionSizeUnit('g');
-                          }
-                        }}
-                        className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
-                          !isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                        }`}
-                      >
-                        <p className="text-sm font-semibold text-fg-primary">{t('bulkRecipe')}</p>
-                        <p className="text-[11px] text-fg-tertiary mt-0.5">{t('bulkRecipeDesc')}</p>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 2. Portion — editable in both modes. Batch mode uses it as
-                      the "default portion served"; per-portion uses it as the
-                      base for variant scaling. Hidden only when variants
-                      already define per-variant portions (batch path). */}
-                  <div>
-                    <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
-                    {!isPerItem && hasVariants ? (
-                      <p className="text-sm text-fg-secondary py-1.5 opacity-60">{t('portionFromVariants')}</p>
-                    ) : (
-                      <>
-                        <p className="text-xs text-fg-tertiary mb-2">
-                          {isPerItem ? t('portionPerItemDesc') : t('portionBulkDesc')}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="any"
-                            min="0"
-                            placeholder="0"
-                            value={portionSize || ''}
-                            onChange={(e) => setPortionSize(+e.target.value)}
-                            className="input w-24 py-1.5 text-sm text-right"
-                          />
-                          <select
-                            value={portionSizeUnit}
-                            onChange={(e) => setPortionSizeUnit(e.target.value)}
-                            className="input w-20 py-1.5 text-sm"
-                          >
-                            <option value="unit">unit</option>
-                            <option value="g">g</option>
-                            <option value="kg">kg</option>
-                            <option value="ml">ml</option>
-                            <option value="l">l</option>
-                          </select>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                </div>
-              );
-            })()}
+            {/* Stock/recipe config lives on the Recipe tab now. */}
 
             {/* Divider */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />

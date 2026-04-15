@@ -8,11 +8,12 @@ import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
 // The "line cost" math here MUST mirror calcLineCost/calcVariantLineCost in
 // MenuItemCostPanel so the modal and the Cost table never disagree.
 export default function PrepCostBreakdownModal({
-  ing, item, portion, showExVat, vatMultiplier, onClose, t,
+  ing, item, portion, optionId, showExVat, vatMultiplier, onClose, t,
 }: {
   ing: MenuItemIngredient;
   item: MenuItem;
   portion: { qty: number; unit: string } | null;
+  optionId?: number | null;
   showExVat: boolean;
   vatMultiplier: number;
   onClose: () => void;
@@ -55,11 +56,20 @@ export default function PrepCostBreakdownModal({
   //    Otherwise use base qty as-is (the cost panel falls back to 1× and
   //    shows a mismatch banner).
   const batchMode = (item.recipe_yield ?? 0) > 0;
-  const baseQty = ing.quantity_needed;
-  const baseUnit = ing.unit || yieldUnit;
+  let baseQty = ing.quantity_needed;
+  let baseUnit = ing.unit || yieldUnit;
   let variantRatio = 1;
   let batchRatio = 1;
-  if (batchMode && portion) {
+  let usedOverride = false;
+  // Per-variant override wins (matches calcLineCost precedence in the Cost panel).
+  const override = !batchMode && optionId != null
+    ? (ing.variant_overrides ?? []).find((o) => o.option_id === optionId)
+    : undefined;
+  if (override && override.quantity > 0) {
+    baseQty = override.quantity;
+    baseUnit = override.unit || baseUnit;
+    usedOverride = true;
+  } else if (batchMode && portion) {
     const yieldBase = toBaseUnit(item.recipe_yield ?? 0, item.recipe_yield_unit || 'kg');
     const portionBase = toBaseUnit(portion.qty, portion.unit);
     if (yieldBase > 0) batchRatio = portionBase / yieldBase;
@@ -161,6 +171,9 @@ export default function PrepCostBreakdownModal({
             <div className="px-3 py-3 rounded-lg space-y-1 font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
               <div className="text-fg-secondary">
                 {baseQty} {baseUnit}
+                {usedOverride && (
+                  <span className="text-brand-500"> ({t('variantOverride') || 'variant override'})</span>
+                )}
                 {variantRatio !== 1 && (
                   <span> &times; {variantRatio.toFixed(3)} ({t('variant') || 'variant'})</span>
                 )}
