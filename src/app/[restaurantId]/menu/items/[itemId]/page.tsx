@@ -13,8 +13,11 @@ import {
   OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
   StockItem, PrepItem, MenuItemIngredient,
 } from '@/lib/api';
-import MenuItemIngredientsEditor from '@/components/food-cost/MenuItemIngredientsEditor';
+import { getRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import TabBar, { useMenuItemTab } from '@/components/menu-item/TabBar';
+import MenuItemRecipeTab, { MenuItemRecipeTabHandle } from '@/components/menu-item/MenuItemRecipeTab';
+import MenuItemCostPanel from '@/components/menu-item/MenuItemCostPanel';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
 import StatusPill from '@/components/StatusPill';
@@ -95,6 +98,11 @@ export default function EditItemPage() {
   const [ingredients, setIngredients] = useState<MenuItemIngredient[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
+  const [vatRate, setVatRate] = useState(18);
+
+  // Tabs
+  const [tab, setTab] = useMenuItemTab();
+  const recipeRef = useRef<MenuItemRecipeTabHandle>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -175,6 +183,9 @@ export default function EditItemPage() {
   }, [rid, iid]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+  }, [rid]);
 
   // ── Combo helpers ──
   const allMenuItems = categories.flatMap((c) =>
@@ -284,6 +295,10 @@ export default function EditItemPage() {
         }));
       }
       await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
+      // Flush Recipe tab buffer (steps + meta + yield) alongside Details
+      if (recipeRef.current?.isDirty()) {
+        await recipeRef.current.save();
+      }
       // Handle menu assignment diffs
       const added = Array.from(selectedMenuIds).filter((id) => !initialMenuIds.has(id));
       const removed = Array.from(initialMenuIds).filter((id) => !selectedMenuIds.has(id));
@@ -401,8 +416,44 @@ export default function EditItemPage() {
         onSave={handleSave}
         saving={saving}
         saveDisabled={!name.trim() || !price}
-        sidebar={sidebar}
+        sidebar={tab === 'details' ? sidebar : undefined}
       >
+            <TabBar
+              active={tab}
+              onChange={setTab}
+              tabs={[
+                { id: 'details', label: t('tabDetails') },
+                { id: 'recipe', label: t('tabRecipe') },
+                { id: 'cost', label: t('tabCost') },
+              ]}
+            />
+
+            {tab === 'recipe' && item && (
+              <MenuItemRecipeTab
+                ref={recipeRef}
+                rid={rid}
+                item={item}
+                ingredients={ingredients}
+                stockItems={stockItems}
+                prepItems={prepItems}
+                onIngredientsSaved={(ings) => setIngredients(ings)}
+                onRecipeSaved={loadData}
+              />
+            )}
+
+            {tab === 'cost' && item && (
+              <MenuItemCostPanel
+                rid={rid}
+                item={item}
+                ingredients={ingredients}
+                prepItems={prepItems}
+                stockItems={stockItems}
+                vatRate={vatRate}
+                onGoToRecipe={() => setTab('recipe')}
+              />
+            )}
+
+            {tab === 'details' && (<>
             {/* Item Type (read-only badge) */}
             {itemType === 'combo' && (
               <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
@@ -779,32 +830,7 @@ export default function EditItemPage() {
               )}
             </div>
 
-            {/* Food Cost / Ingredients */}
-            {item && (
-              <div className="space-y-3 pt-6 border-t border-[var(--divider)]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-fg-primary">{t('foodCostIngredients')}</h3>
-                    <p className="text-xs text-fg-tertiary mt-0.5">{t('ingredientsManageHint')}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/${rid}/kitchen/food-cost`)}
-                    className="text-xs text-brand-500 hover:text-brand-400 whitespace-nowrap"
-                  >
-                    {t('seeFullBreakdown')} &rarr;
-                  </button>
-                </div>
-                <MenuItemIngredientsEditor
-                  rid={rid}
-                  menuItem={item}
-                  initialIngredients={ingredients}
-                  stockItems={stockItems}
-                  prepItems={prepItems}
-                  onSaved={(ings) => setIngredients(ings)}
-                />
-              </div>
-            )}
+            </>)}
       </FormModal>
 
       {/* Modifier Sets Modal */}

@@ -295,7 +295,7 @@ export default function RecipesPage() {
                     <td className="py-3.5 px-2">
                       <button
                         type="button"
-                        onClick={() => router.push(`/${rid}/kitchen/recipes/${item.id}`)}
+                        onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
                         className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
                       >
                         {item.image_url ? (
@@ -335,7 +335,7 @@ export default function RecipesPage() {
                         actions={[
                           {
                             label: t('edit'),
-                            onClick: () => router.push(`/${rid}/kitchen/recipes/${item.id}`),
+                            onClick: () => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`),
                             icon: <PencilIcon className="w-4 h-4" />,
                           },
                         ]}
