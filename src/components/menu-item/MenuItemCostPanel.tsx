@@ -682,34 +682,38 @@ export default function MenuItemCostPanel({
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
               <p className="text-fg-secondary">
-                {t('costPctBreakdownIntro') || 'Food cost % compares the item\u2019s cost and its price on the same VAT basis (ex-VAT by default) so the number reflects the true margin.'}
+                {showCostsExVat
+                  ? (t('costPctBreakdownIntroEx') || 'Food cost % compares the item\u2019s cost and its price on an ex-VAT basis so the number reflects the true margin.')
+                  : (t('costPctBreakdownIntroInc') || 'Food cost % compares the item\u2019s cost and its price on an inc-VAT basis (both with VAT).')}
               </p>
 
-              {/* Step 1: price */}
+              {/* Step 1: price — highlights the basis actually used by the ratio */}
               <section className="space-y-1.5">
                 <h4 className="text-xs uppercase tracking-wider text-fg-secondary font-semibold">
                   {t('costPctStep1') || '1. Price'}
                 </h4>
                 <div className="px-3 py-3 rounded-lg font-mono text-sm space-y-1" style={{ background: 'var(--surface-subtle)' }}>
-                  <div className="flex justify-between">
-                    <span className="text-fg-secondary">{t('pnlPriceInc') || 'Price (inc. VAT)'}</span>
-                    <span className="text-fg-primary">{displayPrice.toFixed(2)} &#8362;</span>
+                  <div className={`flex justify-between ${!showCostsExVat ? 'text-fg-primary font-semibold' : 'text-fg-secondary'}`}>
+                    <span>{t('pnlPriceInc') || 'Price (inc. VAT)'}{!showCostsExVat && ` \u2190`}</span>
+                    <span>{displayPrice.toFixed(2)} &#8362;</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-fg-secondary">− {t('pnlVat').replace('{rate}', String(vatRate))}</span>
-                    <span className="text-fg-secondary">{(displayPrice - displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
+                  <div className="flex justify-between text-fg-secondary">
+                    <span>− {t('pnlVat').replace('{rate}', String(vatRate))}</span>
+                    <span>{(displayPrice - displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
                   </div>
-                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--divider)' }}>
-                    <span className="text-fg-primary font-semibold">{t('pnlPriceEx') || 'Price (ex. VAT)'}</span>
-                    <span className="text-fg-primary font-semibold">{(displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
+                  <div className={`flex justify-between pt-1 border-t ${showCostsExVat ? 'text-fg-primary font-semibold' : 'text-fg-secondary'}`} style={{ borderColor: 'var(--divider)' }}>
+                    <span>{t('pnlPriceEx') || 'Price (ex. VAT)'}{showCostsExVat && ` \u2190`}</span>
+                    <span>{(displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
                   </div>
                 </div>
               </section>
 
-              {/* Step 2: food cost */}
+              {/* Step 2: food cost — label matches the current toggle */}
               <section className="space-y-1.5">
                 <h4 className="text-xs uppercase tracking-wider text-fg-secondary font-semibold">
-                  {t('costPctStep2') || '2. Food cost (ex-VAT)'}
+                  {showCostsExVat
+                    ? (t('costPctStep2Ex') || '2. Food cost (ex-VAT)')
+                    : (t('costPctStep2Inc') || '2. Food cost (inc-VAT)')}
                 </h4>
                 <div className="px-3 py-3 rounded-lg font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
                   <div className="flex justify-between">
