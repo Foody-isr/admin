@@ -837,7 +837,8 @@ export default function NewItemPage() {
             {/* ── Stock Management ── */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />
             {(() => {
-              const isPerItem = recipeYieldUnit === 'unit' && recipeYieldValue === 1;
+              // Per-portion mode = no batch yield. "En lot" = recipe_yield > 0.
+              const isPerItem = recipeYieldValue === 0;
               const hasVariants = variantGroups.some(g => g.variants.length > 0) || selectedOptionSetIds.size > 0;
               return (
                 <div className="space-y-4">
@@ -850,10 +851,12 @@ export default function NewItemPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setRecipeYieldValue(1);
-                          setRecipeYieldUnit('unit');
-                          setPortionSize(1);
-                          setPortionSizeUnit('unit');
+                          setRecipeYieldValue(0);
+                          setRecipeYieldUnit('kg');
+                          if ((portionSize ?? 0) <= 0) {
+                            setPortionSize(1);
+                            setPortionSizeUnit('unit');
+                          }
                         }}
                         className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
                           isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
@@ -882,16 +885,18 @@ export default function NewItemPage() {
                     </div>
                   </div>
 
-                  {/* 2. Portion — auto for per-item, disabled when variants exist, editable for bulk */}
+                  {/* 2. Portion — editable in both modes. Hidden only when a
+                      batch item has variants (they drive the per-variant
+                      portion themselves). */}
                   <div>
                     <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
-                    {isPerItem ? (
-                      <p className="text-sm text-fg-secondary py-1.5">{t('portionAutoUnit')}</p>
-                    ) : hasVariants ? (
+                    {!isPerItem && hasVariants ? (
                       <p className="text-sm text-fg-secondary py-1.5 opacity-60">{t('portionFromVariants')}</p>
                     ) : (
                       <>
-                        <p className="text-xs text-fg-tertiary mb-2">{t('portionBulkDesc')}</p>
+                        <p className="text-xs text-fg-tertiary mb-2">
+                          {isPerItem ? t('portionPerItemDesc') : t('portionBulkDesc')}
+                        </p>
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -907,6 +912,7 @@ export default function NewItemPage() {
                             onChange={(e) => setPortionSizeUnit(e.target.value)}
                             className="input w-20 py-1.5 text-sm"
                           >
+                            <option value="unit">unit</option>
                             <option value="g">g</option>
                             <option value="kg">kg</option>
                             <option value="ml">ml</option>

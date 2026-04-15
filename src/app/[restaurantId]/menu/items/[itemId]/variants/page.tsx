@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   listOptionSets, createOptionSet, attachOptionSetToItems,
   detachOptionSetFromItem, getItemOptionPrices, setItemOptionPrice,
-  createOptionInSet, listAllItems,
+  createOptionInSet, listAllItems, updateMenuItem,
   OptionSet, OptionSetInput, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -52,10 +52,11 @@ export default function VariantsEditorPage() {
   const [groups, setGroups] = useState<GroupState[]>([newGroup()]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // The parent item's portion unit — used as the default unit when the user
-  // adds new variants, so a "1 portion" item (item.portion_size_unit === 'unit')
-  // auto-populates variant portions in 'unit' instead of the generic 'g' default.
+  // The parent item's portion — used as the default unit when the user adds
+  // new variants, and to detect whether the item is still at the default
+  // "1 unit" so we can auto-sync it to the first variant's unit on save.
   const [itemPortionUnit, setItemPortionUnit] = useState('g');
+  const [itemPortionSize, setItemPortionSize] = useState(0);
 
   // Existing option sets for the dropdown
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
@@ -72,6 +73,7 @@ export default function VariantsEditorPage() {
       const parentItem = (items ?? []).find((i) => i.id === iid);
       const defaultUnit = parentItem?.portion_size_unit || 'g';
       setItemPortionUnit(defaultUnit);
+      setItemPortionSize(parentItem?.portion_size ?? 0);
 
       // Build override lookup
       const overrideMap = new Map<number, ItemOptionOverride>();
@@ -221,6 +223,22 @@ export default function VariantsEditorPage() {
               });
             }
           }
+        }
+      }
+      // Auto-sync: if the parent item is still at the default "1 unit" portion
+      // but the user is creating variants with a different unit family (e.g.
+      // grams), adopt the first variant's unit as the item's base portion so
+      // variant scaling on ingredients works out of the box. Same-family case
+      // and already-customized portions are left alone.
+      const firstVariant = groups.flatMap((g) => g.rows).find((r) => r.name.trim() && r.portionSize);
+      const itemIsDefault = itemPortionSize === 1 && itemPortionUnit === 'unit';
+      if (firstVariant && itemIsDefault && firstVariant.portionSizeUnit && firstVariant.portionSizeUnit !== 'unit') {
+        const qty = parseFloat(firstVariant.portionSize);
+        if (Number.isFinite(qty) && qty > 0) {
+          await updateMenuItem(rid, iid, {
+            portion_size: qty,
+            portion_size_unit: firstVariant.portionSizeUnit,
+          });
         }
       }
       router.back();

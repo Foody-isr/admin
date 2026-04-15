@@ -217,6 +217,19 @@ export default function MenuItemCostPanel({
   const hasMissingVariantPortion =
     ingredients.some((i) => i.scales_with_variant) && !currentPortion;
 
+  // Unit-family mismatch: at least one ingredient is flagged scales_with_variant
+  // and the currently-selected variant's unit is in a different family from the
+  // item's base portion unit. In that case, calcLineCost falls back to ratio=1
+  // (no scaling), so Normal and Grand produce identical costs — surface why.
+  const hasUnitFamilyMismatch = (() => {
+    if ((item.recipe_yield ?? 0) > 0) return false; // batch mode — flag ignored
+    if (!ingredients.some((i) => i.scales_with_variant)) return false;
+    if (!currentPortion) return false;
+    const itemUnit = item.portion_size_unit || '';
+    if ((item.portion_size ?? 0) <= 0) return false;
+    return !sameUnitFamily(currentPortion.unit, itemUnit);
+  })();
+
   // ── Modifier consumption ─────────────────────────────────────
   // A modifier with stock_item_id or prep_item_id consumes inventory when
   // selected. Multi-pick count is applied at order time; the cost row below
@@ -377,6 +390,21 @@ export default function MenuItemCostPanel({
             >
               {t('configureVariants')} →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Unit-family mismatch warning */}
+      {hasUnitFamilyMismatch && currentPortion && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
+          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p>
+              {t('unitFamilyMismatch') || 'Unit mismatch: the item\u2019s base portion unit and the variant portion unit are not in the same family; variant scaling falls back to 1\u00D7.'}
+            </p>
+            <p className="mt-1 text-amber-400 font-mono text-xs">
+              {t('item') || 'item'}: {item.portion_size} {item.portion_size_unit || '?'} &nbsp;&ne;&nbsp; {t('variant') || 'variant'}: {currentPortion.qty} {currentPortion.unit}
+            </p>
           </div>
         </div>
       )}

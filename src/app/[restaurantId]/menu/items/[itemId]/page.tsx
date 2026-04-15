@@ -294,7 +294,11 @@ export default function EditItemPage() {
           items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
         }));
       }
-      await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
+      const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
+      // Keep the in-memory item in sync with what was just persisted, so that
+      // embedded components (ingredients editor, recipe tab) see the fresh
+      // portion/yield and their mode-dependent UI (e.g. the scales toggle) recomputes.
+      setItem((prev) => prev ? { ...prev, ...updated } : prev);
       // Flush Recipe tab buffer (steps + meta + yield) alongside Details
       if (recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
@@ -628,7 +632,10 @@ export default function EditItemPage() {
             {/* ── Stock Management ── */}
             <div className="h-1 bg-[var(--divider)] rounded-full" />
             {(() => {
-              const isPerItem = recipeYieldUnit === 'unit' && recipeYieldValue === 1;
+              // Per-portion mode = no batch yield. "En lot" = recipe_yield > 0.
+              // The portion itself can be any unit (1 unit for a burger, 250 g
+              // for a plate of OR ROUGE) — it's no longer locked to '1 unit'.
+              const isPerItem = recipeYieldValue === 0;
               const hasVariants = (item?.variant_groups ?? []).some(g => (g.variants ?? []).length > 0) || attachedOptionSets.length > 0;
               return (
                 <div className="space-y-4">
@@ -641,10 +648,15 @@ export default function EditItemPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setRecipeYieldValue(1);
-                          setRecipeYieldUnit('unit');
-                          setPortionSize(1);
-                          setPortionSizeUnit('unit');
+                          // Per-portion: clear any batch yield. Keep whatever
+                          // portion the user already has, defaulting to 1 unit
+                          // only if none is set yet.
+                          setRecipeYieldValue(0);
+                          setRecipeYieldUnit('kg');
+                          if ((portionSize ?? 0) <= 0) {
+                            setPortionSize(1);
+                            setPortionSizeUnit('unit');
+                          }
                         }}
                         className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
                           isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
@@ -673,16 +685,19 @@ export default function EditItemPage() {
                     </div>
                   </div>
 
-                  {/* 2. Portion — auto for per-item, disabled when variants exist, editable for bulk */}
+                  {/* 2. Portion — editable in both modes. Batch mode uses it as
+                      the "default portion served"; per-portion uses it as the
+                      base for variant scaling. Hidden only when variants
+                      already define per-variant portions (batch path). */}
                   <div>
                     <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
-                    {isPerItem ? (
-                      <p className="text-sm text-fg-secondary py-1.5">{t('portionAutoUnit')}</p>
-                    ) : hasVariants ? (
+                    {!isPerItem && hasVariants ? (
                       <p className="text-sm text-fg-secondary py-1.5 opacity-60">{t('portionFromVariants')}</p>
                     ) : (
                       <>
-                        <p className="text-xs text-fg-tertiary mb-2">{t('portionBulkDesc')}</p>
+                        <p className="text-xs text-fg-tertiary mb-2">
+                          {isPerItem ? t('portionPerItemDesc') : t('portionBulkDesc')}
+                        </p>
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -698,6 +713,7 @@ export default function EditItemPage() {
                             onChange={(e) => setPortionSizeUnit(e.target.value)}
                             className="input w-20 py-1.5 text-sm"
                           >
+                            <option value="unit">unit</option>
                             <option value="g">g</option>
                             <option value="kg">kg</option>
                             <option value="ml">ml</option>
