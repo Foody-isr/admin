@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   setMenuItemIngredients,
-  IngredientInput, IngredientVariantOverride,
+  IngredientInput,
   MenuItem, MenuItemIngredient, StockItem, PrepItem,
-  OptionSet, ItemOptionOverride,
 } from '@/lib/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -20,118 +19,101 @@ interface Props {
   prepItems: PrepItem[];
   onSaved?: (ings: MenuItemIngredient[]) => void;
   // Optional override for the item's yield — used when the Recipe tab's unsaved
-  // yield input should drive the batch-mode detection (so the toggle hides
-  // immediately instead of waiting for the main modal save).
+  // yield input should drive the batch-mode detection.
   effectiveYield?: number;
-  // Variants attached to the item. One column per option renders in the matrix,
-  // letting the user set a per-variant override on any ingredient that should
-  // scale (e.g. beef 200 g for Normal, 400 g for Grand). Empty cell = inherit base.
-  attachedOptionSets?: OptionSet[];
-  itemOptionOverrides?: ItemOptionOverride[];
 }
 
-// Shared editor for a menu item's `menu_item_ingredients`. Used on the
-// Menu Item edit page (primary home) and (read-only elsewhere).
+// Shared editor for the *base recipe* (fixed-across-variants ingredients) on
+// a menu item. Variant-scoped ingredients live on the Variants modal instead.
 export default function MenuItemIngredientsEditor({
   rid, menuItem, initialIngredients, stockItems, prepItems, onSaved, effectiveYield,
-  attachedOptionSets, itemOptionOverrides,
 }: Props) {
   const { t } = useI18n();
 
-  // Batch mode = the item has a recipe yield. Prefer the live prop (reflects
-  // the user's current unsaved yield input) over the persisted value.
-  const yieldForBatchCheck = effectiveYield ?? menuItem.recipe_yield ?? 0;
-  const isBatchMode = yieldForBatchCheck > 0;
+  // `effectiveYield` is still accepted for backward compat with callers that
+  // plumb through the live yield input; we don't act on it anymore (batch
+  // mode on menu items is deprecated — variant-scoped rows handle scaling).
+  void effectiveYield;
 
-  // Flatten attached option sets into one list of variant columns with the
-  // portion metadata already applied (override if present, else option default).
-  // For batch items we hide the matrix — batch proration handles scaling uniformly.
-  const variantColumns = useMemo(() => {
-    if (isBatchMode) return [] as Array<{ option_id: number; name: string; portion_size?: number; portion_size_unit?: string }>;
-    const cols: Array<{ option_id: number; name: string; portion_size?: number; portion_size_unit?: string }> = [];
-    for (const os of attachedOptionSets ?? []) {
-      for (const opt of os.options ?? []) {
-        if (!opt.is_active) continue;
-        const ov = (itemOptionOverrides ?? []).find((o) => o.option_id === opt.id);
-        cols.push({
-          option_id: opt.id,
-          name: opt.name,
-          portion_size: ov?.portion_size,
-          portion_size_unit: ov?.portion_size_unit,
-        });
-      }
-    }
-    return cols;
-  }, [attachedOptionSets, itemOptionOverrides, isBatchMode]);
+  // Base ingredients = those with option_id == null. Variant-scoped rows are
+  // edited in the Variants modal; we pass them through on save untouched.
+  const baseIngredients = (input: MenuItemIngredient[]) => input.filter((i) => i.option_id == null);
+  const variantScopedIngredients = (input: MenuItemIngredient[]) => input.filter((i) => i.option_id != null);
 
   const toInputs = (ings: MenuItemIngredient[]): IngredientInput[] =>
     ings.map((i) => ({
+      option_id: i.option_id ?? undefined,
       stock_item_id: i.stock_item_id ?? undefined,
       prep_item_id: i.prep_item_id ?? undefined,
       quantity_needed: i.quantity_needed,
       unit: i.unit || i.stock_item?.unit || i.prep_item?.unit || '',
       scales_with_variant: i.scales_with_variant ?? false,
-      variant_overrides: (i.variant_overrides ?? []).map((ov) => ({
-        option_id: ov.option_id,
-        quantity: ov.quantity,
-        unit: ov.unit,
-      })),
     }));
 
   const [current, setCurrent] = useState<MenuItemIngredient[]>(initialIngredients);
-  const [rows, setRows] = useState<IngredientInput[]>(toInputs(initialIngredients));
+  const [rows, setRows] = useState<IngredientInput[]>(toInputs(baseIngredients(initialIngredients)));
   const [saving, setSaving] = useState(false);
   const [swapConfirm, setSwapConfirm] = useState<SwapSuggestion | null>(null);
 
   // Keep state in sync if parent reloads ingredients (e.g. after save).
   useEffect(() => {
     setCurrent(initialIngredients);
-    setRows(toInputs(initialIngredients));
+    setRows(toInputs(baseIngredients(initialIngredients)));
   }, [initialIngredients]);
 
-  const addRow = () => setRows([...rows, { quantity_needed: 0, unit: '', scales_with_variant: false, variant_overrides: [] }]);
+  const addRow = () => setRows([...rows, { quantity_needed: 0, unit: '', scales_with_variant: false }]);
   const removeRow = (idx: number) => setRows(rows.filter((_, i) => i !== idx));
   const updateRow = (idx: number, patch: Partial<IngredientInput>) =>
     setRows(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
-  // Variant override helpers — upsert / remove a single (ingredient row, option) cell.
-  const setOverride = (rowIdx: number, optionId: number, next: Partial<IngredientVariantOverride> | null) => {
-    setRows((prev) => prev.map((r, i) => {
-      if (i !== rowIdx) return r;
-      const existing = r.variant_overrides ?? [];
-      if (next === null) {
-        // Remove override → inherit base.
-        return { ...r, variant_overrides: existing.filter((o) => o.option_id !== optionId) };
-      }
-      const hit = existing.find((o) => o.option_id === optionId);
-      if (hit) {
-        return { ...r, variant_overrides: existing.map((o) => o.option_id === optionId ? { ...o, ...next } : o) };
-      }
-      return {
-        ...r,
-        variant_overrides: [
-          ...existing,
-          { option_id: optionId, quantity: next.quantity ?? 0, unit: next.unit ?? r.unit ?? 'g' },
-        ],
-      };
-    }));
-  };
-  const getOverride = (rowIdx: number, optionId: number): IngredientVariantOverride | undefined =>
-    (rows[rowIdx]?.variant_overrides ?? []).find((o) => o.option_id === optionId);
-
   const save = async (input: IngredientInput[] = rows) => {
     setSaving(true);
     try {
-      // Batch items prorate uniformly via (variant.portion / item.yield), so the
-      // per-ingredient scales_with_variant flag doesn't apply. Force it off on
-      // save to avoid carrying stale `true` values from pre-batch configs, which
-      // would otherwise shortcut the proration path and over-charge the cost.
-      const normalized = isBatchMode
-        ? input.map((r) => ({ ...r, scales_with_variant: false }))
-        : input;
-      const saved = await setMenuItemIngredients(rid, menuItem.id, normalized);
+      // Base rows are what the user is editing here; variant-scoped rows are
+      // edited in the Variants modal and must be preserved on save.
+      const variantScoped: IngredientInput[] = variantScopedIngredients(current).map((i) => ({
+        option_id: i.option_id ?? undefined,
+        stock_item_id: i.stock_item_id ?? undefined,
+        prep_item_id: i.prep_item_id ?? undefined,
+        quantity_needed: i.quantity_needed,
+        unit: i.unit || '',
+        scales_with_variant: false,
+      }));
+      // Legacy-data migration: any base row with non-empty variant_overrides
+      // from the old matrix era is converted to one variant-scoped row per
+      // override and the base row's overrides are cleared. This runs silently
+      // on every save so existing items migrate the first time the user
+      // touches them — no backfill script needed.
+      const legacyMigrated: IngredientInput[] = [];
+      for (const i of current) {
+        if (i.option_id != null) continue; // only base rows carry the legacy overrides
+        for (const ov of i.variant_overrides ?? []) {
+          if (!ov.quantity || ov.quantity <= 0) continue;
+          legacyMigrated.push({
+            option_id: ov.option_id,
+            stock_item_id: i.stock_item_id ?? undefined,
+            prep_item_id: i.prep_item_id ?? undefined,
+            quantity_needed: ov.quantity,
+            unit: ov.unit || i.unit || '',
+            scales_with_variant: false,
+          });
+        }
+      }
+      // Base rows are forced to option_id=undefined and scales flag off (new
+      // authoring model: scaling lives on variant-scoped rows, not a flag).
+      const baseRows = input.map((r) => ({
+        ...r,
+        option_id: undefined,
+        scales_with_variant: false,
+        variant_overrides: undefined, // drop any legacy overrides now migrated
+      }));
+      const saved = await setMenuItemIngredients(rid, menuItem.id, [
+        ...baseRows,
+        ...variantScoped,
+        ...legacyMigrated,
+      ]);
       setCurrent(saved);
-      setRows(toInputs(saved));
+      setRows(toInputs(baseIngredients(saved)));
       onSaved?.(saved);
     } catch (err: any) {
       alert(err.message);
@@ -268,55 +250,6 @@ export default function MenuItemIngredientsEditor({
                 </span>
               )}
             </div>
-            {/* Per-variant overrides — one compact input per attached variant.
-                Empty cell = inherits the base qty. Only shown in per-portion
-                mode (batch items prorate uniformly via yield, no override UI). */}
-            {variantColumns.length > 0 && (
-              <div className="pt-1 space-y-1.5">
-                <p className="text-[11px] uppercase tracking-wider text-fg-tertiary font-medium">
-                  {t('perVariantOverride') || 'Per-variant quantity (optional)'}
-                </p>
-                <div className="flex flex-wrap gap-x-3 gap-y-2">
-                  {variantColumns.map((col) => {
-                    const ov = getOverride(idx, col.option_id);
-                    const hasOverride = !!ov;
-                    return (
-                      <div key={col.option_id} className="flex flex-col gap-0.5">
-                        <span className="text-[11px] text-fg-secondary">{col.name}</span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number" step="any" min="0"
-                            className="input w-20 py-1 text-xs text-right"
-                            value={ov?.quantity || ''}
-                            placeholder={ing.quantity_needed ? String(ing.quantity_needed) : '—'}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (!v) { setOverride(idx, col.option_id, null); return; }
-                              setOverride(idx, col.option_id, { quantity: +v, unit: ov?.unit || ing.unit || 'g' });
-                            }}
-                          />
-                          <select
-                            className="input w-14 py-1 text-xs"
-                            value={ov?.unit || ing.unit || 'g'}
-                            onChange={(e) => setOverride(idx, col.option_id, { quantity: ov?.quantity ?? 0, unit: e.target.value })}
-                            disabled={!hasOverride}
-                          >
-                            <option value="g">g</option>
-                            <option value="kg">kg</option>
-                            <option value="ml">ml</option>
-                            <option value="l">l</option>
-                            <option value="unit">unit</option>
-                          </select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-fg-tertiary italic">
-                  {t('perVariantOverrideHint') || 'Leave blank to use the base quantity. Example: Beef — base 200 g, Grand override 400 g.'}
-                </p>
-              </div>
-            )}
           </div>
         ))
       )}

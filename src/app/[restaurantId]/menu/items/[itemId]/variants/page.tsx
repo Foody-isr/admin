@@ -6,23 +6,35 @@ import {
   listOptionSets, createOptionSet, attachOptionSetToItems,
   detachOptionSetFromItem, getItemOptionPrices, setItemOptionPrice,
   createOptionInSet, listAllItems, updateMenuItem,
+  listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
   OptionSet, OptionSetInput, ItemOptionOverride,
+  StockItem, PrepItem, IngredientInput, MenuItemIngredient,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import SearchableSelect from '@/components/SearchableSelect';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 /* ── Local row state (not yet persisted) ─────────────────────────── */
+
+interface VariantIngredientRow {
+  key: string;
+  // Store the picker's selected source as "stock:123" or "prep:456".
+  source: string;
+  quantity: string;
+  unit: string;
+}
 
 interface VariantRow {
   key: string;
   optionId?: number; // set when linked to a real OptionSetOption
   name: string;
   price: string;
-  onlinePrice: string;
-  sku: string;
   portionSize: string;
   portionSizeUnit: string;
   isActive: boolean;
+  // Variant-scoped ingredients — these consume inventory only when this
+  // variant is selected (e.g. beef 200 g for Normal, 400 g for Grand).
+  ingredients: VariantIngredientRow[];
 }
 
 interface GroupState {
@@ -32,8 +44,18 @@ interface GroupState {
   rows: VariantRow[];
 }
 
+function newIngredientRow(unit: string = 'g'): VariantIngredientRow {
+  return { key: crypto.randomUUID(), source: '', quantity: '', unit };
+}
+
 function newRow(defaultUnit: string = 'g'): VariantRow {
-  return { key: crypto.randomUUID(), name: '', price: '', onlinePrice: '', sku: '', portionSize: '', portionSizeUnit: defaultUnit, isActive: true };
+  return {
+    key: crypto.randomUUID(),
+    name: '', price: '',
+    portionSize: '', portionSizeUnit: defaultUnit,
+    isActive: true,
+    ingredients: [],
+  };
 }
 
 function newGroup(defaultUnit: string = 'g'): GroupState {
@@ -62,14 +84,29 @@ export default function VariantsEditorPage() {
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
   const [dropdownGroupIdx, setDropdownGroupIdx] = useState<number | null>(null);
 
+  // Ingredient sources for the variant ingredient picker.
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
+
+  // All menu item ingredients loaded from the server. We keep the base rows
+  // (option_id == null) untouched on save; variant-scoped rows are replaced
+  // with whatever the user edits here.
+  const [allIngredients, setAllIngredients] = useState<MenuItemIngredient[]>([]);
+
   const loadData = useCallback(async () => {
     try {
-      const [optSets, overrides, items] = await Promise.all([
+      const [optSets, overrides, items, stock, prep, ings] = await Promise.all([
         listOptionSets(rid),
         getItemOptionPrices(rid, iid),
         listAllItems(rid),
+        listStockItems(rid),
+        listPrepItems(rid),
+        getMenuItemIngredients(rid, iid),
       ]);
       setAllOptionSets(optSets ?? []);
+      setStockItems(stock ?? []);
+      setPrepItems(prep ?? []);
+      setAllIngredients(ings ?? []);
       const parentItem = (items ?? []).find((i) => i.id === iid);
       const defaultUnit = parentItem?.portion_size_unit || 'g';
       setItemPortionUnit(defaultUnit);
@@ -79,6 +116,15 @@ export default function VariantsEditorPage() {
       const overrideMap = new Map<number, ItemOptionOverride>();
       for (const ov of overrides ?? []) {
         overrideMap.set(ov.option_id, ov);
+      }
+
+      // Variant-scoped ingredients grouped by option_id.
+      const ingsByOption = new Map<number, MenuItemIngredient[]>();
+      for (const ing of ings ?? []) {
+        if (ing.option_id == null) continue;
+        const arr = ingsByOption.get(ing.option_id) ?? [];
+        arr.push(ing);
+        ingsByOption.set(ing.option_id, arr);
       }
 
       // Find option sets attached to this item and build groups
@@ -91,16 +137,23 @@ export default function VariantsEditorPage() {
             title: os.name,
             rows: (os.options ?? []).map((opt) => {
               const ov = overrideMap.get(opt.id);
+              const variantIngs = ingsByOption.get(opt.id) ?? [];
               return {
                 key: crypto.randomUUID(),
                 optionId: opt.id,
                 name: opt.name,
                 price: String(ov?.price ?? opt.price),
-                onlinePrice: ov?.online_price != null ? String(ov.online_price) : '',
-                sku: ov?.sku ?? opt.sku ?? '',
                 portionSize: (ov?.portion_size ?? 0) > 0 ? String(ov!.portion_size) : '',
                 portionSizeUnit: ov?.portion_size_unit || defaultUnit,
                 isActive: ov?.is_active ?? opt.is_active,
+                ingredients: variantIngs.map((ing) => ({
+                  key: crypto.randomUUID(),
+                  source: ing.stock_item_id
+                    ? `stock:${ing.stock_item_id}`
+                    : ing.prep_item_id ? `prep:${ing.prep_item_id}` : '',
+                  quantity: String(ing.quantity_needed),
+                  unit: ing.unit || 'g',
+                })),
               };
             }),
           });
@@ -145,8 +198,6 @@ export default function VariantsEditorPage() {
                 await createOptionInSet(rid, setId, {
                   name: row.name.trim(),
                   price: parseFloat(row.price) || 0,
-                  online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
-                  sku: row.sku,
                   is_active: row.isActive,
                   sort_order: 0,
                 });
@@ -166,8 +217,6 @@ export default function VariantsEditorPage() {
                 if (opt) {
                   await setItemOptionPrice(rid, setId, iid, opt.id, {
                     price: parseFloat(row.price) || 0,
-                    online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
-                    sku: row.sku,
                     portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
                     portion_size_unit: row.portionSizeUnit || 'g',
                     is_active: row.isActive,
@@ -182,8 +231,6 @@ export default function VariantsEditorPage() {
               options: validRows.map((r, i) => ({
                 name: r.name.trim(),
                 price: parseFloat(r.price) || 0,
-                online_price: r.onlinePrice ? parseFloat(r.onlinePrice) : undefined,
-                sku: r.sku,
                 is_active: r.isActive,
                 sort_order: i,
               })),
@@ -200,8 +247,6 @@ export default function VariantsEditorPage() {
               if (opt) {
                 await setItemOptionPrice(rid, setId, iid, opt.id, {
                   price: parseFloat(row.price) || 0,
-                  online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
-                  sku: row.sku,
                   portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
                   portion_size_unit: row.portionSizeUnit || 'g',
                   is_active: row.isActive,
@@ -215,8 +260,6 @@ export default function VariantsEditorPage() {
             if (row.optionId) {
               await setItemOptionPrice(rid, setId, iid, row.optionId, {
                 price: parseFloat(row.price) || 0,
-                online_price: row.onlinePrice ? parseFloat(row.onlinePrice) : undefined,
-                sku: row.sku,
                 portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
                 portion_size_unit: row.portionSizeUnit || 'g',
                 is_active: row.isActive,
@@ -241,6 +284,45 @@ export default function VariantsEditorPage() {
           });
         }
       }
+
+      // Persist variant-scoped ingredients. We replace every `option_id != null`
+      // row with the freshly-edited list; base rows (option_id == null) stay
+      // untouched. We also re-fetch latest ingredients so any base rows added
+      // concurrently from the Recipe tab are preserved.
+      const latestIngs = await getMenuItemIngredients(rid, iid);
+      const baseRows: IngredientInput[] = latestIngs
+        .filter((i) => i.option_id == null)
+        .map((i) => ({
+          stock_item_id: i.stock_item_id,
+          prep_item_id: i.prep_item_id,
+          quantity_needed: i.quantity_needed,
+          unit: i.unit,
+          scales_with_variant: i.scales_with_variant ?? false,
+        }));
+      const variantRows: IngredientInput[] = [];
+      for (const g of groups) {
+        for (const r of g.rows) {
+          if (!r.optionId) continue; // unsaved option — skip (rare race)
+          for (const ri of r.ingredients) {
+            if (!ri.source) continue;
+            const qty = parseFloat(ri.quantity);
+            if (!Number.isFinite(qty) || qty <= 0) continue;
+            const [kind, idStr] = ri.source.split(':');
+            const sourceId = Number(idStr);
+            if (!Number.isFinite(sourceId)) continue;
+            variantRows.push({
+              option_id: r.optionId,
+              stock_item_id: kind === 'stock' ? sourceId : undefined,
+              prep_item_id: kind === 'prep' ? sourceId : undefined,
+              quantity_needed: qty,
+              unit: ri.unit || 'g',
+              scales_with_variant: false,
+            });
+          }
+        }
+      }
+      await setMenuItemIngredients(rid, iid, [...baseRows, ...variantRows]);
+
       router.back();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
@@ -274,6 +356,56 @@ export default function VariantsEditorPage() {
     ));
   };
 
+  // Variant-scoped ingredient helpers
+  const unitForSource = (source: string): string => {
+    if (source.startsWith('stock:')) {
+      const id = Number(source.slice(6));
+      return stockItems.find((s) => s.id === id)?.unit ?? '';
+    }
+    if (source.startsWith('prep:')) {
+      const id = Number(source.slice(5));
+      return prepItems.find((p) => p.id === id)?.unit ?? '';
+    }
+    return '';
+  };
+  const addIngredient = (groupKey: string, rowKey: string) => {
+    setGroups((prev) => prev.map((g) => {
+      if (g.key !== groupKey) return g;
+      return {
+        ...g,
+        rows: g.rows.map((r) => r.key === rowKey
+          ? { ...r, ingredients: [...r.ingredients, newIngredientRow()] }
+          : r),
+      };
+    }));
+  };
+  const updateIngredient = (groupKey: string, rowKey: string, ingKey: string, patch: Partial<VariantIngredientRow>) => {
+    setGroups((prev) => prev.map((g) => {
+      if (g.key !== groupKey) return g;
+      return {
+        ...g,
+        rows: g.rows.map((r) => {
+          if (r.key !== rowKey) return r;
+          return {
+            ...r,
+            ingredients: r.ingredients.map((ri) => ri.key === ingKey ? { ...ri, ...patch } : ri),
+          };
+        }),
+      };
+    }));
+  };
+  const removeIngredient = (groupKey: string, rowKey: string, ingKey: string) => {
+    setGroups((prev) => prev.map((g) => {
+      if (g.key !== groupKey) return g;
+      return {
+        ...g,
+        rows: g.rows.map((r) => r.key === rowKey
+          ? { ...r, ingredients: r.ingredients.filter((ri) => ri.key !== ingKey) }
+          : r),
+      };
+    }));
+  };
+
   const removeGroup = async (key: string) => {
     const g = groups.find((g) => g.key === key);
     if (g?.optionSetId) {
@@ -292,11 +424,10 @@ export default function VariantsEditorPage() {
         optionId: opt.id,
         name: opt.name,
         price: String(opt.price),
-        onlinePrice: opt.online_price != null ? String(opt.online_price) : '',
-        sku: opt.sku ?? '',
         portionSize: '',
         portionSizeUnit: itemPortionUnit,
         isActive: opt.is_active,
+        ingredients: [],
       })),
     });
     setDropdownGroupIdx(null);
@@ -362,62 +493,101 @@ export default function VariantsEditorPage() {
             {/* Variants table */}
             <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
               <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
-                style={{ gridTemplateColumns: '1fr 100px 100px 80px 80px 80px 36px' }}>
+                style={{ gridTemplateColumns: '1fr 100px 100px 100px 36px' }}>
                 <span>{t('variantName')}</span>
                 <span>{t('price')}</span>
-                <span>{t('onlinePrice')}</span>
-                <span>SKU</span>
                 <span>{t('portionSize')}</span>
                 <span>{t('status')}</span>
                 <span />
               </div>
 
               {g.rows.map((row) => (
-                <div key={row.key}
-                  className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ gridTemplateColumns: '1fr 100px 100px 80px 80px 80px 36px' }}>
-                  <input value={row.name}
-                    onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
-                    placeholder={t('variantName')}
-                    className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
-                  <input type="number" min="0" step="0.01"
-                    value={row.price}
-                    onChange={(e) => updateRow(g.key, row.key, { price: e.target.value })}
-                    placeholder="0.00"
-                    className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
-                  <input type="number" min="0" step="0.01"
-                    value={row.onlinePrice}
-                    onChange={(e) => updateRow(g.key, row.key, { onlinePrice: e.target.value })}
-                    placeholder="—"
-                    className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
-                  <input value={row.sku}
-                    onChange={(e) => updateRow(g.key, row.key, { sku: e.target.value })}
-                    placeholder="—"
-                    className="text-sm bg-transparent border-0 outline-none text-fg-secondary pr-2" />
-                  <div className="flex items-center gap-1">
-                    <input type="number" min="0" step="any"
-                      value={row.portionSize}
-                      onChange={(e) => updateRow(g.key, row.key, { portionSize: e.target.value })}
-                      placeholder="0"
-                      className="text-sm bg-transparent border-0 outline-none text-fg-secondary w-12" />
-                    <select value={row.portionSizeUnit}
-                      onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
-                      className="text-xs bg-transparent border-0 outline-none text-fg-tertiary w-8">
-                      <option value="unit">unit</option>
-                      <option value="g">g</option><option value="kg">kg</option>
-                      <option value="ml">ml</option><option value="l">l</option>
+                <div key={row.key} className="border-b border-[var(--divider)] last:border-b-0">
+                  <div className="grid items-center px-4 py-2.5 hover:bg-[var(--surface-subtle)] transition-colors"
+                    style={{ gridTemplateColumns: '1fr 100px 100px 100px 36px' }}>
+                    <input value={row.name}
+                      onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
+                      placeholder={t('variantName')}
+                      className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
+                    <input type="number" min="0" step="0.01"
+                      value={row.price}
+                      onChange={(e) => updateRow(g.key, row.key, { price: e.target.value })}
+                      placeholder="0.00"
+                      className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
+                    <div className="flex items-center gap-1">
+                      <input type="number" min="0" step="any"
+                        value={row.portionSize}
+                        onChange={(e) => updateRow(g.key, row.key, { portionSize: e.target.value })}
+                        placeholder="0"
+                        className="text-sm bg-transparent border-0 outline-none text-fg-secondary w-14" />
+                      <select value={row.portionSizeUnit}
+                        onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
+                        className="text-xs bg-transparent border-0 outline-none text-fg-tertiary w-12">
+                        <option value="unit">unit</option>
+                        <option value="g">g</option><option value="kg">kg</option>
+                        <option value="ml">ml</option><option value="l">l</option>
+                      </select>
+                    </div>
+                    <select value={row.isActive ? 'active' : 'inactive'}
+                      onChange={(e) => updateRow(g.key, row.key, { isActive: e.target.value === 'active' })}
+                      className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
+                      <option value="active">{t('available')}</option>
+                      <option value="inactive">{t('unavailable')}</option>
                     </select>
+                    <button onClick={() => removeRow(g.key, row.key)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
                   </div>
-                  <select value={row.isActive ? 'active' : 'inactive'}
-                    onChange={(e) => updateRow(g.key, row.key, { isActive: e.target.value === 'active' })}
-                    className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
-                    <option value="active">{t('available')}</option>
-                    <option value="inactive">{t('unavailable')}</option>
-                  </select>
-                  <button onClick={() => removeRow(g.key, row.key)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
+                  {/* Variant-scoped ingredients — each entry consumes inventory
+                      only when this variant is sold (e.g. beef 200 g for Normal,
+                      400 g for Grand). Fixed ingredients stay on the Recipe tab. */}
+                  <div className="px-4 pb-3 space-y-1.5" style={{ background: 'var(--surface-subtle)' }}>
+                    <p className="text-[11px] uppercase tracking-wider text-fg-tertiary pt-2">
+                      {t('variantIngredients') || 'Ingredients'}
+                    </p>
+                    {row.ingredients.length === 0 && (
+                      <p className="text-xs text-fg-tertiary italic">
+                        {t('variantIngredientsHint') || 'No ingredients specific to this variant. Fixed ingredients live on the Recipe tab.'}
+                      </p>
+                    )}
+                    {row.ingredients.map((ri) => (
+                      <div key={ri.key} className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <SearchableSelect
+                            value={ri.source}
+                            onChange={(val) => updateIngredient(g.key, row.key, ri.key, { source: val, unit: unitForSource(val) || ri.unit })}
+                            options={[
+                              ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
+                              ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
+                            ]}
+                            placeholder={t('selectIngredient')}
+                          />
+                        </div>
+                        <input type="number" min="0" step="any"
+                          value={ri.quantity}
+                          onChange={(e) => updateIngredient(g.key, row.key, ri.key, { quantity: e.target.value })}
+                          placeholder={t('qty')}
+                          className="input w-20 py-1 text-xs text-right" />
+                        <select value={ri.unit}
+                          onChange={(e) => updateIngredient(g.key, row.key, ri.key, { unit: e.target.value })}
+                          className="input w-16 py-1 text-xs">
+                          <option value="g">g</option><option value="kg">kg</option>
+                          <option value="ml">ml</option><option value="l">l</option>
+                          <option value="unit">unit</option>
+                        </select>
+                        <button onClick={() => removeIngredient(g.key, row.key, ri.key)}
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button onClick={() => addIngredient(g.key, row.key)}
+                      className="text-xs text-brand-500 hover:text-brand-400 flex items-center gap-1">
+                      <PlusIcon className="w-3 h-3" />
+                      {t('addIngredient')}
+                    </button>
+                  </div>
                 </div>
               ))}
 

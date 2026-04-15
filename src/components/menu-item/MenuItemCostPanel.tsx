@@ -217,12 +217,20 @@ export default function MenuItemCostPanel({
     return raw;
   };
 
-  const sumVariantCost = (portion: { qty: number; unit: string } | null, optionId?: number | null) =>
-    ingredients.reduce((sum, ing) => sum + calcVariantLineCost(ing, portion, optionId), 0);
+  // Only ingredients that apply to the current variant selection:
+  //   - base (option_id == null) always applies
+  //   - variant-scoped (option_id set) applies only when that variant is selected
+  const scopedFor = (optionId: number | null) =>
+    ingredients.filter((i) => i.option_id == null || (optionId != null && i.option_id === optionId));
+
+  const sumVariantCost = (portion: { qty: number; unit: string } | null, optionId: number | null) =>
+    scopedFor(optionId).reduce((sum, ing) => sum + calcVariantLineCost(ing, portion, optionId), 0);
 
   const currentPortion = resolveIngredientPortion(activeVariantId);
   const currentOptionId = optionIdFromVariant(activeVariantId);
-  const displayCost = currentPortion ? sumVariantCost(currentPortion, currentOptionId) : ingredients.reduce((s, i) => s + calcLineCost(i), 0);
+  const displayCost = currentPortion
+    ? sumVariantCost(currentPortion, currentOptionId)
+    : scopedFor(currentOptionId).reduce((s, i) => s + calcLineCost(i), 0);
   let displayPrice = item.price ?? 0;
   if (activeVariantId) {
     const v = allVariants.find((vv) => String(vv.id) === activeVariantId);
@@ -465,7 +473,7 @@ export default function MenuItemCostPanel({
                 </tr>
               </thead>
               <tbody>
-                {ingredients.map((ing) => {
+                {scopedFor(currentOptionId).map((ing) => {
                   const name = ing.stock_item?.name ?? ing.prep_item?.name ?? '?';
                   const unit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
                   const stockUnit = ing.stock_item?.unit ?? '';
@@ -657,7 +665,9 @@ export default function MenuItemCostPanel({
               <tbody>
                 {variants.map((v) => {
                   const vPortion = { qty: v.portion_size!, unit: v.portion_size_unit || 'g' };
-                  const vCost = sumVariantCost(vPortion);
+                  // Legacy MenuItemVariant has no OptionSetOption id — no
+                  // variant-scoped ingredients apply on this path.
+                  const vCost = sumVariantCost(vPortion, null);
                   const vPct = v.price > 0 ? vCost / v.price : 0;
                   return (
                     <tr key={v.id} style={{ borderBottom: '1px solid var(--divider)' }}>

@@ -267,8 +267,6 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
           prepItems={prepItems}
           onSaved={onIngredientsSaved}
           effectiveYield={yieldValue}
-          attachedOptionSets={attachedOptionSets}
-          itemOptionOverrides={itemOptionOverrides}
         />
       </FormSection>
 

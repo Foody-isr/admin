@@ -55,21 +55,14 @@ export default function PrepCostBreakdownModal({
   //    the same unit family as item.portion, multiply base qty by the ratio.
   //    Otherwise use base qty as-is (the cost panel falls back to 1× and
   //    shows a mismatch banner).
+  // Mirror cost panel precedence: variant-scoped ingredient rows (option_id
+  // set) carry their own qty; legacy batch / scales paths prorate as before.
   const batchMode = (item.recipe_yield ?? 0) > 0;
-  let baseQty = ing.quantity_needed;
-  let baseUnit = ing.unit || yieldUnit;
+  const baseQty = ing.quantity_needed;
+  const baseUnit = ing.unit || yieldUnit;
   let variantRatio = 1;
   let batchRatio = 1;
-  let usedOverride = false;
-  // Per-variant override wins (matches calcLineCost precedence in the Cost panel).
-  const override = !batchMode && optionId != null
-    ? (ing.variant_overrides ?? []).find((o) => o.option_id === optionId)
-    : undefined;
-  if (override && override.quantity > 0) {
-    baseQty = override.quantity;
-    baseUnit = override.unit || baseUnit;
-    usedOverride = true;
-  } else if (batchMode && portion) {
+  if (batchMode && portion) {
     const yieldBase = toBaseUnit(item.recipe_yield ?? 0, item.recipe_yield_unit || 'kg');
     const portionBase = toBaseUnit(portion.qty, portion.unit);
     if (yieldBase > 0) batchRatio = portionBase / yieldBase;
@@ -80,7 +73,9 @@ export default function PrepCostBreakdownModal({
       variantRatio = toBaseUnit(portion.qty, portion.unit) / toBaseUnit(itemQty, itemUnit);
     }
   }
-  const effectiveQty = baseQty * variantRatio * batchRatio;
+  // Variant-scoped ingredients already have a literal per-order qty; no scaling applied.
+  const isVariantScoped = ing.option_id != null && ing.option_id === optionId;
+  const effectiveQty = isVariantScoped ? baseQty : baseQty * variantRatio * batchRatio;
   const effectiveInYieldUnit = convertQuantity(effectiveQty, baseUnit, yieldUnit);
   const lineCost = effectiveInYieldUnit * costPerUnit;
 
@@ -171,8 +166,8 @@ export default function PrepCostBreakdownModal({
             <div className="px-3 py-3 rounded-lg space-y-1 font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
               <div className="text-fg-secondary">
                 {baseQty} {baseUnit}
-                {usedOverride && (
-                  <span className="text-brand-500"> ({t('variantOverride') || 'variant override'})</span>
+                {isVariantScoped && (
+                  <span className="text-brand-500"> ({t('variantIngredient') || 'variant ingredient'})</span>
                 )}
                 {variantRatio !== 1 && (
                   <span> &times; {variantRatio.toFixed(3)} ({t('variant') || 'variant'})</span>

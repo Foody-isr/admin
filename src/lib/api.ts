@@ -663,6 +663,9 @@ export interface IngredientVariantOverride {
 export interface MenuItemIngredient {
   id: number;
   menu_item_id: number;
+  // option_id = null → base recipe (applies to every variant).
+  // option_id set   → variant-specific ingredient (lives on that variant).
+  option_id?: number | null;
   stock_item_id?: number;
   prep_item_id?: number;
   quantity_needed: number;
@@ -675,6 +678,7 @@ export interface MenuItemIngredient {
 }
 
 export interface IngredientInput {
+  option_id?: number | null;
   stock_item_id?: number;
   prep_item_id?: number;
   quantity_needed: number;
