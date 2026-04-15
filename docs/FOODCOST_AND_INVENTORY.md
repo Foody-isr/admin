@@ -4,21 +4,22 @@
 > computes correctly on the **Cost** tab, and (b) inventory is properly tracked
 > as orders come in.
 >
-> Uses the unified scaling model: `effective_qty = base_qty × variantRatio × batchRatio`
-> where each ratio defaults to 1 when not applicable.
+> Cases below use the user's real numbers (OR ROUGE prep, Hamburger Normal/Grand,
+> Hamburger + Extra Cheddar modifier) so you can sanity-check the app against
+> the math as you go.
 
 ## Concepts cheat-sheet
 
 | Term | What it is | Where it lives |
 |---|---|---|
-| **Stock item** | Raw inventory (tomatoes, cheese, chicken breast) with a purchase price | `/kitchen/stock` |
-| **Prep item** | Something you cook in a batch and track as finished inventory (OR ROUGE, caramelized onions, special sauce) | `/kitchen/preparations` |
+| **Stock item** | Raw inventory (tomatoes, cheese, beef, sunflower oil) with a purchase price | `/kitchen/stock` |
+| **Prep item** | Something you cook in a batch and track as finished inventory (OR ROUGE, sauces) | `/kitchen/preparations` |
 | **Menu item** | What the customer orders | `/menu/items` |
-| **Ingredient** | Link between a menu item and a stock or prep item with a base quantity | Cost/Recipe tab on the menu item |
-| **Variant** | A size or version of a menu item (Normal / Grand, 250 ml / 500 ml) — stored as an Option Set attached to the item | `/menu/items/:id/variants` |
-| **Modifier** | A customization the customer can add (+extra cheese, no onions) | `/menu/modifier-sets/:id` |
-| **Recipe yield** | For batch items: how much one batch produces (e.g. 1.21 kg of OR ROUGE) | Menu item → Details → Stock Management → "En lot" |
-| **Portion size** | For per-portion items: what one sale represents (1 unit for a burger; 250 ml for a soup bowl) | Menu item → Details → Stock Management |
+| **Ingredient** | Link between a menu item and a stock or prep item with a base quantity | Recipe tab on the menu item |
+| **Variant** | A size of a menu item (Normal / Grand) stored as an Option Set attached to the item | `/menu/items/:id/variants` |
+| **Modifier** | A customization (+extra cheddar, no onions) — can also consume stock | `/menu/modifier-sets/:id` |
+| **Recipe yield** | For batch recipes: how much one batch produces (e.g. 1.2 kg of OR ROUGE) | Menu item → Recipe tab, or Prep item |
+| **Portion size** | For per-portion items: the base portion (matches the "default" variant's size) | Menu item → Details → Stock Management |
 
 ### The core formula
 
@@ -32,285 +33,324 @@ effective_qty = base_qty
 line_cost = convert(effective_qty → stock.unit) × stock.cost_per_unit
 ```
 
-Plus, per selected modifier:
+Plus, per selected modifier at order time:
 
 ```
 mod_cost = mod.quantity × selected_count × source.cost_per_unit
 ```
 
-Everything else is UI around these two lines.
+Rules:
+- **Per-portion mode** (`recipe_yield = 0`): only the variant ratio applies. `scales_with_variant` on an ingredient opts it into that ratio; unflagged ingredients stay fixed.
+- **Batch mode** (`recipe_yield > 0`): only the batch ratio applies. All ingredients prorate uniformly by `variant.portion / yield`. The per-ingredient scales flag is hidden and ignored.
+- **Same unit family required** for the variant ratio: `unit` vs `unit`, or `g/kg`, or `ml/l`. Cross-family (e.g. item in `unit`, variant in `g`) falls back to 1× with a warning banner on the Cost tab.
 
 ---
 
-## Case A — Simple assembled item (Hamburger)
+## Case A — OR ROUGE as a **Prep** (shared recipe, batch tracked)
 
-> Sold per unit. Fixed recipe. No variants.
+> OR ROUGE is cooked in a 1.2 kg batch and used as an ingredient by other menu
+> items (and possibly also sold as its own plate — see Case C for that side).
+> First set up the **prep** so its unit cost is known everywhere it's used.
 
-### 1. Stock
+### 1. Stock items (raw inputs)
 
-1. `/kitchen/stock` → "Add stock item" for each raw component:
-   - Viande hachée — 5 kg carton, ₪X/kg
-   - Pain burger — 20 unit box, ₪X/unit
-   - Laitue, tomate, oignon, fromage, etc.
-2. Enter purchase price and packaging (carton / pack / direct).
+`/kitchen/stock` → create each raw input with a purchase price:
 
-### 2. Menu item
+| Stock item | Example price |
+|---|---|
+| Huile de tournesol | ₪8 / L |
+| Ail haché fin | ₪25 / kg |
+| Poivron rouge | ₪15 / kg |
+| Poivron vert | ₪12 / kg |
+| Polpa Mutti | ₪10 / kg |
+| Sel fin | ₪3 / kg |
+| Poivre noir moulu | ₪120 / kg |
 
-1. `/menu/items` → "New" → Hamburger, category "Sandwichs", price ₪70.
-2. On the **Details** tab → *Gestion des stocks* section:
-   - Recipe type: **1 portion** (hardcodes `portion_size = 1 unit`).
-3. Save.
+(Prices illustrative — the batch-cost line below uses the user's actual total.)
 
-### 3. Recipe / Ingredients
+### 2. Prep item
 
-Switch to **Recipe** (or **Cost**) tab → Ingredients:
+`/kitchen/preparations` → "New":
 
-| Ingredient | Qty | Unit | Scale with variant? |
-|---|---:|---|---|
-| Viande hachée | 200 | g | — (no variants yet) |
-| Pain burger | 1 | unit | — |
-| Laitue | 15 | g | — |
-| Tomate | 20 | g | — |
-| Sauce burger | 10 | g | — |
+- **Name**: L'OR ROUGE
+- **Rendement par lot**: **1.2 kg** (or 1200 g — same thing)
+- **Ingredients (per batch)**:
 
-Save (auto-saves on change).
+| Ingredient | Qty per batch |
+|---|---:|
+| Huile de tournesol | 330 g (or 0.33 L) |
+| Ail haché fin | 40 g |
+| Poivron rouge | 2.5 kg |
+| Poivron vert | 500 g |
+| Polpa Mutti | 600 g |
+| Sel fin | 18 g |
+| Poivre noir moulu | 4 g |
 
-### 4. Verify on Cost tab
+### 3. Expected cost
 
-- Cost = sum of each line (`qty × cost_per_unit`, with g↔kg / ml↔l conversion).
-- Marge shown as **Prix TTC − TVA − Cost** so everything is on the same VAT basis.
-- No variants → no pills, mini P&L shown.
+The batch cost (user's numbers):
 
-### 5. At order time
+```
+Cost per batch      = ₪55.42
+Cost per gram       = 55.42 / 1200 g = 0.04618 ₪/g
+Cost per kg (display) ≈ 46.18 ₪/kg
+```
 
-- POS / web sends an OrderItem referencing the menu item ID.
-- Inventory decrements by the ingredient list (one ingredient at a time).
-
----
-
-## Case B — Hamburger with size variants (Normal / Grand)
-
-> Meat scales 2×, buns stay 1×. Same recipe scaled.
-
-Start from Case A, then add variants.
-
-### 1. Variants
-
-1. On the item's Edit modal → **Variantes** → "Modifier" (or "Ajouter"):
-   - Variant group name: "Taille"
-   - Row 1: **Normal**, Prix = 70, Portion = **1 unit**
-   - Row 2: **Grand**, Prix = 140, Portion = **2 unit**
-2. Save.
-
-> **Why `unit`?** The item is in "1 portion" mode. The variant portion is the
-> scale factor: `2 unit` means "2× the base portion." Fractional values are
-> fine (Triple = **2.75 unit** produces 550 g of meat from a 200 g base).
-
-### 2. Flag the ingredients that should scale
-
-Back on Ingredients:
-
-| Ingredient | Qty | Scale with variant? |
-|---|---:|---|
-| Viande hachée | 200 g | ✅ |
-| Pain burger | 1 unit | ❌ (one bun either way) |
-| Laitue | 15 g | ❌ |
-| Tomate | 20 g | ❌ |
-| Sauce burger | 10 g | ✅ (more meat → more sauce) |
-
-### 3. Verify on Cost tab
-
-- Variant pills appear (Normal / Grand).
-- Click **Normal** → Viande 200 g, Sauce 10 g, Total ₪X.
-- Click **Grand** → Viande 400 g, Sauce 20 g, Pain still 1 unit, Total ₪Y.
-- Marge per variant verified against the variant's price.
-
-### 4. At order time
-
-- OrderItem records the selected variant ID.
-- Inventory decrement uses the scaled qty: Grand consumes 400 g meat.
+Check on the prep's page — it should display `46.18 ₪/kg` (or your currency's equivalent).
 
 ---
 
-## Case C — Batch item / soup / OR ROUGE
+## Case B — OR ROUGE as a **plated menu item** (served Normal / Grand)
 
-> Cooked in a pot, served in portions. Ingredients authored per batch, the
-> system prorates to each sold portion.
+> Same OR ROUGE, but sold at the counter in 250 g and 500 g portions. The
+> menu item *consumes* from the OR ROUGE prep inventory.
 
 ### 1. Menu item Details
 
-1. Create the menu item (price = portion price, e.g. ₪35).
-2. Details tab → Stock Management:
-   - Recipe type: **En lot**
-   - Rendement de la recette (yield): e.g. **1.21 kg** (what one batch produces)
-   - Portion par défaut: e.g. **250 g** (default serving)
-3. Save.
+`/menu/items` → "New":
 
-### 2. Recipe / Ingredients (authored per batch)
+- **Name**: L'OR ROUGE
+- **Price (Normal)**: ₪35 (the 250 g price)
+- **Details** tab → *Gestion des stocks*:
+  - Recipe type: **Portion unique**
+  - **Portion par défaut**: **250 g** (editable; same unit as your variants)
 
-Enter ingredient quantities for the **whole batch**, not per portion:
+### 2. Variants
 
-| Ingredient | Qty per batch | Unit | Scale with variant? |
+Variantes → "Ajouter":
+
+- Group name: `Taille`
+- Rows:
+
+| Variant | Prix | Portion |
+|---|---:|---:|
+| Normal | ₪35 | **250 g** |
+| Grand | ₪70 | **500 g** |
+
+> The variant portion unit now defaults to the item's unit (g), so you no
+> longer have to change it per row.
+
+### 3. Recipe tab → Ingredients
+
+Single ingredient on this menu item — the OR ROUGE prep itself:
+
+| Ingredient | Qté | Unité | Adapter à la variante |
 |---|---:|---|---|
-| Tomate | 2000 | g | ❌ (batch-proration handles it) |
-| Oignon | 500 | g | ❌ |
-| Ail | 30 | g | ❌ |
-| Huile d'olive | 100 | ml | ❌ |
-| Épices | 20 | g | ❌ |
+| L'OR ROUGE (Prép.) | **250** | g | ✅ |
 
-> **For batch items, leave "Scale with variant" off on every ingredient.** The
-> Cost panel detects `recipe_yield > 0` and scales all ingredients by
-> `variant.portion / yield`. The scales flag is hidden in the editor for batch
-> items to avoid contradictory setups.
+### 4. Expected cost (matches user's numbers)
 
-### 3. Optional — size variants
+Formula: `effective_qty = 250 g × (variant.portion / 250) = variant.portion`.
 
-If you sell multiple serving sizes (250 g bowl / 500 g plate):
+| Variant | Effective qty | Cost |
+|---|---:|---:|
+| Normal (250 g) | 250 g | 250 × 0.04618 = **₪11.55** |
+| Grand (500 g) | 500 g | 500 × 0.04618 = **₪23.09** |
 
-1. Variants editor → "Taille":
-   - Normal, ₪35, Portion = **250 g**
-   - Grand, ₪65, Portion = **500 g**
-2. Variant portion unit should match the yield unit (g/kg/ml/l) so proration is
-   clean. Variants in `unit` against a batch in `kg` give a degenerate ratio.
+Toggle between pills on the Cost tab to verify.
 
-### 4. Cost tab — what you see
+### 5. Inventory on sale
 
-- Variant pills with portion sizes.
-- Normal (250 g of 1.21 kg batch): each ingredient × 250/1210 ≈ 20.7%.
-- Grand (500 g): each ingredient × 500/1210 ≈ 41.3%.
-- The per-variant cost breakdown table lists the portion, cost, price, margin.
-
-### 5. Prep vs. menu-item — when to use which
-
-- **Menu item (batch mode)** — sold to customers directly. Used when the batch
-  yield exists only to cook efficiently; once plated it's an order.
-- **Prep item** — a production batch that *other menu items* reference as an
-  ingredient (see Case D). Has its own yield and kitchen inventory.
-
-OR ROUGE can be *both*: a menu item (sold as a plate) AND a prep (referenced
-by other items). Configure the menu item per this case and, separately,
-configure a Prep item in `/kitchen/preparations` with the same batch recipe.
-Keep their yields identical so cost-per-portion matches across both.
-
-### 6. At order time
-
-- Each OrderItem drawing from a batch menu item decrements a **pro-rated
-  slice** of each raw ingredient (250 g serving of 1.21 kg batch → 20.7% of
-  each ingredient's per-batch qty).
+Each Normal sold → prep inventory decrements by 250 g. Each Grand → 500 g.
+When the prep runs low, the kitchen cooks another 1.2 kg batch (which
+decrements the raw stock inputs).
 
 ---
 
-## Case D — Menu item using a prep (Hamburger with special sauce from a prep)
+## Case C — Hamburger (per-portion, variants scale the beef)
 
-> The burger uses "Sauce spéciale" which is its own prep batch.
+> This is the canonical "assembled item with size variants" case.
 
-### 1. Prep item setup
+### 1. Stock
 
-1. `/kitchen/preparations` → "New":
-   - Name: Sauce spéciale
-   - Yield per batch: e.g. 500 ml
-   - Ingredients (per batch): mayo 300 ml, mustard 50 g, spices 20 g, etc.
-2. Save. System computes `cost_per_unit = batch_cost / yield_per_batch` (per ml).
+All raw inputs in `/kitchen/stock`:
 
-### 2. Menu item Ingredient list
+- Bœuf haché — buy price / kg
+- Tomate, Laitue — buy price / kg
+- (OR ROUGE prep, already created in Case A)
 
-On Hamburger → Ingredients:
+### 2. Menu item Details
 
-| Ingredient | Qty | Unit | Scale with variant? |
+- **Name**: Hamburger
+- **Price (Normal)**: ₪70 (example)
+- **Details** tab → *Gestion des stocks*:
+  - Recipe type: **Portion unique**
+  - **Portion par défaut**: **200 g** (the Normal size — same unit family as the variants)
+
+### 3. Variants
+
+`Variantes` → "Ajouter":
+
+| Variant | Prix | Portion |
+|---|---:|---:|
+| Normal | ₪70 | **200 g** |
+| Grand | ₪140 | **400 g** |
+
+### 4. Ingredients (user's exact list)
+
+| Ingredient | Qté | Unité | Adapter à la variante |
 |---|---:|---|---|
-| … all raw stock items as in Case A/B … |
-| **Sauce spéciale** (prep) | 10 | g | ✅ if scales with meat, else ❌ |
+| Tomate | 1 | g | ❌ |
+| Laitue | 1 | g | ❌ |
+| **Bœuf haché** | **200** | g | ✅ |
+| L'OR ROUGE (Prép.) | 1 | g | ❌ |
 
-Pick from the "Prep items" group in the ingredient picker.
+### 5. Expected cost (user's numbers)
 
-### 3. Cost behavior
+| Variant | Beef qty | Approx total |
+|---|---:|---:|
+| Normal (200 g) | 200 × (200/200) = 200 g | **~₪23** |
+| Grand (400 g) | 200 × (400/200) = 400 g | **~₪43** |
 
-- The Cost tab reads `prep.cost_per_unit` (VAT-normalized from raw stock ex-VAT).
-- Click the prep row → "Show cost breakdown" popup explains
-  `batch cost ÷ yield = cost/ml`, then `cost/ml × 10 = line cost`.
-- A swap banner may suggest replacing raw ingredients with a prep when the
-  system detects overlap (≥60% of the raw items match a prep's recipe).
+> Δ (Grand − Normal) ≈ ₪20 ⇒ beef ≈ ₪100/kg. Fixed ingredients (tomate 1 g,
+> laitue 1 g, OR ROUGE 1 g) contribute a few cents and stay constant between
+> variants.
 
-### 4. Inventory impact
+### 6. Inventory on sale
 
-- Each order decrements the prep's on-hand inventory (10 g × scale factor).
-- When the prep runs low, kitchen cooks another batch (which decrements raw stock).
+- Normal sold → 1 g tomate + 1 g laitue + 200 g bœuf + 1 g OR ROUGE prep.
+- Grand sold → same list, but 400 g bœuf.
+- The OR ROUGE prep inventory is decremented (1 g per sale); the OR ROUGE
+  raw ingredients are *not* decremented until the next prep batch is cooked.
 
 ---
 
-## Case E — Modifier that consumes stock (+extra cheese)
+## Case D — Hamburger + "Extra Cheddar" modifier
 
-> Customer taps "+extra cheese" and another 30 g of cheese is drawn.
+> Customer taps a ✓ next to "Extra cheddar" and another 30 g of cheddar is drawn.
+> Modifier stock consumption is applied at order time, on top of the base
+> menu item cost.
 
-### 1. Modifier set
+### 1. Stock
 
-1. `/menu/modifier-sets` → "New":
-   - Name: Suppléments
-   - Allow multiple: ✅ (so customer can pick more than one)
-2. Add a modifier row:
-   - Name: Extra cheese
-   - Price: ₪5
-3. On that row, click **"+ Link stock consumption"** (the subrow below each
-   modifier expands).
-   - Source: **Cheese** (from the stock picker — groups by Stock / Prep)
-   - Qty: 30
-   - Unit: g
-4. Save the modifier set.
+Add `Cheddar` to `/kitchen/stock` with a price (e.g. ₪80 / kg = 0.08 ₪/g).
 
-### 2. Attach the modifier set to the menu item
+### 2. Modifier set
 
-On Hamburger's Edit modal → Modificateurs section → "Add" → pick "Suppléments."
+`/menu/modifier-sets` → "New":
 
-### 3. Cost tab
+- Name: `Suppléments`
+- Autoriser plusieurs sélections: ✅ (so a customer can add 2× if they want)
+- Add modifier row:
+  - Name: `Extra cheddar`
+  - Price: ₪7 (what you charge the customer)
+- On that row click **"+ Lier une consommation de stock"** (the subrow below expands):
+  - Consomme: **Cheddar** (from the Stock group)
+  - Qté: **30**
+  - Unité: **g**
 
-A new **"Modifier consumption"** section appears, listing:
+Save the set.
 
-| Modifier | Consumes | Qty | Per selection |
+### 3. Attach to the Hamburger
+
+Hamburger → Modificateurs → "Ajouter" → pick `Suppléments`.
+
+### 4. Expected cost
+
+Cost tab now shows two sections:
+
+**Food cost** (from ingredients, independent of modifier picks):
+
+| Variant | Food cost |
+|---|---:|
+| Normal (200 g) | ~₪23 |
+| Grand (400 g) | ~₪43 |
+
+**Consommation des modificateurs**:
+
+| Modifier | Consomme | Qté | Par sélection |
 |---|---|---:|---:|
-| Extra cheese (Suppléments) | Cheese (stock) | 30 g | ₪X |
+| Extra cheddar (Suppléments) | Cheddar (stock) | 30 g | 30 × 0.08 ≈ **₪2.4** (example) |
 
-"Per selection" = cost of one pick. Multi-pick is applied at order time
-(2× extra cheese on one burger = 2 × 30 g = 60 g consumed).
+At order time:
+- 1× Hamburger Normal + 1× Extra cheddar → food cost + 1 × modifier cost.
+- 1× Hamburger Grand + 2× Extra cheddar → food cost (Grand) + 2 × modifier cost.
 
-### 4. At order time
+Inventory:
+- Normal + cheddar ×1 → 1 g tomate + 1 g laitue + 200 g bœuf + 1 g OR ROUGE + **30 g cheddar**.
+- Normal + cheddar ×2 → … + **60 g cheddar**.
 
-- OrderItem's selected modifiers each apply `mod.quantity × selected_count × source.cost_per_unit`.
-- Inventory is decremented by the same amount for the linked stock/prep item.
-
-### Special cases
-
-- **Modifier that consumes a prep** (e.g. "+extra sauce spéciale"): pick the
-  source from the Prep items group instead of stock. Math uses `prep.cost_per_unit`.
-- **Free modifier** (ketchup included): leave `price_delta = 0` and still link
-  the stock so inventory is tracked.
-- **"No cheese"** (subtractive modifier): not yet supported — today
-  consumption is additive only. To model it, either lower the base ingredient
-  qty or accept the small cost overstatement.
+> The user's "₪30 for Normal with cheese" and "₪40 for Grand with cheese"
+> examples imply a specific cheese price that gives a ~₪7 per-selection draw.
+> Adjust the cheddar stock price to match your real purchasing.
 
 ---
 
-## Case F — Everything together (Double hamburger + extra cheese + sauce-prep)
+## Case E — Soup (batch item, served in multiple sizes)
 
-A realistic composed order:
+> For true batch dishes where you cook a pot and serve portions. Variants
+> pick the serving size; ingredients are authored per batch and the app
+> prorates automatically.
 
-1. **Stock**: viande, pain, laitue, tomate, oignon, fromage, mayo, mustard, spices.
-2. **Prep**: Sauce spéciale (500 ml batch).
-3. **Menu item**: Hamburger, 1 portion mode, portion = 1 unit.
-4. **Ingredients**: viande 200 g (scale), pain 1 unit, laitue/tomate fixed, sauce spéciale 10 g (scale).
-5. **Variants**: Normal (1 unit / ₪70), Grand (2 unit / ₪140).
-6. **Modifier set** "Suppléments" with "Extra cheese" → cheese 30 g.
-7. Attach set to the hamburger.
+### 1. Menu item Details
 
-Cost tab shows:
-- Pills for Normal / Grand.
-- Ingredient table with scaled qty per variant (click Grand → 400 g meat).
-- Modifier consumption table showing "+ Extra cheese → 30 g cheese = ₪X per selection."
+- Recipe type: **En lot**
+- **Rendement**: `5 L`
+- **Portion par défaut**: `250 ml` (hidden when variants exist)
 
-Order arrives: 1× Grand hamburger with 2× extra cheese.
-- Viande hachée: 400 g
-- Sauce spéciale (prep): 20 g → prep decremented → prep's raw sources decremented proportionally when the next batch is cooked
-- Cheese: 60 g (2 × 30 g)
-- Other raw: bun 1, laitue 15 g, tomate 20 g.
+### 2. Variants
+
+| Variant | Prix | Portion |
+|---|---:|---:|
+| Bol | ₪18 | 250 ml |
+| Grand bol | ₪32 | 500 ml |
+
+### 3. Ingredients — per batch
+
+| Ingredient | Qty per batch |
+|---|---:|
+| Tomate | 2 kg |
+| Oignon | 500 g |
+| Ail | 30 g |
+| Huile d'olive | 100 ml |
+
+> In batch mode, the "Adapter à la variante" toggle is **hidden** on each
+> ingredient — all ingredients prorate uniformly by `variant.portion / yield`.
+
+### 4. Expected cost
+
+For each variant: `line_cost = ing.qty × (variant.portion / yield) × unit_cost`.
+
+- 250 ml portion: each ingredient × 250/5000 = 0.05 of its batch qty.
+- 500 ml portion: × 500/5000 = 0.10 of its batch qty.
+
+Cost tab shows both.
+
+---
+
+## Case F — Triple burger with non-linear scaling
+
+> Triple burger has 550 g of meat — not 600 g (3×). Use a fractional portion.
+
+- Item portion: 200 g
+- Variants: Normal 200 g, Double 400 g, **Triple** 550 g
+- Beef ingredient: Qté 200 g, ✅ Adapter à la variante
+
+Ratios: Normal 1×, Double 2×, Triple 2.75×. Beef: 200 / 400 / 550 g. ✓
+
+---
+
+## Step-by-step checklist (for any new dish)
+
+1. **List raw ingredients** → add to `/kitchen/stock` with purchase prices.
+2. **Any sub-recipes?** (sauce, oil mix, OR ROUGE, caramelized onions…) → create
+   in `/kitchen/preparations` with a batch yield and per-batch ingredient list.
+3. **Create the menu item** in `/menu/items`:
+   - Pick the recipe type:
+     - **Portion unique** for assembled dishes (hamburger, sandwich, plated dish that draws from a prep).
+     - **En lot** only for things cooked as a pot (soup, stew) where you also author raw ingredients per batch.
+   - Set **Portion par défaut** — base portion size (use the same unit as your variants).
+4. **Add variants** (if any sizing). The Portion column auto-defaults to the
+   item's unit, so they'll line up.
+5. **Recipe** tab → add ingredients:
+   - Fixed ingredients (bun, 1 g sauce, etc.): just the base qty.
+   - Scaling ingredients (beef, sauce in proportion to size): tick **Adapter à la variante**.
+6. **Modifiers** with inventory impact:
+   - `/menu/modifier-sets` → open the set → per modifier, click **"+ Lier une consommation de stock"** → pick stock/prep + qty + unit.
+   - Attach the set to the menu item.
+7. **Verify on the Cost tab**: click between variant pills; ingredient table
+   shows the effective qty per variant; modifier consumption section lists the
+   per-selection cost of each linked modifier.
 
 ---
 
@@ -318,13 +358,13 @@ Order arrives: 1× Grand hamburger with 2× extra cheese.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Cost tab shows 0 or "missing variant portion" warning | Variants have no `portion_size` set | Variants editor → fill the Portion column |
-| Grand costs the same as Normal | "Scale with variant" not checked on the scaling ingredients | Toggle it on the ingredients that should scale |
-| All ingredients doubled in Grand (even the bun) | Item is in "En lot" (batch) mode — proration applies to everything | Switch to "1 portion" mode, then flag only the scaling ingredients |
-| Prep cost shows 0 | Prep has no ingredients, or `yield_per_batch = 0` | Set yield and add at least one ingredient |
-| Margin is negative / nonsensical | Mixing ex-VAT and inc-VAT in the same row | Use the "Show ex-VAT / inc-VAT" toggle and verify mini P&L is on the same basis |
-| "Type de recette" toggle doesn't persist | Legacy bug — requires server-side fix deployed | Covered by migration + ItemUpdateInput pointer fields (already shipped) |
-| Non-linear variant scaling needed (Triple = 550 g, not 600 g) | Use fractional variant portion: **2.75 unit** | Any positive float works in the Portion column |
+| Cost is 0 | Ingredient `Qté` is 0 (was hidden under the old UI) | Recipe tab → fill `Qté` on each row, save |
+| All variants show the same cost | Unit-family mismatch (item portion in `unit`, variants in `g`) — a yellow banner explains this | Details tab → set item portion to the same unit as your variants (e.g. 200 g), save |
+| Grand costs 2× *all* ingredients (bun included) | Item is in "En lot" (batch) mode → uniform proration | Details tab → switch to **Portion unique**, then flag only the scaling ingredients |
+| Toggle "Adapter à la variante" missing on an ingredient | Item has a recipe yield > 0 (batch mode) | Either clear the yield (Recipe tab) or accept batch proration |
+| Warning "Unités incompatibles" | Item portion and variant portion are in different unit families | Make them both in the same family (both g, or both unit, etc.) |
+| Prep cost shows 0 | Prep has no ingredients, or yield = 0 | Fix the prep first |
+| Modifier cost isn't added to base food cost | By design — it's customer-selected at order time | See the "Consommation des modificateurs" section on the Cost tab for per-selection cost |
 
 ## Where things live
 
@@ -337,7 +377,7 @@ Order arrives: 1× Grand hamburger with 2× extra cheese.
 | Modifier sets | `foodyadmin/src/app/[restaurantId]/menu/modifier-sets/[setId]/` |
 | Cost tab / panel | `foodyadmin/src/components/menu-item/MenuItemCostPanel.tsx` |
 | Ingredient editor | `foodyadmin/src/components/food-cost/MenuItemIngredientsEditor.tsx` |
-| Cost math (formula) | `calcLineCost` in `MenuItemCostPanel.tsx` |
+| Cost math | `calcLineCost` + `calcVariantLineCost` in `MenuItemCostPanel.tsx` |
 | Unit helpers | `foodyadmin/src/lib/units.ts` (`toBaseUnit`, `convertQuantity`, `sameUnitFamily`) |
 | Modifier model | `foodyserver/internal/common/models.go` (`MenuItemModifier`) |
 | Modifier migration | `foodyserver/migrations/055_modifier_stock_link.sql` |

@@ -632,6 +632,7 @@ export default function MenuItemCostPanel({
       {breakdownIng && breakdownIng.prep_item && (
         <PrepCostBreakdownModal
           ing={breakdownIng}
+          item={item}
           portion={currentPortion}
           showExVat={showCostsExVat}
           vatMultiplier={vatMultiplier}

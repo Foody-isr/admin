@@ -1,15 +1,17 @@
 'use client';
 
-import { MenuItemIngredient } from '@/lib/api';
-import { convertQuantity } from '@/lib/units';
+import { MenuItem, MenuItemIngredient } from '@/lib/api';
+import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
 
 // Shows the full math behind a prep ingredient's cost: raw ingredients →
 // batch cost → cost per unit → line cost at the current portion.
-// Lets the user spot unit mismatches or stale data at a glance.
+// The "line cost" math here MUST mirror calcLineCost/calcVariantLineCost in
+// MenuItemCostPanel so the modal and the Cost table never disagree.
 export default function PrepCostBreakdownModal({
-  ing, portion, showExVat, vatMultiplier, onClose, t,
+  ing, item, portion, showExVat, vatMultiplier, onClose, t,
 }: {
   ing: MenuItemIngredient;
+  item: MenuItem;
   portion: { qty: number; unit: string } | null;
   showExVat: boolean;
   vatMultiplier: number;
@@ -44,14 +46,33 @@ export default function PrepCostBreakdownModal({
   const yieldUnit = prep.unit;
   const costPerUnit = yieldQty > 0 ? batchCost / yieldQty : 0;
 
-  const portionQty = ing.scales_with_variant
-    ? (portion ? portion.qty : 0)
-    : ing.quantity_needed;
-  const portionUnit = ing.scales_with_variant
-    ? (portion ? portion.unit : yieldUnit)
-    : (ing.unit || yieldUnit);
-  const portionInYieldUnit = convertQuantity(portionQty, portionUnit, yieldUnit);
-  const lineCost = portionInYieldUnit * costPerUnit;
+  // Mirror the Cost panel's math exactly so this modal and the ingredient
+  // table always agree.
+  //  - batchMode (item.recipe_yield > 0): ignore scales_with_variant flag,
+  //    prorate base qty by variant.portion / item.recipe_yield.
+  //  - per-portion mode: if scales_with_variant AND the variant portion is in
+  //    the same unit family as item.portion, multiply base qty by the ratio.
+  //    Otherwise use base qty as-is (the cost panel falls back to 1× and
+  //    shows a mismatch banner).
+  const batchMode = (item.recipe_yield ?? 0) > 0;
+  const baseQty = ing.quantity_needed;
+  const baseUnit = ing.unit || yieldUnit;
+  let variantRatio = 1;
+  let batchRatio = 1;
+  if (batchMode && portion) {
+    const yieldBase = toBaseUnit(item.recipe_yield ?? 0, item.recipe_yield_unit || 'kg');
+    const portionBase = toBaseUnit(portion.qty, portion.unit);
+    if (yieldBase > 0) batchRatio = portionBase / yieldBase;
+  } else if (!batchMode && ing.scales_with_variant && portion) {
+    const itemQty = item.portion_size ?? 0;
+    const itemUnit = item.portion_size_unit || '';
+    if (itemQty > 0 && sameUnitFamily(portion.unit, itemUnit)) {
+      variantRatio = toBaseUnit(portion.qty, portion.unit) / toBaseUnit(itemQty, itemUnit);
+    }
+  }
+  const effectiveQty = baseQty * variantRatio * batchRatio;
+  const effectiveInYieldUnit = convertQuantity(effectiveQty, baseUnit, yieldUnit);
+  const lineCost = effectiveInYieldUnit * costPerUnit;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
@@ -139,17 +160,26 @@ export default function PrepCostBreakdownModal({
             </h4>
             <div className="px-3 py-3 rounded-lg space-y-1 font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
               <div className="text-fg-secondary">
-                {portionQty} {portionUnit}
-                {portionInYieldUnit !== portionQty && (
-                  <span> = {portionInYieldUnit.toFixed(4)} {yieldUnit}</span>
-                )}{' '}
+                {baseQty} {baseUnit}
+                {variantRatio !== 1 && (
+                  <span> &times; {variantRatio.toFixed(3)} ({t('variant') || 'variant'})</span>
+                )}
+                {batchRatio !== 1 && (
+                  <span> &times; {batchRatio.toFixed(3)} ({t('batch') || 'batch'})</span>
+                )}
+                {' = '}{Number(effectiveQty.toFixed(4))} {baseUnit}
+                {effectiveInYieldUnit !== effectiveQty && (
+                  <span> = {effectiveInYieldUnit.toFixed(4)} {yieldUnit}</span>
+                )}
+              </div>
+              <div className="text-fg-secondary">
                 &times; {costPerUnit.toFixed(4)} &#8362;/{yieldUnit}
               </div>
               <div className="text-fg-primary font-semibold">
                 = {lineCost.toFixed(2)} &#8362;
               </div>
             </div>
-            {ing.scales_with_variant && !portion && (
+            {ing.scales_with_variant && !portion && !batchMode && (
               <p className="text-xs text-amber-500">{t('missingVariantPortion')}</p>
             )}
           </section>

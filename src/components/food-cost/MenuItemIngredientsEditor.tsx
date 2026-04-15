@@ -184,7 +184,11 @@ export default function MenuItemIngredientsEditor({
             <div className="flex items-center gap-2">
               <input
                 type="number" step="any" min="0"
-                className="input w-24 py-1.5 text-sm text-right"
+                className={`input w-24 py-1.5 text-sm text-right ${
+                  (ing.quantity_needed ?? 0) <= 0
+                    ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                    : ''
+                }`}
                 value={ing.quantity_needed || ''}
                 onChange={(e) => updateRow(idx, { quantity_needed: +e.target.value })}
                 placeholder={t('qty')}
@@ -199,6 +203,11 @@ export default function MenuItemIngredientsEditor({
                 <option value="ml">ml</option><option value="l">l</option>
                 <option value="unit">unit</option>
               </select>
+              {(ing.quantity_needed ?? 0) <= 0 && (
+                <span className="text-xs text-amber-500">
+                  {t('baseQtyMissing') || 'Base qty not set'}
+                </span>
+              )}
             </div>
             {/* Follow variant portion — only meaningful for per-portion items.
                 Batch items (recipe_yield > 0) prorate all ingredients uniformly
