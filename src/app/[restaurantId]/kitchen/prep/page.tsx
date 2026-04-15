@@ -765,6 +765,22 @@ function CreateFromRecipeModal({
       // Only take raw stock ingredients (skip prep-item references)
       const stockIngs = ings.filter((i) => i.stock_item_id && !i.prep_item_id);
 
+      // Validate every recipe ingredient has an explicit unit. Without one
+      // we cannot safely convert into the stock's base unit — silently using
+      // the stock's unit as fallback drops a factor of 1000× (18 g → 18 kg).
+      const missingUnit = stockIngs.filter((i) => {
+        const stockUnit = i.stock_item?.unit ?? '';
+        // Fine if the stock is already a "package" unit (unit/pack/box); otherwise require ing.unit
+        const measurableStock = stockUnit === 'g' || stockUnit === 'kg' || stockUnit === 'ml' || stockUnit === 'l';
+        return measurableStock && !i.unit;
+      });
+      if (missingUnit.length > 0) {
+        const names = missingUnit.map((i) => i.stock_item?.name ?? '?').join(', ');
+        alert(t('recipeMissingUnits').replace('{names}', names));
+        setConverting(false);
+        return;
+      }
+
       // Determine yield and unit
       const recipeYield = recipe.recipe_yield || 1;
       const yieldUnit = (recipe.recipe_yield_unit || 'unit') as StockUnit;

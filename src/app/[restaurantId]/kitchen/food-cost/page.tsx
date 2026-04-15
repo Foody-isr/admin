@@ -134,6 +134,22 @@ export default function FoodCostPage() {
     return null;
   };
 
+  // Aggregate a prep's ingredients into a VAT-normalized cost per prep.unit.
+  // Each raw stock ingredient contributes `qty × cost_per_unit` normalized to
+  // ex-VAT (so mixed price_includes_vat flags no longer produce hybrid totals).
+  // Returns the ex-VAT cost per 1 prep.unit; callers add VAT back if needed.
+  const computePrepUnitCostExVat = (prep: PrepItem): number | null => {
+    if (!prep.ingredients || prep.ingredients.length === 0) return null;
+    if ((prep.yield_per_batch ?? 0) <= 0) return null;
+    const batchExVat = prep.ingredients.reduce((sum, pi) => {
+      const s = pi.stock_item;
+      if (!s) return sum;
+      const costExVat = toExVat(s.cost_per_unit ?? 0, s.price_includes_vat ?? false);
+      return sum + pi.quantity_needed * costExVat;
+    }, 0);
+    return batchExVat / prep.yield_per_batch;
+  };
+
   // calcLineCost computes the cost of a single ingredient line.
   // When `ing.scales_with_variant` is true, the consumed quantity is taken
   // from `portionOverride` (typically the current variant's portion) instead of
@@ -158,8 +174,24 @@ export default function FoodCostPage() {
       qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
     }
 
-    const rawCost = stock?.cost_per_unit ?? prep?.cost_per_unit ?? 0;
-    const includesVat = stock?.price_includes_vat ?? false;
+    // Prep cost: derive from ingredients with per-stock VAT normalization when
+    // we have them (server preloads prep.ingredients). Fall back to the stored
+    // prep.cost_per_unit only when ingredients aren't loaded.
+    let rawCost: number;
+    let includesVat: boolean;
+    if (prep && !stock) {
+      const prepExVat = computePrepUnitCostExVat(prep);
+      if (prepExVat != null) {
+        rawCost = prepExVat;      // already ex-VAT
+        includesVat = false;
+      } else {
+        rawCost = prep.cost_per_unit ?? 0;
+        includesVat = false;       // legacy fallback: assume ex-VAT
+      }
+    } else {
+      rawCost = stock?.cost_per_unit ?? 0;
+      includesVat = stock?.price_includes_vat ?? false;
+    }
     const unitCost = showCostsExVat ? toExVat(rawCost, includesVat) : toIncVat(rawCost, includesVat);
 
     // Same unit or no unit info (both measurable) — direct multiply
@@ -542,7 +574,13 @@ export default function FoodCostPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-fg-secondary mb-4">{t('sellingPrice').replace('{price}', displayPrice.toFixed(2))}</p>
+                <p className="text-sm text-fg-secondary mb-4">
+                  {t('sellingPrice').replace('{price}', normalizedPrice.toFixed(2))}
+                  <span className="ml-2 text-xs text-fg-tertiary">
+                    ({showCostsExVat ? t('excludingVat') : t('includingVat')} · {showCostsExVat ? t('includingVat') : t('excludingVat')}{' '}
+                    {(showCostsExVat ? displayPrice : displayPrice / vatMultiplier).toFixed(2)} &#8362;)
+                  </span>
+                </p>
               )}
 
               {/* VAT toggle + Cost summary */}
@@ -637,8 +675,18 @@ export default function FoodCostPage() {
                       const name = ing.stock_item?.name ?? ing.prep_item?.name ?? '?';
                       const unit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
                       const stockUnit = ing.stock_item?.unit ?? '';
-                      const rawUnitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
-                      const incVat = ing.stock_item?.price_includes_vat ?? false;
+                      // Same VAT-aware derivation as calcLineCost so the table and
+                      // the summary agree on the unit cost shown to the user.
+                      let rawUnitCost: number;
+                      let incVat: boolean;
+                      if (ing.prep_item && !ing.stock_item) {
+                        const prepExVat = computePrepUnitCostExVat(ing.prep_item);
+                        if (prepExVat != null) { rawUnitCost = prepExVat; incVat = false; }
+                        else { rawUnitCost = ing.prep_item.cost_per_unit ?? 0; incVat = false; }
+                      } else {
+                        rawUnitCost = ing.stock_item?.cost_per_unit ?? 0;
+                        incVat = ing.stock_item?.price_includes_vat ?? false;
+                      }
                       const unitCost = showCostsExVat ? toExVat(rawUnitCost, incVat) : toIncVat(rawUnitCost, incVat);
                       const lineCost = calcVariantLineCost(ing, currentPortion);
                       const mismatch = hasUnitMismatch(ing);
