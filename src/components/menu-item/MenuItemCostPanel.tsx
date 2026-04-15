@@ -423,9 +423,17 @@ export default function MenuItemCostPanel({
                   const lineCost = calcVariantLineCost(ing, currentPortion);
                   const mismatch = hasUnitMismatch(ing);
                   const type = ing.stock_item_id ? t('raw') : t('prep');
-                  const qtyDisplay = ing.scales_with_variant
-                    ? (currentPortion ? `${currentPortion.qty} ${currentPortion.unit}` : '—')
-                    : `${ing.quantity_needed} ${unit}`;
+                  // Effective qty = what the cost math actually uses.
+                  // For scales_with_variant: base × ratio (same-unit-family) or base × 1 otherwise.
+                  let effectiveQty = ing.quantity_needed;
+                  if (ing.scales_with_variant && currentPortion) {
+                    const itemQty = item.portion_size ?? 0;
+                    const itemUnit = item.portion_size_unit || '';
+                    if (itemQty > 0 && sameUnitFamily(currentPortion.unit, itemUnit)) {
+                      effectiveQty = ing.quantity_needed * (toBaseUnit(currentPortion.qty, currentPortion.unit) / toBaseUnit(itemQty, itemUnit));
+                    }
+                  }
+                  const qtyDisplay = `${Number(effectiveQty.toFixed(3))} ${unit}`;
                   return (
                     <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                       <td className="py-3 px-4">
@@ -451,7 +459,9 @@ export default function MenuItemCostPanel({
                           <span className="inline-flex flex-col items-end">
                             <span>{qtyDisplay}</span>
                             <span className="text-[10px] uppercase text-fg-tertiary tracking-wider">
-                              {t('followVariantPortion')}
+                              {ing.quantity_needed > 0
+                                ? `${ing.quantity_needed} ${unit} \u00D7 ${t('followVariantPortion')}`
+                                : t('baseQtyMissing') || 'Base qty not set'}
                             </span>
                           </span>
                         ) : (
