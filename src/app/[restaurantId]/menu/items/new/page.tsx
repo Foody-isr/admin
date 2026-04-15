@@ -805,23 +805,26 @@ export default function NewItemPage() {
                   </div>
                   <p className="text-sm text-fg-tertiary">{t('variantsDescription')}</p>
                   {variantGroups.length > 0 && (
-                    <div className="rounded-xl border border-[var(--divider)] overflow-hidden mt-3">
+                    <div className="space-y-3 mt-3">
                       {variantGroups.map((vg) => (
-                        <div key={vg.key} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
-                            <span className="text-xs text-fg-tertiary ml-2">
-                              {vg.variants.filter((v) => v.name.trim()).map((v) => v.name).join(', ')}
-                            </span>
+                        <div key={vg.key} className="rounded-xl border border-[var(--divider)] overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface-subtle)]">
+                            <span className="text-sm font-bold text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button onClick={() => setVariantModalOpen(true)}
+                                className="text-sm text-brand-600 hover:underline font-medium">{t('edit')}</button>
+                              <button onClick={() => removeVariantGroup(vg.key)}
+                                className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                                {t('remove')}
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button onClick={() => setVariantModalOpen(true)}
-                              className="text-sm text-brand-600 hover:underline font-medium">{t('edit')}</button>
-                            <button onClick={() => removeVariantGroup(vg.key)}
-                              className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                              {t('remove')}
-                            </button>
-                          </div>
+                          {vg.variants.filter((v) => v.name.trim()).map((v) => (
+                            <div key={v.key} className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--divider)]">
+                              <span className="text-sm text-fg-primary">{v.name}</span>
+                              <span className="text-sm font-semibold text-fg-primary">₪{(parseFloat(v.price) || 0).toFixed(2)}</span>
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>

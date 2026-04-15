@@ -23,6 +23,7 @@ import { useI18n } from '@/lib/i18n';
 import StockQuantityForm, {
   StockInput, serverToStockInput, stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
+import { convertQuantity, toBaseUnit } from '@/lib/units';
 
 const COST_THRESHOLD = 0.35; // 35% food cost warning
 
@@ -115,51 +116,86 @@ export default function FoodCostPage() {
   const PACKAGE_UNITS = ['unit', 'pack', 'box', 'bag', 'dose'];
   const MEASURABLE_UNITS = ['g', 'kg', 'ml', 'l'];
 
-  const calcLineCost = (ing: MenuItemIngredient) => {
+  // Resolve the portion an ingredient with scales_with_variant should use.
+  // Fallback chain: variant.portion → item.portion → item.recipe_yield.
+  const resolveIngredientPortion = (variantId: string): { qty: number; unit: string } | null => {
+    if (!selectedItem) return null;
+    const v = allVariants.find((vv) => String(vv.id) === variantId);
+    if (v && (v.portion_size ?? 0) > 0) {
+      return { qty: v.portion_size, unit: v.portion_size_unit || 'g' };
+    }
+    if ((selectedItem.portion_size ?? 0) > 0) {
+      return { qty: selectedItem.portion_size!, unit: selectedItem.portion_size_unit || 'g' };
+    }
+    if ((selectedItem.recipe_yield ?? 0) > 0) {
+      return { qty: selectedItem.recipe_yield!, unit: selectedItem.recipe_yield_unit || 'kg' };
+    }
+    return null;
+  };
+
+  // calcLineCost computes the cost of a single ingredient line.
+  // When `ing.scales_with_variant` is true, the consumed quantity is taken
+  // from `portionOverride` (typically the current variant's portion) instead of
+  // `ing.quantity_needed`. Returns 0 when scaling is requested but no portion
+  // is available — callers can surface a warning in that case.
+  const calcLineCost = (
+    ing: MenuItemIngredient,
+    portionOverride?: { qty: number; unit: string } | null,
+  ) => {
     const stock = ing.stock_item;
     const prep = ing.prep_item;
     const stockUnit = stock?.unit ?? prep?.unit ?? '';
-    // Only fallback to stock unit when it's a measurable unit (g/kg/ml/l), not package units
-    const ingUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
+
+    let qty: number;
+    let qtyUnit: string;
+    if (ing.scales_with_variant) {
+      if (!portionOverride) return 0;
+      qty = portionOverride.qty;
+      qtyUnit = portionOverride.unit;
+    } else {
+      qty = ing.quantity_needed;
+      qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
+    }
+
     const rawCost = stock?.cost_per_unit ?? prep?.cost_per_unit ?? 0;
     const includesVat = stock?.price_includes_vat ?? false;
     const unitCost = showCostsExVat ? toExVat(rawCost, includesVat) : toIncVat(rawCost, includesVat);
 
     // Same unit or no unit info (both measurable) — direct multiply
-    if (ingUnit === stockUnit || !ingUnit) {
-      // But if ingUnit is empty and stock is a package unit, it's a mismatch — don't blindly multiply
-      if (!ing.unit && PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
-        // Assume ingredient quantity is in the stock's content unit (e.g., grams)
-        const numUnits = ing.quantity_needed / stock.unit_content;
+    if (qtyUnit === stockUnit || !qtyUnit) {
+      // If qtyUnit is empty and stock is a package unit, it's a mismatch — don't blindly multiply
+      if (!qtyUnit && PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
+        // Assume quantity is in the stock's content unit (e.g., grams)
+        const numUnits = qty / stock.unit_content;
         return numUnits * unitCost;
       }
-      if (!ing.unit && PACKAGE_UNITS.includes(stockUnit)) {
+      if (!qtyUnit && PACKAGE_UNITS.includes(stockUnit)) {
         return 0; // Can't compute safely
       }
-      return ing.quantity_needed * unitCost;
+      return qty * unitCost;
     }
 
     // Weight/volume conversion (g↔kg, ml↔l)
-    const converted = convertQuantity(ing.quantity_needed, ingUnit, stockUnit);
-    if (converted !== ing.quantity_needed) return converted * unitCost;
+    const converted = convertQuantity(qty, qtyUnit, stockUnit);
+    if (converted !== qty) return converted * unitCost;
 
     // Stock is "unit"/"pack"/"box"/"bag" with known content — convert via content
     if (PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
-      const inContentUnit = convertQuantity(ing.quantity_needed, ingUnit, stock.unit_content_unit);
+      const inContentUnit = convertQuantity(qty, qtyUnit, stock.unit_content_unit);
       const numUnits = inContentUnit / stock.unit_content;
       return numUnits * unitCost;
     }
 
-    // Incompatible units (e.g. "g" vs "unit" without content info) — return 0 to avoid wrong values
-    if (PACKAGE_UNITS.includes(stockUnit) && MEASURABLE_UNITS.includes(ingUnit)) {
-      return 0; // Cannot compute — unit_content not set on stock item
+    // Incompatible units (e.g. "g" vs "unit" without content info)
+    if (PACKAGE_UNITS.includes(stockUnit) && MEASURABLE_UNITS.includes(qtyUnit)) {
+      return 0;
     }
-    if (MEASURABLE_UNITS.includes(stockUnit) && PACKAGE_UNITS.includes(ingUnit)) {
+    if (MEASURABLE_UNITS.includes(stockUnit) && PACKAGE_UNITS.includes(qtyUnit)) {
       return 0;
     }
 
     // Fallback — same family, direct multiply
-    return ing.quantity_needed * unitCost;
+    return qty * unitCost;
   };
 
   const hasUnitMismatch = (ing: MenuItemIngredient): boolean => {
@@ -211,40 +247,58 @@ export default function FoodCostPage() {
   const hasYield = (selectedItem?.recipe_yield ?? 0) > 0;
   const yieldBaseUnit = hasYield ? toBaseUnit(selectedItem!.recipe_yield!, selectedItem!.recipe_yield_unit || 'kg') : 0;
 
-  // Calculate display cost based on selected variant/portion
-  let displayCost = totalRecipeCost;
+  // Resolve the currently-active variant id (explicit selection, or first with portion).
+  const activeVariantId = selectedVariantId
+    || (allVariants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? '');
+
+  // Per-variant line cost: non-scaling ingredients prorate batch cost via
+  // portion/yield; scaling ingredients compute directly at the variant portion.
+  const calcVariantLineCost = (
+    ing: MenuItemIngredient,
+    portion: { qty: number; unit: string } | null,
+  ) => {
+    const raw = calcLineCost(ing, portion);
+    if (ing.scales_with_variant) return raw;
+    if (!portion || !hasYield || yieldBaseUnit <= 0) return raw;
+    const portionBase = toBaseUnit(portion.qty, portion.unit);
+    return raw * (portionBase / yieldBaseUnit);
+  };
+
+  const sumVariantCost = (portion: { qty: number; unit: string } | null) =>
+    ingredients.reduce((sum, ing) => sum + calcVariantLineCost(ing, portion), 0);
+
+  const currentPortion = resolveIngredientPortion(activeVariantId);
+
+  // Display cost = total at the currently-active variant portion.
+  let displayCost = currentPortion ? sumVariantCost(currentPortion) : totalRecipeCost;
   let displayPrice = selectedItem?.price ?? 0;
   let displayLabel = '';
 
-  if (hasYield && selectedVariantId && selectedVariantId !== 'full') {
-    const variant = allVariants.find(v => String(v.id) === selectedVariantId);
-    if (variant && (variant.portion_size ?? 0) > 0) {
-      const portionBase = toBaseUnit(variant.portion_size!, variant.portion_size_unit || 'g');
-      displayCost = yieldBaseUnit > 0 ? totalRecipeCost * (portionBase / yieldBaseUnit) : totalRecipeCost;
-      displayPrice = variant.price;
-      displayLabel = `${variant.name} (${variant.portion_size}${variant.portion_size_unit || 'g'})`;
+  if (selectedItem) {
+    if (activeVariantId) {
+      const variant = allVariants.find((v) => String(v.id) === activeVariantId);
+      if (variant) {
+        displayPrice = variant.price;
+        if ((variant.portion_size ?? 0) > 0) {
+          displayLabel = `${variant.name} (${variant.portion_size}${variant.portion_size_unit || 'g'})`;
+        } else {
+          displayLabel = variant.name;
+        }
+      }
+    } else if ((selectedItem.portion_size ?? 0) > 0) {
+      displayPrice = selectedItem.price;
     }
-  } else if (hasYield && !selectedVariantId && allVariants.length > 0) {
-    // Auto-select first variant with portion_size
-    const first = allVariants.find(v => (v.portion_size ?? 0) > 0);
-    if (first) {
-      const portionBase = toBaseUnit(first.portion_size!, first.portion_size_unit || 'g');
-      displayCost = yieldBaseUnit > 0 ? totalRecipeCost * (portionBase / yieldBaseUnit) : totalRecipeCost;
-      displayPrice = first.price;
-      displayLabel = `${first.name} (${first.portion_size}${first.portion_size_unit || 'g'})`;
-    }
-  } else if (hasYield && (selectedItem?.portion_size ?? 0) > 0) {
-    // Item has portion_size but no variants
-    const portionBase = toBaseUnit(selectedItem!.portion_size!, selectedItem!.portion_size_unit || 'g');
-    displayCost = yieldBaseUnit > 0 ? totalRecipeCost * (portionBase / yieldBaseUnit) : totalRecipeCost;
-    displayPrice = selectedItem!.price;
   }
 
   // Selling prices include VAT — normalize to same basis as costs for accurate %
   const normalizedPrice = showCostsExVat ? displayPrice / vatMultiplier : displayPrice;
   const costPct = normalizedPrice > 0 ? displayCost / normalizedPrice : 0;
-  // Keep totalCost for backward compat in the ingredients table total row
-  const totalCost = totalRecipeCost;
+  // Total shown in the ingredients table footer = sum at current variant.
+  const totalCost = displayCost;
+
+  // Detect "scales_with_variant" ingredients with no resolvable portion.
+  const hasMissingVariantPortion =
+    ingredients.some((i) => i.scales_with_variant) && !currentPortion;
 
   // Edit mode
   const startEditing = () => {
@@ -253,12 +307,13 @@ export default function FoodCostPage() {
       prep_item_id: i.prep_item_id ?? undefined,
       quantity_needed: i.quantity_needed,
       unit: i.unit || i.stock_item?.unit || i.prep_item?.unit || '',
+      scales_with_variant: i.scales_with_variant ?? false,
     })));
     setEditing(true);
   };
 
   const addEditIngredient = () => {
-    setEditIngredients([...editIngredients, { quantity_needed: 0, unit: '' }]);
+    setEditIngredients([...editIngredients, { quantity_needed: 0, unit: '', scales_with_variant: false }]);
   };
 
   const removeEditIngredient = (idx: number) => {
@@ -398,23 +453,40 @@ export default function FoodCostPage() {
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
-                {/* Row 2: Quantity + unit */}
-                <div className="flex items-center gap-2">
+                {/* Row 2: Quantity + unit (hidden when following variant portion) */}
+                {!ing.scales_with_variant && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number" step="any" min="0"
+                      className="input w-24 py-1.5 text-sm text-right"
+                      value={ing.quantity_needed || ''}
+                      onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
+                      placeholder={t('qty')}
+                    />
+                    <select className="input w-20 py-1.5 text-sm" value={ing.unit || ''}
+                      onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
+                      <option value="">—</option>
+                      <option value="g">g</option><option value="kg">kg</option>
+                      <option value="ml">ml</option><option value="l">l</option>
+                      <option value="unit">unit</option>
+                    </select>
+                  </div>
+                )}
+                {/* Row 3: Follow variant portion toggle */}
+                <label className="flex items-center gap-2 text-xs text-fg-secondary cursor-pointer select-none">
                   <input
-                    type="number" step="any" min="0"
-                    className="input w-24 py-1.5 text-sm text-right"
-                    value={ing.quantity_needed || ''}
-                    onChange={(e) => updateEditIngredient(idx, { quantity_needed: +e.target.value })}
-                    placeholder={t('qty')}
+                    type="checkbox"
+                    checked={ing.scales_with_variant ?? false}
+                    onChange={(e) => updateEditIngredient(idx, { scales_with_variant: e.target.checked })}
+                    className="rounded border-[var(--divider)]"
                   />
-                  <select className="input w-20 py-1.5 text-sm" value={ing.unit || ''}
-                    onChange={(e) => updateEditIngredient(idx, { unit: e.target.value })}>
-                    <option value="">—</option>
-                    <option value="g">g</option><option value="kg">kg</option>
-                    <option value="ml">ml</option><option value="l">l</option>
-                    <option value="unit">unit</option>
-                  </select>
-                </div>
+                  <span>{t('followVariantPortion')}</span>
+                </label>
+                {ing.scales_with_variant && (
+                  <p className="text-xs text-fg-tertiary italic">
+                    {t('followVariantPortionHint')}
+                  </p>
+                )}
               </div>
             ))}
 
@@ -506,6 +578,21 @@ export default function FoodCostPage() {
               )}
             </div>
 
+            {hasMissingVariantPortion && (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
+                <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p>{t('missingVariantPortion')}</p>
+                  <button
+                    onClick={() => router.push(`/${rid}/menu/items/${selectedItem.id}/variants`)}
+                    className="mt-1 text-amber-400 underline hover:text-amber-300"
+                  >
+                    {t('configureVariants')} →
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Ingredients table */}
             <div className="card overflow-hidden p-0">
               {ingredients.length === 0 ? (
@@ -552,9 +639,12 @@ export default function FoodCostPage() {
                       const rawUnitCost = ing.stock_item?.cost_per_unit ?? ing.prep_item?.cost_per_unit ?? 0;
                       const incVat = ing.stock_item?.price_includes_vat ?? false;
                       const unitCost = showCostsExVat ? toExVat(rawUnitCost, incVat) : toIncVat(rawUnitCost, incVat);
-                      const lineCost = calcLineCost(ing);
+                      const lineCost = calcVariantLineCost(ing, currentPortion);
                       const mismatch = hasUnitMismatch(ing);
                       const type = ing.stock_item_id ? t('raw') : t('prep');
+                      const qtyDisplay = ing.scales_with_variant
+                        ? (currentPortion ? `${currentPortion.qty} ${currentPortion.unit}` : '—')
+                        : `${ing.quantity_needed} ${unit}`;
                       return (
                         <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                           <td className="py-3 px-4">
@@ -576,7 +666,16 @@ export default function FoodCostPage() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right font-mono text-fg-primary">
-                            {ing.quantity_needed} <span className="text-fg-secondary text-xs">{unit}</span>
+                            {ing.scales_with_variant ? (
+                              <span className="inline-flex flex-col items-end">
+                                <span>{qtyDisplay}</span>
+                                <span className="text-[10px] uppercase text-fg-tertiary tracking-wider">
+                                  {t('followVariantPortion')}
+                                </span>
+                              </span>
+                            ) : (
+                              <>{ing.quantity_needed} <span className="text-fg-secondary text-xs">{unit}</span></>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <button onClick={() => ing.stock_item && setEditingStockItem(ing.stock_item)}
@@ -693,7 +792,6 @@ export default function FoodCostPage() {
             {ingredients.length > 0 && (selectedItem.recipe_yield ?? 0) > 0 && (() => {
               const variants = (selectedItem.variant_groups ?? []).flatMap(g => g.variants ?? []).filter(v => (v.portion_size ?? 0) > 0);
               if (variants.length === 0) return null;
-              const yieldBase = toBaseUnit(selectedItem.recipe_yield!, selectedItem.recipe_yield_unit || 'kg');
               return (
                 <div className="card overflow-hidden p-0">
                   <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
@@ -712,8 +810,8 @@ export default function FoodCostPage() {
                     </thead>
                     <tbody>
                       {variants.map((v) => {
-                        const portionBase = toBaseUnit(v.portion_size!, v.portion_size_unit || 'g');
-                        const vCost = yieldBase > 0 ? totalCost * (portionBase / yieldBase) : 0;
+                        const vPortion = { qty: v.portion_size!, unit: v.portion_size_unit || 'g' };
+                        const vCost = sumVariantCost(vPortion);
                         const vPct = v.price > 0 ? vCost / v.price : 0;
                         return (
                           <tr key={v.id} style={{ borderBottom: '1px solid var(--divider)' }}>
@@ -832,18 +930,3 @@ function StockCostEditor({
   );
 }
 
-// ─── Unit Conversion Helpers ────────────────────────────────────────
-
-const unitFactors: Record<string, number> = { g: 1, kg: 1000, ml: 1, l: 1000 };
-
-function toBaseUnit(value: number, unit: string): number {
-  return value * (unitFactors[unit] ?? 1);
-}
-
-function convertQuantity(qty: number, from: string, to: string): number {
-  if (from === to || !from || !to) return qty;
-  const fromFactor = unitFactors[from];
-  const toFactor = unitFactors[to];
-  if (fromFactor != null && toFactor != null) return qty * fromFactor / toFactor;
-  return qty; // no conversion possible (e.g., "unit" vs "g")
-}

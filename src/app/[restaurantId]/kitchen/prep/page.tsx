@@ -31,6 +31,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, ClockIcon, PhotoIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
+import { convertQuantity } from '@/lib/units';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -406,7 +407,7 @@ export default function PrepPage() {
         <PrepItemModal rid={rid} editing={itemModal.editing} categories={categoryNames} stockItems={stockItems} onClose={() => setItemModal({ open: false })} onSaved={reload} />
       )}
       {fromRecipeModal && (
-        <CreateFromRecipeModal rid={rid} stockItems={stockItems} categories={categoryNames} onClose={() => setFromRecipeModal(false)} onSaved={reload} />
+        <CreateFromRecipeModal rid={rid} onClose={() => setFromRecipeModal(false)} onSaved={reload} />
       )}
       {batchModal.open && batchModal.item && (
         <BatchProduceModal rid={rid} item={batchModal.item} onClose={() => setBatchModal({ open: false })} onProduced={reload} />
@@ -730,9 +731,9 @@ function PrepItemModal({
 // ─── Create from Recipe Modal ──────────────────────────────────────────────
 
 function CreateFromRecipeModal({
-  rid, stockItems, categories, onClose, onSaved,
+  rid, onClose, onSaved,
 }: {
-  rid: number; stockItems: StockItem[]; categories: string[]; onClose: () => void; onSaved: () => void;
+  rid: number; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
   const [recipeItems, setRecipeItems] = useState<RecipeCardItem[]>([]);
@@ -780,12 +781,20 @@ function CreateFromRecipeModal({
       });
 
       // Recipe ingredient quantities are already the full-batch amounts
-      // (e.g. 600 g of tomato pulp for the whole 1.2 kg yield), so copy as-is.
+      // (e.g. 600 g of tomato pulp for the whole 1.2 kg yield). `PrepItemIngredient`
+      // has no `unit` field — QuantityNeeded is assumed to be in the stock's base
+      // unit — so convert from the recipe ingredient's unit to the stock's unit
+      // here to avoid 1000× drift when a recipe says "600 g" but the stock is
+      // tracked in "kg".
       if (stockIngs.length > 0) {
-        await setPrepIngredients(rid, prepItem.id, stockIngs.map((ing) => ({
-          stock_item_id: ing.stock_item_id!,
-          quantity_needed: ing.quantity_needed,
-        })));
+        await setPrepIngredients(rid, prepItem.id, stockIngs.map((ing) => {
+          const stockUnit = ing.stock_item?.unit ?? '';
+          const fromUnit = ing.unit || stockUnit;
+          return {
+            stock_item_id: ing.stock_item_id!,
+            quantity_needed: convertQuantity(ing.quantity_needed, fromUnit, stockUnit),
+          };
+        }));
       }
 
       onSaved();

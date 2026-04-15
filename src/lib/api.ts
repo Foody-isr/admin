@@ -653,6 +653,7 @@ export interface MenuItemIngredient {
   prep_item_id?: number;
   quantity_needed: number;
   unit?: string;
+  scales_with_variant?: boolean;
   created_at: string;
   stock_item?: StockItem;
   prep_item?: PrepItem;
@@ -663,6 +664,7 @@ export interface IngredientInput {
   prep_item_id?: number;
   quantity_needed: number;
   unit?: string;
+  scales_with_variant?: boolean;
 }
 
 export interface PrepIngredientInput {
