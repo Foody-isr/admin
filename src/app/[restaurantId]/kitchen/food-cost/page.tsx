@@ -4,11 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, listStockItems, listPrepItems,
-  getMenuItemIngredients,
+  getMenuItemIngredients, getItemOptionPrices,
   updateStockItem,
   getRestaurantSettings,
   MenuCategory, MenuItem, MenuItemIngredient,
-  StockItem, PrepItem, StockItemInput,
+  StockItem, PrepItem, StockItemInput, ItemOptionOverride,
 } from '@/lib/api';
 import RecipeImportModal from '../RecipeImportModal';
 import {
@@ -39,6 +39,7 @@ export default function FoodCostPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingStockItem, setEditingStockItem] = useState<StockItem | null>(null);
   const [vatRate, setVatRate] = useState(18);
+  const [itemOptionOverrides, setItemOptionOverrides] = useState<ItemOptionOverride[]>([]);
 
   const reload = useCallback(async () => {
     try {
@@ -65,10 +66,15 @@ export default function FoodCostPage() {
     setSelectedItem(item);
     setLoadingIngredients(true);
     try {
-      const ings = await getMenuItemIngredients(rid, item.id);
+      const [ings, overrides] = await Promise.all([
+        getMenuItemIngredients(rid, item.id),
+        getItemOptionPrices(rid, item.id).catch(() => [] as ItemOptionOverride[]),
+      ]);
       setIngredients(ings);
+      setItemOptionOverrides(overrides);
     } catch {
       setIngredients([]);
+      setItemOptionOverrides([]);
     } finally {
       setLoadingIngredients(false);
     }
@@ -179,6 +185,7 @@ export default function FoodCostPage() {
               prepItems={prepItems}
               stockItems={stockItems}
               vatRate={vatRate}
+              itemOptionOverrides={itemOptionOverrides}
               onEditStockItem={(s) => setEditingStockItem(s)}
             />
           </div>

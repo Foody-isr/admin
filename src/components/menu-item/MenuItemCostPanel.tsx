@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MenuItem, MenuItemIngredient, PrepItem, StockItem } from '@/lib/api';
+import { MenuItem, MenuItemIngredient, PrepItem, StockItem, ItemOptionOverride } from '@/lib/api';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import { convertQuantity, toBaseUnit } from '@/lib/units';
@@ -22,6 +22,10 @@ interface Props {
   prepItems: PrepItem[];
   stockItems?: StockItem[];
   vatRate: number;
+  // Per-item option overrides — this is where variant portion_size actually
+  // lives when variants come through the option_sets system. Without this the
+  // panel sees every option with portion_size = 0 and the Cost tab looks empty.
+  itemOptionOverrides?: ItemOptionOverride[];
   // When present, the swap banner CTA calls this instead of linking out — used
   // when the panel is embedded inside the Menu Item page's Cost tab (swap flow
   // lives on the Recipe tab, not on a separate route).
@@ -34,7 +38,8 @@ interface Props {
 // Used both on the standalone Food Cost page (right panel) and on the
 // Menu Item edit page Cost tab. Extracted so the two places stay in lockstep.
 export default function MenuItemCostPanel({
-  rid, item, ingredients, prepItems, vatRate, onGoToRecipe, onEditStockItem,
+  rid, item, ingredients, prepItems, vatRate, itemOptionOverrides,
+  onGoToRecipe, onEditStockItem,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -51,12 +56,13 @@ export default function MenuItemCostPanel({
   for (const os of item.option_sets ?? []) {
     for (const opt of os.options ?? []) {
       if (!opt.is_active) continue;
+      const override = itemOptionOverrides?.find((ov) => ov.option_id === opt.id);
       allVariants.push({
         id: `opt:${opt.id}`,
         name: opt.name,
-        price: opt.price,
-        portion_size: 0,
-        portion_size_unit: 'g',
+        price: override?.price ?? opt.price,
+        portion_size: override?.portion_size ?? 0,
+        portion_size_unit: override?.portion_size_unit ?? 'g',
       });
     }
   }

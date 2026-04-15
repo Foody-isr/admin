@@ -449,6 +449,7 @@ export default function EditItemPage() {
                 prepItems={prepItems}
                 stockItems={stockItems}
                 vatRate={vatRate}
+                itemOptionOverrides={itemOptionOverrides}
                 onGoToRecipe={() => setTab('recipe')}
               />
             )}
