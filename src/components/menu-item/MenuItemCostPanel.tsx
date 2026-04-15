@@ -87,9 +87,10 @@ export default function MenuItemCostPanel({
     if ((item.portion_size ?? 0) > 0) {
       return { qty: item.portion_size!, unit: item.portion_size_unit || 'g' };
     }
-    if ((item.recipe_yield ?? 0) > 0) {
-      return { qty: item.recipe_yield!, unit: item.recipe_yield_unit || 'kg' };
-    }
+    // Deliberately do NOT fall back to recipe_yield: yield is the whole batch,
+    // not a portion. Returning it here would charge a single sale for the
+    // entire recipe output. When nothing resolves, the "configure variants"
+    // warning banner surfaces instead.
     return null;
   };
 

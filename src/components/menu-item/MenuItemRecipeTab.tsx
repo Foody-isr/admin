@@ -53,8 +53,6 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
   const [notes, setNotes] = useState(item.recipe_notes ?? '');
   const [yieldValue, setYieldValue] = useState(item.recipe_yield ?? 0);
   const [yieldUnit, setYieldUnit] = useState(item.recipe_yield_unit || 'kg');
-  const [portionSize, setPortionSize] = useState(item.portion_size ?? 0);
-  const [portionUnit, setPortionUnit] = useState(item.portion_size_unit || 'g');
   const [showImportModal, setShowImportModal] = useState(false);
   const [loadedSteps, setLoadedSteps] = useState<RecipeStepInput[]>([]);
 
@@ -103,8 +101,6 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
     || notes !== (item.recipe_notes ?? '')
     || yieldValue !== (item.recipe_yield ?? 0)
     || yieldUnit !== (item.recipe_yield_unit || 'kg')
-    || portionSize !== (item.portion_size ?? 0)
-    || portionUnit !== (item.portion_size_unit || 'g')
     || JSON.stringify(steps) !== JSON.stringify(loadedSteps);
 
   const save = async () => {
@@ -144,61 +140,29 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
         </button>
       </div>
 
-      {/* Yield + portion */}
+      {/* Recipe yield (whole batch). Portion size lives on the Details tab's
+          Stock Management section — single source of truth. */}
       <FormSection title={t('recipeYield')}>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
-              {t('recipeYield')}
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                step="any"
-                min={0}
-                className="input text-sm flex-1"
-                value={yieldValue || ''}
-                onChange={(e) => setYieldValue(+e.target.value)}
-              />
-              <select
-                className="input text-sm w-20"
-                value={yieldUnit}
-                onChange={(e) => setYieldUnit(e.target.value)}
-              >
-                <option value="kg">kg</option>
-                <option value="g">g</option>
-                <option value="l">l</option>
-                <option value="ml">ml</option>
-                <option value="unit">unit</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
-              {t('portion')}
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                step="any"
-                min={0}
-                className="input text-sm flex-1"
-                value={portionSize || ''}
-                onChange={(e) => setPortionSize(+e.target.value)}
-              />
-              <select
-                className="input text-sm w-20"
-                value={portionUnit}
-                onChange={(e) => setPortionUnit(e.target.value)}
-              >
-                <option value="g">g</option>
-                <option value="kg">kg</option>
-                <option value="ml">ml</option>
-                <option value="l">l</option>
-                <option value="unit">unit</option>
-              </select>
-            </div>
-          </div>
+        <div className="flex gap-2 max-w-sm">
+          <input
+            type="number"
+            step="any"
+            min={0}
+            className="input text-sm flex-1"
+            value={yieldValue || ''}
+            onChange={(e) => setYieldValue(+e.target.value)}
+          />
+          <select
+            className="input text-sm w-24"
+            value={yieldUnit}
+            onChange={(e) => setYieldUnit(e.target.value)}
+          >
+            <option value="kg">kg</option>
+            <option value="g">g</option>
+            <option value="l">l</option>
+            <option value="ml">ml</option>
+            <option value="unit">unit</option>
+          </select>
         </div>
       </FormSection>
 
