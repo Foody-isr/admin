@@ -436,13 +436,22 @@ export default function FoodCostPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-fg-secondary mb-4">
-                  {t('sellingPrice').replace('{price}', normalizedPrice.toFixed(2))}
-                  <span className="ml-2 text-xs text-fg-tertiary">
-                    ({showCostsExVat ? t('excludingVat') : t('includingVat')} · {showCostsExVat ? t('includingVat') : t('excludingVat')}{' '}
-                    {(showCostsExVat ? displayPrice : displayPrice / vatMultiplier).toFixed(2)} &#8362;)
-                  </span>
-                </p>
+                /* Mini P&L breakdown — keeps cost/margin arithmetic honest
+                   despite the sell price being stored inc-VAT. */
+                <div className="mb-4 text-sm max-w-sm space-y-1">
+                  <div className="flex justify-between text-fg-primary">
+                    <span>{t('pnlPriceInc')}</span>
+                    <span className="font-mono">{displayPrice.toFixed(2)} &#8362;</span>
+                  </div>
+                  <div className="flex justify-between text-fg-secondary">
+                    <span>− {t('pnlVat').replace('{rate}', String(vatRate))}</span>
+                    <span className="font-mono">{(displayPrice - displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
+                  </div>
+                  <div className="flex justify-between text-fg-primary pt-1 border-t border-[var(--divider)]">
+                    <span className="font-medium">{t('pnlPriceEx')}</span>
+                    <span className="font-mono font-semibold">{(displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
+                  </div>
+                </div>
               )}
 
               {/* VAT toggle + Cost summary */}
