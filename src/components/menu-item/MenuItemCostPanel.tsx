@@ -127,24 +127,20 @@ export default function MenuItemCostPanel({
     qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
     const batchMode = (item.recipe_yield ?? 0) > 0;
 
-    // 1) Per-variant override wins when present — the user authored the exact
-    //    quantity for this variant (e.g. "Grand uses 400 g of beef").
+    // 1) Per-variant override (legacy matrix data) — still honored until
+    //    migrated on save.
     const override = !batchMode && variantOptionId != null
       ? (ing.variant_overrides ?? []).find((o) => o.option_id === variantOptionId)
       : undefined;
     if (override && override.quantity > 0) {
       qty = override.quantity;
       qtyUnit = override.unit || qtyUnit;
-    } else if (ing.scales_with_variant && !batchMode) {
-      // 2) Legacy scales_with_variant flag — kept as a fallback for rows that
-      //    haven't been migrated yet. Same ratio math as before.
-      const itemQty = item.portion_size ?? 0;
-      const itemUnit = item.portion_size_unit || '';
-      let ratio = 1;
-      if (portionOverride && itemQty > 0 && sameUnitFamily(portionOverride.unit, itemUnit)) {
-        ratio = toBaseUnit(portionOverride.qty, portionOverride.unit) / toBaseUnit(itemQty, itemUnit);
-      }
-      qty = ing.quantity_needed * ratio;
+    } else if (ing.scales_with_variant && !batchMode && portionOverride) {
+      // 2) "Follow variant portion" — the ingredient qty equals the selected
+      //    variant's portion_size directly (useful when the ingredient IS the
+      //    portion, e.g. OR ROUGE prep served as a plate).
+      qty = portionOverride.qty;
+      qtyUnit = portionOverride.unit || qtyUnit;
     } else {
       // 3) Fixed ingredient (per-portion mode) or base qty for batch items.
       qty = ing.quantity_needed;
@@ -498,10 +494,9 @@ export default function MenuItemCostPanel({
                   const mismatch = hasUnitMismatch(ing);
                   const type = ing.stock_item_id ? t('raw') : t('prep');
                   // Effective qty display — MUST mirror calcLineCost precedence:
-                  //   1) batch mode: ignore variant ratio / scales flag (the batch
-                  //      proration applies later; this column shows the base qty).
-                  //   2) per-variant override.
-                  //   3) legacy scales_with_variant flag.
+                  //   1) batch mode: base qty (proration applied later, not shown here).
+                  //   2) per-variant override (legacy matrix data).
+                  //   3) scales_with_variant → current variant's portion_size.
                   //   4) base qty.
                   const batchModeRow = (item.recipe_yield ?? 0) > 0;
                   let effectiveQty = ing.quantity_needed;
@@ -513,11 +508,8 @@ export default function MenuItemCostPanel({
                     effectiveQty = override.quantity;
                     effectiveUnit = override.unit || unit;
                   } else if (!batchModeRow && ing.scales_with_variant && currentPortion) {
-                    const itemQty = item.portion_size ?? 0;
-                    const itemUnit = item.portion_size_unit || '';
-                    if (itemQty > 0 && sameUnitFamily(currentPortion.unit, itemUnit)) {
-                      effectiveQty = ing.quantity_needed * (toBaseUnit(currentPortion.qty, currentPortion.unit) / toBaseUnit(itemQty, itemUnit));
-                    }
+                    effectiveQty = currentPortion.qty;
+                    effectiveUnit = currentPortion.unit || unit;
                   }
                   const qtyDisplay = `${Number(effectiveQty.toFixed(3))} ${effectiveUnit}`;
                   return (
@@ -551,10 +543,8 @@ export default function MenuItemCostPanel({
                         ) : !batchModeRow && ing.scales_with_variant ? (
                           <span className="inline-flex flex-col items-end">
                             <span>{qtyDisplay}</span>
-                            <span className="text-[10px] uppercase text-fg-tertiary tracking-wider">
-                              {ing.quantity_needed > 0
-                                ? `${ing.quantity_needed} ${unit} \u00D7 ${t('followVariantPortion')}`
-                                : t('baseQtyMissing') || 'Base qty not set'}
+                            <span className="text-[10px] uppercase text-brand-500/80 tracking-wider">
+                              {t('followVariantPortion') || 'follows variant'}
                             </span>
                           </span>
                         ) : (

@@ -7,9 +7,24 @@ import {
   MenuItem, MenuItemIngredient, StockItem, PrepItem,
 } from '@/lib/api';
 import SearchableSelect from '@/components/SearchableSelect';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import { detectPrepSwaps, SwapSuggestion } from '@/lib/prep-swap';
+
+// Inline label + tooltip — same pattern as the daily-operations page's ThTooltip.
+function FieldLabel({ text, tooltip }: { text: string; tooltip: string }) {
+  return (
+    <div className="inline-flex items-center gap-1 text-xs text-fg-secondary">
+      <span>{text}</span>
+      <div className="relative group/tip">
+        <InformationCircleIcon className="w-3.5 h-3.5 text-fg-secondary opacity-50 cursor-help" />
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-fg-secondary shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
+          {tooltip}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   rid: number;
@@ -201,45 +216,75 @@ export default function MenuItemIngredientsEditor({
                 <TrashIcon className="w-4 h-4" />
               </button>
             </div>
-            {/* Qty + unit + scope. Scope picker appears only when the item has
-                variants — it lets the user say "this qty applies to Grand only"
-                vs. "applies to all variants". */}
+            {/* Qty + unit + scope. The scope encodes three cases:
+                  - "base"            → applies to every variant (literal qty)
+                  - "follow"          → qty auto-uses each variant's portion_size
+                  - <option_id>       → literal qty for that specific variant
+                Qty/unit inputs hide when scope="follow" (the variant defines them). */}
             <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="number" step="any" min="0"
-                className={`input w-24 py-1.5 text-sm text-right ${
-                  (ing.quantity_needed ?? 0) <= 0
-                    ? 'border-amber-500/60 ring-1 ring-amber-500/30'
-                    : ''
-                }`}
-                value={ing.quantity_needed || ''}
-                onChange={(e) => updateRow(idx, { quantity_needed: +e.target.value })}
-                placeholder={t('qty')}
-              />
-              <select
-                className="input w-20 py-1.5 text-sm"
-                value={ing.unit || ''}
-                onChange={(e) => updateRow(idx, { unit: e.target.value })}
-              >
-                <option value="">—</option>
-                <option value="g">g</option><option value="kg">kg</option>
-                <option value="ml">ml</option><option value="l">l</option>
-                <option value="unit">unit</option>
-              </select>
+              {/* Scope selector — first, since it drives whether qty/unit show */}
               {variantList.length > 0 && (
-                <select
-                  className="input py-1.5 text-sm"
-                  value={ing.option_id ?? ''}
-                  onChange={(e) => updateRow(idx, { option_id: e.target.value ? Number(e.target.value) : undefined })}
-                  title={t('ingredientScope') || 'Scope'}
-                >
-                  <option value="">{t('scopeBase') || 'Base (all variants)'}</option>
-                  {variantList.map((v) => (
-                    <option key={v.option_id} value={v.option_id}>{v.name}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-1">
+                  <FieldLabel text={t('ingredientScope') || 'Scope'} tooltip={t('ingredientScopeTooltip') || 'Who this ingredient applies to. Base = every variant. Follow variant portion = qty = variant size (no number to type). Normal / Grand = only that variant.'} />
+                  <select
+                    className="input py-1.5 text-sm"
+                    value={ing.scales_with_variant ? 'follow' : (ing.option_id ?? '')}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === 'follow') {
+                        updateRow(idx, { scales_with_variant: true, option_id: undefined, quantity_needed: 0 });
+                      } else if (v === '') {
+                        updateRow(idx, { scales_with_variant: false, option_id: undefined });
+                      } else {
+                        updateRow(idx, { scales_with_variant: false, option_id: Number(v) });
+                      }
+                    }}
+                  >
+                    <option value="">{t('scopeBase') || 'Base (all variants)'}</option>
+                    <option value="follow">{t('scopeFollowVariant') || 'Follow variant portion'}</option>
+                    {variantList.map((v) => (
+                      <option key={v.option_id} value={v.option_id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
               )}
-              {(ing.quantity_needed ?? 0) <= 0 && (
+              {/* Qty + unit — hidden when scope = Follow variant portion (the
+                  selected variant's portion_size IS the qty at cost time). */}
+              {!ing.scales_with_variant && (
+                <>
+                  <div className="flex items-center gap-1">
+                    <FieldLabel text={t('qty') || 'Qty'} tooltip={t('qtyTooltip') || 'How much of this ingredient one sale draws. Literal number — no scaling applied.'} />
+                    <input
+                      type="number" step="any" min="0"
+                      className={`input w-24 py-1.5 text-sm text-right ${
+                        (ing.quantity_needed ?? 0) <= 0
+                          ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                          : ''
+                      }`}
+                      value={ing.quantity_needed || ''}
+                      onChange={(e) => updateRow(idx, { quantity_needed: +e.target.value })}
+                      placeholder={t('qty')}
+                    />
+                  </div>
+                  <select
+                    className="input w-20 py-1.5 text-sm"
+                    value={ing.unit || ''}
+                    onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                    title={t('unitTooltip') || 'Unit of the quantity. Convert to stock unit at cost time.'}
+                  >
+                    <option value="">—</option>
+                    <option value="g">g</option><option value="kg">kg</option>
+                    <option value="ml">ml</option><option value="l">l</option>
+                    <option value="unit">unit</option>
+                  </select>
+                </>
+              )}
+              {ing.scales_with_variant && (
+                <span className="text-xs text-brand-500/80 italic">
+                  {t('scopeFollowHint') || '= each variant\u2019s portion size'}
+                </span>
+              )}
+              {!ing.scales_with_variant && (ing.quantity_needed ?? 0) <= 0 && (
                 <span className="text-xs text-amber-500">
                   {t('baseQtyMissing') || 'Base qty not set'}
                 </span>
