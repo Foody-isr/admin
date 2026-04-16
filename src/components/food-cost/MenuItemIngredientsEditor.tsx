@@ -94,7 +94,7 @@ interface Props {
 export default function MenuItemIngredientsEditor({
   rid, menuItem, initialIngredients, stockItems, prepItems, onSaved, variants,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const variantList = variants ?? [];
 
   // ── Load: DB rows → cards ────────────────────────────────────────────
@@ -328,53 +328,20 @@ export default function MenuItemIngredientsEditor({
 
   const hasChanges = JSON.stringify(toInputs(cards)) !== JSON.stringify(toInputs(toCards(current)));
 
-  // Help banner — auto-expanded for empty recipes (onboarding).
-  const [helpOpen, setHelpOpen] = useState(cards.length === 0 && variantList.length > 0);
-
   const iconBase = '📌';
   const iconMatch = '📏';
   const iconCustom = '⚙️';
 
+  // Help-center link — points to the "Ingredients & Portions" article on the
+  // marketing landing site. Uses the user's current locale so the content
+  // matches. Hard-coded base URL so admin and landing can deploy separately.
+  const helpUrl = (() => {
+    const base = process.env.NEXT_PUBLIC_LANDING_URL || 'https://foody-pos.co.il';
+    return `${base}/${locale}/help/menu/ingredients-and-portions`;
+  })();
+
   return (
     <div className="space-y-3">
-      {/* Learning block — three real examples. Collapsible. */}
-      {variantList.length > 0 && (
-        <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setHelpOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-fg-primary hover:bg-[var(--surface)] transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <InformationCircleIcon className="w-4 h-4 text-brand-500" />
-              <span className="font-medium">{t('scopeHelpTitle') || 'How should I configure my recipe?'}</span>
-            </span>
-            <span className="text-xs text-fg-tertiary">{helpOpen ? '−' : '+'}</span>
-          </button>
-          {helpOpen && (
-            <div className="px-4 pb-3 pt-1 space-y-3 text-sm">
-              <p className="text-xs text-fg-tertiary">
-                {t('scopeHelpIntro') || 'Pick the case that matches your dish:'}
-              </p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-lg border border-[var(--divider)] p-3 bg-[var(--surface)]">
-                  <p className="text-xs font-semibold text-fg-primary mb-1">🥣 {t('scopeHelpSoupTitle') || 'Simple item (Soup)'}</p>
-                  <p className="text-xs text-fg-secondary leading-snug">{t('scopeHelpSoupBody') || 'One ingredient, qty follows variant. Use Match item size.'}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--divider)] p-3 bg-[var(--surface)]">
-                  <p className="text-xs font-semibold text-fg-primary mb-1">🍔 {t('scopeHelpBurgerTitle') || 'Complex item (Burger)'}</p>
-                  <p className="text-xs text-fg-secondary leading-snug">{t('scopeHelpBurgerBody') || 'Fixed quantity for bun/sauce; Custom per variant for beef.'}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--divider)] p-3 bg-[var(--surface)]">
-                  <p className="text-xs font-semibold text-fg-primary mb-1">🧀 {t('scopeHelpAddonsTitle') || 'Item with add-ons'}</p>
-                  <p className="text-xs text-fg-secondary leading-snug">{t('scopeHelpAddonsBody') || 'Create a modifier linked to a stock item. See Linked Add-ons.'}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Swap banner */}
       {topSuggestion && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-brand-500/30 bg-brand-500/10 text-sm">
@@ -436,10 +403,18 @@ export default function MenuItemIngredientsEditor({
                     text={t('ingredientScope') || 'How is this ingredient used?'}
                     tooltip={t('ingredientScopeTooltip') || 'Pick how this ingredient behaves across variants.'}
                   />
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <ScopeButton icon={iconMatch}  label={t('scopeFollowVariant') || 'Match item size'}     active={card.scope === 'match'}  onClick={() => changeScope(card.key, 'match')} />
                     <ScopeButton icon={iconBase}   label={t('scopeBase') || 'Fixed quantity'}                active={card.scope === 'base'}   onClick={() => changeScope(card.key, 'base')} />
                     <ScopeButton icon={iconCustom} label={t('scopeCustom') || 'Custom per variant'}          active={card.scope === 'custom'} onClick={() => changeScope(card.key, 'custom')} />
+                    <a
+                      href={helpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto text-xs text-brand-500 hover:text-brand-400 underline underline-offset-2"
+                    >
+                      {t('scopeHowItWorks') || 'How does this work?'}
+                    </a>
                   </div>
                   {hint && <p className="text-[11px] text-fg-tertiary italic pt-0.5">{hint}</p>}
                 </div>
