@@ -48,34 +48,34 @@ export default function PrepCostBreakdownModal({
   const costPerUnit = yieldQty > 0 ? batchCost / yieldQty : 0;
 
   // Mirror the Cost panel's math exactly so this modal and the ingredient
-  // table always agree.
-  //  - batchMode (item.recipe_yield > 0): ignore scales_with_variant flag,
-  //    prorate base qty by variant.portion / item.recipe_yield.
-  //  - per-portion mode: if scales_with_variant AND the variant portion is in
-  //    the same unit family as item.portion, multiply base qty by the ratio.
-  //    Otherwise use base qty as-is (the cost panel falls back to 1× and
-  //    shows a mismatch banner).
-  // Mirror cost panel precedence: variant-scoped ingredient rows (option_id
-  // set) carry their own qty; legacy batch / scales paths prorate as before.
+  // table always agree. Precedence:
+  //   1) batchMode (item.recipe_yield > 0): prorate base qty by
+  //      variant.portion / item.recipe_yield.
+  //   2) scales_with_variant ("Match item size"): qty = current variant's
+  //      portion (no base number to multiply; the portion IS the qty).
+  //   3) variant-scoped (option_id matches the selected variant): literal qty
+  //      from this row.
+  //   4) base qty.
   const batchMode = (item.recipe_yield ?? 0) > 0;
-  const baseQty = ing.quantity_needed;
-  const baseUnit = ing.unit || yieldUnit;
+  let baseQty = ing.quantity_needed;
+  let baseUnit = ing.unit || yieldUnit;
   let variantRatio = 1;
   let batchRatio = 1;
+  let isMatchSize = false;
+  const isVariantScoped = ing.option_id != null && ing.option_id === optionId;
+
   if (batchMode && portion) {
     const yieldBase = toBaseUnit(item.recipe_yield ?? 0, item.recipe_yield_unit || 'kg');
     const portionBase = toBaseUnit(portion.qty, portion.unit);
     if (yieldBase > 0) batchRatio = portionBase / yieldBase;
   } else if (!batchMode && ing.scales_with_variant && portion) {
-    const itemQty = item.portion_size ?? 0;
-    const itemUnit = item.portion_size_unit || '';
-    if (itemQty > 0 && sameUnitFamily(portion.unit, itemUnit)) {
-      variantRatio = toBaseUnit(portion.qty, portion.unit) / toBaseUnit(itemQty, itemUnit);
-    }
+    // Match item size: qty IS the variant's portion. Override baseQty/baseUnit
+    // because scales_with_variant rows have qty=0 in storage (sentinel).
+    baseQty = portion.qty;
+    baseUnit = portion.unit || baseUnit;
+    isMatchSize = true;
   }
-  // Variant-scoped ingredients already have a literal per-order qty; no scaling applied.
-  const isVariantScoped = ing.option_id != null && ing.option_id === optionId;
-  const effectiveQty = isVariantScoped ? baseQty : baseQty * variantRatio * batchRatio;
+  const effectiveQty = (isVariantScoped || isMatchSize) ? baseQty : baseQty * variantRatio * batchRatio;
   const effectiveInYieldUnit = convertQuantity(effectiveQty, baseUnit, yieldUnit);
   const lineCost = effectiveInYieldUnit * costPerUnit;
 
@@ -169,8 +169,8 @@ export default function PrepCostBreakdownModal({
                 {isVariantScoped && (
                   <span className="text-brand-500"> ({t('variantIngredient') || 'variant ingredient'})</span>
                 )}
-                {variantRatio !== 1 && (
-                  <span> &times; {variantRatio.toFixed(3)} ({t('variant') || 'variant'})</span>
+                {isMatchSize && (
+                  <span className="text-brand-500"> ({t('scopeFollowVariant') || 'match item size'})</span>
                 )}
                 {batchRatio !== 1 && (
                   <span> &times; {batchRatio.toFixed(3)} ({t('batch') || 'batch'})</span>
