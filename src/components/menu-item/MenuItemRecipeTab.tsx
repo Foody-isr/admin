@@ -136,7 +136,7 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
       {/* Ingredients editor — each row's Scope picker marks it as Base or
           variant-scoped. No separate "variant ingredients" surface; no yield
           or recipe-type toggles. */}
-      <FormSection title={t('foodCostIngredients')}>
+      <FormSection title={t('ingredientsAndCost') || t('foodCostIngredients')}>
         <MenuItemIngredientsEditor
           rid={rid}
           menuItem={item}

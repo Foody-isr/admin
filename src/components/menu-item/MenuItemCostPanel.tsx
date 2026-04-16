@@ -604,7 +604,7 @@ export default function MenuItemCostPanel({
       {modCostRows.length > 0 && (
         <div className="card overflow-hidden p-0">
           <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
-            <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('modifierConsumption') || 'Modifier consumption'}</p>
+            <p className="text-xs text-fg-secondary uppercase tracking-wider font-medium">{t('linkedAddons') || t('modifierConsumption') || 'Linked Add-ons'}</p>
           </div>
           <table className="w-full text-sm">
             <thead>

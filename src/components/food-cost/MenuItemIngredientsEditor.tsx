@@ -26,6 +26,54 @@ function FieldLabel({ text, tooltip }: { text: string; tooltip: string }) {
   );
 }
 
+// Scope button — three of these replace the <select> for a more visual picker.
+function ScopeButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+        active
+          ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+          : 'border-[var(--divider)] text-fg-secondary hover:text-fg-primary hover:border-fg-secondary/40'
+      }`}
+    >
+      <span className="text-sm leading-none">{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+type Scope = 'base' | 'match' | 'custom';
+
+interface CardVariantRow {
+  option_id: number;
+  quantity: string; // string so blank input ≠ 0
+  unit: string;
+}
+
+interface IngredientCard {
+  key: string;
+  stock_item_id?: number;
+  prep_item_id?: number;
+  scope: Scope;
+  // For base/match: single qty/unit
+  quantity: string;
+  unit: string;
+  // For custom: per-variant rows (one per attached variant)
+  variants: CardVariantRow[];
+}
+
+function blankCard(defaultScope: Scope): IngredientCard {
+  return {
+    key: crypto.randomUUID(),
+    scope: defaultScope,
+    quantity: '',
+    unit: '',
+    variants: [],
+  };
+}
+
 interface Props {
   rid: number;
   menuItem: MenuItem;
@@ -33,58 +81,207 @@ interface Props {
   stockItems: StockItem[];
   prepItems: PrepItem[];
   onSaved?: (ings: MenuItemIngredient[]) => void;
-  // Variants attached to the item — drives the per-row Scope picker. Empty
-  // array = no variants on the item, Scope column is hidden.
+  // Variants attached to the item. When empty, scope picker is hidden — every
+  // ingredient is effectively "fixed".
   variants?: Array<{ option_id: number; name: string }>;
 }
 
-// Single ingredient editor for a menu item. Each row can be scoped to:
-// - Base (option_id == null) — applies to every variant
-// - a specific variant (option_id set) — applies only when that variant sells
-// This is the ONLY place ingredients are edited; the Variants modal is for
-// price/portion/status only.
+// Single ingredient editor for a menu item. Each ingredient is a CARD, and
+// each card carries a Scope — Fixed quantity (all variants), Match item size
+// (qty follows variant portion), or Custom per variant (qty per variant).
+// The Variants modal is for price/portion/status only; this is the only
+// place where ingredient quantities are authored.
 export default function MenuItemIngredientsEditor({
   rid, menuItem, initialIngredients, stockItems, prepItems, onSaved, variants,
 }: Props) {
   const { t } = useI18n();
   const variantList = variants ?? [];
 
-  const toInputs = (ings: MenuItemIngredient[]): IngredientInput[] =>
-    ings.map((i) => ({
-      option_id: i.option_id ?? undefined,
-      stock_item_id: i.stock_item_id ?? undefined,
-      prep_item_id: i.prep_item_id ?? undefined,
-      quantity_needed: i.quantity_needed,
-      unit: i.unit || i.stock_item?.unit || i.prep_item?.unit || '',
-      scales_with_variant: i.scales_with_variant ?? false,
-    }));
+  // ── Load: DB rows → cards ────────────────────────────────────────────
+  // Group by (ingredient, scope bucket):
+  //   - scales_with_variant + no option_id → 'match' (1 card)
+  //   - !scales + no option_id            → 'base'  (1 card)
+  //   - option_id set                     → 'custom' (1 card with N sub-rows)
+  // An ingredient can appear in multiple cards if it has entries in more than
+  // one bucket (rare but supported — e.g. "base cheese 10g" AND extra cheese
+  // per-variant).
+  const toCards = (ings: MenuItemIngredient[]): IngredientCard[] => {
+    const byKey = new Map<string, IngredientCard>();
+    for (const ing of ings) {
+      const scopeBucket: Scope =
+        ing.option_id != null ? 'custom'
+        : ing.scales_with_variant ? 'match'
+        : 'base';
+      const ingKey = `${ing.stock_item_id ?? 'none'}:${ing.prep_item_id ?? 'none'}:${scopeBucket}`;
+      let card = byKey.get(ingKey);
+      if (!card) {
+        card = {
+          key: crypto.randomUUID(),
+          stock_item_id: ing.stock_item_id ?? undefined,
+          prep_item_id: ing.prep_item_id ?? undefined,
+          scope: scopeBucket,
+          quantity: '',
+          unit: ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '',
+          variants: [],
+        };
+        byKey.set(ingKey, card);
+      }
+      if (scopeBucket === 'custom' && ing.option_id != null) {
+        card.variants.push({
+          option_id: ing.option_id,
+          quantity: String(ing.quantity_needed || ''),
+          unit: ing.unit || card.unit,
+        });
+      } else if (scopeBucket === 'base') {
+        card.quantity = String(ing.quantity_needed || '');
+        card.unit = ing.unit || card.unit;
+      }
+      // match → quantity stays blank; cost math reads variant portion directly
+    }
+    return Array.from(byKey.values());
+  };
+
+  // ── Save: cards → DB rows ─────────────────────────────────────────────
+  const toInputs = (cards: IngredientCard[]): IngredientInput[] => {
+    const out: IngredientInput[] = [];
+    for (const card of cards) {
+      if (!card.stock_item_id && !card.prep_item_id) continue;
+      if (card.scope === 'match') {
+        out.push({
+          option_id: undefined,
+          stock_item_id: card.stock_item_id,
+          prep_item_id: card.prep_item_id,
+          quantity_needed: 0,
+          unit: card.unit || '',
+          scales_with_variant: true,
+        });
+      } else if (card.scope === 'base') {
+        const qty = parseFloat(card.quantity);
+        if (!Number.isFinite(qty) || qty <= 0) continue;
+        out.push({
+          option_id: undefined,
+          stock_item_id: card.stock_item_id,
+          prep_item_id: card.prep_item_id,
+          quantity_needed: qty,
+          unit: card.unit || '',
+          scales_with_variant: false,
+        });
+      } else {
+        // custom — one row per filled variant cell
+        for (const vr of card.variants) {
+          const qty = parseFloat(vr.quantity);
+          if (!Number.isFinite(qty) || qty <= 0) continue;
+          out.push({
+            option_id: vr.option_id,
+            stock_item_id: card.stock_item_id,
+            prep_item_id: card.prep_item_id,
+            quantity_needed: qty,
+            unit: vr.unit || card.unit || '',
+            scales_with_variant: false,
+          });
+        }
+      }
+    }
+    return out;
+  };
 
   const [current, setCurrent] = useState<MenuItemIngredient[]>(initialIngredients);
-  const [rows, setRows] = useState<IngredientInput[]>(toInputs(initialIngredients));
+  const [cards, setCards] = useState<IngredientCard[]>(toCards(initialIngredients));
   const [saving, setSaving] = useState(false);
   const [swapConfirm, setSwapConfirm] = useState<SwapSuggestion | null>(null);
 
   // Keep state in sync if parent reloads ingredients (e.g. after save).
   useEffect(() => {
     setCurrent(initialIngredients);
-    setRows(toInputs(initialIngredients));
+    setCards(toCards(initialIngredients));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialIngredients]);
 
-  const addRow = () => setRows([...rows, { quantity_needed: 0, unit: '', scales_with_variant: false }]);
-  const removeRow = (idx: number) => setRows(rows.filter((_, i) => i !== idx));
-  const updateRow = (idx: number, patch: Partial<IngredientInput>) =>
-    setRows(rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  const addCard = () => {
+    // Default scope: if variants exist and the user clearly wants simple
+    // ingredients, 'base' is most common. Users switch to match/custom explicitly.
+    const scope: Scope = 'base';
+    setCards([...cards, blankCard(scope)]);
+  };
+  const removeCard = (key: string) => setCards(cards.filter((c) => c.key !== key));
+  const updateCard = (key: string, patch: Partial<IngredientCard>) =>
+    setCards(cards.map((c) => (c.key === key ? { ...c, ...patch } : c)));
 
-  const save = async (input: IngredientInput[] = rows) => {
+  // Pick the source (stock/prep) — sets default unit from the source.
+  const pickSource = (key: string, val: string) => {
+    if (val.startsWith('stock:')) {
+      const id = +val.split(':')[1];
+      const s = stockItems.find((x) => x.id === id);
+      updateCard(key, {
+        stock_item_id: id,
+        prep_item_id: undefined,
+        unit: s?.unit || cards.find((c) => c.key === key)?.unit || '',
+      });
+    } else if (val.startsWith('prep:')) {
+      const id = +val.split(':')[1];
+      const p = prepItems.find((x) => x.id === id);
+      updateCard(key, {
+        prep_item_id: id,
+        stock_item_id: undefined,
+        unit: p?.unit || cards.find((c) => c.key === key)?.unit || '',
+      });
+    }
+  };
+
+  // Switching scope — carry over data sensibly between modes.
+  const changeScope = (key: string, next: Scope) => {
+    const card = cards.find((c) => c.key === key);
+    if (!card) return;
+    if (next === card.scope) return;
+    const seededVariants: CardVariantRow[] =
+      next === 'custom'
+        ? variantList.map((v) => {
+            const existing = card.variants.find((vr) => vr.option_id === v.option_id);
+            return existing ?? {
+              option_id: v.option_id,
+              // When coming from 'base', seed each variant with the base qty (user can adjust).
+              quantity: card.scope === 'base' ? card.quantity : '',
+              unit: card.unit || '',
+            };
+          })
+        : card.variants;
+    // base/match collapsing: take first non-empty variant qty as the new base qty
+    let collapsedQty = card.quantity;
+    let collapsedUnit = card.unit;
+    if (card.scope === 'custom' && next !== 'custom') {
+      const firstFilled = card.variants.find((vr) => parseFloat(vr.quantity) > 0);
+      if (firstFilled) {
+        collapsedQty = firstFilled.quantity;
+        collapsedUnit = firstFilled.unit || card.unit;
+      }
+    }
+    updateCard(key, {
+      scope: next,
+      variants: seededVariants,
+      quantity: next === 'match' ? '' : collapsedQty,
+      unit: collapsedUnit,
+    });
+  };
+
+  const updateVariantRow = (cardKey: string, optionId: number, patch: Partial<CardVariantRow>) => {
+    setCards(cards.map((c) => {
+      if (c.key !== cardKey) return c;
+      const existing = c.variants.find((vr) => vr.option_id === optionId);
+      const next = existing
+        ? c.variants.map((vr) => (vr.option_id === optionId ? { ...vr, ...patch } : vr))
+        : [...c.variants, { option_id: optionId, quantity: '', unit: c.unit, ...patch } as CardVariantRow];
+      return { ...c, variants: next };
+    }));
+  };
+
+  const save = async (inputCards: IngredientCard[] = cards) => {
     setSaving(true);
     try {
-      // Legacy-data migration: any row with non-empty variant_overrides from
-      // the old matrix era is converted to one variant-scoped row per override.
-      // Runs silently on every save so legacy items migrate the first time the
-      // user touches them — no backfill script needed.
+      // Legacy-data migration: rows with variant_overrides from the old matrix
+      // era → one Custom row per override. Runs silently on save.
       const legacyMigrated: IngredientInput[] = [];
       for (const i of current) {
-        if (i.option_id != null) continue; // only base rows carried legacy overrides
+        if (i.option_id != null) continue;
         for (const ov of i.variant_overrides ?? []) {
           if (!ov.quantity || ov.quantity <= 0) continue;
           legacyMigrated.push({
@@ -97,19 +294,10 @@ export default function MenuItemIngredientsEditor({
           });
         }
       }
-      // Persist rows as-is — each already carries its own option_id (or null
-      // for base). Force scales_with_variant off and clear any legacy overrides.
-      const normalized = input.map((r) => ({
-        ...r,
-        scales_with_variant: false,
-        variant_overrides: undefined,
-      }));
-      const saved = await setMenuItemIngredients(rid, menuItem.id, [
-        ...normalized,
-        ...legacyMigrated,
-      ]);
+      const fromCards = toInputs(inputCards);
+      const saved = await setMenuItemIngredients(rid, menuItem.id, [...fromCards, ...legacyMigrated]);
       setCurrent(saved);
-      setRows(toInputs(saved));
+      setCards(toCards(saved));
       onSaved?.(saved);
     } catch (err: any) {
       alert(err.message);
@@ -118,45 +306,38 @@ export default function MenuItemIngredientsEditor({
     }
   };
 
-  // Swap helper: drop matched raw rows, keep unmatched, add one prep row.
+  // Swap helper: drop matched raw ingredients, add a prep card.
   const applySwap = async (s: SwapSuggestion) => {
     const matchedIds = new Set(s.matchedIngredients.map((i) => i.id));
-    const kept: IngredientInput[] = current
-      .filter((i) => !matchedIds.has(i.id))
-      .map((i) => ({
-        stock_item_id: i.stock_item_id ?? undefined,
-        prep_item_id: i.prep_item_id ?? undefined,
-        quantity_needed: i.quantity_needed,
-        unit: i.unit || i.stock_item?.unit || i.prep_item?.unit || '',
-        scales_with_variant: i.scales_with_variant ?? false,
-      }));
-    const withPrep: IngredientInput[] = [
-      ...kept,
-      {
-        prep_item_id: s.prep.id,
-        quantity_needed: 0,
-        unit: '',
-        // User fills in the base qty after the swap; variant scaling is opt-in.
-        scales_with_variant: false,
-      },
-    ];
+    const kept = current.filter((i) => !matchedIds.has(i.id));
+    const keptCards = toCards(kept);
+    const prepCard: IngredientCard = {
+      key: crypto.randomUUID(),
+      prep_item_id: s.prep.id,
+      scope: 'base',
+      quantity: '',
+      unit: s.prep.unit || '',
+      variants: [],
+    };
     setSwapConfirm(null);
-    await save(withPrep);
+    await save([...keptCards, prepCard]);
   };
 
   const suggestions = detectPrepSwaps(current, prepItems);
   const topSuggestion = suggestions[0] ?? null;
 
-  const hasChanges = JSON.stringify(rows) !== JSON.stringify(toInputs(current));
+  const hasChanges = JSON.stringify(toInputs(cards)) !== JSON.stringify(toInputs(toCards(current)));
 
-  // Help banner — auto-expanded for empty recipes (onboarding), collapsed
-  // once the user has started adding ingredients (nags less). Shown only
-  // when the item has variants (otherwise there's nothing to choose).
-  const [helpOpen, setHelpOpen] = useState(rows.length === 0 && variantList.length > 0);
+  // Help banner — auto-expanded for empty recipes (onboarding).
+  const [helpOpen, setHelpOpen] = useState(cards.length === 0 && variantList.length > 0);
+
+  const iconBase = '📌';
+  const iconMatch = '📏';
+  const iconCustom = '⚙️';
 
   return (
     <div className="space-y-3">
-      {/* Scope help banner — explains the three choices with examples */}
+      {/* Learning block — three real examples. Collapsible. */}
       {variantList.length > 0 && (
         <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden">
           <button
@@ -166,39 +347,27 @@ export default function MenuItemIngredientsEditor({
           >
             <span className="flex items-center gap-2">
               <InformationCircleIcon className="w-4 h-4 text-brand-500" />
-              <span className="font-medium">{t('scopeHelpTitle') || 'How ingredient scope works'}</span>
+              <span className="font-medium">{t('scopeHelpTitle') || 'How should I configure my recipe?'}</span>
             </span>
             <span className="text-xs text-fg-tertiary">{helpOpen ? '−' : '+'}</span>
           </button>
           {helpOpen && (
-            <div className="px-4 pb-3 pt-1 space-y-2.5 text-sm text-fg-secondary">
+            <div className="px-4 pb-3 pt-1 space-y-3 text-sm">
               <p className="text-xs text-fg-tertiary">
-                {t('scopeHelpIntro') || 'Each ingredient row carries a Scope. Pick the one that matches what you\u2019re describing:'}
+                {t('scopeHelpIntro') || 'Pick the case that matches your dish:'}
               </p>
-              <div className="space-y-2">
-                <div className="flex gap-3 items-start">
-                  <span className="text-xs font-semibold text-fg-primary shrink-0 w-48">
-                    {t('scopeBase') || 'Base (all variants)'}
-                  </span>
-                  <span className="text-xs text-fg-secondary flex-1">
-                    {t('scopeHelpBase') || 'Same literal quantity for every variant. Example: Tomato 1 g, Bun 1 unit.'}
-                  </span>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-[var(--divider)] p-3 bg-[var(--surface)]">
+                  <p className="text-xs font-semibold text-fg-primary mb-1">🥣 {t('scopeHelpSoupTitle') || 'Simple item (Soup)'}</p>
+                  <p className="text-xs text-fg-secondary leading-snug">{t('scopeHelpSoupBody') || 'One ingredient, qty follows variant. Use Match item size.'}</p>
                 </div>
-                <div className="flex gap-3 items-start">
-                  <span className="text-xs font-semibold text-brand-500 shrink-0 w-48">
-                    {t('scopeFollowVariant') || 'Follow variant portion'}
-                  </span>
-                  <span className="text-xs text-fg-secondary flex-1">
-                    {t('scopeHelpFollow') || 'No qty to type — it matches each variant\u2019s portion size. Example: OR ROUGE plate (Normal = 250 g, Grand = 500 g, driven by the variant).'}
-                  </span>
+                <div className="rounded-lg border border-[var(--divider)] p-3 bg-[var(--surface)]">
+                  <p className="text-xs font-semibold text-fg-primary mb-1">🍔 {t('scopeHelpBurgerTitle') || 'Complex item (Burger)'}</p>
+                  <p className="text-xs text-fg-secondary leading-snug">{t('scopeHelpBurgerBody') || 'Fixed quantity for bun/sauce; Custom per variant for beef.'}</p>
                 </div>
-                <div className="flex gap-3 items-start">
-                  <span className="text-xs font-semibold text-fg-primary shrink-0 w-48">
-                    {t('scopeHelpSpecificLabel') || 'Specific variant (Normal / Grand / …)'}
-                  </span>
-                  <span className="text-xs text-fg-secondary flex-1">
-                    {t('scopeHelpSpecific') || 'Literal quantity that only applies when that variant sells. Example: Beef 200 g in Normal, 400 g in Grand. One row per variant.'}
-                  </span>
+                <div className="rounded-lg border border-[var(--divider)] p-3 bg-[var(--surface)]">
+                  <p className="text-xs font-semibold text-fg-primary mb-1">🧀 {t('scopeHelpAddonsTitle') || 'Item with add-ons'}</p>
+                  <p className="text-xs text-fg-secondary leading-snug">{t('scopeHelpAddonsBody') || 'Create a modifier linked to a stock item. See Linked Add-ons.'}</p>
                 </div>
               </div>
             </div>
@@ -227,131 +396,130 @@ export default function MenuItemIngredientsEditor({
         </div>
       )}
 
-      {/* Rows */}
-      {rows.length === 0 ? (
+      {/* Cards */}
+      {cards.length === 0 ? (
         <p className="text-sm text-fg-secondary italic py-2">{t('noIngredientsLinked')}</p>
       ) : (
-        rows.map((ing, idx) => (
-          <div key={idx} className="p-3 rounded-lg space-y-2" style={{ background: 'var(--surface-subtle)' }}>
-            {/* Picker + delete */}
-            <div className="flex items-center gap-2">
-              <SearchableSelect
-                className="flex-1"
-                value={
-                  ing.stock_item_id
-                    ? `stock:${ing.stock_item_id}`
-                    : ing.prep_item_id
-                    ? `prep:${ing.prep_item_id}`
-                    : ''
-                }
-                onChange={(val) => {
-                  if (val.startsWith('stock:')) {
-                    const si = stockItems.find((s) => s.id === +val.split(':')[1]);
-                    updateRow(idx, {
-                      stock_item_id: +val.split(':')[1],
-                      prep_item_id: undefined,
-                      unit: si?.unit || ing.unit,
-                    });
-                  } else if (val.startsWith('prep:')) {
-                    const pi = prepItems.find((p) => p.id === +val.split(':')[1]);
-                    updateRow(idx, {
-                      prep_item_id: +val.split(':')[1],
-                      stock_item_id: undefined,
-                      unit: pi?.unit || ing.unit,
-                    });
-                  }
-                }}
-                options={[
-                  ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
-                  ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
-                ]}
-                placeholder={t('selectIngredient')}
-              />
-              <button onClick={() => removeRow(idx)} className="p-1.5 text-red-400 hover:text-red-300 flex-shrink-0">
-                <TrashIcon className="w-4 h-4" />
-              </button>
-            </div>
-            {/* Qty + unit + scope. The scope encodes three cases:
-                  - "base"            → applies to every variant (literal qty)
-                  - "follow"          → qty auto-uses each variant's portion_size
-                  - <option_id>       → literal qty for that specific variant
-                Qty/unit inputs hide when scope="follow" (the variant defines them). */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Scope selector — first, since it drives whether qty/unit show */}
+        cards.map((card) => {
+          const sourceValue = card.stock_item_id
+            ? `stock:${card.stock_item_id}`
+            : card.prep_item_id
+            ? `prep:${card.prep_item_id}`
+            : '';
+          const hint =
+            card.scope === 'match' ? (t('scopeFollowHint') || '')
+            : card.scope === 'base' ? (t('scopeBaseHint') || '')
+            : (t('scopeCustomHint') || '');
+          return (
+            <div key={card.key} className="p-4 rounded-xl border border-[var(--divider)] space-y-3" style={{ background: 'var(--surface-subtle)' }}>
+              {/* Row 1 — picker + delete */}
+              <div className="flex items-center gap-2">
+                <SearchableSelect
+                  className="flex-1"
+                  value={sourceValue}
+                  onChange={(val) => pickSource(card.key, val)}
+                  options={[
+                    ...stockItems.map((s) => ({ value: `stock:${s.id}`, label: s.name, sublabel: s.unit })),
+                    ...prepItems.map((p) => ({ value: `prep:${p.id}`, label: p.name, sublabel: `${p.unit} (${t('prep')})` })),
+                  ]}
+                  placeholder={t('selectIngredient')}
+                />
+                <button onClick={() => removeCard(card.key)} className="p-1.5 text-red-400 hover:text-red-300 flex-shrink-0">
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Row 2 — scope buttons (only when item has variants) */}
               {variantList.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <FieldLabel text={t('ingredientScope') || 'Scope'} tooltip={t('ingredientScopeTooltip') || 'Who this ingredient applies to. Base = every variant. Follow variant portion = qty = variant size (no number to type). Normal / Grand = only that variant.'} />
-                  <select
-                    className="input py-1.5 text-sm"
-                    value={ing.scales_with_variant ? 'follow' : (ing.option_id ?? '')}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === 'follow') {
-                        updateRow(idx, { scales_with_variant: true, option_id: undefined, quantity_needed: 0 });
-                      } else if (v === '') {
-                        updateRow(idx, { scales_with_variant: false, option_id: undefined });
-                      } else {
-                        updateRow(idx, { scales_with_variant: false, option_id: Number(v) });
-                      }
-                    }}
-                  >
-                    <option value="">{t('scopeBase') || 'Base (all variants)'}</option>
-                    <option value="follow">{t('scopeFollowVariant') || 'Follow variant portion'}</option>
-                    {variantList.map((v) => (
-                      <option key={v.option_id} value={v.option_id}>{v.name}</option>
-                    ))}
-                  </select>
+                <div className="space-y-1.5">
+                  <FieldLabel
+                    text={t('ingredientScope') || 'How is this ingredient used?'}
+                    tooltip={t('ingredientScopeTooltip') || 'Pick how this ingredient behaves across variants.'}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <ScopeButton icon={iconMatch}  label={t('scopeFollowVariant') || 'Match item size'}     active={card.scope === 'match'}  onClick={() => changeScope(card.key, 'match')} />
+                    <ScopeButton icon={iconBase}   label={t('scopeBase') || 'Fixed quantity'}                active={card.scope === 'base'}   onClick={() => changeScope(card.key, 'base')} />
+                    <ScopeButton icon={iconCustom} label={t('scopeCustom') || 'Custom per variant'}          active={card.scope === 'custom'} onClick={() => changeScope(card.key, 'custom')} />
+                  </div>
+                  {hint && <p className="text-[11px] text-fg-tertiary italic pt-0.5">{hint}</p>}
                 </div>
               )}
-              {/* Qty + unit — hidden when scope = Follow variant portion (the
-                  selected variant's portion_size IS the qty at cost time). */}
-              {!ing.scales_with_variant && (
-                <>
-                  <div className="flex items-center gap-1">
-                    <FieldLabel text={t('qty') || 'Qty'} tooltip={t('qtyTooltip') || 'How much of this ingredient one sale draws. Literal number — no scaling applied.'} />
-                    <input
-                      type="number" step="any" min="0"
-                      className={`input w-24 py-1.5 text-sm text-right ${
-                        (ing.quantity_needed ?? 0) <= 0
-                          ? 'border-amber-500/60 ring-1 ring-amber-500/30'
-                          : ''
-                      }`}
-                      value={ing.quantity_needed || ''}
-                      onChange={(e) => updateRow(idx, { quantity_needed: +e.target.value })}
-                      placeholder={t('qty')}
-                    />
-                  </div>
+
+              {/* Row 3 — dynamic editor based on scope */}
+              {card.scope === 'base' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <FieldLabel text={t('qty') || 'Qty'} tooltip={t('qtyTooltip') || 'How much one sale draws. Literal number.'} />
+                  <input
+                    type="number" step="any" min="0"
+                    className={`input w-24 py-1.5 text-sm text-right ${
+                      parseFloat(card.quantity || '0') <= 0 ? 'border-amber-500/60 ring-1 ring-amber-500/30' : ''
+                    }`}
+                    value={card.quantity}
+                    onChange={(e) => updateCard(card.key, { quantity: e.target.value })}
+                    placeholder={t('qty')}
+                  />
                   <select
                     className="input w-20 py-1.5 text-sm"
-                    value={ing.unit || ''}
-                    onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                    title={t('unitTooltip') || 'Unit of the quantity. Convert to stock unit at cost time.'}
+                    value={card.unit || ''}
+                    onChange={(e) => updateCard(card.key, { unit: e.target.value })}
+                    title={t('unitTooltip') || 'Unit of the quantity.'}
                   >
                     <option value="">—</option>
                     <option value="g">g</option><option value="kg">kg</option>
                     <option value="ml">ml</option><option value="l">l</option>
                     <option value="unit">unit</option>
                   </select>
-                </>
+                  {parseFloat(card.quantity || '0') <= 0 && (
+                    <span className="text-xs text-amber-500">{t('baseQtyMissing') || 'Base qty not set'}</span>
+                  )}
+                </div>
               )}
-              {ing.scales_with_variant && (
-                <span className="text-xs text-brand-500/80 italic">
-                  {t('scopeFollowHint') || '= each variant\u2019s portion size'}
-                </span>
+
+              {card.scope === 'custom' && variantList.length > 0 && (
+                <div className="rounded-lg border border-[var(--divider)] overflow-hidden">
+                  <div className="grid text-[11px] font-medium text-fg-tertiary uppercase tracking-wide px-3 py-1.5 bg-[var(--surface)]"
+                    style={{ gridTemplateColumns: '1fr 100px 80px' }}>
+                    <span>{t('variant') || 'Variant'}</span>
+                    <span className="text-right">{t('qty') || 'Quantity'}</span>
+                    <span>{t('unit') || 'Unit'}</span>
+                  </div>
+                  {variantList.map((v) => {
+                    const row = card.variants.find((vr) => vr.option_id === v.option_id);
+                    return (
+                      <div key={v.option_id} className="grid items-center px-3 py-2 text-sm"
+                        style={{ gridTemplateColumns: '1fr 100px 80px', borderTop: '1px solid var(--divider)' }}>
+                        <span className="text-fg-primary">{v.name}</span>
+                        <input
+                          type="number" step="any" min="0"
+                          className="input w-full py-1 text-xs text-right"
+                          value={row?.quantity ?? ''}
+                          onChange={(e) => updateVariantRow(card.key, v.option_id, { quantity: e.target.value })}
+                          placeholder="—"
+                        />
+                        <select
+                          className="input w-full py-1 text-xs"
+                          value={row?.unit || card.unit || 'g'}
+                          onChange={(e) => updateVariantRow(card.key, v.option_id, { unit: e.target.value })}
+                        >
+                          <option value="g">g</option><option value="kg">kg</option>
+                          <option value="ml">ml</option><option value="l">l</option>
+                          <option value="unit">unit</option>
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-              {!ing.scales_with_variant && (ing.quantity_needed ?? 0) <= 0 && (
-                <span className="text-xs text-amber-500">
-                  {t('baseQtyMissing') || 'Base qty not set'}
-                </span>
-              )}
+
+              {/* match scope: no editor — hint row above is enough */}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
 
       <div className="flex items-center justify-between pt-1">
         <button
-          onClick={addRow}
+          onClick={addCard}
           className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
         >
           <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
@@ -359,7 +527,7 @@ export default function MenuItemIngredientsEditor({
         {hasChanges && (
           <div className="flex gap-2">
             <button
-              onClick={() => setRows(toInputs(current))}
+              onClick={() => setCards(toCards(current))}
               className="btn-secondary text-xs"
               disabled={saving}
             >
