@@ -149,8 +149,63 @@ export default function MenuItemIngredientsEditor({
 
   const hasChanges = JSON.stringify(rows) !== JSON.stringify(toInputs(current));
 
+  // Help banner — auto-expanded for empty recipes (onboarding), collapsed
+  // once the user has started adding ingredients (nags less). Shown only
+  // when the item has variants (otherwise there's nothing to choose).
+  const [helpOpen, setHelpOpen] = useState(rows.length === 0 && variantList.length > 0);
+
   return (
     <div className="space-y-3">
+      {/* Scope help banner — explains the three choices with examples */}
+      {variantList.length > 0 && (
+        <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setHelpOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-fg-primary hover:bg-[var(--surface)] transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <InformationCircleIcon className="w-4 h-4 text-brand-500" />
+              <span className="font-medium">{t('scopeHelpTitle') || 'How ingredient scope works'}</span>
+            </span>
+            <span className="text-xs text-fg-tertiary">{helpOpen ? '−' : '+'}</span>
+          </button>
+          {helpOpen && (
+            <div className="px-4 pb-3 pt-1 space-y-2.5 text-sm text-fg-secondary">
+              <p className="text-xs text-fg-tertiary">
+                {t('scopeHelpIntro') || 'Each ingredient row carries a Scope. Pick the one that matches what you\u2019re describing:'}
+              </p>
+              <div className="space-y-2">
+                <div className="flex gap-3 items-start">
+                  <span className="text-xs font-semibold text-fg-primary shrink-0 w-48">
+                    {t('scopeBase') || 'Base (all variants)'}
+                  </span>
+                  <span className="text-xs text-fg-secondary flex-1">
+                    {t('scopeHelpBase') || 'Same literal quantity for every variant. Example: Tomato 1 g, Bun 1 unit.'}
+                  </span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-xs font-semibold text-brand-500 shrink-0 w-48">
+                    {t('scopeFollowVariant') || 'Follow variant portion'}
+                  </span>
+                  <span className="text-xs text-fg-secondary flex-1">
+                    {t('scopeHelpFollow') || 'No qty to type — it matches each variant\u2019s portion size. Example: OR ROUGE plate (Normal = 250 g, Grand = 500 g, driven by the variant).'}
+                  </span>
+                </div>
+                <div className="flex gap-3 items-start">
+                  <span className="text-xs font-semibold text-fg-primary shrink-0 w-48">
+                    {t('scopeHelpSpecificLabel') || 'Specific variant (Normal / Grand / …)'}
+                  </span>
+                  <span className="text-xs text-fg-secondary flex-1">
+                    {t('scopeHelpSpecific') || 'Literal quantity that only applies when that variant sells. Example: Beef 200 g in Normal, 400 g in Grand. One row per variant.'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Swap banner */}
       {topSuggestion && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-brand-500/30 bg-brand-500/10 text-sm">
