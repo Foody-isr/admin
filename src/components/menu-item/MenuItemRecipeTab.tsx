@@ -4,7 +4,6 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import {
   setRecipeSteps,
   updateRecipeMeta,
-  setRecipeYield,
   getRecipeSteps,
   MenuItem, MenuItemIngredient, PrepItem, RecipeStepInput, StockItem,
   OptionSet, ItemOptionOverride,
@@ -30,38 +29,19 @@ interface Props {
   stockItems: StockItem[];
   prepItems: PrepItem[];
   onIngredientsSaved: (ings: MenuItemIngredient[]) => void;
-  // Invoked after save so the shell can reload the item (yield may have changed).
+  // Invoked after save so the shell can reload the item.
   onRecipeSaved?: () => void;
-  // Recipe configuration (yield + portion) — owned by the shell so this tab
-  // and the rest of the modal share one state.
-  yieldValue: number;
-  yieldUnit: string;
-  onYieldChange: (qty: number, unit: string) => void;
-  portionSize: number;
-  portionSizeUnit: string;
-  onPortionChange: (qty: number, unit: string) => void;
-  // Variant context for the ingredient matrix. The list of attached OptionSets
-  // (typically the "Tailles" set with Normal/Grand rows) drives one column per
-  // variant in the ingredient editor; overrides let the user set a different
-  // quantity per variant (e.g. 200 g beef for Normal vs 400 g for Grand).
+  // Variant context — drives the per-row Scope picker in the ingredient editor.
   attachedOptionSets: OptionSet[];
   itemOptionOverrides: ItemOptionOverride[];
 }
 
-// Recipe tab — replaces the standalone Recipe detail page. Owns:
-// - ingredients (via MenuItemIngredientsEditor, which auto-saves on its own)
-// - yield + portion
-// - recipe steps
-// - prep time + chef notes
-// - AI import + print
-//
-// Exposes an imperative handle so the FormModal's Save button can flush the
-// steps/meta buffer alongside the Details tab's updateMenuItem.
+// Recipe tab — the single place to edit a menu item's ingredients, steps,
+// prep time, and notes. Each ingredient row carries a Scope (Base or a
+// specific variant), so there's no separate "variant ingredients" surface.
 const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function MenuItemRecipeTab(
   { rid, item, ingredients, stockItems, prepItems, onIngredientsSaved, onRecipeSaved,
-    yieldValue, yieldUnit, onYieldChange,
-    portionSize, portionSizeUnit, onPortionChange,
-    attachedOptionSets, itemOptionOverrides },
+    attachedOptionSets },
   ref,
 ) {
   const { t } = useI18n();
@@ -153,111 +133,9 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
         </button>
       </div>
 
-      {/* Recipe type + portion + yield — the full kitchen-economics config
-          for this item. Replaces the old "Gestion des stocks" section from
-          the Details tab (now its home). */}
-      {(() => {
-        const isPerItem = yieldValue === 0;
-        const hasVariants = attachedOptionSets.length > 0
-          || (item.variant_groups ?? []).some((g) => (g.variants ?? []).length > 0);
-        return (
-          <FormSection title={t('recipeType')}>
-            <div className="flex gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  onYieldChange(0, 'kg');
-                  if ((portionSize ?? 0) <= 0) onPortionChange(1, 'unit');
-                }}
-                className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
-                  isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                }`}
-              >
-                <p className="text-sm font-semibold text-fg-primary">{t('perItemRecipe')}</p>
-                <p className="text-[11px] text-fg-tertiary mt-0.5">{t('perItemRecipeDesc')}</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isPerItem) {
-                    onYieldChange(1, 'kg');
-                    if ((portionSize ?? 0) <= 0) onPortionChange(0, 'g');
-                  }
-                }}
-                className={`flex-1 rounded-lg p-3 text-left border-2 transition-colors ${
-                  !isPerItem ? 'border-brand bg-brand/5' : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                }`}
-              >
-                <p className="text-sm font-semibold text-fg-primary">{t('bulkRecipe')}</p>
-                <p className="text-[11px] text-fg-tertiary mt-0.5">{t('bulkRecipeDesc')}</p>
-              </button>
-            </div>
-
-            {/* Yield — only in batch mode */}
-            {!isPerItem && (
-              <div className="mb-4">
-                <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('recipeYield')}</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number" step="any" min={0}
-                    className="input w-32 py-1.5 text-sm text-right"
-                    value={yieldValue || ''}
-                    onChange={(e) => onYieldChange(+e.target.value, yieldUnit)}
-                  />
-                  <select
-                    className="input w-20 py-1.5 text-sm"
-                    value={yieldUnit}
-                    onChange={(e) => onYieldChange(yieldValue, e.target.value)}
-                  >
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="l">l</option>
-                    <option value="ml">ml</option>
-                    <option value="unit">unit</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Portion par défaut — base serving size for variant scaling. Hidden
-                only when a batch recipe delegates per-variant portions to its
-                variants (each variant picks its own serving size). */}
-            <div>
-              <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1.5">{t('defaultPortion')}</label>
-              {!isPerItem && hasVariants ? (
-                <p className="text-sm text-fg-secondary py-1.5 opacity-60">{t('portionFromVariants')}</p>
-              ) : (
-                <>
-                  <p className="text-xs text-fg-tertiary mb-2">
-                    {isPerItem ? t('portionPerItemDesc') : t('portionBulkDesc')}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number" step="any" min={0}
-                      className="input w-32 py-1.5 text-sm text-right"
-                      value={portionSize || ''}
-                      onChange={(e) => onPortionChange(+e.target.value, portionSizeUnit)}
-                    />
-                    <select
-                      className="input w-20 py-1.5 text-sm"
-                      value={portionSizeUnit}
-                      onChange={(e) => onPortionChange(portionSize, e.target.value)}
-                    >
-                      <option value="unit">unit</option>
-                      <option value="g">g</option>
-                      <option value="kg">kg</option>
-                      <option value="ml">ml</option>
-                      <option value="l">l</option>
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
-          </FormSection>
-        );
-      })()}
-
-      {/* Ingredients editor — matrix view, one column per variant */}
+      {/* Ingredients editor — each row's Scope picker marks it as Base or
+          variant-scoped. No separate "variant ingredients" surface; no yield
+          or recipe-type toggles. */}
       <FormSection title={t('foodCostIngredients')}>
         <MenuItemIngredientsEditor
           rid={rid}
@@ -266,7 +144,10 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
           stockItems={stockItems}
           prepItems={prepItems}
           onSaved={onIngredientsSaved}
-          effectiveYield={yieldValue}
+          variants={attachedOptionSets
+            .flatMap((os) => (os.options ?? [])
+              .filter((o) => o.is_active)
+              .map((o) => ({ option_id: o.id, name: o.name })))}
         />
       </FormSection>
 

@@ -18,27 +18,21 @@ interface Props {
   stockItems: StockItem[];
   prepItems: PrepItem[];
   onSaved?: (ings: MenuItemIngredient[]) => void;
-  // Optional override for the item's yield — used when the Recipe tab's unsaved
-  // yield input should drive the batch-mode detection.
-  effectiveYield?: number;
+  // Variants attached to the item — drives the per-row Scope picker. Empty
+  // array = no variants on the item, Scope column is hidden.
+  variants?: Array<{ option_id: number; name: string }>;
 }
 
-// Shared editor for the *base recipe* (fixed-across-variants ingredients) on
-// a menu item. Variant-scoped ingredients live on the Variants modal instead.
+// Single ingredient editor for a menu item. Each row can be scoped to:
+// - Base (option_id == null) — applies to every variant
+// - a specific variant (option_id set) — applies only when that variant sells
+// This is the ONLY place ingredients are edited; the Variants modal is for
+// price/portion/status only.
 export default function MenuItemIngredientsEditor({
-  rid, menuItem, initialIngredients, stockItems, prepItems, onSaved, effectiveYield,
+  rid, menuItem, initialIngredients, stockItems, prepItems, onSaved, variants,
 }: Props) {
   const { t } = useI18n();
-
-  // `effectiveYield` is still accepted for backward compat with callers that
-  // plumb through the live yield input; we don't act on it anymore (batch
-  // mode on menu items is deprecated — variant-scoped rows handle scaling).
-  void effectiveYield;
-
-  // Base ingredients = those with option_id == null. Variant-scoped rows are
-  // edited in the Variants modal; we pass them through on save untouched.
-  const baseIngredients = (input: MenuItemIngredient[]) => input.filter((i) => i.option_id == null);
-  const variantScopedIngredients = (input: MenuItemIngredient[]) => input.filter((i) => i.option_id != null);
+  const variantList = variants ?? [];
 
   const toInputs = (ings: MenuItemIngredient[]): IngredientInput[] =>
     ings.map((i) => ({
@@ -51,14 +45,14 @@ export default function MenuItemIngredientsEditor({
     }));
 
   const [current, setCurrent] = useState<MenuItemIngredient[]>(initialIngredients);
-  const [rows, setRows] = useState<IngredientInput[]>(toInputs(baseIngredients(initialIngredients)));
+  const [rows, setRows] = useState<IngredientInput[]>(toInputs(initialIngredients));
   const [saving, setSaving] = useState(false);
   const [swapConfirm, setSwapConfirm] = useState<SwapSuggestion | null>(null);
 
   // Keep state in sync if parent reloads ingredients (e.g. after save).
   useEffect(() => {
     setCurrent(initialIngredients);
-    setRows(toInputs(baseIngredients(initialIngredients)));
+    setRows(toInputs(initialIngredients));
   }, [initialIngredients]);
 
   const addRow = () => setRows([...rows, { quantity_needed: 0, unit: '', scales_with_variant: false }]);
@@ -69,24 +63,13 @@ export default function MenuItemIngredientsEditor({
   const save = async (input: IngredientInput[] = rows) => {
     setSaving(true);
     try {
-      // Base rows are what the user is editing here; variant-scoped rows are
-      // edited in the Variants modal and must be preserved on save.
-      const variantScoped: IngredientInput[] = variantScopedIngredients(current).map((i) => ({
-        option_id: i.option_id ?? undefined,
-        stock_item_id: i.stock_item_id ?? undefined,
-        prep_item_id: i.prep_item_id ?? undefined,
-        quantity_needed: i.quantity_needed,
-        unit: i.unit || '',
-        scales_with_variant: false,
-      }));
-      // Legacy-data migration: any base row with non-empty variant_overrides
-      // from the old matrix era is converted to one variant-scoped row per
-      // override and the base row's overrides are cleared. This runs silently
-      // on every save so existing items migrate the first time the user
-      // touches them — no backfill script needed.
+      // Legacy-data migration: any row with non-empty variant_overrides from
+      // the old matrix era is converted to one variant-scoped row per override.
+      // Runs silently on every save so legacy items migrate the first time the
+      // user touches them — no backfill script needed.
       const legacyMigrated: IngredientInput[] = [];
       for (const i of current) {
-        if (i.option_id != null) continue; // only base rows carry the legacy overrides
+        if (i.option_id != null) continue; // only base rows carried legacy overrides
         for (const ov of i.variant_overrides ?? []) {
           if (!ov.quantity || ov.quantity <= 0) continue;
           legacyMigrated.push({
@@ -99,21 +82,19 @@ export default function MenuItemIngredientsEditor({
           });
         }
       }
-      // Base rows are forced to option_id=undefined and scales flag off (new
-      // authoring model: scaling lives on variant-scoped rows, not a flag).
-      const baseRows = input.map((r) => ({
+      // Persist rows as-is — each already carries its own option_id (or null
+      // for base). Force scales_with_variant off and clear any legacy overrides.
+      const normalized = input.map((r) => ({
         ...r,
-        option_id: undefined,
         scales_with_variant: false,
-        variant_overrides: undefined, // drop any legacy overrides now migrated
+        variant_overrides: undefined,
       }));
       const saved = await setMenuItemIngredients(rid, menuItem.id, [
-        ...baseRows,
-        ...variantScoped,
+        ...normalized,
         ...legacyMigrated,
       ]);
       setCurrent(saved);
-      setRows(toInputs(baseIngredients(saved)));
+      setRows(toInputs(saved));
       onSaved?.(saved);
     } catch (err: any) {
       alert(err.message);
@@ -220,9 +201,10 @@ export default function MenuItemIngredientsEditor({
                 <TrashIcon className="w-4 h-4" />
               </button>
             </div>
-            {/* Qty + unit: always authored (base quantity for the item's default
-                portion). Variant scaling multiplies this by a ratio at cost time. */}
-            <div className="flex items-center gap-2">
+            {/* Qty + unit + scope. Scope picker appears only when the item has
+                variants — it lets the user say "this qty applies to Grand only"
+                vs. "applies to all variants". */}
+            <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="number" step="any" min="0"
                 className={`input w-24 py-1.5 text-sm text-right ${
@@ -244,6 +226,19 @@ export default function MenuItemIngredientsEditor({
                 <option value="ml">ml</option><option value="l">l</option>
                 <option value="unit">unit</option>
               </select>
+              {variantList.length > 0 && (
+                <select
+                  className="input py-1.5 text-sm"
+                  value={ing.option_id ?? ''}
+                  onChange={(e) => updateRow(idx, { option_id: e.target.value ? Number(e.target.value) : undefined })}
+                  title={t('ingredientScope') || 'Scope'}
+                >
+                  <option value="">{t('scopeBase') || 'Base (all variants)'}</option>
+                  {variantList.map((v) => (
+                    <option key={v.option_id} value={v.option_id}>{v.name}</option>
+                  ))}
+                </select>
+              )}
               {(ing.quantity_needed ?? 0) <= 0 && (
                 <span className="text-xs text-amber-500">
                   {t('baseQtyMissing') || 'Base qty not set'}

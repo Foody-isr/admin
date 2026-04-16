@@ -280,10 +280,14 @@ export default function EditItemPage() {
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
-        portion_size: portionSize,
-        portion_size_unit: portionSizeUnit,
-        recipe_yield: recipeYieldValue,
-        recipe_yield_unit: recipeYieldUnit,
+        // Item-level yield + portion are deprecated for menu items (batch
+        // concept lives on preps now; variant-scoped ingredients carry the
+        // per-variant qty directly). Force to 0 on every save so legacy items
+        // silently migrate to the new model.
+        portion_size: 0,
+        portion_size_unit: '',
+        recipe_yield: 0,
+        recipe_yield_unit: '',
       };
       if (itemType === 'combo') {
         updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
@@ -442,12 +446,6 @@ export default function EditItemPage() {
                 prepItems={prepItems}
                 onIngredientsSaved={(ings) => setIngredients(ings)}
                 onRecipeSaved={loadData}
-                yieldValue={recipeYieldValue}
-                yieldUnit={recipeYieldUnit}
-                onYieldChange={(q, u) => { setRecipeYieldValue(q); setRecipeYieldUnit(u); }}
-                portionSize={portionSize}
-                portionSizeUnit={portionSizeUnit}
-                onPortionChange={(q, u) => { setPortionSize(q); setPortionSizeUnit(u); }}
                 attachedOptionSets={attachedOptionSets}
                 itemOptionOverrides={itemOptionOverrides}
               />
