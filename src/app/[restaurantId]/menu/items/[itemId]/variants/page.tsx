@@ -203,10 +203,28 @@ export default function VariantsEditorPage() {
             }
           }
         } else {
-          // Existing attached set — just update per-item prices
+          // Existing attached set — create any options the user added, then
+          // update per-item prices for every row. Without the create pass,
+          // new rows (optionId still unset) were silently dropped on save.
+          const newRows = validRows.filter((r) => !r.optionId);
+          for (const row of newRows) {
+            await createOptionInSet(rid, setId, {
+              name: row.name.trim(),
+              price: parseFloat(row.price) || 0,
+              is_active: row.isActive,
+              sort_order: 0,
+            });
+          }
+          let resolved: Map<string, number> | null = null;
+          if (newRows.length > 0) {
+            const refreshed = await listOptionSets(rid);
+            const fresh = refreshed.find((os) => os.id === setId);
+            resolved = new Map((fresh?.options ?? []).map((o) => [o.name.toLowerCase(), o.id]));
+          }
           for (const row of validRows) {
-            if (row.optionId) {
-              await setItemOptionPrice(rid, setId, iid, row.optionId, {
+            const optionId = row.optionId ?? resolved?.get(row.name.trim().toLowerCase());
+            if (optionId) {
+              await setItemOptionPrice(rid, setId, iid, optionId, {
                 price: parseFloat(row.price) || 0,
                 portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
                 portion_size_unit: row.portionSizeUnit || 'g',
