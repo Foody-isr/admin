@@ -7,7 +7,9 @@ import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
 import { detectPrepSwaps } from '@/lib/prep-swap';
+import { CostLine } from '@/lib/cost-suggestions';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
+import MarginImprovementCard from '@/components/menu-item/MarginImprovementCard';
 
 const COST_THRESHOLD = 0.35;
 const PACKAGE_UNITS = ['unit', 'pack', 'box', 'bag', 'dose'];
@@ -252,6 +254,27 @@ export default function MenuItemCostPanel({
     return !sameUnitFamily(currentPortion.unit, itemUnit);
   })();
 
+  // Per-ingredient cost lines used by both the breakdown table below AND the
+  // MarginImprovementCard. Computed once so the card's "top contributor"
+  // ranking always matches what the table shows.
+  const costLines: CostLine[] = scopedFor(currentOptionId).map((ing) => {
+    let rawUnitCost: number;
+    let incVat: boolean;
+    if (ing.prep_item && !ing.stock_item) {
+      const prepExVat = computePrepUnitCostExVat(ing.prep_item);
+      if (prepExVat != null) { rawUnitCost = prepExVat; incVat = false; }
+      else { rawUnitCost = ing.prep_item.cost_per_unit ?? 0; incVat = false; }
+    } else {
+      rawUnitCost = ing.stock_item?.cost_per_unit ?? 0;
+      incVat = ing.stock_item?.price_includes_vat ?? false;
+    }
+    const unitCost = showCostsExVat ? toExVat(rawUnitCost, incVat) : toIncVat(rawUnitCost, incVat);
+    const lineCost = calcVariantLineCost(ing, currentPortion, currentOptionId);
+    const sourceUnit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
+    return { ing, lineCost, unitCost, sourceUnit };
+  });
+  const isVariantPrice = activeVariantId !== '';
+
   // ── Modifier consumption ─────────────────────────────────────
   // A modifier with stock_item_id or prep_item_id consumes inventory when
   // selected. Multi-pick count is applied at order time; the cost row below
@@ -381,6 +404,21 @@ export default function MenuItemCostPanel({
           </div>
         )}
       </div>
+
+      {costPct > COST_THRESHOLD && (
+        <MarginImprovementCard
+          rid={rid}
+          itemId={item.id}
+          displayCost={displayCost}
+          displayPrice={normalizedPrice}
+          showCostsExVat={showCostsExVat}
+          vatMultiplier={vatMultiplier}
+          targetPct={COST_THRESHOLD}
+          lines={costLines}
+          isVariantPrice={isVariantPrice}
+          onEditStockItem={onEditStockItem}
+        />
+      )}
 
       {/* Swap suggestion banner */}
       {(() => {

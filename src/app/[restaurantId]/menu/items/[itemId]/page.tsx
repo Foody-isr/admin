@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem,
@@ -32,6 +32,8 @@ export default function EditItemPage() {
   const rid = Number(restaurantId);
   const iid = Number(itemId);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -52,7 +54,10 @@ export default function EditItemPage() {
   const [recipeYieldUnit, setRecipeYieldUnit] = useState('kg');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [suggestedPriceActive, setSuggestedPriceActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const priceInputRef = useRef<HTMLInputElement>(null);
+  const prefillAppliedRef = useRef(false);
 
   // Combo steps (only used when itemType === 'combo')
   interface ComboStepDraft {
@@ -186,6 +191,31 @@ export default function EditItemPage() {
   useEffect(() => {
     getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
   }, [rid]);
+
+  // Apply a suggested price handed over from the Cost tab's Margin Improvement
+  // card (?suggestedPrice=35.91). Runs once per page load, after the item has
+  // loaded so we don't get overwritten by the fetch. The param is stripped
+  // from the URL so a refresh doesn't re-apply it.
+  useEffect(() => {
+    if (prefillAppliedRef.current) return;
+    if (!item) return;
+    const suggested = searchParams.get('suggestedPrice');
+    if (!suggested) return;
+    const num = parseFloat(suggested);
+    if (!Number.isFinite(num) || num <= 0) return;
+    prefillAppliedRef.current = true;
+    setPrice(num.toFixed(2));
+    setSuggestedPriceActive(true);
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete('suggestedPrice');
+    const qs = q.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    // Focus after the URL replace settles.
+    setTimeout(() => {
+      priceInputRef.current?.focus();
+      priceInputRef.current?.select();
+    }, 0);
+  }, [item, searchParams, router, pathname]);
 
   // ── Combo helpers ──
   const allMenuItems = categories.flatMap((c) =>
@@ -485,17 +515,23 @@ export default function EditItemPage() {
             />
 
             {/* Price */}
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={t('price')}
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="input w-full text-base pr-16"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
+            <div>
+              <div className="relative">
+                <input
+                  ref={priceInputRef}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t('price')}
+                  value={price}
+                  onChange={(e) => { setPrice(e.target.value); setSuggestedPriceActive(false); }}
+                  className="input w-full text-base pr-16"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
+              </div>
+              {suggestedPriceActive && (
+                <p className="mt-1 text-xs text-brand-500">💡 {t('suggestedPriceHint')}</p>
+              )}
             </div>
 
             {/* Description */}
