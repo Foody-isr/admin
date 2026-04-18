@@ -246,7 +246,7 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
       {showImportModal && (
         <RecipeImportModal
           rid={rid}
-          menuItem={item}
+          mode={{ kind: 'menu-item', menuItem: item }}
           stockItems={stockItems}
           onClose={() => setShowImportModal(false)}
           onImported={() => {

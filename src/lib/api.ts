@@ -2339,6 +2339,23 @@ export async function confirmRecipes(restaurantId: number, input: ConfirmRecipeI
   });
 }
 
+export interface ConfirmPrepRecipeInput {
+  name: string;
+  category?: string;
+  notes?: string;
+  yield: number;
+  yield_unit: string;
+  ingredients: ConfirmRecipeIngredientInput[];
+}
+
+export async function confirmPrepRecipe(restaurantId: number, input: ConfirmPrepRecipeInput): Promise<PrepItem> {
+  const data = await apiFetch<{ item: PrepItem }>(
+    `/api/v1/stock/import/recipes/confirm-prep?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.item;
+}
+
 export async function setRecipeYield(restaurantId: number, menuItemId: number, recipeYield: number, recipeYieldUnit: string): Promise<void> {
   await apiFetch(`/api/v1/stock/menu-items/${menuItemId}/yield?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify({ recipe_yield: recipeYield, recipe_yield_unit: recipeYieldUnit }),

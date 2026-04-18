@@ -196,7 +196,7 @@ export default function FoodCostPage() {
       {showImportModal && selectedItem && (
         <RecipeImportModal
           rid={rid}
-          menuItem={selectedItem}
+          mode={{ kind: 'menu-item', menuItem: selectedItem }}
           stockItems={stockItems}
           onClose={() => setShowImportModal(false)}
           onImported={async () => {

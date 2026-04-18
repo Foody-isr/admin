@@ -6,10 +6,8 @@ import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
   getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
-  listRecipeItems, getMenuItemIngredients,
   PrepItem, PrepItemInput, PrepIngredientInput,
   StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
-  RecipeCardItem,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
 import FormModal from '@/components/FormModal';
@@ -27,11 +25,11 @@ import RowActionsMenu from '@/components/common/RowActionsMenu';
 import {
   MagnifyingGlassIcon, PlusIcon, TrashIcon, PencilIcon,
   BeakerIcon, CalendarDaysIcon, ArrowsRightLeftIcon,
-  ExclamationTriangleIcon, PlayIcon, DocumentDuplicateIcon,
+  ExclamationTriangleIcon, PlayIcon, SparklesIcon,
   ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, ClockIcon, PhotoIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
-import { convertQuantity } from '@/lib/units';
+import RecipeImportModal from '../RecipeImportModal';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -71,7 +69,7 @@ export default function PrepPage() {
   const [batchModal, setBatchModal] = useState<{ open: boolean; item?: PrepItem }>({ open: false });
   const [txModal, setTxModal] = useState<{ open: boolean; item?: PrepItem }>({ open: false });
   const [planModal, setPlanModal] = useState(false);
-  const [fromRecipeModal, setFromRecipeModal] = useState(false);
+  const [importModal, setImportModal] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -224,7 +222,7 @@ export default function PrepPage() {
         <ActionsDropdown
           actions={[
             { label: t('dailyPlan'), onClick: () => setPlanModal(true), icon: <CalendarDaysIcon className="w-4 h-4" /> },
-            { label: t('createFromRecipe'), onClick: () => setFromRecipeModal(true), icon: <DocumentDuplicateIcon className="w-4 h-4" /> },
+            { label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> },
             { label: t('refresh'), onClick: reload, icon: <ArrowPathIcon className="w-4 h-4" /> },
           ]}
         />
@@ -406,8 +404,14 @@ export default function PrepPage() {
       {itemModal.open && (
         <PrepItemModal rid={rid} editing={itemModal.editing} categories={categoryNames} stockItems={stockItems} onClose={() => setItemModal({ open: false })} onSaved={reload} />
       )}
-      {fromRecipeModal && (
-        <CreateFromRecipeModal rid={rid} onClose={() => setFromRecipeModal(false)} onSaved={reload} />
+      {importModal && (
+        <RecipeImportModal
+          rid={rid}
+          mode={{ kind: 'prep' }}
+          stockItems={stockItems}
+          onClose={() => setImportModal(false)}
+          onImported={reload}
+        />
       )}
       {batchModal.open && batchModal.item && (
         <BatchProduceModal rid={rid} item={batchModal.item} onClose={() => setBatchModal({ open: false })} onProduced={reload} />
@@ -725,161 +729,6 @@ function PrepItemModal({
         />
       )}
     </FormModal>
-  );
-}
-
-// ─── Create from Recipe Modal ──────────────────────────────────────────────
-
-function CreateFromRecipeModal({
-  rid, onClose, onSaved,
-}: {
-  rid: number; onClose: () => void; onSaved: () => void;
-}) {
-  const { t } = useI18n();
-  const [recipeItems, setRecipeItems] = useState<RecipeCardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [converting, setConverting] = useState(false);
-
-  useEffect(() => {
-    listRecipeItems(rid)
-      .then((items) => setRecipeItems(items.filter((i) => i.ingredient_count > 0)))
-      .finally(() => setLoading(false));
-  }, [rid]);
-
-  const filtered = recipeItems.filter((r) =>
-    !search || r.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleConvert = async () => {
-    if (!selectedId) return;
-    setConverting(true);
-    try {
-      const recipe = recipeItems.find((r) => r.id === selectedId);
-      if (!recipe) return;
-
-      // Fetch full ingredients for the selected menu item
-      const ings = await getMenuItemIngredients(rid, selectedId);
-
-      // Only take raw stock ingredients (skip prep-item references)
-      const stockIngs = ings.filter((i) => i.stock_item_id && !i.prep_item_id);
-
-      // Validate every recipe ingredient has an explicit unit. Without one
-      // we cannot safely convert into the stock's base unit — silently using
-      // the stock's unit as fallback drops a factor of 1000× (18 g → 18 kg).
-      const missingUnit = stockIngs.filter((i) => {
-        const stockUnit = i.stock_item?.unit ?? '';
-        // Fine if the stock is already a "package" unit (unit/pack/box); otherwise require ing.unit
-        const measurableStock = stockUnit === 'g' || stockUnit === 'kg' || stockUnit === 'ml' || stockUnit === 'l';
-        return measurableStock && !i.unit;
-      });
-      if (missingUnit.length > 0) {
-        const names = missingUnit.map((i) => i.stock_item?.name ?? '?').join(', ');
-        alert(t('recipeMissingUnits').replace('{names}', names));
-        setConverting(false);
-        return;
-      }
-
-      // Determine yield and unit
-      const recipeYield = recipe.recipe_yield || 1;
-      const yieldUnit = (recipe.recipe_yield_unit || 'unit') as StockUnit;
-
-      // Create the prep item
-      const prepItem = await createPrepItem(rid, {
-        name: recipe.name,
-        unit: yieldUnit,
-        quantity: 0,
-        yield_per_batch: recipeYield,
-        category: '',
-        notes: '',
-        is_active: true,
-      });
-
-      // Recipe ingredient quantities are already the full-batch amounts
-      // (e.g. 600 g of tomato pulp for the whole 1.2 kg yield). `PrepItemIngredient`
-      // has no `unit` field — QuantityNeeded is assumed to be in the stock's base
-      // unit — so convert from the recipe ingredient's unit to the stock's unit
-      // here to avoid 1000× drift when a recipe says "600 g" but the stock is
-      // tracked in "kg".
-      if (stockIngs.length > 0) {
-        await setPrepIngredients(rid, prepItem.id, stockIngs.map((ing) => {
-          const stockUnit = ing.stock_item?.unit ?? '';
-          const fromUnit = ing.unit || stockUnit;
-          return {
-            stock_item_id: ing.stock_item_id!,
-            quantity_needed: convertQuantity(ing.quantity_needed, fromUnit, stockUnit),
-          };
-        }));
-      }
-
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setConverting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-fg-primary">{t('createFromRecipe')}</h3>
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
-        </div>
-
-        <p className="text-sm text-fg-secondary mb-4">{t('selectRecipeToConvert')}</p>
-
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full" />
-          </div>
-        ) : filtered.length === 0 && !search ? (
-          <p className="text-sm text-fg-secondary text-center py-8">{t('noRecipesFound')}</p>
-        ) : (
-          <>
-            <div className="relative mb-3">
-              <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
-              <input type="text" placeholder={t('searchMenuItems')} value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9 pr-3 py-2 text-sm w-full" />
-            </div>
-
-            <div className="space-y-1 max-h-60 overflow-y-auto">
-              {filtered.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setSelectedId(r.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                    selectedId === r.id
-                      ? 'border border-brand-500 bg-brand-500/5 text-brand-500'
-                      : 'border border-transparent hover:bg-[var(--surface-subtle)] text-fg-primary'
-                  }`}
-                >
-                  <div>
-                    <span className="font-medium">{r.name}</span>
-                    {r.recipe_yield ? (
-                      <span className="text-xs text-fg-secondary ml-2">
-                        {r.recipe_yield} {r.recipe_yield_unit || 'unit'}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span className="text-xs text-fg-secondary">{r.ingredient_count} {t('recipeIngredients')}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        <div className="flex justify-end gap-2 pt-4">
-          <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-          <button onClick={handleConvert} disabled={!selectedId || converting} className="btn-primary text-sm">
-            {converting ? t('saving') : t('create')}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

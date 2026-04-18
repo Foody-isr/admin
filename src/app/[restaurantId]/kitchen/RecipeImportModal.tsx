@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import {
-  importRecipesFromFile, importRecipesFromText, confirmRecipes,
+  importRecipesFromFile, importRecipesFromText, confirmRecipes, confirmPrepRecipe,
   getRestaurantSettings,
-  RecipeExtraction, ConfirmRecipeItemInput,
+  RecipeExtraction, ConfirmRecipeItemInput, ConfirmPrepRecipeInput,
   StockItem, MenuItem,
 } from '@/lib/api';
 import { SparklesIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
@@ -19,15 +19,19 @@ function coerceBaseUnit(u: string): BaseUnit {
   return (BASE_SET.has(u) ? (u as BaseUnit) : 'kg');
 }
 
+export type RecipeImportModalMode =
+  | { kind: 'menu-item'; menuItem: MenuItem }
+  | { kind: 'prep' };
+
 interface RecipeImportModalProps {
   rid: number;
-  menuItem: MenuItem;
   stockItems: StockItem[];
+  mode: RecipeImportModalMode;
   onClose: () => void;
   onImported: () => void;
 }
 
-export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, onImported }: RecipeImportModalProps) {
+export default function RecipeImportModal({ rid, stockItems, mode, onClose, onImported }: RecipeImportModalProps) {
   const { t, locale, direction } = useI18n();
   const [step, setStep] = useState<'input' | 'review'>('input');
   const [tab, setTab] = useState<'text' | 'upload'>('text');
@@ -39,6 +43,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
 
   // Review state
   const [extraction, setExtraction] = useState<RecipeExtraction | null>(null);
+  const [editedName, setEditedName] = useState('');
   const [editedYield, setEditedYield] = useState(0);
   const [editedYieldUnit, setEditedYieldUnit] = useState('kg');
   const [editedIngredients, setEditedIngredients] = useState<Array<{
@@ -84,6 +89,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
       // Auto-select first recipe
       if (result.recipes.length > 0) {
         const recipe = result.recipes[0];
+        setEditedName(recipe.dish_name || '');
         setEditedYield(recipe.total_yield || 0);
         setEditedYieldUnit(recipe.total_yield_unit || 'kg');
         setEditedIngredients(recipe.ingredients.map((ing) => {
@@ -118,22 +124,38 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
     setLoading(true);
     setError('');
     try {
-      const input: ConfirmRecipeItemInput = {
-        menu_item_id: menuItem.id,
-        recipe_yield: editedYield,
-        recipe_yield_unit: editedYieldUnit,
-        ingredients: editedIngredients.map((ing) => ({
-          stock_item_id: ing.stock_item_id ?? null,
-          name: ing.name,
-          original_name: ing.original_name,
-          quantity_needed: ing.quantity_needed,
-          unit: ing.unit,
-          category: ing.category,
-          cost_per_unit: ing.cost_per_unit,
-          price_includes_vat: ing.price_includes_vat,
-        })),
-      };
-      await confirmRecipes(rid, { recipes: [input] });
+      const ingredients = editedIngredients.map((ing) => ({
+        stock_item_id: ing.stock_item_id ?? null,
+        name: ing.name,
+        original_name: ing.original_name,
+        quantity_needed: ing.quantity_needed,
+        unit: ing.unit,
+        category: ing.category,
+        cost_per_unit: ing.cost_per_unit,
+        price_includes_vat: ing.price_includes_vat,
+      }));
+      if (mode.kind === 'menu-item') {
+        const input: ConfirmRecipeItemInput = {
+          menu_item_id: mode.menuItem.id,
+          recipe_yield: editedYield,
+          recipe_yield_unit: editedYieldUnit,
+          ingredients,
+        };
+        await confirmRecipes(rid, { recipes: [input] });
+      } else {
+        if (!editedName.trim()) {
+          setError(t('nameLabel') + ' *');
+          setLoading(false);
+          return;
+        }
+        const input: ConfirmPrepRecipeInput = {
+          name: editedName.trim(),
+          yield: editedYield,
+          yield_unit: editedYieldUnit,
+          ingredients,
+        };
+        await confirmPrepRecipe(rid, input);
+      }
       onImported();
       onClose();
     } catch (err: any) {
@@ -160,7 +182,7 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-fg-primary flex items-center gap-2">
               <SparklesIcon className="w-5 h-5 text-brand-500" />
-              {t('importRecipe')} — {menuItem.name}
+              {t('importRecipe')}{mode.kind === 'menu-item' ? ` — ${mode.menuItem.name}` : ''}
             </h3>
             <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
           </div>
@@ -245,14 +267,20 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
         <div className="flex items-center gap-3">
           <SparklesIcon className="w-5 h-5 text-brand-500" />
           <h3 className="font-semibold text-fg-primary">{t('importRecipe')}</h3>
-          <span className="text-sm text-fg-secondary">— {menuItem.name}</span>
+          {mode.kind === 'menu-item' && (
+            <span className="text-sm text-fg-secondary">— {mode.menuItem.name}</span>
+          )}
           <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
             {editedIngredients.length} {t('ingredients')}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setStep('input'); setExtraction(null); }} className="btn-secondary text-sm">{t('back')}</button>
-          <button onClick={handleConfirm} disabled={loading || editedIngredients.length === 0} className="btn-primary text-sm">
+          <button
+            onClick={handleConfirm}
+            disabled={loading || editedIngredients.length === 0 || (mode.kind === 'prep' && !editedName.trim())}
+            className="btn-primary text-sm"
+          >
             {loading ? t('saving') : t('confirmImport')}
           </button>
           <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
@@ -293,9 +321,26 @@ export default function RecipeImportModal({ rid, menuItem, stockItems, onClose, 
 
         {/* ─ Ingredients editor (right) ─ */}
         <div className={`${hasDocumentPreview || tab === 'text' ? 'w-1/2' : 'w-full'} overflow-y-auto p-4`}>
+          {/* Prep name (only when creating a new prep item) */}
+          {mode.kind === 'prep' && (
+            <div className="flex items-center gap-3 mb-3 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+              <label className="text-sm text-fg-secondary font-medium shrink-0">{t('nameLabel')}:</label>
+              <input
+                type="text"
+                className="input flex-1 py-1.5 text-sm"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder={t('addPrepItem')}
+                autoFocus
+              />
+            </div>
+          )}
+
           {/* Recipe yield */}
           <div className="flex items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
-            <label className="text-sm text-fg-secondary font-medium">{t('recipeYield')}:</label>
+            <label className="text-sm text-fg-secondary font-medium">
+              {mode.kind === 'prep' ? t('yieldPerBatch') : t('recipeYield')}:
+            </label>
             <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-right"
               value={editedYield || ''} onChange={(e) => setEditedYield(+e.target.value)} />
             <select className="input w-20 py-1.5 text-sm" value={editedYieldUnit} onChange={(e) => setEditedYieldUnit(e.target.value)}>
