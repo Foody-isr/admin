@@ -1557,6 +1557,49 @@ export async function migrateVariantsToOptionSets(restaurantId: number): Promise
   return data.sets_created;
 }
 
+// ── Atomic variants sync for a single item ───────────────────────────────────
+
+export interface VariantSyncInput {
+  option_id?: number | null;
+  name: string;
+  price: number;
+  portion_size: number;
+  portion_size_unit: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface VariantGroupSyncInput {
+  option_set_id?: number | null;
+  name: string;
+  sort_order: number;
+  variants: VariantSyncInput[];
+}
+
+export interface ItemVariantsSyncInput {
+  groups: VariantGroupSyncInput[];
+}
+
+export interface ItemVariantsSyncResult {
+  option_sets: OptionSet[];
+  overrides: ItemOptionOverride[];
+}
+
+// Replaces the full variants state for a menu item in one transactional call.
+// Creates missing option sets / options, updates existing ones (renames,
+// sort, active flags), upserts per-item price+portion overrides, and detaches
+// option sets dropped from the payload.
+export async function syncItemVariants(
+  restaurantId: number,
+  itemId: number,
+  input: ItemVariantsSyncInput,
+): Promise<ItemVariantsSyncResult> {
+  return apiFetch<ItemVariantsSyncResult>(
+    `/api/v1/menu/items/${itemId}/variants-sync?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
 // ─── Item Variants (legacy per-item — prefer Option Sets) ───────────────────
 
 export interface VariantInput {

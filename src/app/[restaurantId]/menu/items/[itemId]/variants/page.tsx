@@ -3,10 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listOptionSets, createOptionSet, attachOptionSetToItems,
-  detachOptionSetFromItem, getItemOptionPrices, setItemOptionPrice,
-  createOptionInSet, listAllItems, updateMenuItem,
-  OptionSet, OptionSetInput, ItemOptionOverride,
+  listOptionSets, getItemOptionPrices, listAllItems, updateMenuItem,
+  syncItemVariants, VariantGroupSyncInput,
+  OptionSet, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -55,6 +54,7 @@ export default function VariantsEditorPage() {
   const [groups, setGroups] = useState<GroupState[]>([newGroup()]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   // The parent item's portion — used as the default unit when the user adds
   // new variants, and to detect whether the item is still at the default
   // "1 unit" so we can auto-sync it to the first variant's unit on save.
@@ -121,119 +121,39 @@ export default function VariantsEditorPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  /* ── Save: create/update option sets + attach + set prices ──── */
+  /* ── Save: one atomic sync call ──────────────────────────────── */
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      for (const g of groups) {
+      // Build the full desired state. Groups with no title and no rows are
+      // dropped (the UI starts with an empty placeholder group). For groups
+      // the user has opened but left empty, we still send them with a
+      // fallback title of "Options" — the server will create or reuse.
+      const payloadGroups: VariantGroupSyncInput[] = [];
+      for (let gi = 0; gi < groups.length; gi++) {
+        const g = groups[gi];
         const validRows = g.rows.filter((r) => r.name.trim());
         if (validRows.length === 0 && !g.title.trim()) continue;
 
-        let setId = g.optionSetId;
-
-        if (!setId) {
-          // Check if an option set with this name already exists
-          const existing = allOptionSets.find(
-            (os) => os.name.toLowerCase() === g.title.trim().toLowerCase()
-          );
-          if (existing) {
-            setId = existing.id;
-            // Add any new options that don't exist yet
-            const existingNames = new Set((existing.options ?? []).map((o) => o.name.toLowerCase()));
-            for (const row of validRows) {
-              if (!existingNames.has(row.name.trim().toLowerCase())) {
-                await createOptionInSet(rid, setId, {
-                  name: row.name.trim(),
-                  price: parseFloat(row.price) || 0,
-                  is_active: row.isActive,
-                  sort_order: 0,
-                });
-              }
-            }
-            // Reload to get fresh option IDs
-            const refreshed = await listOptionSets(rid);
-            const fresh = refreshed.find((os) => os.id === setId);
-            if (fresh) {
-              // Attach to item
-              await attachOptionSetToItems(rid, setId, [iid]);
-              // Set per-item prices
-              for (const row of validRows) {
-                const opt = (fresh.options ?? []).find(
-                  (o) => o.name.toLowerCase() === row.name.trim().toLowerCase()
-                );
-                if (opt) {
-                  await setItemOptionPrice(rid, setId, iid, opt.id, {
-                    price: parseFloat(row.price) || 0,
-                    portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
-                    portion_size_unit: row.portionSizeUnit || 'g',
-                    is_active: row.isActive,
-                  });
-                }
-              }
-            }
-          } else {
-            // Create new option set
-            const input: OptionSetInput = {
-              name: g.title.trim() || 'Options',
-              options: validRows.map((r, i) => ({
-                name: r.name.trim(),
-                price: parseFloat(r.price) || 0,
-                is_active: r.isActive,
-                sort_order: i,
-              })),
-            };
-            const created = await createOptionSet(rid, input);
-            setId = created.id;
-            // Attach to item
-            await attachOptionSetToItems(rid, setId, [iid]);
-            // Set per-item prices
-            for (const row of validRows) {
-              const opt = (created.options ?? []).find(
-                (o) => o.name.toLowerCase() === row.name.trim().toLowerCase()
-              );
-              if (opt) {
-                await setItemOptionPrice(rid, setId, iid, opt.id, {
-                  price: parseFloat(row.price) || 0,
-                  portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
-                  portion_size_unit: row.portionSizeUnit || 'g',
-                  is_active: row.isActive,
-                });
-              }
-            }
-          }
-        } else {
-          // Existing attached set — create any options the user added, then
-          // update per-item prices for every row. Without the create pass,
-          // new rows (optionId still unset) were silently dropped on save.
-          const newRows = validRows.filter((r) => !r.optionId);
-          for (const row of newRows) {
-            await createOptionInSet(rid, setId, {
-              name: row.name.trim(),
-              price: parseFloat(row.price) || 0,
-              is_active: row.isActive,
-              sort_order: 0,
-            });
-          }
-          let resolved: Map<string, number> | null = null;
-          if (newRows.length > 0) {
-            const refreshed = await listOptionSets(rid);
-            const fresh = refreshed.find((os) => os.id === setId);
-            resolved = new Map((fresh?.options ?? []).map((o) => [o.name.toLowerCase(), o.id]));
-          }
-          for (const row of validRows) {
-            const optionId = row.optionId ?? resolved?.get(row.name.trim().toLowerCase());
-            if (optionId) {
-              await setItemOptionPrice(rid, setId, iid, optionId, {
-                price: parseFloat(row.price) || 0,
-                portion_size: row.portionSize ? parseFloat(row.portionSize) : 0,
-                portion_size_unit: row.portionSizeUnit || 'g',
-                is_active: row.isActive,
-              });
-            }
-          }
-        }
+        payloadGroups.push({
+          option_set_id: g.optionSetId ?? null,
+          name: g.title.trim(),
+          sort_order: gi,
+          variants: validRows.map((r, vi) => ({
+            option_id: r.optionId ?? null,
+            name: r.name.trim(),
+            price: parseFloat(r.price) || 0,
+            portion_size: r.portionSize ? parseFloat(r.portionSize) : 0,
+            portion_size_unit: r.portionSizeUnit || 'g',
+            is_active: r.isActive,
+            sort_order: vi,
+          })),
+        });
       }
+
+      await syncItemVariants(rid, iid, { groups: payloadGroups });
+
       // Auto-sync: if the parent item is still at the default "1 unit" portion
       // but the user is creating variants with a different unit family (e.g.
       // grams), adopt the first variant's unit as the item's base portion so
@@ -251,6 +171,7 @@ export default function VariantsEditorPage() {
         }
       }
 
+      setDirty(false);
       router.back();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
@@ -259,13 +180,20 @@ export default function VariantsEditorPage() {
     }
   };
 
+  const handleClose = () => {
+    if (dirty && !confirm(t('discardUnsavedChanges') || 'Discard unsaved changes?')) return;
+    router.back();
+  };
+
   /* ── Group/row helpers ─────────────────────────────────────────── */
 
   const updateGroup = (key: string, patch: Partial<GroupState>) => {
+    setDirty(true);
     setGroups((prev) => prev.map((g) => g.key === key ? { ...g, ...patch } : g));
   };
 
   const updateRow = (groupKey: string, rowKey: string, patch: Partial<VariantRow>) => {
+    setDirty(true);
     setGroups((prev) => prev.map((g) => {
       if (g.key !== groupKey) return g;
       return { ...g, rows: g.rows.map((r) => r.key === rowKey ? { ...r, ...patch } : r) };
@@ -273,24 +201,30 @@ export default function VariantsEditorPage() {
   };
 
   const addRow = (groupKey: string) => {
+    setDirty(true);
     setGroups((prev) => prev.map((g) =>
       g.key === groupKey ? { ...g, rows: [...g.rows, newRow(itemPortionUnit)] } : g
     ));
   };
 
   const removeRow = (groupKey: string, rowKey: string) => {
+    setDirty(true);
     setGroups((prev) => prev.map((g) =>
       g.key === groupKey ? { ...g, rows: g.rows.filter((r) => r.key !== rowKey) } : g
     ));
   };
 
-
-  const removeGroup = async (key: string) => {
-    const g = groups.find((g) => g.key === key);
-    if (g?.optionSetId) {
-      await detachOptionSetFromItem(rid, g.optionSetId, iid);
-    }
+  // Remove a group from local state only. The server-side detach happens on
+  // save: groups dropped from the payload get their item↔set join removed and
+  // per-item overrides cleaned up inside the single sync transaction.
+  const removeGroup = (key: string) => {
+    setDirty(true);
     setGroups((prev) => prev.filter((g) => g.key !== key));
+  };
+
+  const addGroup = () => {
+    setDirty(true);
+    setGroups((prev) => [...prev, newGroup(itemPortionUnit)]);
   };
 
   /** Apply an existing option set from the dropdown */
@@ -322,7 +256,7 @@ export default function VariantsEditorPage() {
   return (
     <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto">
       <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-6 py-3 flex items-center justify-between">
-        <button onClick={() => router.back()}
+        <button onClick={handleClose}
           className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
           <XMarkIcon className="w-5 h-5" />
         </button>
@@ -437,7 +371,7 @@ export default function VariantsEditorPage() {
           </div>
         ))}
 
-        <button onClick={() => setGroups((prev) => [...prev, newGroup(itemPortionUnit)])}
+        <button onClick={addGroup}
           className="flex items-center gap-2 text-base font-medium text-fg-primary underline">
           <PlusIcon className="w-4 h-4" />
           {t('addAnotherSet')}
