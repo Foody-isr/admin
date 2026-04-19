@@ -19,6 +19,8 @@ import { useMenuItemSections, sectionAnchorId, MenuItemSection } from '@/compone
 import MenuItemRecipeTab, { MenuItemRecipeTabHandle } from '@/components/menu-item/MenuItemRecipeTab';
 import MenuItemCostPanel from '@/components/menu-item/MenuItemCostPanel';
 import MenuItemSummaryRail, { RailSection } from '@/components/menu-item/MenuItemSummaryRail';
+import CollapsibleSection from '@/components/menu-item/CollapsibleSection';
+import { useCollapsed } from '@/lib/useCollapsed';
 import { computeItemCostSummary } from '@/lib/cost-utils';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
@@ -104,6 +106,9 @@ export default function EditItemPage() {
 
   // Jump-nav sections (replaces the old tabs). Keeps ?tab=recipe|cost deep links working.
   const { scrollToSection } = useMenuItemSections();
+  // Collapsed sections — persisted globally (UI pref, not per-restaurant).
+  // Recette and Coût are linked; see `toggleSection` below.
+  const [collapsed, toggleCollapsed, setManyCollapsed] = useCollapsed('foody.menuItem.sections');
   const recipeRef = useRef<MenuItemRecipeTabHandle>(null);
 
   const loadData = useCallback(async () => {
@@ -451,7 +456,29 @@ export default function EditItemPage() {
     { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
   ];
 
-  const goToSection = (id: MenuItemSection) => scrollToSection(id);
+  // Recette ↔ Coût are linked — toggling either mirrors to both so the
+  // recipe/cost live-feedback loop isn't broken by a half-open state.
+  const toggleSection = (id: MenuItemSection) => {
+    if (id === 'recipe' || id === 'cost') {
+      const next = !(collapsed.recipe || collapsed.cost);
+      setManyCollapsed({ recipe: next, cost: next });
+    } else {
+      toggleCollapsed(id);
+    }
+  };
+
+  // Rail jump-nav: expand the target first (rAF so newly-mounted children
+  // exist before scrollIntoView measures them), then scroll.
+  const goToSection = (id: MenuItemSection) => {
+    if (collapsed[id]) {
+      setManyCollapsed(
+        id === 'recipe' || id === 'cost'
+          ? { recipe: false, cost: false }
+          : { [id]: false },
+      );
+    }
+    requestAnimationFrame(() => scrollToSection(id));
+  };
 
   const rail = (
     <MenuItemSummaryRail
@@ -479,15 +506,14 @@ export default function EditItemPage() {
         stickySidebar
         maxWidthClass="max-w-6xl"
       >
+        <div className="space-y-10">
         {/* ── Section: Détails ─────────────────────────────────── */}
-        <section
+        <CollapsibleSection
           id={sectionAnchorId('details')}
-          className="scroll-mt-24 space-y-5"
+          title={t('tabDetails')}
+          collapsed={!!collapsed.details}
+          onToggle={() => toggleSection('details')}
         >
-          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
-            {t('tabDetails')}
-          </h2>
-
           {/* Item Type (read-only badge) */}
           {itemType === 'combo' && (
             <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
@@ -582,17 +608,15 @@ export default function EditItemPage() {
               right sidebar; inlined here so the rail can host the product
               identity instead. */}
           {detailsCategorization}
-        </section>
+        </CollapsibleSection>
 
         {/* ── Section: Modificateurs & Variantes ───────────────── */}
-        <section
+        <CollapsibleSection
           id={sectionAnchorId('modifiers')}
-          className="scroll-mt-24 space-y-5"
+          title={t('tabModifiers')}
+          collapsed={!!collapsed.modifiers}
+          onToggle={() => toggleSection('modifiers')}
         >
-          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
-            {t('tabModifiers')}
-          </h2>
-
           {/* Combo Builder (combo items only) */}
           {itemType === 'combo' && (
             <div className="space-y-3">
@@ -799,16 +823,15 @@ export default function EditItemPage() {
               </button>
             )}
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* ── Section: Recette ─────────────────────────────────── */}
-        <section
+        <CollapsibleSection
           id={sectionAnchorId('recipe')}
-          className="scroll-mt-24 space-y-5"
+          title={t('tabRecipe')}
+          collapsed={!!collapsed.recipe}
+          onToggle={() => toggleSection('recipe')}
         >
-          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
-            {t('tabRecipe')}
-          </h2>
           <MenuItemRecipeTab
             ref={recipeRef}
             rid={rid}
@@ -821,16 +844,15 @@ export default function EditItemPage() {
             attachedOptionSets={attachedOptionSets}
             itemOptionOverrides={itemOptionOverrides}
           />
-        </section>
+        </CollapsibleSection>
 
         {/* ── Section: Coût ────────────────────────────────────── */}
-        <section
+        <CollapsibleSection
           id={sectionAnchorId('cost')}
-          className="scroll-mt-24 space-y-5"
+          title={t('tabCost')}
+          collapsed={!!collapsed.cost}
+          onToggle={() => toggleSection('cost')}
         >
-          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
-            {t('tabCost')}
-          </h2>
           <MenuItemCostPanel
             rid={rid}
             item={item}
@@ -841,7 +863,8 @@ export default function EditItemPage() {
             itemOptionOverrides={itemOptionOverrides}
             onGoToRecipe={() => goToSection('recipe')}
           />
-        </section>
+        </CollapsibleSection>
+        </div>
       </FormModal>
 
       {/* Modifier Sets Modal */}

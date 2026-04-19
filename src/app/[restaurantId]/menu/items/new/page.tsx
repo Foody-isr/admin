@@ -14,6 +14,8 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { useMenuItemSections, sectionAnchorId, MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemSummaryRail, { RailSection } from '@/components/menu-item/MenuItemSummaryRail';
+import CollapsibleSection from '@/components/menu-item/CollapsibleSection';
+import { useCollapsed } from '@/lib/useCollapsed';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
 import StatusPill from '@/components/StatusPill';
@@ -357,6 +359,7 @@ export default function NewItemPage() {
 
   // Hooks must run on every render — keep hook calls above the early return.
   const { scrollToSection } = useMenuItemSections();
+  const [collapsed, toggleCollapsed, setManyCollapsed] = useCollapsed('foody.menuItem.sections');
   const activeCategoryName = useMemo(
     () => categories.find((c) => c.id === categoryId)?.name,
     [categories, categoryId],
@@ -370,7 +373,13 @@ export default function NewItemPage() {
     );
   }
 
-  const goToSection = (id: MenuItemSection) => scrollToSection(id);
+  // Rail jump-nav: expand target first, then scroll (same pattern as edit page).
+  const goToSection = (id: MenuItemSection) => {
+    if (collapsed[id]) {
+      setManyCollapsed({ [id]: false });
+    }
+    requestAnimationFrame(() => scrollToSection(id));
+  };
 
   // Create mode: only two sections exist (Recipe/Cost need a saved itemId).
   const railSections: RailSection[] = [
@@ -443,15 +452,14 @@ export default function NewItemPage() {
         stickySidebar
         maxWidthClass="max-w-6xl"
       >
+        <div className="space-y-10">
         {/* ── Section: Détails ─────────────────────────────────── */}
-        <section
+        <CollapsibleSection
           id={sectionAnchorId('details')}
-          className="scroll-mt-24 space-y-5"
+          title={t('tabDetails')}
+          collapsed={!!collapsed.details}
+          onToggle={() => toggleCollapsed('details')}
         >
-          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
-            {t('tabDetails')}
-          </h2>
-
           {/* Item Type Selector */}
           <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
             <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
@@ -501,17 +509,15 @@ export default function NewItemPage() {
           {/* Categorization (status / category / menus) — previously in the
               right sidebar; inlined here so the rail can host identity. */}
           {detailsCategorization}
-        </section>
+        </CollapsibleSection>
 
         {/* ── Section: Modificateurs & Variantes ───────────────── */}
-        <section
+        <CollapsibleSection
           id={sectionAnchorId('modifiers')}
-          className="scroll-mt-24 space-y-5"
+          title={t('tabModifiers')}
+          collapsed={!!collapsed.modifiers}
+          onToggle={() => toggleCollapsed('modifiers')}
         >
-          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
-            {t('tabModifiers')}
-          </h2>
-
           {/* ── Combo Builder (only for combo items) ──────────── */}
           {itemType === 'combo' && (
               <div className="space-y-3">
@@ -921,7 +927,7 @@ export default function NewItemPage() {
               )}
             </div>
 
-        </section>
+        </CollapsibleSection>
 
         {/* Recipe & cost live on the edit page — they need a persisted itemId. */}
         <div className="rounded-xl border border-dashed border-[var(--divider)] p-4 text-sm text-fg-tertiary">
@@ -929,6 +935,7 @@ export default function NewItemPage() {
             {t('tabRecipe')} &middot; {t('tabCost')}
           </p>
           <p>{t('saveItemFirst')}</p>
+        </div>
         </div>
       </FormModal>
 
