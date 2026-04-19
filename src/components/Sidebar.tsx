@@ -305,7 +305,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     (sub) => pathname === sub.href || pathname.startsWith(sub.href + '/')
                   );
                   // Auto-expand the group that contains the active route
-                  const isExpanded = expandedGroups.has(group.labelKey);
+                  const isExpanded = expandedGroups.has(group.labelKey) || hasActiveItem;
                   return (
                     <div key={group.labelKey}>
                       <button

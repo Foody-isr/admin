@@ -219,7 +219,7 @@ export default function ItemLibraryPage() {
           <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-xs text-fg-secondary tracking-wider">
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
+                <th className="py-3 px-2 font-medium w-14 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
                   <input
                     type="checkbox"
                     checked={selected.size === filtered.length && filtered.length > 0}
@@ -317,19 +317,24 @@ export default function ItemLibraryPage() {
                       className="cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)]"
                       onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
                     >
-                      <td className="py-3.5 px-2" onClick={(e) => { e.stopPropagation(); if (hasVariants) toggleExpand(item.id); }}>
-                        {hasVariants ? (
-                          <button className="w-5 h-5 flex items-center justify-center text-fg-tertiary">
-                            {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
-                          </button>
-                        ) : (
+                      <td className="py-3.5 px-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
                           <input
                             type="checkbox"
                             checked={selected.has(item.id)}
                             onChange={() => toggleSelect(item.id)}
                             className="rounded border-[var(--divider)]"
                           />
-                        )}
+                          {hasVariants && (
+                            <button
+                              onClick={() => toggleExpand(item.id)}
+                              className="w-5 h-5 flex items-center justify-center text-fg-tertiary hover:text-fg-primary"
+                              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                            >
+                              {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-2">
                         <div className="flex items-center gap-3">
@@ -403,6 +408,51 @@ export default function ItemLibraryPage() {
           </table>
         </div>
       )}
+
+      {selected.size >= 1 && (() => {
+        const count = selected.size;
+        const MIN = 2;
+        const MAX = 6;
+        const disabled = count < MIN || count > MAX;
+        const hint =
+          count < MIN ? t('compareMinHint') || 'Select at least 2 items to compare'
+          : count > MAX ? t('compareMaxHint') || 'Select up to 6 items'
+          : '';
+        const go = () => {
+          if (disabled) return;
+          const ids = Array.from(selected).join(',');
+          router.push(`/${rid}/menu/items/compare?ids=${ids}`);
+        };
+        return (
+          <div
+            className="fixed bottom-0 left-0 right-0 z-40 border-t bg-[var(--surface)] px-6 py-3 flex items-center justify-between gap-4"
+            style={{ borderColor: 'var(--divider)', boxShadow: '0 -2px 8px rgba(0,0,0,0.08)' }}
+          >
+            <div className="flex items-center gap-3 text-sm">
+              <span className="font-medium text-fg-primary">
+                {(t('selectedCount') || '{n} selected').replace('{n}', String(count))}
+              </span>
+              {hint && <span className="text-fg-tertiary">{hint}</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelected(new Set())}
+                className="btn-secondary text-sm px-4 py-2 rounded-full"
+              >
+                {t('clearSelection') || 'Clear'}
+              </button>
+              <button
+                onClick={go}
+                disabled={disabled}
+                className="btn-primary text-sm px-5 py-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {(t('compareCosts') || 'Compare costs')}
+                {count >= MIN && count <= MAX && ` (${count})`}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

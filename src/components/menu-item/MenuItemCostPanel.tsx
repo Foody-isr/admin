@@ -5,15 +5,24 @@ import { useRouter } from 'next/navigation';
 import { MenuItem, MenuItemIngredient, PrepItem, StockItem, ItemOptionOverride } from '@/lib/api';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
-import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
+import { convertQuantity, sameUnitFamily } from '@/lib/units';
 import { detectPrepSwaps } from '@/lib/prep-swap';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
+import {
+  COST_THRESHOLD, VariantOption, PrepConfigIssue,
+  vatMultiplierFor, toExVat as toExVatShared, toIncVat as toIncVatShared,
+  buildVariantOptions, resolvePortion, optionIdFromVariant,
+  computePrepUnitCostExVat as computePrepUnitCostExVatShared,
+  calcLineCost as calcLineCostShared,
+  calcVariantLineCost as calcVariantLineCostShared,
+  scopedIngredients, diagnosePrep,
+} from '@/lib/cost-utils';
 
-const COST_THRESHOLD = 0.35;
+// Unit-family arrays used by the local hasUnitMismatch display logic. The
+// cost-math helpers in cost-utils have their own copy — kept separate so the
+// shared module stays free of React/display concerns.
 const PACKAGE_UNITS = ['unit', 'pack', 'box', 'bag', 'dose'];
 const MEASURABLE_UNITS = ['g', 'kg', 'ml', 'l'];
-
-type VariantOption = { id: string; name: string; price: number; portion_size: number; portion_size_unit: string };
 
 interface Props {
   rid: number;
@@ -49,135 +58,37 @@ export default function MenuItemCostPanel({
   const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
   const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
-  const vatMultiplier = 1 + vatRate / 100;
-  const toExVat = (c: number, incl: boolean) => incl ? c / vatMultiplier : c;
-  const toIncVat = (c: number, incl: boolean) => incl ? c : c * vatMultiplier;
+  const vatMultiplier = vatMultiplierFor(vatRate);
+  // Component-local VAT helpers that bind the current multiplier — makes the
+  // JSX below (which calls these in many places) less noisy than passing
+  // vatMultiplier everywhere.
+  const toExVat = (c: number, incl: boolean) => toExVatShared(c, incl, vatMultiplier);
+  const toIncVat = (c: number, incl: boolean) => toIncVatShared(c, incl, vatMultiplier);
 
-  const allVariants: VariantOption[] = [];
-  for (const os of item.option_sets ?? []) {
-    for (const opt of os.options ?? []) {
-      if (!opt.is_active) continue;
-      const override = itemOptionOverrides?.find((ov) => ov.option_id === opt.id);
-      allVariants.push({
-        id: `opt:${opt.id}`,
-        name: opt.name,
-        price: override?.price ?? opt.price,
-        portion_size: override?.portion_size ?? 0,
-        portion_size_unit: override?.portion_size_unit ?? 'g',
-      });
-    }
-  }
-  for (const g of item.variant_groups ?? []) {
-    for (const v of g.variants ?? []) {
-      if (!v.is_active) continue;
-      allVariants.push({
-        id: `var:${v.id}`,
-        name: v.name,
-        price: v.price,
-        portion_size: v.portion_size ?? 0,
-        portion_size_unit: v.portion_size_unit ?? 'g',
-      });
-    }
-  }
-
+  const allVariants: VariantOption[] = buildVariantOptions(item, itemOptionOverrides ?? []);
   const hasYield = (item.recipe_yield ?? 0) > 0;
-  const yieldBaseUnit = hasYield ? toBaseUnit(item.recipe_yield!, item.recipe_yield_unit || 'kg') : 0;
 
   const activeVariantId = selectedVariantId
     || (allVariants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? '');
 
-  const resolveIngredientPortion = (variantId: string): { qty: number; unit: string } | null => {
-    const v = allVariants.find((vv) => String(vv.id) === variantId);
-    if (v && (v.portion_size ?? 0) > 0) {
-      return { qty: v.portion_size, unit: v.portion_size_unit || 'g' };
-    }
-    if ((item.portion_size ?? 0) > 0) {
-      return { qty: item.portion_size!, unit: item.portion_size_unit || 'g' };
-    }
-    // Deliberately do NOT fall back to recipe_yield: yield is the whole batch,
-    // not a portion. Returning it here would charge a single sale for the
-    // entire recipe output. When nothing resolves, the "configure variants"
-    // warning banner surfaces instead.
-    return null;
-  };
-
-  const computePrepUnitCostExVat = (prep: PrepItem): number | null => {
-    if (!prep.ingredients || prep.ingredients.length === 0) return null;
-    if ((prep.yield_per_batch ?? 0) <= 0) return null;
-    const batchExVat = prep.ingredients.reduce((sum, pi) => {
-      const s = pi.stock_item;
-      if (!s) return sum;
-      const costExVat = toExVat(s.cost_per_unit ?? 0, s.price_includes_vat ?? false);
-      return sum + pi.quantity_needed * costExVat;
-    }, 0);
-    return batchExVat / prep.yield_per_batch;
-  };
+  const computePrepUnitCostExVat = (prep: PrepItem) =>
+    computePrepUnitCostExVatShared(prep, vatMultiplier);
 
   const calcLineCost = (
     ing: MenuItemIngredient,
     portionOverride?: { qty: number; unit: string } | null,
     variantOptionId?: number | null,
-  ) => {
-    const stock = ing.stock_item;
-    const prep = ing.prep_item;
-    const stockUnit = stock?.unit ?? prep?.unit ?? '';
+  ) => calcLineCostShared(ing, item, portionOverride, variantOptionId, showCostsExVat, vatMultiplier);
 
-    let qty: number;
-    let qtyUnit: string;
-    qtyUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
-    const batchMode = (item.recipe_yield ?? 0) > 0;
+  const calcVariantLineCost = (
+    ing: MenuItemIngredient,
+    portion: { qty: number; unit: string } | null,
+    optionId?: number | null,
+  ) => calcVariantLineCostShared(ing, item, portion, optionId, showCostsExVat, vatMultiplier);
 
-    // 1) Per-variant override (legacy matrix data) — still honored until
-    //    migrated on save.
-    const override = !batchMode && variantOptionId != null
-      ? (ing.variant_overrides ?? []).find((o) => o.option_id === variantOptionId)
-      : undefined;
-    if (override && override.quantity > 0) {
-      qty = override.quantity;
-      qtyUnit = override.unit || qtyUnit;
-    } else if (ing.scales_with_variant && !batchMode && portionOverride) {
-      // 2) "Follow variant portion" — the ingredient qty equals the selected
-      //    variant's portion_size directly (useful when the ingredient IS the
-      //    portion, e.g. OR ROUGE prep served as a plate).
-      qty = portionOverride.qty;
-      qtyUnit = portionOverride.unit || qtyUnit;
-    } else {
-      // 3) Fixed ingredient (per-portion mode) or base qty for batch items.
-      qty = ing.quantity_needed;
-    }
-
-    let rawCost: number;
-    let includesVat: boolean;
-    if (prep && !stock) {
-      const prepExVat = computePrepUnitCostExVat(prep);
-      if (prepExVat != null) { rawCost = prepExVat; includesVat = false; }
-      else { rawCost = prep.cost_per_unit ?? 0; includesVat = false; }
-    } else {
-      rawCost = stock?.cost_per_unit ?? 0;
-      includesVat = stock?.price_includes_vat ?? false;
-    }
-    const unitCost = showCostsExVat ? toExVat(rawCost, includesVat) : toIncVat(rawCost, includesVat);
-
-    if (qtyUnit === stockUnit || !qtyUnit) {
-      if (!qtyUnit && PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
-        return (qty / stock.unit_content) * unitCost;
-      }
-      if (!qtyUnit && PACKAGE_UNITS.includes(stockUnit)) return 0;
-      return qty * unitCost;
-    }
-
-    const converted = convertQuantity(qty, qtyUnit, stockUnit);
-    if (converted !== qty) return converted * unitCost;
-
-    if (PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
-      const inContentUnit = convertQuantity(qty, qtyUnit, stock.unit_content_unit);
-      return (inContentUnit / stock.unit_content) * unitCost;
-    }
-    if (PACKAGE_UNITS.includes(stockUnit) && MEASURABLE_UNITS.includes(qtyUnit)) return 0;
-    if (MEASURABLE_UNITS.includes(stockUnit) && PACKAGE_UNITS.includes(qtyUnit)) return 0;
-    return qty * unitCost;
-  };
-
+  // Component-local display helper — not cost math, so stays here. Detects
+  // whether a recipe ingredient's unit can't be reconciled with the stock
+  // item's unit, for the amber inline warning on that row.
   const hasUnitMismatch = (ing: MenuItemIngredient): boolean => {
     const stock = ing.stock_item;
     const stockUnit = stock?.unit ?? '';
@@ -189,54 +100,12 @@ export default function MenuItemCostPanel({
     return false;
   };
 
-  // When a prep's derived cost is 0, identify WHY so the cost tab can surface
-  // an actionable warning instead of silently displaying 0.00 ₪. Mirrors the
-  // guards in PrepItem.CostPerUnit() on the server. Returns null when the prep
-  // is properly configured (yield > 0, ingredients present, at least one
-  // priced ingredient).
-  type PrepConfigIssue = 'missing_yield' | 'no_ingredients' | 'zero_cost_ingredients';
-  const diagnosePrep = (prep: PrepItem): PrepConfigIssue | null => {
-    if ((prep.yield_per_batch ?? 0) <= 0) return 'missing_yield';
-    if (!prep.ingredients || prep.ingredients.length === 0) return 'no_ingredients';
-    const anyPriced = prep.ingredients.some((pi) => (pi.stock_item?.cost_per_unit ?? 0) > 0);
-    if (!anyPriced) return 'zero_cost_ingredients';
-    return null;
-  };
-
-  // Extract the OptionSetOption ID from an `opt:N` variant id (null for `var:N`
-  // or no variant). Used to look up per-ingredient variant overrides.
-  const optionIdFromVariant = (variantId: string): number | null => {
-    if (!variantId.startsWith('opt:')) return null;
-    const n = Number(variantId.slice(4));
-    return Number.isFinite(n) ? n : null;
-  };
-
-  const calcVariantLineCost = (
-    ing: MenuItemIngredient,
-    portion: { qty: number; unit: string } | null,
-    optionId?: number | null,
-  ) => {
-    const raw = calcLineCost(ing, portion, optionId);
-    // Batch items: always prorate by (variant portion / yield), regardless of
-    // any legacy scales_with_variant flag on the ingredient.
-    if (hasYield && portion && yieldBaseUnit > 0) {
-      const portionBase = toBaseUnit(portion.qty, portion.unit);
-      return raw * (portionBase / yieldBaseUnit);
-    }
-    // Per-portion items: override (or scales flag) already baked into calcLineCost.
-    return raw;
-  };
-
-  // Only ingredients that apply to the current variant selection:
-  //   - base (option_id == null) always applies
-  //   - variant-scoped (option_id set) applies only when that variant is selected
-  const scopedFor = (optionId: number | null) =>
-    ingredients.filter((i) => i.option_id == null || (optionId != null && i.option_id === optionId));
+  const scopedFor = (optionId: number | null) => scopedIngredients(ingredients, optionId);
 
   const sumVariantCost = (portion: { qty: number; unit: string } | null, optionId: number | null) =>
     scopedFor(optionId).reduce((sum, ing) => sum + calcVariantLineCost(ing, portion, optionId), 0);
 
-  const currentPortion = resolveIngredientPortion(activeVariantId);
+  const currentPortion = resolvePortion(item, allVariants, activeVariantId);
   const currentOptionId = optionIdFromVariant(activeVariantId);
   const displayCost = currentPortion
     ? sumVariantCost(currentPortion, currentOptionId)

@@ -517,10 +517,18 @@ export interface StockItem {
   unit_type: string;
   price_includes_vat: boolean;
   image_url: string;
+  sku: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   aliases?: StockItemAlias[];
+}
+
+// StockItemAliasInput mirrors the server's write payload: the list replaces
+// the item's alias set when passed to create/update (nil/absent = untouched).
+export interface StockItemAliasInput {
+  alias: string;
+  language: string;
 }
 
 export interface StockCategory {
@@ -558,7 +566,9 @@ export interface StockItemInput {
   unit_type?: string;
   price_includes_vat?: boolean;
   image_url?: string;
+  sku?: string;
   is_active?: boolean;
+  aliases?: StockItemAliasInput[];
 }
 
 export interface StockTransactionInput {
@@ -695,6 +705,7 @@ export interface PrepIngredientInput {
 export interface DeliveryItem {
   original_name: string;
   translated_name: string;
+  sku: string;
   quantity: number;
   unit: string;
   pack_count: number;
@@ -727,6 +738,7 @@ export interface ConfirmDeliveryItemInput {
   stock_item_id?: number;
   name: string;
   original_name: string;
+  sku?: string;
   quantity: number;
   unit: string;
   category: string;

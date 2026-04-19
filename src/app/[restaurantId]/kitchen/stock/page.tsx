@@ -7,7 +7,7 @@ import {
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
-  StockItem, StockCategory, StockItemInput, StockTransactionType, StockTransaction,
+  StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
   Supplier,
 } from '@/lib/api';
 import DeliveryImportModal from './DeliveryImportModal';
@@ -591,6 +591,10 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose,
 
   // Item-level fields (not part of the quantity form)
   const [name, setName] = useState(editing?.name ?? '');
+  const [sku, setSku] = useState(editing?.sku ?? '');
+  const [aliases, setAliases] = useState<StockItemAliasInput[]>(
+    () => (editing?.aliases ?? []).map((a) => ({ alias: a.alias, language: a.language })),
+  );
   const [supplier, setSupplier] = useState(editing?.supplier ?? '');
   const [supplierId, setSupplierId] = useState<number | null>(editing?.supplier_id ?? null);
   const [category, setCategory] = useState(editing?.category ?? '');
@@ -650,6 +654,10 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose,
         supplier,
         supplier_id: supplierId ?? null,
         category, notes,
+        sku: sku.trim(),
+        aliases: aliases
+          .map((a) => ({ alias: a.alias.trim(), language: a.language.trim() }))
+          .filter((a) => a.alias !== ''),
         is_active: isActive,
       };
       if (editing) {
@@ -695,6 +703,64 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose,
           value={category}
           onChange={setCategory}
         />
+      </FormSection>
+
+      <FormSection title={t('sku')}>
+        <input
+          type="text"
+          className="input text-sm w-full"
+          value={sku}
+          onChange={(e) => setSku(e.target.value)}
+          placeholder={t('sku')}
+        />
+        <p className="text-xs text-fg-tertiary mt-1">{t('skuHelp')}</p>
+      </FormSection>
+
+      <FormSection title={t('billNames')}>
+        <p className="text-xs text-fg-tertiary mb-2">{t('billNamesHelp')}</p>
+        <div className="space-y-2">
+          {aliases.map((a, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                dir="auto"
+                className="input text-sm flex-1 min-w-0"
+                value={a.alias}
+                onChange={(e) => setAliases((prev) => prev.map((x, idx) => idx === i ? { ...x, alias: e.target.value } : x))}
+                placeholder={t('originalName')}
+              />
+              <select
+                className="input text-sm w-20 shrink-0"
+                value={a.language}
+                onChange={(e) => setAliases((prev) => prev.map((x, idx) => idx === i ? { ...x, language: e.target.value } : x))}
+                title={t('language')}
+              >
+                <option value="">{t('languageAuto')}</option>
+                <option value="he">he</option>
+                <option value="ar">ar</option>
+                <option value="en">en</option>
+                <option value="fr">fr</option>
+                <option value="es">es</option>
+                <option value="ru">ru</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setAliases((prev) => prev.filter((_, idx) => idx !== i))}
+                className="text-fg-tertiary hover:text-red-500 shrink-0 p-1"
+                aria-label={t('remove')}
+              >
+                <TrashIcon className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setAliases((prev) => [...prev, { alias: '', language: '' }])}
+            className="btn-secondary text-xs w-full"
+          >
+            + {t('addBillName')}
+          </button>
+        </div>
       </FormSection>
 
       <FormSection title={t('supplier')}>

@@ -220,6 +220,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           stock_item_id: i.matched_item_id ?? undefined,
           name: i.translated_name || i.original_name,
           original_name: i.original_name,
+          sku: i.sku || '',
           quantity: i.quantity,
           unit: i.unit,
           category: i.category,
@@ -630,6 +631,19 @@ function ItemsList({
                 <span className="text-fg-tertiary">{t('originalName')}:</span> {item.original_name}
               </p>
             )}
+
+            {/* SKU / supplier code (editable so the user can correct AI mis-reads) */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-fg-tertiary shrink-0">{t('sku')}:</label>
+              <input
+                className="input flex-1 py-1 text-xs"
+                value={item.sku ?? ''}
+                disabled={isSkipped}
+                onChange={(e) => updateItem(idx, { sku: e.target.value })}
+                placeholder={t('skuHelp')}
+                dir="ltr"
+              />
+            </div>
 
             {/* Row 2: Name + Category (new items only) */}
             {!isExisting && (
