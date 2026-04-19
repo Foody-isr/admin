@@ -9,6 +9,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { COST_THRESHOLD, computeItemCostSummary, ItemCostSummary } from '@/lib/cost-utils';
+import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
 import {
   XMarkIcon, ExclamationTriangleIcon, PhotoIcon, ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
@@ -49,6 +50,8 @@ export default function CompareItemsPage() {
   const [overridesByItem, setOverridesByItem] = useState<Record<number, ItemOptionOverride[]>>({});
   const [vatRate, setVatRate] = useState(18);
   const [showCostsExVat, setShowCostsExVat] = useState(true);
+  // Index of the item whose Cost % breakdown is currently open, or null.
+  const [breakdownIdx, setBreakdownIdx] = useState<number | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -249,16 +252,20 @@ export default function CompareItemsPage() {
           <MetricRow label={t('metricCostPct') || 'Cost %'}>
             {summaries.map(({ item, s }, i) => {
               const over = s.costPct > COST_THRESHOLD;
+              const clickable = s.displayPrice > 0 && s.hasIngredients;
               return (
                 <Cell key={item.id} className={cellClass(i, pctRank.bestIdx, pctRank.worstIdx)}>
-                  {s.displayPrice > 0 && s.hasIngredients
-                    ? (
-                      <span className={over ? 'font-semibold text-red-400' : ''}>
-                        {(s.costPct * 100).toFixed(1)}%
-                        {over && ' ⚠'}
-                      </span>
-                    )
-                    : '—'}
+                  {clickable ? (
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownIdx(i)}
+                      className={`hover:underline transition-colors text-left ${over ? 'font-semibold text-red-400 hover:text-red-300' : 'hover:text-brand-500'}`}
+                      title={t('showCostBreakdown') || 'Show cost breakdown'}
+                    >
+                      {(s.costPct * 100).toFixed(1)}%
+                      {over && ' ⚠'}
+                    </button>
+                  ) : '—'}
                 </Cell>
               );
             })}
@@ -285,9 +292,31 @@ export default function CompareItemsPage() {
             ))}
           </MetricRow>
           <MetricRow label={t('metricIngredientCount') || 'Ingredients'}>
-            {summaries.map(({ item, s }) => (
-              <Cell key={item.id}>{s.ingredientCount}</Cell>
-            ))}
+            {summaries.map(({ item, s }) => {
+              const names = (ingredientsByItem[item.id] ?? [])
+                .filter((ing) => ing.option_id == null || (s.activeVariant && s.activeVariant.id === `opt:${ing.option_id}`))
+                .map((ing) => ing.stock_item?.name ?? ing.prep_item?.name ?? '?');
+              return (
+                <Cell key={item.id}>
+                  {s.ingredientCount > 0 ? (
+                    <span className="relative group inline-block cursor-help border-b border-dotted border-fg-tertiary">
+                      {s.ingredientCount}
+                      <span
+                        className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none absolute bottom-full left-0 mb-2 z-50 min-w-[200px] max-w-[320px] rounded-lg border p-3 shadow-xl text-xs"
+                        style={{ background: 'var(--surface)', borderColor: 'var(--divider)' }}
+                      >
+                        <span className="block font-semibold text-fg-primary mb-1.5">
+                          {t('metricIngredientCount') || 'Ingredients'}
+                        </span>
+                        <ul className="space-y-0.5 font-normal text-fg-secondary">
+                          {names.map((n, i) => <li key={i}>&bull; {n}</li>)}
+                        </ul>
+                      </span>
+                    </span>
+                  ) : '—'}
+                </Cell>
+              );
+            })}
           </MetricRow>
           <MetricRow label={t('metricConfigIssues') || 'Config issues'} last>
             {summaries.map(({ item, s }) => (
@@ -323,6 +352,25 @@ export default function CompareItemsPage() {
           </MetricRow>
         </div>
       </div>
+
+      {breakdownIdx != null && summaries[breakdownIdx] && (() => {
+        const { item, s } = summaries[breakdownIdx];
+        // The modal derives VAT-layered display from a raw inc-VAT price, so
+        // hand it the variant price when a variant is active, otherwise the
+        // item base price.
+        const rawPrice = s.activeVariant?.price ?? item.price ?? 0;
+        return (
+          <CostPctBreakdownModal
+            itemName={item.name}
+            displayPrice={rawPrice}
+            displayCost={s.foodCost}
+            costPct={s.costPct}
+            showCostsExVat={showCostsExVat}
+            vatRate={vatRate}
+            onClose={() => setBreakdownIdx(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

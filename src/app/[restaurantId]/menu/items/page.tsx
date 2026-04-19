@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem,
@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
+import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -43,8 +44,27 @@ export default function ItemLibraryPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set(['active']));
+  const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
+    open: false,
+    view: 'index',
+  });
+  const openFiltersDrawer = (view: FilterView) => setFiltersDrawer({ open: true, view });
+  const closeFiltersDrawer = () => setFiltersDrawer((prev) => ({ ...prev, open: false }));
+
+  // Sort
+  type SortKey = 'name' | 'price';
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -75,13 +95,23 @@ export default function ItemLibraryPage() {
   const allItems = flattenItems(categories);
   const filtered = allItems.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (categoryFilter && item.category_name !== categoryFilter) return false;
-    if (statusFilter === 'active' && !item.is_active) return false;
-    if (statusFilter === 'inactive' && item.is_active) return false;
+    if (selectedCategories.size > 0 && !selectedCategories.has(item.category_name)) return false;
+    if (selectedStatuses.size > 0) {
+      const itemStatus = item.is_active ? 'active' : 'inactive';
+      if (!selectedStatuses.has(itemStatus)) return false;
+    }
     return true;
   });
 
-  const categoryNames = Array.from(new Set(categories.map((c) => c.name)));
+  const categoryOptions = Array.from(new Set(categories.map((c) => c.name))).map((name) => ({ name }));
+
+  // Sort items. Variant items (no base price) are treated as 0 for price sorting,
+  // keeping them grouped at one end rather than scattered.
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
+    return ((a.price ?? 0) - (b.price ?? 0)) * dir;
+  });
 
   // ─── Item actions ─────────────────────────────────────────────────
 
@@ -159,25 +189,28 @@ export default function ItemLibraryPage() {
           />
         </div>
 
-        {/* Category filter */}
-        <FilterDropdown
-          label={t('category')}
-          value={categoryFilter}
-          onChange={setCategoryFilter}
-          options={[{ value: '', label: t('all') }, ...categoryNames.map((n) => ({ value: n, label: n }))]}
-        />
+        {/* Category filter (opens multi-select drawer) */}
+        <button
+          type="button"
+          onClick={() => openFiltersDrawer('category')}
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+        >
+          {t('category')}{' '}
+          <span className="font-semibold text-fg-primary">
+            {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
+          </span>
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
 
-        {/* Status filter */}
-        <FilterDropdown
-          label={t('status')}
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { value: '', label: t('all') },
-            { value: 'active', label: t('active') },
-            { value: 'inactive', label: t('inactive') },
-          ]}
-        />
+        {/* All Filters (navigable drawer) */}
+        <button
+          type="button"
+          onClick={() => openFiltersDrawer('index')}
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+        >
+          {t('allFilters')}
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
 
         <div className="flex-1" />
 
@@ -227,10 +260,42 @@ export default function ItemLibraryPage() {
                     className="rounded border-[var(--divider)]"
                   />
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('item')}</th>
+                <th
+                  aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('name')}
+                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors"
+                  >
+                    {t('item')}
+                    {sortKey === 'name' && (
+                      sortDir === 'asc'
+                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                        : <ChevronDownIcon className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
                 <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('availability')}</th>
-                <th className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('price')}</th>
+                <th
+                  aria-sort={sortKey === 'price' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('price')}
+                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
+                  >
+                    {t('price')}
+                    {sortKey === 'price' && (
+                      sortDir === 'asc'
+                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                        : <ChevronDownIcon className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </th>
                 <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
               </tr>
             </thead>
@@ -303,7 +368,7 @@ export default function ItemLibraryPage() {
                   </td>
                 </tr>
               )}
-              {filtered.map((item) => {
+              {sorted.map((item) => {
                 const variantOpts = (item.variant_groups ?? []).flatMap((g) => (g.variants ?? []).map((v) => ({ id: v.id, name: v.name, price: v.price, is_active: v.is_active })));
                 const optionSetOpts = (item.option_sets ?? []).flatMap((os) => (os.options ?? []).map((o) => ({ id: o.id, name: o.name, price: o.price, is_active: o.is_active })));
                 const variants = [...variantOpts, ...optionSetOpts].filter((v) => v.is_active);
@@ -409,6 +474,22 @@ export default function ItemLibraryPage() {
         </div>
       )}
 
+      {/* Filters Drawer (nested: index → category / status) */}
+      <StockFiltersDrawer
+        open={filtersDrawer.open}
+        initialView={filtersDrawer.view}
+        onClose={closeFiltersDrawer}
+        categories={categoryOptions}
+        selectedCategories={selectedCategories}
+        onCategoryChange={setSelectedCategories}
+        statuses={[
+          { value: 'active', label: t('active') },
+          { value: 'inactive', label: t('inactive') },
+        ]}
+        selectedStatuses={selectedStatuses}
+        onStatusChange={setSelectedStatuses}
+      />
+
       {selected.size >= 1 && (() => {
         const count = selected.size;
         const MIN = 2;
@@ -453,47 +534,6 @@ export default function ItemLibraryPage() {
           </div>
         );
       })()}
-    </div>
-  );
-}
-
-// ─── Filter Dropdown ─────────────────────────────────────────────────────────
-
-function FilterDropdown({ label, value, onChange, options }: {
-  label: string; value: string; onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const display = options.find((o) => o.value === value)?.label ?? 'All';
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
-      >
-        {label} <span className="font-semibold text-fg-primary">{display}</span>
-        <ChevronDownIcon className="w-3.5 h-3.5" />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 w-44 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden z-30">
-          {options.map((opt) => (
-            <button key={opt.value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-              className={`block w-full text-left px-4 py-2.5 text-sm transition-colors ${value === opt.value ? 'text-brand-500 font-medium bg-[var(--surface-subtle)]' : 'text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)]'}`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
