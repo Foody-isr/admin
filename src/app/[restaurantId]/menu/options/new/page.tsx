@@ -9,6 +9,7 @@ import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 interface LocalOption {
   key: string;
   name: string;
+  price: string;
 }
 
 export default function NewOptionSetPage() {
@@ -19,7 +20,7 @@ export default function NewOptionSetPage() {
 
   const [name, setName] = useState('');
   const [options, setOptions] = useState<LocalOption[]>([
-    { key: crypto.randomUUID(), name: '' },
+    { key: crypto.randomUUID(), name: '', price: '' },
   ]);
   const [saving, setSaving] = useState(false);
 
@@ -33,7 +34,7 @@ export default function NewOptionSetPage() {
         name: name.trim(),
         options: validOptions.map((o, i) => ({
           name: o.name.trim(),
-          price: 0,
+          price: parseFloat(o.price) || 0,
           is_active: true,
           sort_order: i,
         })),
@@ -75,28 +76,40 @@ export default function NewOptionSetPage() {
         <div>
           <h2 className="text-xl font-bold text-fg-primary mb-5">{t('options')}</h2>
           <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
+            <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
+              style={{ gridTemplateColumns: '1fr 100px 36px' }}>
+              <span>{t('variantName')}</span>
+              <span>{t('price')}</span>
+              <span />
+            </div>
             {options.map((opt, i) => (
               <div key={opt.key}
-                className="flex items-center gap-2 px-4 py-3 border-b border-[var(--divider)] last:border-b-0">
+                className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0"
+                style={{ gridTemplateColumns: '1fr 100px 36px' }}>
                 <input value={opt.name}
                   onChange={(e) => setOptions((prev) => prev.map((o, j) => j === i ? { ...o, name: e.target.value } : o))}
                   placeholder={t('addVariant') || 'Option name'}
-                  className="flex-1 text-sm bg-transparent border-0 outline-none text-fg-primary"
+                  className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      setOptions((prev) => [...prev, { key: crypto.randomUUID(), name: '' }]);
+                      setOptions((prev) => [...prev, { key: crypto.randomUUID(), name: '', price: '' }]);
                     }
                   }} />
-                {options.length > 1 && (
+                <input type="number" min="0" step="0.01"
+                  value={opt.price}
+                  onChange={(e) => setOptions((prev) => prev.map((o, j) => j === i ? { ...o, price: e.target.value } : o))}
+                  placeholder="0.00"
+                  className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
+                {options.length > 1 ? (
                   <button onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
-                    className="p-1 rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
                     <TrashIcon className="w-4 h-4" />
                   </button>
-                )}
+                ) : <span />}
               </div>
             ))}
 
-            <button onClick={() => setOptions((prev) => [...prev, { key: crypto.randomUUID(), name: '' }])}
+            <button onClick={() => setOptions((prev) => [...prev, { key: crypto.randomUUID(), name: '', price: '' }])}
               className="w-full flex items-center gap-2 px-4 py-3 text-sm text-brand-500 hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]">
               <PlusIcon className="w-4 h-4" />
               {t('addVariant') || 'Add option'}

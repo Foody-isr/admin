@@ -182,26 +182,48 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
   onUpdated: () => void;
   t: (key: string) => string;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(option.name);
+  const [name, setName] = useState(option.name);
+  const [price, setPrice] = useState(String(option.price));
+  const [isActive, setIsActive] = useState(option.is_active);
 
-  const handleSave = async () => {
-    if (!editName.trim() || editName.trim() === option.name) {
-      setEditing(false);
-      return;
-    }
+  const persist = async (patch: Partial<OptionInSetInput>) => {
+    const payload: OptionInSetInput = {
+      name: (patch.name ?? name).trim() || option.name,
+      price: patch.price ?? (parseFloat(price) || 0),
+      is_active: patch.is_active ?? isActive,
+      sort_order: option.sort_order,
+    };
     try {
-      await updateOptionInSet(rid, setId, option.id, {
-        name: editName.trim(),
-        price: option.price,
-        is_active: option.is_active,
-        sort_order: option.sort_order,
-      });
+      await updateOptionInSet(rid, setId, option.id, payload);
       onUpdated();
-      setEditing(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update');
     }
+  };
+
+  const handleNameBlur = () => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === option.name) {
+      setName(option.name);
+      return;
+    }
+    persist({ name: trimmed });
+  };
+
+  const handlePriceBlur = () => {
+    const parsed = parseFloat(price);
+    const next = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    if (next === option.price) {
+      setPrice(String(option.price));
+      return;
+    }
+    setPrice(String(next));
+    persist({ price: next });
+  };
+
+  const handleActiveChange = (next: boolean) => {
+    setIsActive(next);
+    persist({ is_active: next });
   };
 
   const handleDelete = async () => {
@@ -215,18 +237,28 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
   };
 
   return (
-    <div className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-      {editing ? (
-        <input value={editName} onChange={(e) => setEditName(e.target.value)}
-          onBlur={handleSave} onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
-          autoFocus className="text-base font-medium text-fg-primary bg-transparent border-0 outline-none flex-1" />
-      ) : (
-        <button onClick={() => setEditing(true)}
-          className="text-base font-medium text-fg-primary hover:text-brand-500 text-left flex-1 cursor-text">
-          {option.name}
-        </button>
-      )}
-      <button onClick={handleDelete} className="p-1.5 rounded hover:bg-red-500/10 text-fg-tertiary hover:text-red-500 transition-colors ml-2">
+    <div className="grid items-center px-4 py-2.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors"
+      style={{ gridTemplateColumns: '1fr 100px 100px 36px' }}>
+      <input value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={handleNameBlur}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
+      <input type="number" min="0" step="0.01"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        onBlur={handlePriceBlur}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        placeholder="0.00"
+        className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
+      <select value={isActive ? 'active' : 'inactive'}
+        onChange={(e) => handleActiveChange(e.target.value === 'active')}
+        className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
+        <option value="active">{t('available')}</option>
+        <option value="inactive">{t('unavailable')}</option>
+      </select>
+      <button onClick={handleDelete}
+        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
         <TrashIcon className="w-4 h-4" />
       </button>
     </div>
