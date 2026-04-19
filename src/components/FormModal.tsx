@@ -13,6 +13,9 @@ export type FormModalProps = {
   saving?: boolean;
   showCancelButton?: boolean;
   sidebar?: React.ReactNode;
+  sidebarPosition?: 'left' | 'right';
+  stickySidebar?: boolean;
+  maxWidthClass?: string;
   children: React.ReactNode;
 };
 
@@ -26,9 +29,21 @@ export default function FormModal({
   saving = false,
   showCancelButton = true,
   sidebar,
+  sidebarPosition = 'right',
+  stickySidebar = false,
+  maxWidthClass = 'max-w-4xl',
   children,
 }: FormModalProps) {
   const { t } = useI18n();
+  const sidebarNode = sidebar && (
+    <div
+      className={`hidden lg:block w-72 shrink-0 space-y-4 ${
+        stickySidebar ? 'sticky top-0 self-start max-h-[calc(100vh-6rem)] overflow-y-auto' : ''
+      }`}
+    >
+      {sidebar}
+    </div>
+  );
   return (
     <div className="fixed inset-0 z-50 bg-[var(--surface)] flex flex-col">
       <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-6 py-3 flex items-center justify-between">
@@ -58,11 +73,10 @@ export default function FormModal({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-6 py-8 flex gap-8">
+        <div className={`${maxWidthClass} mx-auto px-6 py-8 flex gap-8`}>
+          {sidebarPosition === 'left' && sidebarNode}
           <div className="flex-1 min-w-0 space-y-5">{children}</div>
-          {sidebar && (
-            <div className="hidden lg:block w-72 shrink-0 space-y-4">{sidebar}</div>
-          )}
+          {sidebarPosition === 'right' && sidebarNode}
         </div>
       </div>
     </div>

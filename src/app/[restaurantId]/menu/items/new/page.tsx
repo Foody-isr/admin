@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
@@ -8,10 +8,12 @@ import {
   listModifierSets, attachModifierSetToItems,
   listOptionSets, attachOptionSetToItems,
   createVariantGroup,
-  MenuCategory, Menu, ModifierSet, OptionSet, VariantGroupInput, VariantInput,
-  MenuItem, ItemType, ComboStepInput,
+  MenuCategory, Menu, ModifierSet, OptionSet, VariantInput,
+  ItemType, ComboStepInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { useMenuItemSections, sectionAnchorId, MenuItemSection } from '@/components/menu-item/TabBar';
+import MenuItemSummaryRail, { RailSection } from '@/components/menu-item/MenuItemSummaryRail';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
 import StatusPill from '@/components/StatusPill';
@@ -361,7 +363,35 @@ export default function NewItemPage() {
     );
   }
 
-  const sidebar = (
+  const { scrollToSection } = useMenuItemSections();
+  const goToSection = (id: MenuItemSection) => scrollToSection(id);
+
+  // Create mode: only two sections exist (Recipe/Cost need a saved itemId).
+  const railSections: RailSection[] = [
+    { id: 'details', label: t('tabDetails') },
+    { id: 'modifiers', label: t('tabModifiers') },
+  ];
+
+  const activeCategoryName = useMemo(
+    () => categories.find((c) => c.id === categoryId)?.name,
+    [categories, categoryId],
+  );
+
+  const rail = (
+    <MenuItemSummaryRail
+      imageUrl={imagePreview || undefined}
+      name={name}
+      price={parseFloat(price) || 0}
+      activeStatus={isActive}
+      categoryName={activeCategoryName}
+      sections={railSections}
+      onSectionClick={goToSection}
+      placeholderLabel={t('createItem')}
+    />
+  );
+
+  // Previously-sidebar fields inlined into the Details section.
+  const detailsCategorization = (
     <>
       <FormSection>
         <div className="flex items-center justify-between">
@@ -407,58 +437,82 @@ export default function NewItemPage() {
         onSave={handleSave}
         saving={saving}
         saveDisabled={!name.trim() || !price}
-        sidebar={sidebar}
+        sidebar={rail}
+        sidebarPosition="left"
+        stickySidebar
+        maxWidthClass="max-w-6xl"
       >
-            {/* Item Type Selector */}
-            <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
-              <select
-                value={itemType}
-                onChange={(e) => setItemType(e.target.value as ItemType)}
-                className="input flex-1 text-base border-0 py-0 bg-transparent"
-              >
-                <option value="food_and_beverage">{t('foodAndBeverage')}</option>
-                <option value="combo">{t('combo')}</option>
-              </select>
-            </div>
+        {/* ── Section: Détails ─────────────────────────────────── */}
+        <section
+          id={sectionAnchorId('details')}
+          className="scroll-mt-24 space-y-5"
+        >
+          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
+            {t('tabDetails')}
+          </h2>
 
-            <input autoFocus placeholder={t('nameRequired')} value={name}
-              onChange={(e) => setName(e.target.value)} className="input w-full text-base" />
+          {/* Item Type Selector */}
+          <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
+            <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
+            <select
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value as ItemType)}
+              className="input flex-1 text-base border-0 py-0 bg-transparent"
+            >
+              <option value="food_and_beverage">{t('foodAndBeverage')}</option>
+              <option value="combo">{t('combo')}</option>
+            </select>
+          </div>
 
-            <div className="relative">
-              <input type="number" min="0" step="0.01" placeholder={t('price')} value={price}
-                onChange={(e) => setPrice(e.target.value)} className="input w-full text-base pr-16" />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
-            </div>
+          <input autoFocus placeholder={t('nameRequired')} value={name}
+            onChange={(e) => setName(e.target.value)} className="input w-full text-base" />
 
-            <textarea placeholder={t('customerDescription')} value={description}
-              onChange={(e) => setDescription(e.target.value)} rows={4} className="input w-full text-sm resize-y" />
+          <div className="relative">
+            <input type="number" min="0" step="0.01" placeholder={t('price')} value={price}
+              onChange={(e) => setPrice(e.target.value)} className="input w-full text-base pr-16" />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
+          </div>
 
-            {/* Image upload */}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
-            {imagePreview ? (
-              <div className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)]"
-                onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
-                <img src={imagePreview} alt="Preview" className="w-full h-52 object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                  <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">{t('dropImagesHere')}</span>
-                </div>
+          <textarea placeholder={t('customerDescription')} value={description}
+            onChange={(e) => setDescription(e.target.value)} rows={4} className="input w-full text-sm resize-y" />
+
+          {/* Image upload */}
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
+          {imagePreview ? (
+            <div className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)]"
+              onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+              <img src={imagePreview} alt="Preview" className="w-full h-52 object-cover" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">{t('dropImagesHere')}</span>
               </div>
-            ) : (
-              <div className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
-                onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
-                <ArrowUpTrayIcon className="w-10 h-10" />
-                <p className="text-base text-center">
-                  {t('dropImagesHere')}, <span className="text-brand-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
-                </p>
-              </div>
-            )}
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
+              onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+              <ArrowUpTrayIcon className="w-10 h-10" />
+              <p className="text-base text-center">
+                {t('dropImagesHere')}, <span className="text-brand-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
+              </p>
+            </div>
+          )}
 
-            <div className="h-1 bg-[var(--divider)] rounded-full" />
+          {/* Categorization (status / category / menus) — previously in the
+              right sidebar; inlined here so the rail can host identity. */}
+          {detailsCategorization}
+        </section>
 
-            {/* ── Combo Builder (only for combo items) ──────────── */}
-            {itemType === 'combo' && (
+        {/* ── Section: Modificateurs & Variantes ───────────────── */}
+        <section
+          id={sectionAnchorId('modifiers')}
+          className="scroll-mt-24 space-y-5"
+        >
+          <h2 className="text-xl font-bold text-fg-primary pb-2 border-b border-[var(--divider)]">
+            {t('tabModifiers')}
+          </h2>
+
+          {/* ── Combo Builder (only for combo items) ──────────── */}
+          {itemType === 'combo' && (
               <div className="space-y-3">
                 <div>
                   <h3 className="text-base font-bold text-fg-primary">{t('buildThisCombo')}</h3>
@@ -866,11 +920,15 @@ export default function NewItemPage() {
               )}
             </div>
 
-            {/* Food Cost / Ingredients — editable only after the item is created */}
-            <div className="space-y-2 pt-6 border-t border-[var(--divider)]">
-              <h3 className="font-semibold text-fg-primary">{t('foodCostIngredients')}</h3>
-              <p className="text-sm text-fg-secondary">{t('saveItemFirst')}</p>
-            </div>
+        </section>
+
+        {/* Recipe & cost live on the edit page — they need a persisted itemId. */}
+        <div className="rounded-xl border border-dashed border-[var(--divider)] p-4 text-sm text-fg-tertiary">
+          <p className="font-medium text-fg-secondary mb-1">
+            {t('tabRecipe')} &middot; {t('tabCost')}
+          </p>
+          <p>{t('saveItemFirst')}</p>
+        </div>
       </FormModal>
 
       {/* ── Variant Editor Modal (Square-style full-screen) ──────────── */}
