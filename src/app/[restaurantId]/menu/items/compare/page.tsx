@@ -10,6 +10,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { COST_THRESHOLD, computeItemCostSummary, ItemCostSummary } from '@/lib/cost-utils';
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
+import FoodCostBreakdownModal from '@/components/food-cost/FoodCostBreakdownModal';
 import {
   XMarkIcon, ExclamationTriangleIcon, PhotoIcon, ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
@@ -52,6 +53,8 @@ export default function CompareItemsPage() {
   const [showCostsExVat, setShowCostsExVat] = useState(true);
   // Index of the item whose Cost % breakdown is currently open, or null.
   const [breakdownIdx, setBreakdownIdx] = useState<number | null>(null);
+  // Index of the item whose Food cost breakdown is currently open, or null.
+  const [foodCostIdx, setFoodCostIdx] = useState<number | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -245,7 +248,16 @@ export default function CompareItemsPage() {
           <MetricRow label={t('metricFoodCost') || 'Food cost'}>
             {summaries.map(({ item, s }, i) => (
               <Cell key={item.id} className={cellClass(i, costRank.bestIdx, costRank.worstIdx)}>
-                {s.hasIngredients ? `${s.foodCost.toFixed(2)} ₪` : '—'}
+                {s.hasIngredients ? (
+                  <button
+                    type="button"
+                    onClick={() => setFoodCostIdx(i)}
+                    className="hover:underline hover:text-brand-500 transition-colors text-left"
+                    title={t('showFoodCostBreakdown') || 'Show food cost breakdown'}
+                  >
+                    {s.foodCost.toFixed(2)} ₪
+                  </button>
+                ) : '—'}
               </Cell>
             ))}
           </MetricRow>
@@ -371,6 +383,16 @@ export default function CompareItemsPage() {
           />
         );
       })()}
+
+      {foodCostIdx != null && summaries[foodCostIdx] && (
+        <FoodCostBreakdownModal
+          itemName={summaries[foodCostIdx].item.name}
+          foodCost={summaries[foodCostIdx].s.foodCost}
+          lines={summaries[foodCostIdx].s.lines}
+          showCostsExVat={showCostsExVat}
+          onClose={() => setFoodCostIdx(null)}
+        />
+      )}
     </div>
   );
 }

@@ -219,6 +219,17 @@ export function diagnosePrep(prep: PrepItem): PrepConfigIssue | null {
 
 // ── One-shot summary for the compare view ───────────────────────────────────
 
+export interface CostLineDetail {
+  ingredient: MenuItemIngredient;
+  name: string;
+  qty: number;
+  qtyUnit: string;               // unit the qty is denominated in on the cost tab
+  unitCost: number;              // ₪ per sourceUnit, VAT-normalized
+  sourceUnit: string;            // stock.unit or prep.unit
+  lineCost: number;              // contribution to foodCost (VAT-normalized)
+  isPrep: boolean;
+}
+
 export interface ItemCostSummary {
   foodCost: number;              // on the VAT basis selected via showCostsExVat
   displayPrice: number;          // same VAT basis as foodCost
@@ -234,6 +245,58 @@ export interface ItemCostSummary {
   activeVariant: VariantOption | null;
   hasIngredients: boolean;
   isOverThreshold: boolean;      // costPct > COST_THRESHOLD
+  lines: CostLineDetail[];       // per-ingredient breakdown for the modal
+}
+
+// Effective display qty + unit for an ingredient given the current context.
+// Mirrors the precedence used by the Cost tab render:
+//   1) per-variant quantity override (legacy matrix data)
+//   2) scales_with_variant → current variant's portion
+//   3) base qty
+// Batch items always display the base qty (proration happens separately on
+// the line cost, not on the displayed qty).
+function effectiveQty(
+  ing: MenuItemIngredient,
+  item: MenuItem,
+  portion: { qty: number; unit: string } | null,
+  optionId: number | null,
+): { qty: number; unit: string } {
+  const fallbackUnit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
+  const batchMode = (item.recipe_yield ?? 0) > 0;
+  const override = !batchMode && optionId != null
+    ? (ing.variant_overrides ?? []).find((o) => o.option_id === optionId)
+    : undefined;
+  if (override && override.quantity > 0) {
+    return { qty: override.quantity, unit: override.unit || fallbackUnit };
+  }
+  if (!batchMode && ing.scales_with_variant && portion) {
+    return { qty: portion.qty, unit: portion.unit || fallbackUnit };
+  }
+  return { qty: ing.quantity_needed, unit: fallbackUnit };
+}
+
+// VAT-normalized unit cost for one ingredient, using the same precedence as
+// calcLineCost (prep derived cost falls back to prep.cost_per_unit).
+function unitCostFor(
+  ing: MenuItemIngredient,
+  showCostsExVat: boolean,
+  vatMultiplier: number,
+): number {
+  const prep = ing.prep_item;
+  const stock = ing.stock_item;
+  let rawCost: number;
+  let includesVat: boolean;
+  if (prep && !stock) {
+    const prepExVat = computePrepUnitCostExVat(prep, vatMultiplier);
+    if (prepExVat != null) { rawCost = prepExVat; includesVat = false; }
+    else { rawCost = prep.cost_per_unit ?? 0; includesVat = false; }
+  } else {
+    rawCost = stock?.cost_per_unit ?? 0;
+    includesVat = stock?.price_includes_vat ?? false;
+  }
+  return showCostsExVat
+    ? toExVat(rawCost, includesVat, vatMultiplier)
+    : toIncVat(rawCost, includesVat, vatMultiplier);
 }
 
 // Computes the full KPI summary for one item. Used by the compare view to
@@ -257,14 +320,25 @@ export function computeItemCostSummary(input: {
   const optionId = optionIdFromVariant(activeVariantId);
 
   const scoped = scopedIngredients(input.ingredients, optionId);
-  const lines = scoped.map((ing) => ({
-    ing,
-    lineCost: portion
+  const lineDetails: CostLineDetail[] = scoped.map((ing) => {
+    const lineCost = portion
       ? calcVariantLineCost(ing, input.item, portion, optionId, input.showCostsExVat, vatMultiplier)
-      : calcLineCost(ing, input.item, null, optionId, input.showCostsExVat, vatMultiplier),
-  }));
+      : calcLineCost(ing, input.item, null, optionId, input.showCostsExVat, vatMultiplier);
+    const eff = effectiveQty(ing, input.item, portion, optionId);
+    const sourceUnit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
+    return {
+      ingredient: ing,
+      name: ing.stock_item?.name ?? ing.prep_item?.name ?? '?',
+      qty: eff.qty,
+      qtyUnit: eff.unit,
+      unitCost: unitCostFor(ing, input.showCostsExVat, vatMultiplier),
+      sourceUnit,
+      lineCost,
+      isPrep: !!ing.prep_item && !ing.stock_item,
+    };
+  });
 
-  const foodCost = lines.reduce((s, l) => s + l.lineCost, 0);
+  const foodCost = lineDetails.reduce((s, l) => s + l.lineCost, 0);
 
   const rawPrice = activeVariant ? activeVariant.price : (input.item.price ?? 0);
   const displayPrice = input.showCostsExVat ? rawPrice / vatMultiplier : rawPrice;
@@ -272,13 +346,13 @@ export function computeItemCostSummary(input: {
   const costPct = displayPrice > 0 ? foodCost / displayPrice : 0;
   const margin = displayPrice - foodCost;
 
-  const top = lines.reduce<{ ing: MenuItemIngredient; lineCost: number } | null>(
+  const top = lineDetails.reduce<CostLineDetail | null>(
     (best, l) => (best == null || l.lineCost > best.lineCost ? l : best),
     null,
   );
   const topIngredient = top && top.lineCost > 0 && foodCost > 0
     ? {
-        name: top.ing.stock_item?.name ?? top.ing.prep_item?.name ?? '',
+        name: top.name,
         lineCost: top.lineCost,
         contributionPct: top.lineCost / foodCost,
       }
@@ -308,5 +382,6 @@ export function computeItemCostSummary(input: {
     activeVariant,
     hasIngredients: input.ingredients.length > 0,
     isOverThreshold: costPct > COST_THRESHOLD,
+    lines: lineDetails,
   };
 }

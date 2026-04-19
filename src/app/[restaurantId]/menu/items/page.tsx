@@ -185,7 +185,7 @@ export default function ItemLibraryPage() {
             placeholder={t('search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input pl-10 text-sm h-11 w-full rounded-full"
+            className="input !pl-10 text-sm h-11 w-full rounded-full"
           />
         </div>
 
