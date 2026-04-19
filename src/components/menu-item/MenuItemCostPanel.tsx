@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MenuItem, MenuItemIngredient, PrepItem, StockItem, ItemOptionOverride } from '@/lib/api';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
@@ -59,6 +59,35 @@ export default function MenuItemCostPanel({
   const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
   const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
+  // Simulate mode — a local what-if calculator. When on, selling price and
+  // ingredient unit costs become editable inputs whose changes feed the same
+  // cost math but are never persisted. Sim values are stored on the CURRENT
+  // display basis (whatever the showCostsExVat toggle is set to); the
+  // effectiveIngredients memo wraps stock/prep so calcLineCost yields the
+  // simulated number unchanged.
+  const [simMode, setSimMode] = useState(false);
+  const [simPrice, setSimPrice] = useState<number | null>(null);               // display basis
+  const [simStockCosts, setSimStockCosts] = useState<Record<number, number>>({}); // display basis, keyed by stock id
+  const [simPrepCosts, setSimPrepCosts] = useState<Record<number, number>>({});   // display basis, keyed by prep id
+
+  const resetSim = () => {
+    setSimPrice(null);
+    setSimStockCosts({});
+    setSimPrepCosts({});
+  };
+  const exitSim = () => {
+    setSimMode(false);
+    resetSim();
+  };
+
+  // Clear sim edits when the user switches variant. Per the UX decision,
+  // switching variant loses edits — keeps the simulator tied to a single
+  // portion/price pair and avoids stale numbers across variants.
+  useEffect(() => {
+    if (simMode) resetSim();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVariantId]);
+
   const vatMultiplier = vatMultiplierFor(vatRate);
   // Component-local VAT helpers that bind the current multiplier — makes the
   // JSX below (which calls these in many places) less noisy than passing
@@ -101,7 +130,42 @@ export default function MenuItemCostPanel({
     return false;
   };
 
-  const scopedFor = (optionId: number | null) => scopedIngredients(ingredients, optionId);
+  // Sim-aware ingredient list. When simMode is off, returns the prop
+  // unchanged. When on, wraps stock/prep on affected rows so calcLineCost
+  // emits the simulated display-basis value as the unit cost — everything
+  // downstream (line cost, food cost, cost %) recomputes naturally.
+  const effectiveIngredients = useMemo<MenuItemIngredient[]>(() => {
+    if (!simMode) return ingredients;
+    return ingredients.map((ing) => {
+      let stock = ing.stock_item;
+      let prep = ing.prep_item;
+      if (stock && simStockCosts[stock.id] != null) {
+        stock = {
+          ...stock,
+          cost_per_unit: simStockCosts[stock.id],
+          // Setting price_includes_vat to match the toggle makes toExVat /
+          // toIncVat a no-op — the typed display-basis value flows through
+          // calcLineCost as the unit cost verbatim.
+          price_includes_vat: !showCostsExVat,
+        };
+      }
+      if (prep && !ing.stock_item && simPrepCosts[prep.id] != null) {
+        const typed = simPrepCosts[prep.id];
+        // Prep's calcLineCost path forces includesVat=false, so the typed
+        // value needs inverse conversion when showing inc-VAT so that the
+        // emitted unitCost equals the typed number.
+        const baseCost = showCostsExVat ? typed : typed / vatMultiplier;
+        prep = {
+          ...prep,
+          cost_per_unit: baseCost,
+          ingredients: [], // force fallback to cost_per_unit, bypassing sub-recipe
+        };
+      }
+      return { ...ing, stock_item: stock, prep_item: prep };
+    });
+  }, [simMode, ingredients, simStockCosts, simPrepCosts, showCostsExVat, vatMultiplier]);
+
+  const scopedFor = (optionId: number | null) => scopedIngredients(effectiveIngredients, optionId);
 
   const sumVariantCost = (portion: { qty: number; unit: string } | null, optionId: number | null) =>
     scopedFor(optionId).reduce((sum, ing) => sum + calcVariantLineCost(ing, portion, optionId), 0);
@@ -116,7 +180,8 @@ export default function MenuItemCostPanel({
     const v = allVariants.find((vv) => String(vv.id) === activeVariantId);
     if (v) displayPrice = v.price;
   }
-  const normalizedPrice = showCostsExVat ? displayPrice / vatMultiplier : displayPrice;
+  const basePriceOnDisplayBasis = showCostsExVat ? displayPrice / vatMultiplier : displayPrice;
+  const normalizedPrice = simMode && simPrice != null ? simPrice : basePriceOnDisplayBasis;
   const costPct = normalizedPrice > 0 ? displayCost / normalizedPrice : 0;
   const totalCost = displayCost;
 
@@ -213,6 +278,57 @@ export default function MenuItemCostPanel({
 
   return (
     <div className="space-y-4">
+      {simMode && (
+        <div className="rounded-xl border border-brand-500/40 bg-brand-500/10 px-4 py-3 flex items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-0 flex items-center gap-2 text-sm">
+            <span className="text-xl leading-none shrink-0">🧪</span>
+            <div>
+              <p className="font-semibold text-fg-primary">
+                {t('simulateModeActive') || 'Simulation mode'}
+              </p>
+              <p className="text-xs text-fg-tertiary">
+                {t('simulateModeHint') || 'Edit the selling price and ingredient costs to see live impact. Changes are not saved.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-fg-secondary">
+              {showCostsExVat
+                ? (t('simulatedPriceEx') || 'Simulated price (ex VAT)')
+                : (t('simulatedPriceInc') || 'Simulated price (inc VAT)')}
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={simPrice ?? basePriceOnDisplayBasis}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setSimPrice(Number.isFinite(v) && v >= 0 ? v : 0);
+              }}
+              className="input w-28 text-sm py-1.5 text-right rounded-lg"
+            />
+            <span className="text-xs text-fg-tertiary">&#8362;</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetSim}
+              className="text-xs text-fg-secondary hover:text-fg-primary underline"
+            >
+              {t('reset') || 'Reset'}
+            </button>
+            <button
+              onClick={exitSim}
+              className="btn-secondary text-xs py-1.5 px-3 rounded-full"
+            >
+              {t('exitSimulate') || 'Exit simulation'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Item header: variant pills OR mini P&L */}
       <div className="card p-5">
         {allVariants.filter((v) => (v.portion_size ?? 0) > 0).length > 0 ? (
@@ -249,7 +365,13 @@ export default function MenuItemCostPanel({
           </div>
         )}
 
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-end items-center gap-3 mb-2">
+          <button
+            onClick={() => simMode ? exitSim() : setSimMode(true)}
+            className={`text-xs transition-colors ${simMode ? 'text-brand-500 font-semibold' : 'text-fg-secondary hover:text-fg-primary'}`}
+          >
+            {simMode ? (t('exitSimulate') || 'Exit simulation') : (t('simulateCost') || 'Simulate cost')}
+          </button>
           <button onClick={() => setShowCostsExVat((v) => !v)} className="text-xs text-brand-500 hover:text-brand-400 transition-colors">
             {showCostsExVat ? t('showIncVat') : t('showExVat')}
           </button>
@@ -508,7 +630,33 @@ export default function MenuItemCostPanel({
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {ing.prep_item ? (
+                        {simMode && (ing.stock_item || (ing.prep_item && !ing.stock_item)) ? (
+                          <div className="inline-flex items-center gap-1 font-mono">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={
+                                ing.prep_item && !ing.stock_item
+                                  ? (simPrepCosts[ing.prep_item.id] ?? Number(unitCost.toFixed(2)))
+                                  : (simStockCosts[ing.stock_item!.id] ?? Number(unitCost.toFixed(2)))
+                              }
+                              onChange={(e) => {
+                                const raw = parseFloat(e.target.value);
+                                const v = Number.isFinite(raw) && raw >= 0 ? raw : 0;
+                                if (ing.prep_item && !ing.stock_item) {
+                                  const pid = ing.prep_item.id;
+                                  setSimPrepCosts((prev) => ({ ...prev, [pid]: v }));
+                                } else if (ing.stock_item) {
+                                  const sid = ing.stock_item.id;
+                                  setSimStockCosts((prev) => ({ ...prev, [sid]: v }));
+                                }
+                              }}
+                              className="input w-24 text-sm py-1 text-right rounded"
+                            />
+                            <span className="text-fg-secondary text-xs">&#8362;/{sourceUnit}</span>
+                          </div>
+                        ) : ing.prep_item ? (
                           <button
                             onClick={() => setBreakdownIng(ing)}
                             className="font-mono text-fg-secondary hover:text-brand-500 hover:underline transition-colors cursor-pointer"
