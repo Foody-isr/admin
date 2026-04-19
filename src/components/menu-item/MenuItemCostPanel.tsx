@@ -68,12 +68,14 @@ export default function MenuItemCostPanel({
   const [simMode, setSimMode] = useState(false);
   const [simPrice, setSimPrice] = useState<number | null>(null);               // display basis
   const [simStockCosts, setSimStockCosts] = useState<Record<number, number>>({}); // display basis, keyed by stock id
-  const [simPrepCosts, setSimPrepCosts] = useState<Record<number, number>>({});   // display basis, keyed by prep id
+  // No sim state for preps: a prep's cost is derived from its stock
+  // sub-ingredients, so editing the prep total directly would be a fake
+  // override. Instead, edits flow through simStockCosts for the underlying
+  // stock items (via the prep breakdown modal in sim mode).
 
   const resetSim = () => {
     setSimPrice(null);
     setSimStockCosts({});
-    setSimPrepCosts({});
   };
   const exitSim = () => {
     setSimMode(false);
@@ -136,34 +138,41 @@ export default function MenuItemCostPanel({
   // downstream (line cost, food cost, cost %) recomputes naturally.
   const effectiveIngredients = useMemo<MenuItemIngredient[]>(() => {
     if (!simMode) return ingredients;
+    // Shared trick: setting price_includes_vat = !showCostsExVat makes
+    // calcLineCost's VAT conversion a no-op, so the typed display-basis value
+    // flows through as the displayed unit cost unchanged.
+    const wrapStock = (s: StockItem): StockItem => ({
+      ...s,
+      cost_per_unit: simStockCosts[s.id],
+      price_includes_vat: !showCostsExVat,
+    });
     return ingredients.map((ing) => {
       let stock = ing.stock_item;
       let prep = ing.prep_item;
       if (stock && simStockCosts[stock.id] != null) {
-        stock = {
-          ...stock,
-          cost_per_unit: simStockCosts[stock.id],
-          // Setting price_includes_vat to match the toggle makes toExVat /
-          // toIncVat a no-op — the typed display-basis value flows through
-          // calcLineCost as the unit cost verbatim.
-          price_includes_vat: !showCostsExVat,
-        };
+        stock = wrapStock(stock);
       }
-      if (prep && !ing.stock_item && simPrepCosts[prep.id] != null) {
-        const typed = simPrepCosts[prep.id];
-        // Prep's calcLineCost path forces includesVat=false, so the typed
-        // value needs inverse conversion when showing inc-VAT so that the
-        // emitted unitCost equals the typed number.
-        const baseCost = showCostsExVat ? typed : typed / vatMultiplier;
-        prep = {
-          ...prep,
-          cost_per_unit: baseCost,
-          ingredients: [], // force fallback to cost_per_unit, bypassing sub-recipe
-        };
+      // For preps: don't override the prep's own cost — it's derived. Wrap
+      // each sub-ingredient's stock with the user's sim value; the prep cost
+      // is then recomputed from those sim'd stocks via computePrepUnitCostExVat.
+      if (prep && !ing.stock_item) {
+        const subHasOverride = (prep.ingredients ?? []).some(
+          (pi) => pi.stock_item && simStockCosts[pi.stock_item.id] != null,
+        );
+        if (subHasOverride) {
+          prep = {
+            ...prep,
+            ingredients: (prep.ingredients ?? []).map((pi) =>
+              pi.stock_item && simStockCosts[pi.stock_item.id] != null
+                ? { ...pi, stock_item: wrapStock(pi.stock_item) }
+                : pi,
+            ),
+          };
+        }
       }
       return { ...ing, stock_item: stock, prep_item: prep };
     });
-  }, [simMode, ingredients, simStockCosts, simPrepCosts, showCostsExVat, vatMultiplier]);
+  }, [simMode, ingredients, simStockCosts, showCostsExVat]);
 
   const scopedFor = (optionId: number | null) => scopedIngredients(effectiveIngredients, optionId);
 
@@ -203,11 +212,13 @@ export default function MenuItemCostPanel({
 
   // Collect preps referenced by this item whose derived cost is 0 for a
   // fixable reason. Deduplicated by prep id — one warning per prep even when
-  // the prep appears in multiple variant-scoped rows.
+  // the prep appears in multiple variant-scoped rows. Driven off the ORIGINAL
+  // ingredients (not effectiveIngredients) so simulate-mode wrappings can't
+  // trigger false "no ingredients" warnings on preps that were fine.
   const unconfiguredPreps: Array<{ prep: PrepItem; issue: PrepConfigIssue }> = [];
   {
     const seen = new Set<number>();
-    for (const ing of scopedFor(currentOptionId)) {
+    for (const ing of scopedIngredients(ingredients, currentOptionId)) {
       const prep = ing.prep_item;
       if (!prep || ing.stock_item) continue;
       if (seen.has(prep.id)) continue;
@@ -630,33 +641,30 @@ export default function MenuItemCostPanel({
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {simMode && (ing.stock_item || (ing.prep_item && !ing.stock_item)) ? (
+                        {simMode && ing.stock_item && !ing.prep_item ? (
+                          // Raw stock ingredient in sim mode: edit the unit
+                          // cost directly. Other items using the same stock
+                          // also reflect this via the id-keyed override map.
                           <div className="inline-flex items-center gap-1 font-mono">
                             <input
                               type="number"
                               min="0"
                               step="0.01"
-                              value={
-                                ing.prep_item && !ing.stock_item
-                                  ? (simPrepCosts[ing.prep_item.id] ?? Number(unitCost.toFixed(2)))
-                                  : (simStockCosts[ing.stock_item!.id] ?? Number(unitCost.toFixed(2)))
-                              }
+                              value={simStockCosts[ing.stock_item.id] ?? Number(unitCost.toFixed(2))}
                               onChange={(e) => {
                                 const raw = parseFloat(e.target.value);
                                 const v = Number.isFinite(raw) && raw >= 0 ? raw : 0;
-                                if (ing.prep_item && !ing.stock_item) {
-                                  const pid = ing.prep_item.id;
-                                  setSimPrepCosts((prev) => ({ ...prev, [pid]: v }));
-                                } else if (ing.stock_item) {
-                                  const sid = ing.stock_item.id;
-                                  setSimStockCosts((prev) => ({ ...prev, [sid]: v }));
-                                }
+                                const sid = ing.stock_item!.id;
+                                setSimStockCosts((prev) => ({ ...prev, [sid]: v }));
                               }}
                               className="input w-24 text-sm py-1 text-right rounded"
                             />
                             <span className="text-fg-secondary text-xs">&#8362;/{sourceUnit}</span>
                           </div>
                         ) : ing.prep_item ? (
+                          // Prep rows always open the breakdown modal (both in
+                          // view and sim mode). In sim mode the modal exposes
+                          // editable inputs for the prep's sub-ingredients.
                           <button
                             onClick={() => setBreakdownIng(ing)}
                             className="font-mono text-fg-secondary hover:text-brand-500 hover:underline transition-colors cursor-pointer"
@@ -782,18 +790,27 @@ export default function MenuItemCostPanel({
         );
       })()}
 
-      {breakdownIng && breakdownIng.prep_item && (
-        <PrepCostBreakdownModal
-          ing={breakdownIng}
-          item={item}
-          portion={currentPortion}
-          optionId={currentOptionId}
-          showExVat={showCostsExVat}
-          vatMultiplier={vatMultiplier}
-          onClose={() => setBreakdownIng(null)}
-          t={t}
-        />
-      )}
+      {breakdownIng && breakdownIng.prep_item && (() => {
+        // Re-resolve the ingredient against the current effectiveIngredients
+        // so edits made inside the modal (via onEditStockCost below) take
+        // effect on the next render without reopening.
+        const liveIng = effectiveIngredients.find((i) => i.id === breakdownIng.id) ?? breakdownIng;
+        return (
+          <PrepCostBreakdownModal
+            ing={liveIng}
+            item={item}
+            portion={currentPortion}
+            optionId={currentOptionId}
+            showExVat={showCostsExVat}
+            vatMultiplier={vatMultiplier}
+            simMode={simMode}
+            simStockCosts={simStockCosts}
+            onEditStockCost={(sid, v) => setSimStockCosts((prev) => ({ ...prev, [sid]: v }))}
+            onClose={() => setBreakdownIng(null)}
+            t={t}
+          />
+        );
+      })()}
 
       {showCostPctBreakdown && (
         <CostPctBreakdownModal
