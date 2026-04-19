@@ -355,6 +355,13 @@ export default function NewItemPage() {
 
   const goBack = () => router.push(`/${rid}/menu/items`);
 
+  // Hooks must run on every render — keep hook calls above the early return.
+  const { scrollToSection } = useMenuItemSections();
+  const activeCategoryName = useMemo(
+    () => categories.find((c) => c.id === categoryId)?.name,
+    [categories, categoryId],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -363,7 +370,6 @@ export default function NewItemPage() {
     );
   }
 
-  const { scrollToSection } = useMenuItemSections();
   const goToSection = (id: MenuItemSection) => scrollToSection(id);
 
   // Create mode: only two sections exist (Recipe/Cost need a saved itemId).
@@ -371,11 +377,6 @@ export default function NewItemPage() {
     { id: 'details', label: t('tabDetails') },
     { id: 'modifiers', label: t('tabModifiers') },
   ];
-
-  const activeCategoryName = useMemo(
-    () => categories.find((c) => c.id === categoryId)?.name,
-    [categories, categoryId],
-  );
 
   const rail = (
     <MenuItemSummaryRail

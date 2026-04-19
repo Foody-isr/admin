@@ -363,6 +363,29 @@ export default function EditItemPage() {
 
   const goBack = () => router.push(`/${rid}/menu/items`);
 
+  // Hooks must run in the same order on every render — keep all useMemo calls
+  // above the early returns below.
+  const costSummary = useMemo(() => {
+    if (!item || ingredients.length === 0) return null;
+    const s = computeItemCostSummary({
+      item,
+      ingredients,
+      overrides: itemOptionOverrides,
+      vatRate,
+      showCostsExVat: true,
+    });
+    return {
+      foodCost: s.foodCost,
+      costPct: s.costPct,
+      margin: s.margin,
+    };
+  }, [item, ingredients, itemOptionOverrides, vatRate]);
+
+  const activeCategoryName = useMemo(
+    () => categories.find((c) => c.id === categoryId)?.name,
+    [categories, categoryId],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -419,29 +442,6 @@ export default function EditItemPage() {
         />
       </FormSection>
     </>
-  );
-
-  // Live cost summary for the rail. Undefined when nothing is set up yet —
-  // the rail hides the cost block in that case.
-  const costSummary = useMemo(() => {
-    if (!item || ingredients.length === 0) return null;
-    const s = computeItemCostSummary({
-      item,
-      ingredients,
-      overrides: itemOptionOverrides,
-      vatRate,
-      showCostsExVat: true,
-    });
-    return {
-      foodCost: s.foodCost,
-      costPct: s.costPct,
-      margin: s.margin,
-    };
-  }, [item, ingredients, itemOptionOverrides, vatRate]);
-
-  const activeCategoryName = useMemo(
-    () => categories.find((c) => c.id === categoryId)?.name,
-    [categories, categoryId],
   );
 
   const railSections: RailSection[] = [
