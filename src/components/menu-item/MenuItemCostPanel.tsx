@@ -189,6 +189,20 @@ export default function MenuItemCostPanel({
     return false;
   };
 
+  // When a prep's derived cost is 0, identify WHY so the cost tab can surface
+  // an actionable warning instead of silently displaying 0.00 ₪. Mirrors the
+  // guards in PrepItem.CostPerUnit() on the server. Returns null when the prep
+  // is properly configured (yield > 0, ingredients present, at least one
+  // priced ingredient).
+  type PrepConfigIssue = 'missing_yield' | 'no_ingredients' | 'zero_cost_ingredients';
+  const diagnosePrep = (prep: PrepItem): PrepConfigIssue | null => {
+    if ((prep.yield_per_batch ?? 0) <= 0) return 'missing_yield';
+    if (!prep.ingredients || prep.ingredients.length === 0) return 'no_ingredients';
+    const anyPriced = prep.ingredients.some((pi) => (pi.stock_item?.cost_per_unit ?? 0) > 0);
+    if (!anyPriced) return 'zero_cost_ingredients';
+    return null;
+  };
+
   // Extract the OptionSetOption ID from an `opt:N` variant id (null for `var:N`
   // or no variant). Used to look up per-ingredient variant overrides.
   const optionIdFromVariant = (variantId: string): number | null => {
@@ -251,6 +265,24 @@ export default function MenuItemCostPanel({
     if ((item.portion_size ?? 0) <= 0) return false;
     return !sameUnitFamily(currentPortion.unit, itemUnit);
   })();
+
+  // Collect preps referenced by this item whose derived cost is 0 for a
+  // fixable reason. Deduplicated by prep id — one warning per prep even when
+  // the prep appears in multiple variant-scoped rows.
+  const unconfiguredPreps: Array<{ prep: PrepItem; issue: PrepConfigIssue }> = [];
+  {
+    const seen = new Set<number>();
+    for (const ing of scopedFor(currentOptionId)) {
+      const prep = ing.prep_item;
+      if (!prep || ing.stock_item) continue;
+      if (seen.has(prep.id)) continue;
+      const issue = diagnosePrep(prep);
+      if (issue) {
+        unconfiguredPreps.push({ prep, issue });
+        seen.add(prep.id);
+      }
+    }
+  }
 
   // ── Modifier consumption ─────────────────────────────────────
   // A modifier with stock_item_id or prep_item_id consumes inventory when
@@ -437,6 +469,43 @@ export default function MenuItemCostPanel({
         </div>
       )}
 
+      {/* Unconfigured prep warning — surfaces why a prep ingredient's line cost
+          is 0 (no yield / no ingredients / no priced ingredients) so the user
+          doesn't chase a phantom "variant not detecting portion" issue. */}
+      {unconfiguredPreps.length > 0 && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
+          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium">
+              {unconfiguredPreps.length === 1
+                ? (t('prepConfigIncompleteSingle') || 'A preparation is missing cost data.')
+                : (t('prepConfigIncompleteMany') || 'Some preparations are missing cost data.')}
+            </p>
+            <ul className="mt-1.5 space-y-1 text-xs text-amber-400">
+              {unconfiguredPreps.map(({ prep, issue }) => {
+                const reason =
+                  issue === 'missing_yield' ? (t('prepMissingYield') || 'no yield per batch set')
+                  : issue === 'no_ingredients' ? (t('prepNoIngredients') || 'no raw ingredients linked')
+                  : (t('prepZeroCostIngredients') || 'linked ingredients have no purchase cost set');
+                return (
+                  <li key={prep.id} className="flex flex-wrap items-center gap-x-2">
+                    <span className="font-semibold text-amber-300">{prep.name}</span>
+                    <span>{reason}.</span>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/${rid}/kitchen/prep?edit=${prep.id}`)}
+                      className="underline hover:text-amber-300"
+                    >
+                      {t('fix') || 'Fix'} &rarr;
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Ingredient breakdown table */}
       <div className="card overflow-hidden p-0">
         {ingredients.length === 0 ? (
@@ -512,10 +581,27 @@ export default function MenuItemCostPanel({
                     effectiveUnit = currentPortion.unit || unit;
                   }
                   const qtyDisplay = `${Number(effectiveQty.toFixed(3))} ${effectiveUnit}`;
+                  const prepIssue = ing.prep_item && !ing.stock_item ? diagnosePrep(ing.prep_item) : null;
                   return (
                     <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                       <td className="py-3 px-4">
                         <span className="font-medium text-fg-primary">{name}</span>
+                        {prepIssue && ing.prep_item && (
+                          <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
+                            <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                            <span>
+                              {prepIssue === 'missing_yield' && (t('prepMissingYield') || 'no yield per batch set')}
+                              {prepIssue === 'no_ingredients' && (t('prepNoIngredients') || 'no raw ingredients linked')}
+                              {prepIssue === 'zero_cost_ingredients' && (t('prepZeroCostIngredients') || 'linked ingredients have no purchase cost set')}
+                            </span>
+                            <button
+                              onClick={() => router.push(`/${rid}/kitchen/prep?edit=${ing.prep_item!.id}`)}
+                              className="ml-1 underline hover:text-amber-400"
+                            >
+                              {t('fix') || 'Fix'}
+                            </button>
+                          </div>
+                        )}
                         {mismatch && (
                           <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
                             <ExclamationTriangleIcon className="w-3.5 h-3.5" />

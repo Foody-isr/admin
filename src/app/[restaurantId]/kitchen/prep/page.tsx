@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
   getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
@@ -37,7 +37,11 @@ const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 export default function PrepPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
+  const deepLinkAppliedRef = useRef(false);
 
   const [items, setItems] = useState<PrepItem[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -85,6 +89,25 @@ export default function PrepPage() {
   }, [rid]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Deep-link support: `?edit=<prepId>` opens the prep editor directly on the
+  // matching item. Used by the menu-item Cost tab warning when a prep has no
+  // yield / no ingredients / no priced ingredients. Applied once after the
+  // list loads; the param is stripped so a refresh doesn't re-open the modal.
+  useEffect(() => {
+    if (deepLinkAppliedRef.current) return;
+    if (items.length === 0) return;
+    const editId = searchParams.get('edit');
+    if (!editId) return;
+    const target = items.find((p) => String(p.id) === editId);
+    if (!target) return;
+    deepLinkAppliedRef.current = true;
+    setItemModal({ open: true, editing: target });
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete('edit');
+    const qs = q.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [items, searchParams, router, pathname]);
 
   const categoryNames = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
   const categories: FilterCategory[] = categoryNames.sort().map((name) => ({ name }));
