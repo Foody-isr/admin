@@ -224,7 +224,7 @@ export default function StockPage() {
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
           <input
             type="text"
-            placeholder={t('searchItems')}
+            placeholder={t('search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="input !pl-10 text-sm h-11 w-full rounded-full"
