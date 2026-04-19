@@ -21,6 +21,7 @@ export default function OptionSetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [newOptionName, setNewOptionName] = useState('');
+  const [newOptionPrice, setNewOptionPrice] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -53,12 +54,13 @@ export default function OptionSetDetailPage() {
     try {
       const input: OptionInSetInput = {
         name: newOptionName.trim(),
-        price: 0,
+        price: parseFloat(newOptionPrice) || 0,
         is_active: true,
         sort_order: (optionSet?.options ?? []).length,
       };
       await createOptionInSet(rid, osid, input);
       setNewOptionName('');
+      setNewOptionPrice('');
       loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to add option');
@@ -124,23 +126,39 @@ export default function OptionSetDetailPage() {
             {t('options')} {name}
           </h2>
           <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
+            <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
+              style={{ gridTemplateColumns: '1fr 100px 100px 36px' }}>
+              <span>{t('variantName')}</span>
+              <span>{t('price')}</span>
+              <span>{t('status')}</span>
+              <span />
+            </div>
             {(optionSet.options ?? []).map((opt) => (
               <OptionRow key={opt.id} rid={rid} setId={osid} option={opt} onUpdated={loadData} t={t} />
             ))}
 
             {/* Add option row */}
-            <div className="flex items-center gap-2 px-4 py-3 border-t border-[var(--divider)]">
-              <PlusIcon className="w-4 h-4 text-fg-tertiary" />
-              <input value={newOptionName} onChange={(e) => setNewOptionName(e.target.value)}
-                placeholder={t('addOption')}
-                className="flex-1 text-sm bg-transparent border-0 outline-none text-fg-primary"
+            <div className="grid items-center gap-2 px-4 py-3 border-t border-[var(--divider)]"
+              style={{ gridTemplateColumns: '1fr 100px 100px 36px' }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <PlusIcon className="w-4 h-4 text-fg-tertiary shrink-0" />
+                <input value={newOptionName} onChange={(e) => setNewOptionName(e.target.value)}
+                  placeholder={t('addOption')}
+                  className="flex-1 text-sm bg-transparent border-0 outline-none text-fg-primary min-w-0"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }} />
+              </div>
+              <input type="number" min="0" step="0.01"
+                value={newOptionPrice} onChange={(e) => setNewOptionPrice(e.target.value)}
+                placeholder="0.00"
+                className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }} />
-              {newOptionName.trim() && (
+              <span />
+              {newOptionName.trim() ? (
                 <button onClick={handleAddOption}
-                  className="text-sm text-brand-500 font-medium hover:underline">
+                  className="text-sm text-brand-500 font-medium hover:underline justify-self-end">
                   {t('add')}
                 </button>
-              )}
+              ) : <span />}
             </div>
           </div>
         </div>
