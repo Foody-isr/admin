@@ -736,10 +736,27 @@ export default function EditItemPage() {
                       {(os.options ?? []).map((opt) => {
                         const override = itemOptionOverrides.find((ov) => ov.option_id === opt.id);
                         const price = override?.price ?? opt.price;
+                        const portionSize = override?.portion_size ?? 0;
+                        const portionUnit = override?.portion_size_unit ?? '';
+                        const active = override?.is_active ?? opt.is_active;
                         return (
-                          <div key={opt.id} className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--divider)]">
-                            <span className="text-sm text-fg-primary">{opt.name}</span>
-                            <span className="text-sm font-semibold text-fg-primary">₪{price.toFixed(2)}</span>
+                          <div key={opt.id} className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-[var(--divider)]">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-fg-primary truncate">{opt.name}</span>
+                                {!active && (
+                                  <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-fg-tertiary shrink-0">
+                                    {t('unavailable')}
+                                  </span>
+                                )}
+                              </div>
+                              {portionSize > 0 && (
+                                <div className="text-xs text-fg-tertiary mt-0.5">
+                                  {portionSize}{portionUnit ? ` ${portionUnit}` : ''}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-sm font-semibold text-fg-primary shrink-0">₪{price.toFixed(2)}</span>
                           </div>
                         );
                       })}
