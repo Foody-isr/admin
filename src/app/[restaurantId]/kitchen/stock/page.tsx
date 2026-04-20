@@ -5,11 +5,12 @@ import { useParams, useSearchParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
-  batchUpdateStockCategory, getRestaurantSettings, uploadStockItemImage,
+  batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
   Supplier,
 } from '@/lib/api';
+import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
 import StockQuantityForm, {
   StockInput,
@@ -82,6 +83,9 @@ export default function StockPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkCategoryModal, setBulkCategoryModal] = useState(false);
   const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkVatModal, setBulkVatModal] = useState(false);
+  // `null` = clear override (use restaurant default); value = explicit rate (0 = exempt).
+  const [bulkVatValue, setBulkVatValue] = useState<number | null>(null);
 
   // Per-item display level for Quantity/Price cells
   const [itemLevels, setItemLevels] = useState<Record<number, Level>>({});
@@ -230,6 +234,15 @@ export default function StockPage() {
     reload();
   };
 
+  const handleBulkVat = async () => {
+    if (selected.size === 0) return;
+    await batchUpdateStockVat(rid, { item_ids: Array.from(selected), vat_rate_override: bulkVatValue });
+    setSelected(new Set());
+    setBulkVatModal(false);
+    setBulkVatValue(null);
+    reload();
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -239,7 +252,7 @@ export default function StockPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className={`space-y-6 max-w-5xl mx-auto ${selected.size > 0 ? 'pb-24' : ''}`}>
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
@@ -316,22 +329,29 @@ export default function StockPage() {
         </button>
       </div>
 
-      {/* Bulk action bar */}
+      {/* Bulk action bar — fixed to viewport bottom so it stays reachable while
+          scrolling through long stock lists. Bottom padding on the wrapping
+          <div> reserves space so the last row is never covered. */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-brand-500/10 border border-brand-500/20">
-          <span className="text-sm font-medium text-brand-500">
-            {t('itemsSelected').replace('{count}', String(selected.size))}
-          </span>
-          <div className="flex-1" />
-          <button onClick={() => setBulkCategoryModal(true)} className="btn-secondary text-xs py-1.5 px-3 rounded-full">
-            {t('updateCategory')}
-          </button>
-          <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
-            {t('delete')} ({selected.size})
-          </button>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
-            {t('cancel')}
-          </button>
+        <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none px-4 pb-4">
+          <div className="max-w-5xl mx-auto pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-brand-500/10 border border-brand-500/20 shadow-lg backdrop-blur-md">
+            <span className="text-sm font-medium text-brand-500">
+              {t('itemsSelected').replace('{count}', String(selected.size))}
+            </span>
+            <div className="flex-1" />
+            <button onClick={() => setBulkCategoryModal(true)} className="btn-secondary text-xs py-1.5 px-3 rounded-full">
+              {t('updateCategory')}
+            </button>
+            <button onClick={() => { setBulkVatValue(null); setBulkVatModal(true); }} className="btn-secondary text-xs py-1.5 px-3 rounded-full">
+              {t('updateVat')}
+            </button>
+            <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
+              {t('delete')} ({selected.size})
+            </button>
+            <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
+              {t('cancel')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -610,6 +630,27 @@ export default function StockPage() {
           <div className="flex justify-end gap-2">
             <button onClick={() => setBulkCategoryModal(false)} className="btn-secondary text-sm">{t('cancel')}</button>
             <button onClick={handleBulkCategory} disabled={!bulkCategory} className="btn-primary text-sm">{t('apply')}</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Bulk Update VAT Modal — reuses VatRateSelect for the same default/exempt/custom
+          semantics as the per-item editor. `null` clears the override; a value sets it. */}
+      {bulkVatModal && (
+        <Modal title={t('updateVat')} onClose={() => setBulkVatModal(false)}>
+          <p className="text-sm text-fg-secondary mb-3">
+            {t('bulkVatDesc').replace('{count}', String(selected.size))}
+          </p>
+          <div className="mb-4">
+            <VatRateSelect
+              value={bulkVatValue}
+              onChange={setBulkVatValue}
+              restaurantRate={vatRate}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setBulkVatModal(false)} className="btn-secondary text-sm">{t('cancel')}</button>
+            <button onClick={handleBulkVat} className="btn-primary text-sm">{t('apply')}</button>
           </div>
         </Modal>
       )}

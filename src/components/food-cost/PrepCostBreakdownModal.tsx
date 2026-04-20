@@ -3,6 +3,7 @@
 import { MenuItem, MenuItemIngredient } from '@/lib/api';
 import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
 import { costExVat, vatMultiplierForStock } from '@/lib/cost-utils';
+import { PhotoIcon } from '@heroicons/react/24/outline';
 
 // Shows the full math behind a prep ingredient's cost: raw ingredients →
 // batch cost → cost per unit → line cost at the current portion.
@@ -40,6 +41,7 @@ export default function PrepCostBreakdownModal({
       id: pi.id,
       stockId: s?.id ?? null,
       name: s?.name ?? '?',
+      imageUrl: s?.image_url ?? '',
       qty: pi.quantity_needed,
       stockUnit: s?.unit ?? '',
       unitCost,
@@ -129,7 +131,19 @@ export default function PrepCostBreakdownModal({
                       : Number(r.unitCost.toFixed(4));
                     return (
                       <tr key={r.id} style={{ borderBottom: '1px solid var(--divider)' }}>
-                        <td className="py-2 font-medium text-fg-primary">{r.name}</td>
+                        <td className="py-2 font-medium text-fg-primary">
+                          <div className="flex items-center gap-2.5">
+                            {r.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
+                            ) : (
+                              <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                                <PhotoIcon className="w-4 h-4 text-fg-tertiary" />
+                              </div>
+                            )}
+                            <span className="truncate">{r.name}</span>
+                          </div>
+                        </td>
                         <td className="py-2 text-right font-mono text-fg-primary">
                           {r.qty} <span className="text-fg-secondary text-xs">{r.stockUnit}</span>
                         </td>

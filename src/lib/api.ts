@@ -2170,6 +2170,16 @@ export async function batchUpdateStockCategory(
   });
 }
 
+// `vat_rate_override`: `null` clears the override (items fall back to the
+// restaurant default); a number sets an explicit rate (0 = exempt).
+export async function batchUpdateStockVat(
+  restaurantId: number, input: { item_ids: number[]; vat_rate_override: number | null }
+): Promise<void> {
+  await apiFetch(`/api/v1/stock/items/batch-vat?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PATCH', body: JSON.stringify(input),
+  });
+}
+
 export async function listStockTransactions(
   restaurantId: number, params?: { stock_item_id?: number; limit?: number; type?: string }
 ): Promise<StockTransaction[]> {
