@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import VatRateSelect from '@/components/stock/VatRateSelect';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -320,13 +321,23 @@ interface Props {
   value: StockInput;
   onChange: (next: StockInput) => void;
   vatRate: number;
+  /** Per-item VAT rate override. `null` = use restaurant default; `0` = exempt. */
+  vatRateOverride?: number | null;
+  onVatRateChange?: (v: number | null) => void;
+  /** Mode for the price input: `'ex'` = type HT values; `'inc'` = type TTC values. */
+  vatDisplayMode?: 'ex' | 'inc';
   /** Compact layout — smaller paddings, for per-line usage inside larger modals. */
   compact?: boolean;
 }
 
-export default function StockQuantityForm({ value, onChange, vatRate, compact }: Props) {
+export default function StockQuantityForm({
+  value, onChange, vatRate, vatRateOverride, onVatRateChange, vatDisplayMode = 'ex', compact,
+}: Props) {
   const { t } = useI18n();
-  const vm = 1 + vatRate / 100;
+  // Effective rate and multiplier for this item — falls back to the
+  // restaurant default when no override is set.
+  const effectiveRate = vatRateOverride == null ? vatRate : vatRateOverride;
+  const effMult = 1 + effectiveRate / 100;
   const d = deriveTotals(value);
 
   // Typography scale (8px grid): labels 13px medium muted, inputs 15px, price 18px, helper 12px.
@@ -351,6 +362,18 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
     }
   };
 
+  const priceSentenceProps = {
+    value,
+    d,
+    effMult,
+    vatDisplayMode,
+    vatRateOverride: vatRateOverride ?? null,
+    onVatRateChange,
+    restaurantRate: vatRate,
+    onChange,
+    t,
+  };
+
   // ─── Simple ─────────────────────────────────────────────────────────────
   if (value.type === 'simple') {
     return (
@@ -364,7 +387,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
           t={t}
         />
 
-        <PriceSentence value={value} d={d} vm={vm} onChange={onChange} t={t} />
+        <PriceSentence {...priceSentenceProps} />
       </div>
     );
   }
@@ -402,7 +425,7 @@ export default function StockQuantityForm({ value, onChange, vatRate, compact }:
         </div>
       )}
 
-      <PriceSentence value={value} d={d} vm={vm} onChange={onChange} t={t} />
+      <PriceSentence {...priceSentenceProps} />
     </div>
   );
 }
@@ -610,14 +633,25 @@ type PriceLevel = 'total' | 'outer' | 'inner' | 'base';
 //   simple:    "Prix au [kg ↻]  [ N ] ₪"
 //   packaged:  "Chaque [carton ↻] coûte  [ N ] ₪"
 function PriceSentence({
-  value, d, vm, onChange, t,
+  value, d, effMult, vatDisplayMode, vatRateOverride, onVatRateChange, restaurantRate, onChange, t,
 }: {
   value: StockInput;
   d: Totals;
-  vm: number;
+  /** Multiplier (1 + effectiveRate/100) used to convert between HT and TTC. */
+  effMult: number;
+  vatDisplayMode: 'ex' | 'inc';
+  vatRateOverride: number | null;
+  onVatRateChange?: (v: number | null) => void;
+  restaurantRate: number;
   onChange: (v: StockInput) => void;
   t: (k: string) => string;
 }) {
+  const isInc = vatDisplayMode === 'inc';
+  // value.totalPrice is stored ex-VAT. When the user is typing in TTC mode,
+  // inflate the displayed cell by effMult on the way out and deflate the
+  // typed number on the way in — totalPrice stays canonical.
+  const toDisplay = (n: number) => (isInc ? n * effMult : n);
+  const fromDisplay = (n: number) => (isInc ? n / effMult : n);
   const isPackaged = value.type !== 'simple';
   const hasInner = value.type === 'packaged-nested';
   const hasBase = isPackaged
@@ -665,7 +699,7 @@ function PriceSentence({
     return () => clearTimeout(id);
   }, [effective]);
 
-  const displayed = (() => {
+  const displayedEx = (() => {
     switch (effective) {
       case 'outer': return d.pricePerOuter;
       case 'inner': return d.pricePerInner;
@@ -673,8 +707,10 @@ function PriceSentence({
       case 'total': return d.totalPrice;
     }
   })();
+  const displayed = toDisplay(displayedEx);
 
-  const setFromInput = (n: number) => {
+  const setFromInput = (nDisplayed: number) => {
+    const n = fromDisplay(nDisplayed);
     if (value.type === 'simple') {
       const total = effective === 'base' ? n * value.quantity : n;
       onChange({ ...value, totalPrice: total });
@@ -790,11 +826,27 @@ function PriceSentence({
   // Secondary derived price — when the primary is per-pack, show the
   // normalised per-base price alongside (and vice-versa). Lets the user see
   // both "intuition" and "precision" without switching.
+  const secondaryBase = isInc ? d.costPerBase * effMult : d.costPerBase;
   const showSecondary = isPackaged
     && effective !== 'base'
     && d.costPerBase > 0
     && d.baseUnit
-    && Math.abs(d.costPerBase - displayed) > 0.005;
+    && Math.abs(secondaryBase - displayed) > 0.005;
+
+  // Other-side sanity line — "soit N ₪ TTC" when typing HT (and vice-versa).
+  const otherSideValue = isInc ? displayedEx : displayedEx * effMult;
+  const otherSideLabel = isInc ? (t('exVat') || 'HT') : (t('incVat') || 'TTC');
+
+  // HT/TTC tag next to the input so the user always knows which side they're
+  // typing on. Matches the stock table's display toggle.
+  const sideTag = (
+    <span
+      className="text-[11px] font-semibold uppercase tracking-wider text-fg-tertiary px-1.5 py-0.5 rounded-md"
+      style={{ background: 'rgba(255,255,255,0.04)' }}
+    >
+      {isInc ? (t('incVat') || 'TTC') : (t('exVat') || 'HT')}
+    </span>
+  );
 
   return (
     <div className="space-y-2">
@@ -808,20 +860,34 @@ function PriceSentence({
             placeholder="0.00"
           />
           <span className="text-[15px] font-semibold text-fg-secondary">&#8362;</span>
+          {sideTag}
         </span>
+        {onVatRateChange && (
+          <VatRateSelect
+            value={vatRateOverride}
+            onChange={onVatRateChange}
+            restaurantRate={restaurantRate}
+            compact
+          />
+        )}
         {showSecondary && (
           <span className="text-[12px] text-fg-tertiary tabular-nums">
-            ({t('equivalentTo') || 'soit'} {fmtPrice(d.costPerBase)} &#8362;&nbsp;/&nbsp;{d.baseUnit})
+            ({t('equivalentTo') || 'soit'} {fmtPrice(secondaryBase)} &#8362;&nbsp;/&nbsp;{d.baseUnit})
           </span>
         )}
       </div>
+      {displayedEx > 0 && effMult !== 1 && (
+        <div className="text-[12px] tabular-nums text-fg-tertiary pt-0.5">
+          {t('equivalentTo') || 'soit'} {fmtPrice(otherSideValue)} &#8362; {otherSideLabel}
+        </div>
+      )}
       {d.totalPrice > 0 && (
         <div className="text-[12px] tabular-nums pt-0.5">
           <span className="text-fg-tertiary">{t('totalPrice') || 'Prix total'} · </span>
           <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice)} &#8362;</span>
           <span className="text-fg-tertiary"> {t('exVat')}</span>
           <span className="text-fg-tertiary"> · </span>
-          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * vm)} &#8362;</span>
+          <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)} &#8362;</span>
           <span className="text-fg-tertiary"> {t('incVat')}</span>
         </div>
       )}

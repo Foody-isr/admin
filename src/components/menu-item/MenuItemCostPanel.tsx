@@ -11,9 +11,9 @@ import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModa
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
 import {
   COST_THRESHOLD, VariantOption, PrepConfigIssue,
-  vatMultiplierFor, toExVat as toExVatShared, toIncVat as toIncVatShared,
+  vatMultiplierFor, vatMultiplierForStock, costExVat,
   buildVariantOptions, resolvePortion, optionIdFromVariant,
-  computePrepUnitCostExVat as computePrepUnitCostExVatShared,
+  computePrepUnitCostExVat,
   calcLineCost as calcLineCostShared,
   calcVariantLineCost as calcVariantLineCostShared,
   scopedIngredients, diagnosePrep,
@@ -90,12 +90,10 @@ export default function MenuItemCostPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVariantId]);
 
-  const vatMultiplier = vatMultiplierFor(vatRate);
-  // Component-local VAT helpers that bind the current multiplier — makes the
-  // JSX below (which calls these in many places) less noisy than passing
-  // vatMultiplier everywhere.
-  const toExVat = (c: number, incl: boolean) => toExVatShared(c, incl, vatMultiplier);
-  const toIncVat = (c: number, incl: boolean) => toIncVatShared(c, incl, vatMultiplier);
+  // Restaurant-level VAT multiplier — used for menu-item price conversion
+  // (prices are quoted inc-VAT at the restaurant rate). Per-stock multipliers
+  // are derived from each stock item's own vat_rate_override.
+  const restaurantMultiplier = vatMultiplierFor(vatRate);
 
   const allVariants: VariantOption[] = buildVariantOptions(item, itemOptionOverrides ?? []);
   const hasYield = (item.recipe_yield ?? 0) > 0;
@@ -103,20 +101,24 @@ export default function MenuItemCostPanel({
   const activeVariantId = selectedVariantId
     || (allVariants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? '');
 
-  const computePrepUnitCostExVat = (prep: PrepItem) =>
-    computePrepUnitCostExVatShared(prep, vatMultiplier);
-
   const calcLineCost = (
     ing: MenuItemIngredient,
     portionOverride?: { qty: number; unit: string } | null,
     variantOptionId?: number | null,
-  ) => calcLineCostShared(ing, item, portionOverride, variantOptionId, showCostsExVat, vatMultiplier);
+  ) => calcLineCostShared(ing, item, portionOverride, variantOptionId, showCostsExVat, vatRate);
 
   const calcVariantLineCost = (
     ing: MenuItemIngredient,
     portion: { qty: number; unit: string } | null,
     optionId?: number | null,
-  ) => calcVariantLineCostShared(ing, item, portion, optionId, showCostsExVat, vatMultiplier);
+  ) => calcVariantLineCostShared(ing, item, portion, optionId, showCostsExVat, vatRate);
+
+  // Display a stock item's unit cost under the current HT/TTC toggle,
+  // honoring the item's own vat_rate_override.
+  const stockUnitCostDisplayed = (s: StockItem | null | undefined) => {
+    const ex = costExVat(s ?? null);
+    return showCostsExVat ? ex : ex * vatMultiplierForStock(s ?? null, vatRate);
+  };
 
   // Component-local display helper — not cost math, so stays here. Detects
   // whether a recipe ingredient's unit can't be reconciled with the stock
@@ -138,13 +140,13 @@ export default function MenuItemCostPanel({
   // downstream (line cost, food cost, cost %) recomputes naturally.
   const effectiveIngredients = useMemo<MenuItemIngredient[]>(() => {
     if (!simMode) return ingredients;
-    // Shared trick: setting price_includes_vat = !showCostsExVat makes
-    // calcLineCost's VAT conversion a no-op, so the typed display-basis value
-    // flows through as the displayed unit cost unchanged.
+    // Wrap: the typed sim value is on the current display basis, so we force
+    // the per-stock multiplier to 1 (vat_rate_override = 0) — the cost-math
+    // pipeline then returns the typed value unchanged regardless of showExVat.
     const wrapStock = (s: StockItem): StockItem => ({
       ...s,
       cost_per_unit: simStockCosts[s.id],
-      price_includes_vat: !showCostsExVat,
+      vat_rate_override: 0,
     });
     return ingredients.map((ing) => {
       let stock = ing.stock_item;
@@ -189,7 +191,7 @@ export default function MenuItemCostPanel({
     const v = allVariants.find((vv) => String(vv.id) === activeVariantId);
     if (v) displayPrice = v.price;
   }
-  const basePriceOnDisplayBasis = showCostsExVat ? displayPrice / vatMultiplier : displayPrice;
+  const basePriceOnDisplayBasis = showCostsExVat ? displayPrice / restaurantMultiplier : displayPrice;
   const normalizedPrice = simMode && simPrice != null ? simPrice : basePriceOnDisplayBasis;
   const costPct = normalizedPrice > 0 ? displayCost / normalizedPrice : 0;
   const totalCost = displayCost;
@@ -248,22 +250,15 @@ export default function MenuItemCostPanel({
     const q = m.quantity ?? 0;
     if (q <= 0) return;
     if (!m.stock_item_id && !m.prep_item_id) return;
-    let rawCost = 0;
-    let includesVat = false;
-    let sourceName = '';
     if (m.stock_item_id) {
       const s = (stockItems ?? []).find((x) => x.id === m.stock_item_id);
       if (!s) return;
-      rawCost = s.cost_per_unit ?? 0;
-      includesVat = s.price_includes_vat ?? false;
-      sourceName = `${s.name} (stock)`;
       // Convert qty to stock unit when possible so cost math aligns.
       const converted = convertQuantity(q, m.unit || s.unit, s.unit);
-      const unitCost = showCostsExVat ? toExVat(rawCost, includesVat) : toIncVat(rawCost, includesVat);
       modCostRows.push({
         id: m.id, name: m.name, setName,
-        source: sourceName, qty: q, unit: m.unit || s.unit,
-        perSelectionCost: converted * unitCost,
+        source: `${s.name} (stock)`, qty: q, unit: m.unit || s.unit,
+        perSelectionCost: converted * stockUnitCostDisplayed(s),
       });
       return;
     }
@@ -272,12 +267,11 @@ export default function MenuItemCostPanel({
       if (!p) return;
       const prepExVat = computePrepUnitCostExVat(p);
       const baseCost = prepExVat != null ? prepExVat : (p.cost_per_unit ?? 0);
-      const unitCost = showCostsExVat ? baseCost : baseCost * vatMultiplier;
-      sourceName = `${p.name} (prep)`;
+      const unitCost = showCostsExVat ? baseCost : baseCost * restaurantMultiplier;
       const converted = convertQuantity(q, m.unit || p.unit, p.unit);
       modCostRows.push({
         id: m.id, name: m.name, setName,
-        source: sourceName, qty: q, unit: m.unit || p.unit,
+        source: `${p.name} (prep)`, qty: q, unit: m.unit || p.unit,
         perSelectionCost: converted * unitCost,
       });
     }
@@ -367,11 +361,11 @@ export default function MenuItemCostPanel({
             </div>
             <div className="flex justify-between text-fg-secondary">
               <span>− {t('pnlVat').replace('{rate}', String(vatRate))}</span>
-              <span className="font-mono">{(displayPrice - displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
+              <span className="font-mono">{(displayPrice - displayPrice / restaurantMultiplier).toFixed(2)} &#8362;</span>
             </div>
             <div className="flex justify-between text-fg-primary pt-1 border-t border-[var(--divider)]">
               <span className="font-medium">{t('pnlPriceEx')}</span>
-              <span className="font-mono font-semibold">{(displayPrice / vatMultiplier).toFixed(2)} &#8362;</span>
+              <span className="font-mono font-semibold">{(displayPrice / restaurantMultiplier).toFixed(2)} &#8362;</span>
             </div>
           </div>
         )}
@@ -551,17 +545,14 @@ export default function MenuItemCostPanel({
                   // the prep is in kg) — using it for the label would mis-state
                   // the cost by the unit conversion factor.
                   const sourceUnit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
-                  let rawUnitCost: number;
-                  let incVat: boolean;
+                  let unitCost: number;
                   if (ing.prep_item && !ing.stock_item) {
                     const prepExVat = computePrepUnitCostExVat(ing.prep_item);
-                    if (prepExVat != null) { rawUnitCost = prepExVat; incVat = false; }
-                    else { rawUnitCost = ing.prep_item.cost_per_unit ?? 0; incVat = false; }
+                    const baseCost = prepExVat != null ? prepExVat : (ing.prep_item.cost_per_unit ?? 0);
+                    unitCost = showCostsExVat ? baseCost : baseCost * restaurantMultiplier;
                   } else {
-                    rawUnitCost = ing.stock_item?.cost_per_unit ?? 0;
-                    incVat = ing.stock_item?.price_includes_vat ?? false;
+                    unitCost = stockUnitCostDisplayed(ing.stock_item);
                   }
-                  const unitCost = showCostsExVat ? toExVat(rawUnitCost, incVat) : toIncVat(rawUnitCost, incVat);
                   const lineCost = calcVariantLineCost(ing, currentPortion, currentOptionId);
                   const mismatch = hasUnitMismatch(ing);
                   const type = ing.stock_item_id ? t('raw') : t('prep');
@@ -802,7 +793,7 @@ export default function MenuItemCostPanel({
             portion={currentPortion}
             optionId={currentOptionId}
             showExVat={showCostsExVat}
-            vatMultiplier={vatMultiplier}
+            restaurantRate={vatRate}
             simMode={simMode}
             simStockCosts={simStockCosts}
             onEditStockCost={(sid, v) => setSimStockCosts((prev) => ({ ...prev, [sid]: v }))}

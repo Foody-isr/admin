@@ -152,6 +152,15 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [vatRate, setVatRate] = useState(18);
+  // Pick up the HT/TTC display preference from the shared localStorage key so
+  // the delivery review page entry mode matches the stock table.
+  const [vatDisplayMode, setVatDisplayMode] = useState<'ex' | 'inc'>('inc');
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('foody.stock.vatDisplay');
+      if (v === 'ex' || v === 'inc') setVatDisplayMode(v);
+    } catch { /* ignore */ }
+  }, []);
   const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   const [savingDraft, setSavingDraft] = useState(false);
 
@@ -233,7 +242,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           unit_size_unit: i.unit_size_unit || '',
           container_type: i.container_type || '',
           unit_type: i.unit_type || '',
-          price_includes_vat: matched?.price_includes_vat ?? false,
+          vat_rate_override: matched?.vat_rate_override ?? null,
           row_index: i.row_index,
           needs_review: i.needs_review,
           review_reason: i.review_reason,
@@ -507,6 +516,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             updateItem={updateItem}
             updateFormState={updateFormState}
             vatRate={vatRate}
+            vatDisplayMode={vatDisplayMode}
             t={t}
             reviewedItems={reviewedItems}
             markReviewed={markReviewed}
@@ -525,6 +535,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               updateItem={updateItem}
               updateFormState={updateFormState}
               vatRate={vatRate}
+              vatDisplayMode={vatDisplayMode}
               t={t}
               reviewedItems={reviewedItems}
               markReviewed={markReviewed}
@@ -539,7 +550,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
 function ItemsList({
-  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, t, reviewedItems, markReviewed,
+  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
   formStates: StockInput[];
@@ -549,6 +560,7 @@ function ItemsList({
   updateItem: (idx: number, patch: Partial<ConfirmDeliveryItemInput>) => void;
   updateFormState: (idx: number, v: StockInput) => void;
   vatRate: number;
+  vatDisplayMode: 'ex' | 'inc';
   t: (key: string) => string;
   reviewedItems: Set<number>;
   markReviewed: (idx: number) => void;
@@ -677,6 +689,9 @@ function ItemsList({
                 value={formStates[idx] ?? lineToStockInput(item)}
                 onChange={(v) => updateFormState(idx, v)}
                 vatRate={vatRate}
+                vatRateOverride={item.vat_rate_override ?? null}
+                onVatRateChange={(v) => updateItem(idx, { vat_rate_override: v })}
+                vatDisplayMode={vatDisplayMode}
                 compact
               />
             </div>

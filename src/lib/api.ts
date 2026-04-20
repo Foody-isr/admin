@@ -515,7 +515,10 @@ export interface StockItem {
   pack_size: number;
   container_type: string;
   unit_type: string;
+  /** @deprecated cost_per_unit is always ex-VAT now. Field kept for backward parsing only. */
   price_includes_vat: boolean;
+  /** Per-item VAT rate. `null` means "use restaurant default". `0` means exempt (e.g. Israeli produce). */
+  vat_rate_override: number | null;
   image_url: string;
   sku: string;
   is_active: boolean;
@@ -564,7 +567,10 @@ export interface StockItemInput {
   pack_size?: number;
   container_type?: string;
   unit_type?: string;
+  /** @deprecated cost_per_unit is always ex-VAT now. UI should stop writing this. */
   price_includes_vat?: boolean;
+  /** Per-item VAT rate. Omit or send `null` to use restaurant default; `0` for exempt. */
+  vat_rate_override?: number | null;
   image_url?: string;
   sku?: string;
   is_active?: boolean;
@@ -751,7 +757,9 @@ export interface ConfirmDeliveryItemInput {
   unit_size_unit?: string;
   container_type?: string;
   unit_type?: string;
+  /** @deprecated cost is always ex-VAT now. */
   price_includes_vat?: boolean;
+  vat_rate_override?: number | null;
   skipped?: boolean;
   row_index?: number;
   needs_review?: boolean;
@@ -2344,7 +2352,9 @@ export interface ConfirmRecipeIngredientInput {
   unit: string;
   category: string;
   cost_per_unit?: number;
+  /** @deprecated cost is always ex-VAT now. */
   price_includes_vat?: boolean;
+  vat_rate_override?: number | null;
 }
 
 export interface ConfirmRecipeItemInput {

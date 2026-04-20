@@ -21,11 +21,30 @@ export type PrepConfigIssue = 'missing_yield' | 'no_ingredients' | 'zero_cost_in
 
 export const vatMultiplierFor = (vatRate: number) => 1 + vatRate / 100;
 
-export const toExVat = (c: number, includesVat: boolean, vatMultiplier: number) =>
-  includesVat ? c / vatMultiplier : c;
+// Per-stock VAT rate. `null` override → use restaurant default. `0` override
+// → exempt (e.g. Israeli produce). Non-null non-zero → custom rate.
+export function effectiveVatRate(
+  stock: { vat_rate_override?: number | null } | null | undefined,
+  restaurantRate: number,
+): number {
+  const ov = stock?.vat_rate_override;
+  return ov == null ? restaurantRate : ov;
+}
 
-export const toIncVat = (c: number, includesVat: boolean, vatMultiplier: number) =>
-  includesVat ? c : c * vatMultiplier;
+export const vatMultiplierForStock = (
+  stock: { vat_rate_override?: number | null } | null | undefined,
+  restaurantRate: number,
+) => vatMultiplierFor(effectiveVatRate(stock, restaurantRate));
+
+// Stock cost_per_unit is always stored ex-VAT (migration 059). These helpers
+// exist so callers don't hard-code the math.
+export const costExVat = (stock: { cost_per_unit?: number } | null | undefined) =>
+  stock?.cost_per_unit ?? 0;
+
+export const costIncVat = (
+  stock: { cost_per_unit?: number; vat_rate_override?: number | null } | null | undefined,
+  restaurantRate: number,
+) => costExVat(stock) * vatMultiplierForStock(stock, restaurantRate);
 
 // Flattens an item's option-set options AND legacy variant groups into one
 // list of selectable variants, applying per-item price/portion overrides when
@@ -93,30 +112,30 @@ export function optionIdFromVariant(variantId: string): number | null {
 // Cost of one unit of a prep item, computed from its sub-recipe. Returns null
 // when the prep is not configured well enough to compute a cost (no yield,
 // no ingredients, no stock items preloaded). Callers can fall back to the
-// stored `prep.cost_per_unit` in that case.
-export function computePrepUnitCostExVat(prep: PrepItem, vatMultiplier: number): number | null {
+// stored `prep.cost_per_unit` in that case. All stock costs are ex-VAT since
+// migration 059.
+export function computePrepUnitCostExVat(prep: PrepItem): number | null {
   if (!prep.ingredients || prep.ingredients.length === 0) return null;
   if ((prep.yield_per_batch ?? 0) <= 0) return null;
-  const batchExVat = prep.ingredients.reduce((sum, pi) => {
-    const s = pi.stock_item;
-    if (!s) return sum;
-    const costExVat = toExVat(s.cost_per_unit ?? 0, s.price_includes_vat ?? false, vatMultiplier);
-    return sum + pi.quantity_needed * costExVat;
-  }, 0);
+  const batchExVat = prep.ingredients.reduce(
+    (sum, pi) => sum + pi.quantity_needed * costExVat(pi.stock_item ?? null),
+    0,
+  );
   return batchExVat / prep.yield_per_batch;
 }
 
 // Line cost for one recipe ingredient, honoring per-variant overrides,
 // scales_with_variant, and package-unit conversion. Does NOT prorate batch
 // items by variant portion — callers apply that in calcVariantLineCost when
-// the item is in batch mode.
+// the item is in batch mode. Stock cost is always ex-VAT; inc-VAT display
+// uses the per-item rate (falls back to restaurantRate).
 export function calcLineCost(
   ing: MenuItemIngredient,
   item: MenuItem,
   portionOverride: { qty: number; unit: string } | null | undefined,
   variantOptionId: number | null | undefined,
   showCostsExVat: boolean,
-  vatMultiplier: number,
+  restaurantRate: number,
 ): number {
   const stock = ing.stock_item;
   const prep = ing.prep_item;
@@ -139,19 +158,23 @@ export function calcLineCost(
     qty = ing.quantity_needed;
   }
 
-  let rawCost: number;
-  let includesVat: boolean;
+  // Unit cost, ex-VAT. For prep items, the derived cost is already ex-VAT
+  // (sub-ingredient stock costs are ex-VAT); the stored prep.cost_per_unit
+  // fallback is also ex-VAT post-migration.
+  let unitCostExVat: number;
   if (prep && !stock) {
-    const prepExVat = computePrepUnitCostExVat(prep, vatMultiplier);
-    if (prepExVat != null) { rawCost = prepExVat; includesVat = false; }
-    else { rawCost = prep.cost_per_unit ?? 0; includesVat = false; }
+    const prepExVat = computePrepUnitCostExVat(prep);
+    unitCostExVat = prepExVat != null ? prepExVat : (prep.cost_per_unit ?? 0);
   } else {
-    rawCost = stock?.cost_per_unit ?? 0;
-    includesVat = stock?.price_includes_vat ?? false;
+    unitCostExVat = costExVat(stock);
   }
-  const unitCost = showCostsExVat
-    ? toExVat(rawCost, includesVat, vatMultiplier)
-    : toIncVat(rawCost, includesVat, vatMultiplier);
+  // Per-stock VAT rate — prep items use the restaurant default since their
+  // cost aggregates multiple stock items (each with its own rate already
+  // rolled into the computed ex-VAT value above).
+  const multiplier = stock
+    ? vatMultiplierForStock(stock, restaurantRate)
+    : vatMultiplierFor(restaurantRate);
+  const unitCost = showCostsExVat ? unitCostExVat : unitCostExVat * multiplier;
 
   if (qtyUnit === stockUnit || !qtyUnit) {
     if (!qtyUnit && PACKAGE_UNITS.includes(stockUnit) && stock?.unit_content && stock?.unit_content_unit) {
@@ -182,9 +205,9 @@ export function calcVariantLineCost(
   portion: { qty: number; unit: string } | null,
   optionId: number | null | undefined,
   showCostsExVat: boolean,
-  vatMultiplier: number,
+  restaurantRate: number,
 ): number {
-  const raw = calcLineCost(ing, item, portion, optionId, showCostsExVat, vatMultiplier);
+  const raw = calcLineCost(ing, item, portion, optionId, showCostsExVat, restaurantRate);
   const hasYield = (item.recipe_yield ?? 0) > 0;
   if (hasYield && portion) {
     const yieldBase = toBaseUnit(item.recipe_yield!, item.recipe_yield_unit || 'kg');
@@ -276,27 +299,27 @@ function effectiveQty(
 }
 
 // VAT-normalized unit cost for one ingredient, using the same precedence as
-// calcLineCost (prep derived cost falls back to prep.cost_per_unit).
+// calcLineCost (prep derived cost falls back to prep.cost_per_unit). Stock
+// cost is ex-VAT; per-stock multiplier applied for inc-VAT display.
 function unitCostFor(
   ing: MenuItemIngredient,
   showCostsExVat: boolean,
-  vatMultiplier: number,
+  restaurantRate: number,
 ): number {
   const prep = ing.prep_item;
   const stock = ing.stock_item;
-  let rawCost: number;
-  let includesVat: boolean;
+  let costEx: number;
   if (prep && !stock) {
-    const prepExVat = computePrepUnitCostExVat(prep, vatMultiplier);
-    if (prepExVat != null) { rawCost = prepExVat; includesVat = false; }
-    else { rawCost = prep.cost_per_unit ?? 0; includesVat = false; }
+    const prepExVat = computePrepUnitCostExVat(prep);
+    costEx = prepExVat != null ? prepExVat : (prep.cost_per_unit ?? 0);
   } else {
-    rawCost = stock?.cost_per_unit ?? 0;
-    includesVat = stock?.price_includes_vat ?? false;
+    costEx = costExVat(stock);
   }
-  return showCostsExVat
-    ? toExVat(rawCost, includesVat, vatMultiplier)
-    : toIncVat(rawCost, includesVat, vatMultiplier);
+  if (showCostsExVat) return costEx;
+  const multiplier = stock
+    ? vatMultiplierForStock(stock, restaurantRate)
+    : vatMultiplierFor(restaurantRate);
+  return costEx * multiplier;
 }
 
 // Computes the full KPI summary for one item. Used by the compare view to
@@ -310,7 +333,10 @@ export function computeItemCostSummary(input: {
   showCostsExVat: boolean;
   variantId?: string;
 }): ItemCostSummary {
-  const vatMultiplier = vatMultiplierFor(input.vatRate);
+  const restaurantRate = input.vatRate;
+  // Menu item prices are quoted inc-VAT at the restaurant rate; deflate by
+  // the restaurant multiplier (not per-item) when showing ex-VAT.
+  const restaurantMultiplier = vatMultiplierFor(restaurantRate);
   const variants = buildVariantOptions(input.item, input.overrides);
   const activeVariantId = input.variantId
     ?? variants.find((v) => (v.portion_size ?? 0) > 0)?.id
@@ -322,8 +348,8 @@ export function computeItemCostSummary(input: {
   const scoped = scopedIngredients(input.ingredients, optionId);
   const lineDetails: CostLineDetail[] = scoped.map((ing) => {
     const lineCost = portion
-      ? calcVariantLineCost(ing, input.item, portion, optionId, input.showCostsExVat, vatMultiplier)
-      : calcLineCost(ing, input.item, null, optionId, input.showCostsExVat, vatMultiplier);
+      ? calcVariantLineCost(ing, input.item, portion, optionId, input.showCostsExVat, restaurantRate)
+      : calcLineCost(ing, input.item, null, optionId, input.showCostsExVat, restaurantRate);
     const eff = effectiveQty(ing, input.item, portion, optionId);
     const sourceUnit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
     return {
@@ -331,7 +357,7 @@ export function computeItemCostSummary(input: {
       name: ing.stock_item?.name ?? ing.prep_item?.name ?? '?',
       qty: eff.qty,
       qtyUnit: eff.unit,
-      unitCost: unitCostFor(ing, input.showCostsExVat, vatMultiplier),
+      unitCost: unitCostFor(ing, input.showCostsExVat, restaurantRate),
       sourceUnit,
       lineCost,
       isPrep: !!ing.prep_item && !ing.stock_item,
@@ -341,7 +367,7 @@ export function computeItemCostSummary(input: {
   const foodCost = lineDetails.reduce((s, l) => s + l.lineCost, 0);
 
   const rawPrice = activeVariant ? activeVariant.price : (input.item.price ?? 0);
-  const displayPrice = input.showCostsExVat ? rawPrice / vatMultiplier : rawPrice;
+  const displayPrice = input.showCostsExVat ? rawPrice / restaurantMultiplier : rawPrice;
 
   const costPct = displayPrice > 0 ? foodCost / displayPrice : 0;
   const margin = displayPrice - foodCost;

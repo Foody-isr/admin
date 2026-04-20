@@ -2,13 +2,14 @@
 
 import { MenuItem, MenuItemIngredient } from '@/lib/api';
 import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
+import { costExVat, vatMultiplierForStock } from '@/lib/cost-utils';
 
 // Shows the full math behind a prep ingredient's cost: raw ingredients →
 // batch cost → cost per unit → line cost at the current portion.
 // The "line cost" math here MUST mirror calcLineCost/calcVariantLineCost in
 // MenuItemCostPanel so the modal and the Cost table never disagree.
 export default function PrepCostBreakdownModal({
-  ing, item, portion, optionId, showExVat, vatMultiplier,
+  ing, item, portion, optionId, showExVat, restaurantRate,
   simMode, simStockCosts, onEditStockCost, onClose, t,
 }: {
   ing: MenuItemIngredient;
@@ -16,7 +17,7 @@ export default function PrepCostBreakdownModal({
   portion: { qty: number; unit: string } | null;
   optionId?: number | null;
   showExVat: boolean;
-  vatMultiplier: number;
+  restaurantRate: number;
   // Simulate mode — when true, the unit-cost cell for each sub-ingredient
   // becomes an editable input. Edits flow back via onEditStockCost, keyed by
   // the stock item's id so the same stock used across multiple menu items
@@ -30,16 +31,10 @@ export default function PrepCostBreakdownModal({
   const prep = ing.prep_item;
   if (!prep) return null;
 
-  const toExVat = (c: number, incl: boolean) => incl ? c / vatMultiplier : c;
-  const toIncVat = (c: number, incl: boolean) => incl ? c : c * vatMultiplier;
-  const normalize = (c: number, incl: boolean) =>
-    showExVat ? toExVat(c, incl) : toIncVat(c, incl);
-
   const rows = (prep.ingredients ?? []).map((pi) => {
     const s = pi.stock_item;
-    const rawUnitCost = s?.cost_per_unit ?? 0;
-    const incVat = s?.price_includes_vat ?? false;
-    const unitCost = normalize(rawUnitCost, incVat);
+    const ex = costExVat(s ?? null);
+    const unitCost = showExVat ? ex : ex * vatMultiplierForStock(s ?? null, restaurantRate);
     const lineCost = pi.quantity_needed * unitCost;
     return {
       id: pi.id,

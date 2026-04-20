@@ -106,6 +106,22 @@ export default function StockPage() {
   const [importModal, setImportModal] = useState(false);
   const [importDraftId, setImportDraftId] = useState<number | undefined>(undefined);
   const [vatRate, setVatRate] = useState(18);
+  // HT/TTC display preference. Drives both the table price cells and the
+  // create/edit form's price entry mode. Persists in localStorage per user.
+  const [vatDisplayMode, setVatDisplayMode] = useState<'ex' | 'inc'>('inc');
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('foody.stock.vatDisplay');
+      if (v === 'ex' || v === 'inc') setVatDisplayMode(v);
+    } catch { /* ignore */ }
+  }, []);
+  const toggleVatDisplay = () => {
+    setVatDisplayMode((prev) => {
+      const next = prev === 'ex' ? 'inc' : 'ex';
+      try { localStorage.setItem('foody.stock.vatDisplay', next); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   // Open import modal with draft if ?draft=ID is in URL
   useEffect(() => {
@@ -145,14 +161,21 @@ export default function StockPage() {
     return true;
   });
 
-  const vatMultiplier = 1 + vatRate / 100;
+  // cost_per_unit is always stored ex-VAT (migration 059). Per-item VAT rate
+  // may override the restaurant default — `0` makes an item exempt (Israeli
+  // produce, etc.).
+  const effectiveRate = (item: StockItem) =>
+    item.vat_rate_override == null ? vatRate : item.vat_rate_override;
 
-  // Normalize cost to VAT-inclusive so price cells compare on the same basis
-  const adjustedCost = (item: StockItem) => {
-    const raw = item.cost_per_unit;
-    if (!item.price_includes_vat) return raw * vatMultiplier;
-    return raw;
-  };
+  // Cost used for the price cells. When the display mode is `inc`, apply the
+  // per-item VAT multiplier; otherwise show the raw ex-VAT value. Sort always
+  // uses inc-VAT so the ordering is stable regardless of display mode.
+  const adjustedCost = (item: StockItem) =>
+    vatDisplayMode === 'inc'
+      ? item.cost_per_unit * (1 + effectiveRate(item) / 100)
+      : item.cost_per_unit;
+  const incVatCost = (item: StockItem) =>
+    item.cost_per_unit * (1 + effectiveRate(item) / 100);
 
   // Sort by base values: quantity/cost are always stored in base units, so order
   // stays stable even when individual rows display at different packaging levels.
@@ -160,7 +183,7 @@ export default function StockPage() {
     const dir = sortDir === 'asc' ? 1 : -1;
     if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
     if (sortKey === 'quantity') return (a.quantity - b.quantity) * dir;
-    return (adjustedCost(a) - adjustedCost(b)) * dir;
+    return (incVatCost(a) - incVatCost(b)) * dir;
   });
 
   const handleDelete = async (id: number) => {
@@ -255,6 +278,19 @@ export default function StockPage() {
         </button>
 
         <div className="flex-1" />
+
+        {/* HT/TTC display toggle. Controls both the table price cells AND the
+            form's entry mode on next open, so the two stay aligned. */}
+        <button
+          type="button"
+          onClick={toggleVatDisplay}
+          className="h-11 px-4 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-xs font-semibold tracking-wider uppercase text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+          title={t('togglePriceDisplay') || 'Afficher prix HT / TTC'}
+        >
+          {vatDisplayMode === 'inc'
+            ? (t('showingIncVat') || 'TTC')
+            : (t('showingExVat') || 'HT')}
+        </button>
 
         {/* Actions dropdown */}
         <ActionsDropdown
@@ -471,6 +507,11 @@ export default function StockPage() {
                       title={t('displayAs') || 'Display as'}
                     >
                       {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
+                      {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
+                        <span className="ml-1.5 text-[10px] tracking-wider text-fg-tertiary">
+                          {item.vat_rate_override}% TVA
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-2 text-fg-secondary">{item.supplier || '—'}</td>
                     <td className="py-3.5 px-2">
@@ -508,6 +549,7 @@ export default function StockPage() {
           categories={categories.map((c) => c.name)}
           suppliers={suppliers}
           vatRate={vatRate}
+          vatDisplayMode={vatDisplayMode}
           onClose={() => setItemModal({ open: false })}
           onSaved={reload}
         />
@@ -579,8 +621,8 @@ export default function StockPage() {
 
 // ─── Stock Item Create/Edit Modal ───────────────────────────────────────────
 
-function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose, onSaved }: {
-  rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; vatRate: number; onClose: () => void; onSaved: () => void;
+function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDisplayMode, onClose, onSaved }: {
+  rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; vatRate: number; vatDisplayMode: 'ex' | 'inc'; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
 
@@ -602,6 +644,11 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose,
   const [reorder, setReorder] = useState(editing?.reorder_threshold ?? 0);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
+  // Per-item VAT rate. `null` = use restaurant default; `0` = exempt
+  // (e.g. Israeli fruits & vegetables); any value = custom rate.
+  const [vatRateOverride, setVatRateOverride] = useState<number | null>(
+    editing?.vat_rate_override ?? null,
+  );
 
   // Image upload state
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
@@ -659,6 +706,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose,
           .map((a) => ({ alias: a.alias.trim(), language: a.language.trim() }))
           .filter((a) => a.alias !== ''),
         is_active: isActive,
+        vat_rate_override: vatRateOverride,
       };
       if (editing) {
         await updateStockItem(rid, editing.id, payload);
@@ -860,7 +908,14 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, onClose,
             </div>
           )}
 
-          <StockQuantityForm value={qty} onChange={setQty} vatRate={vatRate} />
+          <StockQuantityForm
+            value={qty}
+            onChange={setQty}
+            vatRate={vatRate}
+            vatRateOverride={vatRateOverride}
+            onVatRateChange={setVatRateOverride}
+            vatDisplayMode={vatDisplayMode}
+          />
 
     </FormModal>
   );
