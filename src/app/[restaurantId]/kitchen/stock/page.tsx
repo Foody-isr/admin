@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   listStockItems, createStockItem, updateStockItem, deleteStockItem,
   getStockCategories, createStockTransaction, listStockTransactions,
@@ -49,8 +49,11 @@ import {
 export default function StockPage() {
   const { restaurantId } = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const deepLinkAppliedRef = useRef(false);
 
   const [items, setItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<StockCategory[]>([]);
@@ -135,6 +138,24 @@ export default function StockPage() {
       setImportModal(true);
     }
   }, [searchParams]);
+
+  // Deep-link: `?edit=<stockItemId>` opens the stock item editor directly.
+  // Used by the Food Cost ingredient table — clicking an ingredient name
+  // navigates here so the user can edit quantity/price on the real editor.
+  useEffect(() => {
+    if (deepLinkAppliedRef.current) return;
+    if (items.length === 0) return;
+    const editId = searchParams.get('edit');
+    if (!editId) return;
+    const target = items.find((s) => String(s.id) === editId);
+    if (!target) return;
+    deepLinkAppliedRef.current = true;
+    setItemModal({ open: true, editing: target });
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete('edit');
+    const qs = q.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [items, searchParams, router, pathname]);
 
   // Load VAT rate from restaurant settings
   useEffect(() => {

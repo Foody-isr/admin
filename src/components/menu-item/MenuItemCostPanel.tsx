@@ -40,8 +40,6 @@ interface Props {
   // when the panel is embedded inside the Menu Item page's Cost tab (swap flow
   // lives on the Recipe tab, not on a separate route).
   onGoToRecipe?: () => void;
-  // Optional: open the stock-cost editor for a raw stock item (inline quick-fix).
-  onEditStockItem?: (s: StockItem) => void;
 }
 
 // Complete food-cost dashboard for a single menu item. Read-only.
@@ -49,7 +47,7 @@ interface Props {
 // Menu Item edit page Cost tab. Extracted so the two places stay in lockstep.
 export default function MenuItemCostPanel({
   rid, item, ingredients, prepItems, stockItems, vatRate, itemOptionOverrides,
-  onGoToRecipe, onEditStockItem,
+  onGoToRecipe,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -576,10 +574,26 @@ export default function MenuItemCostPanel({
                   }
                   const qtyDisplay = `${Number(effectiveQty.toFixed(3))} ${effectiveUnit}`;
                   const prepIssue = ing.prep_item && !ing.stock_item ? diagnosePrep(ing.prep_item) : null;
+                  const editHref = ing.prep_item
+                    ? `/${rid}/kitchen/prep?edit=${ing.prep_item.id}`
+                    : ing.stock_item
+                      ? `/${rid}/kitchen/stock?edit=${ing.stock_item.id}`
+                      : null;
                   return (
                     <tr key={ing.id} style={{ borderBottom: '1px solid var(--divider)' }}>
                       <td className="py-3 px-4">
-                        <span className="font-medium text-fg-primary">{name}</span>
+                        {editHref ? (
+                          <button
+                            type="button"
+                            onClick={() => router.push(editHref)}
+                            className="font-medium text-fg-primary hover:text-brand-500 hover:underline transition-colors text-left"
+                            title={ing.prep_item ? (t('editPrepItem') || t('editItem')) : (t('editStockItem') || t('editItem'))}
+                          >
+                            {name}
+                          </button>
+                        ) : (
+                          <span className="font-medium text-fg-primary">{name}</span>
+                        )}
                         {prepIssue && ing.prep_item && (
                           <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
                             <ExclamationTriangleIcon className="w-3.5 h-3.5" />
@@ -600,8 +614,8 @@ export default function MenuItemCostPanel({
                           <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
                             <ExclamationTriangleIcon className="w-3.5 h-3.5" />
                             <span>{t('unitMismatchWarning').replace('{ingUnit}', unit).replace('{stockUnit}', stockUnit)}</span>
-                            {ing.stock_item && onEditStockItem && (
-                              <button onClick={() => onEditStockItem(ing.stock_item!)}
+                            {ing.stock_item && (
+                              <button onClick={() => router.push(`/${rid}/kitchen/stock?edit=${ing.stock_item!.id}`)}
                                 className="ml-1 underline hover:text-amber-400">{t('fix')}</button>
                             )}
                           </div>
@@ -661,12 +675,6 @@ export default function MenuItemCostPanel({
                             className="font-mono text-fg-secondary hover:text-brand-500 hover:underline transition-colors cursor-pointer"
                             title={t('showCostBreakdown')}
                           >
-                            {unitCost.toFixed(2)} &#8362;/{sourceUnit}
-                          </button>
-                        ) : onEditStockItem ? (
-                          <button onClick={() => ing.stock_item && onEditStockItem(ing.stock_item)}
-                            className="font-mono text-fg-secondary hover:text-brand-500 hover:underline transition-colors cursor-pointer"
-                            title={t('clickToEditCost')}>
                             {unitCost.toFixed(2)} &#8362;/{sourceUnit}
                           </button>
                         ) : (

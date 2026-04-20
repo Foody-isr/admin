@@ -5,19 +5,15 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, listStockItems, listPrepItems,
   getMenuItemIngredients, getItemOptionPrices,
-  updateStockItem,
   getRestaurantSettings,
   MenuCategory, MenuItem, MenuItemIngredient,
-  StockItem, PrepItem, StockItemInput, ItemOptionOverride,
+  StockItem, PrepItem, ItemOptionOverride,
 } from '@/lib/api';
 import RecipeImportModal from '../RecipeImportModal';
 import {
   MagnifyingGlassIcon, CurrencyDollarIcon, SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
-import StockQuantityForm, {
-  StockInput, serverToStockInput, stockInputToServer,
-} from '@/components/stock/StockQuantityForm';
 import MenuItemCostPanel from '@/components/menu-item/MenuItemCostPanel';
 
 export default function FoodCostPage() {
@@ -37,7 +33,6 @@ export default function FoodCostPage() {
 
   const [search, setSearch] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
-  const [editingStockItem, setEditingStockItem] = useState<StockItem | null>(null);
   const [vatRate, setVatRate] = useState(18);
   const [itemOptionOverrides, setItemOptionOverrides] = useState<ItemOptionOverride[]>([]);
 
@@ -196,7 +191,6 @@ export default function FoodCostPage() {
               stockItems={stockItems}
               vatRate={vatRate}
               itemOptionOverrides={itemOptionOverrides}
-              onEditStockItem={(s) => setEditingStockItem(s)}
             />
           </div>
         )}
@@ -218,81 +212,6 @@ export default function FoodCostPage() {
           }}
         />
       )}
-
-      {/* Inline Stock Item Cost Editor */}
-      {editingStockItem && (
-        <StockCostEditor
-          rid={rid}
-          item={editingStockItem}
-          vatRate={vatRate}
-          onClose={() => setEditingStockItem(null)}
-          onSaved={async () => {
-            setEditingStockItem(null);
-            // Reload stock items + re-select current menu item to refresh costs
-            const [, stock] = await Promise.all([reload(), listStockItems(rid)]);
-            setStockItems(stock);
-            if (selectedItem) selectItem(selectedItem);
-          }}
-          t={t}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Stock Cost Editor (inline from food cost page) ─────────────────
-
-function StockCostEditor({
-  rid, item, vatRate, onClose, onSaved, t,
-}: {
-  rid: number;
-  item: StockItem;
-  vatRate: number;
-  onClose: () => void;
-  onSaved: () => void;
-  t: (key: string) => string;
-}) {
-  const [qty, setQty] = useState<StockInput>(() => serverToStockInput(item));
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const serverFields = stockInputToServer(qty);
-      await updateStockItem(rid, item.id, {
-        name: item.name,
-        ...serverFields,
-        // Food-cost edits price/packaging only; preserve the stock quantity.
-        quantity: item.quantity,
-        reorder_threshold: item.reorder_threshold,
-        supplier: item.supplier,
-        category: item.category,
-        notes: item.notes,
-        is_active: item.is_active,
-      } as StockItemInput);
-      onSaved();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-modal shadow-xl p-5 w-full max-w-xl mx-4 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-fg-primary">{item.name}</h3>
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
-        </div>
-
-        <StockQuantityForm value={qty} onChange={setQty} vatRate={vatRate} />
-
-        <div className="flex justify-end gap-2 pt-4">
-          <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('save')}</button>
-        </div>
-      </div>
     </div>
   );
 }
