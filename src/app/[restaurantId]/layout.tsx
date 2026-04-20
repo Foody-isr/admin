@@ -11,6 +11,7 @@ import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import IdleModal from '@/components/IdleModal';
 import AiDrawer from '@/components/ai/AiDrawer';
+import FullscreenExitButton from '@/components/FullscreenExitButton';
 import { AiChatProvider } from '@/lib/ai-context';
 import { getRestaurant, Restaurant } from '@/lib/api';
 
@@ -43,6 +44,14 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const [restaurantError, setRestaurantError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Track browser fullscreen so we can drop the sidebar chrome and let the
+  // page fill the screen. Syncs with Esc-to-exit via the fullscreenchange event.
+  const [fullscreenActive, setFullscreenActive] = useState(false);
+  useEffect(() => {
+    const onChange = () => setFullscreenActive(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
   const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
 
   const isRtl = direction === 'rtl';
@@ -115,13 +124,17 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
         <AiChatProvider restaurantId={restaurantId}>
           <div className="h-screen flex">
             <div className="flex flex-1 min-w-0">
-              <Sidebar
-                restaurantId={restaurantId}
-                restaurantName={restaurant.name}
-                isOpen={sidebarOpen}
-                onClose={closeSidebar}
-              />
-              <main className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden ${isRtl ? 'lg:mr-64' : 'lg:ml-64'}`}>
+              {!fullscreenActive && (
+                <Sidebar
+                  restaurantId={restaurantId}
+                  restaurantName={restaurant.name}
+                  isOpen={sidebarOpen}
+                  onClose={closeSidebar}
+                />
+              )}
+              <main className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden ${
+                fullscreenActive ? '' : isRtl ? 'lg:mr-64' : 'lg:ml-64'
+              }`}>
                 <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
                   {children}
                 </div>
@@ -129,6 +142,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <AiDrawer />
+          <FullscreenExitButton />
           {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
         </AiChatProvider>
       </WsProvider>
