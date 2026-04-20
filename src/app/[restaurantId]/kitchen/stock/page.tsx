@@ -284,7 +284,7 @@ export default function StockPage() {
         <button
           type="button"
           onClick={toggleVatDisplay}
-          className="h-11 px-4 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-xs font-semibold tracking-wider uppercase text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+          className="h-11 px-4 min-w-[4.5rem] rounded-full border border-[var(--divider)] bg-[var(--surface)] text-xs font-semibold tracking-wider uppercase text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
           title={`${t('exVat')} / ${t('incVat')}`}
         >
           {vatDisplayMode === 'inc' ? t('incVat') : t('exVat')}
