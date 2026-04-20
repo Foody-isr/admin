@@ -26,17 +26,16 @@ function FieldLabel({ text, tooltip }: { text: string; tooltip: string }) {
   );
 }
 
-// Scope segment — three of these sit inside a single bordered wrapper to form a
-// segmented control, making it read as one mutually-exclusive choice.
-function ScopeSegment({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+// Scope button — three of these replace the <select> for a more visual picker.
+function ScopeButton({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-r border-[var(--divider)] last:border-r-0 transition-colors ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
         active
-          ? 'bg-brand-500/10 text-brand-500'
-          : 'text-fg-secondary hover:text-fg-primary'
+          ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+          : 'border-[var(--divider)] text-fg-secondary hover:text-fg-primary hover:border-fg-secondary/40'
       }`}
     >
       <span className="text-sm leading-none">{icon}</span>
@@ -396,10 +395,10 @@ export default function MenuItemIngredientsEditor({
                     text={t('ingredientScope') || 'How is this ingredient used?'}
                     tooltip={t('ingredientScopeTooltip') || 'Pick how this ingredient behaves across variants.'}
                   />
-                  <div className="inline-flex rounded-lg border border-[var(--divider)] overflow-hidden">
-                    <ScopeSegment icon={iconMatch}  label={t('scopeFollowVariant') || 'Match item size'}     active={card.scope === 'match'}  onClick={() => changeScope(card.key, 'match')} />
-                    <ScopeSegment icon={iconBase}   label={t('scopeBase') || 'Fixed quantity'}                active={card.scope === 'base'}   onClick={() => changeScope(card.key, 'base')} />
-                    <ScopeSegment icon={iconCustom} label={t('scopeCustom') || 'Custom per variant'}          active={card.scope === 'custom'} onClick={() => changeScope(card.key, 'custom')} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ScopeButton icon={iconMatch}  label={t('scopeFollowVariant') || 'Match item size'}     active={card.scope === 'match'}  onClick={() => changeScope(card.key, 'match')} />
+                    <ScopeButton icon={iconBase}   label={t('scopeBase') || 'Fixed quantity'}                active={card.scope === 'base'}   onClick={() => changeScope(card.key, 'base')} />
+                    <ScopeButton icon={iconCustom} label={t('scopeCustom') || 'Custom per variant'}          active={card.scope === 'custom'} onClick={() => changeScope(card.key, 'custom')} />
                   </div>
                   {hint && <p className="text-[11px] text-fg-tertiary italic pt-0.5">{hint}</p>}
                 </div>

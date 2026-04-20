@@ -12,7 +12,7 @@ import MenuItemIngredientsEditor from '@/components/food-cost/MenuItemIngredient
 import RecipeImportModal from '@/app/[restaurantId]/kitchen/RecipeImportModal';
 import FormSection from '@/components/FormSection';
 import {
-  PrinterIcon, SparklesIcon, ClockIcon, PlusIcon, TrashIcon,
+  SparklesIcon, ClockIcon, PlusIcon, TrashIcon,
   ChevronUpIcon, ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
@@ -44,7 +44,8 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
     attachedOptionSets },
   ref,
 ) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const helpUrl = `${process.env.NEXT_PUBLIC_LANDING_URL || 'https://foody-pos.co.il'}/${locale}/help/menu/ingredients-and-portions`;
 
   const [steps, setSteps] = useState<RecipeStepInput[]>([]);
   const [prepTime, setPrepTime] = useState(item.prep_time_mins ?? 0);
@@ -113,8 +114,16 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
 
   return (
     <div className="space-y-5">
-      {/* Top actions: Import / Print */}
-      <div className="flex items-center gap-2 justify-end">
+      {/* Top actions: Import + help link */}
+      <div className="flex items-center gap-3 justify-end">
+        <a
+          href={helpUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-brand-500 hover:text-brand-400 underline underline-offset-2"
+        >
+          {t('scopeHowItWorks')}
+        </a>
         <button
           type="button"
           onClick={() => setShowImportModal(true)}
@@ -122,14 +131,6 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
         >
           <SparklesIcon className="h-4 w-4" />
           {t('importRecipe')}
-        </button>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-[var(--divider)] text-fg-secondary hover:bg-[var(--surface-subtle)] transition-colors"
-        >
-          <PrinterIcon className="h-4 w-4" />
-          {t('printRecipe')}
         </button>
       </div>
 
