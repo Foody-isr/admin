@@ -70,9 +70,10 @@ function toISODate(d: Date): string {
 }
 
 function defaultDateRange(): { from: Date; to: Date } {
-  const to = new Date();
   const from = new Date();
-  from.setFullYear(from.getFullYear() - 1);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date();
+  to.setHours(23, 59, 59, 999);
   return { from, to };
 }
 
