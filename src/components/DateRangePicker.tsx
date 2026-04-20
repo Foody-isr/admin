@@ -24,16 +24,6 @@ function fmt(d: Date): string {
   return `${mm}/${dd}/${yyyy}`;
 }
 
-function fmtFull(d: Date): string {
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${mm}/${dd}/${yyyy} ${hh}:${mi}:${ss}`;
-}
-
 function startOfDay(d: Date): Date {
   const r = new Date(d);
   r.setHours(0, 0, 0, 0);
@@ -75,6 +65,14 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 interface Preset {
   label: string;
   range: () => DateRange;
+}
+
+function matchPreset(value: DateRange, presets: Preset[]): string | null {
+  for (const p of presets) {
+    const r = p.range();
+    if (sameDay(r.from, value.from) && sameDay(r.to, value.to)) return p.label;
+  }
+  return null;
 }
 
 function getPresets(): Preset[] {
@@ -145,6 +143,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
   }, [value]);
 
   const presets = getPresets();
+  const activePresetLabel = matchPreset(value, presets);
   const today = new Date();
   const days = daysInMonth(viewYear, viewMonth);
   const firstDay = firstDayOfWeek(viewYear, viewMonth);
@@ -203,7 +202,11 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
         className="flex items-center gap-2 px-3 py-2 rounded-standard text-sm text-fg-secondary hover:text-fg-primary transition-colors"
         style={{ border: '1px solid var(--divider)' }}
       >
-        {fmtFull(value.from)} - {fmtFull(value.to)}
+        {activePresetLabel
+          ? activePresetLabel
+          : sameDay(value.from, value.to)
+          ? fmt(value.from)
+          : `${fmt(value.from)} - ${fmt(value.to)}`}
       </button>
 
       {/* Dropdown */}
@@ -214,15 +217,21 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
         >
           {/* Left: presets */}
           <div className="w-36 py-3 flex-shrink-0" style={{ borderRight: '1px solid var(--divider)' }}>
-            {presets.map((p) => (
-              <button
-                key={p.label}
-                onClick={() => applyPreset(p)}
-                className="block w-full text-left px-4 py-2 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                {p.label}
-              </button>
-            ))}
+            {presets.map((p) => {
+              const isActive = activePresetLabel === p.label;
+              return (
+                <button
+                  key={p.label}
+                  onClick={() => applyPreset(p)}
+                  className={`block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[var(--surface-subtle)] ${
+                    isActive ? 'font-semibold text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
+                  }`}
+                  style={isActive ? { background: 'var(--surface-subtle)' } : undefined}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
             <button
               onClick={() => setPicking('idle')}
               className="block w-full text-left px-4 py-2 text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
