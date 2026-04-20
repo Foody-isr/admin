@@ -835,7 +835,7 @@ function PriceSentence({
 
   // Other-side sanity line — "soit N ₪ TTC" when typing HT (and vice-versa).
   const otherSideValue = isInc ? displayedEx : displayedEx * effMult;
-  const otherSideLabel = isInc ? (t('exVat') || 'HT') : (t('incVat') || 'TTC');
+  const otherSideLabel = isInc ? t('exVat') : t('incVat');
 
   // HT/TTC tag next to the input so the user always knows which side they're
   // typing on. Matches the stock table's display toggle.
@@ -844,7 +844,7 @@ function PriceSentence({
       className="text-[11px] font-semibold uppercase tracking-wider text-fg-tertiary px-1.5 py-0.5 rounded-md"
       style={{ background: 'rgba(255,255,255,0.04)' }}
     >
-      {isInc ? (t('incVat') || 'TTC') : (t('exVat') || 'HT')}
+      {isInc ? t('incVat') : t('exVat')}
     </span>
   );
 

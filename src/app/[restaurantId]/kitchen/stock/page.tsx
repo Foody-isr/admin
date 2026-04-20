@@ -285,11 +285,9 @@ export default function StockPage() {
           type="button"
           onClick={toggleVatDisplay}
           className="h-11 px-4 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-xs font-semibold tracking-wider uppercase text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
-          title={t('togglePriceDisplay') || 'Afficher prix HT / TTC'}
+          title={`${t('exVat')} / ${t('incVat')}`}
         >
-          {vatDisplayMode === 'inc'
-            ? (t('showingIncVat') || 'TTC')
-            : (t('showingExVat') || 'HT')}
+          {vatDisplayMode === 'inc' ? t('incVat') : t('exVat')}
         </button>
 
         {/* Actions dropdown */}
