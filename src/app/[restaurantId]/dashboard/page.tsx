@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getDayComparison, getAnalyticsToday, type ComparisonResult, type TodayStats } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -17,16 +17,34 @@ export default function DashboardPage() {
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const loadDashboard = useCallback(() => {
+    setLoading(true);
+    setErrors([]);
+    Promise.allSettled([getDayComparison(rid), getAnalyticsToday(rid)])
+      .then(([compRes, statsRes]) => {
+        const errs: string[] = [];
+        if (compRes.status === 'fulfilled') {
+          setComparison(compRes.value);
+        } else {
+          setComparison(null);
+          errs.push(`${t('performance')}: ${compRes.reason?.message ?? String(compRes.reason)}`);
+        }
+        if (statsRes.status === 'fulfilled') {
+          setStats(statsRes.value);
+        } else {
+          setStats(null);
+          errs.push(`${t('money')}: ${statsRes.reason?.message ?? String(statsRes.reason)}`);
+        }
+        setErrors(errs);
+      })
+      .finally(() => setLoading(false));
+  }, [rid, t]);
 
   useEffect(() => {
-    Promise.all([
-      getDayComparison(rid).catch(() => null),
-      getAnalyticsToday(rid).catch(() => null),
-    ]).then(([comp, s]) => {
-      setComparison(comp);
-      if (s) setStats(s);
-    }).finally(() => setLoading(false));
-  }, [rid]);
+    loadDashboard();
+  }, [loadDashboard]);
 
   if (loading) {
     return (
@@ -45,6 +63,34 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-fg-primary mb-6">{t('dashboardHome')}</h1>
+
+      {errors.length > 0 && (
+        <div
+          className="mb-6 rounded-standard px-4 py-3 text-sm"
+          style={{
+            background: 'rgba(247,56,56,0.08)',
+            border: '1px solid rgba(247,56,56,0.3)',
+            color: 'var(--status-rejected, #F73838)',
+          }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold">{t('failedToLoad') || 'Failed to load dashboard data'}</div>
+              <ul className="mt-1 list-disc list-inside space-y-0.5">
+                {errors.map((e, i) => (
+                  <li key={i}>{e}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={loadDashboard}
+              className="text-xs font-medium underline whitespace-nowrap hover:opacity-80"
+            >
+              {t('retry') || 'Retry'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <AiPromptBar />
 
