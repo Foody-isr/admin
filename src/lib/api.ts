@@ -1021,11 +1021,20 @@ export async function getMenu(restaurantId: number): Promise<Menu[]> {
   return data.menus ?? [];
 }
 
-/** Flattens all categories from all menus — for pages that work with a global category list. */
-/** Returns all item categories for a restaurant (global, independent of menus). */
-export async function getAllCategories(restaurantId: number): Promise<MenuCategory[]> {
+/**
+ * Returns all item categories for a restaurant (global, independent of menus).
+ * Pass `withRecipeOnly: true` to scope to items that can be costed standalone —
+ * excludes combos, combo-only items, and items without any ingredients.
+ */
+export async function getAllCategories(
+  restaurantId: number,
+  opts: { withRecipeOnly?: boolean } = {},
+): Promise<MenuCategory[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (opts.withRecipeOnly) params.set("with_recipe_only", "true");
   const data = await apiFetch<{ categories: MenuCategory[] }>(
-    `/api/v1/menu/item-categories?restaurant_id=${restaurantId}`, restaurantId
+    `/api/v1/menu/item-categories?${params.toString()}`,
+    restaurantId,
   );
   return data.categories ?? [];
 }

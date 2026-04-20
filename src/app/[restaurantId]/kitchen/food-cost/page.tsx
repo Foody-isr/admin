@@ -44,7 +44,7 @@ export default function FoodCostPage() {
   const reload = useCallback(async () => {
     try {
       const [cats, stock, prep] = await Promise.all([
-        getAllCategories(rid),
+        getAllCategories(rid, { withRecipeOnly: true }),
         listStockItems(rid),
         listPrepItems(rid),
       ]);
@@ -111,32 +111,42 @@ export default function FoodCostPage() {
         </div>
 
         <div className="card p-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-          {categories.map((cat) => {
-            const catItems = (cat.items ?? []).filter((i) =>
-              !search || i.name.toLowerCase().includes(search.toLowerCase())
-            );
-            if (catItems.length === 0) return null;
-            return (
-              <div key={cat.id}>
-                <div className="px-3 py-2 text-xs text-fg-secondary uppercase tracking-wider font-medium" style={{ background: 'var(--surface-subtle)' }}>
-                  {cat.name}
+          {categories.length === 0 ? (
+            <button
+              onClick={() => router.push(`/${rid}/menu/items`)}
+              className="w-full text-left px-4 py-8 space-y-1 hover:bg-[var(--surface-subtle)] transition-colors"
+            >
+              <p className="text-sm font-medium text-fg-primary">{t('noItemsWithRecipes')}</p>
+              <p className="text-xs text-fg-secondary">{t('noItemsWithRecipesHint')}</p>
+            </button>
+          ) : (
+            categories.map((cat) => {
+              const catItems = (cat.items ?? []).filter((i) =>
+                !search || i.name.toLowerCase().includes(search.toLowerCase())
+              );
+              if (catItems.length === 0) return null;
+              return (
+                <div key={cat.id}>
+                  <div className="px-3 py-2 text-xs text-fg-secondary uppercase tracking-wider font-medium" style={{ background: 'var(--surface-subtle)' }}>
+                    {cat.name}
+                  </div>
+                  {catItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => selectItem(item)}
+                      className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between hover:bg-[var(--surface-subtle)] transition-colors ${
+                        selectedItem?.id === item.id ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary'
+                      }`}
+                      style={{ borderBottom: '1px solid var(--divider)' }}
+                    >
+                      <span className="truncate">{item.name}</span>
+                      <span className="text-xs text-fg-secondary font-mono">{item.price.toFixed(2)} &#8362;</span>
+                    </button>
+                  ))}
                 </div>
-                {catItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => selectItem(item)}
-                    className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between hover:bg-[var(--surface-subtle)] transition-colors ${
-                      selectedItem?.id === item.id ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary'
-                    }`}
-                    style={{ borderBottom: '1px solid var(--divider)' }}
-                  >
-                    <span className="truncate">{item.name}</span>
-                    <span className="text-xs text-fg-secondary font-mono">{item.price.toFixed(2)} &#8362;</span>
-                  </button>
-                ))}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -201,7 +211,7 @@ export default function FoodCostPage() {
           onClose={() => setShowImportModal(false)}
           onImported={async () => {
             setShowImportModal(false);
-            const [cats] = await Promise.all([getAllCategories(rid), reload()]);
+            const [cats] = await Promise.all([getAllCategories(rid, { withRecipeOnly: true }), reload()]);
             // Find the fresh item from reloaded data (with updated recipe_yield)
             const freshItem = cats.flatMap(c => c.items || []).find(i => i.id === selectedItem.id);
             if (freshItem) selectItem(freshItem); else selectItem(selectedItem);

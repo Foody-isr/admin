@@ -37,6 +37,7 @@ import {
   LanguageIcon,
 } from '@heroicons/react/24/outline';
 import { useAi } from '@/lib/ai-context';
+import FullscreenToggle from '@/components/FullscreenToggle';
 
 interface SubItem {
   href: string;
@@ -460,6 +461,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           >
             <SparklesIcon className="w-5 h-5" />
           </button>
+          <FullscreenToggle />
         </div>
       </aside>
 
