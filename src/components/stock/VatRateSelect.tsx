@@ -46,13 +46,13 @@ export default function VatRateSelect({ value, onChange, restaurantRate, compact
         style={borderStyle}
         value={mode}
         onChange={(e) => handleModeChange(e.target.value as Mode)}
-        aria-label={t('vatRate') || 'TVA'}
+        aria-label={t('vatRate')}
       >
         <option value="default">
-          {(t('vatDefault') || 'Par défaut')} ({restaurantRate}%)
+          {t('vatDefault')} ({restaurantRate}%)
         </option>
-        <option value="exempt">0% ({t('vatExempt') || 'exonéré'})</option>
-        <option value="custom">{t('vatCustom') || 'Personnalisé'}</option>
+        <option value="exempt">0% ({t('vatExempt')})</option>
+        <option value="custom">{t('vatCustom')}</option>
       </select>
       {mode === 'custom' && (
         <span className="inline-flex items-center gap-0.5">
