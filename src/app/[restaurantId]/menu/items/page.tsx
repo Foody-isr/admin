@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Image as ImageIcon,
   MoreVertical,
+  Eye,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -381,18 +382,18 @@ export default function ItemLibraryPage() {
         <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--divider)] bg-[var(--surface-subtle)]">
+              <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
                 <th className="text-left p-4 w-12">
                   <Checkbox
                     checked={selected.size > 0 && selected.size === paged.length}
                     onCheckedChange={toggleSelectAll}
                   />
                 </th>
-                <th className="text-left p-4 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
                   >
                     {t('item')}
                     {sortKey === 'name' &&
@@ -403,17 +404,17 @@ export default function ItemLibraryPage() {
                       ))}
                   </button>
                 </th>
-                <th className="text-left p-4 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   {t('category')}
                 </th>
-                <th className="text-left p-4 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   {t('availability')}
                 </th>
-                <th className="text-right p-4 font-semibold text-[var(--text-secondary)] text-xs uppercase tracking-wider">
+                <th className="text-right p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => toggleSort('price')}
-                    className="inline-flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors ml-auto"
                   >
                     {t('price')}
                     {sortKey === 'price' &&
@@ -424,27 +425,27 @@ export default function ItemLibraryPage() {
                       ))}
                   </button>
                 </th>
-                <th className="text-right p-4 w-12" />
+                <th className="text-left p-4 w-12" />
               </tr>
             </thead>
             <tbody>
               {/* Quick create */}
               {!quickCreateOpen ? (
                 <tr
-                  className="cursor-pointer hover:bg-brand-500/5 transition-colors border-b border-[var(--divider)]"
+                  className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800"
                   onClick={() => {
                     setQuickCreateOpen(true);
                     if (!qcCategoryId && categories.length > 0) setQcCategoryId(categories[0].id);
                   }}
                 >
                   <td colSpan={6} className="py-3 px-4">
-                    <span className="flex items-center gap-2 text-sm font-medium text-brand-500">
+                    <span className="flex items-center gap-2 text-sm font-medium text-orange-500">
                       <Plus size={16} /> {t('quickCreate')}
                     </span>
                   </td>
                 </tr>
               ) : (
-                <tr className="bg-[var(--surface-subtle)] border-b border-[var(--divider)]">
+                <tr className="bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-100 dark:border-neutral-800">
                   <td className="py-3 px-4" />
                   <td className="py-3 px-2">
                     <input
@@ -452,7 +453,7 @@ export default function ItemLibraryPage() {
                       value={qcName}
                       onChange={(e) => setQcName(e.target.value)}
                       placeholder={t('nameRequired')}
-                      className="input text-sm py-1.5 rounded-lg"
+                      className="w-full px-3 py-1.5 text-sm border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleQuickCreate();
                         if (e.key === 'Escape') setQuickCreateOpen(false);
@@ -463,7 +464,7 @@ export default function ItemLibraryPage() {
                     <select
                       value={qcCategoryId}
                       onChange={(e) => setQcCategoryId(Number(e.target.value))}
-                      className="input text-sm py-1.5 rounded-lg"
+                      className="w-full px-3 py-1.5 text-sm border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                     >
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
@@ -481,7 +482,7 @@ export default function ItemLibraryPage() {
                       value={qcPrice}
                       onChange={(e) => setQcPrice(e.target.value)}
                       placeholder="0.00"
-                      className="input text-sm py-1.5 text-right rounded-lg"
+                      className="w-full px-3 py-1.5 text-sm text-right border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleQuickCreate();
                         if (e.key === 'Escape') setQuickCreateOpen(false);
@@ -493,13 +494,13 @@ export default function ItemLibraryPage() {
                       <button
                         onClick={handleQuickCreate}
                         disabled={qcSaving || !qcName.trim()}
-                        className="btn-primary text-xs px-3 py-1.5 rounded-full disabled:opacity-50"
+                        className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-medium rounded-lg shadow-sm disabled:opacity-50"
                       >
                         {qcSaving ? '...' : t('save')}
                       </button>
                       <button
                         onClick={() => setQuickCreateOpen(false)}
-                        className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2 py-1.5 transition-colors"
+                        className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white px-2 py-1.5 transition-colors"
                       >
                         ✕
                       </button>
@@ -532,7 +533,7 @@ export default function ItemLibraryPage() {
                 return (
                   <React.Fragment key={item.id}>
                     <tr
-                      className={`border-b border-[var(--divider)] hover:bg-brand-500/5 transition-colors cursor-pointer ${rowIdx % 2 === 0 ? 'bg-[var(--surface)]' : 'bg-[var(--surface-subtle)]/50'}`}
+                      className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors cursor-pointer ${rowIdx % 2 === 0 ? 'bg-white dark:bg-[#111111]' : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'}`}
                       onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
                     >
                       <td className="p-4" onClick={(e) => e.stopPropagation()}>
@@ -544,7 +545,7 @@ export default function ItemLibraryPage() {
                           {hasVariants && (
                             <button
                               onClick={() => toggleExpand(item.id)}
-                              className="w-5 h-5 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                              className="w-5 h-5 flex items-center justify-center text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                               aria-label={isExpanded ? 'Collapse' : 'Expand'}
                             >
                               {isExpanded ? (
@@ -565,21 +566,21 @@ export default function ItemLibraryPage() {
                               className="size-12 rounded-xl object-cover shrink-0"
                             />
                           ) : (
-                            <div className="size-12 rounded-xl bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-900/30 dark:to-brand-800/30 flex items-center justify-center shrink-0">
-                              <ImageIcon className="w-5 h-5 text-brand-500" />
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
+                              <ImageIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
                             </div>
                           )}
                           <div>
-                            <span className="font-medium text-[var(--text-primary)]">
+                            <span className="font-medium text-neutral-900 dark:text-white">
                               {item.name}
                             </span>
                             {item.item_type === 'combo' && (
-                              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-brand-500/15 text-brand-500">
+                              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-orange-500/15 text-orange-500">
                                 Combo
                               </span>
                             )}
                             {hasVariants && (
-                              <span className="text-xs text-[var(--text-secondary)] ml-2">
+                              <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">
                                 {variants.length} {t('variants').toLowerCase()}
                               </span>
                             )}
@@ -587,7 +588,7 @@ export default function ItemLibraryPage() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="px-3 py-1 bg-[var(--surface-subtle)] text-[var(--text-secondary)] rounded-lg text-sm font-medium">
+                        <span className="px-3 py-1 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium">
                           {item.category_name}
                         </span>
                       </td>
@@ -607,24 +608,33 @@ export default function ItemLibraryPage() {
                         </button>
                       </td>
                       <td className="p-4 text-right">
-                        <span className="font-semibold text-[var(--text-primary)]">
+                        <span className="font-semibold text-neutral-900 dark:text-white">
                           {hasVariants ? '—' : `₪${(item.price ?? 0).toFixed(2)}`}
                         </span>
                       </td>
-                      <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <RowActionsMenu
-                          actions={[
-                            {
-                              label: t('edit'),
-                              onClick: () => router.push(`/${rid}/menu/items/${item.id}`),
-                            },
-                            {
-                              label: t('delete'),
-                              onClick: () => handleDeleteItem(item.id),
-                              variant: 'danger',
-                            },
-                          ]}
-                        />
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
+                            className="p-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors group"
+                            title={t('viewDetails') || 'Voir les détails'}
+                          >
+                            <Eye size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-orange-500" />
+                          </button>
+                          <RowActionsMenu
+                            actions={[
+                              {
+                                label: t('edit'),
+                                onClick: () => router.push(`/${rid}/menu/items/${item.id}`),
+                              },
+                              {
+                                label: t('delete'),
+                                onClick: () => handleDeleteItem(item.id),
+                                variant: 'danger',
+                              },
+                            ]}
+                          />
+                        </div>
                       </td>
                     </tr>
 
@@ -633,12 +643,12 @@ export default function ItemLibraryPage() {
                       variants.map((v) => (
                         <tr
                           key={`${item.id}-v-${v.id}`}
-                          className="cursor-pointer hover:bg-brand-500/5 transition-colors border-b border-[var(--divider)] bg-[var(--surface-subtle)]/30"
+                          className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
                           onClick={() => router.push(`/${rid}/menu/items/${item.id}/variants`)}
                         >
                           <td className="p-3" />
                           <td className="p-3 pl-16">
-                            <span className="text-sm text-[var(--text-secondary)]">
+                            <span className="text-sm text-neutral-600 dark:text-neutral-400">
                               {v.name}
                             </span>
                           </td>
@@ -648,17 +658,17 @@ export default function ItemLibraryPage() {
                               className={`text-xs font-medium ${
                                 v.is_active
                                   ? 'text-green-600 dark:text-green-400'
-                                  : 'text-[var(--text-secondary)]'
+                                  : 'text-neutral-500 dark:text-neutral-400'
                               }`}
                             >
                               {v.is_active ? t('available') : t('unavailable')}
                             </span>
                           </td>
-                          <td className="p-3 text-right text-sm text-[var(--text-secondary)]">
+                          <td className="p-3 text-right text-sm text-neutral-600 dark:text-neutral-400">
                             ₪{(v.price ?? 0).toFixed(2)}
                           </td>
                           <td className="p-3">
-                            <MoreVertical className="w-4 h-4 text-[var(--text-secondary)]/50" />
+                            <MoreVertical className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
                           </td>
                         </tr>
                       ))}
@@ -672,8 +682,8 @@ export default function ItemLibraryPage() {
 
       {/* Pagination */}
       {sorted.length > 0 && (
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <p className="text-sm text-[var(--text-secondary)]">
+        <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
+          <p className="text-neutral-600 dark:text-neutral-400">
             {(t('paginationShowing') || 'Showing {n} of {total}')
               .replace('{n}', String(paged.length))
               .replace('{total}', String(sorted.length))}
@@ -683,7 +693,7 @@ export default function ItemLibraryPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={pageSafe === 1}
-                className="px-4 py-2 border border-[var(--divider)] bg-[var(--surface)] rounded-lg hover:bg-[var(--surface-subtle)] transition-colors font-medium text-sm text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('previousPage') || 'Previous'}
               </button>
@@ -700,14 +710,14 @@ export default function ItemLibraryPage() {
                   return (
                     <React.Fragment key={p}>
                       {showEllipsis && (
-                        <span className="px-2 py-2 text-[var(--text-secondary)]">…</span>
+                        <span className="px-2 py-2 text-neutral-400">…</span>
                       )}
                       <button
                         onClick={() => setPage(p)}
-                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                           p === pageSafe
-                            ? 'bg-brand-500 text-white'
-                            : 'border border-[var(--divider)] bg-[var(--surface)] hover:bg-[var(--surface-subtle)] text-[var(--text-primary)]'
+                            ? 'bg-orange-500 text-white'
+                            : 'border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] hover:bg-neutral-50 dark:hover:bg-[#222222] text-neutral-700 dark:text-neutral-300'
                         }`}
                       >
                         {p}
