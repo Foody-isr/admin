@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem,
@@ -15,32 +15,39 @@ import {
 } from '@/lib/api';
 import { getRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { useMenuItemSections, sectionAnchorId, MenuItemSection } from '@/components/menu-item/TabBar';
+import type { MenuItemSection } from '@/components/menu-item/TabBar';
+import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemRecipeTab, { MenuItemRecipeTabHandle } from '@/components/menu-item/MenuItemRecipeTab';
 import MenuItemCostPanel from '@/components/menu-item/MenuItemCostPanel';
-import MenuItemSummaryRail, { RailSection } from '@/components/menu-item/MenuItemSummaryRail';
-import CollapsibleSection from '@/components/menu-item/CollapsibleSection';
-import { useCollapsed } from '@/lib/useCollapsed';
+import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import { computeItemCostSummary } from '@/lib/cost-utils';
 import FormModal from '@/components/FormModal';
-import FormSection from '@/components/FormSection';
-import StatusPill from '@/components/StatusPill';
 import SearchableListField from '@/components/SearchableListField';
 import {
-  XMarkIcon, PhotoIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon,
-  ArrowUpTrayIcon, MagnifyingGlassIcon, PlusIcon, ArrowLeftIcon,
+  XMarkIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon,
+  MagnifyingGlassIcon, PlusIcon, ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
+
+const VALID_TABS: MenuItemSection[] = ['details', 'modifiers', 'recipe', 'cost'];
 
 export default function EditItemPage() {
   const { restaurantId, itemId } = useParams();
   const rid = Number(restaurantId);
   const iid = Number(itemId);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [item, setItem] = useState<MenuItem | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Active tab — defaults to ?tab=<section> if provided, else "details".
+  const initialTab = (() => {
+    const raw = searchParams.get('tab');
+    return raw && VALID_TABS.includes(raw as MenuItemSection) ? (raw as MenuItemSection) : 'details';
+  })();
+  const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
 
   // Form state
   const [name, setName] = useState('');
@@ -50,12 +57,7 @@ export default function EditItemPage() {
   const [isActive, setIsActive] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [imageUrl, setImageUrl] = useState('');
-  const [portionSize, setPortionSize] = useState(0);
-  const [portionSizeUnit, setPortionSizeUnit] = useState('g');
-  const [recipeYieldValue, setRecipeYieldValue] = useState(0);
-  const [recipeYieldUnit, setRecipeYieldUnit] = useState('kg');
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Combo steps (only used when itemType === 'combo')
@@ -104,11 +106,6 @@ export default function EditItemPage() {
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
   const [vatRate, setVatRate] = useState(18);
 
-  // Jump-nav sections (replaces the old tabs). Keeps ?tab=recipe|cost deep links working.
-  const { scrollToSection } = useMenuItemSections();
-  // Collapsed sections — persisted globally (UI pref, not per-restaurant).
-  // Recette and Coût are linked; see `toggleSection` below.
-  const [collapsed, toggleCollapsed, setManyCollapsed] = useCollapsed('foody.menuItem.sections');
   const recipeRef = useRef<MenuItemRecipeTabHandle>(null);
 
   const loadData = useCallback(async () => {
@@ -130,11 +127,9 @@ export default function EditItemPage() {
       setStockItems(stock ?? []);
       setPrepItems(prep ?? []);
       setIngredients(ings ?? []);
-      // Find option sets attached to this item
       setAttachedOptionSets((optSets ?? []).filter((os) =>
         (os.menu_items ?? []).some((mi) => mi.id === iid)
       ));
-      // Find the item across all categories
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
         if (found) {
@@ -146,11 +141,6 @@ export default function EditItemPage() {
           setIsActive(found.is_active);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
-          setPortionSize(found.portion_size ?? 0);
-          setPortionSizeUnit(found.portion_size_unit || 'g');
-          setRecipeYieldValue(found.recipe_yield ?? 0);
-          setRecipeYieldUnit(found.recipe_yield_unit || 'kg');
-          // Load combo steps if this is a combo item
           if (found.item_type === 'combo' && found.combo_steps) {
             setComboSteps(found.combo_steps.map((s) => ({
               key: crypto.randomUUID(),
@@ -169,7 +159,6 @@ export default function EditItemPage() {
           break;
         }
       }
-      // Determine which menus contain this item
       const mIds = new Set<number>();
       const gMap = new Map<number, number>();
       for (const menu of allMenus) {
@@ -223,7 +212,6 @@ export default function EditItemPage() {
     setEditingStepKey(step.key);
     setModalGroupName(step.name);
     setModalRequired(step.min_picks);
-    // Rebuild picks from existing step items using stored pick_key
     const picks = new Map<PickKey, PickInfo>();
     const deltas = new Map<PickKey, number>();
     const expand = new Set<number>();
@@ -231,7 +219,6 @@ export default function EditItemPage() {
       const key = si.pick_key || `item:${si.menu_item_id}`;
       picks.set(key, { menuItemId: si.menu_item_id, variantId: si.variant_id, name: si.item_name || `Item #${si.menu_item_id}`, price: 0 });
       if (si.price_delta !== 0) deltas.set(key, si.price_delta);
-      // Auto-expand items that have variant picks so user sees them checked
       if (si.variant_id) expand.add(si.menu_item_id);
     }
     setModalPicks(picks);
@@ -266,10 +253,8 @@ export default function EditItemPage() {
       })),
     };
     if (editingStepKey) {
-      // Update existing step
       setComboSteps((prev) => prev.map((s) => s.key === editingStepKey ? draft : s));
     } else {
-      // Add new step
       setComboSteps((prev) => [...prev, draft]);
     }
     setComboModalOpen(false);
@@ -287,10 +272,6 @@ export default function EditItemPage() {
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
-        // Item-level yield + portion are deprecated for menu items (batch
-        // concept lives on preps now; variant-scoped ingredients carry the
-        // per-variant qty directly). Force to 0 on every save so legacy items
-        // silently migrate to the new model.
         portion_size: 0,
         portion_size_unit: '',
         recipe_yield: 0,
@@ -306,15 +287,10 @@ export default function EditItemPage() {
         }));
       }
       const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
-      // Keep the in-memory item in sync with what was just persisted, so that
-      // embedded components (ingredients editor, recipe tab) see the fresh
-      // portion/yield and their mode-dependent UI (e.g. the scales toggle) recomputes.
       setItem((prev) => prev ? { ...prev, ...updated } : prev);
-      // Flush Recipe tab buffer (steps + meta + yield) alongside Details
       if (recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
       }
-      // Handle menu assignment diffs
       const added = Array.from(selectedMenuIds).filter((id) => !initialMenuIds.has(id));
       const removed = Array.from(initialMenuIds).filter((id) => !selectedMenuIds.has(id));
       for (const menuId of added) {
@@ -342,22 +318,13 @@ export default function EditItemPage() {
   };
 
   const handleImageUpload = async (file: File) => {
-    setUploading(true);
     try {
       const url = await uploadMenuItemImage(rid, iid, file);
       setImageUrl(url);
       await updateMenuItem(rid, iid, { image_url: url });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
     }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) handleImageUpload(file);
   };
 
   const handleDeleteModifier = async (modId: number) => {
@@ -368,8 +335,6 @@ export default function EditItemPage() {
 
   const goBack = () => router.push(`/${rid}/menu/items`);
 
-  // Hooks must run in the same order on every render — keep all useMemo calls
-  // above the early returns below.
   const costSummary = useMemo(() => {
     if (!item || ingredients.length === 0) return null;
     const s = computeItemCostSummary({
@@ -379,11 +344,7 @@ export default function EditItemPage() {
       vatRate,
       showCostsExVat: true,
     });
-    return {
-      foodCost: s.foodCost,
-      costPct: s.costPct,
-      margin: s.margin,
-    };
+    return { foodCost: s.foodCost, costPct: s.costPct, margin: s.margin };
   }, [item, ingredients, itemOptionOverrides, vatRate]);
 
   const activeCategoryName = useMemo(
@@ -408,77 +369,12 @@ export default function EditItemPage() {
     );
   }
 
-  // Inline the old sidebar form fields into the Details section so the user
-  // sees them in flow. The rail (below) replaces the sidebar with identity +
-  // jump nav + live cost.
-  const detailsCategorization = (
-    <>
-      <FormSection>
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-fg-primary">{t('status')}</h3>
-          <StatusPill
-            active={isActive}
-            onToggle={() => setIsActive(!isActive)}
-            activeLabel={t('available')}
-            inactiveLabel={t('unavailable')}
-          />
-        </div>
-      </FormSection>
-
-      <FormSection title={t('categories')}>
-        <SearchableListField
-          mode="single"
-          placeholder={t('addToCategories')}
-          options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
-          value={categoryId ? String(categoryId) : ''}
-          onChange={(v) => setCategoryId(v ? Number(v) : 0)}
-        />
-      </FormSection>
-
-      <FormSection title={t('menus')}>
-        <p className="text-xs text-fg-tertiary">{t('cartesDescription')}</p>
-        <SearchableListField
-          mode="multi"
-          placeholder={t('addToMenus')}
-          emptyLabel={t('noMenusAvailable') || 'No menus available'}
-          options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
-          values={Array.from(selectedMenuIds).map(String)}
-          onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
-        />
-      </FormSection>
-    </>
-  );
-
-  const railSections: RailSection[] = [
+  const tabs: TabBarItem[] = [
     { id: 'details', label: t('tabDetails') },
     { id: 'modifiers', label: t('tabModifiers') },
     { id: 'recipe', label: t('tabRecipe') },
     { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
   ];
-
-  // Recette ↔ Coût are linked — toggling either mirrors to both so the
-  // recipe/cost live-feedback loop isn't broken by a half-open state.
-  const toggleSection = (id: MenuItemSection) => {
-    if (id === 'recipe' || id === 'cost') {
-      const next = !(collapsed.recipe || collapsed.cost);
-      setManyCollapsed({ recipe: next, cost: next });
-    } else {
-      toggleCollapsed(id);
-    }
-  };
-
-  // Rail jump-nav: expand the target first (rAF so newly-mounted children
-  // exist before scrollIntoView measures them), then scroll.
-  const goToSection = (id: MenuItemSection) => {
-    if (collapsed[id]) {
-      setManyCollapsed(
-        id === 'recipe' || id === 'cost'
-          ? { recipe: false, cost: false }
-          : { [id]: false },
-      );
-    }
-    requestAnimationFrame(() => scrollToSection(id));
-  };
 
   const rail = (
     <MenuItemSummaryRail
@@ -487,14 +383,24 @@ export default function EditItemPage() {
       price={parseFloat(price) || 0}
       activeStatus={isActive}
       categoryName={activeCategoryName}
-      sections={railSections}
-      onSectionClick={goToSection}
       costSummary={costSummary}
+      onImageClick={() => fileInputRef.current?.click()}
     />
   );
 
   return (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageUpload(file);
+        }}
+      />
+
       <FormModal
         title={t('editItem')}
         onClose={goBack}
@@ -506,364 +412,346 @@ export default function EditItemPage() {
         stickySidebar
         maxWidthClass="max-w-6xl"
       >
-        <div className="space-y-10">
-        {/* ── Section: Détails ─────────────────────────────────── */}
-        <CollapsibleSection
-          id={sectionAnchorId('details')}
-          title={t('tabDetails')}
-          collapsed={!!collapsed.details}
-          onToggle={() => toggleSection('details')}
-        >
-          {/* Item Type (read-only badge) */}
-          {itemType === 'combo' && (
-            <div className="border border-[var(--divider)] rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-brand-500/15 text-brand-500">
-                {t('combo')}
-              </span>
-            </div>
-          )}
+        <div className="space-y-6">
+          <MenuItemTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-          {/* Name */}
-          <input
-            autoFocus
-            placeholder={t('nameRequired')}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="input w-full text-base"
-          />
-
-          {/* Price */}
-          <div className="relative">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder={t('price')}
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="input w-full text-base pr-16"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">ea</span>
-          </div>
-
-          {/* Description */}
-          <textarea
-            placeholder={t('customerDescription')}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="input w-full text-sm resize-y"
-          />
-
-          {/* Image upload */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleImageUpload(file);
-            }}
-          />
-          {imageUrl ? (
-            <div
-              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)]"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <img src={imageUrl} alt={name} className="w-full h-52 object-cover" />
-              {uploading && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+          {/* ── Tab: Détails ─────────────────────────────────── */}
+          {activeTab === 'details' && (
+            <SectionCard title={t('tabDetails')}>
+              {itemType === 'combo' && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
+                  <span className="px-3 py-1 rounded-full text-sm font-semibold bg-brand-500/15 text-brand-500">
+                    {t('combo')}
+                  </span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">{t('dropImagesHere')}</span>
+
+              {/* Row 1 — Name | Category */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label={t('itemNameLabel')}>
+                  <input
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('nameRequired')}
+                    className="input w-full text-base"
+                  />
+                </Field>
+                <Field label={t('category')}>
+                  <SearchableListField
+                    mode="single"
+                    placeholder={t('addToCategories')}
+                    options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
+                    value={categoryId ? String(categoryId) : ''}
+                    onChange={(v) => setCategoryId(v ? Number(v) : 0)}
+                  />
+                </Field>
               </div>
-            </div>
-          ) : (
-            <div
-              className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              {uploading ? (
-                <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-              ) : (
-                <>
-                  <ArrowUpTrayIcon className="w-10 h-10" />
-                  <p className="text-base text-center">
-                    {t('dropImagesHere')}, <span className="text-brand-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
-                  </p>
-                </>
-              )}
-            </div>
+
+              {/* Row 2 — Price | VAT | Status */}
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4">
+                <Field label={t('sellingPriceLabel')}>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      placeholder={t('price')}
+                      className="input w-full text-base pr-10"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">₪</span>
+                  </div>
+                </Field>
+                <Field label={t('vat')}>
+                  <input
+                    type="text"
+                    value={`${vatRate}%`}
+                    readOnly
+                    className="input w-full text-base bg-[var(--surface-subtle)] cursor-not-allowed"
+                    title={`${t('vat')} — ${vatRate}%`}
+                  />
+                </Field>
+                <Field label={t('status')}>
+                  <button
+                    type="button"
+                    onClick={() => setIsActive(!isActive)}
+                    className="h-[46px] inline-flex items-center gap-2 px-4 rounded-lg text-sm font-medium"
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-status-ready' : 'bg-fg-tertiary'}`} />
+                    {isActive ? t('active') : t('unavailable')}
+                  </button>
+                </Field>
+              </div>
+
+              <Field label={t('description')}>
+                <textarea
+                  placeholder={t('addDescription')}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="input w-full text-sm resize-y"
+                />
+              </Field>
+
+              {/* Menus assignment — kept for parity with the previous form; rendered
+                  after the core fields so the mockup's two-row layout stays clean. */}
+              <Field label={t('menus')} hint={t('cartesDescription')}>
+                <SearchableListField
+                  mode="multi"
+                  placeholder={t('addToMenus')}
+                  emptyLabel={t('noMenusAvailable') || 'No menus available'}
+                  options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
+                  values={Array.from(selectedMenuIds).map(String)}
+                  onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
+                />
+              </Field>
+            </SectionCard>
           )}
 
-          {/* Categorization (status / category / menus) — previously in the
-              right sidebar; inlined here so the rail can host the product
-              identity instead. */}
-          {detailsCategorization}
-        </CollapsibleSection>
-
-        {/* ── Section: Modificateurs & Variantes ───────────────── */}
-        <CollapsibleSection
-          id={sectionAnchorId('modifiers')}
-          title={t('tabModifiers')}
-          collapsed={!!collapsed.modifiers}
-          onToggle={() => toggleSection('modifiers')}
-        >
-          {/* Combo Builder (combo items only) */}
-          {itemType === 'combo' && (
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-base font-bold text-fg-primary">{t('buildThisCombo')}</h3>
-                <p className="text-sm text-fg-tertiary mt-0.5">{t('comboBuilderDescription')}</p>
-              </div>
-
-              {comboSteps.length > 0 && (
-                <div>
-                  <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider mb-1 border-b border-[var(--divider)] pb-2">
-                    <span className="flex-1">{t('comboChoice')}</span>
-                    <span className="w-16 text-center">{t('required')}</span>
-                    <span className="w-14" />
+          {/* ── Tab: Modificateurs & Variantes ───────────────── */}
+          {activeTab === 'modifiers' && (
+            <SectionCard title={t('tabModifiers')}>
+              {itemType === 'combo' && (
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-base font-bold text-fg-primary">{t('buildThisCombo')}</h3>
+                    <p className="text-sm text-fg-tertiary mt-0.5">{t('comboBuilderDescription')}</p>
                   </div>
-                  {comboSteps.map((step) => (
-                    <div key={step.key} className="border-b border-[var(--divider)] py-2.5">
-                      <div className="flex items-center gap-1">
-                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
-                          <span className="text-sm font-medium text-brand-500 hover:underline">{step.name}</span>
-                          <div className="text-xs text-fg-tertiary truncate mt-0.5">
-                            {step.items.length > 0
-                              ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
-                              : `${step.items.length} ${t('options')}`}
+
+                  {comboSteps.length > 0 && (
+                    <div>
+                      <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider mb-1 border-b border-[var(--divider)] pb-2">
+                        <span className="flex-1">{t('comboChoice')}</span>
+                        <span className="w-16 text-center">{t('required')}</span>
+                        <span className="w-14" />
+                      </div>
+                      {comboSteps.map((step) => (
+                        <div key={step.key} className="border-b border-[var(--divider)] py-2.5">
+                          <div className="flex items-center gap-1">
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
+                              <span className="text-sm font-medium text-brand-500 hover:underline">{step.name}</span>
+                              <div className="text-xs text-fg-tertiary truncate mt-0.5">
+                                {step.items.length > 0
+                                  ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
+                                  : `${step.items.length} ${t('options')}`}
+                              </div>
+                            </div>
+                            <span className="w-16 text-center text-sm text-fg-secondary shrink-0">{step.min_picks}</span>
+                            <div className="w-14 flex items-center justify-end gap-1 shrink-0">
+                              <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
+                                <TrashIcon className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                        <span className="w-16 text-center text-sm text-fg-secondary shrink-0">{step.min_picks}</span>
-                        <div className="w-14 flex items-center justify-end gap-1 shrink-0">
-                          <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
-                            <TrashIcon className="w-4 h-4" />
+                      ))}
+                    </div>
+                  )}
+
+                  <button onClick={openAddOptionsModal}
+                    className="flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-400">
+                    <PlusIcon className="w-4 h-4" />
+                    {t('addOptions')}
+                  </button>
+                </div>
+              )}
+
+              {(item.modifiers ?? []).length > 0 && (
+                <div>
+                  <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifiers')}</h3>
+                  <div className="space-y-2">
+                    {(item.modifiers ?? []).map((mod) => (
+                      <div key={mod.id} className="flex items-center justify-between py-2.5 px-4 rounded-lg bg-[var(--surface-subtle)]">
+                        <div>
+                          <span className="text-sm font-medium text-fg-primary">{mod.name}</span>
+                          <span className="text-xs text-fg-tertiary ml-2">({mod.action})</span>
+                          {mod.category && <span className="text-xs text-fg-tertiary ml-2">· {mod.category}</span>}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {mod.price_delta !== 0 && (
+                            <span className="text-sm text-fg-secondary">
+                              {mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}
+                            </span>
+                          )}
+                          <button onClick={() => handleDeleteModifier(mod.id)} className="p-1 rounded-lg hover:bg-red-500/10 transition-colors">
+                            <TrashIcon className="w-4 h-4 text-red-400" />
                           </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
 
-              <button onClick={openAddOptionsModal}
-                className="flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-400">
-                <PlusIcon className="w-4 h-4" />
-                {t('addOptions')}
-              </button>
-            </div>
-          )}
-
-          {/* Legacy modifiers */}
-          {(item.modifiers ?? []).length > 0 && (
-            <div>
-              <h3 className="text-base font-bold text-fg-primary mb-3">{t('modifiers')}</h3>
-              <div className="space-y-2">
-                {(item.modifiers ?? []).map((mod) => (
-                  <div key={mod.id} className="flex items-center justify-between py-2.5 px-4 rounded-lg bg-[var(--surface-subtle)]">
-                    <div>
-                      <span className="text-sm font-medium text-fg-primary">{mod.name}</span>
-                      <span className="text-xs text-fg-tertiary ml-2">({mod.action})</span>
-                      {mod.category && <span className="text-xs text-fg-tertiary ml-2">· {mod.category}</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {mod.price_delta !== 0 && (
-                        <span className="text-sm text-fg-secondary">
-                          {mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}
-                        </span>
-                      )}
-                      <button onClick={() => handleDeleteModifier(mod.id)} className="p-1 rounded-lg hover:bg-red-500/10 transition-colors">
-                        <TrashIcon className="w-4 h-4 text-red-400" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Modifier sets */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
-              <button
-                onClick={() => setModifierModalOpen(true)}
-                className="text-base font-medium underline text-fg-primary shrink-0"
-              >
-                {t('add')}
-              </button>
-            </div>
-            <p className="text-sm text-fg-tertiary mb-3">{t('modifiersDescription')}</p>
-            {(item.modifier_sets ?? []).length > 0 ? (
-              <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
-                {(item.modifier_sets ?? []).map((ms: ModifierSet) => (
-                  <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-                    <div>
-                      <span className="text-sm font-medium text-fg-primary">{ms.name}</span>
-                      <span className="text-xs text-fg-tertiary ml-2">
-                        {ms.modifiers?.length ?? 0} modifiers
-                      </span>
-                      {ms.is_required && (
-                        <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-fg-secondary">required</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/${ms.id}`)}
-                        className="text-sm text-brand-600 hover:underline font-medium"
-                      >
-                        {t('edit')}
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (!confirm('Unlink this modifier set from item?')) return;
-                          await detachModifierSetFromItem(rid, ms.id, iid);
-                          loadData();
-                        }}
-                        className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                      >
-                        {t('remove')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <button
-                onClick={() => setModifierModalOpen(true)}
-                className="w-full py-3 rounded-xl text-sm text-fg-tertiary hover:text-brand-600 transition-colors border border-dashed border-[var(--divider)]"
-              >
-                + {t('add')}
-              </button>
-            )}
-          </div>
-
-          {/* Variantes (Option Sets) */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
-              <button
-                onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                className="text-base font-medium underline text-fg-primary shrink-0"
-              >
-                {t('add')}
-              </button>
-            </div>
-            <p className="text-sm text-fg-tertiary mb-3">{t('variantsDescription')}</p>
-            {attachedOptionSets.length > 0 ? (
-              <div className="space-y-3">
-                {attachedOptionSets.map((os) => (
-                  <div key={os.id} className="rounded-xl border border-[var(--divider)] overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface-subtle)]">
-                      <span className="text-sm font-bold text-fg-primary">{os.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                          className="text-sm text-brand-600 hover:underline font-medium"
-                        >
-                          {t('edit')}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!confirm(t('remove') + '?')) return;
-                            await detachOptionSetFromItem(rid, os.id, iid);
-                            loadData();
-                          }}
-                          className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                        >
-                          {t('remove')}
-                        </button>
-                      </div>
-                    </div>
-                    {(os.options ?? []).map((opt) => {
-                      const override = itemOptionOverrides.find((ov) => ov.option_id === opt.id);
-                      const price = override?.price ?? opt.price;
-                      const portionSize = override?.portion_size ?? 0;
-                      const portionUnit = override?.portion_size_unit ?? '';
-                      const active = override?.is_active ?? opt.is_active;
-                      return (
-                        <div key={opt.id} className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-[var(--divider)]">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-fg-primary truncate">{opt.name}</span>
-                              {!active && (
-                                <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-fg-tertiary shrink-0">
-                                  {t('unavailable')}
-                                </span>
-                              )}
-                            </div>
-                            {portionSize > 0 && (
-                              <div className="text-xs text-fg-tertiary mt-0.5">
-                                {portionSize}{portionUnit ? ` ${portionUnit}` : ''}
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-sm font-semibold text-fg-primary shrink-0">₪{price.toFixed(2)}</span>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
+                  <button
+                    onClick={() => setModifierModalOpen(true)}
+                    className="text-base font-medium underline text-fg-primary shrink-0"
+                  >
+                    {t('add')}
+                  </button>
+                </div>
+                <p className="text-sm text-fg-tertiary mb-3">{t('modifiersDescription')}</p>
+                {(item.modifier_sets ?? []).length > 0 ? (
+                  <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
+                    {(item.modifier_sets ?? []).map((ms: ModifierSet) => (
+                      <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
+                        <div>
+                          <span className="text-sm font-medium text-fg-primary">{ms.name}</span>
+                          <span className="text-xs text-fg-tertiary ml-2">
+                            {ms.modifiers?.length ?? 0} modifiers
+                          </span>
+                          {ms.is_required && (
+                            <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-fg-secondary">required</span>
+                          )}
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/${ms.id}`)}
+                            className="text-sm text-brand-600 hover:underline font-medium"
+                          >
+                            {t('edit')}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Unlink this modifier set from item?')) return;
+                              await detachModifierSetFromItem(rid, ms.id, iid);
+                              loadData();
+                            }}
+                            className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                          >
+                            {t('remove')}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <button
+                    onClick={() => setModifierModalOpen(true)}
+                    className="w-full py-3 rounded-xl text-sm text-fg-tertiary hover:text-brand-600 transition-colors border border-dashed border-[var(--divider)]"
+                  >
+                    + {t('add')}
+                  </button>
+                )}
               </div>
-            ) : (
-              <button
-                onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                className="w-full py-3 rounded-xl text-sm text-fg-tertiary hover:text-brand-600 transition-colors border border-dashed border-[var(--divider)]"
-              >
-                + {t('addVariants')}
-              </button>
-            )}
-          </div>
-        </CollapsibleSection>
 
-        {/* ── Section: Recette ─────────────────────────────────── */}
-        <CollapsibleSection
-          id={sectionAnchorId('recipe')}
-          title={t('tabRecipe')}
-          collapsed={!!collapsed.recipe}
-          onToggle={() => toggleSection('recipe')}
-        >
-          <MenuItemRecipeTab
-            ref={recipeRef}
-            rid={rid}
-            item={item}
-            ingredients={ingredients}
-            stockItems={stockItems}
-            prepItems={prepItems}
-            onIngredientsSaved={(ings) => setIngredients(ings)}
-            onRecipeSaved={loadData}
-            attachedOptionSets={attachedOptionSets}
-            itemOptionOverrides={itemOptionOverrides}
-          />
-        </CollapsibleSection>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
+                  <button
+                    onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                    className="text-base font-medium underline text-fg-primary shrink-0"
+                  >
+                    {t('add')}
+                  </button>
+                </div>
+                <p className="text-sm text-fg-tertiary mb-3">{t('variantsDescription')}</p>
+                {attachedOptionSets.length > 0 ? (
+                  <div className="space-y-3">
+                    {attachedOptionSets.map((os) => (
+                      <div key={os.id} className="rounded-xl border border-[var(--divider)] overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface-subtle)]">
+                          <span className="text-sm font-bold text-fg-primary">{os.name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                              className="text-sm text-brand-600 hover:underline font-medium"
+                            >
+                              {t('edit')}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(t('remove') + '?')) return;
+                                await detachOptionSetFromItem(rid, os.id, iid);
+                                loadData();
+                              }}
+                              className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                            >
+                              {t('remove')}
+                            </button>
+                          </div>
+                        </div>
+                        {(os.options ?? []).map((opt) => {
+                          const override = itemOptionOverrides.find((ov) => ov.option_id === opt.id);
+                          const optPrice = override?.price ?? opt.price;
+                          const portionSize = override?.portion_size ?? 0;
+                          const portionUnit = override?.portion_size_unit ?? '';
+                          const active = override?.is_active ?? opt.is_active;
+                          return (
+                            <div key={opt.id} className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-[var(--divider)]">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-fg-primary truncate">{opt.name}</span>
+                                  {!active && (
+                                    <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-fg-tertiary shrink-0">
+                                      {t('unavailable')}
+                                    </span>
+                                  )}
+                                </div>
+                                {portionSize > 0 && (
+                                  <div className="text-xs text-fg-tertiary mt-0.5">
+                                    {portionSize}{portionUnit ? ` ${portionUnit}` : ''}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm font-semibold text-fg-primary shrink-0">₪{optPrice.toFixed(2)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                    className="w-full py-3 rounded-xl text-sm text-fg-tertiary hover:text-brand-600 transition-colors border border-dashed border-[var(--divider)]"
+                  >
+                    + {t('addVariants')}
+                  </button>
+                )}
+              </div>
+            </SectionCard>
+          )}
 
-        {/* ── Section: Coût ────────────────────────────────────── */}
-        <CollapsibleSection
-          id={sectionAnchorId('cost')}
-          title={t('tabCost')}
-          collapsed={!!collapsed.cost}
-          onToggle={() => toggleSection('cost')}
-        >
-          <MenuItemCostPanel
-            rid={rid}
-            item={item}
-            ingredients={ingredients}
-            prepItems={prepItems}
-            stockItems={stockItems}
-            vatRate={vatRate}
-            itemOptionOverrides={itemOptionOverrides}
-            onGoToRecipe={() => goToSection('recipe')}
-          />
-        </CollapsibleSection>
+          {/* ── Tab: Recette ─────────────────────────────────── */}
+          {activeTab === 'recipe' && (
+            <SectionCard title={t('tabRecipe')}>
+              <MenuItemRecipeTab
+                ref={recipeRef}
+                rid={rid}
+                item={item}
+                ingredients={ingredients}
+                stockItems={stockItems}
+                prepItems={prepItems}
+                onIngredientsSaved={(ings) => setIngredients(ings)}
+                onRecipeSaved={loadData}
+                attachedOptionSets={attachedOptionSets}
+                itemOptionOverrides={itemOptionOverrides}
+              />
+            </SectionCard>
+          )}
+
+          {/* ── Tab: Coût ────────────────────────────────────── */}
+          {activeTab === 'cost' && (
+            <SectionCard title={t('tabCost')}>
+              <MenuItemCostPanel
+                rid={rid}
+                item={item}
+                ingredients={ingredients}
+                prepItems={prepItems}
+                stockItems={stockItems}
+                vatRate={vatRate}
+                itemOptionOverrides={itemOptionOverrides}
+                onGoToRecipe={() => setActiveTab('recipe')}
+              />
+            </SectionCard>
+          )}
         </div>
       </FormModal>
 
@@ -871,7 +759,6 @@ export default function EditItemPage() {
       {modifierModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
           <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]">
-            {/* Modal header */}
             <div className="p-6 pb-4 flex items-center justify-between">
               <button
                 onClick={() => setModifierModalOpen(false)}
@@ -891,7 +778,6 @@ export default function EditItemPage() {
               <p className="text-sm text-fg-tertiary">{t('modifiersDescription')}</p>
             </div>
             <div className="mx-6 border-t-2 border-fg-primary" />
-            {/* Modal body */}
             <div className="flex-1 overflow-y-auto px-6 pb-6">
               {allModifierSets.length > 0 ? (
                 allModifierSets.map((ms) => {
@@ -930,7 +816,8 @@ export default function EditItemPage() {
           </div>
         </div>
       )}
-      {/* ── Combo Add Options Modal (rendered outside layout to avoid overflow) ── */}
+
+      {/* Combo Add Options Modal */}
       {comboModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setComboModalOpen(false)}>
           <div className="bg-[var(--surface-subtle)] border border-[var(--divider)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
@@ -1140,5 +1027,29 @@ export default function EditItemPage() {
         </div>
       )}
     </>
+  );
+}
+
+// ── Local layout helpers ────────────────────────────────────────────────
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 md:p-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <span className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+        <h2 className="text-base font-bold text-fg-primary">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-fg-tertiary">{label}</label>
+      {children}
+      {hint && <p className="text-xs text-fg-tertiary">{hint}</p>}
+    </div>
   );
 }

@@ -277,7 +277,7 @@ export default function StockPage() {
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 min-w-[220px] max-w-xs">
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
           <input
             type="text"

@@ -7,12 +7,16 @@ import {
   RecipeExtraction, ConfirmRecipeItemInput, ConfirmPrepRecipeInput,
   StockItem, MenuItem,
 } from '@/lib/api';
-import { SparklesIcon, TrashIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import {
+  SparklesIcon, TrashIcon, DocumentTextIcon,
+  ExclamationTriangleIcon, InformationCircleIcon,
+} from '@heroicons/react/24/outline';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
   StockInput, BaseUnit, defaultStockInput, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
+import { classifyUnits, convertUnit, formatConverted } from '@/lib/stock/unit-compat';
 
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
 function coerceBaseUnit(u: string): BaseUnit {
@@ -354,6 +358,23 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           <div className="space-y-3">
             {editedIngredients.map((ing, idx) => {
               const matched = ing.stock_item_id ? stockItems.find((s) => s.id === ing.stock_item_id) : null;
+              const stockUnit = matched?.unit || '';
+              const compat = matched ? classifyUnits(ing.unit, stockUnit) : 'same';
+              // Cost display: stock cost is ₪/stockUnit; convert to ₪/recipeUnit
+              // so "total for N recipe units" is correct. Null when units are
+              // incompatible (e.g. g ↔ l).
+              const costPerRecipeUnit = (() => {
+                if (!matched || !(ing.cost_per_unit > 0)) return null;
+                if (compat === 'same') return ing.cost_per_unit;
+                const factor = convertUnit(1, ing.unit, stockUnit);
+                return factor == null ? null : ing.cost_per_unit * factor;
+              })();
+              const convertedExample = (() => {
+                if (compat !== 'convertible' || ing.quantity_needed <= 0) return '';
+                const c = convertUnit(ing.quantity_needed, ing.unit, stockUnit);
+                if (c == null) return '';
+                return `${ing.quantity_needed} ${ing.unit} = ${formatConverted(c, stockUnit)}`;
+              })();
               return (
                 <div key={idx} className="p-4 rounded-lg space-y-3" style={{ background: 'var(--surface-subtle)' }}>
                   {/* Row 1: Name + badge + delete */}
@@ -387,7 +408,10 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                           const si = stockItems.find((s) => s.id === +val);
                           updateIngredient(idx, {
                             stock_item_id: +val, is_new: false,
-                            unit: si?.unit || ing.unit,
+                            // Keep recipe's unit — server converts at deduction time
+                            // for same-dimension pairs (g↔kg, ml↔l). Cross-dimension
+                            // mismatches are surfaced as a warning below so the user
+                            // can correct them before saving.
                             cost_per_unit: si?.cost_per_unit || ing.cost_per_unit,
                             price_includes_vat: si?.price_includes_vat || false,
                             category: si?.category || ing.category,
@@ -405,6 +429,29 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                       placeholder={`${t('newItem')}: ${ing.name}`}
                     />
                   </div>
+
+                  {/* Unit-compatibility hint (matched items with a unit difference) */}
+                  {matched && compat === 'convertible' && (
+                    <div className="flex items-start gap-2 p-2 rounded-lg text-xs text-blue-500 bg-blue-500/10">
+                      <InformationCircleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        {t('unitAutoConvertHint')
+                          .replace('{ingUnit}', ing.unit)
+                          .replace('{stockUnit}', stockUnit)
+                          .replace('{example}', convertedExample || `${ing.unit} → ${stockUnit}`)}
+                      </span>
+                    </div>
+                  )}
+                  {matched && compat === 'incompatible' && (
+                    <div className="flex items-start gap-2 p-2 rounded-lg text-xs text-amber-500 bg-amber-500/10">
+                      <ExclamationTriangleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        {t('unitIncompatibleHint')
+                          .replace('{ingUnit}', ing.unit)
+                          .replace('{stockUnit}', stockUnit)}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Row 3: Category (new items only) */}
                   {!matched && (
@@ -442,26 +489,35 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                     </div>
                     <div>
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('unit')}</label>
-                      <div className="input w-full py-1.5 text-sm bg-[var(--surface)] text-fg-secondary cursor-not-allowed">
-                        {ing.unit || '—'}
-                      </div>
+                      <select
+                        className="input w-full py-1.5 text-sm"
+                        value={ing.unit}
+                        onChange={(e) => updateIngredient(idx, { unit: e.target.value })}
+                      >
+                        <option value="g">g</option><option value="kg">kg</option>
+                        <option value="ml">ml</option><option value="l">l</option>
+                        <option value="unit">unit</option>
+                        {ing.unit && !['g', 'kg', 'ml', 'l', 'unit'].includes(ing.unit) && (
+                          <option value={ing.unit}>{ing.unit}</option>
+                        )}
+                      </select>
                     </div>
                   </div>
 
-                  {/* Matched: cost pulled from stock */}
-                  {matched && ing.cost_per_unit > 0 && (
+                  {/* Matched: cost pulled from stock (converted to recipe unit) */}
+                  {matched && costPerRecipeUnit != null && costPerRecipeUnit > 0 && (
                     <div className="p-3 rounded-lg text-xs text-fg-secondary" style={{ background: 'var(--surface)' }}>
                       <div className="flex items-center justify-between">
                         <span>{t('costPerUnit')} ({t('fromStock') || 'from stock'})</span>
                         <span className="font-semibold text-fg-primary">
-                          {ing.cost_per_unit.toFixed(4)} &#8362;/{ing.unit} {t('exVat')} | {(ing.cost_per_unit * vatMultiplier).toFixed(4)} &#8362;/{ing.unit} {t('incVat')}
+                          {costPerRecipeUnit.toFixed(4)} &#8362;/{ing.unit} {t('exVat')} | {(costPerRecipeUnit * vatMultiplier).toFixed(4)} &#8362;/{ing.unit} {t('incVat')}
                         </span>
                       </div>
                       {ing.quantity_needed > 0 && (
                         <div className="flex items-center justify-between mt-1 pt-1 border-t border-[var(--divider)]">
                           <span>{t('totalPrice')} ({ing.quantity_needed} {ing.unit})</span>
                           <span>
-                            {(ing.cost_per_unit * ing.quantity_needed).toFixed(2)} &#8362; {t('exVat')} | {(ing.cost_per_unit * ing.quantity_needed * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}
+                            {(costPerRecipeUnit * ing.quantity_needed).toFixed(2)} &#8362; {t('exVat')} | {(costPerRecipeUnit * ing.quantity_needed * vatMultiplier).toFixed(2)} &#8362; {t('incVat')}
                           </span>
                         </div>
                       )}
