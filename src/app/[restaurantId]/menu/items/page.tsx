@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem,
+  getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem, createCategory,
   MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -16,11 +16,14 @@ import {
   Image as ImageIcon,
   MoreVertical,
   Eye,
+  Tag,
+  Trash2,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
+import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
 
 // ─── Flat item with category name for table display ────────────────────────
@@ -62,6 +65,17 @@ export default function ItemLibraryPage() {
   });
   const openFiltersDrawer = (view: FilterView) => setFiltersDrawer({ open: true, view });
   const closeFiltersDrawer = () => setFiltersDrawer((prev) => ({ ...prev, open: false }));
+
+  // Figma CategoryDrawer — serves two modes:
+  //   1. filter: clicking the "Catégorie:" header button OR the drawer's bulk
+  //      button when no rows are selected → filter the list to one category.
+  //   2. bulk-assign: clicking "Assigner une catégorie" in the bulk toolbar
+  //      while rows are selected → patch category_id on each selected item.
+  const [categoryDrawer, setCategoryDrawer] = useState<{ open: boolean; mode: 'filter' | 'bulk-assign' }>({
+    open: false,
+    mode: 'filter',
+  });
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Sort
   type SortKey = 'name' | 'price';
@@ -163,6 +177,68 @@ export default function ItemLibraryPage() {
     setSelected(next);
   };
 
+  // ─── Bulk actions ────────────────────────────────────────────────
+
+  const handleBulkAssignCategory = async (category: MenuCategory) => {
+    if (selected.size === 0) return;
+    setBulkProcessing(true);
+    try {
+      // Bare-fetch API, no bulk endpoint — iterate sequentially so errors stop
+      // the chain and we can surface the first failure. Backend order doesn't
+      // matter for this mutation.
+      for (const id of Array.from(selected)) {
+        await updateMenuItem(rid, id, { category_id: category.id });
+      }
+      setSelected(new Set());
+      setCategoryDrawer({ open: false, mode: 'filter' });
+      reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to assign category');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    const confirmMsg = (t('confirmBulkDelete') || 'Delete {n} selected item(s)?').replace(
+      '{n}',
+      String(selected.size),
+    );
+    if (!confirm(confirmMsg)) return;
+    setBulkProcessing(true);
+    try {
+      for (const id of Array.from(selected)) {
+        await deleteMenuItem(rid, id);
+      }
+      setSelected(new Set());
+      reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleCreateCategory = async (name: string) => {
+    await createCategory(rid, { name });
+    await reload();
+  };
+
+  const handleCategorySelect = (category: MenuCategory | null) => {
+    if (categoryDrawer.mode === 'bulk-assign') {
+      if (category) handleBulkAssignCategory(category);
+      return;
+    }
+    // Filter mode
+    if (category === null) {
+      setSelectedCategories(new Set());
+    } else {
+      setSelectedCategories(new Set([category.name]));
+    }
+    setCategoryDrawer({ open: false, mode: 'filter' });
+  };
+
   const handleQuickCreate = async () => {
     if (!qcName.trim()) return;
     setQcSaving(true);
@@ -257,15 +333,12 @@ export default function ItemLibraryPage() {
           <ArticlesKpiRow items={allItems} categoriesCount={categories.length} />
         </div>
 
-        {/* Bulk selection toolbar */}
+        {/* Bulk selection toolbar — Figma App.tsx:497-523 */}
         {selectionCount > 0 && (
           <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <span className="font-semibold text-orange-900 dark:text-orange-300">
-                {(t('selectedCount') || '{n} selected').replace(
-                  '{n}',
-                  String(selectionCount),
-                )}
+                {selectionCount} {t('selectedItems') || 'article'}{selectionCount > 1 ? 's' : ''} {t('selectedSuffix') || 'sélectionné'}{selectionCount > 1 ? 's' : ''}
               </span>
               {compareHint && (
                 <span className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -276,17 +349,34 @@ export default function ItemLibraryPage() {
                 onClick={() => setSelected(new Set())}
                 className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
               >
-                {t('deselectAll') || t('clearSelection') || 'Clear'}
+                {t('deselectAll') || 'Tout désélectionner'}
               </button>
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setCategoryDrawer({ open: true, mode: 'bulk-assign' })}
+                disabled={bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
+              >
+                <Tag size={16} />
+                {t('assignCategory') || 'Assigner une catégorie'}
+              </button>
+              <button
                 onClick={goCompare}
-                disabled={compareDisabled}
-                className="px-5 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+                disabled={compareDisabled || bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={compareHint || undefined}
               >
                 {t('compareCosts') || 'Compare costs'}
                 {!compareDisabled && ` (${selectionCount})`}
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400 disabled:opacity-50"
+              >
+                <Trash2 size={16} />
+                {t('delete') || 'Supprimer'}
               </button>
             </div>
           </div>
@@ -308,12 +398,16 @@ export default function ItemLibraryPage() {
             />
           </div>
           <button
-            onClick={() => openFiltersDrawer('category')}
+            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
             className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
           >
             {t('category')}:{' '}
             <span className="text-orange-500">
-              {selectedCategories.size === 0 ? t('all') : selectedCategories.size}
+              {selectedCategories.size === 0
+                ? t('all')
+                : selectedCategories.size === 1
+                  ? Array.from(selectedCategories)[0]
+                  : selectedCategories.size}
             </span>
             <ChevronDown size={16} />
           </button>
@@ -737,6 +831,21 @@ export default function ItemLibraryPage() {
         </div>
       )}
       </div>{/* /px-8 py-6 table wrapper */}
+
+      {/* Category drawer — dual-mode (filter | bulk-assign). Figma App.tsx:1035 */}
+      <CategoryDrawer
+        open={categoryDrawer.open}
+        mode={categoryDrawer.mode}
+        onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
+        categories={categories}
+        currentCategory={
+          selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
+        }
+        onSelect={handleCategorySelect}
+        selectionCount={selectionCount}
+        onCreateCategory={handleCreateCategory}
+        processing={bulkProcessing}
+      />
 
       {/* Filters Drawer (nested: index → category / status) */}
       <StockFiltersDrawer
