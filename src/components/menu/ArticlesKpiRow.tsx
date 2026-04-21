@@ -15,61 +15,84 @@ interface Props {
   categoriesCount: number;
 }
 
-export default function ArticlesKpiRow({ items, categoriesCount }: Props) {
+export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCount }: Props) {
   const { t } = useI18n();
 
   const total = items.length;
   const available = items.filter((i) => i.is_active).length;
   const unavailable = total - available;
+  const activePct = total > 0 ? Math.round((available / total) * 100) : 0;
   const avgPrice =
-    total > 0
-      ? items.reduce((sum, i) => sum + (i.price ?? 0), 0) / total
-      : 0;
+    total > 0 ? items.reduce((sum, i) => sum + (i.price ?? 0), 0) / total : 0;
 
-  const kpis: Array<{ title: string; value: string; icon: LucideIcon }> = [
+  type Kpi = {
+    title: string;
+    value: string;
+    icon: LucideIcon;
+    change: string;
+    positive: boolean;
+  };
+
+  const kpis: Kpi[] = [
     {
       title: t('kpiTotalItems'),
       value: String(total),
       icon: ShoppingBag,
+      change: total > 0 ? `${total}` : '0',
+      positive: true,
     },
     {
       title: t('kpiActiveItems'),
       value: String(available),
       icon: CheckCircle,
+      change: `${activePct}%`,
+      positive: activePct >= 80,
     },
     {
-      title: t('kpiCategories'),
-      value: String(categoriesCount),
+      title: t('kpiAvgPrice'),
+      value: `₪${avgPrice.toFixed(2)}`,
       icon: DollarSign,
+      change: '',
+      positive: true,
     },
     {
       title: t('kpiUnavailable'),
       value: String(unavailable),
       icon: AlertCircle,
+      change: unavailable === 0 ? '0%' : `${Math.round((unavailable / Math.max(total, 1)) * 100)}%`,
+      positive: unavailable === 0,
     },
   ];
-
-  // Hint to show the avg price as a secondary metric on the 3rd card
-  kpis[2] = {
-    ...kpis[2],
-    value: `₪${avgPrice.toFixed(2)}`,
-    title: t('kpiAvgPrice'),
-  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {kpis.map((kpi) => (
         <div
           key={kpi.title}
-          className="bg-gradient-to-br from-[var(--surface)] to-[var(--surface-subtle)] dark:from-neutral-800 dark:to-neutral-900 border border-[var(--divider)] rounded-xl p-4 hover:shadow-lg transition-all"
+          className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg transition-all"
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="size-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/25">
+            <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
               <kpi.icon size={22} />
             </div>
+            {kpi.change && (
+              <span
+                className={`text-sm font-semibold ${
+                  kpi.positive
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}
+              >
+                {kpi.change}
+              </span>
+            )}
           </div>
-          <h3 className="text-[var(--text-secondary)] text-sm mb-1">{kpi.title}</h3>
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{kpi.value}</p>
+          <h3 className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
+            {kpi.title}
+          </h3>
+          <p className="text-2xl font-bold text-neutral-900 dark:text-white">
+            {kpi.value}
+          </p>
         </div>
       ))}
     </div>

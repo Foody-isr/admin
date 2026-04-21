@@ -301,6 +301,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               <div key={item.labelKey}>
                 {/* Top-level row */}
                 {children ? (
+                  // Parent groups never get the orange gradient — only text color
+                  // shifts when expanded. Active state lives on the leaf child.
                   <button
                     onClick={() => {
                       if (collapsed) {
@@ -310,35 +312,33 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         toggleKey(item.labelKey);
                       }
                     }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                      isActive
-                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25'
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
+                      expanded
+                        ? 'text-[var(--text-primary)]'
                         : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
                     }`}
                   >
-                    <item.icon className="w-5 h-5 shrink-0" />
-                    {!collapsed && (
-                      <>
-                        <span className="font-medium flex-1 text-left truncate">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <item.icon className="w-5 h-5 shrink-0" />
+                      {!collapsed && (
+                        <span className="font-medium truncate">
                           {t(item.labelKey)}
                         </span>
+                      )}
+                    </div>
+                    {!collapsed && (
+                      <div className="flex items-center gap-2">
                         {totalBadge > 0 && (
-                          <span
-                            className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
-                              isActive
-                                ? 'bg-white/20 text-white'
-                                : 'bg-brand-500/15 text-brand-500'
-                            }`}
-                          >
+                          <span className="text-xs px-1.5 py-0.5 rounded font-semibold bg-orange-500/15 text-orange-500">
                             {totalBadge}
                           </span>
                         )}
                         <ChevronDown
-                          className={`w-4 h-4 shrink-0 transition-transform ${
+                          className={`w-4 h-4 shrink-0 transition-transform text-[var(--text-secondary)] ${
                             expanded ? 'rotate-180' : ''
                           }`}
                         />
-                      </>
+                      </div>
                     )}
                   </button>
                 ) : (

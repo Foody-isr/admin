@@ -38,7 +38,7 @@ const MEASURABLE_UNITS = ['g', 'kg', 'ml', 'l'];
 
 // Swatch palette used for the donut chart and matching dots in the ingredient
 // breakdown table. Rotated per ingredient.
-const SWATCH = ['#F18A47', '#05df72', '#3b82f6', '#8e51ff', '#f59e0b', '#ec4899'];
+const SWATCH = ['#f97316', '#05df72', '#3b82f6', '#8e51ff', '#f59e0b', '#ec4899'];
 const CURRENCY = '\u20AA';
 
 type ColoredLine = ItemCostSummary['lines'][number] & {
@@ -430,7 +430,7 @@ function VariantPills({
             onClick={() => onChange(String(v.id))}
             className={`inline-flex flex-col items-center px-4 py-2 rounded-full text-[12px] leading-[16px] transition-colors ${
               isActive
-                ? 'bg-[#F18A47] text-white'
+                ? 'bg-[#f97316] text-white'
                 : 'bg-[var(--surface-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -459,7 +459,7 @@ function Banner({
   action?: { label: string; onClick: () => void };
 }) {
   const palette = tone === 'brand'
-    ? 'border-[rgba(241,138,71,0.3)] bg-[rgba(241,138,71,0.08)] text-[var(--text-primary)]'
+    ? 'border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] text-[var(--text-primary)]'
     : 'border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] text-[#f59e0b]';
   return (
     <div className={`flex items-start gap-3 rounded-[10px] border p-4 text-[13px] leading-[18px] ${palette}`}>
@@ -476,7 +476,7 @@ function Banner({
           onClick={action.onClick}
           className={`shrink-0 h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors ${
             tone === 'brand'
-              ? 'bg-[#F18A47] text-white hover:bg-[#E07A3A]'
+              ? 'bg-[#f97316] text-white hover:bg-[#ea580c]'
               : 'underline hover:opacity-80'
           }`}
         >
@@ -558,7 +558,7 @@ function OverviewSection({
       title={t('tabCost')}
       headerRight={
         <div className="flex items-center gap-2">
-          {overThreshold && <ExclamationTriangleIcon className="w-5 h-5 text-[#F18A47]" />}
+          {overThreshold && <ExclamationTriangleIcon className="w-5 h-5 text-[#f97316]" />}
           <button
             type="button"
             onClick={onToggleVat}
@@ -600,7 +600,7 @@ function OverviewSection({
           icon={<CurrencyDollarIcon className="w-4 h-4" />}
           value={`${summary.foodCost.toFixed(2)} ${CURRENCY}`}
           valueClass="text-[var(--text-primary)]"
-          barColor="#F18A47"
+          barColor="#f97316"
           barPct={Math.min(100, summary.costPct * 100)}
           caption={t('costEvolutionPending')}
         />
@@ -653,7 +653,7 @@ function KpiCard({
   const iconBg = tone === 'positive'
     ? 'bg-[rgba(5,223,114,0.12)] text-[#05df72]'
     : tone === 'warning'
-      ? 'bg-[rgba(241,138,71,0.12)] text-[#F18A47]'
+      ? 'bg-[rgba(249,115,22,0.12)] text-[#f97316]'
       : 'bg-[var(--surface-subtle)] text-[var(--text-secondary)]';
   return (
     <div className="rounded-[10px] border border-[rgba(255,255,255,0.08)] bg-[#0f0f12] p-4 flex flex-col gap-3">
@@ -700,12 +700,12 @@ function CostPctCard({
           {t('costPercent')}
         </span>
         <span className={`w-7 h-7 rounded-md inline-flex items-center justify-center ${
-          over ? 'bg-[rgba(241,138,71,0.12)] text-[#F18A47]' : 'bg-[rgba(5,223,114,0.12)] text-[#05df72]'
+          over ? 'bg-[rgba(249,115,22,0.12)] text-[#f97316]' : 'bg-[rgba(5,223,114,0.12)] text-[#05df72]'
         }`}>
           <ExclamationTriangleIcon className="w-4 h-4" />
         </span>
       </div>
-      <p className={`text-[28px] leading-[36px] font-semibold ${over ? 'text-[#F18A47]' : 'text-[var(--text-primary)]'}`}>
+      <p className={`text-[28px] leading-[36px] font-semibold ${over ? 'text-[#f97316]' : 'text-[var(--text-primary)]'}`}>
         {pct.toFixed(1)}%
       </p>
       <p className="text-[12px] leading-[16px] text-[var(--text-secondary)]">
@@ -716,7 +716,7 @@ function CostPctCard({
           className="h-1.5 rounded-full"
           style={{
             background:
-              `linear-gradient(to right, #05df72 0%, #05df72 ${thresholdPct}%, #f59e0b ${thresholdPct}%, #f59e0b ${Math.min(100, thresholdPct + 20)}%, #F18A47 ${Math.min(100, thresholdPct + 20)}%, #F18A47 100%)`,
+              `linear-gradient(to right, #05df72 0%, #05df72 ${thresholdPct}%, #f59e0b ${thresholdPct}%, #f59e0b ${Math.min(100, thresholdPct + 20)}%, #f97316 ${Math.min(100, thresholdPct + 20)}%, #f97316 100%)`,
           }}
         />
         {markerPct > 0 && (
@@ -728,7 +728,7 @@ function CostPctCard({
         <div className="flex justify-between text-[10px] leading-[14px] text-[var(--text-secondary)] mt-1.5 font-mono">
           <span>0%</span>
           <span style={{ marginLeft: `${thresholdPct - 5}%` }}>{thresholdPct}%</span>
-          <span className={over ? 'text-[#F18A47]' : ''}>{pct.toFixed(1)}%</span>
+          <span className={over ? 'text-[#f97316]' : ''}>{pct.toFixed(1)}%</span>
         </div>
       </div>
     </button>
@@ -811,14 +811,14 @@ function TrendPlaceholder({ message }: { message: string }) {
       <svg viewBox="0 0 320 140" className="w-full h-[130px]" aria-hidden>
         <defs>
           <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F18A47" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#F18A47" stopOpacity="0" />
+            <stop offset="0%" stopColor="#f97316" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[28, 70, 112].map((y) => (
           <line key={y} x1="0" y1={y} x2="320" y2={y} stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" />
         ))}
-        <path d="M0 90 L64 80 L128 74 L192 60 L256 52 L320 44" fill="none" stroke="#F18A47" strokeWidth="2" />
+        <path d="M0 90 L64 80 L128 74 L192 60 L256 52 L320 44" fill="none" stroke="#f97316" strokeWidth="2" />
         <path d="M0 90 L64 80 L128 74 L192 60 L256 52 L320 44 L320 140 L0 140 Z" fill="url(#trend-fill)" />
       </svg>
       <p className="text-[11px] leading-[14px] text-[var(--text-secondary)] text-center">{message}</p>
@@ -913,7 +913,7 @@ function SimulatorSection({
           <div className={`h-9 rounded-[6px] px-3 inline-flex items-center gap-2 text-[14px] leading-[20px] ${
             simHitsGoal
               ? 'bg-[rgba(5,223,114,0.12)] text-[#05df72]'
-              : 'bg-[rgba(241,138,71,0.12)] text-[#F18A47]'
+              : 'bg-[rgba(249,115,22,0.12)] text-[#f97316]'
           }`}>
             {simHitsGoal
               ? <CheckCircleIcon className="w-4 h-4" />
@@ -956,7 +956,7 @@ function SimulatorSection({
           {t('simulatedFoodCost')}: <span className="text-[var(--text-primary)] font-mono">{simCost.toFixed(2)} {CURRENCY}</span>
         </span>
         <span>
-          {t('grossProfit')}: <span className={`font-mono ${simMargin >= 0 ? 'text-[#05df72]' : 'text-[#F18A47]'}`}>{simMargin.toFixed(2)} {CURRENCY}</span>
+          {t('grossProfit')}: <span className={`font-mono ${simMargin >= 0 ? 'text-[#05df72]' : 'text-[#f97316]'}`}>{simMargin.toFixed(2)} {CURRENCY}</span>
         </span>
       </div>
     </SectionCard>
@@ -1008,7 +1008,7 @@ function IngredientBreakdownSection({
             <button
               type="button"
               onClick={onGoToRecipe}
-              className="text-[14px] text-[#F18A47] hover:text-[#E07A3A] transition-colors"
+              className="text-[14px] text-[#f97316] hover:text-[#ea580c] transition-colors"
             >
               {t('addIngredients')} &rarr;
             </button>
@@ -1058,7 +1058,7 @@ function IngredientBreakdownSection({
                             <button
                               type="button"
                               onClick={() => onNavigate(editHref)}
-                              className="text-[var(--text-primary)] hover:text-[#F18A47] hover:underline text-left transition-colors"
+                              className="text-[var(--text-primary)] hover:text-[#f97316] hover:underline text-left transition-colors"
                               title={prep
                                 ? (t('editPrepItem') || t('editItem'))
                                 : (t('editStockItem') || t('editItem'))}
@@ -1114,7 +1114,7 @@ function IngredientBreakdownSection({
                           <span>
                             {Number(l.qty.toFixed(3))} <span className="text-[var(--text-secondary)]">{l.qtyUnit}</span>
                           </span>
-                          <span className="text-[9px] uppercase text-[#F18A47]/80 tracking-wider">
+                          <span className="text-[9px] uppercase text-[#f97316]/80 tracking-wider">
                             {isOverrideRow
                               ? (t('variantOverride') || 'variant override')
                               : (t('followVariantPortion') || 'follows variant')}
@@ -1139,7 +1139,7 @@ function IngredientBreakdownSection({
                               const raw = parseFloat(e.target.value);
                               onEditStockCost(stock.id, Number.isFinite(raw) && raw >= 0 ? raw : 0);
                             }}
-                            className="w-20 h-7 rounded-[6px] bg-[var(--surface-subtle)] px-2 text-right text-[12px] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[#F18A47]"
+                            className="w-20 h-7 rounded-[6px] bg-[var(--surface-subtle)] px-2 text-right text-[12px] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[#f97316]"
                           />
                           <span className="text-[11px]">{CURRENCY}/{l.sourceUnit}</span>
                         </div>
@@ -1147,7 +1147,7 @@ function IngredientBreakdownSection({
                         <button
                           type="button"
                           onClick={() => onOpenPrepBreakdown(ing)}
-                          className="hover:text-[#F18A47] hover:underline transition-colors"
+                          className="hover:text-[#f97316] hover:underline transition-colors"
                           title={t('showCostBreakdown')}
                         >
                           {l.unitCost.toFixed(2)} {CURRENCY}/{l.sourceUnit}
@@ -1164,7 +1164,7 @@ function IngredientBreakdownSection({
                         <button
                           type="button"
                           onClick={() => onOpenPrepBreakdown(ing)}
-                          className="hover:text-[#F18A47] hover:underline transition-colors"
+                          className="hover:text-[#f97316] hover:underline transition-colors"
                           title={t('showCostBreakdown')}
                         >
                           {mismatch ? '—' : `${l.lineCost.toFixed(2)} ${CURRENCY}`}
@@ -1175,7 +1175,7 @@ function IngredientBreakdownSection({
                     </td>
 
                     <td className={`py-3 px-4 text-right font-mono last:pr-[25px] ${
-                      l.contributionPct >= 0.5 ? 'text-[#F18A47]' : 'text-[var(--text-primary)]'
+                      l.contributionPct >= 0.5 ? 'text-[#f97316]' : 'text-[var(--text-primary)]'
                     }`}>
                       {(l.contributionPct * 100).toFixed(1)}%
                     </td>
@@ -1305,7 +1305,7 @@ function PerVariantBreakdownSection({
                     {vPriceBasis.toFixed(2)} {CURRENCY}
                   </td>
                   <td className={`py-3 px-4 text-right font-mono font-semibold ${
-                    vPct > COST_THRESHOLD ? 'text-[#F18A47]' : 'text-[var(--text-primary)]'
+                    vPct > COST_THRESHOLD ? 'text-[#f97316]' : 'text-[var(--text-primary)]'
                   }`}>
                     {(vPct * 100).toFixed(1)}%
                   </td>
@@ -1424,7 +1424,7 @@ function SuggestionsSection({
               s.tone === 'positive'
                 ? 'bg-[rgba(5,223,114,0.12)] text-[#05df72]'
                 : s.tone === 'warning'
-                  ? 'bg-[rgba(241,138,71,0.12)] text-[#F18A47]'
+                  ? 'bg-[rgba(249,115,22,0.12)] text-[#f97316]'
                   : 'bg-[rgba(142,81,255,0.12)] text-[#8e51ff]'
             }`}>
               {s.icon}

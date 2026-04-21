@@ -15,7 +15,6 @@ import {
   ChevronRight,
   Image as ImageIcon,
   MoreVertical,
-  X,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -163,12 +162,6 @@ export default function ItemLibraryPage() {
     setSelected(next);
   };
 
-  const removeCategoryPill = (name: string) => {
-    const next = new Set(selectedCategories);
-    next.delete(name);
-    setSelectedCategories(next);
-  };
-
   const handleQuickCreate = async () => {
     if (!qcName.trim()) return;
     setQcSaving(true);
@@ -219,142 +212,173 @@ export default function ItemLibraryPage() {
     router.push(`/${rid}/menu/items/compare?ids=${ids}`);
   };
 
+  // Category pills — the top-level quick filter (single-select pattern from Figma).
+  // "Tous" clears the category filter. Any category pill toggles that single category.
+  const pillCategories = ['Tous', ...categoryOptions.map((c) => c.name)];
+  const activePillName =
+    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : 'Tous';
+  const selectPill = (name: string) => {
+    if (name === 'Tous') setSelectedCategories(new Set());
+    else setSelectedCategories(new Set([name]));
+  };
+
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto">
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 mb-1 text-sm">
-            <span className="text-[var(--text-secondary)]">{t('articlesGroup')}</span>
-            <ChevronRight size={14} className="text-[var(--text-secondary)]" />
-            <span className="font-medium text-brand-500">{t('itemLibrary')}</span>
+    <div className="-mx-6 -my-6 lg:-mx-8 flex flex-col">
+      {/* Header card */}
+      <header className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
+        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-sm">
+              <span className="text-neutral-500 dark:text-neutral-400">
+                {t('articlesGroup')}
+              </span>
+              <ChevronRight size={14} className="text-neutral-400" />
+              <span className="font-medium text-orange-500">{t('itemLibrary')}</span>
+            </div>
+            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+              {t('itemLibrary')}
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+              {t('articlesSubtitle') || 'Gérez votre catalogue de produits'}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-            {t('itemLibrary')}
-          </h1>
-          <p className="text-[var(--text-secondary)] mt-1 text-sm">
-            {t('articlesSubtitle') || 'Gérez votre catalogue de produits'}
-          </p>
-        </div>
-        <button
-          onClick={() => router.push(`/${rid}/menu/items/new`)}
-          className="px-6 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl hover:from-brand-600 hover:to-brand-700 transition-all shadow-lg shadow-brand-500/25 flex items-center gap-2 font-medium"
-        >
-          <Plus size={20} />
-          {t('createItem')}
-        </button>
-      </div>
-
-      {/* KPI row */}
-      <ArticlesKpiRow items={allItems} categoriesCount={categories.length} />
-
-      {/* Bulk selection toolbar */}
-      {selectionCount > 0 && (
-        <div className="p-4 bg-brand-500/10 border border-brand-500/30 rounded-xl flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="font-semibold text-brand-600 dark:text-brand-400">
-              {(t('selectedCount') || '{n} selected').replace('{n}', String(selectionCount))}
-            </span>
-            {compareHint && (
-              <span className="text-[var(--text-secondary)]">{compareHint}</span>
-            )}
-            <button
-              onClick={() => setSelected(new Set())}
-              className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:opacity-80"
-            >
-              {t('deselectAll') || t('clearSelection') || 'Clear'}
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={goCompare}
-              disabled={compareDisabled}
-              className="px-5 py-2 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t('compareCosts') || 'Compare costs'}
-              {!compareDisabled && ` (${selectionCount})`}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Search + filters row */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-[240px] relative">
-          <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
-            size={20}
-          />
-          <input
-            type="text"
-            placeholder={t('search')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-          />
-        </div>
-        <button
-          onClick={() => openFiltersDrawer('category')}
-          className="px-5 py-3 border border-[var(--divider)] bg-[var(--surface)] rounded-xl hover:bg-[var(--surface-subtle)] transition-colors flex items-center gap-2 font-medium text-[var(--text-primary)] text-sm"
-        >
-          {t('category')}:{' '}
-          <span className="text-brand-500">
-            {selectedCategories.size === 0 ? t('all') : selectedCategories.size}
-          </span>
-          <ChevronDown size={16} />
-        </button>
-        <button
-          onClick={() => openFiltersDrawer('index')}
-          className="px-5 py-3 border border-[var(--divider)] bg-[var(--surface)] rounded-xl hover:bg-[var(--surface-subtle)] transition-colors flex items-center gap-2 font-medium text-[var(--text-primary)] text-sm"
-        >
-          {t('allFilters')}
-          <ChevronDown size={16} />
-        </button>
-        <ActionsDropdown
-          actions={[{ label: t('refresh'), onClick: reload }]}
-        />
-      </div>
-
-      {/* Category pills */}
-      {selectedCategories.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {Array.from(selectedCategories).map((name) => (
-            <button
-              key={name}
-              onClick={() => removeCategoryPill(name)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-500/10 text-brand-600 dark:text-brand-400 rounded-lg text-sm font-medium border border-brand-500/30 hover:bg-brand-500/20 transition-colors"
-            >
-              {name}
-              <X size={14} />
-            </button>
-          ))}
           <button
-            onClick={() => setSelectedCategories(new Set())}
-            className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2 py-1 font-medium"
+            onClick={() => router.push(`/${rid}/menu/items/new`)}
+            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
           >
-            {t('clearAll') || 'Clear all'}
+            <Plus size={20} />
+            {t('createItem')}
           </button>
         </div>
+
+        {/* KPI row */}
+        <div className="mb-6">
+          <ArticlesKpiRow items={allItems} categoriesCount={categories.length} />
+        </div>
+
+        {/* Bulk selection toolbar */}
+        {selectionCount > 0 && (
+          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-orange-900 dark:text-orange-300">
+                {(t('selectedCount') || '{n} selected').replace(
+                  '{n}',
+                  String(selectionCount),
+                )}
+              </span>
+              {compareHint && (
+                <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {compareHint}
+                </span>
+              )}
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
+              >
+                {t('deselectAll') || t('clearSelection') || 'Clear'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={goCompare}
+                disabled={compareDisabled}
+                className="px-5 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/25"
+              >
+                {t('compareCosts') || 'Compare costs'}
+                {!compareDisabled && ` (${selectionCount})`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search + filters row */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-[240px] relative">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500"
+              size={20}
+            />
+            <input
+              type="text"
+              placeholder={t('search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+            />
+          </div>
+          <button
+            onClick={() => openFiltersDrawer('category')}
+            className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
+          >
+            {t('category')}:{' '}
+            <span className="text-orange-500">
+              {selectedCategories.size === 0 ? t('all') : selectedCategories.size}
+            </span>
+            <ChevronDown size={16} />
+          </button>
+          <button
+            onClick={() => openFiltersDrawer('index')}
+            className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
+          >
+            {t('allFilters')}
+            <ChevronDown size={16} />
+          </button>
+          <ActionsDropdown
+            actions={[{ label: t('refresh'), onClick: reload }]}
+          />
+        </div>
+      </header>
+
+      {/* Category pills — always visible horizontal filter bar */}
+      {pillCategories.length > 1 && (
+        <div className="px-8 py-4 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 flex gap-2 overflow-x-auto">
+          {pillCategories.map((name) => {
+            const active = activePillName === name;
+            return (
+              <button
+                key={name}
+                onClick={() => selectPill(name)}
+                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
+                  active
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
+                }`}
+              >
+                {name}
+              </button>
+            );
+          })}
+          {selectedCategories.size > 1 && (
+            <button
+              onClick={() => setSelectedCategories(new Set())}
+              className="px-4 py-2 rounded-lg font-medium whitespace-nowrap text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+            >
+              {t('clearAll') || 'Clear all'}
+            </button>
+          )}
+        </div>
       )}
 
+      {/* Table wrapper with Figma padding */}
+      <div className="px-8 py-6">
       {/* Items table */}
       {sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <ImageIcon className="w-12 h-12 text-[var(--text-secondary)]" />
-          <p className="text-base text-[var(--text-secondary)] text-center max-w-md">
+          <ImageIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-500" />
+          <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
             {allItems.length === 0 ? t('addFirstMenuItem') : t('tryAdjustingFilters')}
           </p>
           {allItems.length === 0 && (
             <button
               onClick={() => router.push(`/${rid}/menu/items/new`)}
-              className="btn-primary mt-2 rounded-full"
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
             >
               {t('createItem')}
             </button>
           )}
         </div>
       ) : (
-        <div className="bg-[var(--surface)] rounded-2xl shadow-sm border border-[var(--divider)] overflow-hidden">
+        <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--divider)] bg-[var(--surface-subtle)]">
@@ -694,7 +718,7 @@ export default function ItemLibraryPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={pageSafe === totalPages}
-                className="px-4 py-2 border border-[var(--divider)] bg-[var(--surface)] rounded-lg hover:bg-[var(--surface-subtle)] transition-colors font-medium text-sm text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors font-medium text-sm text-neutral-700 dark:text-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('nextPage') || 'Next'}
               </button>
@@ -702,6 +726,7 @@ export default function ItemLibraryPage() {
           )}
         </div>
       )}
+      </div>{/* /px-8 py-6 table wrapper */}
 
       {/* Filters Drawer (nested: index → category / status) */}
       <StockFiltersDrawer
