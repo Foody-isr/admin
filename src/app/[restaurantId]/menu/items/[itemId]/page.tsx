@@ -18,7 +18,7 @@ import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemRecipeTab, { MenuItemRecipeTabHandle } from '@/components/menu-item/MenuItemRecipeTab';
-import MenuItemCostPanel from '@/components/menu-item/MenuItemCostPanel';
+import MenuItemCostTab from '@/components/menu-item/MenuItemCostTab';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
@@ -731,20 +731,20 @@ export default function EditItemPage() {
               </SectionCard>
             )}
 
-            {/* ── Tab: Coût ────────────────────────────────────── */}
-            {activeTab === 'cost' && (
-              <SectionCard title={t('tabCost')}>
-                <MenuItemCostPanel
-                  rid={rid}
-                  item={item}
-                  ingredients={ingredients}
-                  prepItems={prepItems}
-                  stockItems={stockItems}
-                  vatRate={vatRate}
-                  itemOptionOverrides={itemOptionOverrides}
-                  onGoToRecipe={() => setActiveTab('recipe')}
-                />
-              </SectionCard>
+            {/* ── Tab: Coût ──────────────────────────────────────
+                The Cost tab owns its own section cards (Figma node 2:239) so
+                we skip the outer SectionCard wrapper used by the other tabs. */}
+            {activeTab === 'cost' && item && (
+              <MenuItemCostTab
+                rid={rid}
+                item={item}
+                ingredients={ingredients}
+                prepItems={prepItems}
+                stockItems={stockItems}
+                vatRate={vatRate}
+                itemOptionOverrides={itemOptionOverrides}
+                onGoToRecipe={() => setActiveTab('recipe')}
+              />
             )}
           </div>
         </div>

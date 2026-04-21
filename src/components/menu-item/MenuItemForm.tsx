@@ -8,10 +8,12 @@ import React from 'react';
 
 export function SectionCard({
   title,
+  headerRight,
   children,
   className = '',
 }: {
   title: string;
+  headerRight?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -19,9 +21,12 @@ export function SectionCard({
     <section
       className={`relative bg-[#18181b] border border-[rgba(255,255,255,0.1)] rounded-[12px] p-[25px] flex flex-col gap-6 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)] ${className}`}
     >
-      <div className="flex items-center gap-2">
-        <span className="w-1 h-6 rounded-full bg-[#f54900] shrink-0" />
-        <h2 className="text-[18px] leading-[28px] text-[#fafafa]">{title}</h2>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-1 h-6 rounded-full bg-[#f54900] shrink-0" />
+          <h2 className="text-[18px] leading-[28px] text-[#fafafa] truncate">{title}</h2>
+        </div>
+        {headerRight && <div className="shrink-0">{headerRight}</div>}
       </div>
       {children}
     </section>
