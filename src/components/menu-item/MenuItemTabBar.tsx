@@ -29,12 +29,12 @@ function TabIcon({ id }: { id: MenuItemSection }) {
   }
 }
 
-// Segmented pill tabs, theme-aware.
+// Segmented pill tabs — matches Figma MenuItemDetails.tsx:95-121.
 export default function MenuItemTabBar({ tabs, active, onChange }: Props) {
   return (
     <div
       role="tablist"
-      className="flex items-center gap-1 p-1.5 rounded-xl bg-[var(--surface-subtle)] w-full"
+      className="flex gap-2 bg-neutral-200 dark:bg-[#1a1a1a] p-1.5 rounded-xl"
     >
       {tabs.map((tab) => {
         const isActive = tab.id === active;
@@ -46,18 +46,18 @@ export default function MenuItemTabBar({ tabs, active, onChange }: Props) {
             aria-selected={isActive}
             disabled={tab.disabled}
             onClick={() => !tab.disabled && onChange(tab.id)}
-            className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
               tab.disabled
-                ? 'text-[var(--text-secondary)] opacity-50 cursor-not-allowed'
+                ? 'text-neutral-500 dark:text-neutral-400 opacity-50 cursor-not-allowed'
                 : isActive
-                  ? 'bg-[var(--surface)] text-[var(--text-primary)] shadow-md'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'bg-white dark:bg-[#0a0a0a] text-neutral-900 dark:text-white shadow-md'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
             <TabIcon id={tab.id} />
             <span className="truncate">{tab.label}</span>
             {tab.warning && (
-              <AlertCircle className="w-[14px] h-[14px] text-brand-500 shrink-0" />
+              <AlertCircle size={14} className="text-orange-500 shrink-0" />
             )}
           </button>
         );

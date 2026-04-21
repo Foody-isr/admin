@@ -2,8 +2,8 @@
 
 import React from 'react';
 
-// Figma-aligned primitives used by the menu-item Details tab.
-// Theme-aware: uses CSS tokens so the form works in both light and dark modes.
+// Figma-aligned primitives for the menu-item tabs.
+// Classes mirror Figma MenuItemDetails.tsx:156-245 (details tab).
 
 export function SectionCard({
   title,
@@ -16,18 +16,20 @@ export function SectionCard({
   children: React.ReactNode;
   className?: string;
 }) {
+  // Figma renders tab sections without a card wrapper — just a vertical
+  // orange accent bar + h3, then content in space-y-6 below.
   return (
-    <section
-      className={`relative bg-[var(--surface)] border border-[var(--divider)] rounded-xl p-6 flex flex-col gap-6 shadow-sm ${className}`}
-    >
-      <div className="flex items-center justify-between gap-4">
+    <section className={`max-w-4xl ${className}`}>
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)] truncate">{title}</h2>
+          <span className="w-1 h-6 rounded-full bg-orange-500 shrink-0" />
+          <h3 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
+            {title}
+          </h3>
         </div>
         {headerRight && <div className="shrink-0">{headerRight}</div>}
       </div>
-      {children}
+      <div className="space-y-6">{children}</div>
     </section>
   );
 }
@@ -42,12 +44,18 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div>
       {label && (
-        <label className="text-sm font-medium text-[var(--text-primary)]">{label}</label>
+        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+          {label}
+        </label>
       )}
       {children}
-      {hint && <p className="text-xs text-[var(--text-secondary)]">{hint}</p>}
+      {hint && (
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -62,7 +70,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, InputProps>(function
     <input
       ref={ref}
       {...rest}
-      className={`w-full h-10 rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)] px-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     />
   );
 });
@@ -77,7 +85,7 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>
     <textarea
       ref={ref}
       {...rest}
-      className={`w-full min-h-[96px] rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] resize-y focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all ${className}`}
+      className={`w-full px-4 py-3 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none ${className}`}
     />
   );
 });
