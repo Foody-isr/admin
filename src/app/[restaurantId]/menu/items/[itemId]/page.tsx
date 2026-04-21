@@ -18,7 +18,8 @@ import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemRecipeTab, { MenuItemRecipeTabHandle } from '@/components/menu-item/MenuItemRecipeTab';
-import MenuItemCostTab from '@/components/menu-item/MenuItemCostTab';
+import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
+import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
@@ -418,95 +419,24 @@ export default function EditItemPage() {
           <div className="flex-1 overflow-y-auto p-8">
             {/* ── Tab: Détails ─────────────────────────────────── */}
             {activeTab === 'details' && (
-              <SectionCard title={t('tabDetails')}>
-                {itemType === 'combo' && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('itemType')}</span>
-                    <span className="px-3 py-1 rounded-full text-[12px] leading-[16px] bg-orange-500/15 text-orange-500">
-                      {t('combo')}
-                    </span>
-                  </div>
-                )}
-
-                {/* Row 1 — Name | Category (Figma 0:102) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label={t('itemNameLabel')}>
-                    <FormInput
-                      autoFocus
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder={t('nameRequired')}
-                    />
-                  </Field>
-                  <Field label={t('category')}>
-                    <CategorySelect
-                      value={categoryId}
-                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
-                      onChange={setCategoryId}
-                      placeholder={t('addToCategories')}
-                    />
-                  </Field>
-                </div>
-
-                {/* Row 2 — Price | VAT | Status (Figma 0:119) */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Field label={t('sellingPriceLabel')}>
-                    <div className="relative">
-                      <FormInput
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder={t('price')}
-                        className="pr-10"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[14px] leading-[20px] text-neutral-600 dark:text-neutral-400 pointer-events-none">₪</span>
-                    </div>
-                  </Field>
-                  <Field label={t('vat')}>
-                    <FormInput
-                      type="text"
-                      value={`${vatRate}%`}
-                      readOnly
-                      className="cursor-not-allowed"
-                      title={`${t('vat')} — ${vatRate}%`}
-                    />
-                  </Field>
-                  <Field label={t('status')}>
-                    <button
-                      type="button"
-                      onClick={() => setIsActive(!isActive)}
-                      className="h-10 inline-flex items-center gap-2 text-[14px] leading-[20px] text-neutral-900 dark:text-white rounded-[6px] self-start"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-neutral-400'}`} />
-                      {isActive ? t('active') : t('unavailable')}
-                    </button>
-                  </Field>
-                </div>
-
-                <Field label={t('description')}>
-                  <FormTextarea
-                    placeholder={t('addDescription')}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                  />
-                </Field>
-
-                {/* Menus assignment — not in Figma but required for the feature.
-                    Kept at the bottom with lighter visual weight. */}
-                <Field label={t('menus')} hint={t('cartesDescription')}>
-                  <SearchableListField
-                    mode="multi"
-                    placeholder={t('addToMenus')}
-                    emptyLabel={t('noMenusAvailable') || 'No menus available'}
-                    options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
-                    values={Array.from(selectedMenuIds).map(String)}
-                    onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
-                  />
-                </Field>
-              </SectionCard>
+              <MenuItemTabDetails
+                name={name}
+                setName={setName}
+                price={price}
+                setPrice={setPrice}
+                description={description}
+                setDescription={setDescription}
+                categoryId={categoryId}
+                setCategoryId={setCategoryId}
+                isActive={isActive}
+                setIsActive={setIsActive}
+                vatRate={vatRate}
+                categories={categories}
+                menus={menus}
+                selectedMenuIds={selectedMenuIds}
+                setSelectedMenuIds={setSelectedMenuIds}
+                itemType={itemType}
+              />
             )}
 
             {/* ── Tab: Modificateurs & Variantes ───────────────── */}
@@ -735,19 +665,14 @@ export default function EditItemPage() {
               </SectionCard>
             )}
 
-            {/* ── Tab: Coût ──────────────────────────────────────
-                The Cost tab owns its own section cards (Figma node 2:239) so
-                we skip the outer SectionCard wrapper used by the other tabs. */}
+            {/* ── Tab: Coût — Figma MenuItemDetails.tsx:644 ─────── */}
             {activeTab === 'cost' && item && (
-              <MenuItemCostTab
-                rid={rid}
+              <MenuItemTabCost
                 item={item}
                 ingredients={ingredients}
-                prepItems={prepItems}
-                stockItems={stockItems}
-                vatRate={vatRate}
                 itemOptionOverrides={itemOptionOverrides}
-                onGoToRecipe={() => setActiveTab('recipe')}
+                vatRate={vatRate}
+                price={parseFloat(price) || 0}
               />
             )}
           </div>
