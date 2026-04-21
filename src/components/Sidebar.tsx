@@ -239,48 +239,40 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
       <aside
         className={`
-          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
+          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-white dark:bg-[#111111]
           ${sidebarWidth}
           transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
           ${isRtl ? 'right-0 border-l' : 'left-0 border-r'}
-          border-[var(--divider)]
+          border-neutral-200 dark:border-neutral-800
           ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
       >
-        {/* Brand / restaurant header */}
-        <div className="p-4 border-b border-[var(--divider)] flex items-center gap-3">
+        {/* Brand / restaurant header — matches Figma Make App.tsx lines 209-216 */}
+        <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
           <button
             onClick={() => setProfileOpen(true)}
-            className="size-10 shrink-0 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white font-bold shadow-lg shadow-brand-500/25 transition-transform hover:scale-105"
+            className="w-full flex items-center gap-3 text-left"
             aria-label={t('profile')}
           >
-            {brandInitial}
-          </button>
-          {!collapsed && (
-            <button
-              onClick={() => setProfileOpen(true)}
-              className="flex-1 min-w-0 text-left"
-            >
-              <h1 className="font-bold text-[var(--text-primary)] truncate">
+            <div className="size-10 shrink-0 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">
+              {brandInitial}
+            </div>
+            {!collapsed && (
+              <h1 className="font-bold text-xl text-neutral-900 dark:text-white truncate">
                 {restaurantName ?? 'Foody'}
               </h1>
-              {user?.full_name && (
-                <p className="text-xs text-[var(--text-secondary)] truncate">
-                  {user.full_name}
-                </p>
-              )}
-            </button>
-          )}
+            )}
+          </button>
         </div>
 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-2 lg:hidden">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
             {t('menu')}
           </span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
-            <X className="w-5 h-5 text-[var(--text-secondary)]" />
+          <button onClick={onClose} className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]">
+            <X className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
           </button>
         </div>
 
@@ -314,8 +306,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     }}
                     className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
                       expanded
-                        ? 'text-[var(--text-primary)]'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
+                        ? 'text-neutral-900 dark:text-white'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -334,7 +326,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           </span>
                         )}
                         <ChevronDown
-                          className={`w-4 h-4 shrink-0 transition-transform text-[var(--text-secondary)] ${
+                          className={`w-4 h-4 shrink-0 transition-transform text-neutral-600 dark:text-neutral-400 ${
                             expanded ? 'rotate-180' : ''
                           }`}
                         />
@@ -348,7 +340,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                       isActive
                         ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white'
                     }`}
                   >
                     <item.icon className="w-5 h-5 shrink-0" />
@@ -377,11 +369,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   <div
                     className={`mt-1 space-y-0.5 ${
                       isRtl ? 'mr-4 pr-4 border-r-2' : 'ml-4 pl-4 border-l-2'
-                    } border-[var(--divider)]`}
+                    } border-neutral-200 dark:border-neutral-800`}
                   >
                     {item.subGroups?.map((group) => (
                       <div key={group.labelKey} className="py-1">
-                        <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
                           {t(group.labelKey)}
                         </p>
                         {group.items.map((sub) => {
@@ -420,8 +412,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         </nav>
 
         {/* Footer — action icons + theme/collapse toggles */}
-        <div className="border-t border-[var(--divider)]">
-          <div className="flex items-center justify-around px-2 py-2 border-b border-[var(--divider)]">
+        <div className="border-t border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center justify-around px-2 py-2 border-b border-neutral-200 dark:border-neutral-800">
             <IconBtn label={t('notifications')} badge>
               <Bell className="w-5 h-5" />
             </IconBtn>
@@ -439,7 +431,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           <div className="flex">
             <button
               onClick={toggleTheme}
-              className={`flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--text-secondary)] ${isRtl ? 'border-l' : 'border-r'} border-[var(--divider)]`}
+              className={`flex-1 p-3 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] transition-colors flex items-center justify-center text-neutral-600 dark:text-neutral-400 ${isRtl ? 'border-l' : 'border-r'} border-neutral-200 dark:border-neutral-800`}
               title={theme === 'dark' ? t('lightMode') : t('darkMode')}
             >
               {theme === 'dark' ? (
@@ -450,7 +442,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </button>
             <button
               onClick={toggleCollapsed}
-              className="flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--text-secondary)]"
+              className="flex-1 p-3 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] transition-colors flex items-center justify-center text-neutral-600 dark:text-neutral-400"
               title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
             >
               {collapsed ? (
@@ -478,24 +470,24 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       )}
       <div
         className={`
-          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-[var(--surface)]
-          transition-transform duration-200 ease-in-out border-[var(--divider)]
+          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-white dark:bg-[#111111]
+          transition-transform duration-200 ease-in-out border-neutral-200 dark:border-neutral-800
           ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
           ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
         `}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--divider)]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
           <button
             onClick={() => setProfileOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)]"
+            className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]"
           >
-            <X className="w-5 h-5 text-[var(--text-primary)]" />
+            <X className="w-5 h-5 text-neutral-900 dark:text-white" />
           </button>
         </div>
 
         {/* User info */}
-        <div className="px-5 py-5 border-b border-[var(--divider)]">
+        <div className="px-5 py-5 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-brand-500 text-white">
               <span className="text-sm font-bold">
@@ -504,19 +496,19 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </div>
             <div className="min-w-0">
               {user?.full_name && (
-                <p className="text-sm font-semibold truncate text-[var(--text-primary)]">
+                <p className="text-sm font-semibold truncate text-neutral-900 dark:text-white">
                   {user.full_name}
                 </p>
               )}
               {user?.email && (
-                <p className="text-xs truncate text-[var(--text-secondary)]">
+                <p className="text-xs truncate text-neutral-600 dark:text-neutral-400">
                   {user.email}
                 </p>
               )}
             </div>
           </div>
           {restaurantName && (
-            <p className="mt-3 text-xs font-medium text-[var(--text-secondary)]">
+            <p className="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-400">
               {restaurantName}
             </p>
           )}
@@ -526,7 +518,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         <nav className="flex-1 overflow-y-auto py-2">
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--text-primary)]"
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] text-neutral-900 dark:text-white"
           >
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             {theme === 'dark' ? t('lightMode') : t('darkMode')}
@@ -534,8 +526,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
           <div className="px-5 py-3">
             <div className="flex items-center gap-3 mb-2">
-              <Languages className="w-5 h-5 text-[var(--text-primary)]" />
-              <span className="text-sm text-[var(--text-primary)]">{t('language')}</span>
+              <Languages className="w-5 h-5 text-neutral-900 dark:text-white" />
+              <span className="text-sm text-neutral-900 dark:text-white">{t('language')}</span>
             </div>
             <div className="flex gap-2 ml-8">
               {SUPPORTED_LOCALES.map((loc) => (
@@ -545,7 +537,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                     locale === loc
                       ? 'border-brand-500 text-brand-500 font-semibold'
-                      : 'border-[var(--divider)] text-[var(--text-secondary)] hover:border-[var(--text-secondary)]'
+                      : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-[var(--text-secondary)]'
                   }`}
                 >
                   {LOCALE_LABELS[loc]}
@@ -558,7 +550,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             <Link
               href="/select-restaurant"
               onClick={() => setProfileOpen(false)}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--text-primary)]"
+              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] text-neutral-900 dark:text-white"
             >
               <Building2 className="w-5 h-5" />
               {t('switchRestaurant')}
@@ -568,14 +560,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           <Link
             href={`/${restaurantId}/settings`}
             onClick={() => setProfileOpen(false)}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--text-primary)]"
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] text-neutral-900 dark:text-white"
           >
             <Settings className="w-5 h-5" />
             {t('settings')}
           </Link>
         </nav>
 
-        <div className="border-t border-[var(--divider)] px-5 py-4">
+        <div className="border-t border-neutral-200 dark:border-neutral-800 px-5 py-4">
           <button
             onClick={() => {
               setProfileOpen(false);
@@ -612,7 +604,7 @@ function SubLink({
       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
         active
           ? 'bg-brand-500 text-white'
-          : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
+          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white'
       }`}
     >
       <span className="truncate">{label}</span>
@@ -645,8 +637,8 @@ function IconBtn({
   return (
     <button
       onClick={onClick}
-      className={`relative p-2 rounded-lg transition-colors text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)] ${
-        active ? 'bg-[var(--sidebar-hover)] text-[var(--text-primary)]' : ''
+      className={`relative p-2 rounded-lg transition-colors text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white ${
+        active ? 'bg-[var(--sidebar-hover)] text-neutral-900 dark:text-white' : ''
       }`}
       aria-label={label}
       title={label}
