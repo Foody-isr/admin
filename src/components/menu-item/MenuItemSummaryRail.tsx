@@ -22,9 +22,8 @@ interface Props {
   onImageClick?: () => void;
 }
 
-// Left-rail product identity card + cost summary. The rail no longer hosts
-// jump-nav — the page uses a top tab bar instead. `onImageClick` fires the
-// page's file picker so the camera button doubles as an upload shortcut.
+// Left-rail identity card + cost summary. Pixel-aligned to Figma node 0:17.
+// Colors are scoped to this page since the design is dark-only.
 export default function MenuItemSummaryRail({
   imageUrl,
   name,
@@ -40,26 +39,26 @@ export default function MenuItemSummaryRail({
   const overThreshold = costSummary && costSummary.costPct > COST_THRESHOLD;
 
   return (
-    <div className="space-y-4">
-      {/* Identity card — image + name + price + category pill */}
-      <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 space-y-4">
-        <div className="relative">
+    <div className="w-[280px] flex flex-col gap-6">
+      {/* Identity card — image + name + price + category pill (Figma 0:18) */}
+      <div className="relative bg-[#18181b] border border-[rgba(255,255,255,0.1)] rounded-[12px] overflow-hidden shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
+        <div className="relative w-full h-[192px]">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt={name}
-              className="w-full aspect-square object-cover rounded-xl"
+              className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full aspect-square rounded-xl border-2 border-dashed border-[var(--divider)] flex items-center justify-center text-fg-tertiary">
+            <div className="w-full h-full flex items-center justify-center text-[#9f9fa9] bg-[#27272a]">
               <PhotoIcon className="w-10 h-10" />
             </div>
           )}
           {typeof activeStatus === 'boolean' && (
             <span
-              className={`absolute top-2.5 right-2.5 w-3.5 h-3.5 rounded-full ring-2 ring-[var(--surface)] ${
-                activeStatus ? 'bg-status-ready' : 'bg-fg-tertiary'
+              className={`absolute top-3 right-3 w-3 h-3 rounded-full ring-2 ring-[#09090b] ${
+                activeStatus ? 'bg-[#00c950]' : 'bg-[#9f9fa9]'
               }`}
               title={activeStatus ? t('available') : t('unavailable')}
             />
@@ -69,25 +68,25 @@ export default function MenuItemSummaryRail({
               type="button"
               onClick={onImageClick}
               aria-label={t('addPhoto') || 'Upload image'}
-              className="absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full bg-black/55 hover:bg-black/70 backdrop-blur-sm text-white flex items-center justify-center transition-colors"
+              className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-[rgba(9,9,11,0.6)] hover:bg-[rgba(9,9,11,0.8)] text-[#fafafa] flex items-center justify-center transition-colors"
             >
               <CameraIcon className="w-4 h-4" />
             </button>
           )}
         </div>
 
-        <div className="space-y-2">
-          <p className="text-lg font-extrabold uppercase tracking-tight text-fg-primary truncate" title={name}>
+        <div className="p-4 flex flex-col gap-1">
+          <p className="text-[18px] leading-[28px] text-[#fafafa] truncate" title={name}>
             {name || placeholderLabel || '\u2014'}
           </p>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
             {typeof price === 'number' && price > 0 && (
-              <span className="text-base font-semibold text-brand-500">
+              <span className="text-[16px] leading-[24px] text-[#f54900]">
                 {price.toFixed(2)} {currency}
               </span>
             )}
             {categoryName && (
-              <span className="px-2.5 py-1 rounded-md text-xs font-semibold uppercase tracking-wider bg-[var(--surface-subtle)] text-fg-secondary truncate">
+              <span className="inline-flex items-center bg-[#27272a] border border-[rgba(255,255,255,0.1)] rounded-[6px] px-[9px] py-[3px] text-[12px] leading-[16px] text-[#fafafa] truncate">
                 {categoryName}
               </span>
             )}
@@ -95,41 +94,55 @@ export default function MenuItemSummaryRail({
         </div>
       </div>
 
-      {/* Cost summary card */}
+      {/* Cost summary card (Figma 0:35) */}
       {costSummary && (
-        <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 space-y-3">
-          <p className="text-xs uppercase tracking-wider text-fg-tertiary font-semibold">
+        <div className="relative bg-[#18181b] rounded-[12px] p-4 flex flex-col gap-4 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
+          <p className="text-[12px] leading-[16px] tracking-[0.6px] uppercase text-[#9f9fa9]">
             {t('costSummary')}
           </p>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-fg-secondary">{t('foodCostLabel')}</span>
-            <span className="font-mono font-semibold text-fg-primary">
-              {costSummary.foodCost.toFixed(2)} {currency}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-fg-secondary">{t('grossProfit')}</span>
-            <span
-              className={`font-mono font-semibold ${
-                costSummary.margin >= 0 ? 'text-status-ready' : 'text-red-500'
-              }`}
-            >
-              {costSummary.margin.toFixed(2)} {currency}
-            </span>
-          </div>
-          <div className="flex items-center justify-between pt-2 border-t border-[var(--divider)]">
-            <span className="text-sm text-fg-secondary">{t('costPercent')}</span>
-            <span
-              className={`font-mono font-bold inline-flex items-center gap-1.5 ${
-                overThreshold ? 'text-brand-500' : 'text-fg-primary'
-              }`}
-            >
-              {overThreshold && <ExclamationTriangleIcon className="w-4 h-4" />}
-              {(costSummary.costPct * 100).toFixed(1)}%
-            </span>
+          <div className="flex flex-col gap-2">
+            <Row label={t('foodCostLabel')}>
+              <span className="text-[14px] leading-[20px] text-[#fafafa]">
+                {costSummary.foodCost.toFixed(2)} {currency}
+              </span>
+            </Row>
+            <Divider />
+            <Row label={t('grossProfit')}>
+              <span
+                className={`text-[14px] leading-[20px] ${
+                  costSummary.margin >= 0 ? 'text-[#05df72]' : 'text-[#f54900]'
+                }`}
+              >
+                {costSummary.margin.toFixed(2)} {currency}
+              </span>
+            </Row>
+            <Divider />
+            <Row label={t('costPercent')}>
+              <span
+                className={`inline-flex items-center gap-1 text-[14px] leading-[20px] ${
+                  overThreshold ? 'text-[#f54900]' : 'text-[#fafafa]'
+                }`}
+              >
+                {overThreshold && <ExclamationTriangleIcon className="w-[14px] h-[14px]" />}
+                {(costSummary.costPct * 100).toFixed(1)}%
+              </span>
+            </Row>
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[14px] leading-[20px] text-[#9f9fa9]">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="h-px bg-[rgba(255,255,255,0.1)]" />;
 }

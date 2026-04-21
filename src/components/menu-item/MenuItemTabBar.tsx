@@ -23,13 +23,13 @@ interface Props {
 function TabIcon({ id }: { id: MenuItemSection }) {
   switch (id) {
     case 'details':
-      return <DocumentTextIcon className="w-[18px] h-[18px]" />;
+      return <DocumentTextIcon className="w-4 h-4" />;
     case 'modifiers':
-      return <Square3Stack3DIcon className="w-[18px] h-[18px]" />;
+      return <Square3Stack3DIcon className="w-4 h-4" />;
     case 'recipe':
-      // Chef's toque — heroicons has no equivalent; inline SVG keeps the look consistent.
+      // Chef's toque — heroicons has no equivalent, so inline SVG.
       return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
           <path d="M6 15.5h12v3a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 016 18.5v-3z" />
           <path d="M6 15.5c-1.657 0-3-1.343-3-3a3 3 0 013.5-2.959 3.5 3.5 0 016.5-2 3.5 3.5 0 016.5 2A3 3 0 0121 12.5c0 1.657-1.343 3-3 3H6z" />
           <path d="M9 15.5v3" />
@@ -38,38 +38,42 @@ function TabIcon({ id }: { id: MenuItemSection }) {
       );
     case 'cost':
       return (
-        <span className="w-[18px] h-[18px] inline-flex items-center justify-center text-base font-bold leading-none">$</span>
+        <span className="w-4 h-4 inline-flex items-center justify-center text-[14px] font-bold leading-none">$</span>
       );
   }
 }
 
-// Top-level tab bar used on the menu-item edit/create pages. Each tab is a
-// card-style pill that switches the visible section below. Active tab is
-// lifted visually; inactive tabs share the page's subtle background.
+// Tablist + segmented pill tabs, styled to match Figma node 0:64.
+// Colors are scoped to this page — the design is dark-only, so we hardcode the
+// Figma palette instead of relying on the light/dark theme tokens.
 export default function MenuItemTabBar({ tabs, active, onChange }: Props) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div
+      role="tablist"
+      className="flex items-center justify-center gap-1 p-1 rounded-[8px] bg-[#27272a] w-full"
+    >
       {tabs.map((tab) => {
         const isActive = tab.id === active;
         return (
           <button
             key={tab.id}
             type="button"
+            role="tab"
+            aria-selected={isActive}
             disabled={tab.disabled}
             onClick={() => !tab.disabled && onChange(tab.id)}
-            className={`flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border text-sm font-semibold transition-colors ${
+            className={`flex-1 h-[41px] inline-flex items-center justify-center gap-2 px-[17px] rounded-[6px] text-[14px] leading-[20px] transition-colors ${
               tab.disabled
-                ? 'border-[var(--divider)] bg-[var(--surface-subtle)] text-fg-tertiary cursor-not-allowed opacity-60'
+                ? 'border border-[rgba(255,255,255,0.1)] text-[#9f9fa9] opacity-50 cursor-not-allowed'
                 : isActive
-                  ? 'border-[var(--divider)] bg-[var(--surface)] text-fg-primary shadow-sm'
-                  : 'border-transparent bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface)]'
+                  ? 'bg-[#09090b] border border-[rgba(255,255,255,0.1)] text-[#fafafa] shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]'
+                  : 'border border-[rgba(255,255,255,0.1)] text-[#9f9fa9] hover:text-[#fafafa] hover:bg-[#09090b]/40'
             }`}
-            aria-current={isActive ? 'page' : undefined}
           >
             <TabIcon id={tab.id} />
             <span className="truncate">{tab.label}</span>
             {tab.warning && (
-              <ExclamationTriangleIcon className="w-4 h-4 text-amber-500 shrink-0" />
+              <ExclamationTriangleIcon className="w-[14px] h-[14px] text-[#f54900] shrink-0" />
             )}
           </button>
         );

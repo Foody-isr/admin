@@ -16,7 +16,8 @@ import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
-import FormModal from '@/components/FormModal';
+import MenuItemShell from '@/components/menu-item/MenuItemShell';
+import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
 import SearchableListField from '@/components/SearchableListField';
 import {
   XMarkIcon, ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon,
@@ -65,7 +66,6 @@ export default function NewItemPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Tab state — recipe/cost need a saved itemId, so disable them in create mode.
   const [activeTab, setActiveTab] = useState<MenuItemSection>('details');
 
   // Form state
@@ -81,23 +81,18 @@ export default function NewItemPage() {
   const [vatRate, setVatRate] = useState(18);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Combo steps
   const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
 
-  // Menus / Cartes state
   const [menus, setMenus] = useState<Menu[]>([]);
   const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
 
-  // Modifier sets (local selection)
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [selectedModifierSetIds, setSelectedModifierSetIds] = useState<Set<number>>(new Set());
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
 
-  // Variant groups (local)
   const [variantGroups, setVariantGroups] = useState<LocalVariantGroup[]>([]);
   const [variantModalOpen, setVariantModalOpen] = useState(false);
 
-  // Option sets (select existing to attach on save)
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
   const [selectedOptionSetIds, setSelectedOptionSetIds] = useState<Set<number>>(new Set());
 
@@ -192,7 +187,6 @@ export default function NewItemPage() {
     }
   };
 
-  // ── Variant helpers ──
   const updateVariantGroup = (key: string, patch: Partial<LocalVariantGroup>) => {
     setVariantGroups((prev) => prev.map((g) => g.key === key ? { ...g, ...patch } : g));
   };
@@ -215,7 +209,6 @@ export default function NewItemPage() {
     setVariantGroups((prev) => prev.filter((g) => g.key !== key));
   };
 
-  // ── Combo step helpers ──
   const allMenuItems = categories.flatMap((c) =>
     (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))
   );
@@ -330,8 +323,8 @@ export default function NewItemPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+      <div className="fixed inset-0 z-50 bg-[#09090b] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-[#f54900] border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -365,261 +358,256 @@ export default function NewItemPage() {
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
       />
 
-      <FormModal
+      <MenuItemShell
         title={t('createItem')}
         onClose={goBack}
         onSave={handleSave}
         saving={saving}
         saveDisabled={!name.trim() || !price}
         sidebar={rail}
-        sidebarPosition="left"
-        stickySidebar
-        maxWidthClass="max-w-6xl"
       >
-        <div className="space-y-6">
+        <div className="flex flex-col gap-2">
           <MenuItemTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-          {/* ── Tab: Détails ─────────────────────────────────── */}
-          {activeTab === 'details' && (
-            <SectionCard title={t('tabDetails')}>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-fg-tertiary">{t('itemType')}</span>
-                <select
-                  value={itemType}
-                  onChange={(e) => setItemType(e.target.value as ItemType)}
-                  className="input text-sm py-2 px-3"
-                >
-                  <option value="food_and_beverage">{t('foodAndBeverage')}</option>
-                  <option value="combo">{t('combo')}</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label={t('itemNameLabel')}>
-                  <input
-                    autoFocus
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t('nameRequired')}
-                    className="input w-full text-base"
-                  />
-                </Field>
-                <Field label={t('category')}>
-                  <SearchableListField
-                    mode="single"
-                    placeholder={t('addToCategories')}
-                    options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
-                    value={categoryId ? String(categoryId) : ''}
-                    onChange={(v) => setCategoryId(v ? Number(v) : 0)}
-                  />
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4">
-                <Field label={t('sellingPriceLabel')}>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder={t('price')}
-                      className="input w-full text-base pr-10"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-fg-tertiary">₪</span>
-                  </div>
-                </Field>
-                <Field label={t('vat')}>
-                  <input
-                    type="text"
-                    value={`${vatRate}%`}
-                    readOnly
-                    className="input w-full text-base bg-[var(--surface-subtle)] cursor-not-allowed"
-                  />
-                </Field>
-                <Field label={t('status')}>
-                  <button
-                    type="button"
-                    onClick={() => setIsActive(!isActive)}
-                    className="h-[46px] inline-flex items-center gap-2 px-4 rounded-lg text-sm font-medium"
+          <div className="pt-6">
+            {/* ── Tab: Détails ─────────────────────────────────── */}
+            {activeTab === 'details' && (
+              <SectionCard title={t('tabDetails')}>
+                <div className="flex items-center gap-3">
+                  <span className="text-[14px] text-[#9f9fa9]">{t('itemType')}</span>
+                  <select
+                    value={itemType}
+                    onChange={(e) => setItemType(e.target.value as ItemType)}
+                    className="h-9 rounded-[6px] bg-[#27272a] px-3 text-[14px] text-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#f54900]"
                   >
-                    <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-status-ready' : 'bg-fg-tertiary'}`} />
-                    {isActive ? t('active') : t('unavailable')}
-                  </button>
+                    <option value="food_and_beverage">{t('foodAndBeverage')}</option>
+                    <option value="combo">{t('combo')}</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label={t('itemNameLabel')}>
+                    <FormInput
+                      autoFocus
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder={t('nameRequired')}
+                    />
+                  </Field>
+                  <Field label={t('category')}>
+                    <CategorySelect
+                      value={categoryId}
+                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                      onChange={setCategoryId}
+                      placeholder={t('addToCategories')}
+                    />
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Field label={t('sellingPriceLabel')}>
+                    <div className="relative">
+                      <FormInput
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder={t('price')}
+                        className="pr-10"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[14px] leading-[20px] text-[#9f9fa9] pointer-events-none">₪</span>
+                    </div>
+                  </Field>
+                  <Field label={t('vat')}>
+                    <FormInput
+                      type="text"
+                      value={`${vatRate}%`}
+                      readOnly
+                      className="cursor-not-allowed"
+                    />
+                  </Field>
+                  <Field label={t('status')}>
+                    <button
+                      type="button"
+                      onClick={() => setIsActive(!isActive)}
+                      className="h-10 inline-flex items-center gap-2 text-[14px] leading-[20px] text-[#fafafa] rounded-[6px] self-start"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-[#00c950]' : 'bg-[#9f9fa9]'}`} />
+                      {isActive ? t('active') : t('unavailable')}
+                    </button>
+                  </Field>
+                </div>
+
+                <Field label={t('description')}>
+                  <FormTextarea
+                    placeholder={t('addDescription')}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={4}
+                  />
                 </Field>
-              </div>
 
-              <Field label={t('description')}>
-                <textarea
-                  placeholder={t('addDescription')}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  className="input w-full text-sm resize-y"
-                />
-              </Field>
+                <Field label={t('menus')} hint={t('cartesDescription')}>
+                  <SearchableListField
+                    mode="multi"
+                    placeholder={t('addToMenus')}
+                    emptyLabel={t('noMenusAvailable') || 'No menus available'}
+                    options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
+                    values={Array.from(selectedMenuIds).map(String)}
+                    onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
+                  />
+                </Field>
+              </SectionCard>
+            )}
 
-              <Field label={t('menus')} hint={t('cartesDescription')}>
-                <SearchableListField
-                  mode="multi"
-                  placeholder={t('addToMenus')}
-                  emptyLabel={t('noMenusAvailable') || 'No menus available'}
-                  options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
-                  values={Array.from(selectedMenuIds).map(String)}
-                  onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
-                />
-              </Field>
-            </SectionCard>
-          )}
-
-          {/* ── Tab: Modificateurs & Variantes ───────────────── */}
-          {activeTab === 'modifiers' && (
-            <SectionCard title={t('tabModifiers')}>
-              {itemType === 'combo' && (
-                <div className="space-y-3">
-                  <div>
-                    <h3 className="text-base font-bold text-fg-primary">{t('buildThisCombo')}</h3>
-                    <p className="text-sm text-fg-tertiary mt-0.5">{t('comboBuilderDescription')}</p>
-                  </div>
-
-                  {comboSteps.length > 0 && (
+            {/* ── Tab: Modificateurs & Variantes ───────────────── */}
+            {activeTab === 'modifiers' && (
+              <SectionCard title={t('tabModifiers')}>
+                {itemType === 'combo' && (
+                  <div className="flex flex-col gap-3">
                     <div>
-                      <div className="flex items-center text-xs font-medium text-fg-tertiary uppercase tracking-wider mb-1 border-b border-[var(--divider)] pb-2">
-                        <span className="flex-1">{t('comboChoice')}</span>
-                        <span className="w-16 text-center">{t('required')}</span>
-                        <span className="w-14" />
-                      </div>
-                      {comboSteps.map((step) => (
-                        <div key={step.key} className="border-b border-[var(--divider)] py-2.5">
-                          <div className="flex items-center gap-1">
-                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
-                              <span className="text-sm font-medium text-brand-500 hover:underline">{step.name}</span>
-                              <div className="text-xs text-fg-tertiary truncate mt-0.5">
-                                {step.items.length > 0
-                                  ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
-                                  : `${step.items.length} ${t('options')}`}
+                      <h3 className="text-[16px] font-semibold text-[#fafafa]">{t('buildThisCombo')}</h3>
+                      <p className="text-[14px] text-[#9f9fa9] mt-0.5">{t('comboBuilderDescription')}</p>
+                    </div>
+
+                    {comboSteps.length > 0 && (
+                      <div>
+                        <div className="flex items-center text-[12px] font-medium text-[#9f9fa9] uppercase tracking-wider mb-1 border-b border-[rgba(255,255,255,0.1)] pb-2">
+                          <span className="flex-1">{t('comboChoice')}</span>
+                          <span className="w-16 text-center">{t('required')}</span>
+                          <span className="w-14" />
+                        </div>
+                        {comboSteps.map((step) => (
+                          <div key={step.key} className="border-b border-[rgba(255,255,255,0.1)] py-2.5">
+                            <div className="flex items-center gap-1">
+                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
+                                <span className="text-[14px] font-medium text-[#f54900] hover:underline">{step.name}</span>
+                                <div className="text-[12px] text-[#9f9fa9] truncate mt-0.5">
+                                  {step.items.length > 0
+                                    ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
+                                    : `${step.items.length} ${t('options')}`}
+                                </div>
+                              </div>
+                              <span className="w-16 text-center text-[14px] text-[#9f9fa9] shrink-0">{step.min_picks}</span>
+                              <div className="w-14 flex items-center justify-end gap-1 shrink-0">
+                                <button onClick={() => removeComboStep(step.key)} className="p-1 text-[#9f9fa9] hover:text-red-400">
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
                               </div>
                             </div>
-                            <span className="w-16 text-center text-sm text-fg-secondary shrink-0">{step.min_picks}</span>
-                            <div className="w-14 flex items-center justify-end gap-1 shrink-0">
-                              <button onClick={() => removeComboStep(step.key)} className="p-1 text-fg-tertiary hover:text-red-400">
-                                <TrashIcon className="w-4 h-4" />
-                              </button>
-                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
 
-                  <button onClick={openAddOptionsModal}
-                    className="flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-400">
-                    <PlusIcon className="w-4 h-4" />
-                    {t('addOptions')}
-                  </button>
-                </div>
-              )}
-
-              {itemType !== 'combo' && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-base font-bold text-fg-primary">{t('variants')}</h3>
-                    <button onClick={() => setVariantModalOpen(true)}
-                      className="text-base font-medium underline text-fg-primary shrink-0">
-                      {t('add')}
+                    <button onClick={openAddOptionsModal}
+                      className="flex items-center gap-2 text-[14px] font-medium text-[#f54900] hover:text-[#e04300]">
+                      <PlusIcon className="w-4 h-4" />
+                      {t('addOptions')}
                     </button>
                   </div>
-                  <p className="text-sm text-fg-tertiary">{t('variantsDescription')}</p>
-                  {variantGroups.length > 0 && (
-                    <div className="space-y-3 mt-3">
-                      {variantGroups.map((vg) => (
-                        <div key={vg.key} className="rounded-xl border border-[var(--divider)] overflow-hidden">
-                          <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface-subtle)]">
-                            <span className="text-sm font-bold text-fg-primary">{vg.title || t('variantGroupTitle')}</span>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button onClick={() => setVariantModalOpen(true)}
-                                className="text-sm text-brand-600 hover:underline font-medium">{t('edit')}</button>
-                              <button onClick={() => removeVariantGroup(vg.key)}
-                                className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                                {t('remove')}
-                              </button>
+                )}
+
+                {itemType !== 'combo' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-[16px] font-semibold text-[#fafafa]">{t('variants')}</h3>
+                      <button onClick={() => setVariantModalOpen(true)}
+                        className="text-[14px] font-medium underline text-[#fafafa] shrink-0">
+                        {t('add')}
+                      </button>
+                    </div>
+                    <p className="text-[14px] text-[#9f9fa9]">{t('variantsDescription')}</p>
+                    {variantGroups.length > 0 && (
+                      <div className="flex flex-col gap-3 mt-3">
+                        {variantGroups.map((vg) => (
+                          <div key={vg.key} className="rounded-[8px] border border-[rgba(255,255,255,0.1)] overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-3 bg-[#27272a]">
+                              <span className="text-[14px] font-semibold text-[#fafafa]">{vg.title || t('variantGroupTitle')}</span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button onClick={() => setVariantModalOpen(true)}
+                                  className="text-[14px] text-[#f54900] hover:underline font-medium">{t('edit')}</button>
+                                <button onClick={() => removeVariantGroup(vg.key)}
+                                  className="text-[14px] text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                                  {t('remove')}
+                                </button>
+                              </div>
                             </div>
+                            {vg.variants.filter((v) => v.name.trim()).map((v) => (
+                              <div key={v.key} className="flex items-center justify-between px-4 py-2.5 border-t border-[rgba(255,255,255,0.1)]">
+                                <span className="text-[14px] text-[#fafafa]">{v.name}</span>
+                                <span className="text-[14px] font-semibold text-[#fafafa]">₪{(parseFloat(v.price) || 0).toFixed(2)}</span>
+                              </div>
+                            ))}
                           </div>
-                          {vg.variants.filter((v) => v.name.trim()).map((v) => (
-                            <div key={v.key} className="flex items-center justify-between px-4 py-2.5 border-t border-[var(--divider)]">
-                              <span className="text-sm text-fg-primary">{v.name}</span>
-                              <span className="text-sm font-semibold text-fg-primary">₪{(parseFloat(v.price) || 0).toFixed(2)}</span>
-                            </div>
-                          ))}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-[16px] font-semibold text-[#fafafa]">{t('modifiers')}</h3>
+                    <button onClick={() => setModifierModalOpen(true)}
+                      className="text-[14px] font-medium underline text-[#fafafa] shrink-0">{t('add')}</button>
+                  </div>
+                  <p className="text-[14px] text-[#9f9fa9]">{t('modifiersDescription')}</p>
+                  {selectedModifierSetIds.size > 0 && (
+                    <div className="rounded-[8px] border border-[rgba(255,255,255,0.1)] overflow-hidden mt-3">
+                      {allModifierSets.filter((ms) => selectedModifierSetIds.has(ms.id)).map((ms) => (
+                        <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[rgba(255,255,255,0.1)] last:border-b-0 hover:bg-[#27272a] transition-colors">
+                          <div>
+                            <span className="text-[14px] font-medium text-[#fafafa]">{ms.name}</span>
+                            <span className="text-[12px] text-[#9f9fa9] ml-2">
+                              {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
+                            </span>
+                          </div>
+                          <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
+                            className="text-[14px] text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                            {t('remove')}
+                          </button>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-              )}
+              </SectionCard>
+            )}
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-bold text-fg-primary">{t('modifiers')}</h3>
-                  <button onClick={() => setModifierModalOpen(true)}
-                    className="text-base font-medium underline text-fg-primary shrink-0">{t('add')}</button>
-                </div>
-                <p className="text-sm text-fg-tertiary">{t('modifiersDescription')}</p>
-                {selectedModifierSetIds.size > 0 && (
-                  <div className="rounded-xl border border-[var(--divider)] overflow-hidden mt-3">
-                    {allModifierSets.filter((ms) => selectedModifierSetIds.has(ms.id)).map((ms) => (
-                      <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors">
-                        <div>
-                          <span className="text-sm font-medium text-fg-primary">{ms.name}</span>
-                          <span className="text-xs text-fg-tertiary ml-2">
-                            {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
-                          </span>
-                        </div>
-                        <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
-                          className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                          {t('remove')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Recipe & Cost require a saved item — shown as a hint in case user clicks the disabled tab. */}
-          {(activeTab === 'recipe' || activeTab === 'cost') && (
-            <SectionCard title={activeTab === 'recipe' ? t('tabRecipe') : t('tabCost')}>
-              <p className="text-sm text-fg-tertiary">{t('saveItemFirst')}</p>
-            </SectionCard>
-          )}
+            {(activeTab === 'recipe' || activeTab === 'cost') && (
+              <SectionCard title={activeTab === 'recipe' ? t('tabRecipe') : t('tabCost')}>
+                <p className="text-[14px] text-[#9f9fa9]">{t('saveItemFirst')}</p>
+              </SectionCard>
+            )}
+          </div>
         </div>
-      </FormModal>
+      </MenuItemShell>
 
       {/* ── Variant Editor Modal ───────────────────────────────── */}
       {variantModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-[var(--surface)] overflow-y-auto">
-          <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-6 py-3 flex items-center justify-between">
+        <div className="fixed inset-0 z-[60] bg-[#09090b] overflow-y-auto">
+          <div className="sticky top-0 z-10 bg-[#09090b] border-b border-[rgba(255,255,255,0.1)] px-6 py-3 flex items-center justify-between">
             <button onClick={() => setVariantModalOpen(false)}
-              className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-              <XMarkIcon className="w-5 h-5" />
+              className="w-11 h-11 rounded-full bg-[#27272a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
+              <XMarkIcon className="w-5 h-5 text-[#fafafa]" />
             </button>
-            <span className="text-sm font-bold text-fg-primary">{t('variants')}</span>
+            <span className="text-[14px] font-bold text-[#fafafa]">{t('variants')}</span>
             <button onClick={() => setVariantModalOpen(false)}
-              className="btn-primary text-sm px-5 py-2 rounded-full">
+              className="bg-[#f54900] hover:bg-[#e04300] text-[#fff7ed] text-[14px] px-5 py-2 rounded-full">
               {t('done')}
             </button>
           </div>
 
-          <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+          <div className="max-w-4xl mx-auto px-6 py-8 flex flex-col gap-8">
             {allOptionSets.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-fg-tertiary">{t('savedOptionSets') || 'Saved option sets'}</p>
-                <div className="space-y-2">
+              <div className="flex flex-col gap-3">
+                <p className="text-[12px] font-bold uppercase tracking-wide text-[#9f9fa9]">{t('savedOptionSets') || 'Saved option sets'}</p>
+                <div className="flex flex-col gap-2">
                   {allOptionSets.map((os) => (
                     <label key={os.id}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[var(--divider)] hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors">
+                      className="flex items-center gap-3 px-4 py-3 rounded-[8px] border border-[rgba(255,255,255,0.1)] hover:bg-[#27272a] cursor-pointer transition-colors">
                       <input
                         type="checkbox"
                         checked={selectedOptionSetIds.has(os.id)}
@@ -628,11 +616,11 @@ export default function NewItemPage() {
                           if (next.has(os.id)) next.delete(os.id); else next.add(os.id);
                           setSelectedOptionSetIds(next);
                         }}
-                        className="w-5 h-5 rounded border-2 border-[var(--divider)] text-brand-500 shrink-0"
+                        className="w-5 h-5 rounded border-2 border-[rgba(255,255,255,0.1)] accent-[#f54900] shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-fg-primary">{os.name}</span>
-                        <p className="text-xs text-fg-tertiary truncate">
+                        <span className="text-[14px] font-medium text-[#fafafa]">{os.name}</span>
+                        <p className="text-[12px] text-[#9f9fa9] truncate">
                           {(os.options ?? []).map((o) => o.name).join(', ')}
                         </p>
                       </div>
@@ -643,34 +631,30 @@ export default function NewItemPage() {
             )}
 
             {variantGroups.map((vg) => (
-              <div key={vg.key} className="space-y-4">
-                <input placeholder={t('variantGroupTitle')} value={vg.title}
-                  onChange={(e) => updateVariantGroup(vg.key, { title: e.target.value })}
-                  className="input w-full text-base" />
+              <div key={vg.key} className="flex flex-col gap-4">
+                <FormInput placeholder={t('variantGroupTitle')} value={vg.title}
+                  onChange={(e) => updateVariantGroup(vg.key, { title: e.target.value })} />
 
                 <div className="grid grid-cols-[1fr_100px_100px_80px_40px] gap-2 items-center px-1">
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('variantName')}</span>
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('price')}</span>
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('onlinePrice')}</span>
-                  <span className="text-xs font-medium text-fg-tertiary uppercase tracking-wide">{t('status')}</span>
+                  <span className="text-[12px] font-medium text-[#9f9fa9] uppercase tracking-wide">{t('variantName')}</span>
+                  <span className="text-[12px] font-medium text-[#9f9fa9] uppercase tracking-wide">{t('price')}</span>
+                  <span className="text-[12px] font-medium text-[#9f9fa9] uppercase tracking-wide">{t('onlinePrice')}</span>
+                  <span className="text-[12px] font-medium text-[#9f9fa9] uppercase tracking-wide">{t('status')}</span>
                   <span />
                 </div>
-                <div className="border-b-2 border-fg-primary" />
+                <div className="border-b-2 border-[#fafafa]" />
 
                 {vg.variants.map((v) => (
                   <div key={v.key} className="grid grid-cols-[1fr_100px_100px_80px_40px] gap-2 items-center">
-                    <input placeholder={t('variantName')} value={v.name}
-                      onChange={(e) => updateVariant(vg.key, v.key, { name: e.target.value })}
-                      className="input text-sm" />
-                    <input type="number" min="0" step="0.01" placeholder="0.00" value={v.price}
-                      onChange={(e) => updateVariant(vg.key, v.key, { price: e.target.value })}
-                      className="input text-sm" />
-                    <input type="number" min="0" step="0.01" placeholder="0.00" value={v.onlinePrice}
-                      onChange={(e) => updateVariant(vg.key, v.key, { onlinePrice: e.target.value })}
-                      className="input text-sm" />
+                    <FormInput placeholder={t('variantName')} value={v.name}
+                      onChange={(e) => updateVariant(vg.key, v.key, { name: e.target.value })} />
+                    <FormInput type="number" min="0" step="0.01" placeholder="0.00" value={v.price}
+                      onChange={(e) => updateVariant(vg.key, v.key, { price: e.target.value })} />
+                    <FormInput type="number" min="0" step="0.01" placeholder="0.00" value={v.onlinePrice}
+                      onChange={(e) => updateVariant(vg.key, v.key, { onlinePrice: e.target.value })} />
                     <button onClick={() => updateVariant(vg.key, v.key, { isActive: !v.isActive })}
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${v.isActive ? 'text-status-ready' : 'text-fg-secondary'}`}
-                      style={{ background: v.isActive ? 'rgba(119,186,75,0.12)' : 'var(--surface-subtle)' }}>
+                      className={`text-[12px] font-medium px-2 py-1 rounded-full ${v.isActive ? 'text-[#05df72]' : 'text-[#9f9fa9]'}`}
+                      style={{ background: v.isActive ? 'rgba(5,223,114,0.12)' : '#27272a' }}>
                       {v.isActive ? t('available') : t('unavailable')}
                     </button>
                     <button onClick={() => removeVariant(vg.key, v.key)}
@@ -681,19 +665,19 @@ export default function NewItemPage() {
                 ))}
 
                 <button onClick={() => updateVariantGroup(vg.key, { variants: [...vg.variants, newVariant()] })}
-                  className="flex items-center gap-2 text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors">
+                  className="flex items-center gap-2 text-[14px] font-medium text-[#f54900] hover:text-[#e04300] transition-colors">
                   <PlusIcon className="w-4 h-4" /> {t('addVariant')}
                 </button>
 
                 <button onClick={() => removeVariantGroup(vg.key)}
-                  className="text-sm text-red-500 hover:text-red-600 font-medium hover:underline">
+                  className="text-[14px] text-red-500 hover:text-red-600 font-medium hover:underline">
                   {t('remove')} {t('variants').toLowerCase()}
                 </button>
               </div>
             ))}
 
             <button onClick={() => setVariantGroups([...variantGroups, newVariantGroup()])}
-              className="flex items-center gap-2 text-base font-medium text-fg-primary underline">
+              className="flex items-center gap-2 text-[16px] font-medium text-[#fafafa] underline">
               <PlusIcon className="w-4 h-4" /> {t('addAnotherSet')}
             </button>
           </div>
@@ -703,36 +687,36 @@ export default function NewItemPage() {
       {/* ── Modifier Sets Modal ──────────────────────────────────── */}
       {modifierModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
-          <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[var(--divider)]">
+          <div className="bg-[#18181b] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-[rgba(255,255,255,0.1)]">
             <div className="p-6 pb-4 flex items-center justify-between">
               <button onClick={() => setModifierModalOpen(false)}
-                className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-                <XMarkIcon className="w-5 h-5" />
+                className="w-10 h-10 rounded-full bg-[#27272a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
+                <XMarkIcon className="w-5 h-5 text-[#fafafa]" />
               </button>
               <button onClick={() => setModifierModalOpen(false)}
-                className="btn-secondary rounded-full px-5 py-2 text-sm font-medium">{t('done')}</button>
+                className="bg-[#27272a] hover:bg-[#3f3f46] text-[#fafafa] rounded-full px-5 py-2 text-[14px] font-medium">{t('done')}</button>
             </div>
             <div className="px-6 pb-4">
-              <h2 className="text-xl font-bold text-fg-primary mb-2">{t('modifiers')}</h2>
-              <p className="text-sm text-fg-tertiary">{t('modifiersDescription')}</p>
+              <h2 className="text-[20px] font-bold text-[#fafafa] mb-2">{t('modifiers')}</h2>
+              <p className="text-[14px] text-[#9f9fa9]">{t('modifiersDescription')}</p>
             </div>
-            <div className="mx-6 border-t-2 border-fg-primary" />
+            <div className="mx-6 border-t-2 border-[#fafafa]" />
             <div className="flex-1 overflow-y-auto px-6 pb-6">
               {allModifierSets.length > 0 ? allModifierSets.map((ms) => (
                 <label key={ms.id}
-                  className="w-full flex items-center gap-3 py-4 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors">
+                  className="w-full flex items-center gap-3 py-4 border-b border-[rgba(255,255,255,0.1)] cursor-pointer hover:bg-[#27272a] transition-colors">
                   <div className="flex-1 min-w-0">
-                    <span className="text-base font-medium text-fg-primary">{ms.name}</span>
-                    <p className="text-sm text-fg-tertiary truncate">
+                    <span className="text-[16px] font-medium text-[#fafafa]">{ms.name}</span>
+                    <p className="text-[14px] text-[#9f9fa9] truncate">
                       {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
                     </p>
                   </div>
                   <input type="checkbox" checked={selectedModifierSetIds.has(ms.id)}
                     onChange={() => { const n = new Set(selectedModifierSetIds); if (n.has(ms.id)) n.delete(ms.id); else n.add(ms.id); setSelectedModifierSetIds(n); }}
-                    className="w-5 h-5 rounded border-2 border-[var(--divider)] text-brand-500 shrink-0" />
+                    className="w-5 h-5 rounded border-2 border-[rgba(255,255,255,0.1)] accent-[#f54900] shrink-0" />
                 </label>
               )) : (
-                <p className="text-sm text-fg-tertiary text-center py-8">{t('noModifiersForItem')}</p>
+                <p className="text-[14px] text-[#9f9fa9] text-center py-8">{t('noModifiersForItem')}</p>
               )}
             </div>
           </div>
@@ -742,46 +726,46 @@ export default function NewItemPage() {
       {/* ── Combo Add Options Modal ──────────────────────────────── */}
       {comboModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setComboModalOpen(false)}>
-          <div className="bg-[var(--surface-subtle)] border border-[var(--divider)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
+          <div className="bg-[#18181b] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}>
 
             {modalStep === 'select' && (
               <>
                 <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
                   <button onClick={() => setComboModalOpen(false)}
-                    className="w-9 h-9 rounded-full border border-[var(--divider)] hover:bg-[var(--surface)] transition-colors flex items-center justify-center">
-                    <XMarkIcon className="w-4 h-4 text-fg-primary" />
+                    className="w-9 h-9 rounded-full bg-[#27272a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
+                    <XMarkIcon className="w-4 h-4 text-[#fafafa]" />
                   </button>
                   <button
                     onClick={() => { if (modalPicks.size > 0) setModalStep('pricing'); }}
                     disabled={modalPicks.size === 0}
-                    className="btn-primary text-sm px-5 py-2 rounded-lg disabled:opacity-40"
+                    className="bg-[#f54900] hover:bg-[#e04300] text-[#fff7ed] text-[14px] px-5 py-2 rounded-lg disabled:opacity-40"
                   >
                     {t('next')}
                   </button>
                 </div>
                 <div className="px-5 pb-4 shrink-0">
-                  <h2 className="text-lg font-bold text-fg-primary">{t('addOptions')}</h2>
-                  <p className="text-sm text-fg-tertiary mt-1">{t('addOptionsDesc')}</p>
+                  <h2 className="text-[18px] font-bold text-[#fafafa]">{t('addOptions')}</h2>
+                  <p className="text-[14px] text-[#9f9fa9] mt-1">{t('addOptionsDesc')}</p>
                 </div>
 
-                <div className="flex mx-5 rounded-lg overflow-hidden mb-4 shrink-0 border border-[var(--divider)]">
+                <div className="flex mx-5 rounded-lg overflow-hidden mb-4 shrink-0 border border-[rgba(255,255,255,0.1)]">
                   <button
                     onClick={() => { setModalTab('items'); setModalSearch(''); }}
-                    className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${
+                    className={`flex-1 py-2.5 text-[14px] font-semibold transition-colors ${
                       modalTab === 'items'
-                        ? 'bg-[var(--surface)] text-fg-primary border-b-2 border-brand-500'
-                        : 'text-fg-tertiary hover:text-fg-secondary'
+                        ? 'bg-[#27272a] text-[#fafafa] border-b-2 border-[#f54900]'
+                        : 'text-[#9f9fa9] hover:text-[#fafafa]'
                     }`}
                   >
                     {t('items')}
                   </button>
                   <button
                     onClick={() => { setModalTab('categories'); setModalSearch(''); }}
-                    className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${
+                    className={`flex-1 py-2.5 text-[14px] font-semibold transition-colors ${
                       modalTab === 'categories'
-                        ? 'bg-[var(--surface)] text-fg-primary border-b-2 border-brand-500'
-                        : 'text-fg-tertiary hover:text-fg-secondary'
+                        ? 'bg-[#27272a] text-[#fafafa] border-b-2 border-[#f54900]'
+                        : 'text-[#9f9fa9] hover:text-[#fafafa]'
                     }`}
                   >
                     {t('categories')}
@@ -792,19 +776,19 @@ export default function NewItemPage() {
                   <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
                     <div className="flex gap-2 mb-3">
                       <div className="relative flex-1">
-                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9f9fa9] pointer-events-none" />
                         <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
                           placeholder={t('searchItems')}
-                          className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary text-sm px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-fg-tertiary" />
+                          className="w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f54900] placeholder:text-[#9f9fa9]" />
                       </div>
                       <select value={modalCategoryFilter ?? ''} onChange={(e) => setModalCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-                        className="rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary text-sm px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        className="rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] text-[14px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#f54900]">
                         <option value="">{t('showAllCategories')}</option>
                         {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
 
-                    <div className="flex items-center text-xs font-semibold text-fg-tertiary uppercase tracking-wider px-1 mb-1 pb-2 border-b border-[var(--divider)]">
+                    <div className="flex items-center text-[12px] font-semibold text-[#9f9fa9] uppercase tracking-wider px-1 mb-1 pb-2 border-b border-[rgba(255,255,255,0.1)]">
                       <span className="w-8" />
                       <span className="flex-1">{t('name')}</span>
                       <span className="w-20 text-right">{t('price')}</span>
@@ -829,22 +813,22 @@ export default function NewItemPage() {
                             {hasVariants ? (
                               <>
                                 <div
-                                  className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm"
+                                  className="flex items-center gap-3 px-1 py-3 border-b border-[rgba(255,255,255,0.1)] cursor-pointer hover:bg-[#27272a] transition-colors rounded-sm"
                                   onClick={() => toggleExpand(item.id)}
                                 >
-                                  <button className="w-5 h-5 flex items-center justify-center shrink-0 text-fg-tertiary">
+                                  <button className="w-5 h-5 flex items-center justify-center shrink-0 text-[#9f9fa9]">
                                     {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
                                   </button>
-                                  <span className="flex-1 text-sm font-medium text-fg-primary">
+                                  <span className="flex-1 text-[14px] font-medium text-[#fafafa]">
                                     {item.name}
-                                    <span className="text-xs text-fg-tertiary ml-2">{variants.length} {t('variants').toLowerCase()}</span>
+                                    <span className="text-[12px] text-[#9f9fa9] ml-2">{variants.length} {t('variants').toLowerCase()}</span>
                                   </span>
-                                  <span className="w-20 text-right text-sm text-fg-tertiary">-</span>
+                                  <span className="w-20 text-right text-[14px] text-[#9f9fa9]">-</span>
                                 </div>
                                 {isExpanded && variants.map((v) => {
                                   const vKey = `variant:${item.id}:${v.id}`;
                                   return (
-                                    <label key={vKey} className="flex items-center gap-3 pl-8 pr-1 py-2.5 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
+                                    <label key={vKey} className="flex items-center gap-3 pl-8 pr-1 py-2.5 border-b border-[rgba(255,255,255,0.1)] cursor-pointer hover:bg-[#27272a] transition-colors rounded-sm">
                                       <input type="checkbox"
                                         checked={modalPicks.has(vKey)}
                                         onChange={() => togglePick(vKey, {
@@ -853,15 +837,15 @@ export default function NewItemPage() {
                                           name: `${item.name} - ${v.name}`,
                                           price: v.price,
                                         })}
-                                        className="w-4 h-4 rounded border-2 border-[var(--divider)] accent-brand-500 shrink-0" />
-                                      <span className="flex-1 text-sm text-fg-primary">{v.name}</span>
-                                      <span className="w-20 text-right text-sm text-fg-secondary">₪{v.price.toFixed(2)}</span>
+                                        className="w-4 h-4 rounded border-2 border-[rgba(255,255,255,0.1)] accent-[#f54900] shrink-0" />
+                                      <span className="flex-1 text-[14px] text-[#fafafa]">{v.name}</span>
+                                      <span className="w-20 text-right text-[14px] text-[#9f9fa9]">₪{v.price.toFixed(2)}</span>
                                     </label>
                                   );
                                 })}
                               </>
                             ) : (
-                              <label className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
+                              <label className="flex items-center gap-3 px-1 py-3 border-b border-[rgba(255,255,255,0.1)] cursor-pointer hover:bg-[#27272a] transition-colors rounded-sm">
                                 <input type="checkbox"
                                   checked={modalPicks.has(itemKey)}
                                   onChange={() => togglePick(itemKey, {
@@ -869,9 +853,9 @@ export default function NewItemPage() {
                                     name: item.name,
                                     price: item.price,
                                   })}
-                                  className="w-4 h-4 rounded border-2 border-[var(--divider)] accent-brand-500 shrink-0" />
-                                <span className="flex-1 text-sm text-fg-primary">{item.name}</span>
-                                <span className="w-20 text-right text-sm text-fg-secondary">₪{item.price.toFixed(2)}</span>
+                                  className="w-4 h-4 rounded border-2 border-[rgba(255,255,255,0.1)] accent-[#f54900] shrink-0" />
+                                <span className="flex-1 text-[14px] text-[#fafafa]">{item.name}</span>
+                                <span className="w-20 text-right text-[14px] text-[#9f9fa9]">₪{item.price.toFixed(2)}</span>
                               </label>
                             )}
                           </div>
@@ -879,21 +863,21 @@ export default function NewItemPage() {
                       })}
 
                     {modalPicks.size > 0 && (
-                      <div className="flex items-center gap-3 pt-3 text-sm">
-                        <span className="text-brand-500 font-medium">{modalPicks.size} {t('selected')}</span>
-                        <button onClick={() => setModalPicks(new Map())} className="text-brand-500 font-medium hover:underline">{t('deselectAll') || 'Deselect all'}</button>
+                      <div className="flex items-center gap-3 pt-3 text-[14px]">
+                        <span className="text-[#f54900] font-medium">{modalPicks.size} {t('selected')}</span>
+                        <button onClick={() => setModalPicks(new Map())} className="text-[#f54900] font-medium hover:underline">{t('deselectAll') || 'Deselect all'}</button>
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
                     <div className="relative mb-3">
-                      <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+                      <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9f9fa9] pointer-events-none" />
                       <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
                         placeholder={t('searchCategories')}
-                        className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary text-sm px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-fg-tertiary" />
+                        className="w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f54900] placeholder:text-[#9f9fa9]" />
                     </div>
-                    <div className="flex items-center text-xs font-semibold text-fg-tertiary uppercase tracking-wider px-1 mb-1 pb-2 border-b border-[var(--divider)]">
+                    <div className="flex items-center text-[12px] font-semibold text-[#9f9fa9] uppercase tracking-wider px-1 mb-1 pb-2 border-b border-[rgba(255,255,255,0.1)]">
                       <span className="w-8" />
                       <span className="flex-1">{t('name')}</span>
                       <span className="w-16 text-right">{t('items')}</span>
@@ -901,7 +885,7 @@ export default function NewItemPage() {
                     {categories
                       .filter((c) => !modalSearch || c.name.toLowerCase().includes(modalSearch.toLowerCase()))
                       .map((cat) => (
-                        <label key={cat.id} className="flex items-center gap-3 px-1 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface)] transition-colors rounded-sm">
+                        <label key={cat.id} className="flex items-center gap-3 px-1 py-3 border-b border-[rgba(255,255,255,0.1)] cursor-pointer hover:bg-[#27272a] transition-colors rounded-sm">
                           <input type="radio" name="combo-cat"
                             checked={modalCategoryFilter === cat.id && (cat.items ?? []).every((ci) => modalPicks.has(`item:${ci.id}`))}
                             onChange={() => {
@@ -915,9 +899,9 @@ export default function NewItemPage() {
                               });
                               setModalCategoryFilter(cat.id);
                             }}
-                            className="w-4 h-4 accent-brand-500 shrink-0" />
-                          <span className="flex-1 text-sm text-fg-primary">{cat.name}</span>
-                          <span className="w-16 text-right text-sm text-fg-secondary">{(cat.items ?? []).length}</span>
+                            className="w-4 h-4 accent-[#f54900] shrink-0" />
+                          <span className="flex-1 text-[14px] text-[#fafafa]">{cat.name}</span>
+                          <span className="w-16 text-right text-[14px] text-[#9f9fa9]">{(cat.items ?? []).length}</span>
                         </label>
                       ))}
                   </div>
@@ -929,32 +913,32 @@ export default function NewItemPage() {
               <>
                 <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
                   <button onClick={() => setModalStep('select')}
-                    className="w-9 h-9 rounded-full border border-[var(--divider)] hover:bg-[var(--surface)] transition-colors flex items-center justify-center">
-                    <ArrowLeftIcon className="w-4 h-4 text-fg-primary" />
+                    className="w-9 h-9 rounded-full bg-[#27272a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
+                    <ArrowLeftIcon className="w-4 h-4 text-[#fafafa]" />
                   </button>
                   <div className="flex gap-2">
                     <button onClick={() => setModalStep('configure')}
-                      className="text-sm px-4 py-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface)] transition-colors">{t('skip')}</button>
+                      className="text-[14px] px-4 py-2 rounded-lg text-[#9f9fa9] hover:text-[#fafafa] hover:bg-[#27272a] transition-colors">{t('skip')}</button>
                     <button onClick={() => setModalStep('configure')}
-                      className="btn-primary text-sm px-5 py-2 rounded-lg">{t('next')}</button>
+                      className="bg-[#f54900] hover:bg-[#e04300] text-[#fff7ed] text-[14px] px-5 py-2 rounded-lg">{t('next')}</button>
                   </div>
                 </div>
                 <div className="px-5 pb-4 shrink-0">
-                  <h2 className="text-lg font-bold text-fg-primary">{t('addDiscountsOrUpcharges')}</h2>
-                  <p className="text-sm text-fg-tertiary mt-1">{t('addDiscountsDesc')}</p>
+                  <h2 className="text-[18px] font-bold text-[#fafafa]">{t('addDiscountsOrUpcharges')}</h2>
+                  <p className="text-[14px] text-[#9f9fa9] mt-1">{t('addDiscountsDesc')}</p>
                 </div>
                 <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
-                  <div className="flex items-center text-xs font-semibold text-fg-tertiary uppercase tracking-wider px-1 mb-2 pb-2 border-b border-[var(--divider)]">
+                  <div className="flex items-center text-[12px] font-semibold text-[#9f9fa9] uppercase tracking-wider px-1 mb-2 pb-2 border-b border-[rgba(255,255,255,0.1)]">
                     <span className="flex-1">{t('name')}</span>
                     <span className="w-28 text-right">{t('discountOrUpcharge')}</span>
                   </div>
                   {[...modalPicksList]
                     .sort((a, b) => b.price - a.price)
                     .map((pick) => (
-                      <div key={pick.key} className="flex items-center border-b border-[var(--divider)] py-3 px-1">
+                      <div key={pick.key} className="flex items-center border-b border-[rgba(255,255,255,0.1)] py-3 px-1">
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-fg-primary">{pick.name}</div>
-                          <div className="text-xs text-fg-tertiary">₪{pick.price.toFixed(2)}</div>
+                          <div className="text-[14px] font-medium text-[#fafafa]">{pick.name}</div>
+                          <div className="text-[12px] text-[#9f9fa9]">₪{pick.price.toFixed(2)}</div>
                         </div>
                         <div className="w-28">
                           <input type="number" step="0.01"
@@ -964,7 +948,7 @@ export default function NewItemPage() {
                               next.set(pick.key, parseFloat(e.target.value) || 0);
                               return next;
                             })}
-                            className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary text-sm px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-fg-tertiary"
+                            className="w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] text-[14px] px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-[#f54900] placeholder:text-[#9f9fa9]"
                             placeholder="₪0.00" />
                         </div>
                       </div>
@@ -977,32 +961,32 @@ export default function NewItemPage() {
               <>
                 <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
                   <button onClick={() => setModalStep('pricing')}
-                    className="w-9 h-9 rounded-full border border-[var(--divider)] hover:bg-[var(--surface)] transition-colors flex items-center justify-center">
-                    <ArrowLeftIcon className="w-4 h-4 text-fg-primary" />
+                    className="w-9 h-9 rounded-full bg-[#27272a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
+                    <ArrowLeftIcon className="w-4 h-4 text-[#fafafa]" />
                   </button>
-                  <button onClick={handleModalAdd} className="btn-primary text-sm px-5 py-2 rounded-lg">{t('add')}</button>
+                  <button onClick={handleModalAdd} className="bg-[#f54900] hover:bg-[#e04300] text-[#fff7ed] text-[14px] px-5 py-2 rounded-lg">{t('add')}</button>
                 </div>
-                <div className="px-5 pb-5 space-y-5">
-                  <h2 className="text-lg font-bold text-fg-primary">{t('nameThisGroup')}</h2>
+                <div className="px-5 pb-5 flex flex-col gap-5">
+                  <h2 className="text-[18px] font-bold text-[#fafafa]">{t('nameThisGroup')}</h2>
 
                   <div>
-                    <label className="block text-sm font-medium text-fg-secondary mb-1.5">{t('name')}</label>
+                    <label className="block text-[14px] font-medium text-[#9f9fa9] mb-1.5">{t('name')}</label>
                     <input value={modalGroupName} onChange={(e) => setModalGroupName(e.target.value)}
                       placeholder={t('comboNamePlaceholder')}
-                      className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-fg-tertiary" />
+                      className="w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#f54900] placeholder:text-[#9f9fa9]" />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-fg-secondary mb-1.5">{t('howManySelections')}</label>
+                    <label className="block text-[14px] font-medium text-[#9f9fa9] mb-1.5">{t('howManySelections')}</label>
                     <input type="number" min={0} value={modalRequired}
                       onChange={(e) => setModalRequired(parseInt(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                      className="w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#f54900]" />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-fg-secondary mb-1.5">{t('setDefaultOption')}</label>
+                    <label className="block text-[14px] font-medium text-[#9f9fa9] mb-1.5">{t('setDefaultOption')}</label>
                     <select value={modalDefaultKey} onChange={(e) => setModalDefaultKey(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] text-fg-primary px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                      className="w-full rounded-lg border border-[rgba(255,255,255,0.1)] bg-[#27272a] text-[#fafafa] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#f54900]">
                       <option value="">{t('noDefaultSelection')}</option>
                       {modalPicksList.map((pick) => (
                         <option key={pick.key} value={pick.key}>{pick.name}</option>
@@ -1019,26 +1003,40 @@ export default function NewItemPage() {
   );
 }
 
-// ── Local layout helpers ────────────────────────────────────────────────
-
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+// Split-button category picker (matches Figma node 0:112).
+function CategorySelect({
+  value,
+  options,
+  onChange,
+  placeholder,
+}: {
+  value: number;
+  options: { value: number; label: string }[];
+  onChange: (v: number) => void;
+  placeholder?: string;
+}) {
   return (
-    <section className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 md:p-6 space-y-5">
-      <div className="flex items-center gap-3">
-        <span className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
-        <h2 className="text-base font-bold text-fg-primary">{title}</h2>
+    <div className="relative flex items-center gap-2 w-full">
+      <div className="relative flex-1 min-w-0">
+        <select
+          value={value || ''}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="appearance-none w-full h-9 rounded-[6px] bg-[#27272a] px-3 py-[9.5px] text-[14px] text-[#fafafa] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-2 focus:ring-[#f54900] cursor-pointer"
+        >
+          {!value && <option value="" disabled>{placeholder ?? ''}</option>}
+          {options.map((o) => (
+            <option key={o.value} value={o.value} className="bg-[#27272a] text-[#fafafa]">
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
-      {children}
-    </section>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-fg-tertiary">{label}</label>
-      {children}
-      {hint && <p className="text-xs text-fg-tertiary">{hint}</p>}
+      <div
+        aria-hidden
+        className="h-9 w-9 bg-[#09090b] border border-[rgba(255,255,255,0.1)] rounded-[6px] flex items-center justify-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] pointer-events-none"
+      >
+        <ChevronDownIcon className="w-4 h-4 text-[#fafafa]" />
+      </div>
     </div>
   );
 }
