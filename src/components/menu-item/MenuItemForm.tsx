@@ -3,8 +3,7 @@
 import React from 'react';
 
 // Figma-aligned primitives used by the menu-item Details tab.
-// File bpnbCfGmcUAW25nYHli2Lf, nodes 0:95 (section card), 0:104 (label),
-// 0:106 (input), 0:145 (textarea).
+// Theme-aware: uses CSS tokens so the form works in both light and dark modes.
 
 export function SectionCard({
   title,
@@ -19,12 +18,12 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={`relative bg-[#18181b] border border-[rgba(255,255,255,0.1)] rounded-[12px] p-[25px] flex flex-col gap-6 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)] ${className}`}
+      className={`relative bg-[var(--surface)] border border-[var(--divider)] rounded-xl p-6 flex flex-col gap-6 shadow-sm ${className}`}
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-1 h-6 rounded-full bg-[#f54900] shrink-0" />
-          <h2 className="text-[18px] leading-[28px] text-[#fafafa] truncate">{title}</h2>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="w-1 h-6 rounded-full bg-brand-500 shrink-0" />
+          <h2 className="text-lg font-bold text-[var(--text-primary)] truncate">{title}</h2>
         </div>
         {headerRight && <div className="shrink-0">{headerRight}</div>}
       </div>
@@ -45,18 +44,16 @@ export function Field({
   return (
     <div className="flex flex-col gap-2">
       {label && (
-        <label className="text-[14px] leading-[20px] text-[#9f9fa9]">{label}</label>
+        <label className="text-sm font-medium text-[var(--text-primary)]">{label}</label>
       )}
       {children}
-      {hint && <p className="text-[12px] leading-[16px] text-[#9f9fa9]">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--text-secondary)]">{hint}</p>}
     </div>
   );
 }
 
 type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-// Dark-mode input matching Figma: 36px tall, bg #27272a, 6px radius,
-// subtle shadow, 14px text. No visible border (shadow provides depth).
 export const FormInput = React.forwardRef<HTMLInputElement, InputProps>(function FormInput(
   { className = '', ...rest },
   ref,
@@ -65,7 +62,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, InputProps>(function
     <input
       ref={ref}
       {...rest}
-      className={`w-full h-9 rounded-[6px] bg-[#27272a] px-3 py-[9.5px] text-[14px] leading-none text-[#fafafa] placeholder:text-[rgba(250,250,250,0.5)] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-2 focus:ring-[#f54900] disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`w-full h-10 rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)] px-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     />
   );
 });
@@ -80,7 +77,7 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>
     <textarea
       ref={ref}
       {...rest}
-      className={`w-full min-h-[80px] rounded-[8px] bg-[#27272a] border border-[rgba(255,255,255,0.15)] px-4 py-2 text-[14px] leading-[20px] text-[#fafafa] placeholder:text-[rgba(250,250,250,0.5)] resize-y focus:outline-none focus:ring-2 focus:ring-[#f54900] ${className}`}
+      className={`w-full min-h-[96px] rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] resize-y focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all ${className}`}
     />
   );
 });

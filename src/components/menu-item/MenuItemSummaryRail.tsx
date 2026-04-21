@@ -1,6 +1,6 @@
 'use client';
 
-import { ExclamationTriangleIcon, PhotoIcon, CameraIcon } from '@heroicons/react/24/outline';
+import { AlertCircle, Image as ImageIcon, Camera } from 'lucide-react';
 import { COST_THRESHOLD } from '@/lib/cost-utils';
 import { useI18n } from '@/lib/i18n';
 
@@ -22,8 +22,7 @@ interface Props {
   onImageClick?: () => void;
 }
 
-// Left-rail identity card + cost summary. Pixel-aligned to Figma node 0:17.
-// Colors are scoped to this page since the design is dark-only.
+// Left-rail identity card + cost summary, theme-aware.
 export default function MenuItemSummaryRail({
   imageUrl,
   name,
@@ -40,9 +39,9 @@ export default function MenuItemSummaryRail({
 
   return (
     <div className="w-[280px] flex flex-col gap-6">
-      {/* Identity card — image + name + price + category pill (Figma 0:18) */}
-      <div className="relative bg-[#18181b] border border-[rgba(255,255,255,0.1)] rounded-[12px] overflow-hidden shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
-        <div className="relative w-full h-[192px]">
+      {/* Identity card */}
+      <div className="relative bg-[var(--surface)] border border-[var(--divider)] rounded-xl overflow-hidden shadow-sm">
+        <div className="relative w-full h-48 bg-gradient-to-br from-brand-100 to-brand-200 dark:from-brand-900/30 dark:to-brand-800/30">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -51,14 +50,14 @@ export default function MenuItemSummaryRail({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-[#9f9fa9] bg-[#27272a]">
-              <PhotoIcon className="w-10 h-10" />
+            <div className="w-full h-full flex items-center justify-center text-brand-500">
+              <ImageIcon className="w-10 h-10" />
             </div>
           )}
           {typeof activeStatus === 'boolean' && (
             <span
-              className={`absolute top-3 right-3 w-3 h-3 rounded-full ring-2 ring-[#09090b] ${
-                activeStatus ? 'bg-[#00c950]' : 'bg-[#9f9fa9]'
+              className={`absolute top-3 right-3 w-3 h-3 rounded-full ring-2 ring-[var(--surface)] ${
+                activeStatus ? 'bg-green-500' : 'bg-[var(--text-secondary)]'
               }`}
               title={activeStatus ? t('available') : t('unavailable')}
             />
@@ -68,25 +67,25 @@ export default function MenuItemSummaryRail({
               type="button"
               onClick={onImageClick}
               aria-label={t('addPhoto') || 'Upload image'}
-              className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-[rgba(9,9,11,0.6)] hover:bg-[rgba(9,9,11,0.8)] text-[#fafafa] flex items-center justify-center transition-colors"
+              className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
             >
-              <CameraIcon className="w-4 h-4" />
+              <Camera className="w-4 h-4" />
             </button>
           )}
         </div>
 
         <div className="p-4 flex flex-col gap-1">
-          <p className="text-[18px] leading-[28px] text-[#fafafa] truncate" title={name}>
+          <p className="text-lg font-bold text-[var(--text-primary)] truncate" title={name}>
             {name || placeholderLabel || '\u2014'}
           </p>
           <div className="flex items-center gap-2">
             {typeof price === 'number' && price > 0 && (
-              <span className="text-[16px] leading-[24px] text-[#f54900]">
+              <span className="text-base font-semibold text-brand-500">
                 {price.toFixed(2)} {currency}
               </span>
             )}
             {categoryName && (
-              <span className="inline-flex items-center bg-[#27272a] border border-[rgba(255,255,255,0.1)] rounded-[6px] px-[9px] py-[3px] text-[12px] leading-[16px] text-[#fafafa] truncate">
+              <span className="inline-flex items-center bg-[var(--surface-subtle)] rounded-md px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)] truncate">
                 {categoryName}
               </span>
             )}
@@ -94,23 +93,25 @@ export default function MenuItemSummaryRail({
         </div>
       </div>
 
-      {/* Cost summary card (Figma 0:35) */}
+      {/* Cost summary card */}
       {costSummary && (
-        <div className="relative bg-[#18181b] rounded-[12px] p-4 flex flex-col gap-4 shadow-[0px_1px_3px_0px_rgba(0,0,0,0.1),0px_1px_2px_-1px_rgba(0,0,0,0.1)]">
-          <p className="text-[12px] leading-[16px] tracking-[0.6px] uppercase text-[#9f9fa9]">
+        <div className="bg-[var(--surface)] border border-[var(--divider)] rounded-xl p-4 flex flex-col gap-4 shadow-sm">
+          <p className="text-xs font-semibold tracking-wider uppercase text-[var(--text-secondary)]">
             {t('costSummary')}
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <Row label={t('foodCostLabel')}>
-              <span className="text-[14px] leading-[20px] text-[#fafafa]">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">
                 {costSummary.foodCost.toFixed(2)} {currency}
               </span>
             </Row>
             <Divider />
             <Row label={t('grossProfit')}>
               <span
-                className={`text-[14px] leading-[20px] ${
-                  costSummary.margin >= 0 ? 'text-[#05df72]' : 'text-[#f54900]'
+                className={`text-sm font-semibold ${
+                  costSummary.margin >= 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-brand-500'
                 }`}
               >
                 {costSummary.margin.toFixed(2)} {currency}
@@ -119,11 +120,11 @@ export default function MenuItemSummaryRail({
             <Divider />
             <Row label={t('costPercent')}>
               <span
-                className={`inline-flex items-center gap-1 text-[14px] leading-[20px] ${
-                  overThreshold ? 'text-[#f54900]' : 'text-[#fafafa]'
+                className={`inline-flex items-center gap-1 text-sm font-semibold ${
+                  overThreshold ? 'text-brand-500' : 'text-[var(--text-primary)]'
                 }`}
               >
-                {overThreshold && <ExclamationTriangleIcon className="w-[14px] h-[14px]" />}
+                {overThreshold && <AlertCircle className="w-3.5 h-3.5" />}
                 {(costSummary.costPct * 100).toFixed(1)}%
               </span>
             </Row>
@@ -137,12 +138,12 @@ export default function MenuItemSummaryRail({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[14px] leading-[20px] text-[#9f9fa9]">{label}</span>
+      <span className="text-sm text-[var(--text-secondary)]">{label}</span>
       {children}
     </div>
   );
 }
 
 function Divider() {
-  return <div className="h-px bg-[rgba(255,255,255,0.1)]" />;
+  return <div className="h-px bg-[var(--divider)]" />;
 }

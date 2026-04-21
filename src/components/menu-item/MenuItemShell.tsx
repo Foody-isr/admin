@@ -1,6 +1,6 @@
 'use client';
 
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 interface Props {
@@ -13,10 +13,8 @@ interface Props {
   children: React.ReactNode;
 }
 
-// Fullscreen page shell for the menu-item edit/create flow. Pixel-aligned to
-// Figma (file bpnbCfGmcUAW25nYHli2Lf, node 0:3). Dark palette is hardcoded
-// because the design is dark-only — using the app's light/dark theme tokens
-// here would drift from the mockup.
+// Fullscreen page shell for the menu-item edit/create flow. Supports both
+// light and dark themes via CSS tokens (no hardcoded palette).
 export default function MenuItemShell({
   title,
   onClose,
@@ -28,25 +26,25 @@ export default function MenuItemShell({
 }: Props) {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-50 bg-[#09090b] text-[#fafafa] flex flex-col">
-      {/* Header (Figma 0:4) */}
-      <header className="border-b border-[rgba(255,255,255,0.1)] px-8 pt-4 pb-[17px] flex items-center justify-between shrink-0">
+    <div className="fixed inset-0 z-50 bg-[var(--bg)] text-[var(--text-primary)] flex flex-col">
+      {/* Header */}
+      <header className="border-b border-[var(--divider)] px-8 py-4 flex items-center justify-between shrink-0">
         <button
           type="button"
           onClick={onClose}
           aria-label={t('cancel')}
-          className="w-10 h-10 rounded-full bg-[#27272a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center"
+          className="size-10 rounded-xl bg-[var(--surface-subtle)] hover:bg-[var(--divider)] transition-colors flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
-          <XMarkIcon className="w-5 h-5 text-[#fafafa]" />
+          <X className="w-5 h-5" />
         </button>
 
-        <h1 className="text-[16px] leading-[24px] text-[#fafafa]">{title}</h1>
+        <h1 className="text-base font-bold text-[var(--text-primary)]">{title}</h1>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="h-9 px-4 text-[14px] leading-[20px] text-[#9f9fa9] hover:text-[#fafafa] rounded-[6px] transition-colors"
+            className="h-9 px-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] rounded-lg transition-colors font-medium"
           >
             {t('cancel')}
           </button>
@@ -54,7 +52,7 @@ export default function MenuItemShell({
             type="button"
             onClick={onSave}
             disabled={saving || saveDisabled}
-            className="h-9 px-6 rounded-[8px] bg-[#f54900] hover:bg-[#e04300] text-[#fff7ed] text-[14px] leading-[20px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-9 px-6 rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white text-sm font-medium shadow-lg shadow-brand-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? t('saving') : t('save')}
           </button>

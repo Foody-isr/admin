@@ -10,33 +10,35 @@ import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme-context';
 import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
-  HomeIcon,
-  Bars3BottomLeftIcon,
-  ClipboardDocumentListIcon,
-  UsersIcon,
-  ChartBarIcon,
-  Cog6ToothIcon,
-  GlobeAltIcon,
-  UserGroupIcon,
-  BuildingStorefrontIcon,
-  XMarkIcon,
-  ChevronRightIcon,
-  ChevronLeftIcon,
-  ChevronDownIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  BellIcon,
-  QuestionMarkCircleIcon,
-  SparklesIcon,
-  UserIcon,
-  CalendarIcon,
-  ArrowRightOnRectangleIcon,
-  FireIcon,
-  SunIcon,
-  MoonIcon,
-  LanguageIcon,
-} from '@heroicons/react/24/outline';
+  Home,
+  Menu as MenuIcon,
+  ClipboardList,
+  Users,
+  BarChart3,
+  Settings,
+  Globe,
+  UserCog,
+  Building2,
+  X,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  ArrowLeft,
+  ArrowRight,
+  Bell,
+  HelpCircle,
+  Sparkles,
+  User as UserIcon,
+  Calendar,
+  LogOut,
+  Flame,
+  Sun,
+  Moon,
+  Languages,
+  type LucideIcon,
+} from 'lucide-react';
 import { useAi } from '@/lib/ai-context';
+import { useSidebar } from '@/lib/sidebar-context';
 import FullscreenToggle from '@/components/FullscreenToggle';
 
 interface SubItem {
@@ -53,11 +55,9 @@ interface SubItemGroup {
 interface NavItem {
   href: string;
   labelKey: string;
-  icon: typeof HomeIcon;
+  icon: LucideIcon;
   perm?: string[];
-  /** Flat list of sub-items (for simple sections) */
   subItems?: SubItem[];
-  /** Grouped sub-items with collapsible section headers (for complex sections) */
   subGroups?: SubItemGroup[];
   /** Override the href used when clicking the main nav item (defaults to first sub-item). */
   clickHref?: string;
@@ -81,11 +81,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const { hasAnyPermission } = usePermissions();
   const { status: wsStatus } = useWs();
   const { t, direction, locale, setLocale } = useI18n();
+  const { collapsed, toggleCollapsed } = useSidebar();
 
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowPrepCount, setLowPrepCount] = useState(0);
-  // All groups start expanded
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
@@ -94,11 +94,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
-  const BackArrow = isRtl ? ArrowRightIcon : ArrowLeftIcon;
-  const Chevron = isRtl ? ChevronLeftIcon : ChevronRightIcon;
+  const BackArrow = isRtl ? ArrowRight : ArrowLeft;
 
-  function toggleGroup(key: string) {
-    setExpandedGroups((prev) => {
+  function toggleKey(key: string) {
+    setExpandedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -107,16 +106,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   }
 
   const allNav: NavItem[] = [
-    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: HomeIcon },
+    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: Home },
     {
       href: `${base}/menu`,
       labelKey: 'menu',
-      icon: Bars3BottomLeftIcon,
+      icon: MenuIcon,
       perm: ['menu.view', 'menu.edit'],
       clickHref: `${base}/menu/items`,
-      subItems: [
-        { href: `${base}/menu/menus`, labelKey: 'menus' },
-      ],
+      subItems: [{ href: `${base}/menu/menus`, labelKey: 'menus' }],
       subGroups: [
         {
           labelKey: 'articlesGroup',
@@ -134,7 +131,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       href: `${base}/kitchen`,
       labelKey: 'kitchen',
-      icon: FireIcon,
+      icon: Flame,
       perm: ['kitchen.view', 'kitchen.manage'],
       subItems: [
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
@@ -148,22 +145,20 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       href: `${base}/orders/all`,
       labelKey: 'orders',
-      icon: ClipboardDocumentListIcon,
+      icon: ClipboardList,
       perm: ['orders.view', 'orders.manage'],
     },
     {
       href: `${base}/website`,
       labelKey: 'online',
-      icon: GlobeAltIcon,
+      icon: Globe,
       perm: ['settings.edit'],
-      subItems: [
-        { href: `${base}/website`, labelKey: 'websiteBuilder' },
-      ],
+      subItems: [{ href: `${base}/website`, labelKey: 'websiteBuilder' }],
     },
     {
       href: `${base}/customers`,
       labelKey: 'customers',
-      icon: UserGroupIcon,
+      icon: Users,
       perm: ['customers.view', 'customers.manage'],
       subItems: [
         { href: `${base}/customers`, labelKey: 'customerDirectory' },
@@ -173,16 +168,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       href: `${base}/analytics`,
       labelKey: 'reports',
-      icon: ChartBarIcon,
+      icon: BarChart3,
       perm: ['analytics.view'],
-      subItems: [
-        { href: `${base}/analytics/overview`, labelKey: 'overview' },
-      ],
+      subItems: [{ href: `${base}/analytics/overview`, labelKey: 'overview' }],
     },
     {
       href: `${base}/staff`,
       labelKey: 'staff',
-      icon: UsersIcon,
+      icon: UserCog,
       perm: ['staff.view', 'staff.manage', 'roles.manage'],
       subItems: [
         { href: `${base}/staff`, labelKey: 'staffMembers' },
@@ -192,7 +185,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       href: `${base}/settings`,
       labelKey: 'settings',
-      icon: Cog6ToothIcon,
+      icon: Settings,
       perm: ['settings.view', 'settings.edit', 'tables.manage'],
       subItems: [
         { href: `${base}/settings`, labelKey: 'general' },
@@ -207,7 +200,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   ];
   const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
 
-  /** Returns all leaf hrefs for an item (subItems + subGroups items). */
   function getSubHrefs(item: NavItem): string[] {
     return [
       ...(item.subItems?.map((s) => s.href) ?? []),
@@ -215,20 +207,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     ];
   }
 
-  /** True when the current pathname is within this nav item's scope. */
-  function isItemActive(item: NavItem): boolean {
-    if (pathname === item.href || pathname.startsWith(item.href + '/')) return true;
-    return getSubHrefs(item).some(
-      (href) => pathname === href || pathname.startsWith(href + '/')
-    );
+  function isPathActive(href: string): boolean {
+    return pathname === href || pathname.startsWith(href + '/');
   }
 
-  // Determine if we're inside a section that has sub-items or sub-groups
-  const activeSection = nav.find(
-    (item) => (item.subItems || item.subGroups) && isItemActive(item)
-  );
+  function isItemActive(item: NavItem): boolean {
+    if (isPathActive(item.href)) return true;
+    return getSubHrefs(item).some(isPathActive);
+  }
 
-  /** The href to use when clicking a nav item in the main list */
   function getNavHref(item: NavItem): string {
     if (item.clickHref) return item.clickHref;
     if (item.subItems) return item.subItems[0].href;
@@ -236,236 +223,253 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     return item.href;
   }
 
+  function hasChildren(item: NavItem): boolean {
+    return !!(item.subItems?.length || item.subGroups?.length);
+  }
+
+  const sidebarWidth = collapsed ? 'w-20' : 'w-64';
+  const brandInitial = (restaurantName?.trim().charAt(0) || 'F').toUpperCase();
+
   return (
     <>
       {/* Mobile backdrop */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-30 lg:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={onClose} />
       )}
 
       <aside
         className={`
-          fixed top-0 z-30 w-64 h-screen flex flex-col overflow-y-auto
-          transition-transform duration-200 ease-in-out
+          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
+          ${sidebarWidth}
+          transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
-          ${isRtl ? 'right-0' : 'left-0'}
-          ${isOpen ? 'translate-x-0' : (isRtl ? 'translate-x-full' : '-translate-x-full')}
-          ${isRtl ? 'border-l' : 'border-r'}
+          ${isRtl ? 'right-0 border-l' : 'left-0 border-r'}
+          border-[var(--divider)]
+          ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
-        style={{
-          background: 'var(--sidebar-bg)',
-          borderColor: 'var(--divider)',
-        }}
       >
-        {/* Profile box */}
-        <div className="px-3 pt-4 pb-2">
+        {/* Brand / restaurant header */}
+        <div className="p-4 border-b border-[var(--divider)] flex items-center gap-3">
           <button
-            onClick={() => setProfileOpen(!profileOpen)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[var(--divider)] hover:bg-[var(--sidebar-hover)] transition-colors text-left"
+            onClick={() => setProfileOpen(true)}
+            className="size-10 shrink-0 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white font-bold shadow-lg shadow-brand-500/25 transition-transform hover:scale-105"
+            aria-label={t('profile')}
           >
-            <UserIcon className="w-5 h-5 shrink-0" style={{ color: 'var(--text-secondary)' }} />
-            <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-              {restaurantName ?? ''}
-            </span>
+            {brandInitial}
           </button>
+          {!collapsed && (
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="flex-1 min-w-0 text-left"
+            >
+              <h1 className="font-bold text-[var(--text-primary)] truncate">
+                {restaurantName ?? 'Foody'}
+              </h1>
+              {user?.full_name && (
+                <p className="text-xs text-[var(--text-secondary)] truncate">
+                  {user.full_name}
+                </p>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Mobile close button */}
-        <div className="flex items-center justify-between px-4 py-3 lg:hidden">
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-            {activeSection ? t(activeSection.labelKey) : t('menu')}
+        <div className="flex items-center justify-between px-4 py-2 lg:hidden">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+            {t('menu')}
           </span>
           <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
-            <XMarkIcon className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            <X className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
         </div>
 
-        {activeSection ? (
-          /* ── Sub-navigation view (replaces main nav) ── */
-          <>
-            {/* Back button */}
-            <div className="px-3 pt-4 pb-1">
-              <Link
-                href={`${base}/dashboard`}
-                className="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-colors hover:bg-[var(--sidebar-hover)]"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <BackArrow className="w-4 h-4" />
-                {t(activeSection.labelKey)}
-              </Link>
-            </div>
+        {/* Navigation */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {nav.map((item) => {
+            const isActive = isItemActive(item);
+            const expanded = expandedKeys.has(item.labelKey) || isActive;
+            const children = hasChildren(item);
+            const totalBadge =
+              (item.subItems?.reduce((a, s) => a + (s.badge ?? 0), 0) ?? 0) +
+              (item.subGroups?.reduce(
+                (a, g) => a + g.items.reduce((ga, s) => ga + (s.badge ?? 0), 0),
+                0,
+              ) ?? 0);
 
-            {/* Sub-groups (collapsible sections) */}
-            {activeSection.subGroups && (
-              <nav className="px-3 py-1 space-y-1">
-                {activeSection.subGroups.map((group) => {
-                  const hasActiveItem = group.items.some(
-                    (sub) => pathname === sub.href || pathname.startsWith(sub.href + '/')
-                  );
-                  // Auto-expand the group that contains the active route
-                  const isExpanded = expandedGroups.has(group.labelKey) || hasActiveItem;
-                  return (
-                    <div key={group.labelKey}>
-                      <button
-                        onClick={() => toggleGroup(group.labelKey)}
-                        className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold rounded-lg transition-colors hover:bg-[var(--sidebar-hover)]"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        <span>{t(group.labelKey)}</span>
-                        <ChevronDownIcon
-                          className={`w-4 h-4 transition-transform flex-shrink-0 ${isExpanded ? '' : '-rotate-90'}`}
-                          style={{ color: 'var(--text-secondary)' }}
-                        />
-                      </button>
-                      {isExpanded && (
-                        <div className="space-y-0.5 mt-0.5">
-                          {group.items.map((sub) => {
-                            const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
-                            return (
-                              <Link
-                                key={sub.href}
-                                href={sub.href}
-                                onClick={onClose}
-                                className={`sidebar-link ${isActive ? 'active' : ''}`}
-                              >
-                                <span className="flex-1">{t(sub.labelKey)}</span>
-                                {sub.badge !== undefined && sub.badge > 0 && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
-                                    {sub.badge}
-                                  </span>
-                                )}
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </nav>
-            )}
-
-            {/* Sub-items (flat) */}
-            {activeSection.subItems && (
-              <nav className="px-3 py-1 space-y-0.5">
-                {activeSection.subItems.map((sub) => {
-                  const isActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
-                  return (
-                    <Link
-                      key={sub.href}
-                      href={sub.href}
-                      onClick={onClose}
-                      className={`sidebar-link ${isActive ? 'active' : ''}`}
-                    >
-                      <span className="flex-1">{t(sub.labelKey)}</span>
-                      {sub.badge !== undefined && sub.badge > 0 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-red-500/10 text-red-500">
-                          {sub.badge}
+            return (
+              <div key={item.labelKey}>
+                {/* Top-level row */}
+                {children ? (
+                  <button
+                    onClick={() => {
+                      if (collapsed) {
+                        // In collapsed mode, clicking top-level navigates instead of expanding.
+                        window.location.href = getNavHref(item);
+                      } else {
+                        toggleKey(item.labelKey);
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5 shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="font-medium flex-1 text-left truncate">
+                          {t(item.labelKey)}
                         </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
-          </>
-        ) : (
-          /* ── Main navigation view ── */
-          <>
-            {/* Section label */}
-            <div className="px-4 pt-4 pb-2 hidden lg:block">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                Tools
-              </span>
-            </div>
-
-            {/* Navigation */}
-            <nav className="flex-1 px-3 py-1 space-y-0.5">
-              {nav.map((item) => {
-                const isActive = isItemActive(item);
-                return (
+                        {totalBadge > 0 && (
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
+                              isActive
+                                ? 'bg-white/20 text-white'
+                                : 'bg-brand-500/15 text-brand-500'
+                            }`}
+                          >
+                            {totalBadge}
+                          </span>
+                        )}
+                        <ChevronDown
+                          className={`w-4 h-4 shrink-0 transition-transform ${
+                            expanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </>
+                    )}
+                  </button>
+                ) : (
                   <Link
-                    key={item.href}
                     href={getNavHref(item)}
                     onClick={onClose}
-                    className={`sidebar-link ${isActive ? 'active' : ''}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
+                    }`}
                   >
-                    <item.icon className="w-5 h-5 flex-shrink-0" />
-                    <span className="flex-1">{t(item.labelKey)}</span>
-                    {item.labelKey === 'orders' && (
+                    <item.icon className="w-5 h-5 shrink-0" />
+                    {!collapsed && (
+                      <span className="font-medium flex-1 truncate">
+                        {t(item.labelKey)}
+                      </span>
+                    )}
+                    {item.labelKey === 'orders' && !collapsed && (
                       <span
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          wsStatus === 'connected' ? 'bg-green-400' :
-                          wsStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
-                          'bg-red-400'
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          wsStatus === 'connected'
+                            ? 'bg-green-400'
+                            : wsStatus === 'connecting'
+                              ? 'bg-yellow-400 animate-pulse'
+                              : 'bg-red-400'
                         }`}
                         title={`WebSocket: ${wsStatus}`}
                       />
                     )}
-                    {(item.subItems || item.subGroups) && (
-                      <Chevron className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-                    )}
                   </Link>
-                );
-              })}
-            </nav>
-          </>
-        )}
+                )}
 
-        {/* Footer: switch restaurant */}
-        {restaurantIds.length > 1 && (
-          <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--divider)' }}>
-            <Link
-              href="/select-restaurant"
-              className="flex items-center gap-2 text-xs transition-colors hover:text-brand-500"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              <BuildingStorefrontIcon className="w-4 h-4" />
-              {t('switchRestaurant')}
-            </Link>
+                {/* Expanded sub-items */}
+                {children && expanded && !collapsed && (
+                  <div
+                    className={`mt-1 space-y-0.5 ${
+                      isRtl ? 'mr-4 pr-4 border-r-2' : 'ml-4 pl-4 border-l-2'
+                    } border-[var(--divider)]`}
+                  >
+                    {item.subGroups?.map((group) => (
+                      <div key={group.labelKey} className="py-1">
+                        <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                          {t(group.labelKey)}
+                        </p>
+                        {group.items.map((sub) => {
+                          const active = isPathActive(sub.href);
+                          return (
+                            <SubLink
+                              key={sub.href}
+                              href={sub.href}
+                              label={t(sub.labelKey)}
+                              badge={sub.badge}
+                              active={active}
+                              onClick={onClose}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                    {item.subItems?.map((sub) => {
+                      const active = isPathActive(sub.href);
+                      return (
+                        <SubLink
+                          key={sub.href}
+                          href={sub.href}
+                          label={t(sub.labelKey)}
+                          badge={sub.badge}
+                          active={active}
+                          onClick={onClose}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Footer — action icons + theme/collapse toggles */}
+        <div className="border-t border-[var(--divider)]">
+          <div className="flex items-center justify-around px-2 py-2 border-b border-[var(--divider)]">
+            <IconBtn label={t('notifications')} badge>
+              <Bell className="w-5 h-5" />
+            </IconBtn>
+            <IconBtn label={t('calendar')}>
+              <Calendar className="w-5 h-5" />
+            </IconBtn>
+            <IconBtn label={t('help')}>
+              <HelpCircle className="w-5 h-5" />
+            </IconBtn>
+            <IconBtn label="Foody AI" onClick={ai.toggleDrawer} active={ai.isOpen}>
+              <Sparkles className="w-5 h-5" />
+            </IconBtn>
+            <FullscreenToggle />
           </div>
-        )}
-
-        {/* Bottom icon bar */}
-        <div className="mt-auto border-t flex items-center justify-around px-2 py-3" style={{ borderColor: 'var(--divider)' }}>
-          <button
-            className="relative p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Notifications"
-          >
-            <BellIcon className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
-          </button>
-          <button
-            className="p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Orders"
-          >
-            <CalendarIcon className="w-5 h-5" />
-          </button>
-          <button
-            className="p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors"
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Help"
-          >
-            <QuestionMarkCircleIcon className="w-5 h-5" />
-          </button>
-          <button
-            onClick={ai.toggleDrawer}
-            className={`p-2 rounded-lg hover:bg-[var(--sidebar-hover)] transition-colors ${ai.isOpen ? 'bg-[var(--sidebar-hover)]' : ''}`}
-            style={{ color: 'var(--text-secondary)' }}
-            aria-label="Foody AI"
-          >
-            <SparklesIcon className="w-5 h-5" />
-          </button>
-          <FullscreenToggle />
+          <div className="flex">
+            <button
+              onClick={toggleTheme}
+              className={`flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--text-secondary)] ${isRtl ? 'border-l' : 'border-r'} border-[var(--divider)]`}
+              title={theme === 'dark' ? t('lightMode') : t('darkMode')}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
+            <button
+              onClick={toggleCollapsed}
+              className="flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--text-secondary)]"
+              title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
+            >
+              {collapsed ? (
+                isRtl ? (
+                  <ChevronLeft className="w-5 h-5" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )
+              ) : isRtl ? (
+                <ChevronRight className="w-5 h-5" />
+              ) : (
+                <ChevronLeft className="w-5 h-5" />
+              )}
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* ── Profile drawer (right side) ── */}
+      {/* ── Profile drawer ── */}
       {profileOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-50"
@@ -474,51 +478,45 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       )}
       <div
         className={`
-          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col
-          transition-transform duration-200 ease-in-out
-          ${isRtl ? 'left-0' : 'right-0'}
-          ${profileOpen ? 'translate-x-0' : (isRtl ? '-translate-x-full' : 'translate-x-full')}
+          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-[var(--surface)]
+          transition-transform duration-200 ease-in-out border-[var(--divider)]
+          ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
+          ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
         `}
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--divider)',
-          borderLeftWidth: isRtl ? 0 : 1,
-          borderRightWidth: isRtl ? 1 : 0,
-        }}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: 'var(--divider)' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--divider)]">
           <button
             onClick={() => setProfileOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-[var(--hover)]"
+            className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)]"
           >
-            <XMarkIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+            <X className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
         </div>
 
         {/* User info */}
-        <div className="px-5 py-5 border-b" style={{ borderColor: 'var(--divider)' }}>
+        <div className="px-5 py-5 border-b border-[var(--divider)]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'var(--sidebar-active)', color: '#fff' }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-brand-500 text-white">
               <span className="text-sm font-bold">
                 {(user?.full_name || user?.email || '?')[0].toUpperCase()}
               </span>
             </div>
             <div className="min-w-0">
               {user?.full_name && (
-                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-sm font-semibold truncate text-[var(--text-primary)]">
                   {user.full_name}
                 </p>
               )}
               {user?.email && (
-                <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-xs truncate text-[var(--text-secondary)]">
                   {user.email}
                 </p>
               )}
             </div>
           </div>
           {restaurantName && (
-            <p className="mt-3 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <p className="mt-3 text-xs font-medium text-[var(--text-secondary)]">
               {restaurantName}
             </p>
           )}
@@ -526,21 +524,18 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
         {/* Drawer menu items */}
         <nav className="flex-1 overflow-y-auto py-2">
-          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-primary)' }}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--text-primary)]"
           >
-            {theme === 'dark' ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             {theme === 'dark' ? t('lightMode') : t('darkMode')}
           </button>
 
-          {/* Language selector */}
           <div className="px-5 py-3">
             <div className="flex items-center gap-3 mb-2">
-              <LanguageIcon className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t('language')}</span>
+              <Languages className="w-5 h-5 text-[var(--text-primary)]" />
+              <span className="text-sm text-[var(--text-primary)]">{t('language')}</span>
             </div>
             <div className="flex gap-2 ml-8">
               {SUPPORTED_LOCALES.map((loc) => (
@@ -549,10 +544,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   onClick={() => setLocale(loc)}
                   className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                     locale === loc
-                      ? 'border-[var(--sidebar-active)] text-[var(--sidebar-active)] font-semibold'
-                      : 'border-[var(--divider)] hover:border-[var(--text-secondary)]'
+                      ? 'border-brand-500 text-brand-500 font-semibold'
+                      : 'border-[var(--divider)] text-[var(--text-secondary)] hover:border-[var(--text-secondary)]'
                   }`}
-                  style={{ color: locale === loc ? undefined : 'var(--text-secondary)' }}
                 >
                   {LOCALE_LABELS[loc]}
                 </button>
@@ -560,42 +554,107 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </div>
           </div>
 
-          {/* Switch restaurant */}
           {restaurantIds.length > 1 && (
             <Link
               href="/select-restaurant"
               onClick={() => setProfileOpen(false)}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
-              style={{ color: 'var(--text-primary)' }}
+              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--text-primary)]"
             >
-              <BuildingStorefrontIcon className="w-5 h-5" />
+              <Building2 className="w-5 h-5" />
               {t('switchRestaurant')}
             </Link>
           )}
 
-          {/* Settings */}
           <Link
             href={`/${restaurantId}/settings`}
             onClick={() => setProfileOpen(false)}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-primary)' }}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--text-primary)]"
           >
-            <Cog6ToothIcon className="w-5 h-5" />
+            <Settings className="w-5 h-5" />
             {t('settings')}
           </Link>
         </nav>
 
-        {/* Sign out at bottom */}
-        <div className="border-t px-5 py-4" style={{ borderColor: 'var(--divider)' }}>
+        <div className="border-t border-[var(--divider)] px-5 py-4">
           <button
-            onClick={() => { setProfileOpen(false); logout(); }}
+            onClick={() => {
+              setProfileOpen(false);
+              logout();
+            }}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors hover:bg-red-500/10 text-red-500"
           >
-            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            <LogOut className="w-5 h-5" />
             {t('signOut')}
           </button>
         </div>
       </div>
     </>
+  );
+}
+
+function SubLink({
+  href,
+  label,
+  badge,
+  active,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  badge?: number;
+  active: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+        active
+          ? 'bg-brand-500 text-white'
+          : 'text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)]'
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
+            active ? 'bg-white/20 text-white' : 'bg-brand-500/15 text-brand-500'
+          }`}
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function IconBtn({
+  children,
+  label,
+  onClick,
+  badge,
+  active,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  badge?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative p-2 rounded-lg transition-colors text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-primary)] ${
+        active ? 'bg-[var(--sidebar-hover)] text-[var(--text-primary)]' : ''
+      }`}
+      aria-label={label}
+      title={label}
+    >
+      {children}
+      {badge && (
+        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
+      )}
+    </button>
   );
 }

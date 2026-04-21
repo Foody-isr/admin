@@ -7,6 +7,7 @@ import { PermissionsProvider } from '@/lib/permissions-context';
 import { WsProvider } from '@/lib/ws-context';
 import { useIdleTimeout } from '@/lib/use-idle-timeout';
 import { useI18n } from '@/lib/i18n';
+import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import IdleModal from '@/components/IdleModal';
@@ -122,31 +123,77 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
         <AiChatProvider restaurantId={restaurantId}>
-          <div className="h-screen flex">
-            <div className="flex flex-1 min-w-0">
-              {!fullscreenActive && (
-                <Sidebar
-                  restaurantId={restaurantId}
-                  restaurantName={restaurant.name}
-                  isOpen={sidebarOpen}
-                  onClose={closeSidebar}
-                />
-              )}
-              <main className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden ${
-                fullscreenActive ? '' : isRtl ? 'lg:mr-64' : 'lg:ml-64'
-              }`}>
-                <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
-                  {children}
-                </div>
-              </main>
-            </div>
-          </div>
-          <AiDrawer />
-          <FullscreenExitButton />
-          {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+          <SidebarProvider>
+            <RestaurantShell
+              restaurant={restaurant}
+              restaurantId={restaurantId}
+              sidebarOpen={sidebarOpen}
+              closeSidebar={closeSidebar}
+              fullscreenActive={fullscreenActive}
+              isRtl={isRtl}
+              isWideLayout={isWideLayout}
+            >
+              {children}
+            </RestaurantShell>
+            <AiDrawer />
+            <FullscreenExitButton />
+            {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+          </SidebarProvider>
         </AiChatProvider>
       </WsProvider>
     </PermissionsProvider>
+  );
+}
+
+function RestaurantShell({
+  children,
+  restaurant,
+  restaurantId,
+  sidebarOpen,
+  closeSidebar,
+  fullscreenActive,
+  isRtl,
+  isWideLayout,
+}: {
+  children: React.ReactNode;
+  restaurant: Restaurant;
+  restaurantId: number;
+  sidebarOpen: boolean;
+  closeSidebar: () => void;
+  fullscreenActive: boolean;
+  isRtl: boolean;
+  isWideLayout: boolean;
+}) {
+  const { collapsed } = useSidebar();
+  const marginClass = fullscreenActive
+    ? ''
+    : collapsed
+      ? isRtl
+        ? 'lg:mr-20'
+        : 'lg:ml-20'
+      : isRtl
+        ? 'lg:mr-64'
+        : 'lg:ml-64';
+  return (
+    <div className="h-screen flex">
+      <div className="flex flex-1 min-w-0">
+        {!fullscreenActive && (
+          <Sidebar
+            restaurantId={restaurantId}
+            restaurantName={restaurant.name}
+            isOpen={sidebarOpen}
+            onClose={closeSidebar}
+          />
+        )}
+        <main
+          className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
+        >
+          <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
 
