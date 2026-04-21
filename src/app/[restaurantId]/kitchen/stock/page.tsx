@@ -267,18 +267,65 @@ export default function StockPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
       </div>
     );
   }
 
+  // Figma KPIs — computed from real stock data
+  const stockOk = items.filter((i) => (i.quantity ?? 0) > (i.reorder_threshold ?? 0)).length;
+  const stockLow = items.filter(
+    (i) => (i.quantity ?? 0) <= (i.reorder_threshold ?? 0),
+  ).length;
+  const totalValue = items.reduce(
+    (sum, i) => sum + (i.quantity ?? 0) * (i.cost_per_unit ?? 0),
+    0,
+  );
+
   return (
-    <div className={`space-y-6 max-w-5xl mx-auto ${selected.size > 0 ? 'pb-24' : ''}`}>
+    <div className={`-mx-6 -my-6 lg:-mx-8 flex flex-col ${selected.size > 0 ? 'pb-24' : ''}`}>
+      {/* Header — Figma pages/cuisine/stock.tsx + App.tsx:410 */}
+      <header className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
+        <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1 text-sm">
+              <span className="text-neutral-500 dark:text-neutral-400">
+                {t('kitchen') || 'Cuisine'}
+              </span>
+              <ChevronDownIcon className="w-3.5 h-3.5 rotate-[-90deg] text-neutral-400" />
+              <span className="font-medium text-orange-500">{t('stock') || 'Stock'}</span>
+            </div>
+            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+              {t('stock') || 'Stock'}
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
+              {t('stockSubtitle') || "Gérez votre inventaire d'ingrédients"}
+            </p>
+          </div>
+          <button
+            onClick={() => setItemModal({ open: true })}
+            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
+          >
+            <PlusIcon className="w-5 h-5" />
+            {t('addItem')}
+          </button>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard title={t('itemsInStock') || 'Articles en stock'} value={String(items.length)} />
+          <KpiCard title={t('statusOk') || 'Statut OK'} value={String(stockOk)} />
+          <KpiCard title={t('totalValue') || 'Valeur totale'} value={`${totalValue.toFixed(2)} ₪`} />
+          <KpiCard title={t('stockAlerts') || 'Alertes stock'} value={String(stockLow)} />
+        </div>
+      </header>
+
+      <div className="px-8 py-6 space-y-4">
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
         <div className="relative flex-1 min-w-[220px] max-w-xs">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
           <input
             type="text"
             placeholder={t('search')}
@@ -292,10 +339,10 @@ export default function StockPage() {
         <button
           type="button"
           onClick={() => openFiltersDrawer('category')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111111] text-sm font-medium text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors whitespace-nowrap"
         >
           {t('category')}{' '}
-          <span className="font-semibold text-fg-primary">
+          <span className="font-semibold text-neutral-900 dark:text-white">
             {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
           </span>
           <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -305,7 +352,7 @@ export default function StockPage() {
         <button
           type="button"
           onClick={() => openFiltersDrawer('index')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+          className="flex items-center gap-2 h-11 px-5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111111] text-sm font-medium text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors whitespace-nowrap"
         >
           {t('allFilters')}
           <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -318,7 +365,7 @@ export default function StockPage() {
         <button
           type="button"
           onClick={toggleVatDisplay}
-          className="h-11 px-4 min-w-[4.5rem] rounded-full border border-[var(--divider)] bg-[var(--surface)] text-xs font-semibold tracking-wider uppercase text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
+          className="h-11 px-4 min-w-[4.5rem] rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111111] text-xs font-semibold tracking-wider uppercase text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors whitespace-nowrap"
           title={`${t('exVat')} / ${t('incVat')}`}
         >
           {vatDisplayMode === 'inc' ? t('incVat') : t('exVat')}
@@ -355,8 +402,8 @@ export default function StockPage() {
           <div> reserves space so the last row is never covered. */}
       {selected.size > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none px-4 pb-4">
-          <div className="max-w-5xl mx-auto pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-brand-500/10 border border-brand-500/20 shadow-lg backdrop-blur-md">
-            <span className="text-sm font-medium text-brand-500">
+          <div className="max-w-5xl mx-auto pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 shadow-lg backdrop-blur-md">
+            <span className="text-sm font-medium text-orange-500">
               {t('itemsSelected').replace('{count}', String(selected.size))}
             </span>
             <div className="flex-1" />
@@ -369,7 +416,7 @@ export default function StockPage() {
             <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
               {t('delete')} ({selected.size})
             </button>
-            <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
+            <button onClick={() => setSelected(new Set())} className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white">
               {t('cancel')}
             </button>
           </div>
@@ -379,7 +426,7 @@ export default function StockPage() {
       {/* Items table */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <p className="text-base text-fg-secondary text-center max-w-md">
+          <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
             {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
           {items.length === 0 && (
@@ -392,21 +439,21 @@ export default function StockPage() {
         <div>
           <table className="w-full text-sm border-separate border-spacing-0">
             <thead>
-              <tr className="text-left text-xs text-fg-secondary tracking-wider">
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
+              <tr className="text-left text-xs text-neutral-600 dark:text-neutral-400 tracking-wider">
+                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">
                   <input type="checkbox"
                     checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
                     onChange={toggleSelectAll}
-                    className="rounded border-[var(--divider)]" />
+                    className="rounded border-neutral-200 dark:border-neutral-800" />
                 </th>
                 <th
                   aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white"
                 >
                   <button
                     type="button"
                     onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:text-white transition-colors"
                   >
                     {t('item')}
                     {sortKey === 'name' && (
@@ -416,15 +463,15 @@ export default function StockPage() {
                     )}
                   </button>
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">{t('category')}</th>
                 <th
                   aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white"
                 >
                   <button
                     type="button"
                     onClick={() => toggleSort('quantity')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:text-white transition-colors ml-auto"
                   >
                     {t('quantity')}
                     {sortKey === 'quantity' && (
@@ -436,12 +483,12 @@ export default function StockPage() {
                 </th>
                 <th
                   aria-sort={sortKey === 'price' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white"
                 >
                   <button
                     type="button"
                     onClick={() => toggleSort('price')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:text-white transition-colors ml-auto"
                   >
                     {t('price')}
                     {sortKey === 'price' && (
@@ -451,9 +498,9 @@ export default function StockPage() {
                     )}
                   </button>
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('supplier')}</th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('status')}</th>
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">{t('supplier')}</th>
+                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">{t('status')}</th>
+                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white" />
               </tr>
             </thead>
             <tbody>
@@ -466,71 +513,71 @@ export default function StockPage() {
                 return (
                   <tr
                     key={item.id}
-                    className={`hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
+                    className={`hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors [&>td]:border-b [&>td]:border-neutral-200 dark:border-neutral-800 ${selected.has(item.id) ? 'bg-orange-500/5' : ''}`}
                   >
                     <td className="py-3.5 px-2 w-10">
                       <input type="checkbox"
                         checked={selected.has(item.id)}
                         onChange={() => toggleSelect(item.id)}
-                        className="rounded border-[var(--divider)]" />
+                        className="rounded border-neutral-200 dark:border-neutral-800" />
                     </td>
                     <td className="py-3.5 px-2">
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
-                        className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
+                        className="flex items-center gap-3 text-left hover:text-orange-500 transition-colors"
                       >
                         {item.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
                         ) : (
-                          <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                            <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                          <div className="w-9 h-9 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] flex items-center justify-center shrink-0">
+                            <PhotoIcon className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
                           </div>
                         )}
-                        <span className="font-medium text-fg-primary">{item.name}</span>
+                        <span className="font-medium text-neutral-900 dark:text-white">{item.name}</span>
                       </button>
                     </td>
                     <td className="py-3.5 px-2">
                       <div className="flex items-center gap-2">
                         {catColor && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: catColor }} />}
-                        <span className="text-fg-secondary">{item.category || '—'}</span>
+                        <span className="text-neutral-600 dark:text-neutral-400">{item.category || '—'}</span>
                       </div>
                     </td>
                     <td
-                      className="py-3.5 px-2 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)] relative"
+                      className="py-3.5 px-2 text-right font-mono text-neutral-900 dark:text-white cursor-pointer hover:bg-neutral-50 dark:bg-[#1a1a1a] relative"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
                         <span className="inline-flex items-center gap-1.5 justify-end">
                           {formatQuantityAtLevel(item, level, t)}
-                          <ChevronDownIcon className="w-3.5 h-3.5 text-fg-tertiary" />
+                          <ChevronDownIcon className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                         </span>
                         {popoverOpen && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setLevelPopover(null); }} />
                             <div
-                              className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg shadow-lg border border-[var(--divider)] p-1 text-left"
+                              className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-1 text-left"
                               style={{ background: 'var(--surface)' }}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <div className="px-3 py-2 text-xs text-fg-secondary uppercase tracking-wider">
+                              <div className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
                                 {t('displayAs') || 'Display as'}
                               </div>
                               {pkg.levels.map((lvl) => (
                                 <button
                                   key={lvl}
                                   onClick={(e) => { e.stopPropagation(); selectItemLevel(item.id, lvl); }}
-                                  className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${lvl === level ? 'bg-brand-500/10 text-brand-500' : 'text-fg-primary hover:bg-[var(--surface-subtle)]'}`}
+                                  className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${lvl === level ? 'bg-orange-500/10 text-orange-500' : 'text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a]'}`}
                                 >
                                   <div className="min-w-0">
                                     <div className="font-medium text-sm truncate">{formatQuantityAtLevel(item, lvl, t)}</div>
-                                    <div className="font-mono text-xs text-fg-secondary truncate">
+                                    <div className="font-mono text-xs text-neutral-600 dark:text-neutral-400 truncate">
                                       {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), t)}
                                     </div>
                                   </div>
                                   {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
-                                    <span className="text-[10px] uppercase tracking-wider text-fg-tertiary flex-shrink-0">
+                                    <span className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 flex-shrink-0">
                                       {t('default') || 'default'}
                                     </span>
                                   )}
@@ -541,18 +588,18 @@ export default function StockPage() {
                         )}
                       </td>
                     <td
-                      className="py-3.5 px-2 text-right font-mono text-fg-primary cursor-pointer hover:bg-[var(--surface-subtle)]"
+                      className="py-3.5 px-2 text-right font-mono text-neutral-900 dark:text-white cursor-pointer hover:bg-neutral-50 dark:bg-[#1a1a1a]"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
                       {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
                       {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
-                        <span className="ml-1.5 text-[10px] tracking-wider text-fg-tertiary">
+                        <span className="ml-1.5 text-[10px] tracking-wider text-neutral-400 dark:text-neutral-500">
                           {item.vat_rate_override}% TVA
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-2 text-fg-secondary">{item.supplier || '—'}</td>
+                    <td className="py-3.5 px-2 text-neutral-600 dark:text-neutral-400">{item.supplier || '—'}</td>
                     <td className="py-3.5 px-2">
                       {isLow ? (
                         <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
@@ -639,7 +686,7 @@ export default function StockPage() {
       {/* Bulk Update Category Modal */}
       {bulkCategoryModal && (
         <Modal title={t('updateCategory')} onClose={() => setBulkCategoryModal(false)}>
-          <p className="text-sm text-fg-secondary mb-3">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
             {t('bulkCategoryDesc').replace('{count}', String(selected.size))}
           </p>
           <select className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}>
@@ -659,7 +706,7 @@ export default function StockPage() {
           semantics as the per-item editor. `null` clears the override; a value sets it. */}
       {bulkVatModal && (
         <Modal title={t('updateVat')} onClose={() => setBulkVatModal(false)}>
-          <p className="text-sm text-fg-secondary mb-3">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
             {t('bulkVatDesc').replace('{count}', String(selected.size))}
           </p>
           <div className="mb-4">
@@ -675,6 +722,21 @@ export default function StockPage() {
           </div>
         </Modal>
       )}
+      </div>{/* /px-8 py-6 wrapper */}
+    </div>
+  );
+}
+
+function KpiCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg transition-all">
+      <div className="flex items-center justify-between mb-3">
+        <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
+          <span className="text-sm font-bold">₪</span>
+        </div>
+      </div>
+      <h3 className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">{title}</h3>
+      <p className="text-2xl font-bold text-neutral-900 dark:text-white">{value}</p>
     </div>
   );
 }
@@ -792,7 +854,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
     <>
       <FormSection>
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-fg-primary">{t('status')}</h3>
+          <h3 className="font-bold text-neutral-900 dark:text-white">{t('status')}</h3>
           <StatusPill
             active={isActive}
             onToggle={() => setIsActive(!isActive)}
@@ -821,11 +883,11 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           onChange={(e) => setSku(e.target.value)}
           placeholder={t('sku')}
         />
-        <p className="text-xs text-fg-tertiary mt-1">{t('skuHelp')}</p>
+        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">{t('skuHelp')}</p>
       </FormSection>
 
       <FormSection title={t('billNames')}>
-        <p className="text-xs text-fg-tertiary mb-2">{t('billNamesHelp')}</p>
+        <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-2">{t('billNamesHelp')}</p>
         <div className="space-y-2">
           {aliases.map((a, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -854,7 +916,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
               <button
                 type="button"
                 onClick={() => setAliases((prev) => prev.filter((_, idx) => idx !== i))}
-                className="text-fg-tertiary hover:text-red-500 shrink-0 p-1"
+                className="text-neutral-400 dark:text-neutral-500 hover:text-red-500 shrink-0 p-1"
                 aria-label={t('remove')}
               >
                 <TrashIcon className="w-4 h-4" />
@@ -930,7 +992,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           />
           {displayImage ? (
             <div
-              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-[var(--divider)] bg-[var(--surface-muted,rgba(0,0,0,0.2))]"
+              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-neutral-200 dark:border-neutral-800 bg-[var(--surface-muted,rgba(0,0,0,0.2))]"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
@@ -950,18 +1012,18 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             </div>
           ) : (
             <div
-              className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
+              className="border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl p-10 flex flex-col items-center gap-3 text-neutral-400 dark:text-neutral-500 cursor-pointer hover:border-orange-500 hover:text-orange-500 transition-colors"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
               {uploading ? (
-                <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+                <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
               ) : (
                 <>
                   <ArrowUpTrayIcon className="w-10 h-10" />
                   <p className="text-base text-center">
-                    {t('dropImagesHere')}, <span className="text-brand-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
+                    {t('dropImagesHere')}, <span className="text-orange-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
                   </p>
                 </>
               )}
@@ -1037,7 +1099,7 @@ function TransactionModal({
               type="button"
               onClick={() => setType(opt.value)}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-                type === opt.value ? 'border border-brand-500 text-brand-500 bg-brand-500/5' : 'border border-divider text-fg-secondary hover:text-fg-primary'
+                type === opt.value ? 'border border-orange-500 text-orange-500 bg-orange-500/5' : 'border border-divider text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white'
               }`}
             >
               <opt.icon className="w-4 h-4" />
@@ -1047,16 +1109,16 @@ function TransactionModal({
         </div>
 
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('quantityUnit').replace('{unit}', item.unit)}</label>
+          <label className="text-xs text-neutral-600 dark:text-neutral-400 block mb-1">{t('quantityUnit').replace('{unit}', item.unit)}</label>
           <input type="number" step="any" min="0" required className="input w-full py-2 text-sm" value={qty || ''} onChange={(e) => setQty(+e.target.value)} />
         </div>
 
         <div>
-          <label className="text-xs text-fg-secondary block mb-1">{t('notes')}</label>
+          <label className="text-xs text-neutral-600 dark:text-neutral-400 block mb-1">{t('notes')}</label>
           <input className="input w-full py-2 text-sm" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
 
-        <div className="text-xs text-fg-secondary">
+        <div className="text-xs text-neutral-600 dark:text-neutral-400">
           {t('currentAfter')
             .replace('{current}', String(item.quantity))
             .replace('{after}', String(afterQty))
@@ -1113,12 +1175,12 @@ function StockHistoryModal({ rid, item, onClose, t }: {
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="text-center py-10 text-fg-secondary text-sm">{t('noTransactions')}</div>
+        <div className="text-center py-10 text-neutral-600 dark:text-neutral-400 text-sm">{t('noTransactions')}</div>
       ) : (
         <div className="divide-y divide-[var(--divider)] max-h-[60vh] overflow-y-auto">
           {transactions.map(tx => {
             const isPositive = tx.quantity_delta > 0;
-            const typeColor = TX_TYPE_COLORS[tx.type] || 'text-fg-secondary bg-[var(--surface-subtle)]';
+            const typeColor = TX_TYPE_COLORS[tx.type] || 'text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-[#1a1a1a]';
             return (
               <div key={tx.id} className="px-4 py-3 flex gap-3">
                 <div className="flex-shrink-0 pt-0.5">
@@ -1127,8 +1189,8 @@ function StockHistoryModal({ rid, item, onClose, t }: {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-fg-primary break-words">{tx.notes || '—'}</p>
-                  <p className="text-xs text-fg-tertiary mt-0.5">{formatDate(tx.created_at)} {formatTime(tx.created_at)}</p>
+                  <p className="text-sm text-neutral-900 dark:text-white break-words">{tx.notes || '—'}</p>
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{formatDate(tx.created_at)} {formatTime(tx.created_at)}</p>
                 </div>
                 <div className={`text-sm font-mono font-semibold whitespace-nowrap flex-shrink-0 ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
                   {isPositive ? '+' : ''}{tx.quantity_delta} {item.unit}
