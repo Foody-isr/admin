@@ -8,7 +8,7 @@ import {
   listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
   listModifierSets, attachModifierSetToItems,
   listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
-  listStockItems, listPrepItems, getMenuItemIngredients,
+  listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
   MenuCategory, MenuItem, ModifierSet, Menu,
   OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
   StockItem, PrepItem, MenuItemIngredient,
@@ -17,9 +17,11 @@ import { getRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
-import MenuItemRecipeTab, { MenuItemRecipeTabHandle } from '@/components/menu-item/MenuItemRecipeTab';
 import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
+import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
+import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
+import MenuItemIngredientsEditor from '@/components/food-cost/MenuItemIngredientsEditor';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
@@ -107,7 +109,8 @@ export default function EditItemPage() {
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
   const [vatRate, setVatRate] = useState(18);
 
-  const recipeRef = useRef<MenuItemRecipeTabHandle>(null);
+  const recipeRef = useRef<MenuItemTabRecipeHandle>(null);
+  const [ingredientsEditorOpen, setIngredientsEditorOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -439,230 +442,114 @@ export default function EditItemPage() {
               />
             )}
 
-            {/* ── Tab: Modificateurs & Variantes ───────────────── */}
+            {/* ── Tab: Modificateurs & Variantes — Figma:248 ───── */}
             {activeTab === 'modifiers' && (
-              <SectionCard title={t('tabModifiers')}>
+              <>
                 {itemType === 'combo' && (
-                  <div className="flex flex-col gap-3">
-                    <div>
-                      <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white">{t('buildThisCombo')}</h3>
-                      <p className="text-[14px] text-neutral-600 dark:text-neutral-400 mt-0.5">{t('comboBuilderDescription')}</p>
+                  <div className="max-w-4xl mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                        {t('buildThisCombo')}
+                      </h3>
                     </div>
-
-                    {comboSteps.length > 0 && (
-                      <div>
-                        <div className="flex items-center text-[12px] font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-1 border-b border-neutral-200 dark:border-neutral-700 pb-2">
-                          <span className="flex-1">{t('comboChoice')}</span>
-                          <span className="w-16 text-center">{t('required')}</span>
-                          <span className="w-14" />
-                        </div>
-                        {comboSteps.map((step) => (
-                          <div key={step.key} className="border-b border-neutral-200 dark:border-neutral-700 py-2.5">
-                            <div className="flex items-center gap-1">
-                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
-                                <span className="text-[14px] font-medium text-orange-500 hover:underline">{step.name}</span>
-                                <div className="text-[12px] text-neutral-600 dark:text-neutral-400 truncate mt-0.5">
-                                  {step.items.length > 0
-                                    ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
-                                    : `${step.items.length} ${t('options')}`}
+                    <div className="space-y-4">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {t('comboBuilderDescription')}
+                      </p>
+                      {comboSteps.length > 0 && (
+                        <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                          <div className="flex items-center px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider border-b border-neutral-200 dark:border-neutral-700">
+                            <span className="flex-1">{t('comboChoice')}</span>
+                            <span className="w-16 text-center">{t('required')}</span>
+                            <span className="w-14" />
+                          </div>
+                          {comboSteps.map((step) => (
+                            <div key={step.key} className="border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
+                                  <span className="text-sm font-medium text-orange-500 hover:underline">{step.name}</span>
+                                  <div className="text-xs text-neutral-600 dark:text-neutral-400 truncate mt-0.5">
+                                    {step.items.length > 0
+                                      ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
+                                      : `${step.items.length} ${t('options')}`}
+                                  </div>
                                 </div>
-                              </div>
-                              <span className="w-16 text-center text-[14px] text-neutral-600 dark:text-neutral-400 shrink-0">{step.min_picks}</span>
-                              <div className="w-14 flex items-center justify-end gap-1 shrink-0">
-                                <button onClick={() => removeComboStep(step.key)} className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-red-400">
+                                <span className="w-16 text-center text-sm text-neutral-600 dark:text-neutral-400 shrink-0">{step.min_picks}</span>
+                                <button onClick={() => removeComboStep(step.key)} className="w-14 flex items-center justify-end p-1 text-neutral-600 dark:text-neutral-400 hover:text-red-400">
                                   <TrashIcon className="w-4 h-4" />
                                 </button>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <button onClick={openAddOptionsModal}
-                      className="flex items-center gap-2 text-[14px] font-medium text-orange-500 hover:text-[#ea580c]">
-                      <PlusIcon className="w-4 h-4" />
-                      {t('addOptions')}
-                    </button>
-                  </div>
-                )}
-
-                {(item.modifiers ?? []).length > 0 && (
-                  <div>
-                    <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white mb-3">{t('modifiers')}</h3>
-                    <div className="flex flex-col gap-2">
-                      {(item.modifiers ?? []).map((mod) => (
-                        <div key={mod.id} className="flex items-center justify-between py-2.5 px-4 rounded-lg bg-neutral-100 dark:bg-[#1a1a1a]">
-                          <div>
-                            <span className="text-[14px] font-medium text-neutral-900 dark:text-white">{mod.name}</span>
-                            <span className="text-[12px] text-neutral-600 dark:text-neutral-400 ml-2">({mod.action})</span>
-                            {mod.category && <span className="text-[12px] text-neutral-600 dark:text-neutral-400 ml-2">· {mod.category}</span>}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {mod.price_delta !== 0 && (
-                              <span className="text-[14px] text-neutral-600 dark:text-neutral-400">
-                                {mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}
-                              </span>
-                            )}
-                            <button onClick={() => handleDeleteModifier(mod.id)} className="p-1 rounded-lg hover:bg-red-500/10 transition-colors">
-                              <TrashIcon className="w-4 h-4 text-red-400" />
-                            </button>
-                          </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+                      <button
+                        onClick={openAddOptionsModal}
+                        className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                        {t('addOptions')}
+                      </button>
                     </div>
                   </div>
                 )}
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white">{t('modifiers')}</h3>
-                    <button
-                      onClick={() => setModifierModalOpen(true)}
-                      className="text-[14px] font-medium underline text-neutral-900 dark:text-white shrink-0"
-                    >
-                      {t('add')}
-                    </button>
-                  </div>
-                  <p className="text-[14px] text-neutral-600 dark:text-neutral-400 mb-3">{t('modifiersDescription')}</p>
-                  {(item.modifier_sets ?? []).length > 0 ? (
-                    <div className="rounded-[8px] border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                      {(item.modifier_sets ?? []).map((ms: ModifierSet) => (
-                        <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors">
-                          <div>
-                            <span className="text-[14px] font-medium text-neutral-900 dark:text-white">{ms.name}</span>
-                            <span className="text-[12px] text-neutral-600 dark:text-neutral-400 ml-2">
-                              {ms.modifiers?.length ?? 0} modifiers
-                            </span>
-                            {ms.is_required && (
-                              <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-md text-[12px] bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-600 dark:text-neutral-400">required</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/${ms.id}`)}
-                              className="text-[14px] text-orange-500 hover:underline font-medium"
-                            >
-                              {t('edit')}
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (!confirm('Unlink this modifier set from item?')) return;
-                                await detachModifierSetFromItem(rid, ms.id, iid);
-                                loadData();
-                              }}
-                              className="text-[14px] text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                            >
-                              {t('remove')}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setModifierModalOpen(true)}
-                      className="w-full py-3 rounded-[8px] text-[14px] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white transition-colors border border-dashed border-neutral-200 dark:border-neutral-700"
-                    >
-                      + {t('add')}
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white">{t('variants')}</h3>
-                    <button
-                      onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                      className="text-[14px] font-medium underline text-neutral-900 dark:text-white shrink-0"
-                    >
-                      {t('add')}
-                    </button>
-                  </div>
-                  <p className="text-[14px] text-neutral-600 dark:text-neutral-400 mb-3">{t('variantsDescription')}</p>
-                  {attachedOptionSets.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {attachedOptionSets.map((os) => (
-                        <div key={os.id} className="rounded-[8px] border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                          <div className="flex items-center justify-between px-4 py-3 bg-neutral-100 dark:bg-[#1a1a1a]">
-                            <span className="text-[14px] font-semibold text-neutral-900 dark:text-white">{os.name}</span>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button
-                                onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                                className="text-[14px] text-orange-500 hover:underline font-medium"
-                              >
-                                {t('edit')}
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!confirm(t('remove') + '?')) return;
-                                  await detachOptionSetFromItem(rid, os.id, iid);
-                                  loadData();
-                                }}
-                                className="text-[14px] text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                              >
-                                {t('remove')}
-                              </button>
-                            </div>
-                          </div>
-                          {(os.options ?? []).map((opt) => {
-                            const override = itemOptionOverrides.find((ov) => ov.option_id === opt.id);
-                            const optPrice = override?.price ?? opt.price;
-                            const portionSize = override?.portion_size ?? 0;
-                            const portionUnit = override?.portion_size_unit ?? '';
-                            const active = override?.is_active ?? opt.is_active;
-                            return (
-                              <div key={opt.id} className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-700">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[14px] text-neutral-900 dark:text-white truncate">{opt.name}</span>
-                                    {!active && (
-                                      <span className="px-2 py-0.5 rounded-md text-[12px] bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-600 dark:text-neutral-400 shrink-0">
-                                        {t('unavailable')}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {portionSize > 0 && (
-                                    <div className="text-[12px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                                      {portionSize}{portionUnit ? ` ${portionUnit}` : ''}
-                                    </div>
-                                  )}
-                                </div>
-                                <span className="text-[14px] font-semibold text-neutral-900 dark:text-white shrink-0">₪{optPrice.toFixed(2)}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                      className="w-full py-3 rounded-[8px] text-[14px] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white transition-colors border border-dashed border-neutral-200 dark:border-neutral-700"
-                    >
-                      + {t('addVariants')}
-                    </button>
-                  )}
-                </div>
-              </SectionCard>
-            )}
-
-            {/* ── Tab: Recette ─────────────────────────────────── */}
-            {activeTab === 'recipe' && (
-              <SectionCard title={t('tabRecipe')}>
-                <MenuItemRecipeTab
-                  ref={recipeRef}
-                  rid={rid}
+                <MenuItemTabOptions
                   item={item}
-                  ingredients={ingredients}
-                  stockItems={stockItems}
-                  prepItems={prepItems}
-                  onIngredientsSaved={(ings) => setIngredients(ings)}
-                  onRecipeSaved={loadData}
+                  attachedModifierSets={item.modifier_sets ?? []}
                   attachedOptionSets={attachedOptionSets}
                   itemOptionOverrides={itemOptionOverrides}
+                  onAddModifierSet={() => setModifierModalOpen(true)}
+                  onDetachModifierSet={async (id) => {
+                    if (!confirm('Unlink this modifier set from item?')) return;
+                    await detachModifierSetFromItem(rid, id, iid);
+                    loadData();
+                  }}
+                  onDeleteModifier={handleDeleteModifier}
+                  onAddVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  onEditVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  onDeleteVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  onAddOptionSet={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  onEditOptionSet={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
+                  onDetachOptionSet={async (id) => {
+                    if (!confirm(t('remove') + '?')) return;
+                    await detachOptionSetFromItem(rid, id, iid);
+                    loadData();
+                  }}
                 />
-              </SectionCard>
+              </>
+            )}
+
+            {/* ── Tab: Recette — Figma:323 ─────────────────────── */}
+            {activeTab === 'recipe' && (
+              <MenuItemTabRecipe
+                ref={recipeRef}
+                rid={rid}
+                item={item}
+                ingredients={ingredients}
+                stockItems={stockItems}
+                prepItems={prepItems}
+                onOpenIngredientsEditor={() => setIngredientsEditorOpen(true)}
+                onDeleteIngredient={async (id) => {
+                  if (!confirm(t('delete') + '?')) return;
+                  const next = ingredients.filter((i) => i.id !== id);
+                  // Rewrite the full list without the removed row.
+                  const saved = await setMenuItemIngredients(
+                    rid,
+                    iid,
+                    next.map((ing) => ({
+                      stock_item_id: ing.stock_item_id,
+                      prep_item_id: ing.prep_item_id,
+                      quantity_needed: ing.quantity_needed,
+                      unit: ing.unit,
+                      scales_with_variant: ing.scales_with_variant,
+                      option_id: ing.option_id,
+                    })),
+                  );
+                  setIngredients(saved);
+                }}
+              />
             )}
 
             {/* ── Tab: Coût — Figma MenuItemDetails.tsx:644 ─────── */}
@@ -678,6 +565,44 @@ export default function EditItemPage() {
           </div>
         </div>
       </MenuItemShell>
+
+      {/* Ingredients Editor Dialog — opened from the new Recipe tab */}
+      {ingredientsEditorOpen && item && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col border border-neutral-200 dark:border-neutral-700">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800">
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+                {t('ingredientsAndCost') || 'Ingrédients'}
+              </h3>
+              <button
+                onClick={() => setIngredientsEditorOpen(false)}
+                className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center"
+                aria-label={t('close') || 'Fermer'}
+              >
+                <XMarkIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <MenuItemIngredientsEditor
+                rid={rid}
+                menuItem={item}
+                initialIngredients={ingredients}
+                stockItems={stockItems}
+                prepItems={prepItems}
+                onSaved={(ings) => {
+                  setIngredients(ings);
+                  setIngredientsEditorOpen(false);
+                }}
+                variants={attachedOptionSets.flatMap((os) =>
+                  (os.options ?? [])
+                    .filter((o) => o.is_active)
+                    .map((o) => ({ option_id: o.id, name: o.name })),
+                )}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modifier Sets Modal */}
       {modifierModalOpen && (
