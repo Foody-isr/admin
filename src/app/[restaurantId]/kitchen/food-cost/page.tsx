@@ -19,6 +19,9 @@ import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
+import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
+import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
+import { resolvePortion } from '@/lib/cost-utils';
 
 // Figma page: foodyadmin_figma/src/app/pages/cuisine/foodcost.tsx
 // We replace the Figma mock data with real cost math via computeItemCostSummary.
@@ -82,6 +85,10 @@ export default function FoodCostPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showKpis, setShowKpis] = useState(true);
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+  // Per-ingredient prep cost breakdown modal — opens when clicking a prep line's price.
+  const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
+  // Selected item's % Coût breakdown modal.
+  const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
   // Enriched cache: item id → computed cost summary. Keyed by item to avoid
   // re-fetching ingredients for every item in the list (we only pull
@@ -564,14 +571,19 @@ export default function FoodCostPage() {
                     {selectedItem.foodCost.toFixed(2)} ₪
                   </p>
                 </div>
-                <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCostPctBreakdown(true)}
+                  className="text-left bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 hover:border-orange-500 hover:shadow-lg transition-all cursor-pointer"
+                  title={t('viewCostPctBreakdown') || 'Voir le détail du calcul'}
+                >
                   <h3 className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
                     {t('costPercent')}
                   </h3>
                   <p className={`text-2xl font-bold ${getFoodCostColor(selectedItem.foodCostPercent)}`}>
                     {selectedItem.foodCostPercent.toFixed(1)}%
                   </p>
-                </div>
+                </button>
                 <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
                   <h3 className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
                     {t('grossProfit')}
@@ -609,12 +621,28 @@ export default function FoodCostPage() {
                         selectedSummary.foodCost > 0
                           ? Math.round((line.lineCost / selectedSummary.foodCost) * 100)
                           : 0;
+                      const ing = line.ingredient;
+                      const stockId = ing.stock_item?.id ?? null;
+                      const prepId = ing.prep_item?.id ?? null;
+                      // Name navigates to the source item's editor (stock or prep page, ?edit=<id>).
+                      const goToSource = () => {
+                        if (prepId) {
+                          router.push(`/${rid}/kitchen/prep?edit=${prepId}`);
+                        } else if (stockId) {
+                          router.push(`/${rid}/kitchen/stock?edit=${stockId}`);
+                        }
+                      };
                       return (
                         <div
                           key={i}
-                          className="flex items-center justify-between gap-4 p-3 bg-neutral-50 dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-800"
+                          className="flex items-center justify-between gap-4 p-3 bg-neutral-50 dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-orange-500/50 transition-colors"
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={goToSource}
+                            className="flex items-center gap-2 min-w-0 flex-1 text-left hover:text-orange-500 transition-colors"
+                            title={line.isPrep ? t('openPreparation') || 'Ouvrir la préparation' : t('openStockItem') || 'Ouvrir l\'article de stock'}
+                          >
                             <div
                               className={`shrink-0 size-6 rounded flex items-center justify-center ${
                                 line.isPrep
@@ -626,16 +654,27 @@ export default function FoodCostPage() {
                                 {line.isPrep ? '🧪' : '📦'}
                               </span>
                             </div>
-                            <span className="font-medium text-neutral-900 dark:text-white truncate">
+                            <span className="font-medium truncate underline-offset-2 hover:underline">
                               {line.name}
                             </span>
-                          </div>
+                          </button>
                           <span className="text-sm text-neutral-600 dark:text-neutral-400 shrink-0">
                             {line.qty} {line.qtyUnit}
                           </span>
-                          <span className="font-semibold text-neutral-900 dark:text-white shrink-0">
-                            {line.lineCost.toFixed(2)} ₪
-                          </span>
+                          {line.isPrep ? (
+                            <button
+                              type="button"
+                              onClick={() => setBreakdownIng(ing)}
+                              className="font-semibold text-neutral-900 dark:text-white shrink-0 hover:text-orange-500 underline-offset-2 hover:underline transition-colors"
+                              title={t('viewPrepBreakdown') || 'Voir le détail du coût'}
+                            >
+                              {line.lineCost.toFixed(2)} ₪
+                            </button>
+                          ) : (
+                            <span className="font-semibold text-neutral-900 dark:text-white shrink-0">
+                              {line.lineCost.toFixed(2)} ₪
+                            </span>
+                          )}
                           <span className="text-sm font-semibold text-orange-500 w-12 text-right shrink-0">
                             {pct}%
                           </span>
@@ -654,11 +693,37 @@ export default function FoodCostPage() {
         </div>
       </div>
 
-      {/* Recipe Import Modal */}
       <KPIInfoModal
         kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
         onClose={() => setSelectedKpi(null)}
       />
+
+      {/* Prep cost breakdown — real math for prep ingredients. */}
+      {breakdownIng && selectedItem && (
+        <PrepCostBreakdownModal
+          ing={breakdownIng}
+          item={selectedItem.item}
+          portion={resolvePortion(selectedItem.item, [], '')}
+          optionId={null}
+          showExVat={true}
+          restaurantRate={vatRate}
+          onClose={() => setBreakdownIng(null)}
+          t={t}
+        />
+      )}
+
+      {/* Selected item's % Coût breakdown modal. */}
+      {showCostPctBreakdown && selectedItem && selectedSummary && (
+        <CostPctBreakdownModal
+          itemName={selectedItem.item.name}
+          displayPrice={selectedItem.item.price}
+          displayCost={selectedSummary.foodCost}
+          costPct={selectedSummary.costPct}
+          showCostsExVat={true}
+          vatRate={vatRate}
+          onClose={() => setShowCostPctBreakdown(false)}
+        />
+      )}
 
       {showImportModal && selectedItem && (
         <RecipeImportModal

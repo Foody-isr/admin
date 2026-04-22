@@ -1445,6 +1445,10 @@ const translations: Record<Locale, Record<string, string>> = {
     costThresholdHint: 'Review costly ingredients or adjust the selling price to improve profitability.',
     ingredientDetails: 'Ingredient details',
     noIngredientsYet: 'No ingredients defined yet. Add some from the Recipe tab.',
+    openPreparation: 'Open the preparation',
+    openStockItem: 'Open the stock item',
+    viewPrepBreakdown: 'View cost breakdown',
+    viewCostPctBreakdown: 'View calculation details',
     // ── Stock ──
     stockSubtitle: "Manage your ingredient inventory",
     itemsInStock: 'Items in stock',
@@ -2943,6 +2947,10 @@ const translations: Record<Locale, Record<string, string>> = {
     costThresholdHint: 'שקול לעיין במרכיבים היקרים או להתאים את מחיר המכירה.',
     ingredientDetails: 'פירוט רכיבים',
     noIngredientsYet: 'עדיין לא הוגדרו רכיבים. הוסף מלשונית המתכון.',
+    openPreparation: 'פתח את ההכנה',
+    openStockItem: 'פתח את פריט המלאי',
+    viewPrepBreakdown: 'הצג פירוט עלויות',
+    viewCostPctBreakdown: 'הצג פרטי חישוב',
     // ── Stock ──
     stockSubtitle: 'נהל את מלאי הרכיבים שלך',
     itemsInStock: 'פריטים במלאי',
@@ -4440,6 +4448,10 @@ const translations: Record<Locale, Record<string, string>> = {
     costThresholdHint: "Considérez revoir les ingrédients coûteux ou ajuster le prix de vente pour améliorer la rentabilité.",
     ingredientDetails: 'Détail des ingrédients',
     noIngredientsYet: "Aucun ingrédient défini. Ajoutez-en via l'onglet Recette.",
+    openPreparation: 'Ouvrir la préparation',
+    openStockItem: "Ouvrir l'article de stock",
+    viewPrepBreakdown: 'Voir le détail du coût',
+    viewCostPctBreakdown: 'Voir le détail du calcul',
     // ── Stock ──
     stockSubtitle: "Gérez votre inventaire d'ingrédients",
     itemsInStock: 'Articles en stock',
