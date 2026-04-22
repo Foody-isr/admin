@@ -266,6 +266,9 @@ export default function StockPage() {
     reload();
   };
 
+  const [showKpis, setShowKpis] = useState(true);
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -273,9 +276,6 @@ export default function StockPage() {
       </div>
     );
   }
-
-  const [showKpis, setShowKpis] = useState(true);
-  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   // Figma KPIs — computed from real stock data
   const stockOk = items.filter((i) => (i.quantity ?? 0) > (i.reorder_threshold ?? 0)).length;
