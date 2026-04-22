@@ -282,9 +282,18 @@ export default function StockPage() {
     0,
   );
 
+  // Figma pill categories: Tous + real categories
+  const pillCategories = ['Tous', ...categories.map((c) => c.name)];
+  const activePill =
+    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : 'Tous';
+  const selectPill = (name: string) => {
+    if (name === 'Tous') setSelectedCategories(new Set());
+    else setSelectedCategories(new Set([name]));
+  };
+
   return (
-    <div className={`-mx-6 -my-6 lg:-mx-8 flex flex-col ${selected.size > 0 ? 'pb-24' : ''}`}>
-      {/* Header — Figma pages/cuisine/stock.tsx + App.tsx:410 */}
+    <div className="-mx-6 -my-6 lg:-mx-8 flex flex-col">
+      {/* Header — Figma App.tsx:410 + pages/cuisine/stock.tsx */}
       <header className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
         <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
           <div>
@@ -312,216 +321,243 @@ export default function StockPage() {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <KpiCard title={t('itemsInStock') || 'Articles en stock'} value={String(items.length)} />
           <KpiCard title={t('statusOk') || 'Statut OK'} value={String(stockOk)} />
           <KpiCard title={t('totalValue') || 'Valeur totale'} value={`${totalValue.toFixed(2)} ₪`} />
           <KpiCard title={t('stockAlerts') || 'Alertes stock'} value={String(stockLow)} />
         </div>
-      </header>
 
-      <div className="px-8 py-6 space-y-4">
-      {/* Filters + actions row */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[220px] max-w-xs">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
-          <input
-            type="text"
-            placeholder={t('search')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input !pl-10 text-sm h-11 w-full rounded-full"
+        {/* Bulk toolbar — Figma-style orange banner when rows are selected. */}
+        {selected.size > 0 && (
+          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-orange-900 dark:text-orange-300">
+                {t('itemsSelected').replace('{count}', String(selected.size))}
+              </span>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
+              >
+                {t('deselectAll') || 'Tout désélectionner'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setBulkCategoryModal(true)}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300"
+              >
+                {t('updateCategory')}
+              </button>
+              <button
+                onClick={() => { setBulkVatValue(null); setBulkVatModal(true); }}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300"
+              >
+                {t('updateVat')}
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400"
+              >
+                <TrashIcon className="w-4 h-4" />
+                {t('delete')} ({selected.size})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search + Filters */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-[240px] relative">
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder={t('search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+            />
+          </div>
+          <button
+            onClick={() => openFiltersDrawer('category')}
+            className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
+          >
+            {t('category')}:{' '}
+            <span className="text-orange-500">
+              {selectedCategories.size === 0
+                ? t('all')
+                : selectedCategories.size === 1
+                  ? Array.from(selectedCategories)[0]
+                  : selectedCategories.size}
+            </span>
+            <ChevronDownIcon className="w-4 h-4" />
+          </button>
+          <ActionsDropdown
+            actions={[
+              {
+                label: vatDisplayMode === 'inc' ? `${t('displayPrice') || 'Affichage'}: TTC` : `${t('displayPrice') || 'Affichage'}: HT`,
+                onClick: toggleVatDisplay,
+                icon: <ArrowsRightLeftIcon className="w-4 h-4" />,
+              },
+              {
+                label: t('importDelivery'),
+                onClick: () => { setImportDraftId(undefined); setImportModal(true); },
+                icon: <SparklesIcon className="w-4 h-4" />,
+              },
+              {
+                label: t('allFilters'),
+                onClick: () => openFiltersDrawer('index'),
+                icon: <ChevronDownIcon className="w-4 h-4" />,
+              },
+              {
+                label: t('refresh'),
+                onClick: reload,
+                icon: <ArrowPathIcon className="w-4 h-4" />,
+              },
+            ]}
           />
         </div>
+      </header>
 
-        {/* Category filter (opens multi-select drawer) */}
-        <button
-          type="button"
-          onClick={() => openFiltersDrawer('category')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111111] text-sm font-medium text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors whitespace-nowrap"
-        >
-          {t('category')}{' '}
-          <span className="font-semibold text-neutral-900 dark:text-white">
-            {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
-          </span>
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
-
-        {/* All Filters (navigable drawer) */}
-        <button
-          type="button"
-          onClick={() => openFiltersDrawer('index')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111111] text-sm font-medium text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors whitespace-nowrap"
-        >
-          {t('allFilters')}
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
-
-        <div className="flex-1" />
-
-        {/* HT/TTC display toggle. Controls both the table price cells AND the
-            form's entry mode on next open, so the two stay aligned. */}
-        <button
-          type="button"
-          onClick={toggleVatDisplay}
-          className="h-11 px-4 min-w-[4.5rem] rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#111111] text-xs font-semibold tracking-wider uppercase text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors whitespace-nowrap"
-          title={`${t('exVat')} / ${t('incVat')}`}
-        >
-          {vatDisplayMode === 'inc' ? t('incVat') : t('exVat')}
-        </button>
-
-        {/* Actions dropdown */}
-        <ActionsDropdown
-          actions={[
-            {
-              label: t('importDelivery'),
-              onClick: () => { setImportDraftId(undefined); setImportModal(true); },
-              icon: <SparklesIcon className="w-4 h-4" />,
-            },
-            {
-              label: t('refresh'),
-              onClick: reload,
-              icon: <ArrowPathIcon className="w-4 h-4" />,
-            },
-          ]}
-        />
-
-        {/* Create item */}
-        <button
-          onClick={() => setItemModal({ open: true })}
-          className="btn-primary rounded-full px-5 py-2 flex items-center gap-1.5"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('addItem')}
-        </button>
-      </div>
-
-      {/* Bulk action bar — fixed to viewport bottom so it stays reachable while
-          scrolling through long stock lists. Bottom padding on the wrapping
-          <div> reserves space so the last row is never covered. */}
-      {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none px-4 pb-4">
-          <div className="max-w-5xl mx-auto pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 shadow-lg backdrop-blur-md">
-            <span className="text-sm font-medium text-orange-500">
-              {t('itemsSelected').replace('{count}', String(selected.size))}
-            </span>
-            <div className="flex-1" />
-            <button onClick={() => setBulkCategoryModal(true)} className="btn-secondary text-xs py-1.5 px-3 rounded-full">
-              {t('updateCategory')}
-            </button>
-            <button onClick={() => { setBulkVatValue(null); setBulkVatModal(true); }} className="btn-secondary text-xs py-1.5 px-3 rounded-full">
-              {t('updateVat')}
-            </button>
-            <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
-              {t('delete')} ({selected.size})
-            </button>
-            <button onClick={() => setSelected(new Set())} className="text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white">
-              {t('cancel')}
-            </button>
-          </div>
+      {/* Category pills — Figma App.tsx:583 */}
+      {pillCategories.length > 1 && (
+        <div className="px-8 py-4 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 flex gap-2 overflow-x-auto">
+          {pillCategories.map((name) => {
+            const active = activePill === name;
+            return (
+              <button
+                key={name}
+                onClick={() => selectPill(name)}
+                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
+                  active
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
+                }`}
+              >
+                {name}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Items table */}
-      {filtered.length === 0 ? (
+      <div className="px-8 py-6">
+
+      {/* Table — Figma App.tsx:600 (stock variant) */}
+      {sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <PhotoIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-500" />
           <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
             {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
           {items.length === 0 && (
-            <button onClick={() => setItemModal({ open: true })} className="btn-primary mt-2 rounded-full">
+            <button
+              onClick={() => setItemModal({ open: true })}
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
+            >
               {t('addItem')}
             </button>
           )}
         </div>
       ) : (
-        <div>
-          <table className="w-full text-sm border-separate border-spacing-0">
+        <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          <table className="w-full">
             <thead>
-              <tr className="text-left text-xs text-neutral-600 dark:text-neutral-400 tracking-wider">
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">
-                  <input type="checkbox"
+              <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
+                <th className="text-left p-4 w-12">
+                  <input
+                    type="checkbox"
                     checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
                     onChange={toggleSelectAll}
-                    className="rounded border-neutral-200 dark:border-neutral-800" />
+                    className="size-5 rounded border-neutral-300 dark:border-neutral-600 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                  />
                 </th>
-                <th
-                  aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white"
-                >
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:text-white transition-colors"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
                   >
-                    {t('item')}
-                    {sortKey === 'name' && (
-                      sortDir === 'asc'
-                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                        : <ChevronDownIcon className="w-3.5 h-3.5" />
-                    )}
+                    {t('item') || 'Article'}
+                    {sortKey === 'name' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">{t('category')}</th>
-                <th
-                  aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white"
-                >
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
+                  {t('category') || 'Catégorie'}
+                </th>
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => toggleSort('quantity')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:text-white transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
                   >
-                    {t('quantity')}
-                    {sortKey === 'quantity' && (
-                      sortDir === 'asc'
-                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                        : <ChevronDownIcon className="w-3.5 h-3.5" />
-                    )}
+                    {t('quantity') || 'Quantité'}
+                    {sortKey === 'quantity' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
-                <th
-                  aria-sort={sortKey === 'price' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white"
-                >
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => toggleSort('price')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:text-white transition-colors ml-auto"
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
                   >
-                    {t('price')}
-                    {sortKey === 'price' && (
-                      sortDir === 'asc'
-                        ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                        : <ChevronDownIcon className="w-3.5 h-3.5" />
-                    )}
+                    {t('unitPrice') || 'Prix unitaire'}
+                    {sortKey === 'price' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">{t('supplier')}</th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white">{t('status')}</th>
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-neutral-50 dark:bg-[#0a0a0a] border-b-2 border-neutral-900 dark:border-white" />
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
+                  {t('totalValue') || 'Valeur totale'}
+                </th>
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
+                  {t('supplier') || 'Fournisseur'}
+                </th>
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
+                  {t('status') || 'Statut'}
+                </th>
+                <th className="text-left p-4 w-12" />
               </tr>
             </thead>
             <tbody>
-              {sorted.map((item) => {
+              {sorted.map((item, index) => {
                 const isLow = item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
                 const catColor = categories.find((c) => c.name === item.category)?.color;
                 const pkg = getPackaging(item);
                 const level = getItemLevel(item);
                 const popoverOpen = levelPopover === item.id;
+                const lineValue = item.quantity * adjustedCost(item);
                 return (
                   <tr
                     key={item.id}
-                    className={`hover:bg-neutral-50 dark:bg-[#1a1a1a] transition-colors [&>td]:border-b [&>td]:border-neutral-200 dark:border-neutral-800 ${selected.has(item.id) ? 'bg-orange-500/5' : ''}`}
+                    className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors ${
+                      index % 2 === 0
+                        ? 'bg-white dark:bg-[#111111]'
+                        : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'
+                    }`}
                   >
-                    <td className="py-3.5 px-2 w-10">
-                      <input type="checkbox"
+                    <td className="p-4">
+                      <input
+                        type="checkbox"
                         checked={selected.has(item.id)}
                         onChange={() => toggleSelect(item.id)}
-                        className="rounded border-neutral-200 dark:border-neutral-800" />
+                        className="size-5 rounded border-neutral-300 dark:border-neutral-600 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                      />
                     </td>
-                    <td className="py-3.5 px-2">
+                    <td className="p-4">
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
@@ -529,87 +565,122 @@ export default function StockPage() {
                       >
                         {item.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                          <img
+                            src={item.image_url}
+                            alt=""
+                            className="size-12 rounded-xl object-cover shrink-0"
+                          />
                         ) : (
-                          <div className="w-9 h-9 rounded-lg bg-neutral-50 dark:bg-[#1a1a1a] flex items-center justify-center shrink-0">
-                            <PhotoIcon className="w-5 h-5 text-neutral-400 dark:text-neutral-500" />
+                          <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center shrink-0">
+                            <PhotoIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
                           </div>
                         )}
-                        <span className="font-medium text-neutral-900 dark:text-white">{item.name}</span>
+                        <span className="font-medium text-neutral-900 dark:text-white">
+                          {item.name}
+                        </span>
                       </button>
                     </td>
-                    <td className="py-3.5 px-2">
-                      <div className="flex items-center gap-2">
-                        {catColor && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: catColor }} />}
-                        <span className="text-neutral-600 dark:text-neutral-400">{item.category || '—'}</span>
-                      </div>
+                    <td className="p-4">
+                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium">
+                        {catColor && (
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: catColor }}
+                          />
+                        )}
+                        {item.category || '—'}
+                      </span>
                     </td>
                     <td
-                      className="py-3.5 px-2 text-right font-mono text-neutral-900 dark:text-white cursor-pointer hover:bg-neutral-50 dark:bg-[#1a1a1a] relative"
+                      className="p-4 relative cursor-pointer hover:text-orange-500"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
-                        <span className="inline-flex items-center gap-1.5 justify-end">
-                          {formatQuantityAtLevel(item, level, t)}
-                          <ChevronDownIcon className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
-                        </span>
-                        {popoverOpen && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setLevelPopover(null); }} />
-                            <div
-                              className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-1 text-left"
-                              style={{ background: 'var(--surface)' }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">
-                                {t('displayAs') || 'Display as'}
-                              </div>
-                              {pkg.levels.map((lvl) => (
-                                <button
-                                  key={lvl}
-                                  onClick={(e) => { e.stopPropagation(); selectItemLevel(item.id, lvl); }}
-                                  className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${lvl === level ? 'bg-orange-500/10 text-orange-500' : 'text-neutral-900 dark:text-white hover:bg-neutral-50 dark:bg-[#1a1a1a]'}`}
-                                >
-                                  <div className="min-w-0">
-                                    <div className="font-medium text-sm truncate">{formatQuantityAtLevel(item, lvl, t)}</div>
-                                    <div className="font-mono text-xs text-neutral-600 dark:text-neutral-400 truncate">
-                                      {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), t)}
-                                    </div>
-                                  </div>
-                                  {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
-                                    <span className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 flex-shrink-0">
-                                      {t('default') || 'default'}
-                                    </span>
-                                  )}
-                                </button>
-                              ))}
+                      <span className="inline-flex items-center gap-1.5 font-medium text-neutral-900 dark:text-white">
+                        {formatQuantityAtLevel(item, level, t)}
+                        <ChevronDownIcon className="w-3.5 h-3.5 text-neutral-400" />
+                      </span>
+                      {popoverOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLevelPopover(null);
+                            }}
+                          />
+                          <div
+                            className="absolute left-0 top-full mt-1 z-50 w-64 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 p-1 text-left bg-white dark:bg-[#1a1a1a]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                              {t('displayAs') || 'Display as'}
                             </div>
-                          </>
-                        )}
-                      </td>
-                    <td
-                      className="py-3.5 px-2 text-right font-mono text-neutral-900 dark:text-white cursor-pointer hover:bg-neutral-50 dark:bg-[#1a1a1a]"
-                      onClick={() => setLevelPopover(item.id)}
-                      title={t('displayAs') || 'Display as'}
-                    >
-                      {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
-                      {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
-                        <span className="ml-1.5 text-[10px] tracking-wider text-neutral-400 dark:text-neutral-500">
-                          {item.vat_rate_override}% TVA
-                        </span>
+                            {pkg.levels.map((lvl) => (
+                              <button
+                                key={lvl}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  selectItemLevel(item.id, lvl);
+                                }}
+                                className={`w-full text-left px-3 py-2 rounded flex items-center justify-between gap-2 ${
+                                  lvl === level
+                                    ? 'bg-orange-500/10 text-orange-500'
+                                    : 'text-neutral-900 dark:text-white hover:bg-neutral-50 dark:hover:bg-[#222222]'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-medium text-sm truncate">
+                                    {formatQuantityAtLevel(item, lvl, t)}
+                                  </div>
+                                  <div className="font-mono text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                                    {formatUnitPriceAtLevel(item, lvl, adjustedCost(item), t)}
+                                  </div>
+                                </div>
+                                {lvl === pkg.defaultLevel && pkg.levels.length > 1 && (
+                                  <span className="text-[10px] uppercase tracking-wider text-neutral-400 flex-shrink-0">
+                                    {t('default') || 'default'}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </>
                       )}
                     </td>
-                    <td className="py-3.5 px-2 text-neutral-600 dark:text-neutral-400">{item.supplier || '—'}</td>
-                    <td className="py-3.5 px-2">
+                    <td className="p-4">
+                      <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
+                        {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
+                          <span className="ml-1.5 text-[10px] tracking-wider text-neutral-400">
+                            {item.vat_rate_override}% TVA
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="font-semibold text-neutral-900 dark:text-white">
+                        {lineValue.toFixed(2)} ₪
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {item.supplier || '—'}
+                      </span>
+                    </td>
+                    <td className="p-4">
                       {isLow ? (
-                        <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
-                          <ExclamationTriangleIcon className="w-4 h-4" /> {t('lowStock')}
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                          <ExclamationTriangleIcon className="w-4 h-4" />
+                          {t('lowStock') || 'Bas'}
                         </span>
                       ) : (
-                        <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                          OK
+                        </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-2">
+                    <td className="p-4">
                       <RowActionsMenu
                         actions={[
                           { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
@@ -624,6 +695,15 @@ export default function StockPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination — Figma App.tsx:800 */}
+      {sorted.length > 0 && (
+        <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
+          <p className="text-neutral-600 dark:text-neutral-400">
+            {sorted.length} article{sorted.length > 1 ? 's' : ''} {t('atTotal') || 'au total'}
+          </p>
         </div>
       )}
 

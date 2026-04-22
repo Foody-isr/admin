@@ -530,11 +530,15 @@ export default function EditItemPage() {
                 ingredients={ingredients}
                 stockItems={stockItems}
                 prepItems={prepItems}
+                variants={attachedOptionSets.flatMap((os) =>
+                  (os.options ?? [])
+                    .filter((o) => o.is_active)
+                    .map((o) => ({ option_id: o.id, name: o.name })),
+                )}
                 onOpenIngredientsEditor={() => setIngredientsEditorOpen(true)}
                 onDeleteIngredient={async (id) => {
                   if (!confirm(t('delete') + '?')) return;
                   const next = ingredients.filter((i) => i.id !== id);
-                  // Rewrite the full list without the removed row.
                   const saved = await setMenuItemIngredients(
                     rid,
                     iid,
@@ -545,6 +549,26 @@ export default function EditItemPage() {
                       unit: ing.unit,
                       scales_with_variant: ing.scales_with_variant,
                       option_id: ing.option_id,
+                      variant_overrides: ing.variant_overrides,
+                    })),
+                  );
+                  setIngredients(saved);
+                }}
+                onUpdateIngredient={async (id, patch) => {
+                  const next = ingredients.map((i) =>
+                    i.id === id ? { ...i, ...patch } : i,
+                  );
+                  const saved = await setMenuItemIngredients(
+                    rid,
+                    iid,
+                    next.map((ing) => ({
+                      stock_item_id: ing.stock_item_id,
+                      prep_item_id: ing.prep_item_id,
+                      quantity_needed: ing.quantity_needed,
+                      unit: ing.unit,
+                      scales_with_variant: ing.scales_with_variant,
+                      option_id: ing.option_id,
+                      variant_overrides: ing.variant_overrides,
                     })),
                   );
                   setIngredients(saved);

@@ -2,7 +2,7 @@
 
 import { useImperativeHandle, forwardRef, useEffect, useState } from 'react';
 import {
-  ChevronDown, FlaskConical, Package, Plus, Trash2,
+  ChevronDown, FlaskConical, Info, Package, Pin, Plus, Scale, Settings2, Trash2,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -11,11 +11,19 @@ import {
   updateRecipeMeta,
   type MenuItem,
   type MenuItemIngredient,
+  type IngredientVariantOverride,
   type StockItem,
   type PrepItem,
   type RecipeStep,
   type RecipeStepInput,
 } from '@/lib/api';
+
+export type QuantityMode = 'adapt' | 'fixed' | 'custom';
+
+export interface VariantRef {
+  option_id: number;
+  name: string;
+}
 
 // Backend stores a single `instruction` string per step. Figma shows a
 // title + description. We split on the first newline: line 1 is the title,
@@ -30,9 +38,10 @@ function joinInstruction(title: string, description: string): string {
 }
 
 // Figma MenuItemDetails.tsx:323-642 — Recette tab.
-// Renders ingredients + numbered instructions matching Figma exactly.
-// The 3-mode quantity system (adapt/fixed/custom) is NOT ported — our
-// backend uses `scales_with_variant` which maps to adapt vs fixed only.
+// Expandable ingredient cards with 3-mode quantity system:
+//   adapt  → scales_with_variant = true, no overrides
+//   fixed  → scales_with_variant = false, quantity_needed + unit apply to all
+//   custom → scales_with_variant = false, variant_overrides[] per variant
 
 export interface MenuItemTabRecipeHandle {
   save: () => Promise<void>;
@@ -45,8 +54,13 @@ interface Props {
   ingredients: MenuItemIngredient[];
   stockItems: StockItem[];
   prepItems: PrepItem[];
+  /** Attached variants — drives the "Personnalisé par variante" mode UI. */
+  variants: VariantRef[];
   onOpenIngredientsEditor: () => void;
   onDeleteIngredient: (id: number) => void;
+  /** Persist a patched ingredient. Parent rewrites the full list via
+   *  setMenuItemIngredients. */
+  onUpdateIngredient: (id: number, patch: Partial<MenuItemIngredient>) => Promise<void>;
 }
 
 function ingredientType(ing: MenuItemIngredient): 'preparation' | 'brut' {
@@ -68,7 +82,10 @@ function ingredientDescription(ing: MenuItemIngredient): string {
 }
 
 const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function MenuItemTabRecipe(
-  { rid, item, ingredients, onOpenIngredientsEditor, onDeleteIngredient }: Props,
+  {
+    rid, item, ingredients, variants,
+    onOpenIngredientsEditor, onDeleteIngredient, onUpdateIngredient,
+  }: Props,
   ref,
 ) {
   const { t } = useI18n();
@@ -180,7 +197,9 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             <RecipeIngredientItem
               key={ing.id}
               ingredient={ing}
+              variants={variants}
               onDelete={() => onDeleteIngredient(ing.id)}
+              onUpdate={(patch) => onUpdateIngredient(ing.id, patch)}
             />
           ))}
           {ingredients.length === 0 && (
@@ -279,25 +298,79 @@ export default MenuItemTabRecipe;
 
 // ─── Ingredient card — Figma:435-624 ───────────────────────────
 
+function deriveMode(ing: MenuItemIngredient): QuantityMode {
+  if (ing.scales_with_variant) return 'adapt';
+  if ((ing.variant_overrides ?? []).length > 0) return 'custom';
+  return 'fixed';
+}
+
 function RecipeIngredientItem({
   ingredient,
+  variants,
   onDelete,
+  onUpdate,
 }: {
   ingredient: MenuItemIngredient;
+  variants: VariantRef[];
   onDelete: () => void;
+  onUpdate: (patch: Partial<MenuItemIngredient>) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const type = ingredientType(ingredient);
   const name = ingredientName(ingredient);
   const description = ingredientDescription(ingredient);
+  const mode = deriveMode(ingredient);
   const quantity = ingredient.quantity_needed ?? 0;
   const unit = ingredient.unit ?? '';
-  const modeLabel = ingredient.scales_with_variant
-    ? 'Adapté à la taille'
-    : 'Quantité fixe';
+  const modeLabel =
+    mode === 'adapt'
+      ? 'Adapté à la taille'
+      : mode === 'fixed'
+        ? 'Quantité fixe'
+        : 'Personnalisé';
+
+  const commit = async (patch: Partial<MenuItemIngredient>) => {
+    setSaving(true);
+    try {
+      await onUpdate(patch);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleModeChange = async (next: QuantityMode) => {
+    if (next === mode) return;
+    if (next === 'adapt') {
+      await commit({ scales_with_variant: true, variant_overrides: [] });
+    } else if (next === 'fixed') {
+      await commit({ scales_with_variant: false, variant_overrides: [] });
+    } else {
+      // Seed overrides with the current base qty for every attached variant.
+      const seeded: IngredientVariantOverride[] = variants.map((v) => ({
+        option_id: v.option_id,
+        quantity,
+        unit,
+      }));
+      await commit({ scales_with_variant: false, variant_overrides: seeded });
+    }
+  };
+
+  const handleFixedQtyChange = async (qty: number, nextUnit: string) => {
+    await commit({ quantity_needed: qty, unit: nextUnit, scales_with_variant: false, variant_overrides: [] });
+  };
+
+  const handleOverrideChange = async (optionId: number, qty: number, nextUnit: string) => {
+    const existing = ingredient.variant_overrides ?? [];
+    const next = existing.some((o) => o.option_id === optionId)
+      ? existing.map((o) => (o.option_id === optionId ? { ...o, quantity: qty, unit: nextUnit } : o))
+      : [...existing, { option_id: optionId, quantity: qty, unit: nextUnit }];
+    await commit({ scales_with_variant: false, variant_overrides: next });
+  };
 
   return (
     <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 transition-colors">
+      {/* Header row — Figma:448 */}
       <div
         className="flex items-center gap-4 p-4 cursor-pointer"
         onClick={() => setExpanded((e) => !e)}
@@ -363,28 +436,176 @@ function RecipeIngredientItem({
         </button>
       </div>
 
+      {/* Expanded: 3-mode selector — Figma:505-621 */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-neutral-200 dark:border-neutral-700 pt-4 space-y-2 text-sm">
-          {ingredient.scales_with_variant ? (
+        <div className="px-4 pb-4 border-t border-neutral-200 dark:border-neutral-700 pt-4 space-y-4">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Info size={14} className="text-neutral-400" />
+              <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Comment cet ingrédient est-il utilisé ?
+              </label>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <ModeBtn
+                icon={<Scale size={16} />}
+                label="Adapter à la taille"
+                active={mode === 'adapt'}
+                onClick={() => handleModeChange('adapt')}
+                disabled={saving}
+              />
+              <ModeBtn
+                icon={<Pin size={16} />}
+                label="Quantité fixe"
+                active={mode === 'fixed'}
+                onClick={() => handleModeChange('fixed')}
+                disabled={saving}
+              />
+              <ModeBtn
+                icon={<Settings2 size={16} />}
+                label="Personnalisé par variante"
+                active={mode === 'custom'}
+                onClick={() => handleModeChange('custom')}
+                disabled={saving || variants.length === 0}
+                title={variants.length === 0 ? 'Ajoutez d\'abord des variantes à l\'article' : undefined}
+              />
+            </div>
+          </div>
+
+          {mode === 'adapt' && (
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm text-blue-800 dark:text-blue-300 italic">
-                Quantité = portion de chaque variante de l&apos;article.
+                Quantité = portion de chaque variante (ex. Normal = 250 g, Grand = 500 g).
               </p>
             </div>
-          ) : (
-            <p className="text-neutral-600 dark:text-neutral-400 italic">
-              Même quantité pour chaque variante ({quantity} {unit}).
-            </p>
           )}
-          {description && (
-            <p className="text-neutral-700 dark:text-neutral-300">
-              <span className="font-medium">Catégorie: </span>
-              {description}
-            </p>
+
+          {mode === 'fixed' && (
+            <div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 italic">
+                Même quantité pour chaque variante.
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  Qté
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  defaultValue={quantity}
+                  disabled={saving}
+                  onBlur={(e) => handleFixedQtyChange(Number(e.target.value) || 0, unit)}
+                  className="w-24 px-3 py-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                />
+                <select
+                  defaultValue={unit || 'unit'}
+                  disabled={saving}
+                  onChange={(e) => handleFixedQtyChange(quantity, e.target.value)}
+                  className="px-3 py-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                >
+                  <option value="unit">unit</option>
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                  <option value="ml">ml</option>
+                  <option value="l">l</option>
+                  <option value="portion">portion</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {mode === 'custom' && (
+            <div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 italic">
+                Saisissez une quantité par variante. Laissez vide pour ignorer cette variante.
+              </p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase">
+                  <div className="col-span-6">Variante</div>
+                  <div className="col-span-6 text-right">Qté / unité</div>
+                </div>
+                {variants.map((v) => {
+                  const override = (ingredient.variant_overrides ?? []).find(
+                    (o) => o.option_id === v.option_id,
+                  );
+                  const vqty = override?.quantity ?? quantity;
+                  const vunit = override?.unit ?? unit ?? 'unit';
+                  return (
+                    <div
+                      key={v.option_id}
+                      className="grid grid-cols-12 gap-4 px-3 py-2 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
+                    >
+                      <div className="col-span-6 flex items-center">
+                        <span className="font-medium text-neutral-900 dark:text-white">{v.name}</span>
+                      </div>
+                      <div className="col-span-6 flex items-center gap-2 justify-end">
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          defaultValue={vqty}
+                          disabled={saving}
+                          placeholder="Qté"
+                          onBlur={(e) => handleOverrideChange(v.option_id, Number(e.target.value) || 0, vunit)}
+                          className="w-20 px-2 py-1.5 bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                        />
+                        <select
+                          defaultValue={vunit}
+                          disabled={saving}
+                          onChange={(e) => handleOverrideChange(v.option_id, vqty, e.target.value)}
+                          className="px-2 py-1.5 bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                        >
+                          <option value="unit">unit</option>
+                          <option value="g">g</option>
+                          <option value="kg">kg</option>
+                          <option value="ml">ml</option>
+                          <option value="l">l</option>
+                          <option value="portion">portion</option>
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+                {variants.length === 0 && (
+                  <p className="text-xs text-neutral-500 italic">
+                    Aucune variante attachée — ajoutez-en dans l&apos;onglet Options.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function ModeBtn({
+  icon, label, active, onClick, disabled, title,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+        active
+          ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+          : 'border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-600'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
