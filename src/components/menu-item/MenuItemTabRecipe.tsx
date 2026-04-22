@@ -81,6 +81,18 @@ function ingredientDescription(ing: MenuItemIngredient): string {
   return '';
 }
 
+// Preps don't have a stock unit — they're consumed in "portion" by default.
+function fallbackUnit(ing: MenuItemIngredient): string {
+  if (ing.prep_item_id) return ing.prep_item?.unit || 'portion';
+  return ing.stock_item?.unit || '';
+}
+
+function formatQty(n: number): string {
+  // Drop trailing zeros: 250 → "250", 2.5 → "2.5", 0.75 → "0.75".
+  if (!Number.isFinite(n)) return '0';
+  return Number.isInteger(n) ? String(n) : String(+n.toFixed(3));
+}
+
 const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function MenuItemTabRecipe(
   {
     rid, item, ingredients, variants,
@@ -197,6 +209,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             <RecipeIngredientItem
               key={ing.id}
               ingredient={ing}
+              item={item}
               variants={variants}
               onDelete={() => onDeleteIngredient(ing.id)}
               onUpdate={(patch) => onUpdateIngredient(ing.id, patch)}
@@ -306,11 +319,13 @@ function deriveMode(ing: MenuItemIngredient): QuantityMode {
 
 function RecipeIngredientItem({
   ingredient,
+  item,
   variants,
   onDelete,
   onUpdate,
 }: {
   ingredient: MenuItemIngredient;
+  item: MenuItem;
   variants: VariantRef[];
   onDelete: () => void;
   onUpdate: (patch: Partial<MenuItemIngredient>) => Promise<void>;
@@ -329,6 +344,30 @@ function RecipeIngredientItem({
       : mode === 'fixed'
         ? 'Quantité fixe'
         : 'Personnalisé';
+
+  // Header display — `quantity_needed` is 0 by design for `adapt` (qty derived
+  // from the variant portion at cost time) and `custom` (qty lives per
+  // variant). Rendering "0 g" in those modes is misleading, so we derive a
+  // sensible label instead.
+  const headerQty = (() => {
+    if (mode === 'fixed') {
+      if (quantity > 0) return `${formatQty(quantity)} ${unit || fallbackUnit(ingredient)}`.trim();
+      return '\u2014';
+    }
+    if (mode === 'adapt') {
+      // Adapt scales from the item's base portion — show that as the reference
+      // so the user sees "250 g" on the Normal portion, not "0 g".
+      const p = item.portion_size ?? 0;
+      const u = item.portion_size_unit || unit || fallbackUnit(ingredient);
+      return p > 0 ? `${formatQty(p)} ${u}`.trim() : '\u2014';
+    }
+    // custom — sum of all per-variant overrides, in the first override's unit
+    const overrides = ingredient.variant_overrides ?? [];
+    if (overrides.length === 0) return '\u2014';
+    const total = overrides.reduce((acc, o) => acc + (o.quantity || 0), 0);
+    const u = overrides[0]?.unit || unit || fallbackUnit(ingredient);
+    return total > 0 ? `${formatQty(total)} ${u}`.trim() : '\u2014';
+  })();
 
   const commit = async (patch: Partial<MenuItemIngredient>) => {
     setSaving(true);
@@ -411,7 +450,7 @@ function RecipeIngredientItem({
 
         <div className="flex-shrink-0 text-right">
           <div className="font-semibold text-neutral-900 dark:text-white">
-            {quantity} {unit}
+            {headerQty}
           </div>
           <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
             {modeLabel}
