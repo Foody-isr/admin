@@ -3,7 +3,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { MenuCategory, Menu } from '@/lib/api';
+import type { MenuCategory, Menu, ItemType } from '@/lib/api';
 import SearchableListField from '@/components/SearchableListField';
 
 // Figma MenuItemDetails.tsx:156-246 — Détails tab.
@@ -26,7 +26,8 @@ interface Props {
   menus: Menu[];
   selectedMenuIds: Set<number>;
   setSelectedMenuIds: (s: Set<number>) => void;
-  itemType?: string;
+  itemType: ItemType;
+  setItemType: (v: ItemType) => void;
 }
 
 export default function MenuItemTabDetails({
@@ -41,6 +42,7 @@ export default function MenuItemTabDetails({
   selectedMenuIds,
   setSelectedMenuIds,
   itemType,
+  setItemType,
 }: Props) {
   const { t } = useI18n();
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -56,16 +58,26 @@ export default function MenuItemTabDetails({
       </div>
 
       <div className="space-y-6">
-        {itemType === 'combo' && (
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-600 dark:text-neutral-400">
-              {t('itemType')}
-            </span>
-            <span className="px-3 py-1 rounded-full text-xs bg-orange-500/15 text-orange-500">
-              {t('combo')}
-            </span>
+        {/* Article type — editable on both create and edit. */}
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            {t('itemType')}
+          </label>
+          <div className="relative w-full md:w-72">
+            <select
+              value={itemType}
+              onChange={(e) => setItemType(e.target.value as ItemType)}
+              className="appearance-none w-full px-4 py-2.5 pr-10 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
+            >
+              <option value="food_and_beverage">{t('foodAndBeverage')}</option>
+              <option value="combo">{t('combo')}</option>
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none"
+            />
           </div>
-        )}
+        </div>
 
         {/* Row 1 — Nom de l'article | Catégorie */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

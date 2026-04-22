@@ -439,6 +439,7 @@ export default function EditItemPage() {
                 selectedMenuIds={selectedMenuIds}
                 setSelectedMenuIds={setSelectedMenuIds}
                 itemType={itemType}
+                setItemType={setItemType}
               />
             )}
 

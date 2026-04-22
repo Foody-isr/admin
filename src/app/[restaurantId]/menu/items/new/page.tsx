@@ -15,10 +15,10 @@ import {
 import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
+import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
-import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
-import SearchableListField from '@/components/SearchableListField';
+import { FormInput } from '@/components/menu-item/MenuItemForm';
 import {
   XMarkIcon, ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon,
   PlusIcon, TrashIcon, ArrowLeftIcon,
@@ -366,220 +366,198 @@ export default function NewItemPage() {
         saveDisabled={!name.trim() || !price}
         sidebar={rail}
       >
-        <div className="flex flex-col gap-2">
-          <MenuItemTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Tab bar banner — matches edit page */}
+          <div className="px-8 py-4 bg-neutral-100 dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+            <MenuItemTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
+          </div>
 
-          <div className="pt-6">
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto p-8">
             {/* ── Tab: Détails ─────────────────────────────────── */}
             {activeTab === 'details' && (
-              <SectionCard title={t('tabDetails')}>
-                <div className="flex items-center gap-3">
-                  <span className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('itemType')}</span>
-                  <select
-                    value={itemType}
-                    onChange={(e) => setItemType(e.target.value as ItemType)}
-                    className="h-9 rounded-[6px] bg-neutral-100 dark:bg-[#1a1a1a] px-3 text-[14px] text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f97316]"
-                  >
-                    <option value="food_and_beverage">{t('foodAndBeverage')}</option>
-                    <option value="combo">{t('combo')}</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Field label={t('itemNameLabel')}>
-                    <FormInput
-                      autoFocus
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder={t('nameRequired')}
-                    />
-                  </Field>
-                  <Field label={t('category')}>
-                    <CategorySelect
-                      value={categoryId}
-                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
-                      onChange={setCategoryId}
-                      placeholder={t('addToCategories')}
-                    />
-                  </Field>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Field label={t('sellingPriceLabel')}>
-                    <div className="relative">
-                      <FormInput
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder={t('price')}
-                        className="pr-10"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[14px] leading-[20px] text-neutral-600 dark:text-neutral-400 pointer-events-none">₪</span>
-                    </div>
-                  </Field>
-                  <Field label={t('vat')}>
-                    <FormInput
-                      type="text"
-                      value={`${vatRate}%`}
-                      readOnly
-                      className="cursor-not-allowed"
-                    />
-                  </Field>
-                  <Field label={t('status')}>
-                    <button
-                      type="button"
-                      onClick={() => setIsActive(!isActive)}
-                      className="h-10 inline-flex items-center gap-2 text-[14px] leading-[20px] text-neutral-900 dark:text-white rounded-[6px] self-start"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-neutral-400'}`} />
-                      {isActive ? t('active') : t('unavailable')}
-                    </button>
-                  </Field>
-                </div>
-
-                <Field label={t('description')}>
-                  <FormTextarea
-                    placeholder={t('addDescription')}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                  />
-                </Field>
-
-                <Field label={t('menus')} hint={t('cartesDescription')}>
-                  <SearchableListField
-                    mode="multi"
-                    placeholder={t('addToMenus')}
-                    emptyLabel={t('noMenusAvailable') || 'No menus available'}
-                    options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
-                    values={Array.from(selectedMenuIds).map(String)}
-                    onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
-                  />
-                </Field>
-              </SectionCard>
+              <MenuItemTabDetails
+                name={name}
+                setName={setName}
+                price={price}
+                setPrice={setPrice}
+                description={description}
+                setDescription={setDescription}
+                categoryId={categoryId}
+                setCategoryId={setCategoryId}
+                isActive={isActive}
+                setIsActive={setIsActive}
+                vatRate={vatRate}
+                categories={categories}
+                menus={menus}
+                selectedMenuIds={selectedMenuIds}
+                setSelectedMenuIds={setSelectedMenuIds}
+                itemType={itemType}
+                setItemType={setItemType}
+              />
             )}
 
-            {/* ── Tab: Modificateurs & Variantes ───────────────── */}
+            {/* ── Tab: Modificateurs & Variantes — matches edit page ─── */}
             {activeTab === 'modifiers' && (
-              <SectionCard title={t('tabModifiers')}>
+              <div className="max-w-4xl">
                 {itemType === 'combo' && (
-                  <div className="flex flex-col gap-3">
-                    <div>
-                      <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white">{t('buildThisCombo')}</h3>
-                      <p className="text-[14px] text-neutral-600 dark:text-neutral-400 mt-0.5">{t('comboBuilderDescription')}</p>
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                        {t('buildThisCombo')}
+                      </h3>
                     </div>
-
-                    {comboSteps.length > 0 && (
-                      <div>
-                        <div className="flex items-center text-[12px] font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-1 border-b border-neutral-200 dark:border-neutral-700 pb-2">
-                          <span className="flex-1">{t('comboChoice')}</span>
-                          <span className="w-16 text-center">{t('required')}</span>
-                          <span className="w-14" />
-                        </div>
-                        {comboSteps.map((step) => (
-                          <div key={step.key} className="border-b border-neutral-200 dark:border-neutral-700 py-2.5">
-                            <div className="flex items-center gap-1">
-                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
-                                <span className="text-[14px] font-medium text-orange-500 hover:underline">{step.name}</span>
-                                <div className="text-[12px] text-neutral-600 dark:text-neutral-400 truncate mt-0.5">
-                                  {step.items.length > 0
-                                    ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
-                                    : `${step.items.length} ${t('options')}`}
+                    <div className="space-y-4">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {t('comboBuilderDescription')}
+                      </p>
+                      {comboSteps.length > 0 && (
+                        <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                          <div className="flex items-center px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider border-b border-neutral-200 dark:border-neutral-700">
+                            <span className="flex-1">{t('comboChoice')}</span>
+                            <span className="w-16 text-center">{t('required')}</span>
+                            <span className="w-14" />
+                          </div>
+                          {comboSteps.map((step) => (
+                            <div key={step.key} className="border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
+                                  <span className="text-sm font-medium text-orange-500 hover:underline">{step.name}</span>
+                                  <div className="text-xs text-neutral-600 dark:text-neutral-400 truncate mt-0.5">
+                                    {step.items.length > 0
+                                      ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
+                                      : `${step.items.length} ${t('options')}`}
+                                  </div>
                                 </div>
-                              </div>
-                              <span className="w-16 text-center text-[14px] text-neutral-600 dark:text-neutral-400 shrink-0">{step.min_picks}</span>
-                              <div className="w-14 flex items-center justify-end gap-1 shrink-0">
-                                <button onClick={() => removeComboStep(step.key)} className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-red-400">
+                                <span className="w-16 text-center text-sm text-neutral-600 dark:text-neutral-400 shrink-0">{step.min_picks}</span>
+                                <button onClick={() => removeComboStep(step.key)} className="w-14 flex items-center justify-end p-1 text-neutral-600 dark:text-neutral-400 hover:text-red-400">
                                   <TrashIcon className="w-4 h-4" />
                                 </button>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <button onClick={openAddOptionsModal}
-                      className="flex items-center gap-2 text-[14px] font-medium text-orange-500 hover:text-[#ea580c]">
-                      <PlusIcon className="w-4 h-4" />
-                      {t('addOptions')}
-                    </button>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        onClick={openAddOptionsModal}
+                        className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                        {t('addOptions')}
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {itemType !== 'combo' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white">{t('variants')}</h3>
-                      <button onClick={() => setVariantModalOpen(true)}
-                        className="text-[14px] font-medium underline text-neutral-900 dark:text-white shrink-0">
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                        {t('variants')}
+                      </h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {t('variantsDescription')}
+                        </p>
+                        <button
+                          onClick={() => setVariantModalOpen(true)}
+                          className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+                        >
+                          <PlusIcon className="w-4 h-4" />
+                          {t('add')}
+                        </button>
+                      </div>
+                      {variantGroups.length > 0 && (
+                        <div className="flex flex-col gap-3">
+                          {variantGroups.map((vg) => (
+                            <div key={vg.key} className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 dark:bg-[#1a1a1a]">
+                                <span className="text-sm font-semibold text-neutral-900 dark:text-white">{vg.title || t('variantGroupTitle')}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button onClick={() => setVariantModalOpen(true)}
+                                    className="text-sm text-orange-500 hover:underline font-medium">{t('edit')}</button>
+                                  <button onClick={() => removeVariantGroup(vg.key)}
+                                    className="text-sm text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                                    {t('remove')}
+                                  </button>
+                                </div>
+                              </div>
+                              {vg.variants.filter((v) => v.name.trim()).map((v) => (
+                                <div key={v.key} className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-700">
+                                  <span className="text-sm text-neutral-900 dark:text-white">{v.name}</span>
+                                  <span className="text-sm font-semibold text-neutral-900 dark:text-white">₪{(parseFloat(v.price) || 0).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                    <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                      {t('modifiers')}
+                    </h3>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {t('modifiersDescription')}
+                      </p>
+                      <button
+                        onClick={() => setModifierModalOpen(true)}
+                        className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+                      >
+                        <PlusIcon className="w-4 h-4" />
                         {t('add')}
                       </button>
                     </div>
-                    <p className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('variantsDescription')}</p>
-                    {variantGroups.length > 0 && (
-                      <div className="flex flex-col gap-3 mt-3">
-                        {variantGroups.map((vg) => (
-                          <div key={vg.key} className="rounded-[8px] border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                            <div className="flex items-center justify-between px-4 py-3 bg-neutral-100 dark:bg-[#1a1a1a]">
-                              <span className="text-[14px] font-semibold text-neutral-900 dark:text-white">{vg.title || t('variantGroupTitle')}</span>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <button onClick={() => setVariantModalOpen(true)}
-                                  className="text-[14px] text-orange-500 hover:underline font-medium">{t('edit')}</button>
-                                <button onClick={() => removeVariantGroup(vg.key)}
-                                  className="text-[14px] text-red-500 hover:text-red-600 font-medium px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                                  {t('remove')}
-                                </button>
-                              </div>
+                    {selectedModifierSetIds.size > 0 && (
+                      <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                        {allModifierSets.filter((ms) => selectedModifierSetIds.has(ms.id)).map((ms) => (
+                          <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 bg-neutral-50 dark:bg-[#1a1a1a] hover:bg-neutral-100 dark:hover:bg-[#222222] transition-colors">
+                            <div>
+                              <span className="text-sm font-medium text-neutral-900 dark:text-white">{ms.name}</span>
+                              <span className="text-xs text-neutral-600 dark:text-neutral-400 ml-2">
+                                {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
+                              </span>
                             </div>
-                            {vg.variants.filter((v) => v.name.trim()).map((v) => (
-                              <div key={v.key} className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-700">
-                                <span className="text-[14px] text-neutral-900 dark:text-white">{v.name}</span>
-                                <span className="text-[14px] font-semibold text-neutral-900 dark:text-white">₪{(parseFloat(v.price) || 0).toFixed(2)}</span>
-                              </div>
-                            ))}
+                            <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
+                              className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                              {t('remove')}
+                            </button>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-[16px] font-semibold text-neutral-900 dark:text-white">{t('modifiers')}</h3>
-                    <button onClick={() => setModifierModalOpen(true)}
-                      className="text-[14px] font-medium underline text-neutral-900 dark:text-white shrink-0">{t('add')}</button>
-                  </div>
-                  <p className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('modifiersDescription')}</p>
-                  {selectedModifierSetIds.size > 0 && (
-                    <div className="rounded-[8px] border border-neutral-200 dark:border-neutral-700 overflow-hidden mt-3">
-                      {allModifierSets.filter((ms) => selectedModifierSetIds.has(ms.id)).map((ms) => (
-                        <div key={ms.id} className="flex items-center justify-between px-4 py-3.5 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors">
-                          <div>
-                            <span className="text-[14px] font-medium text-neutral-900 dark:text-white">{ms.name}</span>
-                            <span className="text-[12px] text-neutral-600 dark:text-neutral-400 ml-2">
-                              {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
-                            </span>
-                          </div>
-                          <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
-                            className="text-[14px] text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                            {t('remove')}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </SectionCard>
+              </div>
             )}
 
+            {/* ── Recipe / Cost tabs are disabled until the item is saved ── */}
             {(activeTab === 'recipe' || activeTab === 'cost') && (
-              <SectionCard title={activeTab === 'recipe' ? t('tabRecipe') : t('tabCost')}>
-                <p className="text-[14px] text-neutral-600 dark:text-neutral-400">{t('saveItemFirst')}</p>
-              </SectionCard>
+              <div className="max-w-4xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                  <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                    {activeTab === 'recipe' ? t('tabRecipe') : t('tabCost')}
+                  </h3>
+                </div>
+                <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 p-6">
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    {t('saveItemFirst')}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -1000,43 +978,5 @@ export default function NewItemPage() {
         </div>
       )}
     </>
-  );
-}
-
-// Split-button category picker (matches Figma node 0:112).
-function CategorySelect({
-  value,
-  options,
-  onChange,
-  placeholder,
-}: {
-  value: number;
-  options: { value: number; label: string }[];
-  onChange: (v: number) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="relative flex items-center gap-2 w-full">
-      <div className="relative flex-1 min-w-0">
-        <select
-          value={value || ''}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="appearance-none w-full h-9 rounded-[6px] bg-neutral-100 dark:bg-[#1a1a1a] px-3 py-[9.5px] text-[14px] text-neutral-900 dark:text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-2 focus:ring-[#f97316] cursor-pointer"
-        >
-          {!value && <option value="" disabled>{placeholder ?? ''}</option>}
-          {options.map((o) => (
-            <option key={o.value} value={o.value} className="bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white">
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div
-        aria-hidden
-        className="h-9 w-9 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-[6px] flex items-center justify-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] pointer-events-none"
-      >
-        <ChevronDownIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
-      </div>
-    </div>
   );
 }
