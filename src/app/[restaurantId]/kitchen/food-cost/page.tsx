@@ -19,9 +19,7 @@ import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
-import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
-import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
-import { resolvePortion } from '@/lib/cost-utils';
+import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 
 // Figma page: foodyadmin_figma/src/app/pages/cuisine/foodcost.tsx
 // We replace the Figma mock data with real cost math via computeItemCostSummary.
@@ -86,10 +84,6 @@ export default function FoodCostPage() {
   const [showKpis, setShowKpis] = useState(true);
   const [showChart, setShowChart] = useState(true);
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
-  // Per-ingredient prep cost breakdown modal — opens when clicking a prep line's price.
-  const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
-  // Selected item's % Coût breakdown modal.
-  const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
   // Enriched cache: item id → computed cost summary. Keyed by item to avoid
   // re-fetching ingredients for every item in the list (we only pull
@@ -574,169 +568,29 @@ export default function FoodCostPage() {
                 </div>
               </div>
 
-              {/* Cost Metrics */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-                  <h3 className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
-                    {t('foodCostLabel')}
-                  </h3>
-                  <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-                    {selectedItem.foodCost.toFixed(2)} ₪
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowCostPctBreakdown(true)}
-                  className="text-left bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4 hover:border-orange-500 hover:shadow-lg transition-all cursor-pointer"
-                  title={t('viewCostPctBreakdown') || 'Voir le détail du calcul'}
-                >
-                  <h3 className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
-                    {t('costPercent')}
-                  </h3>
-                  <p className={`text-2xl font-bold ${getFoodCostColor(selectedItem.foodCostPercent)}`}>
-                    {selectedItem.foodCostPercent.toFixed(1)}%
-                  </p>
-                </button>
-                <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-                  <h3 className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
-                    {t('grossProfit')}
-                  </h3>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {selectedItem.margin.toFixed(2)} ₪
-                  </p>
-                </div>
-              </div>
-
-              {/* Warning */}
-              {selectedItem.foodCostPercent >= 35 && (
-                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4 flex items-start gap-3">
-                  <AlertCircle size={20} className="text-orange-600 dark:text-orange-400 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-orange-900 dark:text-orange-300 mb-1">
-                      {t('costThresholdWarning') || 'Le coût alimentaire dépasse le seuil de 35%'}
-                    </h4>
-                    <p className="text-sm text-orange-700 dark:text-orange-400">
-                      {t('costThresholdHint') || 'Considérez revoir les ingrédients coûteux ou ajuster le prix de vente pour améliorer la rentabilité.'}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Ingredient breakdown — real lines from computeItemCostSummary */}
-              <div className="bg-white dark:bg-[#111111] rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
-                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
-                  {t('ingredientDetails') || 'Détail des ingrédients'}
-                </h3>
-                {selectedSummary && selectedSummary.lines.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedSummary.lines.map((line, i) => {
-                      const pct =
-                        selectedSummary.foodCost > 0
-                          ? Math.round((line.lineCost / selectedSummary.foodCost) * 100)
-                          : 0;
-                      const ing = line.ingredient;
-                      const stockId = ing.stock_item?.id ?? null;
-                      const prepId = ing.prep_item?.id ?? null;
-                      // Name navigates to the source item's editor (stock or prep page, ?edit=<id>).
-                      const goToSource = () => {
-                        if (prepId) {
-                          router.push(`/${rid}/kitchen/prep?edit=${prepId}`);
-                        } else if (stockId) {
-                          router.push(`/${rid}/kitchen/stock?edit=${stockId}`);
-                        }
-                      };
-                      return (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between gap-4 p-3 bg-neutral-50 dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-orange-500/50 transition-colors"
-                        >
-                          <button
-                            type="button"
-                            onClick={goToSource}
-                            className="flex items-center gap-2 min-w-0 flex-1 text-left hover:text-orange-500 transition-colors"
-                            title={line.isPrep ? t('openPreparation') || 'Ouvrir la préparation' : t('openStockItem') || 'Ouvrir l\'article de stock'}
-                          >
-                            <div
-                              className={`shrink-0 size-6 rounded flex items-center justify-center ${
-                                line.isPrep
-                                  ? 'bg-purple-100 dark:bg-purple-900/30'
-                                  : 'bg-blue-100 dark:bg-blue-900/30'
-                              }`}
-                            >
-                              <span className={`text-xs ${line.isPrep ? 'text-purple-600' : 'text-blue-600'}`}>
-                                {line.isPrep ? '🧪' : '📦'}
-                              </span>
-                            </div>
-                            <span className="font-medium truncate underline-offset-2 hover:underline">
-                              {line.name}
-                            </span>
-                          </button>
-                          <span className="text-sm text-neutral-600 dark:text-neutral-400 shrink-0">
-                            {line.qty} {line.qtyUnit}
-                          </span>
-                          {line.isPrep ? (
-                            <button
-                              type="button"
-                              onClick={() => setBreakdownIng(ing)}
-                              className="font-semibold text-neutral-900 dark:text-white shrink-0 hover:text-orange-500 underline-offset-2 hover:underline transition-colors"
-                              title={t('viewPrepBreakdown') || 'Voir le détail du coût'}
-                            >
-                              {line.lineCost.toFixed(2)} ₪
-                            </button>
-                          ) : (
-                            <span className="font-semibold text-neutral-900 dark:text-white shrink-0">
-                              {line.lineCost.toFixed(2)} ₪
-                            </span>
-                          )}
-                          <span className="text-sm font-semibold text-orange-500 w-12 text-right shrink-0">
-                            {pct}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
-                    {t('noIngredientsYet') || 'Aucun ingrédient défini. Ajoutez-en via l\'onglet Recette.'}
-                  </div>
-                )}
-              </div>
+              {/* Shared cost section — same component used in the menu-item
+                  Coût tab. Clickable KPIs, clickable ingredients, enhanced
+                  suggestions. */}
+              <MenuItemTabCost
+                rid={rid}
+                item={selectedItem.item}
+                ingredients={ingredients}
+                itemOptionOverrides={itemOptionOverrides}
+                vatRate={vatRate}
+                price={selectedItem.item.price}
+              />
             </div>
           )}
         </div>
       </div>
 
+      {/* Top-header KPIs info modal (% Coût Moyen / Articles Critiques /
+          Marge Totale / Articles Optimaux). The 3 selected-item KPIs now
+          live inside <MenuItemTabCost /> with their own modals. */}
       <KPIInfoModal
         kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
         onClose={() => setSelectedKpi(null)}
       />
-
-      {/* Prep cost breakdown — real math for prep ingredients. */}
-      {breakdownIng && selectedItem && (
-        <PrepCostBreakdownModal
-          ing={breakdownIng}
-          item={selectedItem.item}
-          portion={resolvePortion(selectedItem.item, [], '')}
-          optionId={null}
-          showExVat={true}
-          restaurantRate={vatRate}
-          onClose={() => setBreakdownIng(null)}
-          t={t}
-        />
-      )}
-
-      {/* Selected item's % Coût breakdown modal. */}
-      {showCostPctBreakdown && selectedItem && selectedSummary && (
-        <CostPctBreakdownModal
-          itemName={selectedItem.item.name}
-          displayPrice={selectedItem.item.price}
-          displayCost={selectedSummary.foodCost}
-          costPct={selectedSummary.costPct}
-          showCostsExVat={true}
-          vatRate={vatRate}
-          onClose={() => setShowCostPctBreakdown(false)}
-        />
-      )}
 
       {showImportModal && selectedItem && (
         <RecipeImportModal

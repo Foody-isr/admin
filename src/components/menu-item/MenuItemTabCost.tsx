@@ -1,22 +1,33 @@
 'use client';
 
 import { AlertCircle, FlaskConical, Package } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import {
   COST_THRESHOLD,
   computeItemCostSummary,
+  resolvePortion,
 } from '@/lib/cost-utils';
 import type {
   MenuItem,
   MenuItemIngredient,
   ItemOptionOverride,
 } from '@/lib/api';
+import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
+import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
+import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
 
-// Figma MenuItemDetails.tsx:644-807 — Coût tab.
-// Direct port with real cost data plugged in.
+// Shared Cost section — used by both the MenuItem edit page's Coût tab AND
+// the standalone Food Cost page's selected-item panel. Figma:644-807.
+//
+// 3 KPI cards (all clickable → KPIInfoModal / CostPctBreakdownModal).
+// Ingredient breakdown table with clickable names (route to stock/prep
+// editor) and clickable prep-line prices (open PrepCostBreakdownModal).
+// Enhanced suggestions with concrete savings examples.
 
 interface Props {
+  rid: number;
   item: MenuItem;
   ingredients: MenuItemIngredient[];
   itemOptionOverrides: ItemOptionOverride[];
@@ -27,6 +38,7 @@ interface Props {
 const CURRENCY = '\u20AA';
 
 export default function MenuItemTabCost({
+  rid,
   item,
   ingredients,
   itemOptionOverrides,
@@ -34,6 +46,11 @@ export default function MenuItemTabCost({
   price,
 }: Props) {
   const { t } = useI18n();
+  const router = useRouter();
+
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+  const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
+  const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
   const summary = useMemo(
     () =>
@@ -51,23 +68,26 @@ export default function MenuItemTabCost({
   const targetPriceForThreshold =
     summary.foodCost > 0 ? summary.foodCost / COST_THRESHOLD : 0;
 
-  // Labor + overhead — Figma displays them as separate bars. We use prep time
-  // at a fixed ~₪18.75/hour rate for labor, and 8% overhead on price.
-  const laborMins = item.prep_time_mins ?? 0;
-  const laborCost = (laborMins / 60) * 18.75;
-  const overheadCost = price * 0.08;
-  const totalCostWithLabor = summary.foodCost + laborCost + overheadCost;
-  const breakdownTotal = Math.max(price, totalCostWithLabor + summary.margin);
-  const pctOf = (v: number) =>
-    breakdownTotal > 0 ? Math.round((v / breakdownTotal) * 100) : 0;
-
-  // Suggestions
-  const topLine = [...summary.lines].sort((a, b) => b.lineCost - a.lineCost)[0];
-  const topPct = topLine
-    ? summary.foodCost > 0
-      ? Math.round((topLine.lineCost / summary.foodCost) * 100)
-      : 0
+  // ── Suggestions ────────────────────────────────────────────────
+  // Sort lines by cost share, pick the top two contributors as reduction
+  // candidates. For each, propose reducing by 12% and compute the ₪ savings.
+  const sortedLines = [...summary.lines].sort((a, b) => b.lineCost - a.lineCost);
+  const topLine = sortedLines[0];
+  const topPct = topLine && summary.foodCost > 0
+    ? Math.round((topLine.lineCost / summary.foodCost) * 100)
     : 0;
+
+  // Reduction example: current qty × 0.88 (−12%). Savings = line cost × 0.12.
+  const reductionPct = 0.12;
+  const reductionSavings = topLine ? topLine.lineCost * reductionPct : 0;
+  const reducedQty = topLine ? topLine.qty * (1 - reductionPct) : 0;
+  const newCostPctAfterReduction = summary.foodCost > 0 && price > 0
+    ? ((summary.foodCost - reductionSavings) / price) * 100
+    : 0;
+
+  // Price hike example: price needed to land on COST_THRESHOLD (35%).
+  const currentPct = summary.costPct * 100;
+  const priceDelta = targetPriceForThreshold - price;
 
   return (
     <div className="max-w-5xl">
@@ -78,29 +98,42 @@ export default function MenuItemTabCost({
         </h3>
       </div>
 
-      {/* 3 KPI cards — Figma:653-672 */}
+      {/* 3 KPI cards — all clickable — Figma:653-672 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700">
+        <button
+          type="button"
+          onClick={() => setSelectedKpi('food-cost-moyen')}
+          title={t('viewCalculationDetails') || 'Voir le détail du calcul'}
+          className="text-left bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 hover:border-orange-500 hover:shadow-lg transition-all cursor-pointer"
+        >
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
             {t('foodCostLabel')}
           </p>
           <p className="text-3xl font-bold text-neutral-900 dark:text-white">
             {summary.foodCost.toFixed(2)} {CURRENCY}
           </p>
-        </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-xl p-6 border border-green-200 dark:border-green-700">
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedKpi('marge-totale')}
+          title={t('viewCalculationDetails') || 'Voir le détail du calcul'}
+          className="text-left bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-xl p-6 border border-green-200 dark:border-green-700 hover:border-green-500 hover:shadow-lg transition-all cursor-pointer"
+        >
           <p className="text-sm text-green-700 dark:text-green-400 mb-2">
             {t('grossProfit')}
           </p>
           <p className="text-3xl font-bold text-green-900 dark:text-green-300">
             {summary.margin.toFixed(2)} {CURRENCY}
           </p>
-        </div>
-        <div
-          className={`rounded-xl p-6 border ${
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowCostPctBreakdown(true)}
+          title={t('viewCostPctBreakdown') || 'Voir le détail du calcul'}
+          className={`text-left rounded-xl p-6 border hover:shadow-lg transition-all cursor-pointer ${
             over
-              ? 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-700'
-              : 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-700'
+              ? 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-700 hover:border-orange-500'
+              : 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-700 hover:border-green-500'
           }`}
         >
           <p
@@ -129,10 +162,10 @@ export default function MenuItemTabCost({
               {t('aboveTarget') || 'Au-dessus de la cible'} ({Math.round(COST_THRESHOLD * 100)}%)
             </p>
           )}
-        </div>
+        </button>
       </div>
 
-      {/* Détail des coûts par ingrédient — Figma:674-738 */}
+      {/* Ingredient breakdown — Figma:674-738 */}
       <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 mb-8">
         <h4 className="font-semibold text-neutral-900 dark:text-white mb-4">
           {t('costDetailsByIngredient') || 'Détail des coûts par ingrédient'} • {summary.lines.length}{' '}
@@ -156,8 +189,15 @@ export default function MenuItemTabCost({
             const unitCostStr = line.unitCost
               ? `${line.unitCost.toFixed(2)} ${CURRENCY}${line.sourceUnit ? `/${line.sourceUnit}` : ''}`
               : '\u2014';
+            const ing = line.ingredient;
+            const stockId = ing.stock_item?.id ?? null;
+            const prepId = ing.prep_item?.id ?? null;
+            const goToSource = () => {
+              if (prepId) router.push(`/${rid}/kitchen/prep?edit=${prepId}`);
+              else if (stockId) router.push(`/${rid}/kitchen/stock?edit=${stockId}`);
+            };
             return (
-              <CostIngredientItem
+              <CostIngredientRow
                 key={i}
                 name={line.name}
                 type={line.isPrep ? 'preparation' : 'brut'}
@@ -165,6 +205,8 @@ export default function MenuItemTabCost({
                 unitCost={unitCostStr}
                 totalCost={`${line.lineCost.toFixed(2)} ${CURRENCY}`}
                 percentage={`${pct}%`}
+                onNameClick={goToSource}
+                onPriceClick={line.isPrep ? () => setBreakdownIng(ing) : undefined}
               />
             );
           })}
@@ -193,77 +235,124 @@ export default function MenuItemTabCost({
         </div>
       </div>
 
-      {/* Répartition globale — Figma:741-749 */}
-      <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 mb-8">
-        <h4 className="font-semibold text-neutral-900 dark:text-white mb-4">
-          {t('globalCostBreakdown') || 'Répartition globale des coûts'}
-        </h4>
-        <div className="space-y-3">
-          <CostBreakdownItem
-            label={`${t('foodCostLabel')} (${t('ingredients') || 'ingrédients'})`}
-            amount={`${summary.foodCost.toFixed(2)} ${CURRENCY}`}
-            percentage={pctOf(summary.foodCost)}
-            color="bg-orange-500"
-          />
-          <CostBreakdownItem
-            label={`${t('directLabor') || 'Main-d\'œuvre directe'} (${laborMins} min)`}
-            amount={`${laborCost.toFixed(2)} ${CURRENCY}`}
-            percentage={pctOf(laborCost)}
-            color="bg-blue-500"
-          />
-          <CostBreakdownItem
-            label={t('grossProfit')}
-            amount={`${summary.margin.toFixed(2)} ${CURRENCY}`}
-            percentage={pctOf(summary.margin)}
-            color="bg-green-500"
-          />
-          <CostBreakdownItem
-            label={t('overheadEstimate') || 'Frais généraux estimés'}
-            amount={`${overheadCost.toFixed(2)} ${CURRENCY}`}
-            percentage={pctOf(overheadCost)}
-            color="bg-purple-500"
-          />
-        </div>
-      </div>
-
-      {/* Suggestions — Figma:751-762 */}
-      {(over || topPct >= 30) && (
+      {/* Suggestions — enhanced with concrete numeric examples. */}
+      {(over || topPct >= 25) && (
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-700">
-          <h4 className="font-semibold text-orange-900 dark:text-orange-300 mb-3 flex items-center gap-2">
+          <h4 className="font-semibold text-orange-900 dark:text-orange-300 mb-4 flex items-center gap-2">
             <AlertCircle size={20} />
-            {t('optimizationSuggestions') || 'Suggestions d\'optimisation'}
+            {t('optimizationSuggestions') || "Suggestions d'optimisation"}
           </h4>
-          <ul className="space-y-2 text-sm text-orange-800 dark:text-orange-400">
-            {topLine && topPct >= 30 && (
-              <li>
-                • <strong>{topLine.name} ({topPct}%)</strong> —{' '}
-                {t('reducePortionSuggestion') || 'Envisager de réduire la portion ou renégocier le coût de cet ingrédient'}
-              </li>
+
+          <div className="space-y-3 text-sm text-orange-800 dark:text-orange-400">
+            {/* Portion reduction suggestion */}
+            {topLine && topPct >= 25 && (
+              <SuggestionRow
+                title={`${t('reducePortionOf') || 'Réduire la portion de'} ${topLine.name}`}
+                body={
+                  <>
+                    {t('reducePortionFrom') || 'Passer de'}{' '}
+                    <strong>{topLine.qty.toFixed(topLine.qty >= 10 ? 0 : 2)} {topLine.qtyUnit}</strong>{' '}
+                    {t('to') || 'à'}{' '}
+                    <strong>{reducedQty.toFixed(reducedQty >= 10 ? 0 : 2)} {topLine.qtyUnit}</strong>{' '}
+                    ({t('minus') || '−'}12%) →{' '}
+                    <strong className="text-green-700 dark:text-green-400">
+                      {t('savings') || 'économie'} {reductionSavings.toFixed(2)} {CURRENCY}
+                    </strong>{' '}
+                    {t('perDish') || 'par plat'}
+                    {over && newCostPctAfterReduction > 0 && (
+                      <>
+                        {' '}·{' '}
+                        {t('fromTo') || 'de'} <strong>{currentPct.toFixed(1)}%</strong>{' '}
+                        {t('to') || 'à'}{' '}
+                        <strong>{newCostPctAfterReduction.toFixed(1)}%</strong>
+                      </>
+                    )}
+                  </>
+                }
+              />
             )}
-            {over && targetPriceForThreshold > 0 && (
-              <li>
-                • <strong>{t('sellingPriceLabel')}</strong> —{' '}
-                {t('raisePriceSuggestion') || 'Augmenter à'}{' '}
-                <strong>
-                  {targetPriceForThreshold.toFixed(2)} {CURRENCY}
-                </strong>{' '}
-                {t('toReachThreshold') || 'pour atteindre'} {Math.round(COST_THRESHOLD * 100)}%
-              </li>
+
+            {/* Price hike suggestion */}
+            {over && targetPriceForThreshold > 0 && priceDelta > 0.01 && (
+              <SuggestionRow
+                title={t('raiseSellingPrice') || 'Augmenter le prix de vente'}
+                body={
+                  <>
+                    {t('raisePriceFrom') || 'De'}{' '}
+                    <strong>{price.toFixed(2)} {CURRENCY}</strong>{' '}
+                    {t('to') || 'à'}{' '}
+                    <strong>{targetPriceForThreshold.toFixed(2)} {CURRENCY}</strong>{' '}
+                    ({t('plus') || '+'}
+                    {priceDelta.toFixed(2)} {CURRENCY}) →{' '}
+                    <strong className="text-green-700 dark:text-green-400">
+                      {t('ratioAt') || 'ratio à'} {Math.round(COST_THRESHOLD * 100)}%
+                    </strong>{' '}
+                    ({t('fromTo') || 'de'} {currentPct.toFixed(1)}%)
+                  </>
+                }
+              />
             )}
-          </ul>
+
+            {/* Supplier renegotiation — fallback for secondary cost driver */}
+            {sortedLines[1] && sortedLines[1].lineCost / Math.max(summary.foodCost, 1) >= 0.15 && (
+              <SuggestionRow
+                title={`${t('renegotiateSupplier') || 'Renégocier le fournisseur de'} ${sortedLines[1].name}`}
+                body={
+                  <>
+                    {t('supplierSavingsHint') || "Une baisse de 10% sur cet ingrédient économiserait"}{' '}
+                    <strong className="text-green-700 dark:text-green-400">
+                      {(sortedLines[1].lineCost * 0.1).toFixed(2)} {CURRENCY}
+                    </strong>{' '}
+                    {t('perDish') || 'par plat'}.
+                  </>
+                }
+              />
+            )}
+          </div>
         </div>
+      )}
+
+      {/* Modals */}
+      <KPIInfoModal
+        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
+        onClose={() => setSelectedKpi(null)}
+      />
+      {breakdownIng && (
+        <PrepCostBreakdownModal
+          ing={breakdownIng}
+          item={item}
+          portion={resolvePortion(item, [], '')}
+          optionId={null}
+          showExVat={true}
+          restaurantRate={vatRate}
+          onClose={() => setBreakdownIng(null)}
+          t={t}
+        />
+      )}
+      {showCostPctBreakdown && (
+        <CostPctBreakdownModal
+          itemName={item.name}
+          displayPrice={price}
+          displayCost={summary.foodCost}
+          costPct={summary.costPct}
+          showCostsExVat={true}
+          vatRate={vatRate}
+          onClose={() => setShowCostPctBreakdown(false)}
+        />
       )}
     </div>
   );
 }
 
-function CostIngredientItem({
+function CostIngredientRow({
   name,
   type,
   quantity,
   unitCost,
   totalCost,
   percentage,
+  onNameClick,
+  onPriceClick,
 }: {
   name: string;
   type: 'preparation' | 'brut';
@@ -271,10 +360,17 @@ function CostIngredientItem({
   unitCost: string;
   totalCost: string;
   percentage: string;
+  onNameClick: () => void;
+  onPriceClick?: () => void;
 }) {
   return (
-    <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 transition-colors">
-      <div className="col-span-5 flex items-center gap-2 min-w-0">
+    <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 transition-colors items-center">
+      <button
+        type="button"
+        onClick={onNameClick}
+        className="col-span-5 flex items-center gap-2 min-w-0 text-left hover:text-orange-500 transition-colors"
+        title={type === 'preparation' ? 'Ouvrir la préparation' : "Ouvrir l'article de stock"}
+      >
         <div
           className={`flex-shrink-0 size-6 rounded flex items-center justify-center ${
             type === 'preparation'
@@ -288,19 +384,30 @@ function CostIngredientItem({
             <Package size={12} className="text-blue-600 dark:text-blue-400" />
           )}
         </div>
-        <span className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+        <span className="text-sm font-medium text-neutral-900 dark:text-white truncate underline-offset-2 hover:underline">
           {name}
         </span>
-      </div>
+      </button>
       <div className="col-span-2 text-sm text-neutral-600 dark:text-neutral-400 text-right">
         {quantity}
       </div>
       <div className="col-span-2 text-sm text-neutral-600 dark:text-neutral-400 text-right">
         {unitCost}
       </div>
-      <div className="col-span-2 text-sm font-semibold text-neutral-900 dark:text-white text-right">
-        {totalCost}
-      </div>
+      {onPriceClick ? (
+        <button
+          type="button"
+          onClick={onPriceClick}
+          className="col-span-2 text-sm font-semibold text-neutral-900 dark:text-white text-right hover:text-orange-500 underline-offset-2 hover:underline transition-colors"
+          title="Voir le détail du coût"
+        >
+          {totalCost}
+        </button>
+      ) : (
+        <div className="col-span-2 text-sm font-semibold text-neutral-900 dark:text-white text-right">
+          {totalCost}
+        </div>
+      )}
       <div className="col-span-1 text-sm font-semibold text-orange-500 text-right">
         {percentage}
       </div>
@@ -308,34 +415,11 @@ function CostIngredientItem({
   );
 }
 
-function CostBreakdownItem({
-  label,
-  amount,
-  percentage,
-  color,
-}: {
-  label: string;
-  amount: string;
-  percentage: number;
-  color: string;
-}) {
-  const pct = Math.max(0, Math.min(100, percentage));
+function SuggestionRow({ title, body }: { title: string; body: React.ReactNode }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-neutral-700 dark:text-neutral-300">{label}</span>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold text-neutral-900 dark:text-white">
-            {amount}
-          </span>
-          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400 w-12 text-right">
-            {pct}%
-          </span>
-        </div>
-      </div>
-      <div className="w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
+    <div className="bg-white dark:bg-[#0a0a0a] border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+      <p className="font-semibold text-orange-900 dark:text-orange-300 mb-1">• {title}</p>
+      <p className="text-sm text-orange-800 dark:text-orange-400 ml-3">{body}</p>
     </div>
   );
 }

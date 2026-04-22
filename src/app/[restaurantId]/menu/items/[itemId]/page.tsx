@@ -579,6 +579,7 @@ export default function EditItemPage() {
             {/* ── Tab: Coût — Figma MenuItemDetails.tsx:644 ─────── */}
             {activeTab === 'cost' && item && (
               <MenuItemTabCost
+                rid={rid}
                 item={item}
                 ingredients={ingredients}
                 itemOptionOverrides={itemOptionOverrides}
