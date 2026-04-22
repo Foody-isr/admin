@@ -1461,6 +1461,8 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── KPIs collapse ──
     hideKpis: 'Hide KPIs',
     showKpis: 'Show KPIs',
+    hideChart: 'Hide chart',
+    showChart: 'Show chart',
     // ── Cost tab ──
     aboveTarget: 'Above target',
     directLabor: 'Direct labor',
@@ -2963,6 +2965,8 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── KPIs collapse ──
     hideKpis: 'הסתר KPIs',
     showKpis: 'הצג KPIs',
+    hideChart: 'הסתר גרף',
+    showChart: 'הצג גרף',
     // ── Cost tab ──
     aboveTarget: 'מעל היעד',
     directLabor: 'עבודה ישירה',
@@ -4464,6 +4468,8 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── KPIs collapse ──
     hideKpis: 'Masquer les KPIs',
     showKpis: 'Afficher les KPIs',
+    hideChart: 'Masquer le graphique',
+    showChart: 'Afficher le graphique',
     // ── Cost tab ──
     aboveTarget: 'Au-dessus de la cible',
     directLabor: "Main-d'œuvre directe",

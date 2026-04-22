@@ -84,6 +84,7 @@ export default function FoodCostPage() {
   const [vatRate, setVatRate] = useState(18);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showKpis, setShowKpis] = useState(true);
+  const [showChart, setShowChart] = useState(true);
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
   // Per-ingredient prep cost breakdown modal — opens when clicking a prep line's price.
   const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
@@ -355,27 +356,40 @@ export default function FoodCostPage() {
 
       {/* Chart Section — Figma:140 */}
       <div className="px-8 py-6 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800">
-        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
-          {t('costDistribution') || 'Distribution des coûts'}
-        </h3>
-        <div className="h-64 bg-neutral-50 dark:bg-[#0a0a0a] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
-          {filteredItems.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
-              {t('noItemsWithRecipes') || 'Aucun article avec une recette.'}
-            </div>
-          ) : (
-            <div className="h-full flex items-end justify-around gap-2">
-              {filteredItems.map((e) => {
-                const heightPercent = Math.min(100, (e.foodCostPercent / 50) * 100);
-                return (
-                  <button
-                    key={e.item.id}
-                    onClick={() => selectItem(e)}
-                    className="flex-1 flex flex-col items-center gap-2 min-w-0"
-                    title={`${e.item.name}: ${e.foodCostPercent.toFixed(1)}%`}
-                  >
-                    <div className="w-full flex flex-col items-center justify-end" style={{ height: '100%' }}>
-                      <div
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
+            {t('costDistribution') || 'Distribution des coûts'}
+          </h3>
+          <button
+            onClick={() => setShowChart((v) => !v)}
+            className="p-2 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+            title={showChart ? (t('hideChart') || 'Masquer le graphique') : (t('showChart') || 'Afficher le graphique')}
+            aria-label="Toggle chart"
+          >
+            {showChart ? (
+              <ChevronUp size={18} className="text-neutral-600 dark:text-neutral-400" />
+            ) : (
+              <ChevronDown size={18} className="text-neutral-600 dark:text-neutral-400" />
+            )}
+          </button>
+        </div>
+        {showChart && (
+          <div className="h-64 bg-neutral-50 dark:bg-[#0a0a0a] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
+            {filteredItems.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
+                {t('noItemsWithRecipes') || 'Aucun article avec une recette.'}
+              </div>
+            ) : (
+              <div className="h-full flex items-stretch justify-around gap-2">
+                {filteredItems.map((e) => {
+                  const heightPercent = Math.max(5, Math.min(100, (e.foodCostPercent / 50) * 100));
+                  return (
+                    <div key={e.item.id} className="flex-1 flex flex-col justify-end gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => selectItem(e)}
+                        title={`${e.item.name}: ${e.foodCostPercent.toFixed(1)}%`}
+                        style={{ height: `${heightPercent}%` }}
                         className={`w-full rounded-t-lg transition-all cursor-pointer hover:opacity-80 ${
                           e.status === 'Critique'
                             ? 'bg-gradient-to-t from-red-500 to-red-400'
@@ -383,18 +397,17 @@ export default function FoodCostPage() {
                               ? 'bg-gradient-to-t from-orange-500 to-orange-400'
                               : 'bg-gradient-to-t from-green-500 to-green-400'
                         }`}
-                        style={{ height: `${heightPercent}%` }}
                       />
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate w-full text-center">
+                        {e.foodCostPercent.toFixed(0)}%
+                      </span>
                     </div>
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate w-full text-center">
-                      {e.foodCostPercent.toFixed(0)}%
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content — Figma:172 */}
