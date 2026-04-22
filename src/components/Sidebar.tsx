@@ -113,19 +113,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       icon: MenuIcon,
       perm: ['menu.view', 'menu.edit'],
       clickHref: `${base}/menu/items`,
-      subItems: [{ href: `${base}/menu/menus`, labelKey: 'menus' }],
-      subGroups: [
-        {
-          labelKey: 'articlesGroup',
-          items: [
-            { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
-            { href: `${base}/menu/categories`, labelKey: 'categories' },
-            { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
-            { href: `${base}/menu/options`, labelKey: 'options' },
-            { href: `${base}/menu/rotation`, labelKey: 'rotation' },
-            { href: `${base}/menu/import`, labelKey: 'aiImport' },
-          ],
-        },
+      // Flattened — no "Articles" subtitle/group header in the sidebar.
+      // Rotation + AI Import routes removed (not in use).
+      subItems: [
+        { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
+        { href: `${base}/menu/menus`, labelKey: 'menus' },
+        { href: `${base}/menu/categories`, labelKey: 'categories' },
+        { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
+        { href: `${base}/menu/options`, labelKey: 'options' },
       ],
     },
     {
@@ -135,7 +130,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['kitchen.view', 'kitchen.manage'],
       subItems: [
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
-        { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
+        // { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
+        // Recipes page is hidden for now — per-item recipes are edited inside the menu item Recette tab.
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
         { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
         { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations' },
