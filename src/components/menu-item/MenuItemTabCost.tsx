@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertCircle, FlaskConical, Package } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -69,6 +69,24 @@ export default function MenuItemTabCost({
   // Item price shown for the active variant — falls back to the base item price.
   const effectivePrice = activeVariant?.price ?? price;
 
+  // HT/TTC (ex-VAT / inc-VAT) display toggle — mirrors the stock page pattern
+  // so the user has one mental model across cost tooling. Persisted per-user.
+  const [vatDisplayMode, setVatDisplayMode] = useState<'ex' | 'inc'>('ex');
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('foody.cost.vatDisplay');
+      if (v === 'ex' || v === 'inc') setVatDisplayMode(v);
+    } catch { /* ignore */ }
+  }, []);
+  const toggleVatDisplay = () => {
+    setVatDisplayMode((prev) => {
+      const next = prev === 'ex' ? 'inc' : 'ex';
+      try { localStorage.setItem('foody.cost.vatDisplay', next); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const showCostsExVat = vatDisplayMode === 'ex';
+
   const summary = useMemo(
     () =>
       computeItemCostSummary({
@@ -76,10 +94,10 @@ export default function MenuItemTabCost({
         ingredients,
         overrides: itemOptionOverrides,
         vatRate,
-        showCostsExVat: true,
+        showCostsExVat,
         variantId: variantId || undefined,
       }),
-    [item, ingredients, itemOptionOverrides, vatRate, variantId],
+    [item, ingredients, itemOptionOverrides, vatRate, variantId, showCostsExVat],
   );
 
   const over = summary.costPct > COST_THRESHOLD;
@@ -109,11 +127,47 @@ export default function MenuItemTabCost({
 
   return (
     <div className="max-w-5xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-6 bg-orange-500 rounded-full" />
-        <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-          {t('tabCost')}
-        </h3>
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-6 bg-orange-500 rounded-full" />
+          <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+            {t('tabCost')}
+          </h3>
+        </div>
+
+        {/* HT / TTC toggle — switches all cost figures between ex-VAT and
+            inc-VAT. Persisted in localStorage so the choice sticks across
+            navigations. Segmented control matches the Figma rounded-pill UX. */}
+        <div
+          role="group"
+          aria-label={t('showExVat') || 'Affichage TVA'}
+          className="inline-flex items-center bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg p-0.5"
+        >
+          <button
+            type="button"
+            onClick={() => vatDisplayMode !== 'ex' && toggleVatDisplay()}
+            aria-pressed={vatDisplayMode === 'ex'}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+              vatDisplayMode === 'ex'
+                ? 'bg-orange-500 text-white shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            {t('exVat') || 'HT'}
+          </button>
+          <button
+            type="button"
+            onClick={() => vatDisplayMode !== 'inc' && toggleVatDisplay()}
+            aria-pressed={vatDisplayMode === 'inc'}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+              vatDisplayMode === 'inc'
+                ? 'bg-orange-500 text-white shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            {t('incVat') || 'TTC'}
+          </button>
+        </div>
       </div>
 
       {/* Variant pills — switch the portion the cost math uses. Shown when
@@ -393,7 +447,7 @@ export default function MenuItemTabCost({
           item={item}
           portion={resolvePortion(item, variants, variantId)}
           optionId={null}
-          showExVat={true}
+          showExVat={showCostsExVat}
           restaurantRate={vatRate}
           onClose={() => setBreakdownIng(null)}
           t={t}
@@ -405,7 +459,7 @@ export default function MenuItemTabCost({
           displayPrice={effectivePrice}
           displayCost={summary.foodCost}
           costPct={summary.costPct}
-          showCostsExVat={true}
+          showCostsExVat={showCostsExVat}
           vatRate={vatRate}
           onClose={() => setShowCostPctBreakdown(false)}
         />
