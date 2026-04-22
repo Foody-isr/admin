@@ -8,7 +8,7 @@ import {
   OptionSet, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { X, Plus, Trash2 } from 'lucide-react';
 
 /* ── Local row state (not yet persisted) ─────────────────────────── */
 
@@ -247,133 +247,187 @@ export default function VariantsEditorPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-50 dark:bg-[#0a0a0a]">
+        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--surface)] overflow-y-auto">
-      <div className="sticky top-0 z-10 bg-[var(--surface)] border-b border-[var(--divider)] px-6 py-3 flex items-center justify-between">
-        <button onClick={handleClose}
-          className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-          <XMarkIcon className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-neutral-50 dark:bg-[#0a0a0a] overflow-y-auto">
+      {/* Sticky header — MenuItemShell parity */}
+      <div className="sticky top-0 z-10 bg-white dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
+        <button
+          onClick={handleClose}
+          aria-label={t('cancel')}
+          className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
+        >
+          <X size={20} className="text-neutral-600 dark:text-neutral-400" />
         </button>
-        <span className="text-sm font-bold text-fg-primary">{t('addVariants')}</span>
-        <button onClick={handleSave} disabled={saving}
-          className="btn-primary text-sm px-5 py-2 rounded-full disabled:opacity-50">
-          {saving ? t('saving') : t('done')}
-        </button>
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
+          {t('addVariants')}
+        </h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-6 py-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors font-medium"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? t('saving') : t('done')}
+          </button>
+        </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {groups.map((g, gi) => (
-          <div key={g.key} className="space-y-4">
-            {/* Group title with option set dropdown */}
-            <div className="relative">
+          <section key={g.key} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+            {/* Group title with option-set autocomplete */}
+            <div className="p-5 border-b border-neutral-200 dark:border-neutral-700 relative">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+                {t('variantGroupTitle')}
+              </label>
               <input
                 value={g.title}
                 onChange={(e) => updateGroup(g.key, { title: e.target.value, optionSetId: undefined })}
                 onFocus={() => setDropdownGroupIdx(gi)}
                 onBlur={() => setTimeout(() => setDropdownGroupIdx(null), 200)}
                 placeholder={t('variantGroupTitle')}
-                className="input w-full text-base"
+                className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
               />
               {dropdownGroupIdx === gi && allOptionSets.length > 0 && (
-                <div className="absolute left-0 top-full mt-1 z-30 w-80 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-                  <div className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-fg-tertiary border-b border-[var(--divider)]">
+                <div className="absolute left-5 right-5 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
+                  <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-[#0f0f0f] border-b border-neutral-200 dark:border-neutral-700">
                     {t('savedOptionSets') || 'Saved option sets'}
                   </div>
                   {allOptionSets
                     .filter((os) => !g.title || os.name.toLowerCase().includes(g.title.toLowerCase()))
                     .map((os) => (
-                    <button key={os.id}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => applyOptionSet(g.key, os)}
-                      className="w-full text-left px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors">
-                      <span className="text-sm font-medium text-fg-primary">{os.name}</span>
-                      <p className="text-xs text-fg-tertiary">
-                        {(os.options ?? []).map((o) => o.name).join(', ')}
-                      </p>
-                    </button>
-                  ))}
+                      <button
+                        key={os.id}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyOptionSet(g.key, os)}
+                        className="w-full text-left px-4 py-3 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                      >
+                        <span className="text-sm font-medium text-neutral-900 dark:text-white">{os.name}</span>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          {(os.options ?? []).map((o) => o.name).join(', ')}
+                        </p>
+                      </button>
+                    ))}
                 </div>
               )}
             </div>
 
             {/* Variants table */}
-            <div className="rounded-xl border border-[var(--divider)] overflow-hidden">
-              <div className="grid text-xs font-medium text-fg-tertiary uppercase tracking-wide px-4 py-2.5 border-b-2 border-fg-primary"
-                style={{ gridTemplateColumns: '1fr 100px 100px 100px 36px' }}>
+            <div>
+              <div
+                className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0f0f0f] border-b border-neutral-200 dark:border-neutral-700"
+                style={{ gridTemplateColumns: '1fr 150px 110px 120px 36px' }}
+              >
                 <span>{t('variantName')}</span>
-                <span>{t('price')}</span>
                 <span>{t('portionSize')}</span>
+                <span className="text-right">{t('price')}</span>
                 <span>{t('status')}</span>
                 <span />
               </div>
 
               {g.rows.map((row) => (
-                <div key={row.key} className="border-b border-[var(--divider)] last:border-b-0">
-                  <div className="grid items-center px-4 py-2.5 hover:bg-[var(--surface-subtle)] transition-colors"
-                    style={{ gridTemplateColumns: '1fr 100px 100px 100px 36px' }}>
-                    <input value={row.name}
-                      onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
-                      placeholder={t('variantName')}
-                      className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
-                    <input type="number" min="0" step="0.01"
-                      value={row.price}
-                      onChange={(e) => updateRow(g.key, row.key, { price: e.target.value })}
-                      placeholder="0.00"
-                      className="text-sm bg-transparent border-0 outline-none text-fg-primary pr-2" />
-                    <div className="flex items-center gap-1">
-                      <input type="number" min="0" step="any"
-                        value={row.portionSize}
-                        onChange={(e) => updateRow(g.key, row.key, { portionSize: e.target.value })}
-                        placeholder="0"
-                        className="text-sm bg-transparent border-0 outline-none text-fg-secondary w-14" />
-                      <select value={row.portionSizeUnit}
-                        onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
-                        className="text-xs bg-transparent border-0 outline-none text-fg-tertiary w-12">
-                        <option value="unit">unit</option>
-                        <option value="g">g</option><option value="kg">kg</option>
-                        <option value="ml">ml</option><option value="l">l</option>
-                      </select>
-                    </div>
-                    <select value={row.isActive ? 'active' : 'inactive'}
-                      onChange={(e) => updateRow(g.key, row.key, { isActive: e.target.value === 'active' })}
-                      className="text-xs bg-transparent border-0 outline-none text-fg-secondary">
-                      <option value="active">{t('available')}</option>
-                      <option value="inactive">{t('unavailable')}</option>
+                <div
+                  key={row.key}
+                  className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#0f0f0f] transition-colors"
+                  style={{ gridTemplateColumns: '1fr 150px 110px 120px 36px' }}
+                >
+                  <input
+                    value={row.name}
+                    onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
+                    placeholder={t('variantName')}
+                    className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={row.portionSize}
+                      onChange={(e) => updateRow(g.key, row.key, { portionSize: e.target.value })}
+                      placeholder="0"
+                      className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300 w-16"
+                    />
+                    <select
+                      value={row.portionSizeUnit}
+                      onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
+                      className="text-xs bg-transparent border-0 outline-none text-neutral-500 dark:text-neutral-400 w-14"
+                    >
+                      <option value="unit">unit</option>
+                      <option value="g">g</option>
+                      <option value="kg">kg</option>
+                      <option value="ml">ml</option>
+                      <option value="l">l</option>
                     </select>
-                    <button onClick={() => removeRow(g.key, row.key)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-fg-tertiary hover:text-red-400 transition-colors">
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
                   </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.price}
+                    onChange={(e) => updateRow(g.key, row.key, { price: e.target.value })}
+                    placeholder="0.00"
+                    className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+                  />
+                  <select
+                    value={row.isActive ? 'active' : 'inactive'}
+                    onChange={(e) => updateRow(g.key, row.key, { isActive: e.target.value === 'active' })}
+                    className="text-xs bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+                  >
+                    <option value="active">{t('available')}</option>
+                    <option value="inactive">{t('unavailable')}</option>
+                  </select>
+                  <button
+                    onClick={() => removeRow(g.key, row.key)}
+                    className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    title={t('delete')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
 
-              <button onClick={() => addRow(g.key)}
-                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-brand-500 hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]">
-                <PlusIcon className="w-4 h-4" />
+              <button
+                onClick={() => addRow(g.key)}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-t border-neutral-200 dark:border-neutral-700"
+              >
+                <Plus size={16} />
                 {t('addVariant')}
               </button>
             </div>
 
             {/* Remove group */}
             {groups.length > 1 && (
-              <button onClick={() => removeGroup(g.key)}
-                className="text-sm text-red-500 hover:text-red-600 font-medium hover:underline">
-                {t('remove')}
-              </button>
+              <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
+                <button
+                  onClick={() => removeGroup(g.key)}
+                  className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"
+                >
+                  {t('remove')}
+                </button>
+              </div>
             )}
-          </div>
+          </section>
         ))}
 
-        <button onClick={addGroup}
-          className="flex items-center gap-2 text-base font-medium text-fg-primary underline">
-          <PlusIcon className="w-4 h-4" />
+        <button
+          onClick={addGroup}
+          className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors border-2 border-dashed border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 w-full justify-center"
+        >
+          <Plus size={16} />
           {t('addAnotherSet')}
         </button>
       </div>

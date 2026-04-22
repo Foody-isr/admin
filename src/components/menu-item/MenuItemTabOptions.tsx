@@ -50,9 +50,23 @@ export default function MenuItemTabOptions({
   const modifiers = item.modifiers ?? [];
   const variantGroups = item.variant_groups ?? [];
 
-  const overridePriceFor = (optionId: number): number | undefined => {
-    const o = itemOptionOverrides.find((ov) => ov.option_id === optionId);
-    return o?.price ?? undefined;
+  const overrideFor = (optionId: number): ItemOptionOverride | undefined =>
+    itemOptionOverrides.find((ov) => ov.option_id === optionId);
+
+  // "value" = portion + SKU, shown as a subtitle under the variant/option name
+  // so the user sees the concrete quantity the variant represents (e.g.
+  // "250 g • SKU-S"), not just the label + price.
+  const formatValueSubtitle = (
+    portionSize?: number | null,
+    portionUnit?: string | null,
+    sku?: string | null,
+  ): string | null => {
+    const bits: string[] = [];
+    if (portionSize != null && portionSize > 0) {
+      bits.push(`${portionSize} ${portionUnit || 'g'}`);
+    }
+    if (sku && sku.trim()) bits.push(sku.trim());
+    return bits.length > 0 ? bits.join(' \u2022 ') : null;
   };
 
   return (
@@ -206,26 +220,29 @@ export default function MenuItemTabOptions({
                 </div>
               </div>
               <div className="space-y-2">
-                {(group.variants ?? []).map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center justify-between p-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
-                  >
-                    <div>
-                      <span className="font-medium text-neutral-900 dark:text-white">
-                        {v.name}
+                {(group.variants ?? []).map((v) => {
+                  const subtitle = formatValueSubtitle(v.portion_size, v.portion_size_unit, v.sku);
+                  return (
+                    <div
+                      key={v.id}
+                      className="flex items-center justify-between p-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
+                    >
+                      <div>
+                        <span className="font-medium text-neutral-900 dark:text-white">
+                          {v.name}
+                        </span>
+                        {subtitle && (
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                            {subtitle}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-semibold text-neutral-900 dark:text-white">
+                        {(v.price ?? 0).toFixed(2)} ₪
                       </span>
-                      {v.portion_size != null && (
-                        <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                          {v.portion_size} {v.portion_size_unit}
-                        </p>
-                      )}
                     </div>
-                    <span className="font-semibold text-neutral-900 dark:text-white">
-                      {(v.price ?? 0).toFixed(2)} ₪
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -259,7 +276,13 @@ export default function MenuItemTabOptions({
               </div>
               <div className="space-y-2">
                 {(set.options ?? []).map((o) => {
-                  const override = overridePriceFor(o.id);
+                  const ov = overrideFor(o.id);
+                  const subtitle = formatValueSubtitle(
+                    ov?.portion_size,
+                    ov?.portion_size_unit,
+                    ov?.sku || o.sku,
+                  );
+                  const displayPrice = ov?.price ?? o.price ?? 0;
                   return (
                     <div
                       key={o.id}
@@ -269,14 +292,14 @@ export default function MenuItemTabOptions({
                         <span className="font-medium text-neutral-900 dark:text-white">
                           {o.name}
                         </span>
-                        {o.sku && (
+                        {subtitle && (
                           <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                            {o.sku}
+                            {subtitle}
                           </p>
                         )}
                       </div>
                       <span className="font-semibold text-neutral-900 dark:text-white">
-                        {(override ?? o.price ?? 0).toFixed(2)} ₪
+                        {displayPrice.toFixed(2)} ₪
                       </span>
                     </div>
                   );
