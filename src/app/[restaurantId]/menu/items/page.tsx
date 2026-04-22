@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
+import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
@@ -76,6 +77,10 @@ export default function ItemLibraryPage() {
     mode: 'filter',
   });
   const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // KPI collapse + info modal — Figma App.tsx:552, 570
+  const [showKpis, setShowKpis] = useState(true);
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   // Sort
   type SortKey = 'name' | 'price';
@@ -319,19 +324,39 @@ export default function ItemLibraryPage() {
               {t('articlesSubtitle') || 'Gérez votre catalogue de produits'}
             </p>
           </div>
-          <button
-            onClick={() => router.push(`/${rid}/menu/items/new`)}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
-          >
-            <Plus size={20} />
-            {t('createItem')}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowKpis((v) => !v)}
+              className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+              aria-label="Toggle KPIs"
+            >
+              {showKpis ? (
+                <ChevronUp size={20} className="text-neutral-600 dark:text-neutral-400" />
+              ) : (
+                <ChevronDown size={20} className="text-neutral-600 dark:text-neutral-400" />
+              )}
+            </button>
+            <button
+              onClick={() => router.push(`/${rid}/menu/items/new`)}
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
+            >
+              <Plus size={20} />
+              {t('createItem')}
+            </button>
+          </div>
         </div>
 
         {/* KPI row */}
-        <div className="mb-6">
-          <ArticlesKpiRow items={allItems} categoriesCount={categories.length} />
-        </div>
+        {showKpis && (
+          <div className="mb-6">
+            <ArticlesKpiRow
+              items={allItems}
+              categoriesCount={categories.length}
+              onKpiClick={setSelectedKpi}
+            />
+          </div>
+        )}
 
         {/* Bulk selection toolbar — Figma App.tsx:497-523 */}
         {selectionCount > 0 && (
@@ -848,6 +873,11 @@ export default function ItemLibraryPage() {
       />
 
       {/* Filters Drawer (nested: index → category / status) */}
+      <KPIInfoModal
+        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
+        onClose={() => setSelectedKpi(null)}
+      />
+
       <StockFiltersDrawer
         open={filtersDrawer.open}
         initialView={filtersDrawer.view}

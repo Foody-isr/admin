@@ -13,9 +13,19 @@ import type { MenuItem } from '@/lib/api';
 interface Props {
   items: MenuItem[];
   categoriesCount: number;
+  onKpiClick: (key: string) => void;
 }
 
-export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCount }: Props) {
+type Kpi = {
+  key: string;
+  title: string;
+  value: string;
+  icon: LucideIcon;
+  change: string;
+  positive: boolean;
+};
+
+export default function ArticlesKpiRow({ items, categoriesCount: _c, onKpiClick }: Props) {
   const { t } = useI18n();
 
   const total = items.length;
@@ -25,16 +35,9 @@ export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCoun
   const avgPrice =
     total > 0 ? items.reduce((sum, i) => sum + (i.price ?? 0), 0) / total : 0;
 
-  type Kpi = {
-    title: string;
-    value: string;
-    icon: LucideIcon;
-    change: string;
-    positive: boolean;
-  };
-
   const kpis: Kpi[] = [
     {
+      key: 'total-articles',
       title: t('kpiTotalItems'),
       value: String(total),
       icon: ShoppingBag,
@@ -42,6 +45,7 @@ export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCoun
       positive: true,
     },
     {
+      key: 'disponibles',
       title: t('kpiActiveItems'),
       value: String(available),
       icon: CheckCircle,
@@ -49,6 +53,7 @@ export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCoun
       positive: activePct >= 80,
     },
     {
+      key: 'revenu-moyen',
       title: t('kpiAvgPrice'),
       value: `₪${avgPrice.toFixed(2)}`,
       icon: DollarSign,
@@ -56,6 +61,7 @@ export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCoun
       positive: true,
     },
     {
+      key: 'rupture-stock',
       title: t('kpiUnavailable'),
       value: String(unavailable),
       icon: AlertCircle,
@@ -67,9 +73,11 @@ export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCoun
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {kpis.map((kpi) => (
-        <div
-          key={kpi.title}
-          className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg transition-all"
+        <button
+          key={kpi.key}
+          onClick={() => onKpiClick(kpi.key)}
+          title="Cliquez pour plus d'informations"
+          className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
@@ -93,7 +101,7 @@ export default function ArticlesKpiRow({ items, categoriesCount: _categoriesCoun
           <p className="text-2xl font-bold text-neutral-900 dark:text-white">
             {kpi.value}
           </p>
-        </div>
+        </button>
       ))}
     </div>
   );

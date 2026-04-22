@@ -12,12 +12,13 @@ import {
 import RecipeImportModal from '../RecipeImportModal';
 import {
   DollarSign, TrendingDown, TrendingUp, AlertCircle,
-  ChevronDown, Search, Sparkles,
+  ChevronDown, ChevronUp, Search, Sparkles,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
+import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 
 // Figma page: foodyadmin_figma/src/app/pages/cuisine/foodcost.tsx
 // We replace the Figma mock data with real cost math via computeItemCostSummary.
@@ -79,6 +80,8 @@ export default function FoodCostPage() {
   const [sortBy, setSortBy] = useState<SortOption>('cost-high');
   const [vatRate, setVatRate] = useState(18);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showKpis, setShowKpis] = useState(true);
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   // Enriched cache: item id → computed cost summary. Keyed by item to avoid
   // re-fetching ingredients for every item in the list (we only pull
@@ -251,62 +254,96 @@ export default function FoodCostPage() {
               {t('foodCostSubtitle') || 'Analysez les coûts alimentaires de vos recettes'}
             </p>
           </div>
+          <button
+            onClick={() => setShowKpis((v) => !v)}
+            className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+            title={showKpis ? 'Masquer les KPIs' : 'Afficher les KPIs'}
+            aria-label="Toggle KPIs"
+          >
+            {showKpis ? (
+              <ChevronUp size={20} className="text-neutral-600 dark:text-neutral-400" />
+            ) : (
+              <ChevronDown size={20} className="text-neutral-600 dark:text-neutral-400" />
+            )}
+          </button>
         </div>
 
         {/* KPIs — Figma:96 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
-                <DollarSign size={24} />
+        {showKpis && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('food-cost-moyen')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4 hover:shadow-lg hover:border-orange-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
+                  <DollarSign size={24} />
+                </div>
               </div>
-            </div>
-            <h3 className="text-orange-800 dark:text-orange-300 text-sm mb-1">
-              {t('avgCostPct') || '% Coût Moyen'}
-            </h3>
-            <p className="text-2xl font-bold text-orange-900 dark:text-orange-200">
-              {averageFoodCost.toFixed(1)}%
-            </p>
-          </div>
+              <h3 className="text-orange-800 dark:text-orange-300 text-sm mb-1">
+                {t('avgCostPct') || '% Coût Moyen'}
+              </h3>
+              <p className="text-2xl font-bold text-orange-900 dark:text-orange-200">
+                {averageFoodCost.toFixed(1)}%
+              </p>
+            </button>
 
-          <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-700 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="size-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-red-500/25">
-                <AlertCircle size={24} />
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('articles-critiques')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-700 rounded-xl p-4 hover:shadow-lg hover:border-red-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-red-500/25">
+                  <AlertCircle size={24} />
+                </div>
               </div>
-            </div>
-            <h3 className="text-red-800 dark:text-red-300 text-sm mb-1">
-              {t('criticalItems') || 'Articles Critiques'}
-            </h3>
-            <p className="text-2xl font-bold text-red-900 dark:text-red-200">{criticalItems}</p>
-          </div>
+              <h3 className="text-red-800 dark:text-red-300 text-sm mb-1">
+                {t('criticalItems') || 'Articles Critiques'}
+              </h3>
+              <p className="text-2xl font-bold text-red-900 dark:text-red-200">{criticalItems}</p>
+            </button>
 
-          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-700 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="size-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white shadow-lg shadow-green-500/25">
-                <TrendingUp size={24} />
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('marge-totale')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-700 rounded-xl p-4 hover:shadow-lg hover:border-green-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white shadow-lg shadow-green-500/25">
+                  <TrendingUp size={24} />
+                </div>
               </div>
-            </div>
-            <h3 className="text-green-800 dark:text-green-300 text-sm mb-1">
-              {t('totalMargin') || 'Marge Totale'}
-            </h3>
-            <p className="text-2xl font-bold text-green-900 dark:text-green-200">
-              {totalMargin.toFixed(2)} ₪
-            </p>
-          </div>
+              <h3 className="text-green-800 dark:text-green-300 text-sm mb-1">
+                {t('totalMargin') || 'Marge Totale'}
+              </h3>
+              <p className="text-2xl font-bold text-green-900 dark:text-green-200">
+                {totalMargin.toFixed(2)} ₪
+              </p>
+            </button>
 
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="size-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
-                <TrendingDown size={24} />
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('articles-optimaux')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 hover:shadow-lg hover:border-blue-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="size-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
+                  <TrendingDown size={24} />
+                </div>
               </div>
-            </div>
-            <h3 className="text-blue-800 dark:text-blue-300 text-sm mb-1">
-              {t('optimalItems') || 'Articles Optimaux'}
-            </h3>
-            <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{goodItems}</p>
+              <h3 className="text-blue-800 dark:text-blue-300 text-sm mb-1">
+                {t('optimalItems') || 'Articles Optimaux'}
+              </h3>
+              <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{goodItems}</p>
+            </button>
           </div>
-        </div>
+        )}
       </header>
 
       {/* Chart Section — Figma:140 */}
@@ -618,6 +655,11 @@ export default function FoodCostPage() {
       </div>
 
       {/* Recipe Import Modal */}
+      <KPIInfoModal
+        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
+        onClose={() => setSelectedKpi(null)}
+      />
+
       {showImportModal && selectedItem && (
         <RecipeImportModal
           rid={rid}

@@ -12,9 +12,10 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  DollarSign, ShoppingBag, Users, TrendingUp, Plus, Edit,
+  DollarSign, ShoppingBag, Users, TrendingUp, Plus, Edit, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import AiPromptBar from './AiPromptBar';
+import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 
 // Figma page: foodyadmin_figma/src/app/pages/dashboard/page.tsx
 // Layout + classes ported verbatim; KPI numbers come from real analytics.
@@ -30,6 +31,8 @@ export default function DashboardPage() {
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<'today' | 'week' | 'month'>('today');
+  const [showKpis, setShowKpis] = useState(true);
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -102,6 +105,18 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowKpis((v) => !v)}
+              className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+              title={showKpis ? 'Masquer les KPIs' : 'Afficher les KPIs'}
+              aria-label="Toggle KPIs"
+            >
+              {showKpis ? (
+                <ChevronUp size={20} className="text-neutral-600 dark:text-neutral-400" />
+              ) : (
+                <ChevronDown size={20} className="text-neutral-600 dark:text-neutral-400" />
+              )}
+            </button>
             <select
               value={range}
               onChange={(e) => setRange(e.target.value as 'today' | 'week' | 'month')}
@@ -121,76 +136,104 @@ export default function DashboardPage() {
         </div>
 
         {/* 4 KPI cards — Figma:32 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Revenue — gradient orange */}
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="size-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <DollarSign size={24} />
+        {showKpis && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Revenue — gradient orange */}
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('revenue')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <DollarSign size={24} />
+                </div>
+                <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                  {revChange >= 0 ? '+' : ''}
+                  {revChange.toFixed(1)}%
+                </span>
               </div>
-              <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                {revChange >= 0 ? '+' : ''}
-                {revChange.toFixed(1)}%
-              </span>
-            </div>
-            <p className="text-white/80 text-sm mb-1">
-              {t('revenue') || "Chiffre d'affaires"}
-            </p>
-            <p className="text-3xl font-bold">₪{revenue.toFixed(2)}</p>
-          </div>
+              <p className="text-white/80 text-sm mb-1">
+                {t('revenue') || "Chiffre d'affaires"}
+              </p>
+              <p className="text-3xl font-bold">₪{revenue.toFixed(2)}</p>
+            </button>
 
-          {/* Orders */}
-          <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="size-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                <ShoppingBag size={24} className="text-blue-600 dark:text-blue-400" />
+            {/* Orders */}
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('orders')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <ShoppingBag size={24} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className={`text-sm font-medium ${orderChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {orderChange >= 0 ? '+' : ''}
+                  {orderChange.toFixed(1)}%
+                </span>
               </div>
-              <span className={`text-sm font-medium ${orderChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {orderChange >= 0 ? '+' : ''}
-                {orderChange.toFixed(1)}%
-              </span>
-            </div>
-            <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              {t('orders') || 'Commandes'}
-            </p>
-            <p className="text-3xl font-bold text-neutral-900 dark:text-white">{orders}</p>
-          </div>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
+                {t('orders') || 'Commandes'}
+              </p>
+              <p className="text-3xl font-bold text-neutral-900 dark:text-white">{orders}</p>
+            </button>
 
-          {/* Customers */}
-          <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="size-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                <Users size={24} className="text-purple-600 dark:text-purple-400" />
+            {/* Customers */}
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('customers')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                  <Users size={24} className="text-purple-600 dark:text-purple-400" />
+                </div>
+                <span className="text-sm text-neutral-500 dark:text-neutral-400 font-medium">—</span>
               </div>
-              <span className="text-sm text-neutral-500 dark:text-neutral-400 font-medium">—</span>
-            </div>
-            <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              {t('customers') || 'Clients'}
-            </p>
-            <p className="text-3xl font-bold text-neutral-900 dark:text-white">
-              {topSellers.length > 0 ? topSellers.reduce((s, x) => s + x.quantity, 0) : 0}
-            </p>
-          </div>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
+                {t('customers') || 'Clients'}
+              </p>
+              <p className="text-3xl font-bold text-neutral-900 dark:text-white">
+                {topSellers.length > 0 ? topSellers.reduce((s, x) => s + x.quantity, 0) : 0}
+              </p>
+            </button>
 
-          {/* Avg Ticket */}
-          <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="size-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                <TrendingUp size={24} className="text-green-600 dark:text-green-400" />
+            {/* Avg Ticket */}
+            <button
+              type="button"
+              onClick={() => setSelectedKpi('average-ticket')}
+              title="Cliquez pour plus d'informations"
+              className="text-left bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                  <TrendingUp size={24} className="text-green-600 dark:text-green-400" />
+                </div>
+                <span className={`text-sm font-medium ${ticketChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {ticketChange >= 0 ? '+' : ''}
+                  {ticketChange.toFixed(1)}%
+                </span>
               </div>
-              <span className={`text-sm font-medium ${ticketChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {ticketChange >= 0 ? '+' : ''}
-                {ticketChange.toFixed(1)}%
-              </span>
-            </div>
-            <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-              {t('avgTicket') || 'Ticket moyen'}
-            </p>
-            <p className="text-3xl font-bold text-neutral-900 dark:text-white">
-              ₪{avgTicket.toFixed(2)}
-            </p>
+              <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
+                {t('avgTicket') || 'Ticket moyen'}
+              </p>
+              <p className="text-3xl font-bold text-neutral-900 dark:text-white">
+                ₪{avgTicket.toFixed(2)}
+              </p>
+            </button>
           </div>
-        </div>
+        )}
+
+        {/* KPI info modal */}
+        <KPIInfoModal
+          kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
+          onClose={() => setSelectedKpi(null)}
+        />
 
         {/* Main grid — Figma:82 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

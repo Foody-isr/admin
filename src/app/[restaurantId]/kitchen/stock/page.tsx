@@ -30,10 +30,12 @@ import {
   ExclamationTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
   SparklesIcon, ClockIcon, ArrowPathIcon,
-  ChevronDownIcon, ChevronUpIcon, PhotoIcon, ArrowUpTrayIcon,
+  ChevronDownIcon, ChevronUpIcon, PhotoIcon, ArrowUpTrayIcon, InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
+import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useI18n } from '@/lib/i18n';
 import {
   getPackaging,
@@ -272,6 +274,9 @@ export default function StockPage() {
     );
   }
 
+  const [showKpis, setShowKpis] = useState(true);
+  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+
   // Figma KPIs — computed from real stock data
   const stockOk = items.filter((i) => (i.quantity ?? 0) > (i.reorder_threshold ?? 0)).length;
   const stockLow = items.filter(
@@ -311,22 +316,58 @@ export default function StockPage() {
               {t('stockSubtitle') || "Gérez votre inventaire d'ingrédients"}
             </p>
           </div>
-          <button
-            onClick={() => setItemModal({ open: true })}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
-          >
-            <PlusIcon className="w-5 h-5" />
-            {t('addItem')}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowKpis((v) => !v)}
+              className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+              aria-label="Toggle KPIs"
+            >
+              {showKpis ? (
+                <ChevronUpIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+              ) : (
+                <ChevronDownIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+              )}
+            </button>
+            <button
+              onClick={() => setItemModal({ open: true })}
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
+            >
+              <PlusIcon className="w-5 h-5" />
+              {t('addItem')}
+            </button>
+          </div>
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <KpiCard title={t('itemsInStock') || 'Articles en stock'} value={String(items.length)} />
-          <KpiCard title={t('statusOk') || 'Statut OK'} value={String(stockOk)} />
-          <KpiCard title={t('totalValue') || 'Valeur totale'} value={`${totalValue.toFixed(2)} ₪`} />
-          <KpiCard title={t('stockAlerts') || 'Alertes stock'} value={String(stockLow)} />
-        </div>
+        {showKpis && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <KpiCard
+              kpiKey="articles-stock"
+              title={t('itemsInStock') || 'Articles en stock'}
+              value={String(items.length)}
+              onClick={setSelectedKpi}
+            />
+            <KpiCard
+              kpiKey="statut-ok"
+              title={t('statusOk') || 'Statut OK'}
+              value={String(stockOk)}
+              onClick={setSelectedKpi}
+            />
+            <KpiCard
+              kpiKey="valeur-totale"
+              title={t('totalValue') || 'Valeur totale'}
+              value={`${totalValue.toFixed(2)} ₪`}
+              onClick={setSelectedKpi}
+            />
+            <KpiCard
+              kpiKey="stock-bas"
+              title={t('stockAlerts') || 'Alertes stock'}
+              value={String(stockLow)}
+              onClick={setSelectedKpi}
+            />
+          </div>
+        )}
 
         {/* Bulk toolbar — Figma-style orange banner when rows are selected. */}
         {selected.size > 0 && (
@@ -465,11 +506,9 @@ export default function StockPage() {
             <thead>
               <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
                 <th className="text-left p-4 w-12">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
-                    onChange={toggleSelectAll}
-                    className="size-5 rounded border-neutral-300 dark:border-neutral-600 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                    onCheckedChange={toggleSelectAll}
                   />
                 </th>
                 <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
@@ -550,11 +589,9 @@ export default function StockPage() {
                     }`}
                   >
                     <td className="p-4">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selected.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        className="size-5 rounded border-neutral-300 dark:border-neutral-600 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                        onCheckedChange={() => toggleSelect(item.id)}
                       />
                     </td>
                     <td className="p-4">
@@ -571,7 +608,7 @@ export default function StockPage() {
                             className="size-12 rounded-xl object-cover shrink-0"
                           />
                         ) : (
-                          <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center shrink-0">
+                          <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
                             <PhotoIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
                           </div>
                         )}
@@ -707,6 +744,11 @@ export default function StockPage() {
         </div>
       )}
 
+      <KPIInfoModal
+        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
+        onClose={() => setSelectedKpi(null)}
+      />
+
       {/* Stock Item Modal */}
       {itemModal.open && (
         <StockItemModal
@@ -807,9 +849,24 @@ export default function StockPage() {
   );
 }
 
-function KpiCard({ title, value }: { title: string; value: string }) {
+function KpiCard({
+  kpiKey,
+  title,
+  value,
+  onClick,
+}: {
+  kpiKey: string;
+  title: string;
+  value: string;
+  onClick: (key: string) => void;
+}) {
   return (
-    <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg transition-all">
+    <button
+      type="button"
+      onClick={() => onClick(kpiKey)}
+      title="Cliquez pour plus d'informations"
+      className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer text-left"
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
           <span className="text-sm font-bold">₪</span>
@@ -817,7 +874,7 @@ function KpiCard({ title, value }: { title: string; value: string }) {
       </div>
       <h3 className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">{title}</h3>
       <p className="text-2xl font-bold text-neutral-900 dark:text-white">{value}</p>
-    </div>
+    </button>
   );
 }
 
