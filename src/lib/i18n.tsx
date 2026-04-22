@@ -1463,6 +1463,8 @@ const translations: Record<Locale, Record<string, string>> = {
     savings: 'savings',
     perDish: 'per dish',
     ratioAt: 'ratio at',
+    activePortion: 'Active portion',
+    base: 'Base',
     // ── Stock ──
     stockSubtitle: "Manage your ingredient inventory",
     itemsInStock: 'Items in stock',
@@ -2981,6 +2983,8 @@ const translations: Record<Locale, Record<string, string>> = {
     savings: 'חיסכון',
     perDish: 'למנה',
     ratioAt: 'יחס של',
+    activePortion: 'מנה פעילה',
+    base: 'בסיס',
     // ── Stock ──
     stockSubtitle: 'נהל את מלאי הרכיבים שלך',
     itemsInStock: 'פריטים במלאי',
@@ -4498,6 +4502,8 @@ const translations: Record<Locale, Record<string, string>> = {
     savings: 'économie',
     perDish: 'par plat',
     ratioAt: 'ratio à',
+    activePortion: 'Portion active',
+    base: 'Base',
     // ── Stock ──
     stockSubtitle: "Gérez votre inventaire d'ingrédients",
     itemsInStock: 'Articles en stock',

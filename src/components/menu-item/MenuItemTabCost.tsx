@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n';
 import {
   COST_THRESHOLD,
   computeItemCostSummary,
+  buildVariantOptions,
   resolvePortion,
 } from '@/lib/cost-utils';
 import type {
@@ -52,6 +53,22 @@ export default function MenuItemTabCost({
   const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
   const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
+  // Variant pills — lets the user switch the "portion" the cost math uses.
+  // "" = base recipe (no variant override).
+  const variants = useMemo(
+    () => buildVariantOptions(item, itemOptionOverrides),
+    [item, itemOptionOverrides],
+  );
+  // Default to the first variant that has a portion so the Cost tab opens
+  // on a concrete portion, matching the old panel's UX.
+  const firstVariantWithPortion =
+    variants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? '';
+  const [variantId, setVariantId] = useState<string>(firstVariantWithPortion);
+  const activeVariant = variants.find((v) => v.id === variantId) ?? null;
+
+  // Item price shown for the active variant — falls back to the base item price.
+  const effectivePrice = activeVariant?.price ?? price;
+
   const summary = useMemo(
     () =>
       computeItemCostSummary({
@@ -60,8 +77,9 @@ export default function MenuItemTabCost({
         overrides: itemOptionOverrides,
         vatRate,
         showCostsExVat: true,
+        variantId: variantId || undefined,
       }),
-    [item, ingredients, itemOptionOverrides, vatRate],
+    [item, ingredients, itemOptionOverrides, vatRate, variantId],
   );
 
   const over = summary.costPct > COST_THRESHOLD;
@@ -87,7 +105,7 @@ export default function MenuItemTabCost({
 
   // Price hike example: price needed to land on COST_THRESHOLD (35%).
   const currentPct = summary.costPct * 100;
-  const priceDelta = targetPriceForThreshold - price;
+  const priceDelta = targetPriceForThreshold - effectivePrice;
 
   return (
     <div className="max-w-5xl">
@@ -97,6 +115,58 @@ export default function MenuItemTabCost({
           {t('tabCost')}
         </h3>
       </div>
+
+      {/* Variant pills — switch the portion the cost math uses. Shown when
+          the item has ≥1 variant with a portion (otherwise cost math uses
+          the base item). */}
+      {variants.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+            {t('activePortion') || 'Portion active'}
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setVariantId('')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                variantId === ''
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
+              }`}
+            >
+              {t('base') || 'Base'}
+              {item.portion_size ? (
+                <span className={`ml-1.5 text-xs ${variantId === '' ? 'text-white/80' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                  {item.portion_size} {item.portion_size_unit || 'g'}
+                </span>
+              ) : null}
+            </button>
+            {variants.map((v) => {
+              const active = variantId === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setVariantId(v.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    active
+                      ? 'bg-orange-500 text-white shadow-md'
+                      : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
+                  }`}
+                  title={`${v.name} — ${v.price.toFixed(2)} ₪`}
+                >
+                  {v.name}
+                  {v.portion_size > 0 && (
+                    <span className={`ml-1.5 text-xs ${active ? 'text-white/80' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                      {v.portion_size} {v.portion_size_unit}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 3 KPI cards — all clickable — Figma:653-672 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -321,7 +391,7 @@ export default function MenuItemTabCost({
         <PrepCostBreakdownModal
           ing={breakdownIng}
           item={item}
-          portion={resolvePortion(item, [], '')}
+          portion={resolvePortion(item, variants, variantId)}
           optionId={null}
           showExVat={true}
           restaurantRate={vatRate}
@@ -331,8 +401,8 @@ export default function MenuItemTabCost({
       )}
       {showCostPctBreakdown && (
         <CostPctBreakdownModal
-          itemName={item.name}
-          displayPrice={price}
+          itemName={activeVariant ? `${item.name} — ${activeVariant.name}` : item.name}
+          displayPrice={effectivePrice}
           displayCost={summary.foodCost}
           costPct={summary.costPct}
           showCostsExVat={true}
