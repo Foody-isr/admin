@@ -81,7 +81,7 @@ export default function OptionsPage() {
 
       {/* Empty state */}
       {sets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 px-6 bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
+        <div className="flex flex-col items-center justify-center py-20 px-6 bg-neutral-50 dark:bg-[#111111] rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
           <div className="size-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mb-4">
             <Layers size={24} className="text-orange-500" />
           </div>
@@ -106,7 +106,7 @@ export default function OptionsPage() {
             <div
               key={os.id}
               onClick={() => router.push(`/${rid}/menu/options/${os.id}`)}
-              className="group flex items-center gap-4 p-4 bg-white dark:bg-[#0a0a0a] rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 hover:shadow-md transition-all cursor-pointer"
+              className="group flex items-center gap-4 p-4 bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 hover:shadow-md transition-all cursor-pointer"
             >
               <div className="size-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
                 <Layers size={18} className="text-orange-500" />

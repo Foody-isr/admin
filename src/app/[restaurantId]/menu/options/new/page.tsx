@@ -75,7 +75,7 @@ export default function NewOptionSetPage() {
   return (
     <div className="fixed inset-0 z-50 bg-neutral-50 dark:bg-[#0a0a0a] overflow-y-auto">
       {/* Sticky header — MenuItemShell parity */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
         <button
           onClick={goBack}
           aria-label={t('cancel')}
@@ -114,7 +114,7 @@ export default function NewOptionSetPage() {
               {t('details') || 'Details'}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5">
+          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
               {t('optionSetName')}
             </label>
@@ -123,7 +123,7 @@ export default function NewOptionSetPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder={t('optionSetName')}
               autoFocus
-              className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+              className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
             />
           </div>
         </section>
@@ -136,9 +136,9 @@ export default function NewOptionSetPage() {
               {t('options')}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
             <div
-              className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0f0f0f] border-b border-neutral-200 dark:border-neutral-700"
+              className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
               style={{ gridTemplateColumns: '1fr 140px 110px 36px' }}
             >
               <span>{t('variantName')}</span>
@@ -150,7 +150,7 @@ export default function NewOptionSetPage() {
             {options.map((opt) => (
               <div
                 key={opt.key}
-                className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#0f0f0f] transition-colors"
+                className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
                 style={{ gridTemplateColumns: '1fr 140px 110px 36px' }}
               >
                 <input

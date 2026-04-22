@@ -256,7 +256,7 @@ export default function VariantsEditorPage() {
   return (
     <div className="fixed inset-0 z-50 bg-neutral-50 dark:bg-[#0a0a0a] overflow-y-auto">
       {/* Sticky header — MenuItemShell parity */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
         <button
           onClick={handleClose}
           aria-label={t('cancel')}
@@ -288,7 +288,7 @@ export default function VariantsEditorPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
         {groups.map((g, gi) => (
-          <section key={g.key} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+          <section key={g.key} className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
             {/* Group title with option-set autocomplete */}
             <div className="p-5 border-b border-neutral-200 dark:border-neutral-700 relative">
               <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
@@ -300,11 +300,11 @@ export default function VariantsEditorPage() {
                 onFocus={() => setDropdownGroupIdx(gi)}
                 onBlur={() => setTimeout(() => setDropdownGroupIdx(null), 200)}
                 placeholder={t('variantGroupTitle')}
-                className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
               />
               {dropdownGroupIdx === gi && allOptionSets.length > 0 && (
-                <div className="absolute left-5 right-5 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
-                  <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-[#0f0f0f] border-b border-neutral-200 dark:border-neutral-700">
+                <div className="absolute left-5 right-5 top-full mt-1 z-30 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
+                  <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700">
                     {t('savedOptionSets') || 'Saved option sets'}
                   </div>
                   {allOptionSets
@@ -329,7 +329,7 @@ export default function VariantsEditorPage() {
             {/* Variants table */}
             <div>
               <div
-                className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0f0f0f] border-b border-neutral-200 dark:border-neutral-700"
+                className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
                 style={{ gridTemplateColumns: '1fr 150px 110px 120px 36px' }}
               >
                 <span>{t('variantName')}</span>
@@ -342,7 +342,7 @@ export default function VariantsEditorPage() {
               {g.rows.map((row) => (
                 <div
                   key={row.key}
-                  className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#0f0f0f] transition-colors"
+                  className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
                   style={{ gridTemplateColumns: '1fr 150px 110px 120px 36px' }}
                 >
                   <input
