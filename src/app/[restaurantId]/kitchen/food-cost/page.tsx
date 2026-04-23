@@ -338,57 +338,137 @@ export default function FoodCostPage() {
         )}
       </header>
 
-      {/* Chart Section — Figma:140 */}
+      {/* Chart Section — cost % per item with target line + legend */}
       <div className="px-8 py-6 bg-[var(--surface)] border-b border-[var(--line)]">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
-            {t('costDistribution') || 'Distribution des coûts'}
-          </h3>
-          <button
-            onClick={() => setShowChart((v) => !v)}
-            className="p-2 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-            title={showChart ? (t('hideChart') || 'Masquer le graphique') : (t('showChart') || 'Afficher le graphique')}
-            aria-label="Toggle chart"
-          >
-            {showChart ? (
-              <ChevronUp size={18} className="text-neutral-600 dark:text-neutral-400" />
-            ) : (
-              <ChevronDown size={18} className="text-neutral-600 dark:text-neutral-400" />
-            )}
-          </button>
+        <div className="flex items-center justify-between mb-[var(--s-2)] gap-[var(--s-4)]">
+          <div className="min-w-0">
+            <h3 className="text-fs-lg font-semibold text-[var(--fg)]">
+              {t('costDistribution') || 'Répartition des coûts'}
+            </h3>
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+              {t('costDistributionDesc') ||
+                '% de coût matière par plat · cible 35 %'}
+            </p>
+          </div>
+          <div className="flex items-center gap-[var(--s-4)] shrink-0">
+            {/* Legend */}
+            <div className="hidden md:flex items-center gap-[var(--s-3)] text-fs-xs text-[var(--fg-muted)]">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-[3px] bg-[var(--success-500)]" />
+                {t('good') || 'Bon'} &lt;35 %
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-[3px] bg-[var(--warning-500)]" />
+                {t('warnStatus') || 'Attention'} 35–40 %
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-[3px] bg-[var(--danger-500)]" />
+                {t('critical') || 'Critique'} &gt;40 %
+              </span>
+            </div>
+            <button
+              onClick={() => setShowChart((v) => !v)}
+              className="p-2 border border-[var(--line)] rounded-r-md hover:bg-[var(--surface-2)] transition-colors"
+              title={showChart ? (t('hideChart') || 'Masquer le graphique') : (t('showChart') || 'Afficher le graphique')}
+              aria-label="Toggle chart"
+            >
+              {showChart ? (
+                <ChevronUp size={16} className="text-[var(--fg-muted)]" />
+              ) : (
+                <ChevronDown size={16} className="text-[var(--fg-muted)]" />
+              )}
+            </button>
+          </div>
         </div>
         {showChart && (
-          <div className="h-64 bg-[var(--bg)] rounded-xl border border-[var(--line)] p-4">
+          <div className="h-64 bg-[var(--bg)] rounded-r-lg border border-[var(--line)] p-[var(--s-4)] relative">
             {filteredItems.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
+              <div className="h-full flex items-center justify-center text-fs-sm text-[var(--fg-muted)]">
                 {t('noItemsWithRecipes') || 'Aucun article avec une recette.'}
               </div>
             ) : (
-              <div className="h-full flex items-stretch justify-around gap-2">
-                {filteredItems.map((e) => {
-                  const heightPercent = Math.max(5, Math.min(100, (e.foodCostPercent / 50) * 100));
-                  return (
-                    <div key={e.item.id} className="flex-1 flex flex-col justify-end gap-2 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => selectItem(e)}
-                        title={`${e.item.name}: ${e.foodCostPercent.toFixed(1)}%`}
-                        style={{ height: `${heightPercent}%` }}
-                        className={`w-full rounded-t-lg transition-all cursor-pointer hover:opacity-80 ${
-                          e.status === 'Critique'
-                            ? 'bg-gradient-to-t from-red-500 to-red-400'
-                            : e.status === 'Attention'
-                              ? 'bg-gradient-to-t from-orange-500 to-orange-400'
-                              : 'bg-gradient-to-t from-green-500 to-green-400'
-                        }`}
-                      />
-                      <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate w-full text-center">
-                        {e.foodCostPercent.toFixed(0)}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <>
+                {/* Y-axis gridlines + labels. 0 % at bottom, 50 % at top. */}
+                <div className="absolute inset-[var(--s-4)] pointer-events-none">
+                  {[0, 25, 50, 75, 100].map((pct) => {
+                    // pct of chart height = (1 - value/50) since axis runs 0-50%
+                    const value = Math.round((pct / 100) * 50);
+                    return (
+                      <div
+                        key={pct}
+                        className="absolute inset-x-0 flex items-center"
+                        style={{ top: `${pct}%` }}
+                      >
+                        <span className="text-[10px] font-mono tabular-nums text-[var(--fg-subtle)] w-8 text-right pr-1">
+                          {50 - value}%
+                        </span>
+                        <span className="flex-1 border-t border-dashed border-[var(--line)] opacity-50" />
+                      </div>
+                    );
+                  })}
+                  {/* 35 % target line in brand color */}
+                  <div
+                    className="absolute inset-x-8 flex items-center"
+                    style={{ top: `${((50 - 35) / 50) * 100}%` }}
+                  >
+                    <span
+                      className="flex-1 border-t-2 border-dashed"
+                      style={{ borderColor: 'var(--brand-500)', opacity: 0.7 }}
+                    />
+                    <span
+                      className="text-[10px] font-mono tabular-nums px-1 rounded-[2px] ms-1"
+                      style={{
+                        color: 'var(--brand-500)',
+                        background:
+                          'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                      }}
+                    >
+                      {t('target') || 'Cible'} 35%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bars */}
+                <div className="h-full ps-8 pe-10 flex items-stretch justify-around gap-[var(--s-2)] relative">
+                  {filteredItems.map((e) => {
+                    const heightPercent = Math.max(
+                      3,
+                      Math.min(100, (e.foodCostPercent / 50) * 100),
+                    );
+                    const color =
+                      e.status === 'Critique'
+                        ? 'var(--danger-500)'
+                        : e.status === 'Attention'
+                          ? 'var(--warning-500)'
+                          : 'var(--success-500)';
+                    return (
+                      <div
+                        key={e.item.id}
+                        className="flex-1 flex flex-col justify-end items-center gap-1.5 min-w-0"
+                      >
+                        <span className="text-fs-xs font-mono tabular-nums font-semibold text-[var(--fg)]">
+                          {e.foodCostPercent.toFixed(0)}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => selectItem(e)}
+                          title={`${e.item.name}: ${e.foodCostPercent.toFixed(1)}% · ${e.status}`}
+                          style={{
+                            height: `${heightPercent}%`,
+                            background: color,
+                          }}
+                          className="w-full rounded-t-sm transition-all cursor-pointer hover:opacity-80"
+                        />
+                        <span className="text-fs-xs text-[var(--fg-muted)] truncate w-full text-center uppercase tracking-[.02em]">
+                          {e.item.name.length > 10
+                            ? `${e.item.name.slice(0, 9)}…`
+                            : e.item.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}
