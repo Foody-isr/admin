@@ -7,7 +7,8 @@ import {
   OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import CenteredModalShell from '@/components/common/CenteredModalShell';
 
 // Edit Option Set page — Figma-style full-screen modal. Option rows are
 // inline-editable (auto-persist on blur), and the header "Save" persists
@@ -84,60 +85,39 @@ export default function OptionSetDetailPage() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-50 dark:bg-[#0a0a0a]">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-      </div>
+      <CenteredModalShell title="" onClose={goBack}>
+        <div className="flex items-center justify-center py-24">
+          <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
+        </div>
+      </CenteredModalShell>
     );
   }
 
   if (!optionSet) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-neutral-50 dark:bg-[#0a0a0a] gap-4">
-        <p className="text-neutral-600 dark:text-neutral-400">Option set not found</p>
-        <button
-          onClick={goBack}
-          className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg shadow-lg shadow-orange-500/25 transition-all"
-        >
-          {t('back')}
-        </button>
-      </div>
+      <CenteredModalShell title="" onClose={goBack}>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <p className="text-neutral-600 dark:text-neutral-400">Option set not found</p>
+          <button
+            onClick={goBack}
+            className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg shadow-lg shadow-orange-500/25 transition-all"
+          >
+            {t('back')}
+          </button>
+        </div>
+      </CenteredModalShell>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-50 dark:bg-[#0a0a0a] overflow-y-auto">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
-        <button
-          onClick={goBack}
-          aria-label={t('cancel')}
-          className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
-        >
-          <X size={20} className="text-neutral-600 dark:text-neutral-400" />
-        </button>
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
-          {optionSet.name}
-        </h2>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={goBack}
-            className="px-6 py-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors font-medium"
-          >
-            {t('cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !name.trim()}
-            className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? t('saving') : t('save')}
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+    <CenteredModalShell
+      title={optionSet.name}
+      onClose={goBack}
+      onSave={handleSave}
+      saving={saving}
+      saveDisabled={!name.trim()}
+    >
+      <div className="px-6 py-8 space-y-8">
         {/* Details */}
         <section>
           <div className="flex items-center gap-3 mb-4">
@@ -237,7 +217,7 @@ export default function OptionSetDetailPage() {
           {t('delete')} {t('options').toLowerCase()}
         </button>
       </div>
-    </div>
+    </CenteredModalShell>
   );
 }
 

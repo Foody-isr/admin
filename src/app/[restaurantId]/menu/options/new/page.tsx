@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createOptionSet, OptionSetInput } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import CenteredModalShell from '@/components/common/CenteredModalShell';
 
 // Create Option Set page — Figma-style full-screen modal with lucide icons,
 // orange gradient Save, and a rounded-card options table that mirrors the
@@ -73,39 +74,14 @@ export default function NewOptionSetPage() {
     setOptions((prev) => prev.filter((o) => o.key !== key));
 
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-50 dark:bg-[#0a0a0a] overflow-y-auto">
-      {/* Sticky header — MenuItemShell parity */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-4 flex items-center justify-between">
-        <button
-          onClick={goBack}
-          aria-label={t('cancel')}
-          className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
-        >
-          <X size={20} className="text-neutral-600 dark:text-neutral-400" />
-        </button>
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
-          {t('createOptionSet')}
-        </h2>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={goBack}
-            className="px-6 py-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors font-medium"
-          >
-            {t('cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !name.trim()}
-            className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? t('saving') : t('save')}
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+    <CenteredModalShell
+      title={t('createOptionSet')}
+      onClose={goBack}
+      onSave={handleSave}
+      saving={saving}
+      saveDisabled={!name.trim()}
+    >
+      <div className="px-6 py-8 space-y-8">
         {/* Details */}
         <section>
           <div className="flex items-center gap-3 mb-4">
@@ -198,6 +174,6 @@ export default function NewOptionSetPage() {
           </div>
         </section>
       </div>
-    </div>
+    </CenteredModalShell>
   );
 }
