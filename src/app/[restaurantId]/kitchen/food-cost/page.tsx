@@ -19,7 +19,6 @@ import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
 import { Button, PageHead } from '@/components/ds';
-import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 
 // Figma page: foodyadmin_figma/src/app/pages/cuisine/foodcost.tsx
@@ -82,9 +81,7 @@ export default function FoodCostPage() {
   const [sortBy, setSortBy] = useState<SortOption>('cost-high');
   const [vatRate, setVatRate] = useState(18);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showKpis, setShowKpis] = useState(true);
   const [showChart, setShowChart] = useState(true);
-  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   // Enriched cache: item id → computed cost summary. Keyed by item to avoid
   // re-fetching ingredients for every item in the list (we only pull
@@ -194,14 +191,6 @@ export default function FoodCostPage() {
     [enrichedList, searchTerm, statusFilter, sortBy],
   );
 
-  // KPI figures
-  const averageFoodCost = enrichedList.length > 0
-    ? enrichedList.reduce((sum, e) => sum + e.foodCostPercent, 0) / enrichedList.length
-    : 0;
-  const criticalItems = enrichedList.filter((e) => e.status === 'Critique').length;
-  const totalMargin = enrichedList.reduce((sum, e) => sum + e.margin, 0);
-  const goodItems = enrichedList.filter((e) => e.status === 'Bon').length;
-
   const selectItem = async (enriched: EnrichedItem) => {
     setSelectedItem(enriched);
     setLoadingIngredients(true);
@@ -244,99 +233,7 @@ export default function FoodCostPage() {
       <PageHead
         title="Food Cost"
         desc={t('foodCostSubtitle') || 'Analysez les coûts alimentaires de vos recettes'}
-        actions={
-          <Button
-            variant="ghost"
-            size="md"
-            icon
-            onClick={() => setShowKpis((v) => !v)}
-            aria-label="Toggle KPIs"
-            title={showKpis ? 'Masquer les KPIs' : 'Afficher les KPIs'}
-          >
-            {showKpis ? <ChevronUp /> : <ChevronDown />}
-          </Button>
-        }
       />
-      <header className="mb-[var(--s-4)]">
-        <div className="hidden" />
-
-        {/* KPIs — Figma:96 */}
-        {showKpis && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('food-cost-moyen')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4 hover:shadow-lg hover:border-orange-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
-                  <DollarSign size={24} />
-                </div>
-              </div>
-              <h3 className="text-orange-800 dark:text-orange-300 text-sm mb-1">
-                {t('avgCostPct') || '% Coût Moyen'}
-              </h3>
-              <p className="text-2xl font-bold text-orange-900 dark:text-orange-200">
-                {averageFoodCost.toFixed(1)}%
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('articles-critiques')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-700 rounded-xl p-4 hover:shadow-lg hover:border-red-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-red-500/25">
-                  <AlertCircle size={24} />
-                </div>
-              </div>
-              <h3 className="text-red-800 dark:text-red-300 text-sm mb-1">
-                {t('criticalItems') || 'Articles Critiques'}
-              </h3>
-              <p className="text-2xl font-bold text-red-900 dark:text-red-200">{criticalItems}</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('marge-totale')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-700 rounded-xl p-4 hover:shadow-lg hover:border-green-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white shadow-lg shadow-green-500/25">
-                  <TrendingUp size={24} />
-                </div>
-              </div>
-              <h3 className="text-green-800 dark:text-green-300 text-sm mb-1">
-                {t('totalMargin') || 'Marge Totale'}
-              </h3>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-200">
-                {totalMargin.toFixed(2)} ₪
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('articles-optimaux')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 hover:shadow-lg hover:border-blue-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="size-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
-                  <TrendingDown size={24} />
-                </div>
-              </div>
-              <h3 className="text-blue-800 dark:text-blue-300 text-sm mb-1">
-                {t('optimalItems') || 'Articles Optimaux'}
-              </h3>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{goodItems}</p>
-            </button>
-          </div>
-        )}
-      </header>
 
       {/* Chart Section — cost % per item with target line + legend */}
       <div className="px-8 py-6 bg-[var(--surface)] border-b border-[var(--line)]">
@@ -474,11 +371,13 @@ export default function FoodCostPage() {
         )}
       </div>
 
-      {/* Content — Figma:172 */}
+      {/* Content — content row sits below the chart with the same breathing
+          room on both panels (search/filter column on the left, item detail
+          on the right). */}
       <div className="flex flex-1">
         {/* Items list */}
         <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col">
-          <div className="p-4 border-b border-[var(--line)] space-y-3">
+          <div className="p-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)]">
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
@@ -629,14 +528,6 @@ export default function FoodCostPage() {
           )}
         </div>
       </div>
-
-      {/* Top-header KPIs info modal (% Coût Moyen / Articles Critiques /
-          Marge Totale / Articles Optimaux). The 3 selected-item KPIs now
-          live inside <MenuItemTabCost /> with their own modals. */}
-      <KPIInfoModal
-        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
-        onClose={() => setSelectedKpi(null)}
-      />
 
       {showImportModal && selectedItem && (
         <RecipeImportModal
