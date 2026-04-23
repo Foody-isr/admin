@@ -8,17 +8,16 @@ import type {
   OptionSet,
   ItemOptionOverride,
 } from '@/lib/api';
+import { Badge } from '@/components/ds';
 
-// Figma MenuItemDetails.tsx:248-321 — Options (Modificateurs + Variantes).
-// Direct port with real data plugged in.
+// Aligned to design-reference/design/screens/item-editor.jsx:318-355 (ModsTab).
+// Section head with 3px brand accent; cards use --surface + --line; actions are
+// ghost-style "Modifier / Détacher" buttons on the right.
 
 interface Props {
   item: MenuItem;
-  /** Modifier sets attached to this item. */
   attachedModifierSets: ModifierSet[];
-  /** Option sets (new variant system) attached to this item. */
   attachedOptionSets: OptionSet[];
-  /** Per-variant price overrides. */
   itemOptionOverrides: ItemOptionOverride[];
   onAddModifierSet: () => void;
   onDetachModifierSet: (id: number) => void;
@@ -53,9 +52,6 @@ export default function MenuItemTabOptions({
   const overrideFor = (optionId: number): ItemOptionOverride | undefined =>
     itemOptionOverrides.find((ov) => ov.option_id === optionId);
 
-  // "value" = portion + SKU, shown as a subtitle under the variant/option name
-  // so the user sees the concrete quantity the variant represents (e.g.
-  // "250 g • SKU-S"), not just the label + price.
   const formatValueSubtitle = (
     portionSize?: number | null,
     portionUnit?: string | null,
@@ -66,179 +62,189 @@ export default function MenuItemTabOptions({
       bits.push(`${portionSize} ${portionUnit || 'g'}`);
     }
     if (sku && sku.trim()) bits.push(sku.trim());
-    return bits.length > 0 ? bits.join(' \u2022 ') : null;
+    return bits.length > 0 ? bits.join(' • ') : null;
   };
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-6 bg-orange-500 rounded-full" />
-        <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-          {t('tabModifiers')}
+      {/* Section head with 3px brand accent */}
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
+        <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+        <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
+          {t('tabModifiers') || 'Modificateurs et variantes'}
         </h3>
       </div>
 
-      {/* Modificateurs section */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+      {/* Modificateurs */}
+      <div className="mb-[var(--s-6)]">
+        <div className="flex items-center justify-between mb-[var(--s-3)]">
           <div>
-            <h4 className="font-semibold text-neutral-900 dark:text-white mb-1">
-              {t('modifiers')}
+            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+              {t('modifiers') || 'Modificateurs'}
             </h4>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              {t('modifiersDesc') || 'Autorisez des personnalisations, comme les suppléments ou les demandes spéciales.'}
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+              {t('modifiersDesc') ||
+                'Options ajoutées à la commande (sans coriandre, sauce à part…).'}
             </p>
           </div>
           <button
             type="button"
             onClick={onAddModifierSet}
-            className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
           >
-            <Plus size={16} />
+            <Plus className="w-3.5 h-3.5" />
             {t('add') || 'Ajouter'}
           </button>
         </div>
 
-        {/* Attached modifier sets */}
         {attachedModifierSets.length > 0 && (
-          <div className="space-y-3 mb-3">
-            {attachedModifierSets.map((set) => (
-              <div
-                key={set.id}
-                className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h5 className="font-medium text-neutral-900 dark:text-white">
+          <div className="flex flex-col gap-[var(--s-2)] mb-[var(--s-3)]">
+            {attachedModifierSets.map((set) => {
+              const meta =
+                set.is_required || (set.min_selections ?? 0) > 0 || (set.max_selections ?? 0) > 0
+                  ? `${set.is_required ? `${t('required') || 'Obligatoire'} · ` : ''}min ${set.min_selections ?? 0} · max ${set.max_selections ?? 0}`
+                  : null;
+              return (
+                <div
+                  key={set.id}
+                  className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] shadow-1 p-[var(--s-3)_var(--s-4)] flex items-center gap-[var(--s-3)]"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-fs-sm font-medium text-[var(--fg)]">
                       {set.name}
-                    </h5>
-                    {(set.is_required || (set.min_selections ?? 0) > 0 || (set.max_selections ?? 0) > 0) && (
-                      <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">
-                        {set.is_required ? `${t('required')} · ` : ''}
-                        min {set.min_selections ?? 0} · max {set.max_selections ?? 0}
-                      </p>
+                    </div>
+                    {meta && (
+                      <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+                        {meta}
+                      </div>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => onDetachModifierSet(set.id)}
-                    className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium"
+                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                   >
-                    {t('detach') || 'Supprimer'}
+                    {t('detach') || 'Détacher'}
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* Individual modifiers */}
         {modifiers.length > 0 && (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-[var(--s-2)]">
             {modifiers.map((mod) => (
               <div
                 key={mod.id}
-                className="flex items-center justify-between p-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
+                className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] shadow-1 p-[var(--s-3)_var(--s-4)] flex items-center gap-[var(--s-3)]"
               >
-                <div>
-                  <span className="font-medium text-neutral-900 dark:text-white">
-                    {mod.name}
-                  </span>
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">
-                    ({mod.action})
-                    {mod.category ? ` · ${mod.category}` : ''}
+                <div className="flex-1 min-w-0">
+                  <span className="text-fs-sm font-medium text-[var(--fg)]">{mod.name}</span>
+                  <span className="text-fs-xs text-[var(--fg-muted)] ms-[var(--s-2)]">
+                    ({mod.action}){mod.category ? ` · ${mod.category}` : ''}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  {mod.price_delta !== 0 && (
-                    <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {mod.price_delta > 0 ? '+' : ''}
-                      {mod.price_delta.toFixed(2)} ₪
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onDeleteModifier(mod.id)}
-                    className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium"
-                  >
-                    {t('delete') || 'Supprimer'}
-                  </button>
-                </div>
+                {mod.price_delta !== 0 && (
+                  <span className="font-mono tabular-nums text-fs-sm text-[var(--fg)]">
+                    {mod.price_delta > 0 ? '+' : ''}
+                    ₪{mod.price_delta.toFixed(2)}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDeleteModifier(mod.id)}
+                  className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                >
+                  {t('delete') || 'Supprimer'}
+                </button>
               </div>
             ))}
           </div>
         )}
+
+        {attachedModifierSets.length === 0 && modifiers.length === 0 && (
+          <p className="text-fs-xs text-[var(--fg-subtle)] italic">
+            {t('noModifiersForItem') || 'Aucun modificateur pour cet article.'}
+          </p>
+        )}
       </div>
 
-      {/* Variantes section */}
+      {/* Variantes */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-[var(--s-3)]">
           <div>
-            <h4 className="font-semibold text-neutral-900 dark:text-white mb-1">
-              {t('variants')}
+            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+              {t('variants') || 'Variantes'}
             </h4>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              {t('variantsDesc') || 'Ajoutez des options comme les tailles ou les saveurs, puis définissez les prix, les SKU et les stocks.'}
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+              {t('variantsDesc') ||
+                'Tailles ou options liées (Normal, Grand…). Le prix du variant remplace le prix de base.'}
             </p>
           </div>
           <button
             type="button"
             onClick={onAddVariantGroup}
-            className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
           >
-            <Plus size={16} />
+            <Plus className="w-3.5 h-3.5" />
             {t('add') || 'Ajouter'}
           </button>
         </div>
 
-        {/* Legacy variant_groups */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-[var(--s-4)]">
+          {/* Legacy variant groups */}
           {variantGroups.map((group) => (
             <div
               key={group.id}
-              className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700"
+              className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] shadow-1 p-[var(--s-4)]"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-neutral-900 dark:text-white">
-                  {group.title}
-                </h5>
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between mb-[var(--s-3)]">
+                <div>
+                  <div className="text-fs-sm font-semibold text-[var(--fg)]">{group.title}</div>
+                  <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+                    {(group.variants ?? []).length} {t('options') || 'options'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-[var(--s-2)]">
                   <button
                     type="button"
                     onClick={() => onEditVariantGroup(group.id)}
-                    className="px-3 py-1.5 text-xs text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium"
+                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
                   >
                     {t('edit') || 'Modifier'}
                   </button>
                   <button
                     type="button"
                     onClick={() => onDeleteVariantGroup(group.id)}
-                    className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium"
+                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                   >
                     {t('delete') || 'Supprimer'}
                   </button>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-[var(--s-2)]">
                 {(group.variants ?? []).map((v) => {
-                  const subtitle = formatValueSubtitle(v.portion_size, v.portion_size_unit, v.sku);
+                  const subtitle = formatValueSubtitle(
+                    v.portion_size,
+                    v.portion_size_unit,
+                    v.sku,
+                  );
                   return (
                     <div
                       key={v.id}
-                      className="flex items-center justify-between p-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
+                      className="flex items-center justify-between p-[var(--s-3)] bg-[var(--surface-2)] rounded-r-md"
                     >
-                      <div>
-                        <span className="font-medium text-neutral-900 dark:text-white">
-                          {v.name}
-                        </span>
+                      <div className="min-w-0">
+                        <div className="text-fs-sm font-medium text-[var(--fg)]">{v.name}</div>
                         {subtitle && (
-                          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                          <div className="text-fs-xs text-[var(--fg-muted)] font-mono tabular-nums">
                             {subtitle}
-                          </p>
+                          </div>
                         )}
                       </div>
-                      <span className="font-semibold text-neutral-900 dark:text-white">
-                        {(v.price ?? 0).toFixed(2)} ₪
+                      <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                        ₪{(v.price ?? 0).toFixed(2)}
                       </span>
                     </div>
                   );
@@ -251,30 +257,36 @@ export default function MenuItemTabOptions({
           {attachedOptionSets.map((set) => (
             <div
               key={`os-${set.id}`}
-              className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700"
+              className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] shadow-1 p-[var(--s-4)]"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h5 className="font-medium text-neutral-900 dark:text-white">
-                  {set.name}
-                </h5>
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between mb-[var(--s-3)]">
+                <div>
+                  <div className="flex items-center gap-[var(--s-2)]">
+                    <span className="text-fs-sm font-semibold text-[var(--fg)]">{set.name}</span>
+                    <Badge tone="brand">{t('optionSet') || 'Groupe d\'options'}</Badge>
+                  </div>
+                  <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+                    {(set.options ?? []).length} {t('options') || 'options'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-[var(--s-2)]">
                   <button
                     type="button"
                     onClick={() => onEditOptionSet(set.id)}
-                    className="px-3 py-1.5 text-xs text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium"
+                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
                   >
                     {t('edit') || 'Modifier'}
                   </button>
                   <button
                     type="button"
                     onClick={() => onDetachOptionSet(set.id)}
-                    className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium"
+                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
                   >
-                    {t('detach') || 'Supprimer'}
+                    {t('detach') || 'Détacher'}
                   </button>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col gap-[var(--s-2)]">
                 {(set.options ?? []).map((o) => {
                   const ov = overrideFor(o.id);
                   const subtitle = formatValueSubtitle(
@@ -286,20 +298,18 @@ export default function MenuItemTabOptions({
                   return (
                     <div
                       key={o.id}
-                      className="flex items-center justify-between p-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
+                      className="flex items-center justify-between p-[var(--s-3)] bg-[var(--surface-2)] rounded-r-md"
                     >
-                      <div>
-                        <span className="font-medium text-neutral-900 dark:text-white">
-                          {o.name}
-                        </span>
+                      <div className="min-w-0">
+                        <div className="text-fs-sm font-medium text-[var(--fg)]">{o.name}</div>
                         {subtitle && (
-                          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                          <div className="text-fs-xs text-[var(--fg-muted)] font-mono tabular-nums">
                             {subtitle}
-                          </p>
+                          </div>
                         )}
                       </div>
-                      <span className="font-semibold text-neutral-900 dark:text-white">
-                        {displayPrice.toFixed(2)} ₪
+                      <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                        ₪{displayPrice.toFixed(2)}
                       </span>
                     </div>
                   );
@@ -308,16 +318,14 @@ export default function MenuItemTabOptions({
             </div>
           ))}
 
-          {attachedOptionSets.length === 0 && (
+          {variantGroups.length === 0 && attachedOptionSets.length === 0 && (
             <button
               type="button"
               onClick={onAddOptionSet}
-              className="w-full p-4 border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-xl hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all flex items-center justify-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-orange-600 dark:hover:text-orange-400"
+              className="w-full py-[var(--s-4)] rounded-r-lg border-2 border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_6%,transparent)] transition-colors flex items-center justify-center gap-[var(--s-2)]"
             >
-              <Plus size={16} />
-              <span className="text-sm font-medium">
-                {t('attachOptionSet') || 'Attacher un groupe d\'options existant'}
-              </span>
+              <Plus className="w-4 h-4" />
+              {t('attachOptionSet') || "Attacher un groupe d'options existant"}
             </button>
           )}
         </div>

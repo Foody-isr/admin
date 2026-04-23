@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType } from '@/lib/api';
 import SearchableListField from '@/components/SearchableListField';
+import { Field, Input, Select, Textarea } from '@/components/ds';
 
-// Figma MenuItemDetails.tsx:156-246 — Détails tab.
-// Direct port of the JSX with our real state plugged in.
+// Aligned to design-reference/design/screens/item-editor.jsx:274-316 (DetailsTab).
+// Flat 2-col and 3-col grids with Field + Input primitives; status uses dot-pulse.
 
 interface Props {
   name: string;
@@ -22,7 +23,7 @@ interface Props {
   setIsActive: (v: boolean) => void;
   vatRate: number;
   categories: MenuCategory[];
-  // Foody-specific: menu attachment (kept below the Figma fields).
+  // Foody-specific: menu attachment (kept below the reference fields).
   menus: Menu[];
   selectedMenuIds: Set<number>;
   setSelectedMenuIds: (s: Set<number>) => void;
@@ -50,73 +51,50 @@ export default function MenuItemTabDetails({
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-6 bg-orange-500 rounded-full" />
-        <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-          {t('tabDetails')}
-        </h3>
+      {/* Section head with 3px brand accent */}
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
+        <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+        <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabDetails')}</h3>
       </div>
 
-      <div className="space-y-6">
-        {/* Article type — editable on both create and edit. */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            {t('itemType')}
-          </label>
-          <div className="relative w-full md:w-72">
-            <select
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value as ItemType)}
-              className="appearance-none w-full px-4 py-2.5 pr-10 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
-            >
-              <option value="food_and_beverage">{t('foodAndBeverage')}</option>
-              <option value="combo">{t('combo')}</option>
-            </select>
-            <ChevronDown
-              size={16}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none"
-            />
-          </div>
-        </div>
+      <div className="flex flex-col gap-[var(--s-5)]">
+        {/* Type d'article */}
+        <Field label={t('itemType') || "Type d'article"}>
+          <Select
+            value={itemType}
+            onChange={(e) => setItemType(e.target.value as ItemType)}
+            className="md:w-72"
+          >
+            <option value="food_and_beverage">{t('foodAndBeverage') || 'Nourriture et boisson'}</option>
+            <option value="combo">{t('combo') || 'Menu combo'}</option>
+          </Select>
+        </Field>
 
-        {/* Row 1 — Nom de l'article | Catégorie */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('itemNameLabel')}
-            </label>
-            <input
-              type="text"
+        {/* Row 1 — Nom | Catégorie */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-4)]">
+          <Field label={t('itemNameLabel') || "Nom de l'article"}>
+            <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t('nameRequired')}
+              placeholder={t('nameRequired') || 'Nom *'}
               autoFocus
-              className="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('category')}
-            </label>
-            <div className="relative flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={activeCategory?.name ?? ''}
-                placeholder={t('addToCategories')}
-                onClick={() => setCategoryOpen((v) => !v)}
-                className="flex-1 px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
-              />
+          </Field>
+
+          <Field label={t('category') || 'Catégorie'}>
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setCategoryOpen((v) => !v)}
-                className="px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-200 dark:hover:bg-[#222222] transition-colors"
-                aria-label="Open category menu"
+                className="flex items-center justify-between w-full h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm hover:border-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
               >
-                <ChevronDown size={16} className="text-neutral-600 dark:text-neutral-400" />
+                <span className={activeCategory ? 'text-[var(--fg)]' : 'text-[var(--fg-subtle)]'}>
+                  {activeCategory?.name ?? (t('addToCategories') || 'Ajouter à une catégorie')}
+                </span>
+                <ChevronDown className="w-4 h-4 text-[var(--fg-muted)]" />
               </button>
               {categoryOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg z-20 max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--line)] rounded-r-md shadow-3 z-20 max-h-64 overflow-y-auto">
                   {categories.map((cat) => (
                     <button
                       key={cat.id}
@@ -125,10 +103,10 @@ export default function MenuItemTabDetails({
                         setCategoryId(cat.id);
                         setCategoryOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2.5 hover:bg-neutral-100 dark:hover:bg-[#222222] transition-colors text-sm ${
+                      className={`w-full text-start px-[var(--s-3)] py-2 hover:bg-[var(--surface-2)] transition-colors text-fs-sm ${
                         cat.id === categoryId
-                          ? 'text-orange-500 font-medium'
-                          : 'text-neutral-700 dark:text-neutral-300'
+                          ? 'text-[var(--brand-500)] font-medium'
+                          : 'text-[var(--fg)]'
                       }`}
                     >
                       {cat.name}
@@ -137,90 +115,89 @@ export default function MenuItemTabDetails({
                 </div>
               )}
             </div>
-          </div>
+          </Field>
         </div>
 
-        {/* Row 2 — Prix de vente | TVA | Statut */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('sellingPriceLabel')}
-            </label>
+        {/* Row 2 — Prix | TVA | Statut */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-4)]">
+          <Field label={t('sellingPriceLabel') || 'Prix de vente'}>
             <div className="relative">
-              <input
+              <Input
                 type="number"
                 min="0"
                 step="0.01"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="0.00"
-                className="w-full px-4 py-2.5 pr-12 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                className="pr-8 font-mono"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 text-sm pointer-events-none">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
                 ₪
               </span>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('vat')}
-            </label>
-            <input
-              type="text"
-              value={`${vatRate}%`}
-              readOnly
-              className="w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none cursor-not-allowed"
-              title={`${t('vat')} — ${vatRate}%`}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('status')}
-            </label>
+          </Field>
+
+          <Field label={t('vat') || 'TVA'}>
+            <div className="relative">
+              <Input
+                type="text"
+                value={`${vatRate}`}
+                readOnly
+                className="pr-8 cursor-not-allowed font-mono"
+                title={`${t('vat')} — ${vatRate}%`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                %
+              </span>
+            </div>
+          </Field>
+
+          <Field label={t('status') || 'Statut'}>
             <button
               type="button"
               onClick={() => setIsActive(!isActive)}
-              className="flex items-center gap-3 h-[42px]"
+              className="flex items-center gap-[var(--s-2)] h-9 text-start"
+              aria-pressed={isActive}
             >
-              <div className={`size-2.5 rounded-full ${isActive ? 'bg-green-500' : 'bg-neutral-400'}`} />
-              <span className="text-sm font-medium text-neutral-900 dark:text-white">
-                {isActive ? t('active') : t('unavailable')}
+              <span
+                className="relative inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ background: isActive ? 'var(--success-500)' : 'var(--fg-subtle)' }}
+              >
+                {isActive && (
+                  <span
+                    className="absolute inset-0 rounded-full opacity-60 animate-ping"
+                    style={{ background: 'var(--success-500)' }}
+                  />
+                )}
+              </span>
+              <span className="text-fs-sm font-medium text-[var(--fg)]">
+                {isActive ? (t('active') || 'Actif') : (t('unavailable') || 'Indisponible')}
               </span>
             </button>
-          </div>
+          </Field>
         </div>
 
         {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            {t('description')}
-          </label>
-          <textarea
+        <Field label={t('description') || 'Description'}>
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder={t('addDescription')}
+            placeholder={t('addDescription') || 'Ajouter une description'}
             rows={4}
-            className="w-full px-4 py-3 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none"
           />
-        </div>
+        </Field>
 
-        {/* Menus / Cartes — foody-specific; kept below Figma fields. */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            {t('menus')}
-          </label>
+        {/* Menus / Cartes — foody-specific; below reference fields. */}
+        <Field label={t('menus') || 'Cartes'} hint={t('cartesDescription') || "Cartes où cet article apparaît"}>
           <SearchableListField
             mode="multi"
-            placeholder={t('addToMenus')}
-            emptyLabel={t('noMenusAvailable') || 'No menus available'}
+            placeholder={t('addToMenus') || 'Ajouter à des cartes'}
+            emptyLabel={t('noMenusAvailable') || 'Aucune carte disponible'}
             options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
             values={Array.from(selectedMenuIds).map(String)}
             onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
           />
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            {t('cartesDescription')}
-          </p>
-        </div>
+        </Field>
       </div>
     </div>
   );

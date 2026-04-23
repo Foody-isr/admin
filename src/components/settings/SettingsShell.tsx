@@ -64,7 +64,7 @@ const SECTIONS: SettingsGroup[] = [
         id: 'payments',
         labelKey: 'paymentsAndVat',
         icon: DollarSign,
-        href: (rid) => `/${rid}/orders/settings`,
+        href: (rid) => `/${rid}/settings/payments`,
       },
       {
         id: 'printers',
@@ -82,8 +82,7 @@ const SECTIONS: SettingsGroup[] = [
         id: 'team',
         labelKey: 'staffAndRoles',
         icon: Users,
-        href: (rid) => `/${rid}/staff`,
-        matchPrefix: '/staff,/roles',
+        href: (rid) => `/${rid}/settings/team`,
       },
     ],
   },

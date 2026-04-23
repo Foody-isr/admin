@@ -176,35 +176,37 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 
   return (
     <div className="max-w-4xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-1 h-6 bg-orange-500 rounded-full" />
-        <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-          {t('tabRecipe')}
-        </h3>
+      {/* Section head with 3px brand accent */}
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
+        <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+        <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
       </div>
 
       {/* Ingrédients */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+      <div className="mb-[var(--s-6)]">
+        <div className="flex items-center justify-between mb-[var(--s-3)]">
           <div>
-            <h4 className="font-semibold text-neutral-900 dark:text-white">
-              {t('ingredients') || 'Ingrédients'} • {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
+            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+              {t('ingredients') || 'Ingrédients'}
+              <span className="text-[var(--fg-muted)] font-normal ms-1.5">
+                · {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
+              </span>
             </h4>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
               {t('ingredientsSubtitle') || 'Liste des ingrédients nécessaires pour cette recette'}
             </p>
           </div>
           <button
             type="button"
             onClick={onOpenIngredientsEditor}
-            className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
           >
-            <Plus size={16} />
+            <Plus className="w-3.5 h-3.5" />
             {t('addIngredient') || 'Ajouter un ingrédient'}
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex flex-col gap-[var(--s-2)]">
           {ingredients.map((ing) => (
             <RecipeIngredientItem
               key={ing.id}
@@ -216,7 +218,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             />
           ))}
           {ingredients.length === 0 && (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-xl">
+            <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
               {t('noIngredients') || 'Aucun ingrédient ajouté.'}
             </p>
           )}
@@ -225,26 +227,29 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 
       {/* Instructions de préparation */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-[var(--s-3)]">
           <div>
-            <h4 className="font-semibold text-neutral-900 dark:text-white">
-              {t('recipeInstructions') || 'Instructions de préparation'} • {steps.length} {steps.length === 1 ? 'étape' : 'étapes'}
+            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+              {t('recipeInstructions') || 'Instructions'}
+              <span className="text-[var(--fg-muted)] font-normal ms-1.5">
+                · {steps.length} {steps.length === 1 ? 'étape' : 'étapes'}
+              </span>
             </h4>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
               {t('recipeInstructionsSubtitle') || 'Étapes détaillées pour préparer ce plat'}
             </p>
           </div>
           <button
             type="button"
             onClick={addStep}
-            className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
           >
-            <Plus size={16} />
+            <Plus className="w-3.5 h-3.5" />
             {t('addStep') || 'Ajouter une étape'}
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-[var(--s-3)]">
           {steps.map((step, idx) => (
             <InstructionItem
               key={idx}
@@ -259,7 +264,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             />
           ))}
           {steps.length === 0 && (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-xl">
+            <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
               {t('noInstructions') || 'Aucune étape définie.'}
             </p>
           )}
@@ -408,59 +413,64 @@ function RecipeIngredientItem({
   };
 
   return (
-    <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 transition-colors">
-      {/* Header row — Figma:448 */}
+    <div className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] shadow-1 hover:border-[var(--line-strong)] transition-colors">
+      {/* Header row */}
       <div
-        className="flex items-center gap-4 p-4 cursor-pointer"
+        className="flex items-center gap-[var(--s-3)] p-[var(--s-3)_var(--s-4)] cursor-pointer"
         onClick={() => setExpanded((e) => !e)}
       >
         <div
-          className={`flex-shrink-0 size-10 rounded-lg flex items-center justify-center ${
-            type === 'preparation'
-              ? 'bg-purple-100 dark:bg-purple-900/30'
-              : 'bg-blue-100 dark:bg-blue-900/30'
-          }`}
+          className="shrink-0 w-8 h-8 rounded-r-sm grid place-items-center text-white font-bold text-fs-xs"
+          style={{
+            background:
+              type === 'preparation' ? 'var(--cat-5)' : 'var(--cat-4)',
+          }}
         >
-          {type === 'preparation' ? (
-            <FlaskConical size={20} className="text-purple-600 dark:text-purple-400" />
-          ) : (
-            <Package size={20} className="text-blue-600 dark:text-blue-400" />
-          )}
+          {name.charAt(0).toUpperCase()}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h5 className="font-medium text-neutral-900 dark:text-white">{name}</h5>
+          <div className="flex items-center gap-[var(--s-2)]">
+            <span className="text-fs-sm font-medium text-[var(--fg)] truncate">{name}</span>
             <span
-              className={`px-2 py-0.5 text-xs font-medium rounded ${
-                type === 'preparation'
-                  ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400'
-                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-              }`}
+              className="inline-flex items-center h-[22px] px-2 text-fs-xs font-medium rounded-r-sm"
+              style={{
+                background: type === 'preparation'
+                  ? 'color-mix(in oklab, var(--brand-500) 14%, transparent)'
+                  : 'var(--surface-2)',
+                color: type === 'preparation'
+                  ? 'var(--brand-500)'
+                  : 'var(--fg-muted)',
+              }}
             >
               {type === 'preparation' ? 'Préparation' : 'Ingrédient brut'}
             </span>
           </div>
           {description && (
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 truncate">
+            <p className="text-fs-xs text-[var(--fg-muted)] truncate mt-0.5">
               {description}
             </p>
           )}
         </div>
 
-        <div className="flex-shrink-0 text-right">
-          <div className="font-semibold text-neutral-900 dark:text-white">
+        <div className="shrink-0 text-end">
+          <div className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
             {headerQty}
           </div>
-          <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            {modeLabel}
-          </div>
+          <div className="text-fs-xs text-[var(--fg-subtle)]">{modeLabel}</div>
         </div>
 
-        <ChevronDown
-          size={20}
-          className={`text-neutral-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
-        />
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          className="shrink-0 p-1.5 rounded-r-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] transition-colors"
+          aria-label="Toggle"
+        >
+          <ChevronDown
+            size={14}
+            className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+          />
+        </button>
 
         <button
           type="button"
@@ -468,16 +478,16 @@ function RecipeIngredientItem({
             e.stopPropagation();
             onDelete();
           }}
-          className="flex-shrink-0 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          className="shrink-0 p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
           aria-label="Delete ingredient"
         >
-          <Trash2 size={16} className="text-red-500" />
+          <Trash2 size={14} />
         </button>
       </div>
 
-      {/* Expanded: 3-mode selector — Figma:505-621 */}
+      {/* Expanded: 3-mode selector */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-neutral-200 dark:border-neutral-700 pt-4 space-y-4">
+        <div className="px-[var(--s-4)] pb-[var(--s-4)] pt-[var(--s-4)] border-t border-[var(--line)] space-y-[var(--s-4)]">
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Info size={14} className="text-neutral-400" />
@@ -670,36 +680,39 @@ function InstructionItem({
   onDelete: () => void;
 }) {
   return (
-    <div className="flex gap-4">
-      <div className="flex-shrink-0 size-10 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">
+    <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] shadow-1 p-[var(--s-4)] flex gap-[var(--s-4)]">
+      <div
+        className="shrink-0 w-8 h-8 rounded-full grid place-items-center text-white font-bold text-fs-sm"
+        style={{ background: 'var(--brand-500)' }}
+      >
         {number}
       </div>
-      <div className="flex-1 bg-neutral-50 dark:bg-[#1a1a1a] rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
-        <div className="flex items-center justify-between gap-3 mb-2">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-2)]">
           <input
             type="text"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
-            placeholder="Titre de l'étape"
-            className="flex-1 bg-transparent font-semibold text-neutral-900 dark:text-white focus:outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+            placeholder={`Étape ${number}`}
+            className="flex-1 bg-transparent text-fs-md font-medium text-[var(--fg)] focus:outline-none placeholder:text-[var(--fg-subtle)]"
           />
-          <div className="flex items-center gap-1 text-sm text-orange-500">
+          <div className="flex items-center gap-1 text-fs-sm text-[var(--fg-muted)] shrink-0">
             <input
               type="number"
               min="0"
               value={time.replace(/[^0-9]/g, '') || ''}
               onChange={(e) => onTimeChange(e.target.value)}
               placeholder="0"
-              className="w-14 bg-transparent text-right font-medium focus:outline-none placeholder:text-neutral-400"
+              className="w-12 bg-transparent text-right font-mono tabular-nums text-[var(--fg)] focus:outline-none placeholder:text-[var(--fg-subtle)]"
             />
             <span>min</span>
             <button
               type="button"
               onClick={onDelete}
-              className="ml-2 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+              className="ms-[var(--s-2)] p-1 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
               aria-label="Delete step"
             >
-              <Trash2 size={14} className="text-red-500" />
+              <Trash2 size={14} />
             </button>
           </div>
         </div>
@@ -708,7 +721,7 @@ function InstructionItem({
           onChange={(e) => onDescriptionChange(e.target.value)}
           placeholder="Description de l'étape…"
           rows={2}
-          className="w-full bg-transparent text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed resize-none focus:outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+          className="w-full bg-transparent text-fs-sm text-[var(--fg-muted)] leading-relaxed resize-none focus:outline-none placeholder:text-[var(--fg-subtle)]"
         />
       </div>
     </div>

@@ -18,7 +18,7 @@ function FieldLabel({ text, tooltip }: { text: string; tooltip: string }) {
       <span>{text}</span>
       <div className="relative group/tip">
         <InfoIcon className="w-3.5 h-3.5 text-fg-secondary opacity-50 cursor-help" />
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-fg-secondary shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--line)] text-fg-secondary shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
           {tooltip}
         </div>
       </div>
@@ -334,11 +334,17 @@ export default function MenuItemIngredientsEditor({
 
   return (
     <div className="space-y-3">
-      {/* Swap banner */}
+      {/* Swap banner — brand-tinted info strip */}
       {topSuggestion && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-brand-500/30 bg-brand-500/10 text-sm">
-          <span className="text-xl leading-none shrink-0">💡</span>
-          <div className="flex-1 text-fg-primary">
+        <div
+          className="flex items-start gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md text-fs-sm"
+          style={{
+            background: 'color-mix(in oklab, var(--brand-500) 10%, transparent)',
+            border: '1px solid color-mix(in oklab, var(--brand-500) 30%, var(--line))',
+          }}
+        >
+          <span className="text-fs-lg leading-none shrink-0">💡</span>
+          <div className="flex-1 text-[var(--fg)]">
             <p>
               {t('swapSuggestionBanner')
                 .replace('{prep}', topSuggestion.prep.name)
@@ -348,7 +354,7 @@ export default function MenuItemIngredientsEditor({
           </div>
           <button
             onClick={() => setSwapConfirm(topSuggestion)}
-            className="btn-primary text-xs py-1.5 px-3 rounded-full whitespace-nowrap"
+            className="inline-flex items-center h-7 px-[var(--s-3)] rounded-r-md bg-[var(--brand-500)] text-white text-fs-xs font-medium hover:bg-[var(--brand-600)] transition-colors whitespace-nowrap"
           >
             {t('replaceWithPrep')}
           </button>
@@ -370,7 +376,7 @@ export default function MenuItemIngredientsEditor({
             : card.scope === 'base' ? (t('scopeBaseHint') || '')
             : (t('scopeCustomHint') || '');
           return (
-            <div key={card.key} className="p-4 rounded-xl border border-[var(--divider)] space-y-3" style={{ background: 'var(--surface-subtle)' }}>
+            <div key={card.key} className="p-[var(--s-4)] rounded-r-md border border-[var(--line)] space-y-[var(--s-3)] shadow-1" style={{ background: 'var(--surface-2)' }}>
               {/* Row 1 — picker + delete */}
               <div className="flex items-center gap-2">
                 <SearchableSelect
@@ -435,7 +441,7 @@ export default function MenuItemIngredientsEditor({
               )}
 
               {card.scope === 'custom' && variantList.length > 0 && (
-                <div className="rounded-lg border border-[var(--divider)] overflow-hidden">
+                <div className="rounded-lg border border-[var(--line)] overflow-hidden">
                   <div className="grid text-[11px] font-medium text-fg-tertiary uppercase tracking-wide px-3 py-1.5 bg-[var(--surface)]"
                     style={{ gridTemplateColumns: '1fr 100px 80px' }}>
                     <span>{t('variant') || 'Variant'}</span>

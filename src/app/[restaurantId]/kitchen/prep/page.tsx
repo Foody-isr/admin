@@ -29,7 +29,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { Button, PageHead } from '@/components/ds';
+import { Button, Chip, InputGroup, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
 import { Layers as LayersIcon } from 'lucide-react';
@@ -183,16 +183,20 @@ export default function PrepPage() {
     <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
       <PageHead
         title={t('preparations') || 'Préparations'}
-        desc={`${items.length} ${t('prepItems') || 'sous-recettes'} · ${categoryNames.length} ${t('categoriesCount') || 'catégories'}`}
+        desc={`${t('preparationsDesc') || 'Sous-recettes et bases réutilisées dans vos plats'} · ${items.length} ${t('activePreparations') || 'préparations actives'}`}
         actions={
           <>
+            <Button variant="secondary" size="md" onClick={reload}>
+              <RefreshCwIcon />
+              {t('recalculateCosts') || 'Recalculer les coûts'}
+            </Button>
             <Button variant="secondary" size="md" onClick={() => setPlanModal(true)}>
               <CalendarDaysIcon />
               {t('dailyPlan') || 'Plan du jour'}
             </Button>
             <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
               <PlusIcon />
-              {t('addPrepItem')}
+              {t('newPreparation') || t('addPrepItem')}
             </Button>
           </>
         }
@@ -276,70 +280,78 @@ export default function PrepPage() {
         );
       })()}
 
-      {/* Filters + actions row */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <SearchIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
-          <input
-            type="text"
-            placeholder={t('searchPrepItems')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input !pl-10 text-sm h-11 w-full rounded-full"
+      {/* Filters + actions row — matches reference .input-group + .chip pattern */}
+      <div className="flex flex-wrap items-center gap-[var(--s-3)]">
+        <div className="w-80">
+          <InputGroup
+            leading={<SearchIcon />}
+            inputProps={{
+              placeholder: t('searchPrepItems') || 'Rechercher une préparation…',
+              value: search,
+              onChange: (e) => setSearch(e.target.value),
+            }}
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => openFiltersDrawer('category')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
-        >
-          {t('category')}{' '}
-          <span className="font-semibold text-fg-primary">
+        <Chip onClick={() => openFiltersDrawer('category')}>
+          {t('category')} ·{' '}
+          <span className="opacity-70">
             {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
           </span>
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
+          <ChevronDownIcon className="w-3 h-3" />
+        </Chip>
 
-        <button
-          type="button"
-          onClick={() => openFiltersDrawer('status')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
-        >
-          {t('status')}{' '}
-          <span className="font-semibold text-fg-primary">
+        <Chip onClick={() => openFiltersDrawer('status')}>
+          {t('status')} ·{' '}
+          <span className="opacity-70">
             {selectedStatuses.size === 0 ? t('all') : `${selectedStatuses.size}`}
           </span>
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
+          <ChevronDownIcon className="w-3 h-3" />
+        </Chip>
 
-        <button
-          type="button"
-          onClick={() => openFiltersDrawer('index')}
-          className="flex items-center gap-2 h-11 px-5 rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-medium text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors whitespace-nowrap"
-        >
+        <Chip onClick={() => openFiltersDrawer('index')}>
           {t('allFilters')}
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
+          <ChevronDownIcon className="w-3 h-3" />
+        </Chip>
 
         <div className="flex-1" />
 
         <ActionsDropdown
           actions={[
-            { label: t('dailyPlan'), onClick: () => setPlanModal(true), icon: <CalendarDaysIcon className="w-4 h-4" /> },
             { label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> },
             { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
           ]}
         />
-
-        <button
-          onClick={() => setItemModal({ open: true })}
-          className="btn-primary rounded-full px-5 py-2 flex items-center gap-1.5"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('addPrepItem')}
-        </button>
       </div>
+
+      {/* Category pill row — reference preparations.jsx:80 */}
+      {categoryNames.length > 0 && (
+        <div className="flex flex-wrap gap-[var(--s-2)]">
+          <Chip
+            active={selectedCategories.size === 0}
+            onClick={() => setSelectedCategories(new Set())}
+          >
+            {t('all')}
+          </Chip>
+          {categoryNames.sort().map((name) => {
+            const active = selectedCategories.has(name);
+            return (
+              <Chip
+                key={name}
+                active={active}
+                onClick={() => {
+                  const next = new Set(selectedCategories);
+                  if (active) next.delete(name);
+                  else next.add(name);
+                  setSelectedCategories(next);
+                }}
+              >
+                {name}
+              </Chip>
+            );
+          })}
+        </div>
+      )}
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
@@ -677,6 +689,36 @@ function PrepItemModal({
         />
       </div>
 
+      {editing && (
+        <>
+          <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
+          {/* Utilisation summary */}
+          <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-3)]">
+            {t('usageHeader') || 'Utilisation'}
+          </div>
+          <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--fg-muted)]">{t('ingredientsCount') || 'Ingrédients'}</span>
+              <span className="font-mono tabular-nums">{ingredients.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--fg-muted)]">{t('lastUpdated') || 'Dernière MAJ'}</span>
+              <span className="text-fs-xs">
+                {new Date(editing.updated_at).toLocaleDateString()}
+              </span>
+            </div>
+            {editing.shelf_life_hours > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--fg-muted)]">{t('shelfLifeHours') || 'DLC'}</span>
+                <span className="font-mono tabular-nums text-fs-xs">
+                  {editing.shelf_life_hours}h
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
 
       {/* Notes */}
@@ -690,6 +732,64 @@ function PrepItemModal({
         placeholder={t('notes')}
         className="text-fs-sm"
       />
+
+      {editing && (
+        <>
+          <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
+          {/* Quick actions — reference has Dupliquer + Archiver ghost buttons */}
+          <div className="flex flex-col gap-[var(--s-2)]">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!editing) return;
+                try {
+                  const payload: PrepItemInput = {
+                    name: `${name} (copie)`,
+                    unit,
+                    quantity: 0,
+                    yield_per_batch: yieldPerBatch,
+                    reorder_threshold: reorder,
+                    shelf_life_hours: shelfLife,
+                    category,
+                    notes,
+                    is_active: false,
+                  };
+                  const created = await createPrepItem(rid, payload);
+                  if (ingredients.length > 0) {
+                    await setPrepIngredients(rid, created.id, ingredients);
+                  }
+                  onSaved();
+                  onClose();
+                } catch (err: any) {
+                  alert(err.message);
+                }
+              }}
+              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-8 rounded-r-md text-fs-sm font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors self-start"
+            >
+              <LayersIcon className="w-3.5 h-3.5" />
+              {t('duplicate') || 'Dupliquer'}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!editing) return;
+                if (!confirm(t('deletePrepItemConfirm'))) return;
+                try {
+                  await deletePrepItem(rid, editing.id);
+                  onSaved();
+                  onClose();
+                } catch (err: any) {
+                  alert(err.message);
+                }
+              }}
+              className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-8 rounded-r-md text-fs-sm font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors self-start"
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+              {t('archive') || 'Archiver'}
+            </button>
+          </div>
+        </>
+      )}
     </>
   );
 
