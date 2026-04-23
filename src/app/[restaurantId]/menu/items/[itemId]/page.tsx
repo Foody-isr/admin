@@ -43,8 +43,24 @@ export default function EditItemPage() {
   const { t } = useI18n();
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [item, setItem] = useState<MenuItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Hydrate from sessionStorage cache set by the list page's openEditor helper.
+  // When the user clicks an item in the library, the MenuItem is stashed
+  // before navigation so the modal renders populated on the first frame —
+  // mirroring the stock-editor UX where the item is passed inline. Background
+  // fetch still runs below for freshness. Falls back to full loading state
+  // for deep-links that bypass the list page.
+  const [item, setItem] = useState<MenuItem | null>(() => {
+    if (typeof window === 'undefined' || !Number.isFinite(iid)) return null;
+    try {
+      const raw = sessionStorage.getItem(`foody.menuItem.${iid}`);
+      if (!raw) return null;
+      sessionStorage.removeItem(`foody.menuItem.${iid}`);
+      return JSON.parse(raw) as MenuItem;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState<boolean>(() => item == null);
 
   const initialTab = (() => {
     const raw = searchParams.get('tab');
@@ -52,14 +68,18 @@ export default function EditItemPage() {
   })();
   const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
 
-  // Form state
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState(0);
-  const [isActive, setIsActive] = useState(true);
-  const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
-  const [imageUrl, setImageUrl] = useState('');
+  // Form state — seeded from the hydrated MenuItem (if present) so the
+  // Details tab shows populated fields immediately on modal open, matching
+  // the stock-editor UX. Background fetch below overwrites with fresh values.
+  const [name, setName] = useState(() => item?.name ?? '');
+  const [price, setPrice] = useState(() => (item?.price != null ? String(item.price) : ''));
+  const [description, setDescription] = useState(() => item?.description ?? '');
+  const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
+  const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
+  const [itemType, setItemType] = useState<ItemType>(
+    () => (item?.item_type as ItemType) || 'food_and_beverage',
+  );
+  const [imageUrl, setImageUrl] = useState(() => item?.image_url ?? '');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

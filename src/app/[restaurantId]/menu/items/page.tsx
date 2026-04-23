@@ -47,6 +47,21 @@ function flattenItems(categories: MenuCategory[]): FlatItem[] {
 
 const PAGE_SIZE = 25;
 
+/**
+ * Stash an item in sessionStorage before navigating to the edit route.
+ * The edit page hydrates from this cache on first render so the modal opens
+ * populated instantly — mirrors the stock-editor UX which passes StockItem
+ * inline without a fetch. Background refresh still runs for freshness.
+ */
+function openEditor(item: FlatItem, rid: number, router: ReturnType<typeof useRouter>) {
+  try {
+    sessionStorage.setItem(`foody.menuItem.${item.id}`, JSON.stringify(item));
+  } catch {
+    /* quota or SSR — fall through */
+  }
+  router.push(`/${rid}/menu/items/${item.id}`);
+}
+
 export default function ItemLibraryPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -645,7 +660,7 @@ export default function ItemLibraryPage() {
                   <React.Fragment key={item.id}>
                     <tr
                       className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors cursor-pointer ${rowIdx % 2 === 0 ? 'bg-white dark:bg-[#111111]' : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'}`}
-                      onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
+                      onClick={() => openEditor(item, rid, router)}
                     >
                       <td className="p-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
@@ -726,7 +741,7 @@ export default function ItemLibraryPage() {
                       <td className="p-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
+                            onClick={() => openEditor(item, rid, router)}
                             className="p-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors group"
                             title={t('viewDetails') || 'Voir les détails'}
                           >
@@ -736,7 +751,7 @@ export default function ItemLibraryPage() {
                             actions={[
                               {
                                 label: t('edit'),
-                                onClick: () => router.push(`/${rid}/menu/items/${item.id}`),
+                                onClick: () => openEditor(item, rid, router),
                               },
                               {
                                 label: t('delete'),
