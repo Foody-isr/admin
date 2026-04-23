@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createFloorPlan } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XIcon } from 'lucide-react';
 
 export default function NewFloorPlanPage() {
   const { restaurantId } = useParams();
@@ -36,7 +36,7 @@ export default function NewFloorPlanPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-fg-primary">{t('floorPlanDetails')}</h2>
           <button onClick={handleCancel} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
-            <XMarkIcon className="w-5 h-5 text-fg-secondary" />
+            <XIcon className="w-5 h-5 text-fg-secondary" />
           </button>
         </div>
 

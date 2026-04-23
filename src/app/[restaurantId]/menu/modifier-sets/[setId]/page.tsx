@@ -10,9 +10,9 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  XMarkIcon, PlusIcon, TrashIcon,
-} from '@heroicons/react/24/outline';
-import { PhotoIcon } from '@heroicons/react/24/outline';
+  XIcon, PlusIcon, TrashIcon,
+} from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 
 interface ModifierRow {
   id?: number;
@@ -212,7 +212,7 @@ export default function ModifierSetEditorPage() {
           className="w-10 h-10 rounded-full flex items-center justify-center transition-colors text-fg-secondary hover:text-fg-primary"
           style={{ border: '1px solid var(--divider)' }}
         >
-          <XMarkIcon className="w-5 h-5" />
+          <XIcon className="w-5 h-5" />
         </button>
         <h1 className="text-base font-semibold text-fg-primary">
           {isNew ? (t('createModifierSet') || 'Create modifier set') : (t('editModifierSet') || 'Edit modifier set')}
@@ -296,7 +296,7 @@ export default function ModifierSetEditorPage() {
                         className="w-8 h-8 rounded flex items-center justify-center text-fg-secondary/40 cursor-pointer hover:text-fg-secondary transition-colors"
                         style={{ border: '1px solid var(--divider)' }}
                       >
-                        <PhotoIcon className="w-4 h-4" />
+                        <ImageIcon className="w-4 h-4" />
                       </div>
                     </td>
                     {/* Name */}

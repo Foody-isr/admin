@@ -4,14 +4,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { getSubscription, setupBilling, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { CreditCardIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { CreditCardIcon, CheckCircleIcon, AlertTriangleIcon } from 'lucide-react';
 
 const STATUS_CONFIG = {
   trial: { labelKey: 'freeTrial' as const, color: 'badge-accepted', icon: CheckCircleIcon },
   active: { labelKey: 'active' as const, color: 'badge-ready', icon: CheckCircleIcon },
-  past_due: { labelKey: 'pastDue' as const, color: 'badge-in-kitchen', icon: ExclamationTriangleIcon },
-  deactivated: { labelKey: 'deactivated' as const, color: 'badge-rejected', icon: ExclamationTriangleIcon },
-  cancelled: { labelKey: 'cancelled' as const, color: 'badge-neutral', icon: ExclamationTriangleIcon },
+  past_due: { labelKey: 'pastDue' as const, color: 'badge-in-kitchen', icon: AlertTriangleIcon },
+  deactivated: { labelKey: 'deactivated' as const, color: 'badge-rejected', icon: AlertTriangleIcon },
+  cancelled: { labelKey: 'cancelled' as const, color: 'badge-neutral', icon: AlertTriangleIcon },
 };
 
 const PLANS: { tier: PlanTier; nameKey: string; priceKey: string; featureKeys: string[] }[] = [

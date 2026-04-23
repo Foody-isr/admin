@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import {
-  XMarkIcon,
-  MagnifyingGlassIcon,
+  XIcon,
+  SearchIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CheckIcon,
-} from '@heroicons/react/24/outline';
+} from 'lucide-react';
 
 export type FilterView = 'index' | 'category' | 'status';
 
@@ -147,7 +147,7 @@ export default function StockFiltersDrawer({
                 className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)] transition-colors text-fg-secondary"
                 aria-label={t('close') || 'Close'}
               >
-                <XMarkIcon className="w-4 h-4" />
+                <XIcon className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -270,7 +270,7 @@ export default function StockFiltersDrawer({
             </div>
             <div className="px-4 pb-3 shrink-0">
               <div className="relative">
-                <MagnifyingGlassIcon
+                <SearchIcon
                   className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none z-10 ${
                     isRtl ? 'right-3' : 'left-3'
                   }`}

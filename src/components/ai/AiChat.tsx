@@ -5,7 +5,7 @@ import { useAi } from '@/lib/ai-context';
 import { useI18n } from '@/lib/i18n';
 import AiMessage from './AiMessage';
 import AiWelcome from './AiWelcome';
-import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
+import { SendIcon } from 'lucide-react';
 
 export default function AiChat() {
   const { messages, isStreaming, sendMessage } = useAi();
@@ -77,7 +77,7 @@ export default function AiChat() {
             disabled={!input.trim() || isStreaming}
             className="p-2 rounded-lg bg-brand-500 text-white disabled:opacity-40 hover:bg-brand-600 transition-colors"
           >
-            <PaperAirplaneIcon className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
+            <SendIcon className={`w-4 h-4 ${isRtl ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </form>

@@ -7,7 +7,7 @@ import {
   MenuItem, MenuItemIngredient, StockItem, PrepItem,
 } from '@/lib/api';
 import SearchableSelect from '@/components/SearchableSelect';
-import { PlusIcon, TrashIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, InfoIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { detectPrepSwaps, SwapSuggestion } from '@/lib/prep-swap';
 
@@ -17,7 +17,7 @@ function FieldLabel({ text, tooltip }: { text: string; tooltip: string }) {
     <div className="inline-flex items-center gap-1 text-xs text-fg-secondary">
       <span>{text}</span>
       <div className="relative group/tip">
-        <InformationCircleIcon className="w-3.5 h-3.5 text-fg-secondary opacity-50 cursor-help" />
+        <InfoIcon className="w-3.5 h-3.5 text-fg-secondary opacity-50 cursor-help" />
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-fg-secondary shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
           {tooltip}
         </div>

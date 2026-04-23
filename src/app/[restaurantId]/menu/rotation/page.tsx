@@ -8,7 +8,7 @@ import {
   MenuCategory, MenuItem, RotationSchedule,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { PencilIcon, TrashIcon, PlusIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, TrashIcon, PlusIcon, CheckIcon, XIcon } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -239,7 +239,7 @@ export default function RotationPage() {
                   <CheckIcon className="w-4 h-4" />
                 </button>
                 <button type="button" onClick={() => setEditingGroup(null)} className="p-1 rounded hover:bg-[var(--surface-subtle)]">
-                  <XMarkIcon className="w-4 h-4 text-fg-secondary" />
+                  <XIcon className="w-4 h-4 text-fg-secondary" />
                 </button>
               </form>
             ) : (
@@ -280,7 +280,7 @@ export default function RotationPage() {
                     onClick={() => handleRemoveItemFromGroup(item)}
                     className="text-fg-secondary hover:text-red-400"
                   >
-                    <XMarkIcon className="w-3.5 h-3.5" />
+                    <XIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
@@ -351,7 +351,7 @@ export default function RotationPage() {
                           className="text-fg-secondary hover:text-red-400"
                           title={t('clear')}
                         >
-                          <XMarkIcon className="w-3.5 h-3.5" />
+                          <XIcon className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>

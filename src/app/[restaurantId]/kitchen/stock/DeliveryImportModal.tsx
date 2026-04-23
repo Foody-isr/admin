@@ -7,7 +7,7 @@ import {
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
 } from '@/lib/api';
 
-import { SparklesIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon, FileTextIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
@@ -395,7 +395,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             )}
             {file && file.type === 'application/pdf' && (
               <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
-                <DocumentTextIcon className="w-5 h-5" />
+                <FileTextIcon className="w-5 h-5" />
                 {file.name}
               </div>
             )}

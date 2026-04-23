@@ -12,12 +12,12 @@ import {
   ArrowLeftIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  EllipsisHorizontalIcon,
+  MoreHorizontalIcon,
   PlusIcon,
-  Squares2X2Icon,
-  XMarkIcon,
-  MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline';
+  LayoutGridIcon,
+  XIcon,
+  SearchIcon,
+} from 'lucide-react';
 
 type TFn = (k: string) => string;
 
@@ -190,7 +190,7 @@ export default function MenuDetailPage() {
                 onClick={() => router.push(`/${rid}/menu/menus/${mid}/edit`)}
                 className="flex items-center gap-1.5 hover:text-[var(--text-primary)] hover:underline transition-colors cursor-pointer"
               >
-                <Squares2X2Icon className="w-4 h-4 shrink-0" />
+                <LayoutGridIcon className="w-4 h-4 shrink-0" />
                 {channelsMeta(menu, t)}
               </button>
               {hoursRange(menu) && (
@@ -272,7 +272,7 @@ export default function MenuDetailPage() {
                     onClick={(e) => { e.stopPropagation(); setGroupDropdown(groupDropdown === group.id ? null : group.id); }}
                     className="p-1.5 rounded-lg hover:bg-[var(--surface-subtle)] text-[var(--text-muted)] transition-colors"
                   >
-                    <EllipsisHorizontalIcon className="w-5 h-5" />
+                    <MoreHorizontalIcon className="w-5 h-5" />
                   </button>
                   {groupDropdown === group.id && (
                     <div className="absolute right-0 top-9 z-30 w-48 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
@@ -438,7 +438,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
               onClick={onClose}
               className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
             >
-              <XMarkIcon className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
             <button
               onClick={handleDone}
@@ -452,7 +452,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
 
           {/* Search */}
           <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               className="input w-full pl-12 rounded-full"
               placeholder={t('search')}
@@ -590,7 +590,7 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="p-1 rounded-lg hover:bg-[var(--surface-subtle)] text-[var(--text-muted)] transition-colors"
         >
-          <EllipsisHorizontalIcon className="w-4 h-4" />
+          <MoreHorizontalIcon className="w-4 h-4" />
         </button>
         {dropdownOpen && (
           <div className="absolute right-0 top-8 z-30 w-64 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">

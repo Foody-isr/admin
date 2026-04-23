@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { ChevronDownIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, InfoIcon } from 'lucide-react';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -405,7 +405,7 @@ export default function StockQuantityForm({
       />
 
       {/* Grow / shrink the packaging structure — matched pair of text links.
-          The "−" link replaces the old XMarkIcon next to the inner pair, which
+          The "−" link replaces the old XIcon next to the inner pair, which
           read as multiplication in a sentence already full of × semantics. */}
       {value.type === 'packaged-direct' && (
         <div className="flex items-center gap-1.5">
@@ -417,7 +417,7 @@ export default function StockQuantityForm({
             + {t('addIntermediateLevel') || 'Ajouter un niveau intermédiaire'}
           </button>
           <div className="relative group/tip">
-            <InformationCircleIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60" />
+            <InfoIcon className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60" />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 px-2.5 py-1.5 text-xs rounded-lg bg-[var(--surface-elevated,#1e1e1e)] border border-[var(--divider)] text-[var(--fg-secondary)] shadow-lg opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity z-20 text-left leading-snug font-normal">
               {t('intermediateLevelHelp') || 'Ajoutez une couche entre le contenant extérieur et le contenu — par exemple un carton (extérieur) contenant des conserves (intermédiaire) de 400 g chacune.'}
             </div>

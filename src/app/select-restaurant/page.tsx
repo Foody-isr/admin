@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, logout } from '@/lib/api';
-import { BuildingStorefrontIcon } from '@heroicons/react/24/outline';
+import { StoreIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 export default function SelectRestaurantPage() {
@@ -65,7 +65,7 @@ export default function SelectRestaurantPage() {
                 <img src={r.logo_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-brand-100 flex items-center justify-center">
-                  <BuildingStorefrontIcon className="w-6 h-6 text-brand-500" />
+                  <StoreIcon className="w-6 h-6 text-brand-500" />
                 </div>
               )}
               <div>

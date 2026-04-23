@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { MagnifyingGlassIcon, ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
 import { getAnalyticsCustomers, CustomerInsight, CustomerListResult } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import CustomerDetailPanel from './CustomerDetailPanel';
@@ -127,7 +127,7 @@ export default function CustomersInsightsPage() {
 
       {/* Search */}
       <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-secondary" />
         <input
           type="text"
           placeholder={t('searchByNameOrPhone')}

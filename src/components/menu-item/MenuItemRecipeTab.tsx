@@ -14,7 +14,7 @@ import FormSection from '@/components/FormSection';
 import {
   SparklesIcon, ClockIcon, PlusIcon, TrashIcon,
   ChevronUpIcon, ChevronDownIcon,
-} from '@heroicons/react/24/outline';
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 export interface MenuItemRecipeTabHandle {

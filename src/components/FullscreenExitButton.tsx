@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowsPointingInIcon } from '@heroicons/react/24/outline';
+import { Minimize2Icon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { useFullscreenZoom } from '@/lib/use-fullscreen-zoom';
 
@@ -25,7 +25,7 @@ export default function FullscreenExitButton() {
         color: 'var(--text-secondary)',
       }}
     >
-      <ArrowsPointingInIcon className="w-5 h-5" />
+      <Minimize2Icon className="w-5 h-5" />
     </button>
   );
 }

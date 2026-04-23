@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { listTrustedCustomers, addTrustedCustomer, removeTrustedCustomer, TrustedCustomer } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 
 export default function CustomersPage() {

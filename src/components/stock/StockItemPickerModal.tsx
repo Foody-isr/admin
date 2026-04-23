@@ -8,8 +8,8 @@ import StockFiltersDrawer, {
   FilterCategory,
 } from '@/components/stock/StockFiltersDrawer';
 import {
-  XMarkIcon, MagnifyingGlassIcon, ChevronDownIcon, PhotoIcon, CheckIcon,
-} from '@heroicons/react/24/outline';
+  XIcon, SearchIcon, ChevronDownIcon, ImageIcon, CheckIcon,
+} from 'lucide-react';
 
 export interface StockItemPickerModalProps {
   stockItems: StockItem[];
@@ -93,14 +93,14 @@ export default function StockItemPickerModal({
               className="p-1 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
               aria-label={t('close')}
             >
-              <XMarkIcon className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
           </div>
 
           {/* Filters row */}
           <div className="px-5 py-3 flex items-center gap-2 shrink-0 border-b" style={{ borderColor: 'var(--divider)' }}>
             <div className="relative flex-1">
-              <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+              <SearchIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
               <input
                 type="text"
                 placeholder={t('search')}
@@ -153,7 +153,7 @@ export default function StockItemPickerModal({
                           <img src={s.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                         ) : (
                           <div className="w-10 h-10 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                            <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                            <ImageIcon className="w-5 h-5 text-fg-tertiary" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">

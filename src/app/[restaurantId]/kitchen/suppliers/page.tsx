@@ -13,9 +13,9 @@ import {
 } from '@/lib/api';
 import Modal from '@/components/Modal';
 import {
-  MagnifyingGlassIcon, PlusIcon, TrashIcon, PencilIcon,
-  TruckIcon, CheckCircleIcon, PaperAirplaneIcon, XCircleIcon,
-} from '@heroicons/react/24/outline';
+  SearchIcon, PlusIcon, TrashIcon, PencilIcon,
+  TruckIcon, CheckCircleIcon, SendIcon, XCircleIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
@@ -224,7 +224,7 @@ function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDele
     <>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
+          <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
           <input
             type="text"
             value={search}
@@ -348,7 +348,7 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
                       {o.status === 'draft' && (
                         <>
                           <button onClick={() => onSend(o.id)} title={t('markAsSent')} className="p-1.5 rounded-md hover:bg-blue-50">
-                            <PaperAirplaneIcon className="w-4 h-4 text-blue-500" />
+                            <SendIcon className="w-4 h-4 text-blue-500" />
                           </button>
                           <button onClick={() => { if (confirm('Delete this order?')) onDelete(o.id); }} className="p-1.5 rounded-md hover:bg-red-50">
                             <TrashIcon className="w-4 h-4 text-red-500" />

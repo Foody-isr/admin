@@ -23,11 +23,11 @@ import StockFiltersDrawer, {
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import {
-  MagnifyingGlassIcon, PlusIcon, TrashIcon, PencilIcon,
-  BeakerIcon, CalendarDaysIcon, ArrowsRightLeftIcon,
-  ExclamationTriangleIcon, PlayIcon, SparklesIcon,
-  ChevronDownIcon, ChevronUpIcon, ArrowPathIcon, ClockIcon, PhotoIcon,
-} from '@heroicons/react/24/outline';
+  SearchIcon, PlusIcon, TrashIcon, PencilIcon,
+  BeakerIcon, CalendarDaysIcon, ArrowRightLeftIcon,
+  AlertTriangleIcon, PlayIcon, SparklesIcon,
+  ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import RecipeImportModal from '../RecipeImportModal';
 
@@ -197,7 +197,7 @@ export default function PrepPage() {
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+          <SearchIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
           <input
             type="text"
             placeholder={t('searchPrepItems')}
@@ -246,7 +246,7 @@ export default function PrepPage() {
           actions={[
             { label: t('dailyPlan'), onClick: () => setPlanModal(true), icon: <CalendarDaysIcon className="w-4 h-4" /> },
             { label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> },
-            { label: t('refresh'), onClick: reload, icon: <ArrowPathIcon className="w-4 h-4" /> },
+            { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
           ]}
         />
 
@@ -387,7 +387,7 @@ export default function PrepPage() {
                     <td className="py-3.5 px-2">
                       {low ? (
                         <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
-                          <ExclamationTriangleIcon className="w-4 h-4" /> {t('low')}
+                          <AlertTriangleIcon className="w-4 h-4" /> {t('low')}
                         </span>
                       ) : (
                         <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
@@ -397,7 +397,7 @@ export default function PrepPage() {
                       <RowActionsMenu
                         actions={[
                           { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
-                          { label: t('wasteAdjust'), onClick: () => setTxModal({ open: true, item }), icon: <ArrowsRightLeftIcon className="w-4 h-4" /> },
+                          { label: t('wasteAdjust'), onClick: () => setTxModal({ open: true, item }), icon: <ArrowRightLeftIcon className="w-4 h-4" /> },
                           { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
                           { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
                         ]}
@@ -685,7 +685,7 @@ function PrepItemModal({
                       <img src={si.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
                     ) : (
                       <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                        <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                        <ImageIcon className="w-5 h-5 text-fg-tertiary" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -825,7 +825,7 @@ function BatchProduceModal({
             {preview.insufficient.length > 0 && (
               <div className="bg-red-500/10 rounded-lg p-3 space-y-1">
                 <p className="text-sm font-medium text-red-500 flex items-center gap-1">
-                  <ExclamationTriangleIcon className="w-4 h-4" /> {t('insufficientStock')}
+                  <AlertTriangleIcon className="w-4 h-4" /> {t('insufficientStock')}
                 </p>
                 {preview.insufficient.map((s) => (
                   <p key={s.stock_item_id} className="text-sm text-red-400">

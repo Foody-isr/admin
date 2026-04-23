@@ -3,7 +3,7 @@
 import { MenuItem, MenuItemIngredient } from '@/lib/api';
 import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
 import { costExVat, vatMultiplierForStock } from '@/lib/cost-utils';
-import { PhotoIcon } from '@heroicons/react/24/outline';
+import { ImageIcon } from 'lucide-react';
 
 // Shows the full math behind a prep ingredient's cost: raw ingredients →
 // batch cost → cost per unit → line cost at the current portion.
@@ -138,7 +138,7 @@ export default function PrepCostBreakdownModal({
                               <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
                             ) : (
                               <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                                <PhotoIcon className="w-4 h-4 text-fg-tertiary" />
+                                <ImageIcon className="w-4 h-4 text-fg-tertiary" />
                               </div>
                             )}
                             <span className="truncate">{r.name}</span>

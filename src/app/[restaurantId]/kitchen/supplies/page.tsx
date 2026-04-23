@@ -13,8 +13,8 @@ import {
   ChevronUpIcon,
   SparklesIcon,
   TrashIcon,
-  DocumentTextIcon,
-} from '@heroicons/react/24/outline';
+  FileTextIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 export default function SuppliesPage() {
@@ -124,7 +124,7 @@ export default function SuppliesPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={draft.document_url} alt="" className="w-10 h-10 rounded object-cover border border-[var(--divider)]" />
                     ) : (
-                      <DocumentTextIcon className="w-10 h-10 text-fg-tertiary" />
+                      <FileTextIcon className="w-10 h-10 text-fg-tertiary" />
                     )}
                     <div>
                       <p className="text-sm font-medium text-fg-primary">{draft.supplier_name || t('unknownSupplier')}</p>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { SearchIcon } from 'lucide-react';
 
 export interface SearchableSelectOption {
   value: string;
@@ -49,7 +49,7 @@ export default function SearchableSelect({
   return (
     <div ref={ref} className={`relative min-w-0 ${className}`}>
       <div className="relative">
-        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
         {open ? (
           <input
             type="text"

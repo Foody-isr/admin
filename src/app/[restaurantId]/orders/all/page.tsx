@@ -12,10 +12,10 @@ import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
-  MagnifyingGlassIcon, ArrowPathIcon, SpeakerWaveIcon, SpeakerXMarkIcon,
-  BellIcon, BellSlashIcon, ChevronLeftIcon, ChevronRightIcon,
-  ChevronDownIcon, XMarkIcon, PrinterIcon, EllipsisHorizontalIcon,
-} from '@heroicons/react/24/outline';
+  SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
+  BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
+  ChevronDownIcon, XIcon, PrinterIcon, MoreHorizontalIcon,
+} from 'lucide-react';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
 
@@ -248,7 +248,7 @@ export default function OrdersPage() {
               className="p-2 rounded-standard text-fg-secondary hover:text-fg-primary transition-colors"
               title={soundOn ? t('muteSound') : t('unmuteSound')}
             >
-              {soundOn ? <SpeakerWaveIcon className="w-5 h-5" /> : <SpeakerXMarkIcon className="w-5 h-5" />}
+              {soundOn ? <Volume2Icon className="w-5 h-5" /> : <VolumeXIcon className="w-5 h-5" />}
             </button>
             <button
               onClick={requestPermission}
@@ -261,7 +261,7 @@ export default function OrdersPage() {
                 : t('enableNotifications')
               }
             >
-              {permission === 'granted' ? <BellIcon className="w-5 h-5" /> : <BellSlashIcon className="w-5 h-5" />}
+              {permission === 'granted' ? <BellIcon className="w-5 h-5" /> : <BellOffIcon className="w-5 h-5" />}
             </button>
             {wsStatus === 'connected' && (
               <span className="badge badge-ready text-[10px] uppercase tracking-wider font-bold">{t('live')}</span>
@@ -297,7 +297,7 @@ export default function OrdersPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center">
             <div className="relative">
-              <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
+              <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
               <input
                 type="text"
                 placeholder={t('search')}
@@ -352,7 +352,7 @@ export default function OrdersPage() {
             })}</span>
           )}
           <button onClick={fetchOrders} className="flex items-center gap-1.5 text-fg-secondary hover:text-fg-primary transition-colors">
-            <ArrowPathIcon className="w-3.5 h-3.5" />
+            <RefreshCwIcon className="w-3.5 h-3.5" />
             {t('refresh')}
           </button>
         </div>
@@ -521,7 +521,7 @@ function OrderDetailPanel({
           className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
           style={{ border: '1px solid var(--divider)' }}
         >
-          <XMarkIcon className="w-5 h-5" />
+          <XIcon className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
           <button
@@ -536,7 +536,7 @@ function OrderDetailPanel({
             style={{ border: '1px solid var(--divider)' }}
             title="More options"
           >
-            <EllipsisHorizontalIcon className="w-5 h-5" />
+            <MoreHorizontalIcon className="w-5 h-5" />
           </button>
         </div>
       </div>

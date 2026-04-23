@@ -119,8 +119,8 @@
   --sidebar-bg: #FFFFFF;
   --sidebar-active: var(--brand-500);  /* @deprecated — use --brand-500 */
   --sidebar-hover: #F5F5F5;
-  --topbar-bg: #000000;                /* @deprecated — pending Phase 2 topbar rewrite */
-  --topbar-fg: #FFFFFF;                /* @deprecated — pending Phase 2 topbar rewrite */
+  --topbar-bg: #FFFFFF;                /* adopted from tokens.css (was #000000) */
+  --topbar-fg: var(--fg);              /* topbar text now inherits --fg */
   --shadow-color: rgba(0, 0, 0, 0.04); /* @deprecated — use --shadow-1/2/3 */
 
   /* shadcn/ui tokens (HSL triples) — aligned to Foody neutrals above */
@@ -198,8 +198,8 @@
   --sidebar-bg:      #0a0908;          /* adopted (was #141414) */
   --sidebar-active:  var(--brand-500);
   --sidebar-hover:   #1a1917;          /* adopted (was #1c1c1c) */
-  --topbar-bg:       #141414;          /* @deprecated — pending Phase 2 topbar rewrite */
-  --topbar-fg:       #ffffff;          /* @deprecated — pending Phase 2 topbar rewrite */
+  --topbar-bg:       #0a0908;          /* adopted (was #141414); matches sidebar-bg */
+  --topbar-fg:       var(--fg);        /* topbar text inherits --fg in dark too */
   --shadow-color:    rgba(0, 0, 0, 0.3); /* @deprecated — use --shadow-1/2/3 */
 
   /* shadcn/ui tokens — aligned to Foody dark neutrals above */

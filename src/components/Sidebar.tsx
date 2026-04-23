@@ -235,17 +235,17 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
       <aside
         className={`
-          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-white dark:bg-[#111111]
+          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
           ${sidebarWidth}
           transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
           ${isRtl ? 'right-0 border-l' : 'left-0 border-r'}
-          border-neutral-200 dark:border-neutral-800
+          border-[var(--line)]
           ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
       >
         {/* Brand / restaurant header — matches Figma Make App.tsx lines 209-216 */}
-        <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="p-6 border-b border-[var(--line)]">
           <button
             onClick={() => setProfileOpen(true)}
             className="w-full flex items-center gap-3 text-left"
@@ -255,7 +255,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               {brandInitial}
             </div>
             {!collapsed && (
-              <h1 className="font-bold text-xl text-neutral-900 dark:text-white truncate">
+              <h1 className="font-bold text-xl text-[var(--fg)] truncate">
                 {restaurantName ?? 'Foody'}
               </h1>
             )}
@@ -264,11 +264,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-2 lg:hidden">
-          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
             {t('menu')}
           </span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]">
-            <X className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
+            <X className="w-5 h-5 text-[var(--fg-muted)]" />
           </button>
         </div>
 
@@ -302,8 +302,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     }}
                     className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
                       expanded
-                        ? 'text-neutral-900 dark:text-white'
-                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white'
+                        ? 'text-[var(--fg)]'
+                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -322,7 +322,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           </span>
                         )}
                         <ChevronDown
-                          className={`w-4 h-4 shrink-0 transition-transform text-neutral-600 dark:text-neutral-400 ${
+                          className={`w-4 h-4 shrink-0 transition-transform text-[var(--fg-muted)] ${
                             expanded ? 'rotate-180' : ''
                           }`}
                         />
@@ -333,10 +333,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   <Link
                     href={getNavHref(item)}
                     onClick={onClose}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                       isActive
-                        ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg shadow-brand-500/25'
-                        : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white'
+                        ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-md'
+                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
                     }`}
                   >
                     <item.icon className="w-5 h-5 shrink-0" />
@@ -365,11 +365,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   <div
                     className={`mt-1 space-y-0.5 ${
                       isRtl ? 'mr-4 pr-4 border-r-2' : 'ml-4 pl-4 border-l-2'
-                    } border-neutral-200 dark:border-neutral-800`}
+                    } border-[var(--line)]`}
                   >
                     {item.subGroups?.map((group) => (
                       <div key={group.labelKey} className="py-1">
-                        <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
+                        <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
                           {t(group.labelKey)}
                         </p>
                         {group.items.map((sub) => {
@@ -408,8 +408,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         </nav>
 
         {/* Footer — action icons + theme/collapse toggles */}
-        <div className="border-t border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center justify-around px-2 py-2 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="border-t border-[var(--line)]">
+          <div className="flex items-center justify-around px-2 py-2 border-b border-[var(--line)]">
             <IconBtn label={t('notifications')} badge>
               <Bell className="w-5 h-5" />
             </IconBtn>
@@ -427,7 +427,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           <div className="flex">
             <button
               onClick={toggleTheme}
-              className={`flex-1 p-3 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] transition-colors flex items-center justify-center text-neutral-600 dark:text-neutral-400 ${isRtl ? 'border-l' : 'border-r'} border-neutral-200 dark:border-neutral-800`}
+              className={`flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--fg-muted)] ${isRtl ? 'border-l' : 'border-r'} border-[var(--line)]`}
               title={theme === 'dark' ? t('lightMode') : t('darkMode')}
             >
               {theme === 'dark' ? (
@@ -438,7 +438,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </button>
             <button
               onClick={toggleCollapsed}
-              className="flex-1 p-3 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] transition-colors flex items-center justify-center text-neutral-600 dark:text-neutral-400"
+              className="flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--fg-muted)]"
               title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
             >
               {collapsed ? (
@@ -466,24 +466,24 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       )}
       <div
         className={`
-          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-white dark:bg-[#111111]
-          transition-transform duration-200 ease-in-out border-neutral-200 dark:border-neutral-800
+          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-[var(--sidebar-bg)]
+          transition-transform duration-200 ease-in-out border-[var(--line)]
           ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
           ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
         `}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
           <button
             onClick={() => setProfileOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]"
+            className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)]"
           >
-            <X className="w-5 h-5 text-neutral-900 dark:text-white" />
+            <X className="w-5 h-5 text-[var(--fg)]" />
           </button>
         </div>
 
         {/* User info */}
-        <div className="px-5 py-5 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="px-5 py-5 border-b border-[var(--line)]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-brand-500 text-white">
               <span className="text-sm font-bold">
@@ -492,19 +492,19 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             </div>
             <div className="min-w-0">
               {user?.full_name && (
-                <p className="text-sm font-semibold truncate text-neutral-900 dark:text-white">
+                <p className="text-sm font-semibold truncate text-[var(--fg)]">
                   {user.full_name}
                 </p>
               )}
               {user?.email && (
-                <p className="text-xs truncate text-neutral-600 dark:text-neutral-400">
+                <p className="text-xs truncate text-[var(--fg-muted)]">
                   {user.email}
                 </p>
               )}
             </div>
           </div>
           {restaurantName && (
-            <p className="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <p className="mt-3 text-xs font-medium text-[var(--fg-muted)]">
               {restaurantName}
             </p>
           )}
@@ -514,7 +514,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         <nav className="flex-1 overflow-y-auto py-2">
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] text-neutral-900 dark:text-white"
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
           >
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             {theme === 'dark' ? t('lightMode') : t('darkMode')}
@@ -522,8 +522,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
           <div className="px-5 py-3">
             <div className="flex items-center gap-3 mb-2">
-              <Languages className="w-5 h-5 text-neutral-900 dark:text-white" />
-              <span className="text-sm text-neutral-900 dark:text-white">{t('language')}</span>
+              <Languages className="w-5 h-5 text-[var(--fg)]" />
+              <span className="text-sm text-[var(--fg)]">{t('language')}</span>
             </div>
             <div className="flex gap-2 ml-8">
               {SUPPORTED_LOCALES.map((loc) => (
@@ -533,7 +533,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                     locale === loc
                       ? 'border-brand-500 text-brand-500 font-semibold'
-                      : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-[var(--text-secondary)]'
+                      : 'border-[var(--line)] text-[var(--fg-muted)] hover:border-[var(--text-secondary)]'
                   }`}
                 >
                   {LOCALE_LABELS[loc]}
@@ -546,7 +546,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             <Link
               href="/select-restaurant"
               onClick={() => setProfileOpen(false)}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] text-neutral-900 dark:text-white"
+              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
             >
               <Building2 className="w-5 h-5" />
               {t('switchRestaurant')}
@@ -556,14 +556,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           <Link
             href={`/${restaurantId}/settings`}
             onClick={() => setProfileOpen(false)}
-            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] text-neutral-900 dark:text-white"
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
           >
             <Settings className="w-5 h-5" />
             {t('settings')}
           </Link>
         </nav>
 
-        <div className="border-t border-neutral-200 dark:border-neutral-800 px-5 py-4">
+        <div className="border-t border-[var(--line)] px-5 py-4">
           <button
             onClick={() => {
               setProfileOpen(false);
@@ -599,15 +599,15 @@ function SubLink({
       onClick={onClick}
       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
         active
-          ? 'bg-brand-500 text-white'
-          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white'
+          ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
+          : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
       }`}
     >
       <span className="truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
         <span
           className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
-            active ? 'bg-white/20 text-white' : 'bg-brand-500/15 text-brand-500'
+            active ? 'bg-[var(--brand-500)]/15 text-[var(--brand-500)]' : 'bg-[var(--brand-500)]/15 text-[var(--brand-500)]'
           }`}
         >
           {badge}
@@ -633,8 +633,8 @@ function IconBtn({
   return (
     <button
       onClick={onClick}
-      className={`relative p-2 rounded-lg transition-colors text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] hover:text-neutral-900 dark:text-white ${
-        active ? 'bg-[var(--sidebar-hover)] text-neutral-900 dark:text-white' : ''
+      className={`relative p-2 rounded-lg transition-colors text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] ${
+        active ? 'bg-[var(--sidebar-hover)] text-[var(--fg)]' : ''
       }`}
       aria-label={label}
       title={label}

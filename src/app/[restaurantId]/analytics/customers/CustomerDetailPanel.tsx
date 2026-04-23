@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XIcon } from 'lucide-react';
 import { getAnalyticsCustomerDetail, CustomerDetailResponse } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
@@ -128,7 +128,7 @@ export default function CustomerDetailPanel({
         <div className="sticky top-0 bg-surface z-10 flex items-center justify-between p-4 border-b border-divider">
           <h2 className="text-lg font-semibold text-fg-primary">{t('customerDetails')}</h2>
           <button onClick={onClose} className="p-1 rounded hover:bg-surface-subtle">
-            <XMarkIcon className="w-5 h-5 text-fg-secondary" />
+            <XIcon className="w-5 h-5 text-fg-secondary" />
           </button>
         </div>
 

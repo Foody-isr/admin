@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { SearchIcon } from 'lucide-react';
 
 export type SearchableOption = { value: string; label: string };
 
@@ -67,7 +67,7 @@ export default function SearchableListField(props: SingleProps | MultiProps) {
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="relative">
-        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
         <input
           type="text"
           placeholder={placeholder}

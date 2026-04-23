@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MenuItem, MenuItemIngredient, PrepItem, StockItem, ItemOptionOverride } from '@/lib/api';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { AlertTriangleIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { convertQuantity, sameUnitFamily } from '@/lib/units';
 import { detectPrepSwaps } from '@/lib/prep-swap';
@@ -403,7 +403,7 @@ export default function MenuItemCostPanel({
         </div>
         {costPct > COST_THRESHOLD && (
           <div className="flex items-center gap-2 mt-3 text-sm text-red-500">
-            <ExclamationTriangleIcon className="w-4 h-4" />
+            <AlertTriangleIcon className="w-4 h-4" />
             {t('foodCostExceedsThreshold').replace('{threshold}', (COST_THRESHOLD * 100).toFixed(0))}
           </div>
         )}
@@ -436,7 +436,7 @@ export default function MenuItemCostPanel({
       {/* Missing-variant-portion warning */}
       {hasMissingVariantPortion && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
-          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <AlertTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p>{t('missingVariantPortion')}</p>
             <button
@@ -452,7 +452,7 @@ export default function MenuItemCostPanel({
       {/* Unit-family mismatch warning */}
       {hasUnitFamilyMismatch && currentPortion && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
-          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <AlertTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p>
               {t('unitFamilyMismatch') || 'Unit mismatch: the item\u2019s base portion unit and the variant portion unit are not in the same family; variant scaling falls back to 1\u00D7.'}
@@ -469,7 +469,7 @@ export default function MenuItemCostPanel({
           doesn't chase a phantom "variant not detecting portion" issue. */}
       {unconfiguredPreps.length > 0 && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500">
-          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <AlertTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-medium">
               {unconfiguredPreps.length === 1
@@ -596,7 +596,7 @@ export default function MenuItemCostPanel({
                         )}
                         {prepIssue && ing.prep_item && (
                           <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
-                            <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                            <AlertTriangleIcon className="w-3.5 h-3.5" />
                             <span>
                               {prepIssue === 'missing_yield' && (t('prepMissingYield') || 'no yield per batch set')}
                               {prepIssue === 'no_ingredients' && (t('prepNoIngredients') || 'no raw ingredients linked')}
@@ -612,7 +612,7 @@ export default function MenuItemCostPanel({
                         )}
                         {mismatch && (
                           <div className="flex items-center gap-1 mt-0.5 text-xs text-amber-500">
-                            <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                            <AlertTriangleIcon className="w-3.5 h-3.5" />
                             <span>{t('unitMismatchWarning').replace('{ingUnit}', unit).replace('{stockUnit}', stockUnit)}</span>
                             {ing.stock_item && (
                               <button onClick={() => router.push(`/${rid}/kitchen/stock?edit=${ing.stock_item!.id}`)}

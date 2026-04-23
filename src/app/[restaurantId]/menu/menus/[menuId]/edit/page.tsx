@@ -8,7 +8,7 @@ import {
   Menu, MenuAvailabilityHour, Restaurant, Location,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XIcon } from 'lucide-react';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -125,7 +125,7 @@ export default function MenuEditPage() {
           onClick={() => router.push(`/${rid}/menu/menus/${mid}`)}
           className="p-2 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors"
         >
-          <XMarkIcon className="w-5 h-5" />
+          <XIcon className="w-5 h-5" />
         </button>
         <h2 className="text-sm font-bold text-fg-primary">{t('editMenuTitle')}</h2>
         <button

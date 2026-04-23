@@ -11,10 +11,10 @@ import StockFiltersDrawer, {
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import {
-  MagnifyingGlassIcon, ChevronDownIcon, ChevronUpIcon,
-  ClockIcon, PencilIcon, PhotoIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
+  SearchIcon, ChevronDownIcon, ChevronUpIcon,
+  ClockIcon, PencilIcon, ImageIcon,
+  RefreshCwIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 type RecipeStatus = 'complete' | 'partial' | 'none';
@@ -126,7 +126,7 @@ export default function RecipesPage() {
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
+          <SearchIcon className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary pointer-events-none" />
           <input
             type="text"
             placeholder={t('search')}
@@ -173,7 +173,7 @@ export default function RecipesPage() {
 
         <ActionsDropdown
           actions={[
-            { label: t('refresh'), onClick: reload, icon: <ArrowPathIcon className="w-4 h-4" /> },
+            { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
           ]}
         />
       </div>
@@ -303,7 +303,7 @@ export default function RecipesPage() {
                           <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
                         ) : (
                           <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                            <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                            <ImageIcon className="w-5 h-5 text-fg-tertiary" />
                           </div>
                         )}
                         <span className="font-medium text-fg-primary">{item.name}</span>

@@ -8,7 +8,7 @@ import {
   Menu, MenuGroup, MenuCategory, MenuItem, GroupAvailabilityHour,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon, MagnifyingGlassIcon, PlusIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -257,7 +257,7 @@ export default function GroupPage() {
           onClick={() => router.push(`/${rid}/menu/menus/${mid}`)}
           className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
         >
-          <XMarkIcon className="w-6 h-6" />
+          <XIcon className="w-6 h-6" />
         </button>
         <div className="flex-1" />
         <button
@@ -569,7 +569,7 @@ function AddChoiceModal({ t, onClose, onPickIndividually, onPickFromCategory }: 
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] bg-black/40" onClick={onClose}>
       <div className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-8" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center mb-5">
-          <XMarkIcon className="w-5 h-5" />
+          <XIcon className="w-5 h-5" />
         </button>
         <h2 className="text-2xl font-bold text-fg-primary mb-6">{t('addArticle')}</h2>
         <div className="space-y-0 rounded-xl border border-[var(--divider)] overflow-hidden">
@@ -634,7 +634,7 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
         <div className="p-8 pb-5">
           <div className="flex items-center justify-between mb-5">
             <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-              <XMarkIcon className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => onDone(Array.from(selected))}
@@ -646,7 +646,7 @@ function PickItemsModal({ t, allItems, groupItemIds, onClose, onDone, onCreateNe
           </div>
           <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addArticles')}</h2>
           <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+            <SearchIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
               className="input w-full pl-12 rounded-full"
               placeholder={t('search')}
@@ -739,7 +739,7 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
         <div className="p-8 pb-5">
           <div className="flex items-center justify-between mb-5">
             <button onClick={onClose} className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center">
-              <XMarkIcon className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => onDone(Array.from(selected))}
@@ -751,7 +751,7 @@ function PickCategoryModal({ t, allCategories, onClose, onDone }: {
           </div>
           <h2 className="text-2xl font-bold text-fg-primary mb-5">{t('addFromCategoryTitle')}</h2>
           <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+            <SearchIcon className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
               className="input w-full pl-12 rounded-full"
               placeholder={t('searchCategories')}
@@ -821,7 +821,7 @@ function MenuPickerModal({ t, menus, selectedMenuId, onSelect, onClose }: {
               onClick={onClose}
               className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
             >
-              <XMarkIcon className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => onSelect(picked)}
@@ -834,7 +834,7 @@ function MenuPickerModal({ t, menus, selectedMenuId, onSelect, onClose }: {
 
           {/* Search */}
           <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
+            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-fg-tertiary" />
             <input
               className="input w-full pl-12 rounded-full"
               placeholder={t('searchByMenuName')}
@@ -915,7 +915,7 @@ function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
               onClick={onClose}
               className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
             >
-              <XMarkIcon className="w-5 h-5" />
+              <XIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => onDone(useExisting, localHours)}

@@ -20,9 +20,9 @@ import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import { FormInput } from '@/components/menu-item/MenuItemForm';
 import {
-  XMarkIcon, ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon,
+  XIcon, ChevronDownIcon, ChevronUpIcon, SearchIcon,
   PlusIcon, TrashIcon, ArrowLeftIcon,
-} from '@heroicons/react/24/outline';
+} from 'lucide-react';
 
 interface ComboStepDraft {
   key: string;
@@ -569,7 +569,7 @@ export default function NewItemPage() {
           <div className="sticky top-0 z-10 bg-white dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700 px-6 py-3 flex items-center justify-between">
             <button onClick={() => setVariantModalOpen(false)}
               className="w-11 h-11 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-              <XMarkIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
+              <XIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
             </button>
             <span className="text-[14px] font-bold text-neutral-900 dark:text-white">{t('variants')}</span>
             <button onClick={() => setVariantModalOpen(false)}
@@ -669,7 +669,7 @@ export default function NewItemPage() {
             <div className="p-6 pb-4 flex items-center justify-between">
               <button onClick={() => setModifierModalOpen(false)}
                 className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                <XMarkIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
+                <XIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
               </button>
               <button onClick={() => setModifierModalOpen(false)}
                 className="bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] text-neutral-900 dark:text-white rounded-full px-5 py-2 text-[14px] font-medium">{t('done')}</button>
@@ -712,7 +712,7 @@ export default function NewItemPage() {
                 <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
                   <button onClick={() => setComboModalOpen(false)}
                     className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                    <XMarkIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
+                    <XIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
                   </button>
                   <button
                     onClick={() => { if (modalPicks.size > 0) setModalStep('pricing'); }}
@@ -754,7 +754,7 @@ export default function NewItemPage() {
                   <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
                     <div className="flex gap-2 mb-3">
                       <div className="relative flex-1">
-                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
+                        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
                         <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
                           placeholder={t('searchItems')}
                           className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />
@@ -850,7 +850,7 @@ export default function NewItemPage() {
                 ) : (
                   <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
                     <div className="relative mb-3">
-                      <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
+                      <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
                       <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
                         placeholder={t('searchCategories')}
                         className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />

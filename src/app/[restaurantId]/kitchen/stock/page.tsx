@@ -26,12 +26,12 @@ import FormField from '@/components/FormField';
 import StatusPill from '@/components/StatusPill';
 import SearchableListField from '@/components/SearchableListField';
 import {
-  MagnifyingGlassIcon, PlusIcon, ArrowDownTrayIcon,
-  ExclamationTriangleIcon, TrashIcon, PencilIcon,
-  ArrowUpIcon, ArrowDownIcon, ArrowsRightLeftIcon,
-  SparklesIcon, ClockIcon, ArrowPathIcon,
-  ChevronDownIcon, ChevronUpIcon, PhotoIcon, ArrowUpTrayIcon, InformationCircleIcon,
-} from '@heroicons/react/24/outline';
+  SearchIcon, PlusIcon, DownloadIcon,
+  AlertTriangleIcon, TrashIcon, PencilIcon,
+  ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
+  SparklesIcon, ClockIcon, RefreshCwIcon,
+  ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon, InfoIcon,
+} from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
@@ -410,7 +410,7 @@ export default function StockPage() {
         {/* Search + Filters */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex-1 min-w-[240px] relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
+            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
             <input
               type="text"
               placeholder={t('search')}
@@ -438,7 +438,7 @@ export default function StockPage() {
               {
                 label: vatDisplayMode === 'inc' ? `${t('displayPrice') || 'Affichage'}: TTC` : `${t('displayPrice') || 'Affichage'}: HT`,
                 onClick: toggleVatDisplay,
-                icon: <ArrowsRightLeftIcon className="w-4 h-4" />,
+                icon: <ArrowRightLeftIcon className="w-4 h-4" />,
               },
               {
                 label: t('importDelivery'),
@@ -453,7 +453,7 @@ export default function StockPage() {
               {
                 label: t('refresh'),
                 onClick: reload,
-                icon: <ArrowPathIcon className="w-4 h-4" />,
+                icon: <RefreshCwIcon className="w-4 h-4" />,
               },
             ]}
           />
@@ -487,7 +487,7 @@ export default function StockPage() {
       {/* Table — Figma App.tsx:600 (stock variant) */}
       {sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <PhotoIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-500" />
+          <ImageIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-500" />
           <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
             {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
@@ -609,7 +609,7 @@ export default function StockPage() {
                           />
                         ) : (
                           <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
-                            <PhotoIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
+                            <ImageIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
                           </div>
                         )}
                         <span className="font-medium text-neutral-900 dark:text-white">
@@ -708,7 +708,7 @@ export default function StockPage() {
                     <td className="p-4">
                       {isLow ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                          <ExclamationTriangleIcon className="w-4 h-4" />
+                          <AlertTriangleIcon className="w-4 h-4" />
                           {t('lowStock') || 'Bas'}
                         </span>
                       ) : (
@@ -721,7 +721,7 @@ export default function StockPage() {
                       <RowActionsMenu
                         actions={[
                           { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
-                          { label: t('receiveStock'), onClick: () => setTxModal({ open: true, item, type: 'receive' }), icon: <ArrowDownTrayIcon className="w-4 h-4" /> },
+                          { label: t('receiveStock'), onClick: () => setTxModal({ open: true, item, type: 'receive' }), icon: <DownloadIcon className="w-4 h-4" /> },
                           { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
                           { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
                         ]}
@@ -1158,7 +1158,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
                 <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
               ) : (
                 <>
-                  <ArrowUpTrayIcon className="w-10 h-10" />
+                  <UploadIcon className="w-10 h-10" />
                   <p className="text-base text-center">
                     {t('dropImagesHere')}, <span className="text-orange-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
                   </p>
@@ -1221,7 +1221,7 @@ function TransactionModal({
   const typeOptions: { value: StockTransactionType; label: string; icon: typeof ArrowDownIcon }[] = [
     { value: 'receive', label: t('receive'), icon: ArrowDownIcon },
     { value: 'waste', label: t('waste'), icon: TrashIcon },
-    { value: 'adjust', label: t('adjust'), icon: ArrowsRightLeftIcon },
+    { value: 'adjust', label: t('adjust'), icon: ArrowRightLeftIcon },
   ];
 
   const afterQty = type === 'receive' ? item.quantity + qty : item.quantity - qty;

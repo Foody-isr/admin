@@ -8,9 +8,9 @@ import {
   StockItem, MenuItem,
 } from '@/lib/api';
 import {
-  SparklesIcon, TrashIcon, DocumentTextIcon,
-  ExclamationTriangleIcon, InformationCircleIcon,
-} from '@heroicons/react/24/outline';
+  SparklesIcon, TrashIcon, FileTextIcon,
+  AlertTriangleIcon, InfoIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
@@ -232,7 +232,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                 )}
                 {file && file.type === 'application/pdf' && (
                   <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
-                    <DocumentTextIcon className="w-5 h-5" />
+                    <FileTextIcon className="w-5 h-5" />
                     {file.name}
                   </div>
                 )}
@@ -433,7 +433,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                   {/* Unit-compatibility hint (matched items with a unit difference) */}
                   {matched && compat === 'convertible' && (
                     <div className="flex items-start gap-2 p-2 rounded-lg text-xs text-blue-500 bg-blue-500/10">
-                      <InformationCircleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+                      <InfoIcon className="w-4 h-4 shrink-0 mt-0.5" />
                       <span>
                         {t('unitAutoConvertHint')
                           .replace('{ingUnit}', ing.unit)
@@ -444,7 +444,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                   )}
                   {matched && compat === 'incompatible' && (
                     <div className="flex items-start gap-2 p-2 rounded-lg text-xs text-amber-500 bg-amber-500/10">
-                      <ExclamationTriangleIcon className="w-4 h-4 shrink-0 mt-0.5" />
+                      <AlertTriangleIcon className="w-4 h-4 shrink-0 mt-0.5" />
                       <span>
                         {t('unitIncompatibleHint')
                           .replace('{ingUnit}', ing.unit)

@@ -8,7 +8,7 @@ import {
   FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XMarkIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { XIcon, TrashIcon } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,7 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-fg-primary">{t('newSection')}</h2>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
-            <XMarkIcon className="w-5 h-5 text-fg-secondary" />
+            <XIcon className="w-5 h-5 text-fg-secondary" />
           </button>
         </div>
 
@@ -448,7 +448,7 @@ export default function FloorPlanEditorPage() {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--divider)' }}>
           <button onClick={goBack} className="w-10 h-10 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors" style={{ border: '1px solid var(--divider)' }}>
-            <XMarkIcon className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </button>
           <h1 className="text-base font-semibold text-fg-primary">{plan ? (plan.name ? t('editFloorPlan') + ' — ' + plan.name : t('editFloorPlan')) : t('editFloorPlan')}</h1>
           <div className="flex items-center gap-2">

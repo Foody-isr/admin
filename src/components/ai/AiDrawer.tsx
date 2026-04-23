@@ -3,7 +3,7 @@
 import { useAi } from '@/lib/ai-context';
 import { useI18n } from '@/lib/i18n';
 import AiChat from './AiChat';
-import { XMarkIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { XIcon, TrashIcon } from 'lucide-react';
 
 export default function AiDrawer() {
   const { isOpen, closeDrawer, clearChat, messages } = useAi();
@@ -58,7 +58,7 @@ export default function AiDrawer() {
               onClick={closeDrawer}
               className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)] transition-colors text-fg-secondary"
             >
-              <XMarkIcon className="w-4 h-4" />
+              <XIcon className="w-4 h-4" />
             </button>
           </div>
         </div>

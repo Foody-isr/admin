@@ -3,16 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowDownTrayIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
+  DownloadIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
   BeakerIcon,
   CheckCircleIcon,
-  CurrencyDollarIcon,
-  ExclamationTriangleIcon,
-  LightBulbIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
+  DollarSignIcon,
+  AlertTriangleIcon,
+  LightbulbIcon,
+  RefreshCwIcon,
+} from 'lucide-react';
 import type {
   MenuItem, MenuItemIngredient, PrepItem, StockItem, ItemOptionOverride,
 } from '@/lib/api';
@@ -281,7 +281,7 @@ export default function MenuItemCostTab({
       {hasMissingVariantPortion && (
         <Banner
           tone="amber"
-          icon={<ExclamationTriangleIcon className="w-5 h-5" />}
+          icon={<AlertTriangleIcon className="w-5 h-5" />}
           body={t('missingVariantPortion')}
           action={{
             label: `${t('configureVariants')} →`,
@@ -293,7 +293,7 @@ export default function MenuItemCostTab({
       {hasUnitFamilyMismatch && currentPortion && (
         <Banner
           tone="amber"
-          icon={<ExclamationTriangleIcon className="w-5 h-5" />}
+          icon={<AlertTriangleIcon className="w-5 h-5" />}
           body={t('unitFamilyMismatch')}
           detail={`${t('item') || 'item'}: ${item.portion_size} ${item.portion_size_unit || '?'} ≠ ${t('variant') || 'variant'}: ${currentPortion.qty} ${currentPortion.unit}`}
         />
@@ -496,7 +496,7 @@ function UnconfiguredPrepsBanner({
 }) {
   return (
     <div className="flex items-start gap-3 rounded-[10px] border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] p-4 text-[13px] leading-[18px] text-[#f59e0b]">
-      <ExclamationTriangleIcon className="w-5 h-5 shrink-0 mt-0.5" />
+      <AlertTriangleIcon className="w-5 h-5 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="font-medium">
           {items.length === 1
@@ -558,7 +558,7 @@ function OverviewSection({
       title={t('tabCost')}
       headerRight={
         <div className="flex items-center gap-2">
-          {overThreshold && <ExclamationTriangleIcon className="w-5 h-5 text-[#f97316]" />}
+          {overThreshold && <AlertTriangleIcon className="w-5 h-5 text-[#f97316]" />}
           <button
             type="button"
             onClick={onToggleVat}
@@ -587,7 +587,7 @@ function OverviewSection({
             disabled
             title={t('historicalComingSoon')}
           >
-            <ArrowDownTrayIcon className="w-4 h-4" />
+            <DownloadIcon className="w-4 h-4" />
             {t('exportCost')}
           </button>
         </div>
@@ -597,7 +597,7 @@ function OverviewSection({
         <KpiCard
           tone="neutral"
           label={t('foodCostLabel')}
-          icon={<CurrencyDollarIcon className="w-4 h-4" />}
+          icon={<DollarSignIcon className="w-4 h-4" />}
           value={`${summary.foodCost.toFixed(2)} ${CURRENCY}`}
           valueClass="text-[var(--text-primary)]"
           barColor="#f97316"
@@ -607,7 +607,7 @@ function OverviewSection({
         <KpiCard
           tone="positive"
           label={t('grossProfit')}
-          icon={<ArrowTrendingUpIcon className="w-4 h-4" />}
+          icon={<TrendingUpIcon className="w-4 h-4" />}
           value={`${summary.margin.toFixed(2)} ${CURRENCY}`}
           valueClass="text-[#05df72]"
           barColor="#05df72"
@@ -702,7 +702,7 @@ function CostPctCard({
         <span className={`w-7 h-7 rounded-md inline-flex items-center justify-center ${
           over ? 'bg-[rgba(249,115,22,0.12)] text-[#f97316]' : 'bg-[rgba(5,223,114,0.12)] text-[#05df72]'
         }`}>
-          <ExclamationTriangleIcon className="w-4 h-4" />
+          <AlertTriangleIcon className="w-4 h-4" />
         </span>
       </div>
       <p className={`text-[28px] leading-[36px] font-semibold ${over ? 'text-[#f97316]' : 'text-[var(--text-primary)]'}`}>
@@ -917,7 +917,7 @@ function SimulatorSection({
           }`}>
             {simHitsGoal
               ? <CheckCircleIcon className="w-4 h-4" />
-              : <ExclamationTriangleIcon className="w-4 h-4" />}
+              : <AlertTriangleIcon className="w-4 h-4" />}
             <span className="font-semibold">{simCostPctPts.toFixed(1)}%</span>
             <span className="text-[12px] opacity-80">
               ({deltaPts >= 0 ? '+' : ''}{deltaPts.toFixed(1)} {t('pts')})
@@ -929,7 +929,7 @@ function SimulatorSection({
       {recommendation && (
         <div className="flex items-start gap-3 rounded-[10px] border border-[rgba(5,223,114,0.25)] bg-[rgba(5,223,114,0.06)] p-4">
           <span className="w-8 h-8 rounded-md inline-flex items-center justify-center bg-[rgba(5,223,114,0.12)] text-[#05df72] shrink-0">
-            <LightBulbIcon className="w-4 h-4" />
+            <LightbulbIcon className="w-4 h-4" />
           </span>
           <div className="min-w-0 text-[13px] leading-[20px]">
             <p className="text-[var(--text-primary)]">
@@ -1070,7 +1070,7 @@ function IngredientBreakdownSection({
                           )}
                           {prepIssue && prep && (
                             <div className="flex items-center gap-1 mt-0.5 text-[11px] text-[#f59e0b]">
-                              <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                              <AlertTriangleIcon className="w-3.5 h-3.5" />
                               <span>
                                 {prepIssue === 'missing_yield' && (t('prepMissingYield') || 'no yield per batch set')}
                                 {prepIssue === 'no_ingredients' && (t('prepNoIngredients') || 'no raw ingredients linked')}
@@ -1087,7 +1087,7 @@ function IngredientBreakdownSection({
                           )}
                           {mismatch && (
                             <div className="flex items-center gap-1 mt-0.5 text-[11px] text-[#f59e0b]">
-                              <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                              <AlertTriangleIcon className="w-3.5 h-3.5" />
                               <span>
                                 {t('unitMismatchWarning')
                                   .replace('{ingUnit}', ing.unit || '')
@@ -1355,7 +1355,7 @@ function SuggestionsSection({
     suggestions.push({
       key: 'reduce-portion',
       tone: 'warning',
-      icon: <ArrowTrendingDownIcon className="w-4 h-4" />,
+      icon: <TrendingDownIcon className="w-4 h-4" />,
       title: t('suggestReducePortion'),
       description: t('suggestReducePortionBody')
         .replace('{from}', Number(from.toFixed(2)).toString())
@@ -1375,7 +1375,7 @@ function SuggestionsSection({
       suggestions.push({
         key: 'raise-price',
         tone: 'positive',
-        icon: <CurrencyDollarIcon className="w-4 h-4" />,
+        icon: <DollarSignIcon className="w-4 h-4" />,
         title: t('suggestRaisePrice').replace('{price}', targetPrice.toFixed(2)),
         description: t('suggestRaisePriceBody')
           .replace('{pctIncrease}', pctIncrease.toFixed(0))
@@ -1392,7 +1392,7 @@ function SuggestionsSection({
     suggestions.push({
       key: 'negotiate',
       tone: 'neutral',
-      icon: <ArrowPathIcon className="w-4 h-4" />,
+      icon: <RefreshCwIcon className="w-4 h-4" />,
       title: t('suggestNegotiate').replace('{name}', top.name),
       description: t('suggestNegotiateBody')
         .replace('{name}', top.name)
@@ -1410,7 +1410,7 @@ function SuggestionsSection({
       title={t('optimizationSuggestions')}
       headerRight={
         <span className="w-7 h-7 rounded-md inline-flex items-center justify-center bg-[rgba(245,191,0,0.12)] text-[#f59e0b]">
-          <LightBulbIcon className="w-4 h-4" />
+          <LightbulbIcon className="w-4 h-4" />
         </span>
       }
     >

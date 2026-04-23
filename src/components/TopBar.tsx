@@ -5,14 +5,14 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { useI18n } from '@/lib/i18n';
 import {
-  Bars3Icon,
+  MenuIcon,
   BellIcon,
   SunIcon,
   MoonIcon,
-  ArrowRightOnRectangleIcon,
+  LogOutIcon,
   ChevronDownIcon,
   SparklesIcon,
-} from '@heroicons/react/24/outline';
+} from 'lucide-react';
 import { useAi } from '@/lib/ai-context';
 
 interface TopBarProps {
@@ -45,16 +45,19 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
     : '?';
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-12 z-40 flex items-center justify-between px-4" style={{ background: 'var(--topbar-bg)' }}>
+    <header
+      className="fixed top-0 left-0 right-0 h-12 z-40 flex items-center justify-between px-4 border-b border-[var(--line)]"
+      style={{ background: 'var(--topbar-bg)' }}
+    >
       {/* Left: hamburger + breadcrumb */}
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
-          className="lg:hidden p-1.5 rounded-md hover:bg-white/10 transition-colors"
+          className="lg:hidden p-1.5 rounded-md hover:bg-[var(--sidebar-hover)] transition-colors"
           style={{ color: 'var(--topbar-fg)' }}
           aria-label="Toggle sidebar"
         >
-          <Bars3Icon className="w-5 h-5" />
+          <MenuIcon className="w-5 h-5" />
         </button>
         <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--topbar-fg)', opacity: 0.7 }}>
           {restaurantName}
@@ -67,8 +70,11 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
 
       {/* Center: Foody logo */}
       <div className="absolute left-1/2 -translate-x-1/2">
-        <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
-          <span className="text-sm font-black text-black">F</span>
+        <div
+          className="w-7 h-7 rounded-md flex items-center justify-center shadow-[0_2px_8px_rgba(249,115,22,0.3)]"
+          style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
+        >
+          <span className="text-sm font-black text-white">F</span>
         </div>
       </div>
 
@@ -77,7 +83,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
         {/* AI Assistant */}
         <button
           onClick={ai.toggleDrawer}
-          className={`relative p-1.5 rounded-md hover:bg-white/10 transition-colors ${ai.isOpen ? 'bg-white/10' : ''}`}
+          className={`relative p-1.5 rounded-md hover:bg-[var(--sidebar-hover)] transition-colors ${ai.isOpen ? 'bg-white/10' : ''}`}
           style={{ color: 'var(--topbar-fg)' }}
           aria-label="Foody AI"
         >
@@ -86,7 +92,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
 
         {/* Notification bell */}
         <button
-          className="relative p-1.5 rounded-md hover:bg-white/10 transition-colors"
+          className="relative p-1.5 rounded-md hover:bg-[var(--sidebar-hover)] transition-colors"
           style={{ color: 'var(--topbar-fg)' }}
           aria-label="Notifications"
         >
@@ -102,7 +108,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center gap-2 p-1.5 rounded-md hover:bg-white/10 transition-colors"
+            className="flex items-center gap-2 p-1.5 rounded-md hover:bg-[var(--sidebar-hover)] transition-colors"
             style={{ color: 'var(--topbar-fg)' }}
           >
             <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center">
@@ -138,7 +144,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
                 onClick={() => { logout(); setMenuOpen(false); }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-[var(--surface-subtle)]"
               >
-                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                <LogOutIcon className="w-4 h-4" />
                 {t('signOut')}
               </button>
             </div>

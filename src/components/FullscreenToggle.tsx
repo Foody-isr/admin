@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
+import { Minimize2Icon, Maximize2Icon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { useFullscreenZoom, ZOOM_LEVELS, type ZoomLevel } from '@/lib/use-fullscreen-zoom';
 
@@ -30,7 +30,7 @@ export default function FullscreenToggle() {
     };
   }, [menuOpen]);
 
-  const Icon = isActive ? ArrowsPointingInIcon : ArrowsPointingOutIcon;
+  const Icon = isActive ? Minimize2Icon : Maximize2Icon;
 
   return (
     <div className="relative inline-flex items-center gap-1" ref={menuRef}>

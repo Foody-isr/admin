@@ -15,12 +15,12 @@ import {
   ConfirmDeliveryItemInput, PurchaseOrder,
 } from '@/lib/api';
 import {
-  ChevronDownIcon, ChevronUpIcon, ArrowPathIcon,
-  CheckCircleIcon, ExclamationTriangleIcon,
+  ChevronDownIcon, ChevronUpIcon, RefreshCwIcon,
+  CheckCircleIcon, AlertTriangleIcon,
   ChevronLeftIcon, ChevronRightIcon,
-  XMarkIcon, PlusIcon, TrashIcon, InformationCircleIcon,
-  EnvelopeIcon,
-} from '@heroicons/react/24/outline';
+  XIcon, PlusIcon, TrashIcon, InfoIcon,
+  MailIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 function formatDate(d: Date): string {
@@ -446,7 +446,7 @@ export default function DailyOperationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <ArrowPathIcon className="w-8 h-8 animate-spin text-[var(--fg-secondary)]" />
+        <RefreshCwIcon className="w-8 h-8 animate-spin text-[var(--fg-secondary)]" />
       </div>
     );
   }
@@ -597,7 +597,7 @@ export default function DailyOperationsPage() {
               disabled={computing}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
             >
-              <ArrowPathIcon className={`w-3.5 h-3.5 ${computing ? 'animate-spin' : ''}`} />
+              <RefreshCwIcon className={`w-3.5 h-3.5 ${computing ? 'animate-spin' : ''}`} />
               {t('pullFromPOS') || 'Pull from POS'}
             </button>
             <button
@@ -783,7 +783,7 @@ export default function DailyOperationsPage() {
                       {/* Insight line */}
                       {insight && (
                         <div className={`px-3 pb-2 text-xs flex items-center gap-1.5 ${item.variance > 0 ? 'text-red-400' : 'text-yellow-400'}`}>
-                          <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                          <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
                           {insight}
                         </div>
                       )}
@@ -792,7 +792,7 @@ export default function DailyOperationsPage() {
                         <div className="px-4 py-3 border-t border-[var(--divider)]">
                           {breakdownLoading === item.stock_item_id ? (
                             <div className="flex items-center gap-2 text-sm text-[var(--fg-secondary)] py-2">
-                              <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                              <RefreshCwIcon className="w-4 h-4 animate-spin" />
                               {t('loadingBreakdown') || 'Loading breakdown...'}
                             </div>
                           ) : bd ? (
@@ -840,7 +840,7 @@ export default function DailyOperationsPage() {
                                   return (
                                     <div className="mt-3 pt-3 border-t border-[var(--divider)] border-opacity-50">
                                       <div className="flex items-start gap-2 text-sm">
-                                        <ExclamationTriangleIcon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                        <AlertTriangleIcon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                                         <span className="text-red-400 font-medium">
                                           {'≈ '}
                                           {loss.dishes.map((d, i) => (
@@ -875,7 +875,7 @@ export default function DailyOperationsPage() {
           {isOpen && report?.items && report.items.length > 0 && (
             <div className="flex gap-3">
               <button onClick={handleCompute} disabled={computing} className="btn-secondary text-sm px-4 py-1.5 flex items-center gap-2">
-                <ArrowPathIcon className={`w-4 h-4 ${computing ? 'animate-spin' : ''}`} />
+                <RefreshCwIcon className={`w-4 h-4 ${computing ? 'animate-spin' : ''}`} />
                 {t('recompute') || 'Recompute'}
               </button>
             </div>
@@ -965,7 +965,7 @@ export default function DailyOperationsPage() {
               disabled={generatingOrders}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors"
             >
-              <ArrowPathIcon className="w-4 h-4" />
+              <RefreshCwIcon className="w-4 h-4" />
               {t('regenerate') || 'Regenerate'}
             </button>
           ) : undefined}
@@ -1009,7 +1009,7 @@ export default function DailyOperationsPage() {
               </p>
               {generatingOrders ? (
                 <div className="flex items-center justify-center gap-2 text-sm text-[var(--fg-secondary)]">
-                  <ArrowPathIcon className="w-4 h-4 animate-spin" /> ...
+                  <RefreshCwIcon className="w-4 h-4 animate-spin" /> ...
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1039,7 +1039,7 @@ export default function DailyOperationsPage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs text-brand-500 hover:text-brand-400 transition-colors mt-4"
               >
-                <InformationCircleIcon className="w-3.5 h-3.5" />
+                <InfoIcon className="w-3.5 h-3.5" />
                 {t('learnMore') || 'Learn more'}
               </a>
             </div>
@@ -1163,7 +1163,7 @@ function SupplierOrderCard({ po, onSendEmail, sendingEmail, t }: {
             disabled={sendingEmail}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-500/10 text-brand-500 hover:bg-brand-500/20 transition-colors disabled:opacity-50"
           >
-            <EnvelopeIcon className="w-4 h-4" />
+            <MailIcon className="w-4 h-4" />
             {sendingEmail ? (t('sendingEmail') || 'Sending...') : (t('sendOrder') || 'Send order')}
           </button>
         )}
@@ -1284,7 +1284,7 @@ function QuickReceiveModal({
             )}
           </div>
           <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
-            <XMarkIcon className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -1471,7 +1471,7 @@ function QuickSalesModal({
             )}
           </div>
           <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
-            <XMarkIcon className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -1589,7 +1589,7 @@ function ExplainModal({ title, body, onClose }: { title: string; body: string; o
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-bold text-fg-primary">{title}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--surface-hover)] rounded-lg">
-            <XMarkIcon className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
         <div dir="auto" className="text-sm text-[var(--fg-secondary)] leading-relaxed whitespace-pre-line text-left">{body}</div>
@@ -1607,7 +1607,7 @@ function KpiCard({ label, value, warn, tooltip, explain }: { label: string; valu
           <p className="text-xs text-[var(--fg-secondary)]">{label}</p>
           {(tooltip || explain) && (
             <div className="relative group/tip">
-              <InformationCircleIcon
+              <InfoIcon
                 className="w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-60 cursor-pointer"
                 onClick={() => explain && setShowExplain(true)}
               />
@@ -1635,7 +1635,7 @@ function ThTooltip({ label, tooltip, explain }: { label: string; tooltip: string
       <div className="inline-flex items-center gap-1">
         <span>{label}</span>
         <div className="relative group/tip">
-          <InformationCircleIcon
+          <InfoIcon
             className={`w-3.5 h-3.5 text-[var(--fg-secondary)] opacity-50 ${explain ? 'cursor-pointer' : 'cursor-help'}`}
             onClick={explain ? (e) => { e.stopPropagation(); setShowExplain(true); } : undefined}
           />

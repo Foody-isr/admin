@@ -10,13 +10,13 @@ import {
 import { useI18n } from '@/lib/i18n';
 import {
   PlusIcon,
-  MagnifyingGlassIcon,
-  Squares2X2Icon,
-  ListBulletIcon,
-  EllipsisHorizontalIcon,
-  Bars3Icon,
+  SearchIcon,
+  LayoutGridIcon,
+  ListIcon,
+  MoreHorizontalIcon,
+  MenuIcon,
   ChevronDownIcon,
-} from '@heroicons/react/24/outline';
+} from 'lucide-react';
 import Modal from '@/components/Modal';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -163,7 +163,7 @@ export default function MenusPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-tertiary pointer-events-none" />
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-tertiary pointer-events-none" />
           <input
             className="input pl-10 text-sm h-11 w-full rounded-full"
             placeholder={t('searchByMenuName')}
@@ -203,13 +203,13 @@ export default function MenusPage() {
               onClick={() => setViewMode('grid')}
               className={`p-2.5 transition-colors ${viewMode === 'grid' ? 'bg-[var(--surface-subtle)]' : 'hover:bg-[var(--surface-subtle)]'}`}
             >
-              <Squares2X2Icon className="w-4 h-4 text-fg-secondary" />
+              <LayoutGridIcon className="w-4 h-4 text-fg-secondary" />
             </button>
             <button
               onClick={() => setViewMode('list')}
               className={`p-2.5 border-l border-[var(--divider)] transition-colors ${viewMode === 'list' ? 'bg-[var(--surface-subtle)]' : 'hover:bg-[var(--surface-subtle)]'}`}
             >
-              <ListBulletIcon className="w-4 h-4 text-fg-secondary" />
+              <ListIcon className="w-4 h-4 text-fg-secondary" />
             </button>
           </div>
         )}
@@ -241,7 +241,7 @@ export default function MenusPage() {
               onClick={() => !isReordering && router.push(`/${rid}/menu/menus/${m.id}`)}
               className={`flex items-center gap-4 px-5 py-4 rounded-xl border border-[var(--divider)] bg-[var(--surface)] hover:shadow-sm transition-shadow${isReordering ? ' cursor-grab active:cursor-grabbing' : ' cursor-pointer'}`}
             >
-              {isReordering && <Bars3Icon className="w-4 h-4 text-fg-tertiary shrink-0" />}
+              {isReordering && <MenuIcon className="w-4 h-4 text-fg-tertiary shrink-0" />}
               {/* Avatar */}
               <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                 <span className="text-xs font-semibold text-fg-secondary">{menuAbbr(m.name)}</span>
@@ -266,7 +266,7 @@ export default function MenusPage() {
                     onClick={(e) => { e.stopPropagation(); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
                     className="flex items-center gap-1 hover:text-fg-primary hover:underline transition-colors"
                   >
-                    <Squares2X2Icon className="w-3.5 h-3.5 shrink-0" />
+                    <LayoutGridIcon className="w-3.5 h-3.5 shrink-0" />
                     {channelsMeta(m, t)}
                   </button>
                   {!m.follows_restaurant_hours && m.availability_hours && hoursRange(m.availability_hours) && (
@@ -373,7 +373,7 @@ function MenuDropdown({ menu: m, isOpen, onToggle, onEdit, onDuplicate, onDelete
   return (
     <div className="relative shrink-0">
       <button onClick={onToggle} className="p-1.5 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] text-fg-primary transition-colors">
-        <EllipsisHorizontalIcon className="w-5 h-5" />
+        <MoreHorizontalIcon className="w-5 h-5" />
       </button>
       {isOpen && (
         <div className="absolute right-0 top-10 z-30 w-64 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">

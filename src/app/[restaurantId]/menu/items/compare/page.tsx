@@ -12,8 +12,8 @@ import { COST_THRESHOLD, computeItemCostSummary, ItemCostSummary } from '@/lib/c
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
 import FoodCostBreakdownModal from '@/components/food-cost/FoodCostBreakdownModal';
 import {
-  XMarkIcon, ExclamationTriangleIcon, PhotoIcon, ArrowTopRightOnSquareIcon,
-} from '@heroicons/react/24/outline';
+  XIcon, AlertTriangleIcon, ImageIcon, ExternalLinkIcon,
+} from 'lucide-react';
 
 const MIN_ITEMS = 2;
 const MAX_ITEMS = 6;
@@ -179,7 +179,7 @@ export default function CompareItemsPage() {
             className="w-11 h-11 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
             aria-label={t('back') || 'Back'}
           >
-            <XMarkIcon className="w-5 h-5" />
+            <XIcon className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-base font-bold text-fg-primary">
@@ -212,7 +212,7 @@ export default function CompareItemsPage() {
                   <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                    <PhotoIcon className="w-5 h-5 text-fg-tertiary" />
+                    <ImageIcon className="w-5 h-5 text-fg-tertiary" />
                   </div>
                 )}
                 <div className="min-w-0">
@@ -230,7 +230,7 @@ export default function CompareItemsPage() {
                 onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=cost`)}
                 className="text-xs text-brand-500 hover:text-brand-400 flex items-center gap-1 mt-1"
               >
-                {t('openItemCta') || 'Open item'} <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                {t('openItemCta') || 'Open item'} <ExternalLinkIcon className="w-3 h-3" />
               </button>
             </div>
           ))}
@@ -344,7 +344,7 @@ export default function CompareItemsPage() {
                         : (t('prepZeroCostIngredients') || 'linked ingredients have no purchase cost set');
                       return (
                         <li key={prep.id} className="flex items-start gap-1 text-amber-400">
-                          <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                           <span className="flex-1">
                             <span className="font-semibold">{prep.name}</span>{': '}{reason}.{' '}
                             <button

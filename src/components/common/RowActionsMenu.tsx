@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, ReactNode } from 'react';
-import { EllipsisHorizontalIcon } from '@heroicons/react/24/outline';
+import { MoreHorizontalIcon } from 'lucide-react';
 
 export interface RowAction {
   label: string;
@@ -28,7 +28,7 @@ export default function RowActionsMenu({ actions }: { actions: RowAction[] }) {
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         className="p-1.5 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] text-fg-primary transition-colors"
       >
-        <EllipsisHorizontalIcon className="w-5 h-5" />
+        <MoreHorizontalIcon className="w-5 h-5" />
       </button>
       {open && (
         <div className="absolute top-full right-0 mt-1 w-48 bg-[var(--surface)] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden z-30">

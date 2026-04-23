@@ -9,7 +9,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import {
   PlusIcon, TrashIcon,
-} from '@heroicons/react/24/outline';
+} from 'lucide-react';
 import Modal from '@/components/Modal';
 
 interface FlatItem extends MenuItem {

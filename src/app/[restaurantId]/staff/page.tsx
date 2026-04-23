@@ -8,7 +8,7 @@ import {
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 
 export default function StaffPage() {

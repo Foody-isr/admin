@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, ReactNode } from 'react';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 export interface ActionItem {

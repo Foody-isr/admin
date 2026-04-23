@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { useAi } from '@/lib/ai-context';
-import { ArrowUpIcon } from '@heroicons/react/24/outline';
+import { ArrowUpIcon } from 'lucide-react';
 
 const PLACEHOLDER_KEYS = [
   'aiPromptPlaceholder1',

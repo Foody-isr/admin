@@ -7,7 +7,7 @@ import {
   Menu, MenuCategory,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 
 export default function CategoriesPage() {

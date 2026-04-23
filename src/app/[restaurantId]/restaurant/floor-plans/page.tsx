@@ -7,7 +7,7 @@ import {
   FloorPlan,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, Bars3Icon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MenuIcon, TrashIcon } from 'lucide-react';
 
 export default function FloorPlansListPage() {
   const { restaurantId } = useParams();
@@ -102,7 +102,7 @@ export default function FloorPlansListPage() {
               className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer"
               onClick={() => router.push(`/${rid}/restaurant/floor-plans/${plan.id}`)}
             >
-              <Bars3Icon className="w-5 h-5 text-fg-secondary cursor-grab flex-shrink-0" />
+              <MenuIcon className="w-5 h-5 text-fg-secondary cursor-grab flex-shrink-0" />
               <span className="flex-1 font-medium text-fg-primary">{plan.name}</span>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(plan); }}

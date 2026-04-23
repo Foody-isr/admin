@@ -6,7 +6,7 @@ import {
   listModifierSets, deleteModifierSet, migrateLegacyModifiers, ModifierSet,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon } from 'lucide-react';
 
 export default function ModifierSetsPage() {
   const { restaurantId } = useParams();

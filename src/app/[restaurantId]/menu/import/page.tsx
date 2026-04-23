@@ -7,7 +7,7 @@ import {
   MenuExtraction,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon } from 'lucide-react';
 
 export default function AIImportPage() {
   const { restaurantId } = useParams();

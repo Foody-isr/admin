@@ -28,9 +28,9 @@ import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-i
 import { computeItemCostSummary } from '@/lib/cost-utils';
 import SearchableListField from '@/components/SearchableListField';
 import {
-  XMarkIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon,
-  MagnifyingGlassIcon, PlusIcon, ArrowLeftIcon,
-} from '@heroicons/react/24/outline';
+  XIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon,
+  SearchIcon, PlusIcon, ArrowLeftIcon,
+} from 'lucide-react';
 
 const VALID_TABS: MenuItemSection[] = ['details', 'modifiers', 'recipe', 'cost'];
 
@@ -605,7 +605,7 @@ export default function EditItemPage() {
                 className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center"
                 aria-label={t('close') || 'Fermer'}
               >
-                <XMarkIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+                <XIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
@@ -639,7 +639,7 @@ export default function EditItemPage() {
                 onClick={() => setModifierModalOpen(false)}
                 className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center"
               >
-                <XMarkIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
+                <XIcon className="w-5 h-5 text-neutral-900 dark:text-white" />
               </button>
               <button
                 onClick={() => setModifierModalOpen(false)}
@@ -703,7 +703,7 @@ export default function EditItemPage() {
                 <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
                   <button onClick={() => setComboModalOpen(false)}
                     className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                    <XMarkIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
+                    <XIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
                   </button>
                   <button onClick={() => { if (modalPicks.size > 0) setModalStep('pricing'); }}
                     disabled={modalPicks.size === 0}
@@ -728,7 +728,7 @@ export default function EditItemPage() {
                   <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
                     <div className="flex gap-2 mb-3">
                       <div className="relative flex-1">
-                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
+                        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
                         <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)} placeholder={t('searchItems')}
                           className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />
                       </div>
@@ -804,7 +804,7 @@ export default function EditItemPage() {
                 ) : (
                   <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
                     <div className="relative mb-3">
-                      <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
+                      <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
                       <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)} placeholder={t('searchCategories')}
                         className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />
                     </div>
