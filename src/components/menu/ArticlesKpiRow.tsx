@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  ShoppingBag,
+  CheckCircle,
+  DollarSign,
+  AlertCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuItem } from '@/lib/api';
 
@@ -9,21 +16,20 @@ interface Props {
   onKpiClick: (key: string) => void;
 }
 
-type Tone = 'neutral' | 'success' | 'warning' | 'danger';
-
 interface Kpi {
   key: string;
   title: string;
   value: string;
-  sub?: string;
-  tone: Tone;
+  icon: LucideIcon;
+  change: string;
+  positive: boolean;
 }
 
 /**
- * Articles KPI strip — aligned with Stock's KpiCard layout:
- * minimal `label → big tabular number → subline`, optional warning/danger/
- * success tint for outlier metrics. No icon tiles, no deltas (the Library
- * doesn't have delta data, so the Stock-style minimalism applies cleanly).
+ * Articles KPI strip — icon-tile layout:
+ * brand-gradient tile top-left, change-indicator top-right, label + big value
+ * below. Tokenized. Preferred design — Stock mirrors this same layout via the
+ * same component so the two pages look consistent.
  */
 export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: Props) {
   const { t } = useI18n();
@@ -38,85 +44,81 @@ export default function ArticlesKpiRow({ items, categoriesCount, onKpiClick }: P
   const kpis: Kpi[] = [
     {
       key: 'total-articles',
-      title: t('kpiTotalItems') || 'Total articles',
+      title: t('kpiTotalItems') || 'Total Articles',
       value: String(total),
-      sub: `${categoriesCount} ${t('categories') || 'catégories'}`,
-      tone: 'neutral',
+      icon: ShoppingBag,
+      change: `${categoriesCount}`,
+      positive: true,
     },
     {
       key: 'disponibles',
       title: t('kpiActiveItems') || 'Disponibles',
       value: String(available),
-      sub: unavailable > 0
-        ? `${unavailable} ${t('hiddenLower') || 'masqués'}`
-        : `${activePct}%`,
-      tone: activePct >= 80 ? 'success' : 'neutral',
+      icon: CheckCircle,
+      change: `${activePct}%`,
+      positive: activePct >= 80,
     },
     {
       key: 'revenu-moyen',
       title: t('kpiAvgPrice') || 'Prix moyen',
       value: `₪${avgPrice.toFixed(2)}`,
-      sub: t('htShort') || 'HT',
-      tone: 'neutral',
+      icon: DollarSign,
+      change: '',
+      positive: true,
     },
     {
       key: 'rupture-stock',
-      title: t('kpiUnavailable') || 'Rupture',
+      title: t('kpiUnavailable') || 'Rupture Stock',
       value: String(unavailable),
-      sub:
-        unavailable > 0
-          ? t('unavailableSub') || 'indisponible(s)'
-          : t('allAvailable') || 'tous disponibles',
-      tone: unavailable > 0 ? 'warning' : 'neutral',
+      icon: AlertCircle,
+      change: total > 0
+        ? `${Math.round((unavailable / Math.max(total, 1)) * 100)}%`
+        : '0%',
+      positive: unavailable === 0,
     },
   ];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
-      {kpis.map((kpi) => {
-        const tintStyle: React.CSSProperties | undefined =
-          kpi.tone === 'warning'
-            ? {
-                background: 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))',
-                borderColor: 'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
-              }
-            : kpi.tone === 'danger'
-            ? {
-                background: 'color-mix(in oklab, var(--danger-500) 6%, var(--surface))',
-                borderColor: 'color-mix(in oklab, var(--danger-500) 25%, var(--line))',
-              }
-            : undefined;
-        const valueColor =
-          kpi.tone === 'warning'
-            ? 'var(--warning-500)'
-            : kpi.tone === 'danger'
-            ? 'var(--danger-500)'
-            : kpi.tone === 'success'
-            ? 'var(--success-500)'
-            : 'var(--fg)';
-        return (
-          <button
-            key={kpi.key}
-            onClick={() => onKpiClick(kpi.key)}
-            title="Cliquez pour plus d'informations"
-            className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] text-left hover:border-[var(--line-strong)] transition-colors"
-            style={tintStyle}
-          >
-            <h3 className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-              {kpi.title}
-            </h3>
-            <p
-              className="text-fs-3xl font-semibold leading-none tabular-nums"
-              style={{ color: valueColor }}
+      {kpis.map((kpi) => (
+        <button
+          key={kpi.key}
+          type="button"
+          onClick={() => onKpiClick(kpi.key)}
+          title="Cliquez pour plus d'informations"
+          className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] text-left hover:border-[var(--line-strong)] hover:shadow-2 transition-all"
+        >
+          <div className="flex items-center justify-between mb-[var(--s-3)]">
+            <div
+              className="w-12 h-12 rounded-r-md grid place-items-center text-white"
+              style={{
+                background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
+                boxShadow: '0 4px 12px color-mix(in oklab, var(--brand-500) 25%, transparent)',
+              }}
             >
-              {kpi.value}
-            </p>
-            {kpi.sub && (
-              <p className="text-fs-xs text-[var(--fg-subtle)]">{kpi.sub}</p>
+              <kpi.icon className="w-5 h-5" />
+            </div>
+            {kpi.change && (
+              <span
+                className="text-fs-sm font-semibold tabular-nums"
+                style={{
+                  color: kpi.positive
+                    ? 'var(--success-500)'
+                    : 'var(--danger-500)',
+                }}
+              >
+                {kpi.change}
+              </span>
             )}
-          </button>
-        );
-      })}
+          </div>
+          <h3 className="text-fs-xs uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1">
+            {kpi.title}
+          </h3>
+          <p className="text-fs-3xl font-semibold text-[var(--fg)] tabular-nums leading-none">
+            {kpi.value}
+          </p>
+        </button>
+      ))}
     </div>
   );
 }

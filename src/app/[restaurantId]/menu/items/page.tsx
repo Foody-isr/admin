@@ -25,7 +25,7 @@ import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersD
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button, Chip, InputGroup, PageHead } from '@/components/ds';
+import { Button, PageHead } from '@/components/ds';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -464,51 +464,69 @@ export default function ItemLibraryPage() {
           </div>
         )}
 
-        {/* Search + filter chips row — matches Stock's layout */}
+        {/* Search + filter pill-buttons row — larger, rounded-r-lg, CAPS-ready */}
         <div className="flex flex-wrap items-center gap-[var(--s-3)] mt-[var(--s-4)]">
-          <div className="w-80">
-            <InputGroup
-              leading={<Search />}
-              inputProps={{
-                placeholder: t('search') || 'Rechercher',
-                value: search,
-                onChange: (e) => setSearch(e.target.value),
-              }}
+          <div className="relative flex-1 min-w-[240px]">
+            <Search
+              className="absolute start-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--fg-muted)] pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder={t('search') || 'Rechercher'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
             />
           </div>
 
-          <Chip onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}>
-            {t('category')} ·{' '}
-            <span className="opacity-70">
+          <button
+            type="button"
+            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+          >
+            <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
+            <span className="text-[var(--brand-500)] font-semibold">
               {selectedCategories.size === 0
                 ? t('all')
                 : selectedCategories.size === 1
                   ? Array.from(selectedCategories)[0]
                   : selectedCategories.size}
             </span>
-            <ChevronDown className="w-3 h-3" />
-          </Chip>
+            <ChevronDown className="w-4 h-4" />
+          </button>
 
-          <Chip onClick={() => openFiltersDrawer('index')}>
+          <button
+            type="button"
+            onClick={() => openFiltersDrawer('index')}
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+          >
             {t('allFilters')}
-            <ChevronDown className="w-3 h-3" />
-          </Chip>
-
-          <div className="flex-1" />
+            <ChevronDown className="w-4 h-4" />
+          </button>
 
           <ActionsDropdown actions={[{ label: t('refresh'), onClick: reload }]} />
         </div>
       </header>
 
-      {/* Category pills — .chip pattern, flat row */}
+      {/* Category pills — rounded-r-lg rectangles with CAPS labels */}
       {pillCategories.length > 0 && (
         <div className="flex flex-wrap gap-[var(--s-2)] mb-[var(--s-4)]">
           {pillCategories.map((name) => {
             const active = activePillName === name;
             return (
-              <Chip key={name} active={active} onClick={() => selectPill(name)}>
+              <button
+                key={name}
+                type="button"
+                onClick={() => selectPill(name)}
+                aria-pressed={active}
+                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
+                  active
+                    ? 'bg-[var(--brand-500)] text-white shadow-1'
+                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
+                }`}
+              >
                 {name}
-              </Chip>
+              </button>
             );
           })}
           {selectedCategories.size > 1 && (

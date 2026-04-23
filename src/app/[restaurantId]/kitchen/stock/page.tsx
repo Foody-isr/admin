@@ -33,6 +33,8 @@ import {
   ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
   SparklesIcon, ClockIcon, RefreshCwIcon,
   ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon, InfoIcon,
+  ShoppingBag, CheckCircle, DollarSign, AlertCircle,
+  type LucideIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -346,30 +348,38 @@ export default function StockPage() {
               title={t('itemsInStock') || 'Articles en stock'}
               value={String(items.length)}
               onClick={setSelectedKpi}
-              sub={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
+              icon={ShoppingBag}
+              change={String(categories.length)}
+              positive
             />
             <KpiCard
               kpiKey="statut-ok"
               title={t('statusOk') || 'Statut OK'}
               value={String(stockOk)}
               onClick={setSelectedKpi}
-              tone="success"
-              sub={items.length > 0 ? `${((stockOk / items.length) * 100).toFixed(1)}%` : undefined}
+              icon={CheckCircle}
+              change={
+                items.length > 0
+                  ? `${((stockOk / items.length) * 100).toFixed(0)}%`
+                  : '—'
+              }
+              positive={items.length === 0 || stockOk / items.length >= 0.8}
             />
             <KpiCard
               kpiKey="valeur-totale"
               title={t('totalValue') || 'Valeur totale'}
               value={`₪${totalValue.toFixed(2)}`}
               onClick={setSelectedKpi}
-              sub="HT"
+              icon={DollarSign}
             />
             <KpiCard
               kpiKey="stock-bas"
               title={t('stockAlerts') || 'Alertes stock'}
               value={String(stockLow)}
               onClick={setSelectedKpi}
-              tone="warning"
-              sub={t('toOrder') || 'À commander'}
+              icon={AlertCircle}
+              change={stockLow > 0 ? (t('toOrder') || 'À commander') : 'OK'}
+              positive={stockLow === 0}
             />
           </div>
         )}
@@ -412,24 +422,25 @@ export default function StockPage() {
           </div>
         )}
 
-        {/* Search + Filters */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex-1 min-w-[240px] relative">
-            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 pointer-events-none" />
+        {/* Search + filter pill-buttons row — matches Articles */}
+        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
+          <div className="relative flex-1 min-w-[240px]">
+            <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
             <input
               type="text"
               placeholder={t('search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
             />
           </div>
           <button
+            type="button"
             onClick={() => openFiltersDrawer('category')}
-            className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
           >
-            {t('category')}:{' '}
-            <span className="text-orange-500">
+            <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
+            <span className="text-[var(--brand-500)] font-semibold">
               {selectedCategories.size === 0
                 ? t('all')
                 : selectedCategories.size === 1
@@ -465,7 +476,7 @@ export default function StockPage() {
         </div>
       </header>
 
-      {/* Category pills — .chip pattern */}
+      {/* Category pills — rounded-r-lg rectangles with CAPS labels (matches Articles) */}
       {pillCategories.length > 1 && (
         <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
           {pillCategories.map((name) => {
@@ -476,10 +487,10 @@ export default function StockPage() {
                 type="button"
                 onClick={() => selectPill(name)}
                 aria-pressed={active}
-                className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ease-out ${
+                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
                   active
-                    ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
-                    : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
+                    ? 'bg-[var(--brand-500)] text-white shadow-1'
+                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                 }`}
               >
                 {name}
@@ -489,7 +500,8 @@ export default function StockPage() {
         </div>
       )}
 
-      <div className="px-8 py-6">
+      {/* Table wrapper — horizontal scroll when columns overflow */}
+      <div className="overflow-x-auto">
 
       {/* Table — Figma App.tsx:600 (stock variant) */}
       {sorted.length === 0 ? (
@@ -625,10 +637,10 @@ export default function StockPage() {
                       </button>
                     </td>
                     <td className="p-4">
-                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium">
+                      <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
                         {catColor && (
                           <span
-                            className="w-2 h-2 rounded-full shrink-0"
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
                             style={{ background: catColor }}
                           />
                         )}
@@ -861,54 +873,52 @@ function KpiCard({
   title,
   value,
   onClick,
-  tone = 'neutral',
-  sub,
+  icon: Icon,
+  change,
+  positive = true,
 }: {
   kpiKey: string;
   title: string;
   value: string;
   onClick: (key: string) => void;
-  tone?: 'neutral' | 'warning' | 'success' | 'danger';
-  sub?: string;
+  icon: LucideIcon;
+  change?: string;
+  positive?: boolean;
 }) {
-  const tintStyle: React.CSSProperties | undefined =
-    tone === 'warning'
-      ? {
-          background: 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))',
-          borderColor: 'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
-        }
-      : tone === 'danger'
-      ? {
-          background: 'color-mix(in oklab, var(--danger-500) 6%, var(--surface))',
-          borderColor: 'color-mix(in oklab, var(--danger-500) 25%, var(--line))',
-        }
-      : undefined;
-  const valueColor =
-    tone === 'warning'
-      ? 'var(--warning-500)'
-      : tone === 'danger'
-      ? 'var(--danger-500)'
-      : tone === 'success'
-      ? 'var(--success-500)'
-      : 'var(--fg)';
   return (
     <button
       type="button"
       onClick={() => onClick(kpiKey)}
       title="Cliquez pour plus d'informations"
-      className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] text-left hover:border-[var(--line-strong)] transition-colors"
-      style={tintStyle}
+      className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] text-left hover:border-[var(--line-strong)] hover:shadow-2 transition-all"
     >
-      <h3 className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+      <div className="flex items-center justify-between mb-[var(--s-3)]">
+        <div
+          className="w-12 h-12 rounded-r-md grid place-items-center text-white"
+          style={{
+            background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
+            boxShadow: '0 4px 12px color-mix(in oklab, var(--brand-500) 25%, transparent)',
+          }}
+        >
+          <Icon className="w-5 h-5" />
+        </div>
+        {change && (
+          <span
+            className="text-fs-sm font-semibold tabular-nums"
+            style={{
+              color: positive ? 'var(--success-500)' : 'var(--danger-500)',
+            }}
+          >
+            {change}
+          </span>
+        )}
+      </div>
+      <h3 className="text-fs-xs uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1">
         {title}
       </h3>
-      <p
-        className="text-fs-3xl font-semibold leading-none tabular-nums"
-        style={{ color: valueColor }}
-      >
+      <p className="text-fs-3xl font-semibold text-[var(--fg)] tabular-nums leading-none">
         {value}
       </p>
-      {sub && <p className="text-fs-xs text-[var(--fg-subtle)]">{sub}</p>}
     </button>
   );
 }
