@@ -21,7 +21,6 @@ import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
-import MenuItemIngredientsEditor from '@/components/food-cost/MenuItemIngredientsEditor';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
@@ -130,7 +129,6 @@ export default function EditItemPage() {
   const [vatRate, setVatRate] = useState(18);
 
   const recipeRef = useRef<MenuItemTabRecipeHandle>(null);
-  const [ingredientsEditorOpen, setIngredientsEditorOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -579,7 +577,22 @@ export default function EditItemPage() {
                     .filter((o) => o.is_active)
                     .map((o) => ({ option_id: o.id, name: o.name })),
                 )}
-                onOpenIngredientsEditor={() => setIngredientsEditorOpen(true)}
+                onAddIngredient={async (input) => {
+                  const next = [
+                    ...ingredients.map((ing) => ({
+                      stock_item_id: ing.stock_item_id,
+                      prep_item_id: ing.prep_item_id,
+                      quantity_needed: ing.quantity_needed,
+                      unit: ing.unit,
+                      scales_with_variant: ing.scales_with_variant,
+                      option_id: ing.option_id,
+                      variant_overrides: ing.variant_overrides,
+                    })),
+                    input,
+                  ];
+                  const saved = await setMenuItemIngredients(rid, iid, next);
+                  setIngredients(saved);
+                }}
                 onDeleteIngredient={async (id) => {
                   if (!confirm(t('delete') + '?')) return;
                   const next = ingredients.filter((i) => i.id !== id);
@@ -634,44 +647,6 @@ export default function EditItemPage() {
           </div>
         </div>
       </MenuItemShell>
-
-      {/* Ingredients Editor Dialog — opened from the new Recipe tab */}
-      {ingredientsEditorOpen && item && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[5vh] bg-black/50">
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col border border-neutral-200 dark:border-neutral-700">
-            <div className="px-6 py-4 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                {t('ingredientsAndCost') || 'Ingrédients'}
-              </h3>
-              <button
-                onClick={() => setIngredientsEditorOpen(false)}
-                className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center"
-                aria-label={t('close') || 'Fermer'}
-              >
-                <XIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <MenuItemIngredientsEditor
-                rid={rid}
-                menuItem={item}
-                initialIngredients={ingredients}
-                stockItems={stockItems}
-                prepItems={prepItems}
-                onSaved={(ings) => {
-                  setIngredients(ings);
-                  setIngredientsEditorOpen(false);
-                }}
-                variants={attachedOptionSets.flatMap((os) =>
-                  (os.options ?? [])
-                    .filter((o) => o.is_active)
-                    .map((o) => ({ option_id: o.id, name: o.name })),
-                )}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modifier Sets Modal */}
       {modifierModalOpen && (

@@ -2,7 +2,7 @@
 
 import { useImperativeHandle, forwardRef, useEffect, useState } from 'react';
 import {
-  ChevronDown, FlaskConical, Info, Package, Pin, Plus, Scale, Settings2, Trash2,
+  ChevronDown, FlaskConical, Info, Package, Pin, Plus, Scale, Settings2, Trash2, X,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -11,12 +11,14 @@ import {
   updateRecipeMeta,
   type MenuItem,
   type MenuItemIngredient,
+  type IngredientInput,
   type IngredientVariantOverride,
   type StockItem,
   type PrepItem,
   type RecipeStep,
   type RecipeStepInput,
 } from '@/lib/api';
+import SearchableSelect from '@/components/SearchableSelect';
 
 export type QuantityMode = 'adapt' | 'fixed' | 'custom';
 
@@ -56,7 +58,8 @@ interface Props {
   prepItems: PrepItem[];
   /** Attached variants — drives the "Personnalisé par variante" mode UI. */
   variants: VariantRef[];
-  onOpenIngredientsEditor: () => void;
+  /** Append a new ingredient. Parent persists via setMenuItemIngredients. */
+  onAddIngredient: (input: IngredientInput) => Promise<void>;
   onDeleteIngredient: (id: number) => void;
   /** Persist a patched ingredient. Parent rewrites the full list via
    *  setMenuItemIngredients. */
@@ -95,12 +98,49 @@ function formatQty(n: number): string {
 
 const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function MenuItemTabRecipe(
   {
-    rid, item, ingredients, variants,
-    onOpenIngredientsEditor, onDeleteIngredient, onUpdateIngredient,
+    rid, item, ingredients, stockItems, prepItems, variants,
+    onAddIngredient, onDeleteIngredient, onUpdateIngredient,
   }: Props,
   ref,
 ) {
   const { t } = useI18n();
+
+  // Inline "add ingredient" draft. Click the button → a draft row appears at
+  // the top of the list with a source picker. Picking a source saves a new
+  // ingredient (default mode: scales with variant) and closes the draft.
+  const [addingDraft, setAddingDraft] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
+
+  const handlePickDraftSource = async (val: string) => {
+    let input: IngredientInput | null = null;
+    if (val.startsWith('stock:')) {
+      const id = Number(val.slice(6));
+      const s = stockItems.find((x) => x.id === id);
+      input = {
+        stock_item_id: id,
+        quantity_needed: 0,
+        unit: s?.unit ?? '',
+        scales_with_variant: true,
+      };
+    } else if (val.startsWith('prep:')) {
+      const id = Number(val.slice(5));
+      const p = prepItems.find((x) => x.id === id);
+      input = {
+        prep_item_id: id,
+        quantity_needed: 0,
+        unit: p?.unit ?? 'portion',
+        scales_with_variant: true,
+      };
+    }
+    if (!input) return;
+    setDraftSaving(true);
+    try {
+      await onAddIngredient(input);
+      setAddingDraft(false);
+    } finally {
+      setDraftSaving(false);
+    }
+  };
 
   // Recipe steps state — loaded from API, mutated locally, saved on main form save.
   // Local view shape: split `instruction` into title + description for the Figma card.
@@ -199,8 +239,9 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
           </div>
           <button
             type="button"
-            onClick={onOpenIngredientsEditor}
-            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+            onClick={() => setAddingDraft(true)}
+            disabled={addingDraft}
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
           >
             <Plus className="w-3.5 h-3.5" />
             {t('addIngredient') || 'Ajouter un ingrédient'}
@@ -208,6 +249,15 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         </div>
 
         <div className="flex flex-col gap-[var(--s-2)]">
+          {addingDraft && (
+            <RecipeIngredientDraft
+              stockItems={stockItems}
+              prepItems={prepItems}
+              saving={draftSaving}
+              onPick={handlePickDraftSource}
+              onCancel={() => setAddingDraft(false)}
+            />
+          )}
           {ingredients.map((ing) => (
             <RecipeIngredientItem
               key={ing.id}
@@ -218,7 +268,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
               onUpdate={(patch) => onUpdateIngredient(ing.id, patch)}
             />
           ))}
-          {ingredients.length === 0 && (
+          {ingredients.length === 0 && !addingDraft && (
             <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
               {t('noIngredients') || 'Aucun ingrédient ajouté.'}
             </p>
@@ -628,6 +678,79 @@ function RecipeIngredientItem({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Draft ingredient row — inline picker shown above the list ─────────
+// Same card chrome as RecipeIngredientItem so the list stays visually
+// consistent. The badge shows a "+" instead of a letter until a source is
+// picked. On pick, the parent persists and this row is replaced by the
+// real ingredient card.
+
+function RecipeIngredientDraft({
+  stockItems,
+  prepItems,
+  saving,
+  onPick,
+  onCancel,
+}: {
+  stockItems: StockItem[];
+  prepItems: PrepItem[];
+  saving: boolean;
+  onPick: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+
+  const options = [
+    ...stockItems.map((s) => ({
+      value: `stock:${s.id}`,
+      label: s.name,
+      sublabel: s.unit || undefined,
+    })),
+    ...prepItems.map((p) => ({
+      value: `prep:${p.id}`,
+      label: p.name,
+      sublabel: `${p.unit || 'portion'} · ${t('preparation') || 'préparation'}`,
+    })),
+  ];
+
+  return (
+    <div
+      className="bg-[var(--surface)] rounded-r-md shadow-1"
+      style={{ border: '1px solid color-mix(in oklab, var(--brand-500) 40%, var(--line))' }}
+    >
+      <div className="flex items-center gap-[var(--s-3)] p-[var(--s-3)_var(--s-4)]">
+        <div
+          className="shrink-0 w-8 h-8 rounded-r-sm grid place-items-center text-[var(--brand-500)]"
+          style={{ background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)' }}
+        >
+          <Plus size={16} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <SearchableSelect
+            value=""
+            onChange={onPick}
+            options={options}
+            placeholder={t('selectIngredient') || 'Choisir un ingrédient ou une préparation…'}
+          />
+        </div>
+
+        {saving ? (
+          <div className="shrink-0 w-4 h-4 border-2 border-[var(--brand-500)] border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="shrink-0 p-1.5 rounded-r-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] transition-colors"
+            aria-label={t('cancel') || 'Annuler'}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
