@@ -339,7 +339,7 @@ export default function FoodCostPage() {
       </header>
 
       {/* Chart Section — Figma:140 */}
-      <div className="px-8 py-6 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800">
+      <div className="px-8 py-6 bg-[var(--surface)] border-b border-[var(--line)]">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
             {t('costDistribution') || 'Distribution des coûts'}
@@ -358,7 +358,7 @@ export default function FoodCostPage() {
           </button>
         </div>
         {showChart && (
-          <div className="h-64 bg-neutral-50 dark:bg-[#0a0a0a] rounded-xl border border-neutral-200 dark:border-neutral-800 p-4">
+          <div className="h-64 bg-[var(--bg)] rounded-xl border border-[var(--line)] p-4">
             {filteredItems.length === 0 ? (
               <div className="h-full flex items-center justify-center text-sm text-neutral-500 dark:text-neutral-400">
                 {t('noItemsWithRecipes') || 'Aucun article avec une recette.'}
@@ -397,8 +397,8 @@ export default function FoodCostPage() {
       {/* Content — Figma:172 */}
       <div className="flex flex-1">
         {/* Items list */}
-        <div className="w-96 shrink-0 bg-white dark:bg-[#111111] border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
-          <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 space-y-3">
+        <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col">
+          <div className="p-4 border-b border-[var(--line)] space-y-3">
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
@@ -409,14 +409,14 @@ export default function FoodCostPage() {
                 placeholder={t('searchItem') || 'Rechercher un article...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-[var(--surface-2)] text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
               />
             </div>
             <div className="flex items-center gap-2">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'Tous' | 'Bon' | 'Attention' | 'Critique')}
-                className="flex-1 px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
+                className="flex-1 px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-[var(--surface-2)] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
               >
                 <option value="Tous">{t('allStatuses') || 'Tous les statuts'}</option>
                 <option value="Bon">✓ Bon</option>
@@ -426,7 +426,7 @@ export default function FoodCostPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="flex-1 px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
+                className="flex-1 px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-[var(--surface-2)] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
               >
                 <option value="cost-high">{t('costHigh') || 'Coût ↓'}</option>
                 <option value="cost-low">{t('costLow') || 'Coût ↑'}</option>
@@ -454,7 +454,7 @@ export default function FoodCostPage() {
                 className={`w-full text-left p-4 rounded-xl transition-all ${
                   selectedItem?.item.id === e.item.id
                     ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500'
-                    : 'bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-[#222222]'
+                    : 'bg-[var(--surface-2)] border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-[#222222]'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -484,7 +484,7 @@ export default function FoodCostPage() {
         </div>
 
         {/* Details panel */}
-        <div className="flex-1 bg-neutral-50 dark:bg-[#0a0a0a] p-8 overflow-y-auto">
+        <div className="flex-1 bg-[var(--bg)] p-8 overflow-y-auto">
           {!selectedItem ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
