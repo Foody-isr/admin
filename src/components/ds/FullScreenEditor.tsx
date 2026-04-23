@@ -50,7 +50,12 @@ export function FullScreenEditor({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
           className={cn(
-            'fixed z-50 top-[32px] inset-x-[24px] bottom-[24px]',
+            // Horizontally centered via transform — immune to scrollbar-gutter
+            // reservation that Radix applies to <html> on open (which made
+            // inset-x anchoring look ~scrollbar-width off-center to the right).
+            'fixed z-50 top-[32px] bottom-[24px]',
+            'left-1/2 -translate-x-1/2',
+            'w-[calc(100%-48px)]',
             'flex flex-col overflow-hidden',
             'bg-[var(--bg)] text-[var(--fg)]',
             'border border-[var(--line)] rounded-r-xl shadow-3',

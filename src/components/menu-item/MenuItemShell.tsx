@@ -49,9 +49,12 @@ export default function MenuItemShell({
         onClick={onClose}
       />
 
-      {/* Inset container — 32px top, 24px sides, 24px bottom per reference */}
+      {/* Inset container — 32px top, 24px bottom, centered horizontally with
+          48px total side gap. Using transform centering (not inset-x-24)
+          keeps the modal visually symmetric regardless of page scrollbar
+          gutter reservation. */}
       <div
-        className="absolute top-[32px] inset-x-[24px] bottom-[24px] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-xl shadow-3"
+        className="absolute top-[32px] bottom-[24px] left-1/2 -translate-x-1/2 w-[calc(100%-48px)] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-xl shadow-3"
       >
         {/* Head — 60px, close-left · centered title · save/cancel right */}
         <div className="h-[60px] shrink-0 px-[var(--s-5)] flex items-center gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
