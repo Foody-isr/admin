@@ -105,34 +105,13 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 ) {
   const { t } = useI18n();
 
-  // Inline "add ingredient" draft. Click the button → a draft row appears at
-  // the top of the list with a source picker. Picking a source saves a new
-  // ingredient (default mode: scales with variant) and closes the draft.
+  // Inline "add ingredient" draft. Click the button → a draft card appears
+  // at the top of the list, already expanded with mode selection visible.
+  // The user picks both the source and the mode before confirming.
   const [addingDraft, setAddingDraft] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
 
-  const handlePickDraftSource = async (val: string) => {
-    let input: IngredientInput | null = null;
-    if (val.startsWith('stock:')) {
-      const id = Number(val.slice(6));
-      const s = stockItems.find((x) => x.id === id);
-      input = {
-        stock_item_id: id,
-        quantity_needed: 0,
-        unit: s?.unit ?? '',
-        scales_with_variant: true,
-      };
-    } else if (val.startsWith('prep:')) {
-      const id = Number(val.slice(5));
-      const p = prepItems.find((x) => x.id === id);
-      input = {
-        prep_item_id: id,
-        quantity_needed: 0,
-        unit: p?.unit ?? 'portion',
-        scales_with_variant: true,
-      };
-    }
-    if (!input) return;
+  const handleAddFromDraft = async (input: IngredientInput) => {
     setDraftSaving(true);
     try {
       await onAddIngredient(input);
@@ -253,8 +232,9 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             <RecipeIngredientDraft
               stockItems={stockItems}
               prepItems={prepItems}
+              variants={variants}
               saving={draftSaving}
-              onPick={handlePickDraftSource}
+              onAdd={handleAddFromDraft}
               onCancel={() => setAddingDraft(false)}
             />
           )}
@@ -683,25 +663,31 @@ function RecipeIngredientItem({
 }
 
 // ─── Draft ingredient row — inline picker shown above the list ─────────
-// Same card chrome as RecipeIngredientItem so the list stays visually
-// consistent. The badge shows a "+" instead of a letter until a source is
-// picked. On pick, the parent persists and this row is replaced by the
-// real ingredient card.
+// Same card chrome as RecipeIngredientItem but opens already expanded so
+// the user can choose the source AND the mode in one step. Confirmed via
+// an explicit "Ajouter" button — matches the edit flow on existing rows.
 
 function RecipeIngredientDraft({
   stockItems,
   prepItems,
+  variants,
   saving,
-  onPick,
+  onAdd,
   onCancel,
 }: {
   stockItems: StockItem[];
   prepItems: PrepItem[];
+  variants: VariantRef[];
   saving: boolean;
-  onPick: (value: string) => void;
+  onAdd: (input: IngredientInput) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
+  const [sourceValue, setSourceValue] = useState('');
+  const [mode, setMode] = useState<QuantityMode>('adapt');
+  const [quantity, setQuantity] = useState<number>(0);
+  const [unit, setUnit] = useState<string>('');
+  const [overrides, setOverrides] = useState<IngredientVariantOverride[]>([]);
 
   const options = [
     ...stockItems.map((s) => ({
@@ -716,11 +702,77 @@ function RecipeIngredientDraft({
     })),
   ];
 
+  const handlePickSource = (val: string) => {
+    setSourceValue(val);
+    let sourceUnit = '';
+    if (val.startsWith('stock:')) {
+      const id = Number(val.slice(6));
+      sourceUnit = stockItems.find((x) => x.id === id)?.unit ?? '';
+    } else if (val.startsWith('prep:')) {
+      const id = Number(val.slice(5));
+      sourceUnit = prepItems.find((x) => x.id === id)?.unit ?? 'portion';
+    }
+    setUnit(sourceUnit);
+    if (mode === 'custom') {
+      setOverrides((prev) =>
+        prev.length > 0
+          ? prev.map((o) => ({ ...o, unit: o.unit || sourceUnit }))
+          : variants.map((v) => ({ option_id: v.option_id, quantity: 0, unit: sourceUnit })),
+      );
+    }
+  };
+
+  const handleModeChange = (next: QuantityMode) => {
+    if (next === mode) return;
+    setMode(next);
+    if (next === 'custom' && overrides.length === 0) {
+      setOverrides(variants.map((v) => ({ option_id: v.option_id, quantity, unit })));
+    }
+  };
+
+  const handleOverrideChange = (optionId: number, qty: number, nextUnit: string) => {
+    setOverrides((prev) => {
+      const exists = prev.some((o) => o.option_id === optionId);
+      if (exists) {
+        return prev.map((o) => (o.option_id === optionId ? { ...o, quantity: qty, unit: nextUnit } : o));
+      }
+      return [...prev, { option_id: optionId, quantity: qty, unit: nextUnit }];
+    });
+  };
+
+  const canAdd = Boolean(sourceValue) && !saving && (
+    mode !== 'fixed' || quantity > 0
+  );
+
+  const handleSubmit = async () => {
+    if (!canAdd) return;
+    const base: { stock_item_id?: number; prep_item_id?: number } = {};
+    if (sourceValue.startsWith('stock:')) base.stock_item_id = Number(sourceValue.slice(6));
+    else if (sourceValue.startsWith('prep:')) base.prep_item_id = Number(sourceValue.slice(5));
+
+    let input: IngredientInput;
+    if (mode === 'adapt') {
+      input = { ...base, quantity_needed: 0, unit, scales_with_variant: true };
+    } else if (mode === 'fixed') {
+      input = { ...base, quantity_needed: quantity, unit, scales_with_variant: false };
+    } else {
+      input = {
+        ...base,
+        quantity_needed: 0,
+        unit,
+        scales_with_variant: false,
+        variant_overrides: overrides,
+      };
+    }
+    await onAdd(input);
+  };
+
   return (
     <div
       className="bg-[var(--surface)] rounded-r-md shadow-1"
       style={{ border: '1px solid color-mix(in oklab, var(--brand-500) 40%, var(--line))' }}
     >
+      {/* Header — source picker */}
       <div className="flex items-center gap-[var(--s-3)] p-[var(--s-3)_var(--s-4)]">
         <div
           className="shrink-0 w-8 h-8 rounded-r-sm grid place-items-center text-[var(--brand-500)]"
@@ -731,25 +783,177 @@ function RecipeIngredientDraft({
 
         <div className="flex-1 min-w-0">
           <SearchableSelect
-            value=""
-            onChange={onPick}
+            value={sourceValue}
+            onChange={handlePickSource}
             options={options}
             placeholder={t('selectIngredient') || 'Choisir un ingrédient ou une préparation…'}
           />
         </div>
 
-        {saving ? (
-          <div className="shrink-0 w-4 h-4 border-2 border-[var(--brand-500)] border-t-transparent rounded-full animate-spin" />
-        ) : (
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="shrink-0 p-1.5 rounded-r-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] transition-colors disabled:opacity-50"
+          aria-label={t('cancel') || 'Annuler'}
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Always-expanded body — mode picker + mode-specific editor */}
+      <div className="px-[var(--s-4)] pb-[var(--s-4)] pt-[var(--s-4)] border-t border-[var(--line)] space-y-[var(--s-4)]">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Info size={14} className="text-neutral-400" />
+            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Comment cet ingrédient est-il utilisé ?
+            </label>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <ModeBtn
+              icon={<Scale size={16} />}
+              label="Adapter à la taille"
+              active={mode === 'adapt'}
+              onClick={() => handleModeChange('adapt')}
+              disabled={saving}
+            />
+            <ModeBtn
+              icon={<Pin size={16} />}
+              label="Quantité fixe"
+              active={mode === 'fixed'}
+              onClick={() => handleModeChange('fixed')}
+              disabled={saving}
+            />
+            <ModeBtn
+              icon={<Settings2 size={16} />}
+              label="Personnalisé par variante"
+              active={mode === 'custom'}
+              onClick={() => handleModeChange('custom')}
+              disabled={saving || variants.length === 0}
+              title={variants.length === 0 ? 'Ajoutez d\'abord des variantes à l\'article' : undefined}
+            />
+          </div>
+        </div>
+
+        {mode === 'adapt' && (
+          <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-sm text-blue-800 dark:text-blue-300 italic">
+              Quantité = portion de chaque variante (ex. Normal = 250 g, Grand = 500 g).
+            </p>
+          </div>
+        )}
+
+        {mode === 'fixed' && (
+          <div>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 italic">
+              Même quantité pour chaque variante.
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Qté
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={quantity || ''}
+                disabled={saving}
+                onChange={(e) => setQuantity(Number(e.target.value) || 0)}
+                className="w-24 px-3 py-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+              />
+              <select
+                value={unit || 'unit'}
+                disabled={saving}
+                onChange={(e) => setUnit(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+              >
+                <option value="unit">unit</option>
+                <option value="g">g</option>
+                <option value="kg">kg</option>
+                <option value="ml">ml</option>
+                <option value="l">l</option>
+                <option value="portion">portion</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {mode === 'custom' && (
+          <div>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3 italic">
+              Saisissez une quantité par variante. Laissez vide pour ignorer cette variante.
+            </p>
+            <div className="space-y-2">
+              <div className="grid grid-cols-12 gap-4 px-3 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase">
+                <div className="col-span-6">Variante</div>
+                <div className="col-span-6 text-right">Qté / unité</div>
+              </div>
+              {variants.map((v) => {
+                const override = overrides.find((o) => o.option_id === v.option_id);
+                const vqty = override?.quantity ?? 0;
+                const vunit = override?.unit ?? unit ?? 'unit';
+                return (
+                  <div
+                    key={v.option_id}
+                    className="grid grid-cols-12 gap-4 px-3 py-2 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700"
+                  >
+                    <div className="col-span-6 flex items-center">
+                      <span className="font-medium text-neutral-900 dark:text-white">{v.name}</span>
+                    </div>
+                    <div className="col-span-6 flex items-center gap-2 justify-end">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={vqty || ''}
+                        disabled={saving}
+                        placeholder="Qté"
+                        onChange={(e) => handleOverrideChange(v.option_id, Number(e.target.value) || 0, vunit)}
+                        className="w-20 px-2 py-1.5 bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                      />
+                      <select
+                        value={vunit}
+                        disabled={saving}
+                        onChange={(e) => handleOverrideChange(v.option_id, vqty, e.target.value)}
+                        className="px-2 py-1.5 bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                      >
+                        <option value="unit">unit</option>
+                        <option value="g">g</option>
+                        <option value="kg">kg</option>
+                        <option value="ml">ml</option>
+                        <option value="l">l</option>
+                        <option value="portion">portion</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-[var(--s-2)] pt-[var(--s-3)] border-t border-[var(--line)]">
           <button
             type="button"
             onClick={onCancel}
-            className="shrink-0 p-1.5 rounded-r-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] transition-colors"
-            aria-label={t('cancel') || 'Annuler'}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors disabled:opacity-50"
           >
-            <X size={14} />
+            {t('cancel') || 'Annuler'}
           </button>
-        )}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canAdd}
+            className="inline-flex items-center gap-[var(--s-2)] px-4 py-2 rounded-r-md bg-[var(--brand-500)] text-white text-sm font-medium hover:bg-[var(--brand-600)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving && (
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
+            {saving ? (t('saving') || 'Ajout…') : (t('add') || 'Ajouter')}
+          </button>
+        </div>
       </div>
     </div>
   );
