@@ -43,18 +43,20 @@ export default function MenuItemShell({
 
   return (
     <div className="fixed inset-0 z-50">
-      {/* Backdrop */}
+      {/* Backdrop — matches FullScreenEditor (Stock/Prep) entrance animation */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-200"
         onClick={onClose}
       />
 
       {/* Inset container — 32px top, 24px bottom, centered horizontally with
           48px total side gap. Using transform centering (not inset-x-24)
           keeps the modal visually symmetric regardless of page scrollbar
-          gutter reservation. */}
+          gutter reservation.
+          Entrance animation (fade-in + subtle zoom) matches the Radix-powered
+          FullScreenEditor used by Stock / Prep editors. */}
       <div
-        className="absolute top-[32px] bottom-[24px] left-1/2 -translate-x-1/2 w-[calc(100%-48px)] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-xl shadow-3"
+        className="absolute top-[32px] bottom-[24px] left-1/2 -translate-x-1/2 w-[calc(100%-48px)] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-xl shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
       >
         {/* Head — 60px, close-left · centered title · save/cancel right */}
         <div className="h-[60px] shrink-0 px-[var(--s-5)] flex items-center gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
