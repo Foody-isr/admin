@@ -1,8 +1,9 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { Save, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { useI18n } from '@/lib/i18n';
+import { Button } from '@/components/ds';
 
 interface Props {
   title: string;
@@ -14,9 +15,12 @@ interface Props {
   children: React.ReactNode;
 }
 
-// Centered modal shell — matches Figma MenuItemDetails.tsx:15-135.
-// Routing is preserved: the page renders at /menu/items/[itemId] and the
-// backdrop click or X button fires onClose which navigates back.
+/**
+ * Item-editor shell — inset full-screen modal with 280px left rail.
+ * Aligned to the Foody OS design-reference FullScreenEditor pattern
+ * (see design-reference/design/drawer.jsx): 60px head, close-left,
+ * centered title, save/cancel right. API preserved for existing callers.
+ */
 export default function MenuItemShell({
   title,
   onClose,
@@ -41,52 +45,51 @@ export default function MenuItemShell({
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
 
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="relative bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-            <button
-              onClick={onClose}
-              aria-label={t('cancel')}
-              className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors"
-            >
-              <X size={20} className="text-neutral-600 dark:text-neutral-400" />
-            </button>
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
+      {/* Inset container — 32px top, 24px sides, 24px bottom per reference */}
+      <div
+        className="absolute top-[32px] inset-x-[24px] bottom-[24px] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-xl shadow-3"
+      >
+        {/* Head — 60px, close-left · centered title · save/cancel right */}
+        <div className="h-[60px] shrink-0 px-[var(--s-5)] flex items-center gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
+          <Button variant="ghost" size="md" icon onClick={onClose} aria-label={t('cancel')}>
+            <X />
+          </Button>
+          <div className="flex-1 text-center min-w-0">
+            <h2 className="text-fs-md font-semibold text-[var(--fg)] truncate">
               {title}
             </h2>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2.5 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors font-medium"
-              >
-                {t('cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={saving || saveDisabled}
-                className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? t('saving') : t('save')}
-              </button>
-            </div>
           </div>
+          <div className="flex items-center gap-[var(--s-2)] shrink-0">
+            <Button variant="secondary" size="sm" onClick={onClose}>
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onSave}
+              disabled={saving || saveDisabled}
+            >
+              <Save />
+              {saving ? t('saving') : t('save')}
+            </Button>
+          </div>
+        </div>
 
-          {/* Content: sidebar + main */}
-          <div className="flex flex-1 overflow-hidden">
-            <aside className="w-80 shrink-0 border-r border-neutral-200 dark:border-neutral-800 p-6 overflow-y-auto bg-neutral-50 dark:bg-[#111111]">
-              {sidebar}
-            </aside>
-            <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-              {children}
-            </main>
-          </div>
+        {/* Body — 280px rail + scrollable main */}
+        <div
+          className="flex-1 grid overflow-hidden min-h-0"
+          style={{ gridTemplateColumns: '280px 1fr' }}
+        >
+          <aside className="border-r border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] overflow-y-auto">
+            {sidebar}
+          </aside>
+          <main className="flex flex-col overflow-hidden min-w-0">
+            {children}
+          </main>
         </div>
       </div>
     </div>

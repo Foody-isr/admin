@@ -36,6 +36,7 @@ import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
   getPackaging,
@@ -297,47 +298,43 @@ export default function StockPage() {
   };
 
   return (
-    <div className="-mx-6 -my-6 lg:-mx-8 flex flex-col">
-      {/* Header — Figma App.tsx:410 + pages/cuisine/stock.tsx */}
-      <header className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
-        <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-sm">
-              <span className="text-neutral-500 dark:text-neutral-400">
-                {t('kitchen') || 'Cuisine'}
-              </span>
-              <ChevronDownIcon className="w-3.5 h-3.5 rotate-[-90deg] text-neutral-400" />
-              <span className="font-medium text-orange-500">{t('stock') || 'Stock'}</span>
-            </div>
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
-              {t('stock') || 'Stock'}
-            </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              {t('stockSubtitle') || "Gérez votre inventaire d'ingrédients"}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
+    <div className="flex flex-col">
+      <PageHead
+        title={t('stock') || 'Stock'}
+        desc={t('stockSubtitle') || "Gérez votre inventaire d'ingrédients"}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="md"
+              icon
               onClick={() => setShowKpis((v) => !v)}
-              className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
               aria-label="Toggle KPIs"
+              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
             >
-              {showKpis ? (
-                <ChevronUpIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-              ) : (
-                <ChevronDownIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
-              )}
-            </button>
-            <button
+              {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setImportModal(true)}
+            >
+              <DownloadIcon />
+              {t('importDelivery') || 'Importer'}
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => setItemModal({ open: true })}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
             >
-              <PlusIcon className="w-5 h-5" />
+              <PlusIcon />
               {t('addItem')}
-            </button>
-          </div>
-        </div>
+            </Button>
+          </>
+        }
+      />
+      <header className="mb-[var(--s-4)]">
+        <div className="hidden" />
 
         {/* KPIs */}
         {showKpis && (

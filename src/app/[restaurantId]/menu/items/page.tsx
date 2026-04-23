@@ -12,7 +12,6 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   Image as ImageIcon,
   MoreVertical,
   Eye,
@@ -26,6 +25,7 @@ import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersD
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button, PageHead } from '@/components/ds';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -305,46 +305,38 @@ export default function ItemLibraryPage() {
   };
 
   return (
-    <div className="-mx-6 -my-6 lg:-mx-8 flex flex-col">
-      {/* Header card */}
-      <header className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
-        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 mb-1 text-sm">
-              <span className="text-neutral-500 dark:text-neutral-400">
-                {t('articlesGroup')}
-              </span>
-              <ChevronRight size={14} className="text-neutral-400" />
-              <span className="font-medium text-orange-500">{t('itemLibrary')}</span>
-            </div>
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
-              {t('itemLibrary')}
-            </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              {t('articlesSubtitle') || 'Gérez votre catalogue de produits'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
+    <div className="flex flex-col">
+      <PageHead
+        title={t('itemLibrary')}
+        desc={`${allItems.length} ${t('itemsCount') || 'articles'} · ${categories.length} ${t('categoriesCount') || 'catégories'}`}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="md"
+              icon
               onClick={() => setShowKpis((v) => !v)}
-              className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
               aria-label="Toggle KPIs"
+              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
             >
-              {showKpis ? (
-                <ChevronUp size={20} className="text-neutral-600 dark:text-neutral-400" />
-              ) : (
-                <ChevronDown size={20} className="text-neutral-600 dark:text-neutral-400" />
-              )}
-            </button>
-            <button
+              {showKpis ? <ChevronUp /> : <ChevronDown />}
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => router.push(`/${rid}/menu/items/new`)}
-              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
             >
-              <Plus size={20} />
+              <Plus />
               {t('createItem')}
-            </button>
-          </div>
+            </Button>
+          </>
+        }
+      />
+
+      {/* Legacy header wrapper — kept for layout, stripped of styling */}
+      <header className="mb-[var(--s-4)]">
+        <div className="flex items-start justify-between gap-4 mb-6 flex-wrap hidden">
+          <div />
         </div>
 
         {/* KPI row */}

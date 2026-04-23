@@ -16,6 +16,7 @@ import {
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
   ChevronDownIcon, XIcon, PrinterIcon, MoreHorizontalIcon,
 } from 'lucide-react';
+import { Badge, Button, PageHead } from '@/components/ds';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
 
@@ -34,31 +35,27 @@ const TABS: Tab[] = [
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-  pending_review: 'badge-pending',
-  accepted: 'badge-accepted',
-  in_kitchen: 'badge-in-kitchen',
-  ready: 'badge-ready',
-  ready_for_pickup: 'badge-ready',
-  ready_for_delivery: 'badge-ready',
-  served: 'badge-served',
-  picked_up: 'badge-served',
-  delivered: 'badge-served',
-  rejected: 'badge-rejected',
-  scheduled: 'badge-neutral',
+type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand';
+
+const STATUS_TONE: Record<string, BadgeTone> = {
+  pending_review: 'warning',
+  accepted: 'info',
+  in_kitchen: 'warning',
+  ready: 'info',
+  ready_for_pickup: 'info',
+  ready_for_delivery: 'info',
+  served: 'success',
+  picked_up: 'success',
+  delivered: 'success',
+  rejected: 'danger',
+  scheduled: 'neutral',
 };
 
-const ORDER_TYPE_BADGE: Record<string, string> = {
-  dine_in: 'badge-dine-in',
-  pickup: 'badge-pickup',
-  delivery: 'badge-delivery',
-};
-
-const PAYMENT_BADGE: Record<string, string> = {
-  paid: 'badge-ready',
-  pending: 'badge-in-kitchen',
-  unpaid: 'badge-pending',
-  refunded: 'badge-neutral',
+const PAYMENT_TONE: Record<string, BadgeTone> = {
+  paid: 'success',
+  pending: 'warning',
+  unpaid: 'warning',
+  refunded: 'neutral',
 };
 
 const PAGE_SIZE = 25;
@@ -236,61 +233,90 @@ export default function OrdersPage() {
 
   // ─── Render ───────────────────────────────────────────────────────
 
+  const activeCount = orders.length;
+
   return (
     <div className="flex gap-0" style={{ height: 'calc(100vh - 120px)' }}>
       {/* Left: table list */}
-      <div className={`flex-1 min-w-0 space-y-5 transition-all ${selectedOrder ? 'pr-0' : ''}`}>
-        {/* Controls */}
-        <div className="flex items-center justify-end">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { const next = toggleSound(); setSoundOn(next); }}
-              className="p-2 rounded-standard text-fg-secondary hover:text-fg-primary transition-colors"
-              title={soundOn ? t('muteSound') : t('unmuteSound')}
-            >
-              {soundOn ? <Volume2Icon className="w-5 h-5" /> : <VolumeXIcon className="w-5 h-5" />}
-            </button>
-            <button
-              onClick={requestPermission}
-              className={`p-2 rounded-standard transition-colors ${
-                permission === 'granted' ? 'text-status-ready' : 'text-fg-secondary hover:text-fg-primary'
-              }`}
-              title={
-                permission === 'granted' ? t('notificationsEnabled')
-                : permission === 'denied' ? t('notificationsBlocked')
-                : t('enableNotifications')
-              }
-            >
-              {permission === 'granted' ? <BellIcon className="w-5 h-5" /> : <BellOffIcon className="w-5 h-5" />}
-            </button>
-            {wsStatus === 'connected' && (
-              <span className="badge badge-ready text-[10px] uppercase tracking-wider font-bold">{t('live')}</span>
-            )}
-            {wsStatus === 'connecting' && (
-              <span className="badge badge-in-kitchen text-[10px] uppercase tracking-wider font-bold animate-pulse">{t('connecting')}</span>
-            )}
-            {wsStatus === 'disconnected' && (
-              <span className="badge badge-rejected text-[10px] uppercase tracking-wider font-bold">{t('offline')}</span>
-            )}
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-6 border-b border-divider">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => switchTab(tab.key)}
-              className={`pb-3 text-sm font-medium transition-colors relative ${
-                activeTab === tab.key ? 'text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'
-              }`}
-            >
-              {t(tab.labelKey)}
-              {activeTab === tab.key && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-fg-primary rounded-full" />
+      <div className={`flex-1 min-w-0 space-y-[var(--s-5)] transition-all ${selectedOrder ? 'pr-0' : ''}`}>
+        <PageHead
+          title={t('orders')}
+          desc={`${total} commandes · ${activeCount} affichées`}
+          actions={
+            <>
+              {wsStatus === 'connected' && (
+                <Badge tone="success" dot>
+                  {t('live')}
+                </Badge>
               )}
-            </button>
-          ))}
+              {wsStatus === 'connecting' && (
+                <Badge tone="warning" dot>
+                  {t('connecting')}
+                </Badge>
+              )}
+              {wsStatus === 'disconnected' && (
+                <Badge tone="danger" dot>
+                  {t('offline')}
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="md"
+                icon
+                onClick={() => {
+                  const next = toggleSound();
+                  setSoundOn(next);
+                }}
+                aria-label={soundOn ? t('muteSound') : t('unmuteSound')}
+                title={soundOn ? t('muteSound') : t('unmuteSound')}
+              >
+                {soundOn ? <Volume2Icon /> : <VolumeXIcon />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="md"
+                icon
+                onClick={requestPermission}
+                aria-label={
+                  permission === 'granted'
+                    ? t('notificationsEnabled')
+                    : permission === 'denied'
+                      ? t('notificationsBlocked')
+                      : t('enableNotifications')
+                }
+                title={
+                  permission === 'granted'
+                    ? t('notificationsEnabled')
+                    : permission === 'denied'
+                      ? t('notificationsBlocked')
+                      : t('enableNotifications')
+                }
+              >
+                {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
+              </Button>
+            </>
+          }
+        />
+
+        {/* Status tabs — underline style matching design-reference */}
+        <div className="flex items-center gap-[var(--s-5)] border-b border-[var(--line)]">
+          {TABS.map((tab) => {
+            const selected = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => switchTab(tab.key)}
+                aria-selected={selected}
+                className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors ${
+                  selected
+                    ? 'text-[var(--fg)] after:content-[""] after:absolute after:start-0 after:end-0 after:-bottom-px after:h-[2px] after:bg-[var(--brand-500)] after:rounded-[1px]'
+                    : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                }`}
+              >
+                {t(tab.labelKey)}
+              </button>
+            );
+          })}
         </div>
 
         {/* Filters */}
@@ -429,14 +455,14 @@ export default function OrdersPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`badge text-[10px] ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
+                      <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
                         {order.status.replace(/_/g, ' ')}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`badge text-[10px] ${PAYMENT_BADGE[order.payment_status] ?? 'badge-neutral'}`}>
+                      <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
                         {order.payment_status}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="py-3 px-4 text-right font-medium text-fg-primary">
                       ₪{(order.total_amount ?? 0).toFixed(0)}
@@ -544,14 +570,16 @@ function OrderDetailPanel({
       <div className="px-6 py-6 space-y-6 overflow-y-auto flex-1 min-h-0">
         {/* Title */}
         <div>
-          <h2 className="text-xl font-bold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</h2>
+          <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
+            {t('orderNumber').replace('{id}', String(order.id))}
+          </h2>
           <div className="flex items-center gap-2 mt-2">
-            <span className={`badge text-[10px] ${STATUS_BADGE[order.status] ?? 'badge-neutral'}`}>
+            <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
               {order.status.replace(/_/g, ' ')}
-            </span>
-            <span className={`badge text-[10px] ${PAYMENT_BADGE[order.payment_status] ?? 'badge-neutral'}`}>
+            </Badge>
+            <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
               {order.payment_status}
-            </span>
+            </Badge>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getDayComparison,
@@ -12,13 +12,44 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
-  DollarSign, ShoppingBag, Users, TrendingUp, Plus, Edit, ChevronUp, ChevronDown,
+  Calendar,
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  DollarSign,
+  Edit,
+  Plus,
+  Package,
 } from 'lucide-react';
 import AiPromptBar from './AiPromptBar';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
+import { Badge, Button, Chip, Kpi, PageHead, Section } from '@/components/ds';
 
-// Figma page: foodyadmin_figma/src/app/pages/dashboard/page.tsx
-// Layout + classes ported verbatim; KPI numbers come from real analytics.
+type Range = 'today' | 'week' | 'month';
+
+const RANGE_LABELS: Record<Range | 'yesterday', string> = {
+  yesterday: 'Hier',
+  today: "Aujourd'hui",
+  week: '7 jours',
+  month: '30 jours',
+};
+
+function fmtDate(d = new Date()) {
+  return d.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+function fmtMoney(n: number) {
+  return `₪${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function pct(now: number, before: number) {
+  if (!before) return now > 0 ? 100 : 0;
+  return ((now - before) / before) * 100;
+}
 
 export default function DashboardPage() {
   const { restaurantId } = useParams();
@@ -30,8 +61,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<'today' | 'week' | 'month'>('today');
-  const [showKpis, setShowKpis] = useState(true);
+  const [range, setRange] = useState<Range>('today');
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -49,436 +79,477 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [rid]);
 
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const current = comparison?.current;
   const previous = comparison?.previous;
   const revenue = stats?.total_revenue ?? current?.net_sales ?? 0;
   const orders = stats?.total_orders ?? current?.transactions ?? 0;
   const avgTicket = orders > 0 ? revenue / orders : current?.avg_sale ?? 0;
-  const pct = (now: number, before: number) => {
-    if (!before) return now > 0 ? 100 : 0;
-    return ((now - before) / before) * 100;
-  };
+  const laborPct = current?.labor_percent ?? 0;
+
   const revChange = pct(current?.net_sales ?? 0, previous?.net_sales ?? 0);
   const orderChange = pct(current?.transactions ?? 0, previous?.transactions ?? 0);
   const ticketChange = pct(current?.avg_sale ?? 0, previous?.avg_sale ?? 0);
+  const laborChange = pct(current?.labor_percent ?? 0, previous?.labor_percent ?? 0);
 
-  // Daily volume bars — use hourly data bucketed to a 14-cell visualization.
-  // Figma had 14 bars; we map from 24 hours by bucketing pairs.
-  const bars = (() => {
-    if (!comparison) return new Array(14).fill(40);
-    const hourly = comparison.hourly ?? [];
-    const max = Math.max(1, ...hourly.map((h) => h.current_amt));
-    // Take 14 buckets across 24 hours
-    const buckets: number[] = [];
-    for (let i = 0; i < 14; i++) {
-      const start = Math.floor((i / 14) * 24);
-      const end = Math.floor(((i + 1) / 14) * 24);
-      const sum = hourly
-        .filter((h) => h.hour >= start && h.hour < end)
-        .reduce((s, h) => s + h.current_amt, 0);
-      buckets.push(max > 0 ? Math.min(100, (sum / max) * 100) : 0);
+  // Daily volume bars — hourly data bucketed to weekday comparison
+  const weekBars = useMemo(() => {
+    if (!comparison) {
+      return [50, 45, 60, 52, 70, 80, 65].map((pct) => ({ day: '', cur: pct, prev: pct - 8 }));
     }
-    return buckets;
-  })();
+    const hourly = comparison.hourly ?? [];
+    const max = Math.max(1, ...hourly.map((h) => Math.max(h.current_amt, h.previous_amt)));
+    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    // 7 buckets across 24 hours (visual proxy for weekday pattern)
+    return days.map((day, i) => {
+      const start = Math.floor((i / 7) * 24);
+      const end = Math.floor(((i + 1) / 7) * 24);
+      const bucket = hourly.filter((h) => h.hour >= start && h.hour < end);
+      const cur = bucket.reduce((s, h) => s + h.current_amt, 0);
+      const prev = bucket.reduce((s, h) => s + h.previous_amt, 0);
+      return {
+        day,
+        cur: Math.max(4, (cur / max) * 100),
+        prev: Math.max(4, (prev / max) * 100),
+      };
+    });
+  }, [comparison]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  const greeting = t('dashboardHome') || 'Tableau de bord';
+  const dateSub = fmtDate();
 
   return (
-    <div className="-mx-6 -my-6 lg:-mx-8 flex-1 overflow-y-auto bg-neutral-50 dark:bg-[#0a0a0a]">
-      {/* Header — Figma:11 */}
-      <div className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-              {t('dashboardHome') || 'Tableau de bord'}
-            </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              {t('dashboardWelcome') || 'Bienvenue ! Voici un aperçu de votre activité'}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowKpis((v) => !v)}
-              className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-              title={showKpis ? 'Masquer les KPIs' : 'Afficher les KPIs'}
-              aria-label="Toggle KPIs"
-            >
-              {showKpis ? (
-                <ChevronUp size={20} className="text-neutral-600 dark:text-neutral-400" />
-              ) : (
-                <ChevronDown size={20} className="text-neutral-600 dark:text-neutral-400" />
-              )}
-            </button>
-            <select
-              value={range}
-              onChange={(e) => setRange(e.target.value as 'today' | 'week' | 'month')}
-              className="px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-            >
-              <option value="today">{t('today') || "Aujourd'hui"}</option>
-              <option value="week">{t('thisWeek') || 'Cette semaine'}</option>
-              <option value="month">{t('thisMonth') || 'Ce mois'}</option>
-            </select>
+    <>
+      <PageHead
+        title={greeting}
+        desc={dateSub}
+        actions={
+          <>
+            <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
+              {(['yesterday', 'today', 'week', 'month'] as const).map((r) => {
+                const active = r === 'today' ? range === 'today' : range === r;
+                const handleClick = () => {
+                  if (r === 'yesterday') return;
+                  setRange(r as Range);
+                };
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    aria-selected={active}
+                    onClick={handleClick}
+                    className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
+                      active
+                        ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    {RANGE_LABELS[r]}
+                  </button>
+                );
+              })}
+            </div>
+            <Button variant="secondary" size="md">
+              <Calendar /> {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+            </Button>
+            <Button variant="ghost" size="md" icon aria-label="Actualiser" onClick={load}>
+              <RefreshCw />
+            </Button>
+          </>
+        }
+      />
+
+      <div className="mb-[var(--s-5)]">
+        <AiPromptBar />
+      </div>
+
+      {/* KPI strip — 4 equal */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
+        <KpiWithSpark
+          label="Revenu brut"
+          value={fmtMoney(revenue)}
+          delta={revChange}
+          sub="vs hier"
+          trend={revChange >= 0 ? 'up' : 'down'}
+          onClick={() => setSelectedKpi('revenue')}
+        />
+        <KpiWithSpark
+          label="Commandes"
+          value={String(orders)}
+          delta={orderChange}
+          sub={`${orders} aujourd'hui`}
+          trend={orderChange >= 0 ? 'up' : 'down'}
+          onClick={() => setSelectedKpi('orders')}
+        />
+        <KpiWithSpark
+          label="Ticket moyen"
+          value={`₪${avgTicket.toFixed(1)}`}
+          delta={ticketChange}
+          sub="vs période précédente"
+          trend={ticketChange >= 0 ? 'up' : 'down'}
+          onClick={() => setSelectedKpi('average-ticket')}
+        />
+        <KpiWithSpark
+          label="Main-d'œuvre"
+          value={`${laborPct.toFixed(1)}%`}
+          delta={laborChange}
+          sub="cible 30%"
+          trend={laborChange <= 0 ? 'up' : 'down'}
+          onClick={() => setSelectedKpi('labor')}
+        />
+      </div>
+
+      <KPIInfoModal
+        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
+        onClose={() => setSelectedKpi(null)}
+      />
+
+      {/* Main row: chart + right rail */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--s-5)] mb-[var(--s-5)]">
+        <Section
+          title="Rendement — 7 derniers jours"
+          desc="Ventes nettes, hors TVA"
+          aside={
+            <div className="flex items-center gap-[var(--s-3)] text-fs-xs">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />
+                Cette semaine
+              </span>
+              <span className="flex items-center gap-1.5 text-[var(--fg-muted)]">
+                <span className="w-2 h-2 rounded-[2px] bg-[var(--fg-subtle)] opacity-50" />
+                Semaine passée
+              </span>
+            </div>
+          }
+        >
+          <BarChart data={weekBars} />
+        </Section>
+
+        <div className="flex flex-col gap-[var(--s-4)]">
+          <Section title="Actions rapides">
+            <div className="-mx-[var(--s-2)]">
+              <QuickAction
+                icon={<DollarSign />}
+                label="Accepter un paiement"
+                sub="Transaction manuelle"
+                onClick={() => router.push(`/${rid}/orders/all`)}
+              />
+              <QuickAction
+                icon={<Edit />}
+                label="Modifier la carte"
+                sub="Mettre à jour les articles"
+                onClick={() => router.push(`/${rid}/menu/menus`)}
+              />
+              <QuickAction
+                icon={<Plus />}
+                label="Ajouter un article"
+                sub="Nouveau produit"
+                onClick={() => router.push(`/${rid}/menu/items/new`)}
+              />
+              <QuickAction
+                icon={<Package />}
+                label="Réceptionner un arrivage"
+                sub="Mettre à jour le stock"
+                onClick={() => router.push(`/${rid}/kitchen/stock`)}
+              />
+            </div>
+          </Section>
+
+          <div
+            className="bg-[var(--surface)] rounded-r-lg shadow-1 border"
+            style={{
+              borderColor:
+                'color-mix(in oklab, var(--success-500) 30%, var(--line))',
+            }}
+          >
+            <div className="p-[var(--s-5)]">
+              <div className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)]">
+                Solde à verser
+              </div>
+              <div className="text-fs-3xl font-semibold leading-none mt-[var(--s-3)] tabular-nums text-[var(--fg)]">
+                {fmtMoney(revenue)}
+                <span className="text-fs-lg text-[var(--fg-muted)] ms-1.5">.00</span>
+              </div>
+              <div className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
+                Virement prévu vendredi
+              </div>
+              <Button
+                variant="secondary"
+                size="md"
+                className="w-full mt-[var(--s-4)]"
+                onClick={() => router.push(`/${rid}/orders/all`)}
+              >
+                Voir les transactions
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="p-8">
-        <div className="mb-6">
-          <AiPromptBar />
-        </div>
-
-        {/* 4 KPI cards — Figma:32 */}
-        {showKpis && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Revenue — gradient orange */}
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('revenue')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="size-12 bg-white/20 rounded-xl flex items-center justify-center">
-                  <DollarSign size={24} />
-                </div>
-                <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
-                  {revChange >= 0 ? '+' : ''}
-                  {revChange.toFixed(1)}%
-                </span>
-              </div>
-              <p className="text-white/80 text-sm mb-1">
-                {t('revenue') || "Chiffre d'affaires"}
-              </p>
-              <p className="text-3xl font-bold">₪{revenue.toFixed(2)}</p>
-            </button>
-
-            {/* Orders */}
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('orders')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="size-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <ShoppingBag size={24} className="text-blue-600 dark:text-blue-400" />
-                </div>
-                <span className={`text-sm font-medium ${orderChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {orderChange >= 0 ? '+' : ''}
-                  {orderChange.toFixed(1)}%
-                </span>
-              </div>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-                {t('orders') || 'Commandes'}
-              </p>
-              <p className="text-3xl font-bold text-neutral-900 dark:text-white">{orders}</p>
-            </button>
-
-            {/* Customers */}
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('customers')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="size-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                  <Users size={24} className="text-purple-600 dark:text-purple-400" />
-                </div>
-                <span className="text-sm text-neutral-500 dark:text-neutral-400 font-medium">—</span>
-              </div>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-                {t('customers') || 'Clients'}
-              </p>
-              <p className="text-3xl font-bold text-neutral-900 dark:text-white">
-                {topSellers.length > 0 ? topSellers.reduce((s, x) => s + x.quantity, 0) : 0}
-              </p>
-            </button>
-
-            {/* Avg Ticket */}
-            <button
-              type="button"
-              onClick={() => setSelectedKpi('average-ticket')}
-              title="Cliquez pour plus d'informations"
-              className="text-left bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="size-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <TrendingUp size={24} className="text-green-600 dark:text-green-400" />
-                </div>
-                <span className={`text-sm font-medium ${ticketChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {ticketChange >= 0 ? '+' : ''}
-                  {ticketChange.toFixed(1)}%
-                </span>
-              </div>
-              <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">
-                {t('avgTicket') || 'Ticket moyen'}
-              </p>
-              <p className="text-3xl font-bold text-neutral-900 dark:text-white">
-                ₪{avgTicket.toFixed(2)}
-              </p>
-            </button>
-          </div>
-        )}
-
-        {/* KPI info modal */}
-        <KPIInfoModal
-          kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
-          onClose={() => setSelectedKpi(null)}
-        />
-
-        {/* Main grid — Figma:82 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left column — Charts + Top items */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Rendement chart — Figma:86 */}
-            <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                    {t('performance') || 'Rendement'}
-                  </h3>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                    {previous?.date && current?.date
-                      ? `${new Date(previous.date).toLocaleDateString()} — ${new Date(current.date).toLocaleDateString()}`
-                      : t('today') || "Aujourd'hui"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => router.push(`/${rid}/orders/all`)}
-                  className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors text-sm font-medium"
-                >
-                  {t('viewOrders') || 'Afficher les commandes'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                    {t('netSales') || 'Ventes nettes'}
-                  </p>
-                  <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                    ₪{(current?.net_sales ?? 0).toFixed(0)}
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-neutral-500">HVA</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                    {t('transactions') || 'Transactions'}
-                  </p>
-                  <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                    {current?.transactions ?? 0}
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-neutral-500">HVA</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                    {t('laborPercent') || "Main-d'œuvre"}
-                  </p>
-                  <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                    {(current?.labor_percent ?? 0).toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-neutral-500">HVA</p>
-                </div>
-                <div>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                    {t('avgSale') || 'Vente moyenne'}
-                  </p>
-                  <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                    ₪{(current?.avg_sale ?? 0).toFixed(0)}
-                  </p>
-                  <p className="text-xs text-neutral-400 dark:text-neutral-500">HVA</p>
-                </div>
-              </div>
-
-              {/* Bars */}
-              <div className="h-64 flex items-end justify-between gap-2">
-                {bars.map((height, i) => (
+      {/* Lower row: Top items + Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--s-5)]">
+        <Section
+          title="Articles les plus vendus"
+          aside={
+            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/menu/items`)}>
+              Voir tout
+            </Button>
+          }
+        >
+          {topSellers.length === 0 ? (
+            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">
+              Aucune vente enregistrée.
+            </p>
+          ) : (
+            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+              {topSellers.slice(0, 5).map((s, i) => {
+                const maxRev = Math.max(...topSellers.slice(0, 5).map((x) => x.revenue));
+                const pctBar = maxRev > 0 ? (s.revenue / maxRev) * 100 : 0;
+                return (
                   <div
                     key={i}
-                    className="flex-1 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg transition-all hover:from-orange-600 hover:to-orange-500"
-                    style={{ height: `${Math.max(5, height)}%` }}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-neutral-400 dark:text-neutral-500">
-                <span>Lun</span>
-                <span>Mar</span>
-                <span>Mer</span>
-                <span>Jeu</span>
-                <span>Ven</span>
-                <span>Sam</span>
-                <span>Dim</span>
-              </div>
-            </div>
-
-            {/* Top items — Figma:138 */}
-            <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                {t('topItems') || 'Articles les plus vendus'}
-              </h3>
-              {topSellers.length === 0 ? (
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 py-6 text-center">
-                  {t('noSalesYet') || 'Aucune vente enregistrée.'}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {topSellers.slice(0, 4).map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-[#0a0a0a] rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">🍽️</span>
-                        <div>
-                          <p className="font-medium text-neutral-900 dark:text-white">{s.name}</p>
-                          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                            {s.quantity} {t('sales') || 'ventes'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-neutral-900 dark:text-white">
-                          ₪{s.revenue.toFixed(2)}
-                        </p>
+                    className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0"
+                  >
+                    <div className="w-8 h-8 rounded-r-sm bg-[var(--surface-3)] grid place-items-center text-[var(--fg-muted)] text-[10px] font-bold shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-fs-sm text-[var(--fg)] font-medium truncate">{s.name}</div>
+                      <div className="text-fs-xs text-[var(--fg-muted)]">
+                        {s.quantity} ventes
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
+                      <div
+                        className="h-full bg-[var(--brand-500)]"
+                        style={{ width: `${pctBar}%` }}
+                      />
+                    </div>
+                    <div className="font-mono tabular-nums text-fs-sm text-[var(--fg)] min-w-[70px] text-right">
+                      ₪{s.revenue.toFixed(2)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          )}
+        </Section>
+
+        <Section
+          title="Activité en direct"
+          aside={
+            <Badge tone="success" dot>
+              En ligne
+            </Badge>
+          }
+        >
+          <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+            <ActivityRow
+              color="var(--success-500)"
+              who={`${orders} commandes`}
+              what="enregistrées aujourd'hui"
+              amt={fmtMoney(revenue)}
+              when="Live"
+            />
+            {previous?.date && (
+              <ActivityRow
+                color="var(--info-500)"
+                who="Comparaison"
+                what={`${new Date(previous.date).toLocaleDateString('fr-FR')} → ${new Date(current?.date ?? '').toLocaleDateString('fr-FR')}`}
+                when=""
+              />
+            )}
+            {(current?.tips ?? 0) > 0 && (
+              <ActivityRow
+                color="var(--warning-500)"
+                who="Pourboires"
+                what="collectés aujourd'hui"
+                amt={`₪${(current?.tips ?? 0).toFixed(2)}`}
+                when=""
+              />
+            )}
+            {(current?.discounts ?? 0) > 0 && (
+              <ActivityRow
+                color="var(--danger-500)"
+                who="Remises"
+                what="appliquées"
+                amt={`₪${(current?.discounts ?? 0).toFixed(2)}`}
+                when=""
+              />
+            )}
           </div>
-
-          {/* Right column — Balance + Quick actions + Activity — Figma:166 */}
-          <div className="space-y-6">
-            {/* Balance */}
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
-              <p className="text-white/80 text-sm mb-2">
-                {t('balance') || 'SOLDE'}
-              </p>
-              <p className="text-4xl font-bold mb-4">₪{revenue.toFixed(2)}</p>
-              <button
-                onClick={() => router.push(`/${rid}/orders/all`)}
-                className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors font-medium"
-              >
-                {t('viewTransactions') || 'Voir les transactions'}
-              </button>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                {t('quickActions') || 'Actions rapides'}
-              </h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => router.push(`/${rid}/orders/all`)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-colors text-left"
-                >
-                  <div className="size-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                    <DollarSign size={20} className="text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-neutral-900 dark:text-white">
-                      {t('acceptPayment') || 'Accepter un paiement'}
-                    </p>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {t('recordTransaction') || 'Enregistrer une transaction'}
-                    </p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => router.push(`/${rid}/menu/menus`)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-colors text-left"
-                >
-                  <div className="size-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <Edit size={20} className="text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-neutral-900 dark:text-white">
-                      {t('editMenu') || 'Modifier la carte'}
-                    </p>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {t('updateMenu') || 'Mettre à jour le menu'}
-                    </p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => router.push(`/${rid}/menu/items/new`)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] rounded-lg transition-colors text-left"
-                >
-                  <div className="size-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                    <Plus size={20} className="text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-neutral-900 dark:text-white">
-                      {t('addItem') || 'Ajouter un article'}
-                    </p>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {t('newProduct') || 'Nouveau produit'}
-                    </p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Activity Feed — placeholder until a real feed endpoint exists */}
-            <div className="bg-white dark:bg-[#111111] rounded-2xl p-6 border border-neutral-200 dark:border-neutral-800">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                {t('recentActivity') || 'Activité récente'}
-              </h3>
-              <div className="space-y-4">
-                <ActivityRow
-                  color="bg-green-500"
-                  title={`${t('ordersToday') || 'Commandes aujourd\'hui'}: ${orders}`}
-                  subtitle={t('liveFigures') || 'Chiffres en direct'}
-                />
-                <ActivityRow
-                  color="bg-blue-500"
-                  title={`${t('netSales') || 'Ventes nettes'}: ₪${revenue.toFixed(2)}`}
-                  subtitle={current?.date ? new Date(current.date).toLocaleDateString() : ''}
-                />
-                {(current?.tips ?? 0) > 0 && (
-                  <ActivityRow
-                    color="bg-orange-500"
-                    title={`${t('tips') || 'Pourboires'}: ₪${(current?.tips ?? 0).toFixed(2)}`}
-                    subtitle=""
-                  />
-                )}
-                {(current?.discounts ?? 0) > 0 && (
-                  <ActivityRow
-                    color="bg-purple-500"
-                    title={`${t('discounts') || 'Remises'}: ₪${(current?.discounts ?? 0).toFixed(2)}`}
-                    subtitle=""
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        </Section>
       </div>
+    </>
+  );
+}
+
+// ─── Helper components ──────────────────────────────────────────────────────
+
+interface KpiSparkProps {
+  label: string;
+  value: string;
+  delta: number;
+  sub: string;
+  trend: 'up' | 'down';
+  onClick?: () => void;
+}
+
+function KpiWithSpark({ label, value, delta, sub, trend, onClick }: KpiSparkProps) {
+  const deltaStr = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left cursor-pointer transition-colors hover:border-[var(--line-strong)]"
+    >
+      <Kpi
+        label={label}
+        value={
+          <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
+            <span>{value}</span>
+            <Sparkline trend={trend} />
+          </div>
+        }
+        sub={sub}
+        delta={{
+          value: (
+            <span className="inline-flex items-center gap-0.5">
+              {trend === 'up' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+              {deltaStr}
+            </span>
+          ),
+          direction: trend,
+        }}
+      />
+    </button>
+  );
+}
+
+function Sparkline({ trend }: { trend: 'up' | 'down' }) {
+  const pts = trend === 'up' ? [20, 18, 16, 14, 12, 8, 4] : [4, 8, 10, 12, 14, 16, 18];
+  const d = pts.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * 12} ${y}`).join(' ');
+  const color = trend === 'up' ? 'var(--success-500)' : 'var(--danger-500)';
+  return (
+    <svg width="72" height="24" viewBox="0 0 72 24" className="overflow-visible">
+      <path
+        d={d}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function BarChart({ data }: { data: { day: string; cur: number; prev: number }[] }) {
+  return (
+    <div
+      className="flex items-end justify-between gap-[var(--s-3)]"
+      style={{ height: 180 }}
+    >
+      {data.map((d, i) => (
+        <div
+          key={i}
+          className="flex-1 flex flex-col items-center gap-[var(--s-2)] h-full"
+        >
+          <div className="flex items-end gap-1 h-full w-full justify-center">
+            <div
+              className="w-3 rounded-t-[3px] bg-[var(--surface-3)]"
+              style={{ height: `${d.prev}%` }}
+            />
+            <div
+              className="w-3 rounded-t-[3px] bg-[var(--brand-500)]"
+              style={{ height: `${d.cur}%` }}
+            />
+          </div>
+          <span className="text-fs-xs text-[var(--fg-muted)]">{d.day}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
-function ActivityRow({ color, title, subtitle }: { color: string; title: string; subtitle: string }) {
+function QuickAction({
+  icon,
+  label,
+  sub,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  sub: string;
+  onClick?: () => void;
+}) {
   return (
-    <div className="flex gap-3">
-      <div className={`size-2 mt-2 rounded-full ${color} flex-shrink-0`} />
-      <div>
-        <p className="text-sm font-medium text-neutral-900 dark:text-white">{title}</p>
-        {subtitle && (
-          <p className="text-xs text-neutral-600 dark:text-neutral-400">{subtitle}</p>
-        )}
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-left hover:bg-[var(--surface-2)] transition-colors"
+    >
+      <div
+        className="w-8 h-8 rounded-r-sm grid place-items-center shrink-0 [&>svg]:w-[14px] [&>svg]:h-[14px]"
+        style={{
+          background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+          color: 'var(--brand-500)',
+        }}
+      >
+        {icon}
       </div>
+      <div className="flex flex-col items-start gap-0.5 min-w-0">
+        <span className="text-fs-sm text-[var(--fg)] truncate">{label}</span>
+        <span className="text-fs-xs text-[var(--fg-muted)] truncate">{sub}</span>
+      </div>
+    </button>
+  );
+}
+
+function ActivityRow({
+  color,
+  who,
+  what,
+  amt,
+  when,
+}: {
+  color: string;
+  who: string;
+  what: string;
+  amt?: string;
+  when: string;
+}) {
+  return (
+    <div className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0">
+      <div
+        className="w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: color }}
+      />
+      <div className="flex-1 text-fs-sm min-w-0">
+        <span className="text-[var(--fg)] font-medium">{who}</span>{' '}
+        <span className="text-[var(--fg-muted)]">{what}</span>
+      </div>
+      {amt && (
+        <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)] shrink-0">
+          {amt}
+        </span>
+      )}
+      {when && (
+        <span className="text-fs-xs text-[var(--fg-subtle)] min-w-[64px] text-right shrink-0">
+          {when}
+        </span>
+      )}
     </div>
   );
 }

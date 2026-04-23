@@ -29,12 +29,13 @@ function TabIcon({ id }: { id: MenuItemSection }) {
   }
 }
 
-// Segmented pill tabs — matches Figma MenuItemDetails.tsx:95-121.
+// Segmented pill tabs — aligned to Foody OS design tokens.
+// Matches the .tabs pattern from design-reference/design/components.css.
 export default function MenuItemTabBar({ tabs, active, onChange }: Props) {
   return (
     <div
       role="tablist"
-      className="flex gap-2 bg-neutral-200 dark:bg-[#1a1a1a] p-1.5 rounded-xl"
+      className="inline-flex gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md"
     >
       {tabs.map((tab) => {
         const isActive = tab.id === active;
@@ -46,18 +47,18 @@ export default function MenuItemTabBar({ tabs, active, onChange }: Props) {
             aria-selected={isActive}
             disabled={tab.disabled}
             onClick={() => !tab.disabled && onChange(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+            className={`inline-flex items-center gap-[var(--s-2)] h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ease-out ${
               tab.disabled
-                ? 'text-neutral-500 dark:text-neutral-400 opacity-50 cursor-not-allowed'
+                ? 'text-[var(--fg-subtle)] opacity-50 cursor-not-allowed'
                 : isActive
-                  ? 'bg-white dark:bg-[#0a0a0a] text-neutral-900 dark:text-white shadow-md'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
             }`}
           >
             <TabIcon id={tab.id} />
             <span className="truncate">{tab.label}</span>
             {tab.warning && (
-              <AlertCircle size={14} className="text-orange-500 shrink-0" />
+              <AlertCircle size={14} className="text-[var(--brand-500)] shrink-0" />
             )}
           </button>
         );

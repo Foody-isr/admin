@@ -9,6 +9,7 @@ import {
   getRestaurantSettings, updateRestaurantSettings,
 } from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+import { Button, Field, Input, PageHead, Section } from '@/components/ds';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
@@ -88,52 +89,57 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      {/* Language */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">{t('language')}</h2>
-        <div className="flex gap-2">
+    <div className="space-y-[var(--s-5)] max-w-2xl">
+      <PageHead
+        title={t('settings') || 'Paramètres'}
+        desc={t('settingsGeneralDesc') || 'Informations générales du restaurant'}
+      />
+
+      <Section title={t('language')}>
+        <div className="flex gap-[var(--s-2)]">
           {SUPPORTED_LOCALES.map((l) => (
             <button
               key={l}
               onClick={() => setLocale(l)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+              className={`px-[var(--s-4)] h-9 rounded-r-md text-fs-sm font-medium transition-colors border ${
                 locale === l
-                  ? 'border-brand-500 text-brand-500 bg-brand-500/5'
-                  : 'border-divider text-fg-secondary hover:text-fg-primary hover:border-fg-secondary'
+                  ? 'border-[var(--brand-500)] text-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_5%,transparent)]'
+                  : 'border-[var(--line)] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
               }`}
             >
               {LOCALE_LABELS[l]}
             </button>
           ))}
         </div>
-      </div>
+      </Section>
 
-      {/* Restaurant info */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">{t('restaurantInfo')}</h2>
-        {[
-          { label: t('name'), key: 'name' as const },
-          { label: t('address'), key: 'address' as const },
-          { label: t('phone'), key: 'phone' as const },
-          { label: t('description'), key: 'description' as const },
-        ].map(({ label, key }) => (
-          <div key={key}>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">{label}</label>
-            <input
-              className="input"
-              value={info[key]}
-              onChange={(e) => setInfo((p) => ({ ...p, [key]: e.target.value }))}
-            />
-          </div>
-        ))}
-      </div>
+      <Section title={t('restaurantInfo')}>
+        <div className="flex flex-col gap-[var(--s-4)]">
+          {[
+            { label: t('name'), key: 'name' as const },
+            { label: t('address'), key: 'address' as const },
+            { label: t('phone'), key: 'phone' as const },
+            { label: t('description'), key: 'description' as const },
+          ].map(({ label, key }) => (
+            <Field key={key} label={label}>
+              <Input
+                value={info[key]}
+                onChange={(e) => setInfo((p) => ({ ...p, [key]: e.target.value }))}
+              />
+            </Field>
+          ))}
+        </div>
+      </Section>
 
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
+      <div className="flex items-center gap-[var(--s-3)]">
+        <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
-        </button>
-        {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
+        </Button>
+        {saved && (
+          <span className="text-fs-sm text-[var(--success-500)] font-medium">
+            {t('saved')}
+          </span>
+        )}
       </div>
 
       {/* VAT / Tax configuration */}

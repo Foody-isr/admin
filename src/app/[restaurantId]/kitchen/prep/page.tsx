@@ -29,6 +29,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { Button, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
@@ -177,20 +178,53 @@ export default function PrepPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('prepItems')}</p>
-          <p className="text-2xl font-bold text-fg-primary mt-1">{items.length}</p>
+    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
+      <PageHead
+        title={t('preparations') || 'Préparations'}
+        desc={`${items.length} ${t('prepItems') || 'sous-recettes'} · ${categoryNames.length} ${t('categoriesCount') || 'catégories'}`}
+        actions={
+          <>
+            <Button variant="secondary" size="md" onClick={() => setPlanModal(true)}>
+              <CalendarDaysIcon />
+              {t('dailyPlan') || 'Plan du jour'}
+            </Button>
+            <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
+              <PlusIcon />
+              {t('addPrepItem')}
+            </Button>
+          </>
+        }
+      />
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-3 gap-[var(--s-4)]">
+        <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)]">
+          <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+            {t('prepItems')}
+          </p>
+          <p className="text-fs-3xl font-semibold text-[var(--fg)] mt-[var(--s-3)] tabular-nums">
+            {items.length}
+          </p>
         </div>
-        <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('lowStock')}</p>
-          <p className={`text-2xl font-bold mt-1 ${lowCount > 0 ? 'text-red-500' : 'text-fg-primary'}`}>{lowCount}</p>
+        <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)]">
+          <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+            {t('lowStock')}
+          </p>
+          <p
+            className={`text-fs-3xl font-semibold mt-[var(--s-3)] tabular-nums ${
+              lowCount > 0 ? 'text-[var(--danger-500)]' : 'text-[var(--fg)]'
+            }`}
+          >
+            {lowCount}
+          </p>
         </div>
-        <div className="card p-4">
-          <p className="text-xs text-fg-secondary uppercase tracking-wider">{t('category')}</p>
-          <p className="text-2xl font-bold text-fg-primary mt-1">{categoryNames.length}</p>
+        <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)]">
+          <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+            {t('category')}
+          </p>
+          <p className="text-fs-3xl font-semibold text-[var(--fg)] mt-[var(--s-3)] tabular-nums">
+            {categoryNames.length}
+          </p>
         </div>
       </div>
 
