@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Foody Admin — Système de design</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css?v=3">
+<link rel="stylesheet" href="components.css?v=3">
+<style>
+  html, body, #root { height:100%; margin:0; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#f97316"/><text x="50" y="62" font-family="sans-serif" font-size="42" font-weight="700" fill="#fff" text-anchor="middle">F</text></svg></template>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="chrome.jsx"></script>
+<script type="text/babel" src="drawer.jsx"></script>
+<script type="text/babel" src="screens/dashboard.jsx"></script>
+<script type="text/babel" src="screens/orders.jsx"></script>
+<script type="text/babel" src="screens/order-details.jsx"></script>
+<script type="text/babel" src="screens/library.jsx"></script>
+<script type="text/babel" src="screens/item-editor.jsx"></script>
+<script type="text/babel" src="screens/stock.jsx"></script>
+<script type="text/babel" src="screens/stock-editor.jsx"></script>
+<script type="text/babel" src="screens/preparations.jsx"></script>
+<script type="text/babel" src="screens/prep-editor.jsx"></script>
+<script type="text/babel" src="screens/reports.jsx"></script>
+<script type="text/babel" src="screens/settings.jsx"></script>
+<script type="text/babel" src="screens/design-system.jsx"></script>
+<script type="text/babel" src="screens/audit.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+function App() {
+  return (
+    <DesignCanvas title="Foody Admin — Système & Redesign">
+      <DCSection id="foundation" title="01 · Fondation">
+        <DCArtboard id="audit" label="Audit UX — ce qu'on corrige" width={1200} height={1800}>
+          <Audit theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="system-dark" label="Design system — Dark" width={1200} height={2400}>
+          <DesignSystem theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="system-light" label="Design system — Light" width={1200} height={2400}>
+          <DesignSystem theme="light"/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="screens-dark" title="02 · Écrans principaux — Dark">
+        <DCArtboard id="dashboard-d" label="Tableau de bord" width={1440} height={1360}>
+          <Dashboard theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="orders-d" label="Commandes" width={1440} height={1000}>
+          <Orders theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="order-details-d" label="Commandes · Détails (drawer)" width={1440} height={1000}>
+          <OrderDetails theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="library-d" label="Bibliothèque d'articles" width={1440} height={1100}>
+          <Library theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="stock-d" label="Cuisine · Stock" width={1440} height={1100}>
+          <Stock theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="stock-editor-d" label="Stock · Éditeur (drawer)" width={1440} height={1100}>
+          <StockItemEditor theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="prep-d" label="Cuisine · Préparations" width={1440} height={1100}>
+          <Preparations theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="prep-editor-d" label="Préparation · Éditeur (drawer)" width={1440} height={1100}>
+          <PrepEditor theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="reports-d" label="Rapports · Vue d'ensemble" width={1440} height={1100}>
+          <Reports theme="dark"/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="editor-dark" title="03 · Éditeur d'article — Dark">
+        <DCArtboard id="editor-details-d" label="Modifier article · Détails" width={1440} height={1000}>
+          <ItemEditor theme="dark" tab="details"/>
+        </DCArtboard>
+        <DCArtboard id="editor-mods-d" label="Modifier article · Modificateurs" width={1440} height={1000}>
+          <ItemEditor theme="dark" tab="mods"/>
+        </DCArtboard>
+        <DCArtboard id="editor-recipe-d" label="Modifier article · Recette" width={1440} height={1000}>
+          <ItemEditor theme="dark" tab="recipe"/>
+        </DCArtboard>
+        <DCArtboard id="editor-cost-d" label="Modifier article · Coût" width={1440} height={1000}>
+          <ItemEditor theme="dark" tab="cost"/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="settings-dark" title="04 · Paramètres — Dark">
+        <DCArtboard id="settings-general-d" label="Paramètres · Général" width={1440} height={1100}>
+          <SettingsGeneral theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="settings-branding-d" label="Paramètres · Image de marque" width={1440} height={1100}>
+          <SettingsBranding theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="settings-hours-d" label="Paramètres · Horaires" width={1440} height={1100}>
+          <SettingsHours theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="settings-payments-d" label="Paramètres · Paiements & TVA" width={1440} height={1100}>
+          <SettingsPayments theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="settings-printers-d" label="Paramètres · Imprimantes & KDS" width={1440} height={1100}>
+          <SettingsPrinters theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="settings-team-d" label="Paramètres · Équipe & rôles" width={1440} height={1100}>
+          <SettingsTeam theme="dark"/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="screens-light" title="05 · Écrans principaux — Light">
+        <DCArtboard id="dashboard-l" label="Tableau de bord" width={1440} height={1360}>
+          <Dashboard theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="orders-l" label="Commandes" width={1440} height={1000}>
+          <Orders theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="order-details-l" label="Commandes · Détails (drawer)" width={1440} height={1000}>
+          <OrderDetails theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="library-l" label="Bibliothèque d'articles" width={1440} height={1100}>
+          <Library theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="stock-l" label="Cuisine · Stock" width={1440} height={1100}>
+          <Stock theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="stock-editor-l" label="Stock · Éditeur (drawer)" width={1440} height={1100}>
+          <StockItemEditor theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="prep-l" label="Cuisine · Préparations" width={1440} height={1100}>
+          <Preparations theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="prep-editor-l" label="Préparation · Éditeur (drawer)" width={1440} height={1100}>
+          <PrepEditor theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="reports-l" label="Rapports · Vue d'ensemble" width={1440} height={1100}>
+          <Reports theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="editor-cost-l" label="Modifier article · Coût" width={1440} height={1000}>
+          <ItemEditor theme="light" tab="cost"/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="settings-light" title="06 · Paramètres — Light">
+        <DCArtboard id="settings-general-l" label="Paramètres · Général" width={1440} height={1100}>
+          <SettingsGeneral theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="settings-hours-l" label="Paramètres · Horaires" width={1440} height={1100}>
+          <SettingsHours theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="settings-team-l" label="Paramètres · Équipe & rôles" width={1440} height={1100}>
+          <SettingsTeam theme="light"/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

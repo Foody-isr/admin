@@ -2,42 +2,148 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════
+   Foody OS Design Tokens — source of truth
+   Verbatim port of design-reference/design/tokens.css.
+   Edit tokens.css and re-sync; do not diverge values here.
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+  /* Brand */
+  --brand-50:  #fff7ed;
+  --brand-100: #ffedd5;
+  --brand-200: #fed7aa;
+  --brand-300: #fdba74;
+  --brand-400: #fb923c;
+  --brand-500: #f97316;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+  --brand-800: #9a3412;
+  --brand-900: #7c2d12;
+
+  /* Categorical (charts, avatars, item tags) */
+  --cat-1: #f97316;
+  --cat-2: #eab308;
+  --cat-3: #16a34a;
+  --cat-4: #0ea5e9;
+  --cat-5: #7c3aed;
+  --cat-6: #e11d48;
+  --cat-7: #0d9488;
+  --cat-8: #a16207;
+
+  /* Semantic */
+  --success-500: #16a34a;
+  --success-50:  #dcfce7;
+  --warning-500: #d97706;
+  --warning-50:  #fef3c7;
+  --danger-500:  #dc2626;
+  --danger-50:   #fee2e2;
+  --info-500:    #2563eb;
+  --info-50:     #dbeafe;
+
+  /* Neutrals — light */
+  --surface-2:   #f5f5f4;
+  --surface-3:   #e7e5e4;
+  --line:        #e7e5e4;
+  --line-strong: #d6d3d1;
+  --fg:          #1c1917;
+  --fg-muted:    #57534e;
+  --fg-subtle:   #a8a29e;
+
+  /* Shadows & focus */
+  --shadow-1: 0 1px 2px rgba(28,25,23,.04), 0 1px 3px rgba(28,25,23,.04);
+  --shadow-2: 0 4px 12px rgba(28,25,23,.06), 0 2px 4px rgba(28,25,23,.04);
+  --shadow-3: 0 16px 40px rgba(28,25,23,.10), 0 4px 12px rgba(28,25,23,.06);
+  --focus-ring: 0 0 0 3px rgba(249,115,22,.25);
+
+  /* Typography — font-family vars are re-set by next/font on <html> */
+  --font-sans:    ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-display: ui-serif, Georgia, serif;
+
+  --fs-micro: 11px;
+  --fs-xs:    12px;
+  --fs-sm:    13px;
+  --fs-md:    14px;
+  --fs-lg:    16px;
+  --fs-xl:    18px;
+  --fs-2xl:   22px;
+  --fs-3xl:   28px;
+  --fs-4xl:   36px;
+  --fs-5xl:   48px;
+
+  --lh-tight: 1.15;
+  --lh-snug:  1.3;
+  --lh-base:  1.5;
+
+  /* Space (4pt grid) */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  /* Radii */
+  --r-xs:  4px;
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  14px;
+  --r-xl:  18px;
+  --r-full: 999px;
+
+  /* Motion */
+  --ease-out:    cubic-bezier(.2,.8,.2,1);
+  --ease-in-out: cubic-bezier(.4,0,.2,1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* Layout */
+  --sidebar-w: 260px;
+  --sidebar-w-collapsed: 72px;
+  --topbar-h: 56px;
+}
+
 /* ── Theme tokens (light = default, dark = .dark on <html>) ── */
 :root {
-  --bg: #F6F6F6;
+  --bg: #fafaf9;                       /* adopted from tokens.css (was #F6F6F6) */
   --surface: #FFFFFF;
-  --surface-subtle: #F5F5F5;
-  --divider: #E0E0E0;
-  --text-primary: #1A1A1A;
-  --text-secondary: #6B7280;
+  --surface-subtle: var(--surface-2);  /* @deprecated — use --surface-2 */
+  --divider:        var(--line);       /* @deprecated — use --line */
+  --text-primary:   var(--fg);         /* @deprecated — use --fg */
+  --text-secondary: var(--fg-muted);   /* @deprecated — use --fg-muted */
   --sidebar-bg: #FFFFFF;
-  --sidebar-active: #f97316;
+  --sidebar-active: var(--brand-500);  /* @deprecated — use --brand-500 */
   --sidebar-hover: #F5F5F5;
-  --topbar-bg: #000000;
-  --topbar-fg: #FFFFFF;
-  --shadow-color: rgba(0, 0, 0, 0.04);
+  --topbar-bg: #000000;                /* @deprecated — pending Phase 2 topbar rewrite */
+  --topbar-fg: #FFFFFF;                /* @deprecated — pending Phase 2 topbar rewrite */
+  --shadow-color: rgba(0, 0, 0, 0.04); /* @deprecated — use --shadow-1/2/3 */
 
-  /* shadcn/ui tokens (HSL triples consumed via hsl(var(--…))) */
-  --background: 0 0% 96%;
-  --foreground: 0 0% 10%;
+  /* shadcn/ui tokens (HSL triples) — aligned to Foody neutrals above */
+  --background: 60 11% 98%;            /* #fafaf9 */
+  --foreground: 24 10% 10%;            /* #1c1917 */
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
+  --card-foreground: 24 10% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
+  --popover-foreground: 24 10% 10%;
   --primary: 21 94% 53%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 10%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 220 9% 46%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 10%;
+  --secondary: 60 5% 96%;              /* #f5f5f4 */
+  --secondary-foreground: 24 10% 10%;
+  --muted: 60 5% 96%;
+  --muted-foreground: 24 6% 31%;       /* #57534e */
+  --accent: 60 5% 96%;
+  --accent-foreground: 24 10% 10%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 88%;
-  --input: 0 0% 88%;
+  --border: 24 7% 90%;                 /* #e7e5e4 */
+  --input:  24 9% 83%;                 /* #d6d3d1 */
   --ring: 21 94% 53%;
-  --radius: 0.75rem;
+  --radius: 0.625rem;                  /* 10px — matches --r-md */
 }
 
 /* shadcn primitives carry a data-slot attribute — scope border-color to them
@@ -49,47 +155,87 @@
 }
 
 .dark {
-  --bg: #171717;
-  --surface: #1c1c1c;
-  --surface-subtle: #232323;
-  --surface-elevated: #2a2a2a;
-  --divider: #333333;
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1a1;
-  --text-muted: #6b6b6b;
-  --sidebar-bg: #141414;
-  --sidebar-active: #f97316;
-  --sidebar-hover: #1c1c1c;
-  --topbar-bg: #141414;
-  --topbar-fg: #ffffff;
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  /* Neutrals — dark */
+  --bg:          #0f0e0d;              /* adopted from tokens.css (was #171717) */
+  --surface:     #1a1917;              /* adopted (was #1c1c1c) */
+  --surface-2:   #24221f;
+  --surface-3:   #2d2a26;
+  --line:        #2d2a26;
+  --line-strong: #44403c;
+  --fg:          #fafaf9;
+  --fg-muted:    #a8a29e;
+  --fg-subtle:   #78716c;
 
-  /* shadcn/ui tokens — dark */
-  --background: 0 0% 9%;
-  --foreground: 0 0% 100%;
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 100%;
-  --popover: 0 0% 11%;
-  --popover-foreground: 0 0% 100%;
+  /* Semantic -50 alpha in dark */
+  --success-50: rgba(22,163,74,.14);
+  --warning-50: rgba(217,119,6,.14);
+  --danger-50:  rgba(220,38,38,.14);
+  --info-50:    rgba(37,99,235,.14);
+
+  /* Categorical — lighter hues for dark */
+  --cat-1: #fb923c;
+  --cat-2: #facc15;
+  --cat-3: #4ade80;
+  --cat-4: #38bdf8;
+  --cat-5: #a78bfa;
+  --cat-6: #fb7185;
+  --cat-7: #2dd4bf;
+  --cat-8: #d6b26a;
+
+  /* Shadows & focus — dark */
+  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-2: 0 4px 12px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.3);
+  --shadow-3: 0 20px 50px rgba(0,0,0,.6);
+  --focus-ring: 0 0 0 3px rgba(249,115,22,.35);
+
+  /* Legacy aliases — @deprecated, resolve to new tokens where possible */
+  --surface-subtle:  var(--surface-2);
+  --surface-elevated: #2a2a2a;         /* @deprecated — use --surface-3 */
+  --divider:         var(--line);
+  --text-primary:    var(--fg);
+  --text-secondary:  var(--fg-muted);
+  --text-muted:      #6b6b6b;          /* @deprecated — use --fg-subtle */
+  --sidebar-bg:      #0a0908;          /* adopted (was #141414) */
+  --sidebar-active:  var(--brand-500);
+  --sidebar-hover:   #1a1917;          /* adopted (was #1c1c1c) */
+  --topbar-bg:       #141414;          /* @deprecated — pending Phase 2 topbar rewrite */
+  --topbar-fg:       #ffffff;          /* @deprecated — pending Phase 2 topbar rewrite */
+  --shadow-color:    rgba(0, 0, 0, 0.3); /* @deprecated — use --shadow-1/2/3 */
+
+  /* shadcn/ui tokens — aligned to Foody dark neutrals above */
+  --background: 30 8% 5%;              /* #0f0e0d */
+  --foreground: 60 11% 98%;            /* #fafaf9 */
+  --card: 30 7% 10%;                   /* #1a1917 */
+  --card-foreground: 60 11% 98%;
+  --popover: 30 7% 10%;
+  --popover-foreground: 60 11% 98%;
   --primary: 21 94% 53%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 0 0% 14%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 0 0% 14%;
-  --muted-foreground: 0 0% 63%;
-  --accent: 0 0% 14%;
-  --accent-foreground: 0 0% 100%;
+  --secondary: 30 7% 13%;              /* #24221f */
+  --secondary-foreground: 60 11% 98%;
+  --muted: 30 7% 13%;
+  --muted-foreground: 28 6% 64%;       /* #a8a29e */
+  --accent: 30 7% 13%;
+  --accent-foreground: 60 11% 98%;
   --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 20%;
-  --input: 0 0% 20%;
+  --border: 30 7% 16%;                 /* #2d2a26 */
+  --input:  28 5% 25%;                 /* #44403c */
   --ring: 21 94% 53%;
+}
+
+/* Bridge Vercel's `geist` NPM package vars onto our token names.
+   GeistSans.variable sets --font-geist-sans; we alias it so the rest
+   of the app references --font-sans / --font-mono only. */
+html {
+  --font-sans: var(--font-geist-sans, ui-sans-serif, -apple-system, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, 'SF Mono', monospace);
 }
 
 body {
   color: var(--text-primary);
   background: var(--bg);
-  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* ── Sidebar ── */

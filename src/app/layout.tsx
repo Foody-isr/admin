@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Instrument_Serif } from 'next/font/google';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme-context';
 import { LocaleProvider } from '@/lib/i18n';
 
-const inter = Inter({
-  subsets: ['latin', 'latin-ext', 'cyrillic'],
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-display',
 });
 
 export const metadata: Metadata = {
@@ -17,7 +20,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable}`}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
