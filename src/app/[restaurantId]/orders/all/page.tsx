@@ -16,7 +16,8 @@ import {
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
   ChevronDownIcon, XIcon, PrinterIcon, MoreHorizontalIcon,
 } from 'lucide-react';
-import { Badge, Button, PageHead } from '@/components/ds';
+import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
+import { CheckIcon, ClockIcon, GlobeIcon, UserIcon, EditIcon } from 'lucide-react';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
 
@@ -237,8 +238,8 @@ export default function OrdersPage() {
 
   return (
     <div className="flex gap-0" style={{ height: 'calc(100vh - 120px)' }}>
-      {/* Left: table list */}
-      <div className={`flex-1 min-w-0 space-y-[var(--s-5)] transition-all ${selectedOrder ? 'pr-0' : ''}`}>
+      {/* Full-width table list — detail is now in a Drawer */}
+      <div className="flex-1 min-w-0 space-y-[var(--s-5)]">
         <PageHead
           title={t('orders')}
           desc={`${total} commandes · ${activeCount} affichées`}
@@ -298,25 +299,66 @@ export default function OrdersPage() {
           }
         />
 
-        {/* Status tabs — underline style matching design-reference */}
-        <div className="flex items-center gap-[var(--s-5)] border-b border-[var(--line)]">
-          {TABS.map((tab) => {
-            const selected = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => switchTab(tab.key)}
-                aria-selected={selected}
-                className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors ${
-                  selected
-                    ? 'text-[var(--fg)] after:content-[""] after:absolute after:start-0 after:end-0 after:-bottom-px after:h-[2px] after:bg-[var(--brand-500)] after:rounded-[1px]'
-                    : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                }`}
-              >
-                {t(tab.labelKey)}
-              </button>
-            );
-          })}
+        {/* Status tabs — underline style with inline counts + dot-pulse + updated-at */}
+        <div className="flex items-center justify-between border-b border-[var(--line)]">
+          <div className="flex items-center gap-[var(--s-5)]">
+            {TABS.map((tab) => {
+              const selected = activeTab === tab.key;
+              const isActive = tab.key === 'active';
+              const count = selected ? total : undefined;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => switchTab(tab.key)}
+                  aria-selected={selected}
+                  className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors inline-flex items-center gap-[var(--s-2)] ${
+                    selected
+                      ? 'text-[var(--fg)] after:content-[""] after:absolute after:start-0 after:end-0 after:-bottom-px after:h-[2px] after:bg-[var(--brand-500)] after:rounded-[1px]'
+                      : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                  }`}
+                >
+                  {selected && isActive && (
+                    <span
+                      className="inline-block w-2 h-2 rounded-full bg-[var(--success-500)] relative"
+                      aria-hidden
+                    >
+                      <span className="absolute inset-0 rounded-full bg-[var(--success-500)] opacity-60 animate-ping" />
+                    </span>
+                  )}
+                  <span>{t(tab.labelKey)}</span>
+                  {count !== undefined && (
+                    <span
+                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums ${
+                        selected
+                          ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
+                          : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-[var(--s-2)] pe-[var(--s-2)]">
+            {lastUpdated && (
+              <span className="text-fs-xs text-[var(--fg-subtle)]">
+                {t('lastUpdated') || 'Mise à jour'}{' '}
+                {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
+              onClick={fetchOrders}
+              aria-label={t('refresh')}
+              title={t('refresh')}
+            >
+              <RefreshCwIcon />
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -367,20 +409,6 @@ export default function OrdersPage() {
               { value: 'refunded', label: t('refunded') },
             ]}
           />
-        </div>
-
-        {/* Last updated */}
-        <div className="flex items-center justify-between text-xs text-fg-secondary">
-          {lastUpdated && (
-            <span>{t('lastUpdated')} {lastUpdated.toLocaleString('en-US', {
-              month: 'short', day: 'numeric', year: 'numeric',
-              hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-            })}</span>
-          )}
-          <button onClick={fetchOrders} className="flex items-center gap-1.5 text-fg-secondary hover:text-fg-primary transition-colors">
-            <RefreshCwIcon className="w-3.5 h-3.5" />
-            {t('refresh')}
-          </button>
         </div>
 
         {/* Table */}
@@ -504,28 +532,44 @@ export default function OrdersPage() {
       </div>
 
       {/* Right: order detail panel */}
-      {selectedOrder && (
-        <OrderDetailPanel
-          order={selectedOrder}
-          isLoading={actionLoading === selectedOrder.id}
-          onClose={() => setSelectedId(null)}
-          onAccept={() => handleAccept(selectedOrder.id)}
-          onReject={() => handleReject(selectedOrder.id)}
-          onSendToKitchen={() => handleSendToKitchen(selectedOrder.id)}
-          onMarkReady={() => handleMarkReady(selectedOrder.id)}
-          onMarkServed={() => handleMarkServed(selectedOrder.id)}
-        />
-      )}
+      <OrderDetailDrawer
+        order={selectedOrder}
+        isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
+        onClose={() => setSelectedId(null)}
+        onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
+        onReject={() => selectedOrder && handleReject(selectedOrder.id)}
+        onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
+        onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
+        onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
+      />
     </div>
   );
 }
 
-// ─── Order Detail Panel (right side) ─────────────────────────────────────────
+// ─── Order Detail Drawer — 1060px, matches design-reference/order-details.jsx ────
 
-function OrderDetailPanel({
+const TIMELINE_STEPS = [
+  { key: 'received', labelKey: 'orderReceived', statuses: [] as string[] },
+  { key: 'accepted', labelKey: 'accepted', statuses: ['accepted'] },
+  { key: 'in_kitchen', labelKey: 'inKitchen', statuses: ['in_kitchen'] },
+  { key: 'ready', labelKey: 'ready', statuses: ['ready', 'ready_for_pickup', 'ready_for_delivery'] },
+  { key: 'served', labelKey: 'served', statuses: ['served', 'picked_up', 'delivered'] },
+];
+
+function statusIndex(status: string) {
+  // Map status to the furthest reached step (0..4)
+  if (['served', 'picked_up', 'delivered'].includes(status)) return 4;
+  if (['ready', 'ready_for_pickup', 'ready_for_delivery'].includes(status)) return 3;
+  if (status === 'in_kitchen') return 2;
+  if (status === 'accepted') return 1;
+  if (['rejected', 'pending_review', 'scheduled'].includes(status)) return -1;
+  return 0;
+}
+
+function OrderDetailDrawer({
   order, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
 }: {
-  order: Order;
+  order: Order | null;
   isLoading: boolean;
   onClose: () => void;
   onAccept: () => void;
@@ -535,171 +579,316 @@ function OrderDetailPanel({
   onMarkServed: () => void;
 }) {
   const { t } = useI18n();
+
+  if (!order) {
+    // Still render a closed Drawer so the transition works cleanly when toggling.
+    return <Drawer open={false} onOpenChange={(v) => { if (!v) onClose(); }} title="" width={1060}> </Drawer>;
+  }
+
+  const currentStep = statusIndex(order.status);
+  const isCancelled = order.status === 'rejected';
+  const isActive = currentStep === 2;
+  const bannerTone: 'warning' | 'success' | 'info' | 'danger' =
+    isCancelled ? 'danger' : isActive ? 'warning' : currentStep >= 4 ? 'success' : 'info';
+
+  const createdMins = Math.max(
+    0,
+    Math.round((Date.now() - new Date(order.created_at).getTime()) / 60000),
+  );
+
+  const subtotal = (order.items ?? []).reduce((s, i) => s + i.price * i.quantity, 0);
+  const totalsLine =
+    order.total_amount ?? subtotal;
+
+  const primaryBtn = (() => {
+    switch (order.status) {
+      case 'pending_review':
+        return { label: t('accept'), onClick: onAccept };
+      case 'accepted':
+        return { label: t('sendToKitchen') || 'En cuisine', onClick: onSendToKitchen };
+      case 'in_kitchen':
+        return { label: t('markReady') || 'Prête', onClick: onMarkReady };
+      case 'ready':
+      case 'ready_for_pickup':
+      case 'ready_for_delivery':
+        return { label: t('markServed') || 'Servie', onClick: onMarkServed };
+      default:
+        return null;
+    }
+  })();
+
+  const customerInitials = order.customer_name
+    ? order.customer_name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : 'C';
+
   return (
-    <div
-      className="w-[420px] flex-shrink-0 flex flex-col ml-5 h-full"
-      style={{ borderLeft: '1px solid var(--divider)', background: 'var(--surface)' }}
+    <Drawer
+      open={order != null}
+      onOpenChange={(v) => { if (!v) onClose(); }}
+      title={t('orderNumber').replace('{id}', String(order.id))}
+      width={1060}
+      primaryAction={
+        primaryBtn ? (
+          <Button variant="primary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
+            {primaryBtn.label}
+          </Button>
+        ) : null
+      }
+      footer={
+        <div className="flex items-center justify-between gap-[var(--s-3)]">
+          <div className="flex items-center gap-[var(--s-2)]">
+            <Button variant="secondary" size="md">
+              <EditIcon /> {t('edit') || 'Modifier'}
+            </Button>
+            <Button variant="secondary" size="md">
+              <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
+            </Button>
+          </div>
+          <Button variant="ghost" size="md" onClick={onReject} disabled={isLoading}>
+            <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
+          </Button>
+        </div>
+      }
     >
-      {/* Panel header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--divider)' }}>
-        <button
-          onClick={onClose}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
-          style={{ border: '1px solid var(--divider)' }}
-        >
-          <XIcon className="w-5 h-5" />
-        </button>
-        <div className="flex items-center gap-2">
-          <button
-            className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
-            style={{ border: '1px solid var(--divider)' }}
-            title="Print receipt"
-          >
-            <PrinterIcon className="w-5 h-5" />
-          </button>
-          <button
-            className="w-9 h-9 rounded-full flex items-center justify-center text-fg-secondary hover:text-fg-primary transition-colors"
-            style={{ border: '1px solid var(--divider)' }}
-            title="More options"
-          >
-            <MoreHorizontalIcon className="w-5 h-5" />
-          </button>
+      {/* Status banner */}
+      <div
+        className="p-[var(--s-4)_var(--s-5)] rounded-r-md grid grid-cols-[1fr_auto] gap-[var(--s-4)] items-center mb-[var(--s-4)]"
+        style={{
+          background: `color-mix(in oklab, var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500) 10%, var(--surface))`,
+          border: `1px solid color-mix(in oklab, var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500) 30%, var(--line))`,
+        }}
+      >
+        <div>
+          <div className="flex items-center gap-[var(--s-2)] mb-1">
+            <span
+              className="relative inline-block w-2 h-2 rounded-full"
+              style={{
+                background: `var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500)`,
+              }}
+            >
+              {isActive && (
+                <span
+                  className="absolute inset-0 rounded-full opacity-60 animate-ping"
+                  style={{ background: 'var(--warning-500)' }}
+                />
+              )}
+            </span>
+            <span
+              className="text-fs-sm font-semibold"
+              style={{
+                color: `var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500)`,
+              }}
+            >
+              {order.status.replace(/_/g, ' ')} · {createdMins} min
+            </span>
+          </div>
+          <div className="text-fs-xs text-[var(--fg-subtle)]">
+            {order.order_type.replace(/_/g, ' ')}
+            {order.table_number ? ` · Table ${order.table_number}` : ''}
+          </div>
+        </div>
+        <div className="flex items-center gap-[var(--s-2)]">
+          {primaryBtn && (
+            <Button variant="secondary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
+              {primaryBtn.label}
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="px-6 py-6 space-y-6 overflow-y-auto flex-1 min-h-0">
-        {/* Title */}
-        <div>
-          <h2 className="text-fs-xl font-semibold text-[var(--fg)]">
-            {t('orderNumber').replace('{id}', String(order.id))}
-          </h2>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-              {order.status.replace(/_/g, ' ')}
-            </Badge>
-            <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
-              {order.payment_status}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <OrderPanelActions
-          status={order.status}
-          isLoading={isLoading}
-          onAccept={onAccept}
-          onReject={onReject}
-          onSendToKitchen={onSendToKitchen}
-          onMarkReady={onMarkReady}
-          onMarkServed={onMarkServed}
-        />
-
-        {/* Details section */}
-        <div>
-          <h3 className="text-base font-bold text-fg-primary mb-4">Details</h3>
-          <div className="space-y-0">
-            <DetailRow label="Created" value={
-              new Date(order.created_at).toLocaleString('en-US', {
-                month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
-              })
-            } />
-            <DetailRow label={t('source')} value={(order.order_source ?? 'order').replace(/_/g, ' ')} capitalize />
-            <DetailRow label={t('type')} value={order.order_type.replace(/_/g, ' ')} capitalize />
-            {order.customer_name && <DetailRow label={t('customer')} value={order.customer_name} />}
-            {order.customer_phone && <DetailRow label={t('phone')} value={order.customer_phone} />}
-            {order.table_number && <DetailRow label="Table" value={order.table_number} />}
-            <DetailRow label="Order" value={`#${order.id}`} />
-          </div>
-        </div>
-
-        {/* Items section */}
-        <div>
-          <h3 className="text-base font-bold text-fg-primary mb-4">{t('items')}</h3>
-          <div className="space-y-0">
-            {(() => {
-              const allItems = order.items ?? [];
-              const regularItems = allItems.filter((i) => !i.combo_group);
-              const comboGroups = new Map<string, typeof allItems>();
-              for (const item of allItems) {
-                if (item.combo_group) {
-                  const group = comboGroups.get(item.combo_group) ?? [];
-                  group.push(item);
-                  comboGroups.set(item.combo_group, group);
-                }
-              }
-
-              // Fallback combo price computation
-              const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
-              const comboDeltasTotal = Array.from(comboGroups.values()).reduce(
-                (s: number, group: OrderItem[]) => s + group.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0), 0
-              );
-              const remainingForCombos = (order.total_amount ?? 0) - regularTotal - comboDeltasTotal;
-              const comboCount = comboGroups.size;
-
-              return (
-                <>
-                  {regularItems.map((item) => (
-                    <AdminOrderItemRow key={item.id} item={item} />
-                  ))}
-                  {Array.from(comboGroups.entries()).map(([group, comboItems]: [string, OrderItem[]]) => {
-                    const basePrice = comboItems[0].combo_price || (comboCount > 0 ? remainingForCombos / comboCount : 0);
-                    const itemDeltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
-                    return (
+      {/* 2-column content */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--s-5)]">
+        {/* LEFT — timeline + items */}
+        <div className="flex flex-col gap-[var(--s-4)]">
+          {/* Timeline */}
+          <Section title={t('progress') || 'Progression'}>
+            <div
+              className="grid relative"
+              style={{ gridTemplateColumns: `repeat(${TIMELINE_STEPS.length}, 1fr)` }}
+            >
+              {TIMELINE_STEPS.map((step, i) => {
+                const reached = currentStep >= i;
+                const active = currentStep === i;
+                return (
+                  <div key={step.key} className="text-center relative">
+                    {i < TIMELINE_STEPS.length - 1 && (
                       <div
-                        key={group}
-                        className="py-3"
-                        style={{ borderBottom: '1px solid var(--divider)' }}
-                      >
-                        <div className="flex items-center gap-3">
+                        className="absolute top-[14px] start-1/2 end-[-50%] h-[2px]"
+                        style={{ background: currentStep > i ? 'var(--brand-500)' : 'var(--line)' }}
+                      />
+                    )}
+                    <div
+                      className="w-7 h-7 rounded-full mx-auto mb-2 grid place-items-center relative z-[1]"
+                      style={{
+                        background: active
+                          ? 'var(--brand-500)'
+                          : reached
+                          ? 'var(--success-500)'
+                          : 'var(--surface-3)',
+                        color: reached || active ? '#fff' : 'var(--fg-muted)',
+                        boxShadow: active
+                          ? '0 0 0 4px color-mix(in oklab, var(--brand-500) 20%, transparent)'
+                          : undefined,
+                      }}
+                    >
+                      {reached && !active ? <CheckIcon className="w-3.5 h-3.5" /> : null}
+                    </div>
+                    <div
+                      className={`text-fs-xs font-medium ${reached || active ? 'text-[var(--fg)]' : 'text-[var(--fg-muted)]'}`}
+                    >
+                      {t(step.labelKey)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* Items */}
+          <Section
+            title={`${(order.items ?? []).length} ${t('items')} · ${(order.items ?? []).reduce((s, i) => s + i.quantity, 0)} ${t('units') || 'unités'}`}
+          >
+            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+              {(order.items ?? []).map((item, i) => (
+                <div
+                  key={item.id}
+                  className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
+                    i > 0 ? 'border-t border-[var(--line)]' : ''
+                  }`}
+                >
+                  <div
+                    className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm -tracking-[0.02em]"
+                    style={{ background: itemColor(item.name) }}
+                  >
+                    {item.quantity}×
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-fs-sm font-medium truncate">{item.name}</div>
+                    {item.modifiers && item.modifiers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.modifiers.map((m) => (
                           <span
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-[16px] flex-shrink-0"
-                            style={{ background: 'var(--brand-light, #FEF3C7)' }}
+                            key={m.id}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs bg-[var(--surface-2)] text-[var(--fg-muted)]"
                           >
-                            🍱
+                            {m.name}
                           </span>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-semibold text-fg-primary">
-                              {comboItems[0].combo_name || 'Menu Combo'}
-                            </span>
-                          </div>
-                          <span className="text-sm text-fg-primary font-medium">
-                            ₪{(basePrice + itemDeltas).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="ml-12 mt-1 space-y-0.5">
-                          {comboItems.map((ci: OrderItem) => (
-                            <div key={ci.id} className="flex items-center justify-between text-xs text-fg-secondary">
-                              <span>↳ {ci.quantity > 1 ? `${ci.quantity}× ` : ''}{ci.name}</span>
-                              {ci.price > 0 && (
-                                <span>+₪{(ci.price * ci.quantity).toFixed(2)}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                        ))}
                       </div>
-                    );
-                  })}
-                </>
-              );
-            })()}
-          </div>
+                    )}
+                    {item.notes && (
+                      <div className="flex items-center gap-1 mt-1.5 text-fs-xs text-[var(--fg-muted)] italic">
+                        <EditIcon className="w-3 h-3" />
+                        <span>&ldquo;{item.notes}&rdquo;</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-end">
+                    <div className="font-mono tabular-nums font-medium">
+                      ₪{(item.price * item.quantity).toFixed(2)}
+                    </div>
+                    {item.quantity > 1 && (
+                      <div className="font-mono tabular-nums text-fs-xs text-[var(--fg-subtle)]">
+                        ₪{item.price.toFixed(2)} × {item.quantity}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
         </div>
 
-        {/* Totals */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-fg-primary">{t('subtotal')}</span>
-            <span className="text-sm text-fg-primary">₪{(order.total_amount ?? 0).toFixed(2)}</span>
+        {/* RIGHT — customer + totals + activity */}
+        <div className="flex flex-col gap-[var(--s-4)]">
+          {/* Customer card */}
+          <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg shadow-1 p-[var(--s-5)]">
+            <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-4)]">
+              <div
+                className="w-12 h-12 rounded-full grid place-items-center text-white font-semibold"
+                style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
+              >
+                {customerInitials}
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-fs-md truncate">
+                  {order.customer_name || t('guestCustomer') || 'Client'}
+                </div>
+                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                  {order.order_source?.replace(/_/g, ' ') || 'order'}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+              {order.customer_phone && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--fg-subtle)]">{t('phone')}</span>
+                  <span className="font-mono tabular-nums">{order.customer_phone}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--fg-subtle)]">{t('type')}</span>
+                <span className="capitalize">{order.order_type.replace(/_/g, ' ')}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--fg-subtle)]">{t('source')}</span>
+                <span className="inline-flex items-center gap-1 capitalize">
+                  <GlobeIcon className="w-3 h-3" />
+                  {(order.order_source ?? 'order').replace(/_/g, ' ')}
+                </span>
+              </div>
+              {order.table_number && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--fg-subtle)]">Table</span>
+                  <span>{order.table_number}</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-fg-primary">{t('total')}</span>
-            <span className="text-sm font-bold text-fg-primary">₪{(order.total_amount ?? 0).toFixed(2)}</span>
-          </div>
+
+          {/* Totals */}
+          <Section title={t('total') || 'Total'}>
+            <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--fg-subtle)]">{t('subtotal') || 'Sous-total'}</span>
+                <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="h-px bg-[var(--line)] my-[var(--s-2)]" />
+              <div className="flex items-center justify-between text-fs-lg font-semibold">
+                <span>{t('total')}</span>
+                <span className="font-mono tabular-nums">₪{totalsLine.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between mt-[var(--s-2)]">
+                <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot>
+                  {order.payment_status}
+                </Badge>
+              </div>
+            </div>
+          </Section>
+
+          {/* Activity */}
+          <Section title={t('activity') || 'Activité'}>
+            <div className="flex flex-col gap-[var(--s-3)] text-fs-xs">
+              <div className="flex items-start gap-[var(--s-3)]">
+                <span className="font-mono text-[var(--fg-subtle)] text-[11px] shrink-0">
+                  {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <div className="flex-1">
+                  <span className="text-[var(--fg-subtle)]">
+                    {t('createdFromSource') || 'Commande créée'}{' '}
+                    {order.order_source ? `depuis ${order.order_source.replace(/_/g, ' ')}` : ''}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Section>
         </div>
       </div>
-    </div>
+    </Drawer>
   );
 }
+
+// Legacy OrderDetailPanel removed — replaced by OrderDetailDrawer above.
 
 // ─── Order Item Row ─────────────────────────────────────────────────────────
 

@@ -31,6 +31,8 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { Button, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
+import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
+import { Layers as LayersIcon } from 'lucide-react';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -196,37 +198,83 @@ export default function PrepPage() {
         }
       />
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-3 gap-[var(--s-4)]">
-        <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)]">
-          <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-            {t('prepItems')}
-          </p>
-          <p className="text-fs-3xl font-semibold text-[var(--fg)] mt-[var(--s-3)] tabular-nums">
-            {items.length}
-          </p>
-        </div>
-        <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)]">
-          <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-            {t('lowStock')}
-          </p>
-          <p
-            className={`text-fs-3xl font-semibold mt-[var(--s-3)] tabular-nums ${
-              lowCount > 0 ? 'text-[var(--danger-500)]' : 'text-[var(--fg)]'
-            }`}
-          >
-            {lowCount}
-          </p>
-        </div>
-        <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)]">
-          <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-            {t('category')}
-          </p>
-          <p className="text-fs-3xl font-semibold text-[var(--fg)] mt-[var(--s-3)] tabular-nums">
-            {categoryNames.length}
-          </p>
-        </div>
-      </div>
+      {/* KPI strip — Actives / Coût total / À consommer bientôt / Périmées */}
+      {(() => {
+        const totalCost = items.reduce(
+          (s, p) => s + (p.cost_per_unit ?? 0) * (p.quantity ?? 0),
+          0,
+        );
+        const now = Date.now();
+        const shelfMs = (p: PrepItem) => (p.shelf_life_hours ?? 0) * 3600 * 1000;
+        const updatedMs = (p: PrepItem) => new Date(p.updated_at).getTime();
+        const expiresAt = (p: PrepItem) => updatedMs(p) + shelfMs(p);
+        const isExpiring = (p: PrepItem) =>
+          p.shelf_life_hours > 0 && expiresAt(p) - now < 48 * 3600 * 1000 && expiresAt(p) > now;
+        const isExpired = (p: PrepItem) => p.shelf_life_hours > 0 && expiresAt(p) <= now;
+        const expiringCount = items.filter(isExpiring).length;
+        const expiredCount = items.filter(isExpired).length;
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
+            <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
+              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+                {t('activePreps') || 'Préparations actives'}
+              </p>
+              <p className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
+                {items.length}
+              </p>
+              <p className="text-fs-xs text-[var(--fg-subtle)]">
+                {categoryNames.length} {t('categoriesCount') || 'catégories'}
+              </p>
+            </div>
+            <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
+              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+                {t('totalCost') || 'Coût total en stock'}
+              </p>
+              <p className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
+                ₪{Math.round(totalCost).toLocaleString()}
+                <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
+                  .{String(Math.round((totalCost % 1) * 100)).padStart(2, '0')}
+                </span>
+              </p>
+              <p className="text-fs-xs text-[var(--fg-subtle)]">HT · basé sur recettes</p>
+            </div>
+            <div
+              className="rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]"
+              style={{
+                background: 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))',
+                border: '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+              }}
+            >
+              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+                {t('expiringSoon') || 'À consommer bientôt'}
+              </p>
+              <p className="text-fs-3xl font-semibold leading-none text-[var(--warning-500)] tabular-nums">
+                {expiringCount}
+              </p>
+              <p className="text-fs-xs text-[var(--warning-500)]">
+                {t('shelfUnder48h') || 'DLC < 48h'}
+              </p>
+            </div>
+            <div
+              className="rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]"
+              style={{
+                background: 'color-mix(in oklab, var(--danger-500) 6%, var(--surface))',
+                border: '1px solid color-mix(in oklab, var(--danger-500) 25%, var(--line))',
+              }}
+            >
+              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+                {t('expired') || 'Périmées'}
+              </p>
+              <p className="text-fs-3xl font-semibold leading-none text-[var(--danger-500)] tabular-nums">
+                {expiredCount}
+              </p>
+              <p className="text-fs-xs text-[var(--danger-500)]">
+                {t('toDiscard') || 'À jeter'}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
@@ -573,127 +621,195 @@ function PrepItemModal({
     }
   };
 
-  const sidebar = (
+  // Per-unit cost estimate for the rail hero
+  const costTotal = ingredients.reduce((s, ing) => {
+    const si = stockItems.find((x) => x.id === ing.stock_item_id);
+    return s + (si?.cost_per_unit ?? 0) * (ing.quantity_needed ?? 0);
+  }, 0);
+  const perUnit = yieldPerBatch > 0 ? costTotal / yieldPerBatch : 0;
+
+  const rail = (
     <>
-      <FormSection>
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-fg-primary">{t('status')}</h3>
-          <StatusPill
-            active={isActive}
-            onToggle={() => setIsActive(!isActive)}
-            activeLabel={t('active')}
-            inactiveLabel={t('inactive')}
-          />
+      {/* Icon tile instead of photo */}
+      <div
+        className="w-full aspect-square rounded-r-lg grid place-items-center text-white"
+        style={{ background: 'linear-gradient(135deg, var(--brand-700), var(--brand-900))' }}
+      >
+        <LayersIcon className="w-20 h-20" strokeWidth={1.5} />
+      </div>
+
+      <div className="mt-[var(--s-4)]">
+        <div className="text-fs-xl font-semibold -tracking-[0.01em] text-[var(--fg)]">
+          {name || (t('addPrepItem') || 'Nouvelle préparation')}
         </div>
-      </FormSection>
+        <div className="flex items-center gap-[var(--s-2)] mt-1.5">
+          {category && <Badge tone="neutral">{category.toUpperCase()}</Badge>}
+          <Badge tone={isActive ? 'success' : 'neutral'} dot>
+            {isActive ? (t('fresh') || 'Frais') : t('inactive')}
+          </Badge>
+        </div>
+      </div>
 
-      <FormSection title={t('category')}>
-        <SearchableListField
-          mode="single"
-          allowCustom
-          placeholder={t('category')}
-          options={categories.map((c) => ({ value: c, label: c }))}
-          value={category}
-          onChange={setCategory}
-        />
-      </FormSection>
+      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
 
-      <FormSection title={t('shelfLifeHours')}>
-        <input
-          type="number"
-          className="input text-sm w-full"
-          value={shelfLife || ''}
-          onChange={(e) => setShelfLife(+e.target.value)}
-        />
-      </FormSection>
+      {/* Cost summary — key metric */}
+      <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-3)]">
+        {t('costPerUnit') || 'Coût de revient'}
+      </div>
+      <div className="flex items-baseline gap-1 font-display text-fs-2xl font-semibold tabular-nums -tracking-[0.02em]">
+        ₪{perUnit.toFixed(2)}
+        <span className="text-fs-sm text-[var(--fg-muted)] font-normal font-sans">/ {unit}</span>
+      </div>
+      <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
+        {t('yieldLabel') || 'Rendement'} {yieldPerBatch || 0} {unit} · {t('totalLabel') || 'total'} ₪{costTotal.toFixed(2)}
+      </div>
 
-      <FormSection title={t('reorderThreshold')}>
-        <input
-          type="number"
-          step="any"
-          className="input text-sm w-full"
-          value={reorder || ''}
-          onChange={(e) => setReorder(+e.target.value)}
-        />
-      </FormSection>
+      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
 
-      <FormSection title={t('notes')}>
-        <textarea
-          className="input text-sm w-full"
-          rows={3}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+      {/* Status toggle */}
+      <div className="flex items-center justify-between">
+        <span className="text-fs-sm text-[var(--fg-muted)]">{t('status')}</span>
+        <StatusPill
+          active={isActive}
+          onToggle={() => setIsActive(!isActive)}
+          activeLabel={t('active')}
+          inactiveLabel={t('inactive')}
         />
-      </FormSection>
+      </div>
+
+      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
+
+      {/* Notes */}
+      <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-2)]">
+        {t('notes')}
+      </div>
+      <Textarea
+        rows={3}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder={t('notes')}
+        className="text-fs-sm"
+      />
     </>
   );
 
   return (
-    <FormModal
+    <FullScreenEditor
+      open
+      onOpenChange={(v) => { if (!v) onClose(); }}
       title={editing ? t('editPrepItem') : t('addPrepItem')}
-      onClose={onClose}
+      subtitle={editing ? `${t('editingItem') || 'Modification'} · ${editing.name}` : undefined}
       onSave={handleSubmit}
       saveLabel={editing ? t('update') : t('create')}
-      saving={saving}
-      saveDisabled={!name.trim()}
-      sidebar={sidebar}
+      saveDisabled={!name.trim() || saving}
+      cancelLabel={t('cancel')}
+      rail={rail}
     >
-      {/* Name */}
-      <input
-        className="input w-full text-base"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={t('nameLabel') + ' *'}
-        autoFocus
-      />
+      <div className="max-w-3xl">
+        <EditorSectionHead title={t('identityAndYield') || 'Identité & rendement'} />
 
-      {/* Quantity / Yield / Unit section */}
-      <FormSection title={t('quantity')}>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
-              {t('unitLabel')}
-            </label>
-            <select
-              className="input w-full text-sm"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value as StockUnit)}
-            >
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
-              {t('yieldPerBatchLabel')}
-            </label>
-            <input
-              type="number"
-              step="any"
-              className="input w-full text-sm"
-              value={yieldPerBatch || ''}
-              onChange={(e) => setYieldPerBatch(+e.target.value)}
+        {/* Name */}
+        <div className="mb-[var(--s-5)]">
+          <Field label={t('nameLabel') || "Nom de la préparation"}>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('nameLabel') + ' *'}
+              autoFocus
             />
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs text-fg-secondary uppercase tracking-wider font-medium block mb-1">
-              {t('currentStock')}
-            </label>
-            <input
-              type="number"
-              step="any"
-              className="input w-full text-sm"
-              value={quantity || ''}
-              onChange={(e) => setQuantity(+e.target.value)}
-            />
+          </Field>
+        </div>
+
+        {/* Classification */}
+        <div className="mb-[var(--s-5)]">
+          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-[var(--s-3)]">
+            {t('classification') || 'Classification'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-3)]">
+            <Field label={t('category')}>
+              <SearchableListField
+                mode="single"
+                allowCustom
+                placeholder={t('category')}
+                options={categories.map((c) => ({ value: c, label: c }))}
+                value={category}
+                onChange={setCategory}
+              />
+            </Field>
+            <Field label={t('shelfLifeHours') || 'DLC (heures)'}>
+              <Input
+                type="number"
+                value={shelfLife || ''}
+                onChange={(e) => setShelfLife(+e.target.value)}
+              />
+            </Field>
+            <Field label={t('reorderThreshold') || 'Seuil'}>
+              <Input
+                type="number"
+                step="any"
+                value={reorder || ''}
+                onChange={(e) => setReorder(+e.target.value)}
+              />
+            </Field>
           </div>
         </div>
-      </FormSection>
 
-      {/* Ingredients section */}
-      <FormSection title={t('prepRecipeSection')}>
+        {/* Yield + quantity */}
+        <div className="mb-[var(--s-5)]">
+          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-[var(--s-3)]">
+            {t('yieldAndStock') || 'Rendement & stock'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-3)]">
+            <Field label={t('unitLabel') || 'Unité'}>
+              <select
+                className="h-9 w-full px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as StockUnit)}
+              >
+                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </Field>
+            <Field label={t('yieldPerBatchLabel') || 'Rendement / batch'}>
+              <Input
+                type="number"
+                step="any"
+                value={yieldPerBatch || ''}
+                onChange={(e) => setYieldPerBatch(+e.target.value)}
+              />
+            </Field>
+            <Field label={t('currentStock') || 'Stock actuel'}>
+              <Input
+                type="number"
+                step="any"
+                value={quantity || ''}
+                onChange={(e) => setQuantity(+e.target.value)}
+              />
+            </Field>
+          </div>
+        </div>
+
+        {/* Ingredients — 3px brand accent matches reference */}
+        <EditorSectionHead
+          title={t('prepRecipeSection') || 'Ingrédients'}
+          desc={
+            (yieldPerBatch ?? 0) > 0
+              ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
+              : undefined
+          }
+          aside={
+            <button
+              type="button"
+              onClick={openAddPicker}
+              className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+            >
+              <PlusIcon className="w-3.5 h-3.5" />
+              {t('addIngredient')}
+            </button>
+          }
+        />
         {(yieldPerBatch ?? 0) > 0 && (
-          <p className="text-xs text-fg-secondary">
-            {t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)}
+          <p className="text-fs-xs text-[var(--fg-muted)] -mt-[var(--s-3)] mb-[var(--s-3)]">
+            {/* absorbed into EditorSectionHead desc above */}
           </p>
         )}
         {loadingIngs ? (
@@ -756,16 +872,9 @@ function PrepItemModal({
                 </div>
               );
             })}
-            <button
-              type="button"
-              onClick={openAddPicker}
-              className="text-sm text-brand-500 hover:text-brand-400 flex items-center gap-1"
-            >
-              <PlusIcon className="w-4 h-4" /> {t('addIngredient')}
-            </button>
           </div>
         )}
-      </FormSection>
+      </div>
 
       {pickerOpen && (
         <StockItemPickerModal
@@ -785,7 +894,7 @@ function PrepItemModal({
           onClose={() => setPickerOpen(false)}
         />
       )}
-    </FormModal>
+    </FullScreenEditor>
   );
 }
 

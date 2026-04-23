@@ -25,6 +25,8 @@ import FormSection from '@/components/FormSection';
 import FormField from '@/components/FormField';
 import StatusPill from '@/components/StatusPill';
 import SearchableListField from '@/components/SearchableListField';
+import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
+import { Image as LucideImageIcon, Camera } from 'lucide-react';
 import {
   SearchIcon, PlusIcon, DownloadIcon,
   AlertTriangleIcon, TrashIcon, PencilIcon,
@@ -344,24 +346,30 @@ export default function StockPage() {
               title={t('itemsInStock') || 'Articles en stock'}
               value={String(items.length)}
               onClick={setSelectedKpi}
+              sub={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
             />
             <KpiCard
               kpiKey="statut-ok"
               title={t('statusOk') || 'Statut OK'}
               value={String(stockOk)}
               onClick={setSelectedKpi}
+              tone="success"
+              sub={items.length > 0 ? `${((stockOk / items.length) * 100).toFixed(1)}%` : undefined}
             />
             <KpiCard
               kpiKey="valeur-totale"
               title={t('totalValue') || 'Valeur totale'}
-              value={`${totalValue.toFixed(2)} ₪`}
+              value={`₪${totalValue.toFixed(2)}`}
               onClick={setSelectedKpi}
+              sub="HT"
             />
             <KpiCard
               kpiKey="stock-bas"
               title={t('stockAlerts') || 'Alertes stock'}
               value={String(stockLow)}
               onClick={setSelectedKpi}
+              tone="warning"
+              sub={t('toOrder') || 'À commander'}
             />
           </div>
         )}
@@ -457,19 +465,21 @@ export default function StockPage() {
         </div>
       </header>
 
-      {/* Category pills — Figma App.tsx:583 */}
+      {/* Category pills — .chip pattern */}
       {pillCategories.length > 1 && (
-        <div className="px-8 py-4 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 flex gap-2 overflow-x-auto">
+        <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
           {pillCategories.map((name) => {
             const active = activePill === name;
             return (
               <button
                 key={name}
+                type="button"
                 onClick={() => selectPill(name)}
-                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
+                aria-pressed={active}
+                className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ease-out ${
                   active
-                    ? 'bg-orange-500 text-white shadow-md'
-                    : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
+                    ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
+                    : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
                 }`}
               >
                 {name}
@@ -851,26 +861,54 @@ function KpiCard({
   title,
   value,
   onClick,
+  tone = 'neutral',
+  sub,
 }: {
   kpiKey: string;
   title: string;
   value: string;
   onClick: (key: string) => void;
+  tone?: 'neutral' | 'warning' | 'success' | 'danger';
+  sub?: string;
 }) {
+  const tintStyle: React.CSSProperties | undefined =
+    tone === 'warning'
+      ? {
+          background: 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))',
+          borderColor: 'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+        }
+      : tone === 'danger'
+      ? {
+          background: 'color-mix(in oklab, var(--danger-500) 6%, var(--surface))',
+          borderColor: 'color-mix(in oklab, var(--danger-500) 25%, var(--line))',
+        }
+      : undefined;
+  const valueColor =
+    tone === 'warning'
+      ? 'var(--warning-500)'
+      : tone === 'danger'
+      ? 'var(--danger-500)'
+      : tone === 'success'
+      ? 'var(--success-500)'
+      : 'var(--fg)';
   return (
     <button
       type="button"
       onClick={() => onClick(kpiKey)}
       title="Cliquez pour plus d'informations"
-      className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 hover:shadow-lg hover:border-orange-500 dark:hover:border-orange-500 transition-all cursor-pointer text-left"
+      className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] text-left hover:border-[var(--line-strong)] transition-colors"
+      style={tintStyle}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className="size-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
-          <span className="text-sm font-bold">₪</span>
-        </div>
-      </div>
-      <h3 className="text-neutral-600 dark:text-neutral-400 text-sm mb-1">{title}</h3>
-      <p className="text-2xl font-bold text-neutral-900 dark:text-white">{value}</p>
+      <h3 className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+        {title}
+      </h3>
+      <p
+        className="text-fs-3xl font-semibold leading-none tabular-nums"
+        style={{ color: valueColor }}
+      >
+        {value}
+      </p>
+      {sub && <p className="text-fs-xs text-[var(--fg-subtle)]">{sub}</p>}
     </button>
   );
 }
@@ -984,186 +1022,221 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
 
   const displayImage = imageUrl || pendingPreview;
 
-  const sidebar = (
+  // Stock level indicator for the rail
+  const unitValue = (editing?.quantity ?? 0) * (editing?.cost_per_unit ?? 0);
+  const levelStatus: 'ok' | 'warning' | 'danger' =
+    reorder > 0 && (editing?.quantity ?? 0) === 0
+      ? 'danger'
+      : reorder > 0 && (editing?.quantity ?? 0) < reorder
+      ? 'warning'
+      : 'ok';
+
+  const rail = (
     <>
-      <FormSection>
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-neutral-900 dark:text-white">{t('status')}</h3>
-          <StatusPill
-            active={isActive}
-            onToggle={() => setIsActive(!isActive)}
-            activeLabel={t('active')}
-            inactiveLabel={t('inactive')}
-          />
-        </div>
-      </FormSection>
-
-      <FormSection title={t('category')}>
-        <SearchableListField
-          mode="single"
-          allowCustom
-          placeholder={t('category')}
-          options={categories.map((c) => ({ value: c, label: c }))}
-          value={category}
-          onChange={setCategory}
-        />
-      </FormSection>
-
-      <FormSection title={t('sku')}>
-        <input
-          type="text"
-          className="input text-sm w-full"
-          value={sku}
-          onChange={(e) => setSku(e.target.value)}
-          placeholder={t('sku')}
-        />
-        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">{t('skuHelp')}</p>
-      </FormSection>
-
-      <FormSection title={t('billNames')}>
-        <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-2">{t('billNamesHelp')}</p>
-        <div className="space-y-2">
-          {aliases.map((a, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="text"
-                dir="auto"
-                className="input text-sm flex-1 min-w-0"
-                value={a.alias}
-                onChange={(e) => setAliases((prev) => prev.map((x, idx) => idx === i ? { ...x, alias: e.target.value } : x))}
-                placeholder={t('originalName')}
-              />
-              <select
-                className="input text-sm w-20 shrink-0"
-                value={a.language}
-                onChange={(e) => setAliases((prev) => prev.map((x, idx) => idx === i ? { ...x, language: e.target.value } : x))}
-                title={t('language')}
-              >
-                <option value="">{t('languageAuto')}</option>
-                <option value="he">he</option>
-                <option value="ar">ar</option>
-                <option value="en">en</option>
-                <option value="fr">fr</option>
-                <option value="es">es</option>
-                <option value="ru">ru</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => setAliases((prev) => prev.filter((_, idx) => idx !== i))}
-                className="text-neutral-400 dark:text-neutral-500 hover:text-red-500 shrink-0 p-1"
-                aria-label={t('remove')}
-              >
-                <TrashIcon className="w-4 h-4" />
-              </button>
+      {/* Product image tile */}
+      <div className="relative">
+        <div
+          className="w-full aspect-square rounded-r-lg overflow-hidden cursor-pointer group grid place-items-center bg-[var(--surface-2)] border border-[var(--line)]"
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+        >
+          {displayImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={displayImage} alt={name} className="w-full h-full object-cover" />
+          ) : (
+            <LucideImageIcon className="w-12 h-12 text-[var(--fg-subtle)]" />
+          )}
+          {uploading && (
+            <div className="absolute inset-0 bg-black/60 grid place-items-center">
+              <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
             </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setAliases((prev) => [...prev, { alias: '', language: '' }])}
-            className="btn-secondary text-xs w-full"
-          >
-            + {t('addBillName')}
-          </button>
+          )}
         </div>
-      </FormSection>
-
-      <FormSection title={t('supplier')}>
-        <SearchableListField
-          mode="single"
-          allowCustom
-          placeholder={t('supplier')}
-          options={suppliers.map((s) => ({ value: String(s.id), label: s.name }))}
-          value={supplierId != null ? String(supplierId) : supplier}
-          onChange={(next) => {
-            const picked = suppliers.find((s) => String(s.id) === next);
-            if (picked) {
-              setSupplierId(picked.id);
-              setSupplier(picked.name);
-            } else {
-              setSupplierId(null);
-              setSupplier(next);
-            }
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImagePick(file);
+            e.target.value = '';
           }}
         />
-      </FormSection>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="absolute bottom-2 end-2 w-8 h-8 rounded-r-sm grid place-items-center text-white"
+          style={{ background: 'rgba(0,0,0,.6)' }}
+          aria-label={t('editImage') || 'Modifier'}
+        >
+          <Camera className="w-3.5 h-3.5" />
+        </button>
+        <div className="absolute top-2 start-2">
+          <Badge tone={isActive ? 'success' : 'neutral'} dot>
+            {isActive ? t('active') : t('inactive')}
+          </Badge>
+        </div>
+      </div>
 
-      <FormSection title={t('reorderThreshold')}>
-        <input type="number" step="any" className="input text-sm w-full" value={reorder || ''}
-          onChange={(e) => setReorder(+e.target.value)} />
-      </FormSection>
+      {/* Name summary */}
+      <div className="mt-[var(--s-4)]">
+        <div className="text-fs-xl font-semibold -tracking-[0.01em] text-[var(--fg)]">
+          {name || (t('nameLabel') || 'Nom de l\'article')}
+        </div>
+        <div className="flex items-center gap-[var(--s-2)] mt-1.5">
+          <span className="font-mono tabular-nums text-[var(--brand-500)] font-semibold">
+            ₪{(editing?.cost_per_unit ?? 0).toFixed(2)}
+          </span>
+          <span className="text-fs-xs text-[var(--fg-subtle)]">/ {editing?.unit ?? (qty.type === 'simple' ? qty.unit : 'unit')}</span>
+          {category && (
+            <Badge tone="neutral" className="ms-auto">
+              {category.toUpperCase()}
+            </Badge>
+          )}
+        </div>
+      </div>
 
-      <FormSection title={t('notes')}>
-        <textarea className="input text-sm w-full" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </FormSection>
+      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
+
+      {/* Stock state */}
+      <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-3)]">
+        {t('stockState') || 'État du stock'}
+      </div>
+      <div className="flex flex-col gap-[var(--s-2)]">
+        <div className="flex items-center justify-between">
+          <span className="text-fs-sm text-[var(--fg-muted)]">{t('quantity') || 'Quantité'}</span>
+          <span className="font-mono tabular-nums text-fs-sm">
+            {(editing?.quantity ?? 0).toFixed(2)} {editing?.unit ?? (qty.type === 'simple' ? qty.unit : 'unit')}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-fs-sm text-[var(--fg-muted)]">{t('value') || 'Valeur'}</span>
+          <span className="font-mono tabular-nums text-fs-sm">₪{unitValue.toFixed(2)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-fs-sm text-[var(--fg-muted)]">{t('level') || 'Niveau'}</span>
+          <Badge
+            tone={levelStatus === 'ok' ? 'success' : levelStatus === 'warning' ? 'warning' : 'danger'}
+            dot
+          >
+            {levelStatus === 'ok' ? 'OK' : levelStatus === 'warning' ? (t('low') || 'Bas') : (t('empty') || 'Rupture')}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
+
+      {/* Status toggle */}
+      <div className="flex items-center justify-between">
+        <span className="text-fs-sm text-[var(--fg-muted)]">{t('status') || 'Statut'}</span>
+        <StatusPill
+          active={isActive}
+          onToggle={() => setIsActive(!isActive)}
+          activeLabel={t('active')}
+          inactiveLabel={t('inactive')}
+        />
+      </div>
+
+      <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
+
+      {/* Notes */}
+      <div className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)] mb-[var(--s-2)]">
+        {t('notes') || 'Notes'}
+      </div>
+      <Textarea
+        rows={3}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder={t('notes')}
+        className="text-fs-sm"
+      />
     </>
   );
 
   return (
-    <FormModal
+    <FullScreenEditor
+      open
+      onOpenChange={(v) => { if (!v) onClose(); }}
       title={editing ? t('editStockItem') : t('addStockItem')}
-      onClose={onClose}
+      subtitle={editing ? `${t('editingItem') || 'Modification'} · ${editing.name}` : undefined}
       onSave={handleSubmit}
       saveLabel={editing ? t('update') : t('create')}
-      saving={saving}
-      saveDisabled={!name.trim()}
-      sidebar={sidebar}
+      saveDisabled={!name.trim() || saving}
+      cancelLabel={t('cancel')}
+      rail={rail}
     >
-          {/* Name */}
-          <input className="input w-full text-base" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder={t('nameLabel') + ' *'} autoFocus />
+      <div className="max-w-3xl">
+        <EditorSectionHead title={t('identityAndPurchase') || "Identité & achat"} />
 
-          {/* Image upload */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleImagePick(file);
-              e.target.value = '';
-            }}
-          />
-          {displayImage ? (
-            <div
-              className="relative rounded-xl overflow-hidden cursor-pointer group border-2 border-neutral-200 dark:border-neutral-800 bg-[var(--surface-muted,rgba(0,0,0,0.2))]"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={displayImage} alt={name} className="w-full h-52 object-contain" />
-              {uploading && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">
-                  {t('dropImagesHere')}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl p-10 flex flex-col items-center gap-3 text-neutral-400 dark:text-neutral-500 cursor-pointer hover:border-orange-500 hover:text-orange-500 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              {uploading ? (
-                <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-              ) : (
-                <>
-                  <UploadIcon className="w-10 h-10" />
-                  <p className="text-base text-center">
-                    {t('dropImagesHere')}, <span className="text-orange-500 font-medium underline hover:text-brand-600">{t('browse')}</span>
-                  </p>
-                </>
-              )}
-            </div>
-          )}
+        {/* Name */}
+        <div className="mb-[var(--s-5)]">
+          <Field label={t('nameLabel') || "Nom de l'article"}>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('nameLabel') + ' *'}
+              autoFocus
+            />
+          </Field>
+        </div>
 
+        {/* Classification */}
+        <div className="mb-[var(--s-5)]">
+          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-[var(--s-3)]">
+            {t('classification') || 'Classification'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-3)]">
+            <Field label={t('category') || 'Catégorie'}>
+              <SearchableListField
+                mode="single"
+                allowCustom
+                placeholder={t('category')}
+                options={categories.map((c) => ({ value: c, label: c }))}
+                value={category}
+                onChange={setCategory}
+              />
+            </Field>
+            <Field label={t('sku') || 'Référence / code-barres'} hint={t('skuHelp')}>
+              <Input
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder={t('sku')}
+                className="font-mono"
+              />
+            </Field>
+            <Field label={t('defaultSupplier') || 'Fournisseur par défaut'}>
+              <SearchableListField
+                mode="single"
+                allowCustom
+                placeholder={t('supplier')}
+                options={suppliers.map((s) => ({ value: String(s.id), label: s.name }))}
+                value={supplierId != null ? String(supplierId) : supplier}
+                onChange={(next) => {
+                  const picked = suppliers.find((s) => String(s.id) === next);
+                  if (picked) {
+                    setSupplierId(picked.id);
+                    setSupplier(picked.name);
+                  } else {
+                    setSupplierId(null);
+                    setSupplier(next);
+                  }
+                }}
+              />
+            </Field>
+          </div>
+        </div>
+
+        {/* Purchase & price */}
+        <div className="mb-[var(--s-5)]">
+          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-1">
+            {t('purchaseAndPrice') || 'Achat & prix'}
+          </h3>
+          <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-3)]">
+            {t('purchaseAndPriceDesc') ||
+              'Quantité achetée et prix unitaire de la dernière facture.'}
+          </p>
           <StockQuantityForm
             value={qty}
             onChange={setQty}
@@ -1172,8 +1245,85 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             onVatRateChange={setVatRateOverride}
             vatDisplayMode={vatDisplayMode}
           />
+        </div>
 
-    </FormModal>
+        {/* Reorder threshold */}
+        <div className="mb-[var(--s-5)]">
+          <Field
+            label={t('reorderThreshold') || 'Seuil de réapprovisionnement'}
+            hint={t('reorderThresholdHelp') || 'Alerte déclenchée quand le stock descend sous ce niveau.'}
+          >
+            <Input
+              type="number"
+              step="any"
+              value={reorder || ''}
+              onChange={(e) => setReorder(+e.target.value)}
+              className="max-w-[220px]"
+            />
+          </Field>
+        </div>
+
+        {/* Bill names (aliases) */}
+        <div className="mb-[var(--s-5)]">
+          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-1">
+            {t('billNames') || 'Noms sur la facture'}
+          </h3>
+          <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-3)]">
+            {t('billNamesHelp') ||
+              'Noms sous lesquels cet article apparaît sur les factures de vos fournisseurs.'}
+          </p>
+          <div className="flex flex-col gap-[var(--s-2)]">
+            {aliases.map((a, i) => (
+              <div key={i} className="flex items-center gap-[var(--s-2)]">
+                <Input
+                  dir="auto"
+                  value={a.alias}
+                  onChange={(e) =>
+                    setAliases((prev) => prev.map((x, idx) => (idx === i ? { ...x, alias: e.target.value } : x)))
+                  }
+                  placeholder={t('originalName')}
+                  className="flex-1"
+                />
+                <select
+                  className="h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm w-40"
+                  value={a.language}
+                  onChange={(e) =>
+                    setAliases((prev) => prev.map((x, idx) => (idx === i ? { ...x, language: e.target.value } : x)))
+                  }
+                  title={t('language')}
+                >
+                  <option value="">{t('allSuppliers') || 'Tous fournisseurs'}</option>
+                  <option value="he">he</option>
+                  <option value="ar">ar</option>
+                  <option value="en">en</option>
+                  <option value="fr">fr</option>
+                  <option value="es">es</option>
+                  <option value="ru">ru</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAliases((prev) => prev.filter((_, idx) => idx !== i))
+                  }
+                  className="p-2 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                  aria-label={t('remove')}
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setAliases((prev) => [...prev, { alias: '', language: '' }])}
+              className="self-start inline-flex items-center gap-[var(--s-2)] h-7 px-[var(--s-3)] rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+            >
+              <PlusIcon className="w-3 h-3" />
+              {t('addBillName') || 'Ajouter un nom'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </FullScreenEditor>
   );
 }
 

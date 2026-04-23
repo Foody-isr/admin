@@ -127,70 +127,57 @@ export default function MenuItemTabCost({
 
   return (
     <div className="max-w-5xl">
-      <div className="flex items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-6 bg-orange-500 rounded-full" />
-          <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-            {t('tabCost')}
-          </h3>
+      {/* Section head with 3px brand accent + HT/TTC toggle */}
+      <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
+        <div className="flex items-center gap-[var(--s-3)]">
+          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+          <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabCost')}</h3>
         </div>
 
-        {/* HT / TTC toggle — switches all cost figures between ex-VAT and
-            inc-VAT. Persisted in localStorage so the choice sticks across
-            navigations. Segmented control matches the Figma rounded-pill UX. */}
+        {/* HT / TTC toggle — segmented control matching .tabs pattern */}
         <div
           role="group"
           aria-label={t('showExVat') || 'Affichage TVA'}
-          className="inline-flex items-center bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg p-0.5"
+          className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md"
         >
-          <button
-            type="button"
-            onClick={() => vatDisplayMode !== 'ex' && toggleVatDisplay()}
-            aria-pressed={vatDisplayMode === 'ex'}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-              vatDisplayMode === 'ex'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-            }`}
-          >
-            {t('exVat') || 'HT'}
-          </button>
-          <button
-            type="button"
-            onClick={() => vatDisplayMode !== 'inc' && toggleVatDisplay()}
-            aria-pressed={vatDisplayMode === 'inc'}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-              vatDisplayMode === 'inc'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-            }`}
-          >
-            {t('incVat') || 'TTC'}
-          </button>
+          {(['ex', 'inc'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => vatDisplayMode !== mode && toggleVatDisplay()}
+              aria-pressed={vatDisplayMode === mode}
+              className={`inline-flex items-center h-[26px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors ${
+                vatDisplayMode === mode
+                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+              }`}
+            >
+              {mode === 'ex' ? (t('exVat') || 'HT') : (t('incVat') || 'TTC')}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Variant pills — switch the portion the cost math uses. Shown when
-          the item has ≥1 variant with a portion (otherwise cost math uses
-          the base item). */}
+      {/* Variant pills — .chip pattern */}
       {variants.length > 0 && (
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+        <div className="mb-[var(--s-5)]">
+          <p className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] mb-[var(--s-2)]">
             {t('activePortion') || 'Portion active'}
           </p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-[var(--s-2)] flex-wrap">
             <button
               type="button"
               onClick={() => setVariantId('')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              aria-pressed={variantId === ''}
+              className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                 variantId === ''
-                  ? 'bg-orange-500 text-white shadow-md'
-                  : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
+                  ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
+                  : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
               }`}
             >
               {t('base') || 'Base'}
               {item.portion_size ? (
-                <span className={`ml-1.5 text-xs ${variantId === '' ? 'text-white/80' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                <span className={`text-fs-xs ${variantId === '' ? 'text-white/80' : 'opacity-70'}`}>
                   {item.portion_size} {item.portion_size_unit || 'g'}
                 </span>
               ) : null}
@@ -202,16 +189,17 @@ export default function MenuItemTabCost({
                   key={v.id}
                   type="button"
                   onClick={() => setVariantId(v.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-orange-500 text-white shadow-md'
-                      : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
-                  }`}
+                  aria-pressed={active}
                   title={`${v.name} — ${v.price.toFixed(2)} ₪`}
+                  className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
+                    active
+                      ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
+                      : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
+                  }`}
                 >
                   {v.name}
                   {v.portion_size > 0 && (
-                    <span className={`ml-1.5 text-xs ${active ? 'text-white/80' : 'text-neutral-500 dark:text-neutral-400'}`}>
+                    <span className={`text-fs-xs ${active ? 'text-white/80' : 'opacity-70'}`}>
                       {v.portion_size} {v.portion_size_unit}
                     </span>
                   )}
@@ -222,70 +210,82 @@ export default function MenuItemTabCost({
         </div>
       )}
 
-      {/* 3 KPI cards — all clickable — Figma:653-672 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* 3 KPI cards — neutral / success-tinted margin / warning-tinted % over threshold */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-4)] mb-[var(--s-6)]">
         <button
           type="button"
           onClick={() => setSelectedKpi('food-cost-moyen')}
           title={t('viewCalculationDetails') || 'Voir le détail du calcul'}
-          className="text-left bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 hover:border-orange-500 hover:shadow-lg transition-all cursor-pointer"
+          className="text-left bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] hover:border-[var(--line-strong)] transition-colors"
         >
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
+          <p className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
             {t('foodCostLabel')}
           </p>
-          <p className="text-3xl font-bold text-neutral-900 dark:text-white">
+          <p className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
             {summary.foodCost.toFixed(2)} {CURRENCY}
           </p>
+          <p className="text-fs-xs text-[var(--fg-subtle)]">
+            {t('perPortion') || 'Par portion'}
+          </p>
         </button>
+
         <button
           type="button"
           onClick={() => setSelectedKpi('marge-totale')}
           title={t('viewCalculationDetails') || 'Voir le détail du calcul'}
-          className="text-left bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-xl p-6 border border-green-200 dark:border-green-700 hover:border-green-500 hover:shadow-lg transition-all cursor-pointer"
+          className="text-left rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] hover:shadow-2 transition-shadow"
+          style={{
+            background: 'color-mix(in oklab, var(--success-500) 8%, var(--surface))',
+            border: '1px solid color-mix(in oklab, var(--success-500) 30%, var(--line))',
+          }}
         >
-          <p className="text-sm text-green-700 dark:text-green-400 mb-2">
+          <p className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
             {t('grossProfit')}
           </p>
-          <p className="text-3xl font-bold text-green-900 dark:text-green-300">
+          <p className="text-fs-3xl font-semibold leading-none text-[var(--success-500)] tabular-nums">
             {summary.margin.toFixed(2)} {CURRENCY}
           </p>
+          <p className="text-fs-xs text-[var(--fg-subtle)]">
+            {effectivePrice > 0
+              ? `${((summary.margin / effectivePrice) * 100).toFixed(1)}% · ${t('healthy') || 'sain'}`
+              : '—'}
+          </p>
         </button>
+
         <button
           type="button"
           onClick={() => setShowCostPctBreakdown(true)}
           title={t('viewCostPctBreakdown') || 'Voir le détail du calcul'}
-          className={`text-left rounded-xl p-6 border hover:shadow-lg transition-all cursor-pointer ${
-            over
-              ? 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-orange-200 dark:border-orange-700 hover:border-orange-500'
-              : 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-green-200 dark:border-green-700 hover:border-green-500'
-          }`}
+          className="text-left rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)] hover:shadow-2 transition-shadow"
+          style={{
+            background: over
+              ? 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))'
+              : 'color-mix(in oklab, var(--success-500) 8%, var(--surface))',
+            border: over
+              ? '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))'
+              : '1px solid color-mix(in oklab, var(--success-500) 30%, var(--line))',
+          }}
         >
-          <p
-            className={`text-sm mb-2 ${
-              over
-                ? 'text-orange-700 dark:text-orange-400'
-                : 'text-green-700 dark:text-green-400'
-            }`}
-          >
+          <p className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
             {t('costPercent')}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-[var(--s-2)]">
             <p
-              className={`text-3xl font-bold ${
-                over
-                  ? 'text-orange-900 dark:text-orange-300'
-                  : 'text-green-900 dark:text-green-300'
-              }`}
+              className="text-fs-3xl font-semibold leading-none tabular-nums"
+              style={{ color: over ? 'var(--warning-500)' : 'var(--success-500)' }}
             >
               {(summary.costPct * 100).toFixed(1)}%
             </p>
-            {over && <AlertCircle size={24} className="text-orange-500" />}
+            {over && <AlertCircle className="w-5 h-5 text-[var(--warning-500)]" />}
           </div>
-          {over && (
-            <p className="text-sm text-orange-600 dark:text-orange-400 mt-2">
-              {t('aboveTarget') || 'Au-dessus de la cible'} ({Math.round(COST_THRESHOLD * 100)}%)
-            </p>
-          )}
+          <p
+            className="text-fs-xs"
+            style={{ color: over ? 'var(--warning-500)' : 'var(--fg-subtle)' }}
+          >
+            {over
+              ? `${t('aboveTarget') || 'Au-dessus de la cible'} (${Math.round(COST_THRESHOLD * 100)}%)`
+              : `${t('target') || 'Cible'} ${Math.round(COST_THRESHOLD * 100)}%`}
+          </p>
         </button>
       </div>
 
