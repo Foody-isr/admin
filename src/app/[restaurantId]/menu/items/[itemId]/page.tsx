@@ -355,20 +355,42 @@ export default function EditItemPage() {
     [categories, categoryId],
   );
 
-  if (loading) {
+  // Render the modal shell immediately — matches the stock-editor UX where
+  // the dimmed backdrop + inset container appear in one frame, then the body
+  // populates. Prevents the full-screen white/black flash that happened while
+  // the item data was still being fetched on route navigation.
+  if (loading || !item) {
     return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!item) {
-    return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center gap-4">
-        <p className="text-neutral-600 dark:text-neutral-400">Item not found</p>
-        <button onClick={goBack} className="text-orange-500 hover:underline">{t('back')}</button>
-      </div>
+      <MenuItemShell
+        title={loading ? (t('loading') || 'Chargement…') : (t('itemNotFound') || 'Article introuvable')}
+        onClose={goBack}
+        onSave={() => {}}
+        saving={false}
+        saveDisabled
+        sidebar={
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin w-5 h-5 border-2 border-[var(--brand-500)] border-t-transparent rounded-full" />
+          </div>
+        }
+      >
+        <div className="flex-1 flex items-center justify-center">
+          {loading ? (
+            <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
+          ) : (
+            <div className="flex flex-col items-center gap-[var(--s-3)]">
+              <p className="text-fs-sm text-[var(--fg-muted)]">
+                {t('itemNotFound') || 'Article introuvable'}
+              </p>
+              <button
+                onClick={goBack}
+                className="text-fs-sm text-[var(--brand-500)] hover:underline"
+              >
+                {t('back') || 'Retour'}
+              </button>
+            </div>
+          )}
+        </div>
+      </MenuItemShell>
     );
   }
 

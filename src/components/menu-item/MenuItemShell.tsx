@@ -69,12 +69,12 @@ export default function MenuItemShell({
             </h2>
           </div>
           <div className="flex items-center gap-[var(--s-2)] shrink-0">
-            <Button variant="secondary" size="sm" onClick={onClose}>
+            <Button variant="secondary" size="md" onClick={onClose}>
               {t('cancel')}
             </Button>
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               onClick={onSave}
               disabled={saving || saveDisabled}
             >

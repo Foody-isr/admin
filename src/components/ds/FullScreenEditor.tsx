@@ -94,7 +94,7 @@ export function FullScreenEditor({
               {status}
               {showCancel && (
                 <Dialog.Close asChild>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="md">
                     {cancelLabel}
                   </Button>
                 </Dialog.Close>
@@ -102,7 +102,7 @@ export function FullScreenEditor({
               {onSave && (
                 <Button
                   variant="primary"
-                  size="sm"
+                  size="md"
                   onClick={onSave}
                   disabled={saveDisabled}
                 >
