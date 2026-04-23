@@ -454,14 +454,15 @@ export default function EditItemPage() {
         saveDisabled={!name.trim() || !price}
         sidebar={rail}
       >
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Tab bar banner — Figma MenuItemDetails.tsx:94 */}
-          <div className="px-8 py-4 bg-neutral-100 dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 shrink-0">
+        <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
+          {/* Tab bar — transparent banner that blends with modal bg,
+              matching the food-cost page layout where tabs sit directly on the page bg */}
+          <div className="px-[var(--s-6)] py-[var(--s-4)] border-b border-[var(--line)] shrink-0">
             <MenuItemTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
           </div>
 
-          {/* Tab content — Figma:125 */}
-          <div className="flex-1 overflow-y-auto p-8">
+          {/* Tab content — same vertical rhythm as food-cost page */}
+          <div className="flex-1 overflow-y-auto p-[var(--s-6)]">
             {/* ── Tab: Détails ─────────────────────────────────── */}
             {activeTab === 'details' && (
               <MenuItemTabDetails
