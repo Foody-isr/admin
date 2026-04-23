@@ -126,7 +126,9 @@ export default function MenuItemTabCost({
   const priceDelta = targetPriceForThreshold - effectivePrice;
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl space-y-[var(--s-5)]">
+      {/* Cost overview card — mirrors the food-cost page's "Coût" section */}
+      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
       {/* Section head with 3px brand accent + HT/TTC toggle */}
       <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
         <div className="flex items-center gap-[var(--s-3)]">
@@ -148,7 +150,7 @@ export default function MenuItemTabCost({
               aria-pressed={vatDisplayMode === mode}
               className={`inline-flex items-center h-[26px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors ${
                 vatDisplayMode === mode
-                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                  ? 'bg-[var(--surface)] text-[var(--brand-500)] shadow-1'
                   : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
               }`}
             >
@@ -289,10 +291,12 @@ export default function MenuItemTabCost({
         </button>
       </div>
 
-      {/* Ingredient breakdown — Figma:674-738 */}
-      <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 mb-8">
-        <h4 className="font-semibold text-neutral-900 dark:text-white mb-4">
-          {t('costDetailsByIngredient') || 'Détail des coûts par ingrédient'} • {summary.lines.length}{' '}
+      </section>
+
+      {/* Ingredient breakdown — own card, tokenized */}
+      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+        <h4 className="text-fs-md font-semibold text-[var(--fg)] mb-[var(--s-4)]">
+          {t('costDetailsByIngredient') || 'Détail des coûts par ingrédient'} · {summary.lines.length}{' '}
           {summary.lines.length === 1 ? 'élément' : 'éléments'}
         </h4>
 
@@ -357,7 +361,7 @@ export default function MenuItemTabCost({
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Suggestions — enhanced with concrete numeric examples. */}
       {(over || topPct >= 25) && (

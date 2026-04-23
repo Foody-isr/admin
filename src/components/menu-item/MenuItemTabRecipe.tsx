@@ -176,6 +176,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 
   return (
     <div className="max-w-4xl">
+      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
       {/* Section head with 3px brand accent */}
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
         <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
@@ -303,11 +304,12 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
                 setDirty(true);
               }}
               rows={2}
-              className="w-full px-4 py-3 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none"
+              className="w-full px-[var(--s-3)] py-[var(--s-3)] bg-[var(--surface-2)] border border-[var(--line-strong)] rounded-r-md text-[var(--fg)] text-fs-sm focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors resize-none"
             />
           </div>
         </div>
       </div>
+      </section>
     </div>
   );
 });

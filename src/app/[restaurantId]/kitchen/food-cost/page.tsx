@@ -502,58 +502,34 @@ export default function FoodCostPage() {
               <div className="animate-spin w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full" />
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-6">
-              {/* Item header */}
-              <div className="bg-white dark:bg-[#111111] rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6">
-                <div className="flex items-start gap-4 mb-4">
+            <div className="max-w-3xl mx-auto space-y-[var(--s-5)]">
+              {/* Item header — portion variants removed (already shown as "Portion active" chips
+                  inside the Coût section below); actions consolidated to a single primary CTA. */}
+              <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+                <div className="flex items-start gap-[var(--s-4)]">
                   <div className="text-4xl">🍽️</div>
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-neutral-900 dark:text-white mb-1">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-fs-2xl font-semibold text-[var(--fg)] mb-1 truncate">
                       {selectedItem.item.name}
                     </h2>
-                    <p className="text-neutral-600 dark:text-neutral-400">
+                    <p className="text-fs-sm text-[var(--fg-muted)] uppercase tracking-[.04em]">
                       {selectedItem.item.category_name}
                     </p>
                   </div>
-                  <span className={`px-3 py-1.5 rounded-lg border font-medium ${getStatusColor(selectedItem.status)}`}>
+                  <span
+                    className={`px-[var(--s-3)] py-1.5 rounded-r-sm font-medium text-fs-xs ${getStatusColor(selectedItem.status)}`}
+                  >
                     {selectedItem.status}
                   </span>
                 </div>
 
-                {/* Variants */}
-                {selectedItem.variants.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedItem.variants.map((v, i) => (
-                      <span
-                        key={i}
-                        className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-lg text-sm font-medium"
-                      >
-                        {v}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Quick actions — feature preservation */}
-                <div className="mt-4 flex items-center gap-2 flex-wrap">
+                {/* Single primary action — opens the item edit modal on Recipe tab */}
+                <div className="mt-[var(--s-4)] flex items-center justify-end">
                   <button
                     onClick={() => router.push(`/${rid}/menu/items/${selectedItem.item.id}?tab=recipe`)}
-                    className="px-4 py-2 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-200 dark:hover:bg-[#222222] transition-colors text-sm font-medium text-neutral-700 dark:text-neutral-300"
+                    className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-r-md transition-colors font-medium text-fs-sm"
                   >
-                    {t('viewRecipe') || 'Voir la recette'}
-                  </button>
-                  <button
-                    onClick={() => setShowImportModal(true)}
-                    className="px-4 py-2 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-200 dark:hover:bg-[#222222] transition-colors text-sm font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5"
-                  >
-                    <Sparkles size={16} />
-                    {t('importRecipe') || 'Importer la recette'}
-                  </button>
-                  <button
-                    onClick={() => router.push(`/${rid}/menu/items/${selectedItem.item.id}?tab=cost`)}
-                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-md font-medium text-sm"
-                  >
-                    {t('editIngredients')?.replace('{name}', '').replace(/[:\s]+$/, '') || 'Modifier'} →
+                    {t('modifyIngredients') || 'Modifier les ingrédients'} →
                   </button>
                 </div>
               </div>
