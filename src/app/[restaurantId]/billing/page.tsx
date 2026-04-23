@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { getSubscription, setupBilling, changePlan, SubscriptionDetail, PlanTier } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { CreditCardIcon, CheckCircleIcon, AlertTriangleIcon } from 'lucide-react';
+import { PageHead } from '@/components/ds';
 
 const STATUS_CONFIG = {
   trial: { labelKey: 'freeTrial' as const, color: 'badge-accepted', icon: CheckCircleIcon },
@@ -96,7 +97,11 @@ export default function BillingPage() {
   const needsBillingSetup = sub && (sub.status === 'trial' || sub.status === 'past_due') && !sub.payplus_recurring_uid;
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-[var(--s-5)] max-w-3xl">
+      <PageHead
+        title={t('billing') || 'Facturation'}
+        desc={t('billingDesc') || 'Gérez votre abonnement et vos moyens de paiement'}
+      />
       {message && (
         <div className={`p-4 rounded-standard text-sm font-medium ${
           message.startsWith('✓') ? 'bg-green-500/10 border border-green-500/20 text-status-ready'

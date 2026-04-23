@@ -6,6 +6,7 @@ import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
 import { getAnalyticsCustomers, CustomerInsight, CustomerListResult } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import CustomerDetailPanel from './CustomerDetailPanel';
+import { PageHead } from '@/components/ds';
 
 type SortField = 'total_spent' | 'total_orders' | 'avg_order_value' | 'last_order_date' | 'customer_name';
 
@@ -102,26 +103,33 @@ export default function CustomersInsightsPage() {
   const totalPages = data ? Math.ceil(data.total / perPage) : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Summary cards */}
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('customerInsights') || 'Clients · Insights'}
+        desc={t('customerInsightsDesc') || 'Analyse du comportement et de la fidélité client'}
+      />
+
+      {/* KPI strip */}
       {data && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card text-center">
-            <div className="text-2xl font-bold text-fg-primary">{data.total}</div>
-            <div className="text-sm text-fg-secondary mt-1">{t('totalCustomers')}</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-2xl font-bold text-green-600">{data.total_active}</div>
-            <div className="text-sm text-fg-secondary mt-1">{t('activeCustomers')}</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-2xl font-bold text-yellow-600">{data.total_at_risk}</div>
-            <div className="text-sm text-fg-secondary mt-1">{t('atRiskCustomers')}</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-2xl font-bold text-red-600">{data.total_churned}</div>
-            <div className="text-sm text-fg-secondary mt-1">{t('churnedCustomers')}</div>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
+          {[
+            { v: data.total, l: t('totalCustomers'), c: 'var(--fg)' },
+            { v: data.total_active, l: t('activeCustomers'), c: 'var(--success-500)' },
+            { v: data.total_at_risk, l: t('atRiskCustomers'), c: 'var(--warning-500)' },
+            { v: data.total_churned, l: t('churnedCustomers'), c: 'var(--danger-500)' },
+          ].map((k, i) => (
+            <div
+              key={i}
+              className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)] flex flex-col gap-[var(--s-2)]"
+            >
+              <div className="text-fs-3xl font-semibold tabular-nums" style={{ color: k.c }}>
+                {k.v}
+              </div>
+              <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+                {k.l}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

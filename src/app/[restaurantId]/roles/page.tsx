@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
+import { Button, PageHead } from '@/components/ds';
 import {
   listRoles,
   createRole,
@@ -131,14 +132,15 @@ export default function RolesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          {t('manageStaffRoles')}
-        </p>
-        <button onClick={openCreate} className="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
-          {t('createRole')}
-        </button>
-      </div>
+      <PageHead
+        title={t('rolesPermissions') || 'Rôles & permissions'}
+        desc={t('manageStaffRoles')}
+        actions={
+          <Button variant="primary" size="md" onClick={openCreate}>
+            {t('createRole')}
+          </Button>
+        }
+      />
 
       {/* Role cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

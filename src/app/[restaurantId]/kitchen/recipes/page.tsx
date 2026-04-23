@@ -16,6 +16,7 @@ import {
   RefreshCwIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { PageHead } from '@/components/ds';
 
 type RecipeStatus = 'complete' | 'partial' | 'none';
 
@@ -122,7 +123,12 @@ export default function RecipesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
+      <PageHead
+        title={t('recipes') || 'Recettes'}
+        desc={t('recipesDesc') || 'Recettes par article · état de renseignement'}
+      />
+
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">

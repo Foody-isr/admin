@@ -9,6 +9,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, PencilIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
+import { Button, PageHead } from '@/components/ds';
 
 export default function CategoriesPage() {
   const { restaurantId } = useParams();
@@ -63,30 +64,32 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        {/* Menu selector */}
-        {menus.length > 1 && (
-          <select
-            value={selectedMenuId ?? ''}
-            onChange={(e) => handleMenuChange(Number(e.target.value))}
-            className="input text-sm py-1.5 max-w-xs"
-          >
-            {menus.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-        )}
-        <div className="flex-1" />
-        <button
-          onClick={() => setEditModal({ open: true })}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('createCategory')}
-        </button>
-      </div>
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('categories') || 'Catégories'}
+        desc={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
+        actions={
+          <>
+            {menus.length > 1 && (
+              <select
+                value={selectedMenuId ?? ''}
+                onChange={(e) => handleMenuChange(Number(e.target.value))}
+                className="h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm"
+              >
+                {menus.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
+              <PlusIcon />
+              {t('createCategory')}
+            </Button>
+          </>
+        }
+      />
 
       {categories.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">

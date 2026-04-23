@@ -18,6 +18,7 @@ import {
   ChevronDownIcon,
 } from 'lucide-react';
 import Modal from '@/components/Modal';
+import { Button, PageHead } from '@/components/ds';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -136,29 +137,29 @@ export default function MenusPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto" ref={containerRef}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">{t('menus')}</h1>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => { setIsReordering(!isReordering); if (!isReordering) setViewMode('grid'); }}
-            className="btn-secondary text-sm px-5 py-2 rounded-full"
-          >
-            {isReordering ? t('doneReordering') : t('reorder')}
-          </button>
-          <button
-            onClick={() => setEditModal({ open: true })}
-            className="btn-primary flex items-center gap-1.5 text-sm px-5 py-2 rounded-full"
-          >
-            {t('createMenu')}
-          </button>
-        </div>
-      </div>
-
-      <p className="text-sm text-fg-secondary max-w-3xl leading-relaxed">
-        {t('carteDescription')}
-      </p>
+    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto" ref={containerRef}>
+      <PageHead
+        title={t('menus')}
+        desc={t('carteDescription')}
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => {
+                setIsReordering(!isReordering);
+                if (!isReordering) setViewMode('grid');
+              }}
+            >
+              {isReordering ? t('doneReordering') : t('reorder')}
+            </Button>
+            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
+              <PlusIcon />
+              {t('createMenu')}
+            </Button>
+          </>
+        }
+      />
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">

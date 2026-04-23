@@ -7,6 +7,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, PencilIcon, TrashIcon } from 'lucide-react';
+import { Button, PageHead } from '@/components/ds';
 
 export default function ModifierSetsPage() {
   const { restaurantId } = useParams();
@@ -51,33 +52,28 @@ export default function ModifierSetsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t('modifierSets') || 'Modifier Sets'}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {t('modifierSetsDescription') || 'Reusable modifier groups linked to multiple menu items'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {sets.length === 0 && (
-            <button
-              onClick={handleMigrate}
-              disabled={migrating}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('modifierSets') || 'Modifier Sets'}
+        desc={t('modifierSetsDescription') || 'Reusable modifier groups linked to multiple menu items'}
+        actions={
+          <>
+            {sets.length === 0 && (
+              <Button variant="secondary" size="md" onClick={handleMigrate} disabled={migrating}>
+                {migrating ? 'Migrating…' : (t('migrateLegacy') || 'Migrate legacy modifiers')}
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/new`)}
             >
-              {migrating ? 'Migrating…' : (t('migrateLegacy') || 'Migrate legacy modifiers')}
-            </button>
-          )}
-          <button
-            onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/new`)}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm"
-          >
-            <PlusIcon className="w-4 h-4" />
-            {t('newModifierSet') || 'New modifier set'}
-          </button>
-        </div>
-      </div>
+              <PlusIcon />
+              {t('newModifierSet') || 'New modifier set'}
+            </Button>
+          </>
+        }
+      />
 
       {sets.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

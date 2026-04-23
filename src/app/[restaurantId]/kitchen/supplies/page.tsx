@@ -16,6 +16,7 @@ import {
   FileTextIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { PageHead } from '@/components/ds';
 
 export default function SuppliesPage() {
   const { restaurantId } = useParams();
@@ -90,23 +91,23 @@ export default function SuppliesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">{t('supplies')}</h1>
-        <div className="flex items-center gap-3">
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('supplies')}
+        desc={t('suppliesDesc') || 'Livraisons et approvisionnements'}
+        actions={
           <select
             value={supplierFilter}
-            onChange={e => { setSupplierFilter(e.target.value); setLoading(true); }}
-            className="px-3 py-2 rounded-lg border border-border bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            onChange={(e) => { setSupplierFilter(e.target.value); setLoading(true); }}
+            className="h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm"
           >
             <option value="">{t('allItems')}</option>
-            {supplierNames.map(name => (
+            {supplierNames.map((name) => (
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
-        </div>
-      </div>
+        }
+      />
 
       {/* Pending import drafts */}
       {drafts.length > 0 && (

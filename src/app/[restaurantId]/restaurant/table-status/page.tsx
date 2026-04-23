@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { PageHead } from '@/components/ds';
 
 export default function TableStatusPage() {
   const { restaurantId } = useParams();
@@ -51,13 +52,11 @@ export default function TableStatusPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-bold text-fg-primary">{t('tableStatus')}</h1>
-        <p className="text-sm text-fg-secondary mt-1">
-          Colorez les tables du plan de salle en fonction du temps écoulé depuis l&apos;ouverture de la commande.
-        </p>
-      </div>
+    <div className="space-y-[var(--s-5)] max-w-2xl">
+      <PageHead
+        title={t('tableStatus')}
+        desc="Colorez les tables du plan de salle en fonction du temps écoulé depuis l'ouverture de la commande."
+      />
 
       <div className="card space-y-4">
         <label className="flex items-center gap-3 cursor-pointer">

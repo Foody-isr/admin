@@ -2,8 +2,12 @@
 
 import React from 'react';
 
-// Figma-aligned primitives for the menu-item tabs.
-// Classes mirror Figma MenuItemDetails.tsx:156-245 (details tab).
+/**
+ * Primitives shared by the Item Editor's 4 tabs.
+ * Aligned to Foody OS design tokens — the brand-500 accent bar matches the
+ * EditorSectionHead pattern from design-reference/design/drawer.jsx.
+ * API preserved so the 4 tab components keep working unchanged.
+ */
 
 export function SectionCard({
   title,
@@ -16,20 +20,18 @@ export function SectionCard({
   children: React.ReactNode;
   className?: string;
 }) {
-  // Figma renders tab sections without a card wrapper — just a vertical
-  // orange accent bar + h3, then content in space-y-6 below.
   return (
     <section className={`max-w-4xl ${className}`}>
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="w-1 h-6 rounded-full bg-orange-500 shrink-0" />
-          <h3 className="text-xl font-bold text-neutral-900 dark:text-white truncate">
+      <div className="flex items-center justify-between gap-[var(--s-4)] mb-[var(--s-5)]">
+        <div className="flex items-center gap-[var(--s-3)] min-w-0">
+          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)] shrink-0" />
+          <h3 className="text-fs-xl font-semibold text-[var(--fg)] truncate">
             {title}
           </h3>
         </div>
         {headerRight && <div className="shrink-0">{headerRight}</div>}
       </div>
-      <div className="space-y-6">{children}</div>
+      <div className="space-y-[var(--s-5)]">{children}</div>
     </section>
   );
 }
@@ -44,17 +46,15 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       {label && (
-        <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+        <label className="block text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1.5">
           {label}
         </label>
       )}
       {children}
       {hint && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-          {hint}
-        </p>
+        <p className="text-fs-xs text-[var(--fg-subtle)] mt-1">{hint}</p>
       )}
     </div>
   );
@@ -70,7 +70,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, InputProps>(function
     <input
       ref={ref}
       {...rest}
-      className={`w-full px-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+      className={`block w-full h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm transition-colors duration-fast ease-out hover:border-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring placeholder:text-[var(--fg-subtle)] disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     />
   );
 });
@@ -85,7 +85,7 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>
     <textarea
       ref={ref}
       {...rest}
-      className={`w-full px-4 py-3 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none ${className}`}
+      className={`block w-full min-h-20 px-[var(--s-3)] py-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm leading-[var(--lh-base)] transition-colors duration-fast ease-out hover:border-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring placeholder:text-[var(--fg-subtle)] resize-none ${className}`}
     />
   );
 });

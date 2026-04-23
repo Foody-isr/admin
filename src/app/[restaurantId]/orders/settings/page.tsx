@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings, RestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { Button, PageHead } from '@/components/ds';
 
 export default function FulfillmentSettingsPage() {
   const { restaurantId } = useParams();
@@ -58,7 +59,11 @@ export default function FulfillmentSettingsPage() {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="max-w-xl space-y-[var(--s-5)]">
+      <PageHead
+        title={t('fulfillmentSettings') || 'Paramètres de commande'}
+        desc={t('fulfillmentSettingsDesc') || 'Règles de service, pourboires, planification'}
+      />
       <div>
         <label className="block text-sm font-medium text-fg-secondary mb-1">{t('serviceMode')}</label>
         <select
@@ -91,11 +96,15 @@ export default function FulfillmentSettingsPage() {
         </label>
       ))}
 
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
+      <div className="flex items-center gap-[var(--s-3)]">
+        <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
-        </button>
-        {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
+        </Button>
+        {saved && (
+          <span className="text-fs-sm text-[var(--success-500)] font-medium">
+            {t('saved')}
+          </span>
+        )}
       </div>
     </div>
   );

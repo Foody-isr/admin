@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurant, updateRestaurant, OpeningHoursConfig, DayHours, WeeklyHours } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { Button, PageHead } from '@/components/ds';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -102,24 +103,22 @@ export default function OpeningHoursPage() {
   const weeklyHours = config[activeTab] ?? defaultWeek();
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-bold text-fg-primary">{t('openingHours')}</h1>
-        <p className="text-sm text-fg-secondary mt-1">{t('openingHoursDesc')}</p>
-      </div>
+    <div className="space-y-[var(--s-5)] max-w-2xl">
+      <PageHead title={t('openingHours')} desc={t('openingHoursDesc')} />
 
-      {/* Order type tabs */}
-      <div className="flex gap-1 p-1 rounded-standard w-fit" style={{ background: 'var(--surface-subtle)' }}>
+      {/* Order type tabs — matches .tabs pattern */}
+      <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
+            type="button"
+            aria-selected={activeTab === key}
             onClick={() => setActiveTab(key)}
-            className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
+            className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
               activeTab === key
-                ? 'text-fg-primary shadow-sm'
-                : 'text-fg-secondary hover:text-fg-primary'
+                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
             }`}
-            style={activeTab === key ? { background: 'var(--surface)' } : undefined}
           >
             {label}
           </button>
@@ -196,11 +195,15 @@ export default function OpeningHoursPage() {
       </div>
 
       {/* Save */}
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
+      <div className="flex items-center gap-[var(--s-3)]">
+        <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
-        </button>
-        {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
+        </Button>
+        {saved && (
+          <span className="text-fs-sm text-[var(--success-500)] font-medium">
+            {t('saved')}
+          </span>
+        )}
       </div>
     </div>
   );

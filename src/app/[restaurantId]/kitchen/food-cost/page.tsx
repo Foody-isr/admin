@@ -18,6 +18,7 @@ import { useI18n } from '@/lib/i18n';
 import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
+import { Button, PageHead } from '@/components/ds';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 
@@ -239,36 +240,25 @@ export default function FoodCostPage() {
   }
 
   return (
-    <div className="-mx-6 -my-6 lg:-mx-8 flex flex-col">
-      {/* Header — Figma foodcost.tsx:80 */}
-      <header className="bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 px-8 py-6">
-        <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm text-neutral-500 dark:text-neutral-400">
-                {t('kitchen') || 'Cuisine'}
-              </span>
-              <ChevronDown size={14} className="rotate-[-90deg] text-neutral-400" />
-              <span className="text-sm font-medium text-orange-500">Food Cost</span>
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">Food Cost</h2>
-            <p className="text-neutral-600 dark:text-neutral-400 mt-1">
-              {t('foodCostSubtitle') || 'Analysez les coûts alimentaires de vos recettes'}
-            </p>
-          </div>
-          <button
+    <div className="flex flex-col">
+      <PageHead
+        title="Food Cost"
+        desc={t('foodCostSubtitle') || 'Analysez les coûts alimentaires de vos recettes'}
+        actions={
+          <Button
+            variant="ghost"
+            size="md"
+            icon
             onClick={() => setShowKpis((v) => !v)}
-            className="p-3 border border-neutral-200 dark:border-neutral-700 rounded-xl hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-            title={showKpis ? 'Masquer les KPIs' : 'Afficher les KPIs'}
             aria-label="Toggle KPIs"
+            title={showKpis ? 'Masquer les KPIs' : 'Afficher les KPIs'}
           >
-            {showKpis ? (
-              <ChevronUp size={20} className="text-neutral-600 dark:text-neutral-400" />
-            ) : (
-              <ChevronDown size={20} className="text-neutral-600 dark:text-neutral-400" />
-            )}
-          </button>
-        </div>
+            {showKpis ? <ChevronUp /> : <ChevronDown />}
+          </Button>
+        }
+      />
+      <header className="mb-[var(--s-4)]">
+        <div className="hidden" />
 
         {/* KPIs — Figma:96 */}
         {showKpis && (

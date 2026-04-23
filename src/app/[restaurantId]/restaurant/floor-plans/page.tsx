@@ -8,6 +8,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, MenuIcon, TrashIcon } from 'lucide-react';
+import { Button, PageHead } from '@/components/ds';
 
 export default function FloorPlansListPage() {
   const { restaurantId } = useParams();
@@ -61,23 +62,21 @@ export default function FloorPlansListPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-fg-primary">{t('floorPlans')}</h1>
-          <p className="text-sm text-fg-secondary mt-0.5">
-            {t('noFloorPlansDesc')}
-          </p>
-        </div>
-        <button
-          onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('createFloorPlan')}
-        </button>
-      </div>
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('floorPlans')}
+        desc={t('noFloorPlansDesc')}
+        actions={
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
+          >
+            <PlusIcon />
+            {t('createFloorPlan')}
+          </Button>
+        }
+      />
 
       {/* Plans list */}
       {plans.length === 0 ? (

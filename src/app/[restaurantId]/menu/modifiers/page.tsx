@@ -11,6 +11,7 @@ import {
   PlusIcon, TrashIcon,
 } from 'lucide-react';
 import Modal from '@/components/Modal';
+import { Button, PageHead } from '@/components/ds';
 
 interface FlatItem extends MenuItem {
   category_name: string;
@@ -59,17 +60,17 @@ export default function ModifiersPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div />
-        <button
-          onClick={() => setCreateModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('createModifier')}
-        </button>
-      </div>
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('modifiers') || 'Modifiers'}
+        desc={t('modifiersDesc') || 'Modificateurs par article'}
+        actions={
+          <Button variant="primary" size="md" onClick={() => setCreateModal(true)}>
+            <PlusIcon />
+            {t('createModifier')}
+          </Button>
+        }
+      />
 
       {itemsWithModifiers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">

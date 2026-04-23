@@ -9,6 +9,7 @@ import {
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, TrashIcon } from 'lucide-react';
+import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
 
 export default function StaffPage() {
@@ -102,15 +103,19 @@ export default function StaffPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        {canManage && (
-          <button onClick={() => setInviteOpen(true)} className="btn-primary flex items-center gap-2">
-            <PlusIcon className="w-4 h-4" />
-            {t('inviteStaff')}
-          </button>
-        )}
-      </div>
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('staff') || 'Équipe'}
+        desc={`${staff.length} ${t('staffMembersCount') || 'membres'}`}
+        actions={
+          canManage && (
+            <Button variant="primary" size="md" onClick={() => setInviteOpen(true)}>
+              <PlusIcon />
+              {t('inviteStaff')}
+            </Button>
+          )
+        }
+      />
 
       <div className="overflow-hidden">
         <table className="w-full text-sm">

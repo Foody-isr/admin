@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
+import { Button, PageHead } from '@/components/ds';
 
 export default function CustomersPage() {
   const { restaurantId } = useParams();
@@ -68,18 +69,19 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-fg-secondary">
-          {t('trustedCustomersDesc')}
-        </p>
-        {canManage && (
-          <button onClick={() => setAddOpen(true)} className="btn-primary flex items-center gap-2">
-            <PlusIcon className="w-4 h-4" />
-            {t('addCustomer')}
-          </button>
-        )}
-      </div>
+    <div className="space-y-[var(--s-5)]">
+      <PageHead
+        title={t('customerDirectory') || 'Clients'}
+        desc={t('trustedCustomersDesc')}
+        actions={
+          canManage && (
+            <Button variant="primary" size="md" onClick={() => setAddOpen(true)}>
+              <PlusIcon />
+              {t('addCustomer')}
+            </Button>
+          )
+        }
+      />
 
       {customers.length === 0 ? (
         <div className="card p-8 text-center text-fg-secondary">

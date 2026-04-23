@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { PageHead } from '@/components/ds';
 
 export default function WorkflowPage() {
   const { restaurantId } = useParams();
@@ -59,13 +60,9 @@ export default function WorkflowPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-xl font-bold text-fg-primary">{t('workflow')}</h1>
-        <p className="text-sm text-fg-secondary mt-1">
-          {t('operations')}
-        </p>
-      </div>
+    <div className="space-y-[var(--s-5)] max-w-2xl">
+      <PageHead title={t('workflow')} desc={t('operations')} />
+
 
       <div className="card space-y-4">
         <div>
