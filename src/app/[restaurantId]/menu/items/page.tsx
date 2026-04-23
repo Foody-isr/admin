@@ -25,7 +25,7 @@ import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersD
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button, PageHead } from '@/components/ds';
+import { Button, Chip, InputGroup, PageHead } from '@/components/ds';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -71,10 +71,42 @@ export default function ItemLibraryPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Filter state — persisted to sessionStorage so navigating to the item
+  // editor and back doesn't reset the user's search/filter/page. Only live
+  // within this browser tab; a true new page load starts fresh.
+  const FILTER_KEY = `foody.library.filters.${rid}`;
+  const hydratedFilters = (() => {
+    if (typeof window === 'undefined') {
+      return { search: '', cats: [] as string[], statuses: ['active'] as string[], page: 1 };
+    }
+    try {
+      const raw = sessionStorage.getItem(FILTER_KEY);
+      if (!raw) return { search: '', cats: [] as string[], statuses: ['active'] as string[], page: 1 };
+      const parsed = JSON.parse(raw) as {
+        search?: string;
+        cats?: string[];
+        statuses?: string[];
+        page?: number;
+      };
+      return {
+        search: parsed.search ?? '',
+        cats: Array.isArray(parsed.cats) ? parsed.cats : [],
+        statuses: Array.isArray(parsed.statuses) ? parsed.statuses : ['active'],
+        page: typeof parsed.page === 'number' ? parsed.page : 1,
+      };
+    } catch {
+      return { search: '', cats: [] as string[], statuses: ['active'] as string[], page: 1 };
+    }
+  })();
+
   // Filters
-  const [search, setSearch] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set(['active']));
+  const [search, setSearch] = useState(hydratedFilters.search);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    () => new Set(hydratedFilters.cats),
+  );
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    () => new Set(hydratedFilters.statuses),
+  );
   const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
     open: false,
     view: 'index',
@@ -114,7 +146,25 @@ export default function ItemLibraryPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   // Pagination
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(hydratedFilters.page);
+
+  // Persist filter snapshot on every change so it survives edit→list round-trips.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(
+        FILTER_KEY,
+        JSON.stringify({
+          search,
+          cats: Array.from(selectedCategories),
+          statuses: Array.from(selectedStatuses),
+          page,
+        }),
+      );
+    } catch {
+      /* quota — ignore */
+    }
+  }, [FILTER_KEY, search, selectedCategories, selectedStatuses, page]);
 
   // Variant accordion
   const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
@@ -323,7 +373,7 @@ export default function ItemLibraryPage() {
     <div className="flex flex-col">
       <PageHead
         title={t('itemLibrary')}
-        desc={`${allItems.length} ${t('itemsCount') || 'articles'} · ${categories.length} ${t('categoriesCount') || 'catégories'}`}
+        desc={`${allItems.length} articles · ${categories.length} catégories`}
         actions={
           <>
             <Button
@@ -414,80 +464,66 @@ export default function ItemLibraryPage() {
           </div>
         )}
 
-        {/* Search + filters row */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex-1 min-w-[240px] relative">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500"
-              size={20}
-            />
-            <input
-              type="text"
-              placeholder={t('search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+        {/* Search + filter chips row — matches Stock's layout */}
+        <div className="flex flex-wrap items-center gap-[var(--s-3)] mt-[var(--s-4)]">
+          <div className="w-80">
+            <InputGroup
+              leading={<Search />}
+              inputProps={{
+                placeholder: t('search') || 'Rechercher',
+                value: search,
+                onChange: (e) => setSearch(e.target.value),
+              }}
             />
           </div>
-          <button
-            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
-            className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
-          >
-            {t('category')}:{' '}
-            <span className="text-orange-500">
+
+          <Chip onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}>
+            {t('category')} ·{' '}
+            <span className="opacity-70">
               {selectedCategories.size === 0
                 ? t('all')
                 : selectedCategories.size === 1
                   ? Array.from(selectedCategories)[0]
                   : selectedCategories.size}
             </span>
-            <ChevronDown size={16} />
-          </button>
-          <button
-            onClick={() => openFiltersDrawer('index')}
-            className="px-6 py-3 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] rounded-xl hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 font-medium text-neutral-700 dark:text-neutral-300"
-          >
+            <ChevronDown className="w-3 h-3" />
+          </Chip>
+
+          <Chip onClick={() => openFiltersDrawer('index')}>
             {t('allFilters')}
-            <ChevronDown size={16} />
-          </button>
-          <ActionsDropdown
-            actions={[{ label: t('refresh'), onClick: reload }]}
-          />
+            <ChevronDown className="w-3 h-3" />
+          </Chip>
+
+          <div className="flex-1" />
+
+          <ActionsDropdown actions={[{ label: t('refresh'), onClick: reload }]} />
         </div>
       </header>
 
-      {/* Category pills — always visible horizontal filter bar */}
-      {pillCategories.length > 1 && (
-        <div className="px-8 py-4 bg-white dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 flex gap-2 overflow-x-auto">
+      {/* Category pills — .chip pattern, flat row */}
+      {pillCategories.length > 0 && (
+        <div className="flex flex-wrap gap-[var(--s-2)] mb-[var(--s-4)]">
           {pillCategories.map((name) => {
             const active = activePillName === name;
             return (
-              <button
-                key={name}
-                onClick={() => selectPill(name)}
-                className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-                  active
-                    ? 'bg-orange-500 text-white shadow-md'
-                    : 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#222222]'
-                }`}
-              >
+              <Chip key={name} active={active} onClick={() => selectPill(name)}>
                 {name}
-              </button>
+              </Chip>
             );
           })}
           {selectedCategories.size > 1 && (
             <button
               onClick={() => setSelectedCategories(new Set())}
-              className="px-4 py-2 rounded-lg font-medium whitespace-nowrap text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              className="text-fs-xs text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors px-[var(--s-3)]"
             >
-              {t('clearAll') || 'Clear all'}
+              {t('clearAll') || 'Tout effacer'}
             </button>
           )}
         </div>
       )}
 
-      {/* Table wrapper with Figma padding */}
-      <div className="px-8 py-6">
+      {/* Table wrapper */}
+      <div>
       {/* Items table */}
       {sorted.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
