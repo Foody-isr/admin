@@ -449,10 +449,20 @@ export default function StockPage() {
             </span>
             <ChevronDownIcon className="w-4 h-4" />
           </button>
+          <button
+            type="button"
+            onClick={() => openFiltersDrawer('index')}
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+          >
+            {t('allFilters')}
+            <ChevronDownIcon className="w-4 h-4" />
+          </button>
           <ActionsDropdown
             actions={[
               {
-                label: vatDisplayMode === 'inc' ? `${t('displayPrice') || 'Affichage'}: TTC` : `${t('displayPrice') || 'Affichage'}: HT`,
+                label: vatDisplayMode === 'inc'
+                  ? `${t('displayPrice')}: ${t('incVat')}`
+                  : `${t('displayPrice')}: ${t('exVat')}`,
                 onClick: toggleVatDisplay,
                 icon: <ArrowRightLeftIcon className="w-4 h-4" />,
               },
@@ -460,11 +470,6 @@ export default function StockPage() {
                 label: t('importDelivery'),
                 onClick: () => { setImportDraftId(undefined); setImportModal(true); },
                 icon: <SparklesIcon className="w-4 h-4" />,
-              },
-              {
-                label: t('allFilters'),
-                onClick: () => openFiltersDrawer('index'),
-                icon: <ChevronDownIcon className="w-4 h-4" />,
               },
               {
                 label: t('refresh'),
