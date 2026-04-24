@@ -22,6 +22,7 @@ import StockFiltersDrawer, {
 } from '@/components/stock/StockFiltersDrawer';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   SearchIcon, PlusIcon, TrashIcon, PencilIcon,
   BeakerIcon, CalendarDaysIcon, ArrowRightLeftIcon,
@@ -29,7 +30,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { Button, Chip, InputGroup, PageHead } from '@/components/ds';
+import { Button, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
 import { Layers as LayersIcon } from 'lucide-react';
@@ -70,6 +71,8 @@ export default function PrepPage() {
 
   // Selection
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  // KPI collapse — parity with Stock & Articles pages.
+  const [showKpis, setShowKpis] = useState(true);
 
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: PrepItem }>({ open: false });
@@ -179,16 +182,46 @@ export default function PrepPage() {
     );
   }
 
+  // KPI derivations — used by the collapsible KPI row.
+  const totalCost = items.reduce(
+    (s, p) => s + (p.cost_per_unit ?? 0) * (p.quantity ?? 0),
+    0,
+  );
+  const now = Date.now();
+  const shelfMs = (p: PrepItem) => (p.shelf_life_hours ?? 0) * 3600 * 1000;
+  const updatedMs = (p: PrepItem) => new Date(p.updated_at).getTime();
+  const expiresAt = (p: PrepItem) => updatedMs(p) + shelfMs(p);
+  const isExpiring = (p: PrepItem) =>
+    p.shelf_life_hours > 0 && expiresAt(p) - now < 48 * 3600 * 1000 && expiresAt(p) > now;
+  const isExpired = (p: PrepItem) => p.shelf_life_hours > 0 && expiresAt(p) <= now;
+  const expiringCount = items.filter(isExpiring).length;
+  const expiredCount = items.filter(isExpired).length;
+
+  // Category pill list — "Tous" first, then distinct names alphabetically.
+  const pillCategories = ['Tous', ...[...categoryNames].sort()];
+  const activePill =
+    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : 'Tous';
+  const selectPill = (name: string) => {
+    if (name === 'Tous') setSelectedCategories(new Set());
+    else setSelectedCategories(new Set([name]));
+  };
+
   return (
-    <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
+    <div className="flex flex-col">
       <PageHead
         title={t('preparations') || 'Préparations'}
         desc={`${t('preparationsDesc') || 'Sous-recettes et bases réutilisées dans vos plats'} · ${items.length} ${t('activePreparations') || 'préparations actives'}`}
         actions={
           <>
-            <Button variant="secondary" size="md" onClick={reload}>
-              <RefreshCwIcon />
-              {t('recalculateCosts') || 'Recalculer les coûts'}
+            <Button
+              variant="ghost"
+              size="md"
+              icon
+              onClick={() => setShowKpis((v) => !v)}
+              aria-label="Toggle KPIs"
+              title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+            >
+              {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </Button>
             <Button variant="secondary" size="md" onClick={() => setPlanModal(true)}>
               <CalendarDaysIcon />
@@ -202,23 +235,10 @@ export default function PrepPage() {
         }
       />
 
-      {/* KPI strip — Actives / Coût total / À consommer bientôt / Périmées */}
-      {(() => {
-        const totalCost = items.reduce(
-          (s, p) => s + (p.cost_per_unit ?? 0) * (p.quantity ?? 0),
-          0,
-        );
-        const now = Date.now();
-        const shelfMs = (p: PrepItem) => (p.shelf_life_hours ?? 0) * 3600 * 1000;
-        const updatedMs = (p: PrepItem) => new Date(p.updated_at).getTime();
-        const expiresAt = (p: PrepItem) => updatedMs(p) + shelfMs(p);
-        const isExpiring = (p: PrepItem) =>
-          p.shelf_life_hours > 0 && expiresAt(p) - now < 48 * 3600 * 1000 && expiresAt(p) > now;
-        const isExpired = (p: PrepItem) => p.shelf_life_hours > 0 && expiresAt(p) <= now;
-        const expiringCount = items.filter(isExpiring).length;
-        const expiredCount = items.filter(isExpired).length;
-        return (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
+      <header className="mb-[var(--s-4)]">
+        {/* KPI strip — Actives / Coût total / À consommer bientôt / Périmées */}
+        {showKpis && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
             <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
               <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
                 {t('activePreps') || 'Préparations actives'}
@@ -277,95 +297,99 @@ export default function PrepPage() {
               </p>
             </div>
           </div>
-        );
-      })()}
+        )}
 
-      {/* Filters + actions row — matches reference .input-group + .chip pattern */}
-      <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-        <div className="w-80">
-          <InputGroup
-            leading={<SearchIcon />}
-            inputProps={{
-              placeholder: t('searchPrepItems') || 'Rechercher une préparation…',
-              value: search,
-              onChange: (e) => setSearch(e.target.value),
-            }}
+        {/* Bulk toolbar — orange banner matching Stock & Articles. */}
+        {selected.size > 0 && (
+          <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-orange-900 dark:text-orange-300">
+                {t('itemsSelected').replace('{count}', String(selected.size))}
+              </span>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
+              >
+                {t('deselectAll') || 'Tout désélectionner'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBulkDelete}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400"
+              >
+                <TrashIcon className="w-4 h-4" />
+                {t('delete')} ({selected.size})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search + filter pill-buttons row — matches Stock/Articles. */}
+        <div className="flex flex-wrap items-center gap-[var(--s-3)]">
+          <div className="relative flex-1 min-w-[240px]">
+            <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
+            <input
+              type="text"
+              placeholder={t('searchPrepItems') || 'Rechercher une préparation…'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => openFiltersDrawer('category')}
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+          >
+            <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
+            <span className="text-[var(--brand-500)] font-semibold">
+              {selectedCategories.size === 0
+                ? t('all')
+                : selectedCategories.size === 1
+                  ? Array.from(selectedCategories)[0]
+                  : selectedCategories.size}
+            </span>
+            <ChevronDownIcon className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openFiltersDrawer('index')}
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+          >
+            {t('allFilters')}
+            <ChevronDownIcon className="w-4 h-4" />
+          </button>
+          <ActionsDropdown
+            actions={[
+              { label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> },
+              { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
+            ]}
           />
         </div>
+      </header>
 
-        <Chip onClick={() => openFiltersDrawer('category')}>
-          {t('category')} ·{' '}
-          <span className="opacity-70">
-            {selectedCategories.size === 0 ? t('all') : `${selectedCategories.size}`}
-          </span>
-          <ChevronDownIcon className="w-3 h-3" />
-        </Chip>
-
-        <Chip onClick={() => openFiltersDrawer('status')}>
-          {t('status')} ·{' '}
-          <span className="opacity-70">
-            {selectedStatuses.size === 0 ? t('all') : `${selectedStatuses.size}`}
-          </span>
-          <ChevronDownIcon className="w-3 h-3" />
-        </Chip>
-
-        <Chip onClick={() => openFiltersDrawer('index')}>
-          {t('allFilters')}
-          <ChevronDownIcon className="w-3 h-3" />
-        </Chip>
-
-        <div className="flex-1" />
-
-        <ActionsDropdown
-          actions={[
-            { label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> },
-            { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
-          ]}
-        />
-      </div>
-
-      {/* Category pill row — reference preparations.jsx:80 */}
-      {categoryNames.length > 0 && (
-        <div className="flex flex-wrap gap-[var(--s-2)]">
-          <Chip
-            active={selectedCategories.size === 0}
-            onClick={() => setSelectedCategories(new Set())}
-          >
-            {t('all')}
-          </Chip>
-          {categoryNames.sort().map((name) => {
-            const active = selectedCategories.has(name);
+      {/* Category pills — rounded-r-lg CAPS rectangles (matches Stock/Articles). */}
+      {pillCategories.length > 1 && (
+        <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
+          {pillCategories.map((name) => {
+            const active = activePill === name;
             return (
-              <Chip
+              <button
                 key={name}
-                active={active}
-                onClick={() => {
-                  const next = new Set(selectedCategories);
-                  if (active) next.delete(name);
-                  else next.add(name);
-                  setSelectedCategories(next);
-                }}
+                type="button"
+                onClick={() => selectPill(name)}
+                aria-pressed={active}
+                className={`inline-flex items-center h-10 px-[var(--s-4)] rounded-r-lg text-fs-sm font-semibold uppercase tracking-[.02em] transition-colors whitespace-nowrap ${
+                  active
+                    ? 'bg-[var(--brand-500)] text-white shadow-1'
+                    : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
+                }`}
               >
-                {name}
-              </Chip>
+                {name === 'Tous' ? t('all') || 'Tous' : name}
+              </button>
             );
           })}
-        </div>
-      )}
-
-      {/* Bulk action bar */}
-      {selected.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-brand-500/10 border border-brand-500/20">
-          <span className="text-sm font-medium text-brand-500">
-            {t('itemsSelected').replace('{count}', String(selected.size))}
-          </span>
-          <div className="flex-1" />
-          <button onClick={handleBulkDelete} className="text-xs py-1.5 px-3 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors font-medium">
-            {t('delete')} ({selected.size})
-          </button>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-fg-secondary hover:text-fg-primary">
-            {t('cancel')}
-          </button>
         </div>
       )}
 
@@ -376,118 +400,165 @@ export default function PrepPage() {
             {items.length === 0 ? t('addFirstPrepRecipe') : t('tryAdjustingFilters')}
           </p>
           {items.length === 0 && (
-            <button onClick={() => setItemModal({ open: true })} className="btn-primary mt-2 rounded-full">
+            <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
               {t('addPrepItem')}
-            </button>
+            </Button>
           )}
         </div>
       ) : (
-        <div>
-          <table className="w-full text-sm border-separate border-spacing-0">
+        <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+          <table className="w-full">
             <thead>
-              <tr className="text-left text-xs text-fg-secondary tracking-wider">
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
-                  <input
-                    type="checkbox"
+              <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
+                <th className="text-left p-4 w-12">
+                  <Checkbox
                     checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
-                    onChange={toggleSelectAll}
-                    className="rounded border-[var(--divider)]"
+                    onCheckedChange={toggleSelectAll}
                   />
                 </th>
                 <th
                   aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
                 >
-                  <button type="button" onClick={() => toggleSort('name')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('name')}
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  >
                     {t('item')}
-                    {sortKey === 'name' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                    {sortKey === 'name' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
+                  {t('category')}
+                </th>
                 <th
                   aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
                 >
-                  <button type="button" onClick={() => toggleSort('quantity')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('quantity')}
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  >
                     {t('stock')}
-                    {sortKey === 'quantity' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                    {sortKey === 'quantity' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
                 <th
                   aria-sort={sortKey === 'yield' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
                 >
-                  <button type="button" onClick={() => toggleSort('yield')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('yield')}
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  >
                     {t('yieldPerBatch')}
-                    {sortKey === 'yield' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                    {sortKey === 'yield' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
                 <th
                   aria-sort={sortKey === 'shelf' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
+                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
                 >
-                  <button type="button" onClick={() => toggleSort('shelf')} className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('shelf')}
+                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  >
                     {t('shelfLife')}
-                    {sortKey === 'shelf' && (sortDir === 'asc' ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />)}
+                    {sortKey === 'shelf' &&
+                      (sortDir === 'asc' ? (
+                        <ChevronUpIcon className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDownIcon className="w-3.5 h-3.5" />
+                      ))}
                   </button>
                 </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('status')}</th>
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
+                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
+                  {t('status')}
+                </th>
+                <th className="text-left p-4 w-12" />
               </tr>
             </thead>
             <tbody>
-              {sorted.map((item) => {
+              {sorted.map((item, index) => {
                 const low = isLow(item);
                 return (
                   <tr
                     key={item.id}
-                    className={`hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
+                    className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors ${
+                      index % 2 === 0
+                        ? 'bg-white dark:bg-[#111111]'
+                        : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'
+                    }`}
                   >
-                    <td className="py-3.5 px-2 w-10">
-                      <input
-                        type="checkbox"
+                    <td className="p-4">
+                      <Checkbox
                         checked={selected.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        className="rounded border-[var(--divider)]"
+                        onCheckedChange={() => toggleSelect(item.id)}
                       />
                     </td>
-                    <td className="py-3.5 px-2">
+                    <td className="p-4">
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
-                        className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
+                        className="flex items-center gap-3 text-left hover:text-orange-500 transition-colors"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                          <BeakerIcon className="w-5 h-5 text-fg-tertiary" />
+                        <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
+                          <BeakerIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
                         </div>
-                        <span className="font-medium text-fg-primary">{item.name}</span>
+                        <span className="font-medium text-neutral-900 dark:text-white">
+                          {item.name}
+                        </span>
                       </button>
                     </td>
-                    <td className="py-3.5 px-2 text-fg-secondary">{item.category || '—'}</td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
-                      {item.quantity} <span className="text-fg-secondary text-xs">{item.unit}</span>
+                    <td className="p-4">
+                      <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
+                        {item.category || '—'}
+                      </span>
                     </td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
+                    <td className="p-4 font-mono tabular-nums text-neutral-900 dark:text-white">
+                      {item.quantity}{' '}
+                      <span className="text-neutral-500 dark:text-neutral-400 text-xs">{item.unit}</span>
+                    </td>
+                    <td className="p-4 font-mono tabular-nums text-neutral-900 dark:text-white">
                       {item.yield_per_batch > 0 ? `${item.yield_per_batch} ${item.unit}` : '—'}
                     </td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-secondary">
+                    <td className="p-4 font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
                       {item.shelf_life_hours > 0 ? (
-                        <span className="inline-flex items-center gap-1 justify-end">
-                          <ClockIcon className="w-3.5 h-3.5 text-fg-tertiary" />
+                        <span className="inline-flex items-center gap-1">
+                          <ClockIcon className="w-3.5 h-3.5 text-neutral-400" />
                           {item.shelf_life_hours}h
                         </span>
                       ) : '—'}
                     </td>
-                    <td className="py-3.5 px-2">
+                    <td className="p-4">
                       {low ? (
-                        <span className="flex items-center gap-1 text-red-500 text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 text-red-500 text-xs font-medium">
                           <AlertTriangleIcon className="w-4 h-4" /> {t('low')}
                         </span>
                       ) : (
                         <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-2">
+                    <td className="p-4">
                       <RowActionsMenu
                         actions={[
                           { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
