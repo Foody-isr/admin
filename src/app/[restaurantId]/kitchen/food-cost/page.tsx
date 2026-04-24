@@ -374,7 +374,7 @@ export default function FoodCostPage() {
       {/* Content — content row sits below the chart with the same breathing
           room on both panels (search/filter column on the left, item detail
           on the right). */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 mt-[var(--s-6)]">
         {/* Items list */}
         <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col">
           <div className="p-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)]">
