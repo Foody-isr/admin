@@ -131,6 +131,7 @@ module.exports = {
         'r-md': 'var(--r-md)',
         'r-lg': 'var(--r-lg)',
         'r-xl': 'var(--r-xl)',
+        'r-full': 'var(--r-full)',
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],

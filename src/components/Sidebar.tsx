@@ -223,7 +223,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     return !!(item.subItems?.length || item.subGroups?.length);
   }
 
-  const sidebarWidth = collapsed ? 'w-20' : 'w-64';
+  const sidebarWidth = collapsed
+    ? 'w-[var(--sidebar-w-collapsed)]'
+    : 'w-[var(--sidebar-w)]';
   const brandInitial = (restaurantName?.trim().charAt(0) || 'F').toUpperCase();
 
   return (
@@ -244,20 +246,28 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
         `}
       >
-        {/* Brand / restaurant header — matches Figma Make App.tsx lines 209-216 */}
-        <div className="p-6 border-b border-[var(--line)]">
+        {/* Brand / restaurant header — height matches --topbar-h so it aligns
+            with the topbar across the column gutter. */}
+        <div className="h-[var(--topbar-h)] px-[var(--s-5)] border-b border-[var(--line)] flex items-center">
           <button
             onClick={() => setProfileOpen(true)}
-            className="w-full flex items-center gap-3 text-left"
+            className="w-full flex items-center gap-[var(--s-3)] text-left min-w-0"
             aria-label={t('profile')}
           >
-            <div className="size-10 shrink-0 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold">
+            <div
+              className="w-8 h-8 shrink-0 rounded-r-md flex items-center justify-center text-white font-bold text-fs-md"
+              style={{
+                background:
+                  'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
+                boxShadow: '0 2px 8px rgba(249,115,22,.3)',
+              }}
+            >
               {brandInitial}
             </div>
             {!collapsed && (
-              <h1 className="font-bold text-xl text-[var(--fg)] truncate">
+              <span className="font-semibold text-fs-md text-[var(--fg)] truncate">
                 {restaurantName ?? 'Foody'}
-              </h1>
+              </span>
             )}
           </button>
         </div>
@@ -273,7 +283,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
           {nav.map((item) => {
             const isActive = isItemActive(item);
             const expanded = expandedKeys.has(item.labelKey) || isActive;
@@ -300,29 +310,25 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         toggleKey(item.labelKey);
                       }
                     }}
-                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all ${
+                    className={`w-full flex items-center justify-between gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-sm font-medium transition-colors duration-fast ease-out ${
                       expanded
                         ? 'text-[var(--fg)]'
                         : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <item.icon className="w-5 h-5 shrink-0" />
-                      {!collapsed && (
-                        <span className="font-medium truncate">
-                          {t(item.labelKey)}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-[var(--s-3)] min-w-0">
+                      <item.icon className="w-[18px] h-[18px] shrink-0" />
+                      {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
                     </div>
                     {!collapsed && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-[var(--s-2)]">
                         {totalBadge > 0 && (
-                          <span className="text-xs px-1.5 py-0.5 rounded font-semibold bg-orange-500/15 text-orange-500">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-r-full min-w-[18px] text-center bg-[var(--surface-2)] text-[var(--fg-muted)]">
                             {totalBadge}
                           </span>
                         )}
                         <ChevronDown
-                          className={`w-4 h-4 shrink-0 transition-transform text-[var(--fg-muted)] ${
+                          className={`w-3.5 h-3.5 shrink-0 transition-transform text-[var(--fg-subtle)] ${
                             expanded ? 'rotate-180' : ''
                           }`}
                         />
@@ -333,26 +339,22 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   <Link
                     href={getNavHref(item)}
                     onClick={onClose}
-                    className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-sm font-medium transition-colors duration-fast ease-out ${
                       isActive
-                        ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-md'
+                        ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
                         : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
                     }`}
                   >
-                    <item.icon className="w-5 h-5 shrink-0" />
-                    {!collapsed && (
-                      <span className="font-medium flex-1 truncate">
-                        {t(item.labelKey)}
-                      </span>
-                    )}
+                    <item.icon className="w-[18px] h-[18px] shrink-0" />
+                    {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
                     {item.labelKey === 'orders' && !collapsed && (
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 ${
                           wsStatus === 'connected'
-                            ? 'bg-green-400'
+                            ? 'bg-[var(--success-500)]'
                             : wsStatus === 'connecting'
-                              ? 'bg-yellow-400 animate-pulse'
-                              : 'bg-red-400'
+                              ? 'bg-[var(--warning-500)] animate-pulse'
+                              : 'bg-[var(--danger-500)]'
                         }`}
                         title={`WebSocket: ${wsStatus}`}
                       />
@@ -362,14 +364,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
                 {/* Expanded sub-items */}
                 {children && expanded && !collapsed && (
-                  <div
-                    className={`mt-1 space-y-0.5 ${
-                      isRtl ? 'mr-4 pr-4 border-r-2' : 'ml-4 pl-4 border-l-2'
-                    } border-[var(--line)]`}
-                  >
+                  <div className="mt-0.5 space-y-0.5 ps-[30px]">
                     {item.subGroups?.map((group) => (
-                      <div key={group.labelKey} className="py-1">
-                        <p className="px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
+                      <div key={group.labelKey} className="py-[var(--s-1)]">
+                        <p className="px-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
                           {t(group.labelKey)}
                         </p>
                         {group.items.map((sub) => {
@@ -407,50 +405,50 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           })}
         </nav>
 
-        {/* Footer — action icons + theme/collapse toggles */}
+        {/* Footer — quick action icons (top), theme + collapse (bottom). */}
         <div className="border-t border-[var(--line)]">
-          <div className="flex items-center justify-around px-2 py-2 border-b border-[var(--line)]">
+          <div className="flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-3)] border-b border-[var(--line)]">
             <IconBtn label={t('notifications')} badge>
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4 h-4" />
             </IconBtn>
             <IconBtn label={t('calendar')}>
-              <Calendar className="w-5 h-5" />
+              <Calendar className="w-4 h-4" />
             </IconBtn>
             <IconBtn label={t('help')}>
-              <HelpCircle className="w-5 h-5" />
+              <HelpCircle className="w-4 h-4" />
             </IconBtn>
             <IconBtn label="Foody AI" onClick={ai.toggleDrawer} active={ai.isOpen}>
-              <Sparkles className="w-5 h-5" />
+              <Sparkles className="w-4 h-4" />
             </IconBtn>
             <FullscreenToggle />
           </div>
           <div className="flex">
             <button
               onClick={toggleTheme}
-              className={`flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--fg-muted)] ${isRtl ? 'border-l' : 'border-r'} border-[var(--line)]`}
+              className={`flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out ${isRtl ? 'border-l' : 'border-r'} border-[var(--line)]`}
               title={theme === 'dark' ? t('lightMode') : t('darkMode')}
             >
               {theme === 'dark' ? (
-                <Sun className="w-5 h-5" />
+                <Sun className="w-4 h-4" />
               ) : (
-                <Moon className="w-5 h-5" />
+                <Moon className="w-4 h-4" />
               )}
             </button>
             <button
               onClick={toggleCollapsed}
-              className="flex-1 p-3 hover:bg-[var(--sidebar-hover)] transition-colors flex items-center justify-center text-[var(--fg-muted)]"
+              className="flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
               title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
             >
               {collapsed ? (
                 isRtl ? (
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                 ) : (
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 )
               ) : isRtl ? (
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4" />
               ) : (
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4" />
               )}
             </button>
           </div>
@@ -597,7 +595,7 @@ function SubLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+      className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-sm font-medium transition-colors duration-fast ease-out ${
         active
           ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
           : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
@@ -606,8 +604,10 @@ function SubLink({
       <span className="truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
         <span
-          className={`text-xs px-1.5 py-0.5 rounded font-semibold ${
-            active ? 'bg-[var(--brand-500)]/15 text-[var(--brand-500)]' : 'bg-[var(--brand-500)]/15 text-[var(--brand-500)]'
+          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-r-full min-w-[18px] text-center ${
+            active
+              ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
+              : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
           }`}
         >
           {badge}
@@ -633,7 +633,7 @@ function IconBtn({
   return (
     <button
       onClick={onClick}
-      className={`relative p-2 rounded-lg transition-colors text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] ${
+      className={`relative inline-flex items-center justify-center w-7 h-7 rounded-r-md transition-colors duration-fast ease-out text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring ${
         active ? 'bg-[var(--sidebar-hover)] text-[var(--fg)]' : ''
       }`}
       aria-label={label}
@@ -641,7 +641,7 @@ function IconBtn({
     >
       {children}
       {badge && (
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
+        <span className="absolute top-1 end-1 w-1.5 h-1.5 bg-[var(--info-500)] rounded-full" />
       )}
     </button>
   );

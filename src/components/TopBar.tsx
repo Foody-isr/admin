@@ -58,7 +58,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-40 h-[var(--topbar-h)] flex items-center gap-[var(--s-4)] px-[var(--s-6)] border-b border-[var(--line)]"
+      className="sticky top-0 z-20 h-[var(--topbar-h)] flex items-center gap-[var(--s-4)] px-[var(--s-6)] border-b border-[var(--line)]"
       style={{ background: 'var(--topbar-bg)', color: 'var(--topbar-fg)' }}
     >
       {/* Mobile hamburger */}

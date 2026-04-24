@@ -128,10 +128,12 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
               restaurant={restaurant}
               restaurantId={restaurantId}
               sidebarOpen={sidebarOpen}
+              toggleSidebar={toggleSidebar}
               closeSidebar={closeSidebar}
               fullscreenActive={fullscreenActive}
               isRtl={isRtl}
               isWideLayout={isWideLayout}
+              pageName={pageName}
             >
               {children}
             </RestaurantShell>
@@ -150,30 +152,36 @@ function RestaurantShell({
   restaurant,
   restaurantId,
   sidebarOpen,
+  toggleSidebar,
   closeSidebar,
   fullscreenActive,
   isRtl,
   isWideLayout,
+  pageName,
 }: {
   children: React.ReactNode;
   restaurant: Restaurant;
   restaurantId: number;
   sidebarOpen: boolean;
+  toggleSidebar: () => void;
   closeSidebar: () => void;
   fullscreenActive: boolean;
   isRtl: boolean;
   isWideLayout: boolean;
+  pageName: string;
 }) {
   const { collapsed } = useSidebar();
+  // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
+  // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
   const marginClass = fullscreenActive
     ? ''
     : collapsed
       ? isRtl
-        ? 'lg:mr-20'
-        : 'lg:ml-20'
+        ? 'lg:mr-[var(--sidebar-w-collapsed)]'
+        : 'lg:ml-[var(--sidebar-w-collapsed)]'
       : isRtl
-        ? 'lg:mr-64'
-        : 'lg:ml-64';
+        ? 'lg:mr-[var(--sidebar-w)]'
+        : 'lg:ml-[var(--sidebar-w)]';
   return (
     <div className="h-screen flex">
       <div className="flex flex-1 min-w-0">
@@ -188,6 +196,13 @@ function RestaurantShell({
         <main
           className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
         >
+          {!fullscreenActive && (
+            <TopBar
+              restaurantName={restaurant.name}
+              pageName={pageName}
+              onToggleSidebar={toggleSidebar}
+            />
+          )}
           <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
             {children}
           </div>
