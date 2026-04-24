@@ -20,6 +20,7 @@ import StockQuantityForm, {
 } from '@/components/stock/StockQuantityForm';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import Modal from '@/components/Modal';
+import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import FormModal from '@/components/FormModal';
 import FormSection from '@/components/FormSection';
 import FormField from '@/components/FormField';
@@ -91,8 +92,14 @@ export default function StockPage() {
 
   // Selection for bulk actions
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [bulkCategoryModal, setBulkCategoryModal] = useState(false);
-  const [bulkCategory, setBulkCategory] = useState('');
+  // Unified category drawer — same component Articles uses. Serves both
+  // "filter by category" (from the "Catégorie · …" pill) and "bulk assign
+  // category" (from the selection toolbar) via its `mode` prop.
+  const [categoryDrawer, setCategoryDrawer] = useState<{
+    open: boolean;
+    mode: 'filter' | 'bulk-assign';
+  }>({ open: false, mode: 'filter' });
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkVatModal, setBulkVatModal] = useState(false);
   // `null` = clear override (use restaurant default); value = explicit rate (0 = exempt).
   const [bulkVatValue, setBulkVatValue] = useState<number | null>(null);
@@ -253,13 +260,28 @@ export default function StockPage() {
     reload();
   };
 
-  const handleBulkCategory = async () => {
-    if (selected.size === 0 || !bulkCategory) return;
-    await batchUpdateStockCategory(rid, { item_ids: Array.from(selected), category: bulkCategory });
-    setSelected(new Set());
-    setBulkCategoryModal(false);
-    setBulkCategory('');
-    reload();
+  const handleBulkCategory = async (name: string) => {
+    if (selected.size === 0 || !name) return;
+    setBulkProcessing(true);
+    try {
+      await batchUpdateStockCategory(rid, { item_ids: Array.from(selected), category: name });
+      setSelected(new Set());
+      setCategoryDrawer({ open: false, mode: 'filter' });
+      reload();
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  // Single callback the drawer calls in both filter and bulk-assign modes.
+  const handleCategorySelect = (name: string | null) => {
+    if (categoryDrawer.mode === 'bulk-assign') {
+      if (name) handleBulkCategory(name);
+      return;
+    }
+    if (name === null) setSelectedCategories(new Set());
+    else setSelectedCategories(new Set([name]));
+    setCategoryDrawer({ open: false, mode: 'filter' });
   };
 
   const handleBulkVat = async () => {
@@ -400,7 +422,7 @@ export default function StockPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setBulkCategoryModal(true)}
+                onClick={() => setCategoryDrawer({ open: true, mode: 'bulk-assign' })}
                 className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300"
               >
                 {t('updateCategory')}
@@ -436,7 +458,7 @@ export default function StockPage() {
           </div>
           <button
             type="button"
-            onClick={() => openFiltersDrawer('category')}
+            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
             className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
           >
             <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
@@ -829,24 +851,23 @@ export default function StockPage() {
         />
       )}
 
-      {/* Bulk Update Category Modal */}
-      {bulkCategoryModal && (
-        <Modal title={t('updateCategory')} onClose={() => setBulkCategoryModal(false)}>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-            {t('bulkCategoryDesc').replace('{count}', String(selected.size))}
-          </p>
-          <select className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}>
-            <option value="">{t('selectCategory')}</option>
-            {categories.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-          </select>
-          <input className="input w-full py-2 text-sm mb-4" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}
-            placeholder={t('orTypeNewCategory')} />
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setBulkCategoryModal(false)} className="btn-secondary text-sm">{t('cancel')}</button>
-            <button onClick={handleBulkCategory} disabled={!bulkCategory} className="btn-primary text-sm">{t('apply')}</button>
-          </div>
-        </Modal>
-      )}
+      {/* Category drawer — dual-mode (filter | bulk-assign), same as Articles. */}
+      <CategoryDrawer
+        open={categoryDrawer.open}
+        mode={categoryDrawer.mode}
+        onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
+        categories={categories.map((c) => ({
+          name: c.name,
+          color: c.color,
+          count: items.filter((i) => i.category === c.name).length,
+        }))}
+        currentCategory={
+          selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
+        }
+        onSelect={handleCategorySelect}
+        selectionCount={selected.size}
+        processing={bulkProcessing}
+      />
 
       {/* Bulk Update VAT Modal — reuses VatRateSelect for the same default/exempt/custom
           semantics as the per-item editor. `null` clears the override; a value sets it. */}

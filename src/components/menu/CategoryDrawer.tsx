@@ -3,18 +3,27 @@
 import { useMemo, useState } from 'react';
 import { CheckCircle, Plus, Search, X, Loader2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import type { MenuCategory } from '@/lib/api';
+
+/** Minimal shape the drawer needs. Callers can project their own domain
+ *  objects (MenuCategory, FilterCategory, etc.) into this shape. */
+export interface CategoryDrawerEntry {
+  name: string;
+  /** Item count shown next to the name. Omit or pass 0 to hide. */
+  count?: number;
+  /** Optional solid color override for the icon tile. */
+  color?: string;
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  categories: MenuCategory[];
+  categories: CategoryDrawerEntry[];
   /** Current category name — used for visual "selected" state. Pass empty string for none. */
   currentCategory: string;
-  /** Selection mode — Figma has one drawer serving two purposes. */
+  /** Selection mode — one drawer serving two purposes. */
   mode: 'filter' | 'bulk-assign';
-  /** Fired when the user picks a category. Receives the MenuCategory (or null for "Tous"). */
-  onSelect: (category: MenuCategory | null) => void;
+  /** Fired when the user picks a category. Receives the name (or null for "Tous"). */
+  onSelect: (name: string | null) => void;
   /** For bulk-assign mode: number of items being assigned. */
   selectionCount?: number;
   /** Optional handler for creating a new category inline. */
@@ -149,10 +158,7 @@ export default function CategoryDrawer({
                 name={t('all') || 'Tous'}
                 icon="📦"
                 color="from-neutral-500 to-neutral-600"
-                count={categories.reduce(
-                  (a, c) => a + (c.items?.length ?? 0),
-                  0,
-                )}
+                count={categories.reduce((a, c) => a + (c.count ?? 0), 0)}
                 active={allActive}
                 onClick={() => onSelect(null)}
                 disabled={processing}
@@ -160,17 +166,17 @@ export default function CategoryDrawer({
             )}
             {filtered.map((category) => {
               const { color, icon } = decorate(category.name);
-              const count = category.items?.length ?? 0;
+              const count = category.count ?? 0;
               const active = currentCategory === category.name;
               return (
                 <CategoryRow
-                  key={category.id}
+                  key={category.name}
                   name={category.name}
                   icon={icon}
                   color={color}
                   count={count}
                   active={active}
-                  onClick={() => onSelect(category)}
+                  onClick={() => onSelect(category.name)}
                   disabled={processing}
                 />
               );

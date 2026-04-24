@@ -391,11 +391,13 @@ export default function FoodCostPage() {
 
       {/* Content — content row sits below the chart with the same breathing
           room on both panels (search/filter column on the left, item detail
-          on the right). */}
+          on the right). Both panels apply pt at the outer level so the
+          search bar (left) and the item header card (right) start on the
+          same horizontal line. */}
       <div className="flex flex-1 mt-[var(--s-6)]">
         {/* Items list */}
-        <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col">
-          <div className="p-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)]">
+        <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col pt-[var(--s-6)]">
+          <div className="px-[var(--s-6)] pb-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)]">
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"

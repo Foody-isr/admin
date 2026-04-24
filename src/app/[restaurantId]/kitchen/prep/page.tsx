@@ -22,6 +22,7 @@ import StockFiltersDrawer, {
 } from '@/components/stock/StockFiltersDrawer';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
+import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   SearchIcon, PlusIcon, TrashIcon, PencilIcon,
@@ -73,6 +74,16 @@ export default function PrepPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   // KPI collapse — parity with Stock & Articles pages.
   const [showKpis, setShowKpis] = useState(true);
+  // Category drawer — filter-only for prep (no bulk-assign category op yet).
+  const [categoryDrawer, setCategoryDrawer] = useState<{
+    open: boolean;
+    mode: 'filter' | 'bulk-assign';
+  }>({ open: false, mode: 'filter' });
+  const handleCategorySelect = (name: string | null) => {
+    if (name === null) setSelectedCategories(new Set());
+    else setSelectedCategories(new Set([name]));
+    setCategoryDrawer({ open: false, mode: 'filter' });
+  };
 
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: PrepItem }>({ open: false });
@@ -339,7 +350,7 @@ export default function PrepPage() {
           </div>
           <button
             type="button"
-            onClick={() => openFiltersDrawer('category')}
+            onClick={() => setCategoryDrawer({ open: true, mode: 'filter' })}
             className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
           >
             <span className="text-[var(--fg-muted)]">{t('category')} ·</span>
@@ -575,6 +586,21 @@ export default function PrepPage() {
           </table>
         </div>
       )}
+
+      {/* Category drawer — filter-only, same component Articles & Stock use. */}
+      <CategoryDrawer
+        open={categoryDrawer.open}
+        mode={categoryDrawer.mode}
+        onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
+        categories={categoryNames.sort().map((name) => ({
+          name,
+          count: items.filter((i) => i.category === name).length,
+        }))}
+        currentCategory={
+          selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
+        }
+        onSelect={handleCategorySelect}
+      />
 
       <StockFiltersDrawer
         open={filtersDrawer.open}

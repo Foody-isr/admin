@@ -295,16 +295,19 @@ export default function ItemLibraryPage() {
     await reload();
   };
 
-  const handleCategorySelect = (category: MenuCategory | null) => {
+  const handleCategorySelect = (name: string | null) => {
     if (categoryDrawer.mode === 'bulk-assign') {
-      if (category) handleBulkAssignCategory(category);
+      if (name) {
+        const category = categories.find((c) => c.name === name);
+        if (category) handleBulkAssignCategory(category);
+      }
       return;
     }
     // Filter mode
-    if (category === null) {
+    if (name === null) {
       setSelectedCategories(new Set());
     } else {
-      setSelectedCategories(new Set([category.name]));
+      setSelectedCategories(new Set([name]));
     }
     setCategoryDrawer({ open: false, mode: 'filter' });
   };
@@ -897,12 +900,15 @@ export default function ItemLibraryPage() {
       )}
       </div>{/* /px-8 py-6 table wrapper */}
 
-      {/* Category drawer — dual-mode (filter | bulk-assign). Figma App.tsx:1035 */}
+      {/* Category drawer — dual-mode (filter | bulk-assign). */}
       <CategoryDrawer
         open={categoryDrawer.open}
         mode={categoryDrawer.mode}
         onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
-        categories={categories}
+        categories={categories.map((c) => ({
+          name: c.name,
+          count: c.items?.length ?? 0,
+        }))}
         currentCategory={
           selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
         }
