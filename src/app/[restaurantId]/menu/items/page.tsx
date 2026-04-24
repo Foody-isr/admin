@@ -680,6 +680,15 @@ export default function ItemLibraryPage() {
                 const hasVariants = variants.length > 0;
                 const isExpanded = expandedItemIds.has(item.id);
 
+                const variantPrices = variants.map((v) => v.price ?? 0);
+                const minVariantPrice = hasVariants ? Math.min(...variantPrices) : 0;
+                const maxVariantPrice = hasVariants ? Math.max(...variantPrices) : 0;
+                const priceLabel = hasVariants
+                  ? minVariantPrice === maxVariantPrice
+                    ? `₪${minVariantPrice.toFixed(2)}`
+                    : `₪${minVariantPrice.toFixed(2)} – ₪${maxVariantPrice.toFixed(2)}`
+                  : `₪${(item.price ?? 0).toFixed(2)}`;
+
                 return (
                   <React.Fragment key={item.id}>
                     <tr
@@ -758,8 +767,8 @@ export default function ItemLibraryPage() {
                         </button>
                       </td>
                       <td className="p-4 text-right">
-                        <span className="font-semibold text-neutral-900 dark:text-white">
-                          {hasVariants ? '—' : `₪${(item.price ?? 0).toFixed(2)}`}
+                        <span className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
+                          {priceLabel}
                         </span>
                       </td>
                       <td className="p-4" onClick={(e) => e.stopPropagation()}>
