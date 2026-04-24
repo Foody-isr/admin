@@ -523,6 +523,10 @@ export default function FoodCostPage() {
                 itemOptionOverrides={itemOptionOverrides}
                 vatRate={vatRate}
                 price={selectedItem.item.price}
+                // Align the "Coût" title with the "L'OR ROUGE" title in the
+                // header card above: emoji (text-4xl ≈ 36px) + gap-[var(--s-4)]
+                // (16px) − the bar's own 3px + gap-[var(--s-3)] (12px) ≈ 37px.
+                headerIndentClass="ms-[37px]"
               />
             </div>
           )}

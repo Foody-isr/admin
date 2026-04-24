@@ -34,6 +34,11 @@ interface Props {
   itemOptionOverrides: ItemOptionOverride[];
   vatRate: number;
   price: number;
+  /** Optional left-indent on the section head (e.g. `ms-[37px]`) so callers
+   *  can align the "Coût" title with a sibling card's emoji-offset title.
+   *  Defaults to no indent — inside the item-editor the 3px bar sits flush
+   *  so "Recette" / "Coût" tabs align across the editor's content area. */
+  headerIndentClass?: string;
 }
 
 const CURRENCY = '\u20AA';
@@ -45,6 +50,7 @@ export default function MenuItemTabCost({
   itemOptionOverrides,
   vatRate,
   price,
+  headerIndentClass = '',
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -129,9 +135,11 @@ export default function MenuItemTabCost({
     <div className="max-w-5xl space-y-[var(--s-5)]">
       {/* Cost overview card — mirrors the food-cost page's "Coût" section */}
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
-      {/* Section head with 3px brand accent + HT/TTC toggle */}
+      {/* Section head with 3px brand accent + HT/TTC toggle. Caller may
+          pass `headerIndentClass` (e.g. `ms-[37px]`) to align with an
+          adjacent emoji-offset title — see food-cost/page.tsx. */}
       <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
-        <div className="flex items-center gap-[var(--s-3)]">
+        <div className={`flex items-center gap-[var(--s-3)] ${headerIndentClass}`}>
           <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
           <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabCost')}</h3>
         </div>
