@@ -154,7 +154,8 @@
   }
 }
 
-.dark {
+.dark,
+[data-theme='dark'] {
   /* Neutrals — dark */
   --bg:          #0f0e0d;              /* adopted from tokens.css (was #171717) */
   --surface:     #1a1917;              /* adopted (was #1c1c1c) */
@@ -237,6 +238,32 @@ body {
   background: var(--bg);
   font-family: var(--font-sans);
 }
+
+/* ── Tabular numerics — every price/qty/count must use one of these ── */
+.mono, [data-mono] {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+.tabular { font-variant-numeric: tabular-nums; }
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dividers ── */
+.divider { height: 1px; background: var(--line); border: none; }
+.vdivider { width: 1px; background: var(--line); align-self: stretch; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LEGACY — do NOT use in new code
+   These classes back pre-redesign pages. Replace per-screen with
+   ds/Button, ds/Input, ds/Card, ds/Badge, etc. (specs in
+   foody-os-handoff/design-reference/components.css). The legacy
+   --surface-subtle / --divider / --text-* / --sidebar-active /
+   --shadow-color tokens above are also @deprecated aliases — new
+   code uses --surface-2 / --line / --fg / --fg-muted / --brand-500
+   / --shadow-1.
+   ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Sidebar ── */
 .sidebar-link {

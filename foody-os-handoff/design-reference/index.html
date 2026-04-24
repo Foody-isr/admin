@@ -55,36 +55,23 @@ function App() {
       </DCSection>
 
       <DCSection id="screens-dark" title="02 · Écrans principaux — Dark">
+        {/* Dashboard */}
         <DCArtboard id="dashboard-d" label="Tableau de bord" width={1440} height={1360}>
           <Dashboard theme="dark"/>
         </DCArtboard>
+
+        {/* Orders */}
         <DCArtboard id="orders-d" label="Commandes" width={1440} height={1000}>
           <Orders theme="dark"/>
         </DCArtboard>
         <DCArtboard id="order-details-d" label="Commandes · Détails (drawer)" width={1440} height={1000}>
           <OrderDetails theme="dark"/>
         </DCArtboard>
+
+        {/* Library + Item Editor (4 tabs + composer state) */}
         <DCArtboard id="library-d" label="Bibliothèque d'articles" width={1440} height={1100}>
           <Library theme="dark"/>
         </DCArtboard>
-        <DCArtboard id="stock-d" label="Cuisine · Stock" width={1440} height={1100}>
-          <Stock theme="dark"/>
-        </DCArtboard>
-        <DCArtboard id="stock-editor-d" label="Stock · Éditeur (drawer)" width={1440} height={1100}>
-          <StockItemEditor theme="dark"/>
-        </DCArtboard>
-        <DCArtboard id="prep-d" label="Cuisine · Préparations" width={1440} height={1100}>
-          <Preparations theme="dark"/>
-        </DCArtboard>
-        <DCArtboard id="prep-editor-d" label="Préparation · Éditeur (drawer)" width={1440} height={1100}>
-          <PrepEditor theme="dark"/>
-        </DCArtboard>
-        <DCArtboard id="reports-d" label="Rapports · Vue d'ensemble" width={1440} height={1100}>
-          <Reports theme="dark"/>
-        </DCArtboard>
-      </DCSection>
-
-      <DCSection id="editor-dark" title="03 · Éditeur d'article — Dark">
         <DCArtboard id="editor-details-d" label="Modifier article · Détails" width={1440} height={1000}>
           <ItemEditor theme="dark" tab="details"/>
         </DCArtboard>
@@ -94,12 +81,53 @@ function App() {
         <DCArtboard id="editor-recipe-d" label="Modifier article · Recette" width={1440} height={1000}>
           <ItemEditor theme="dark" tab="recipe"/>
         </DCArtboard>
+        <DCArtboard id="editor-recipe-edit-d" label="Modifier article · Recette — Ingrédient en édition" width={1440} height={1100}>
+          <ItemEditor theme="dark" tab="recipe" editRow={true}/>
+        </DCArtboard>
+        <DCArtboard id="editor-recipe-composer-d" label="Modifier article · Recette — Composer ouvert" width={1440} height={1200}>
+          <ItemEditor theme="dark" tab="recipe" composer={true}/>
+        </DCArtboard>
         <DCArtboard id="editor-cost-d" label="Modifier article · Coût" width={1440} height={1000}>
           <ItemEditor theme="dark" tab="cost"/>
         </DCArtboard>
+
+        {/* NEW — Brut vs Préparation education flow (the 3-min workflow fix) */}
+        <DCArtboard id="editor-recipe-search-d" label="Recette · Recherche avec résultats" width={1440} height={1200}>
+          <ItemEditor theme="dark" tab="recipe" composer={true} composerState="searchResults"/>
+        </DCArtboard>
+        <DCArtboard id="editor-recipe-empty-d" label="Recette · Aucun résultat (2 CTAs de création)" width={1440} height={1200}>
+          <ItemEditor theme="dark" tab="recipe" composer={true} composerState="searchEmpty"/>
+        </DCArtboard>
+        <DCArtboard id="editor-recipe-help-d" label="Recette · Popover « Comment choisir ? »" width={1440} height={1200}>
+          <ItemEditor theme="dark" tab="recipe" composer={true} composerState="searchEmpty" helpOpen={true}/>
+        </DCArtboard>
+        <DCArtboard id="editor-recipe-create-prep-d" label="Recette · Créer préparation (sous-fenêtre)" width={1440} height={1200}>
+          <ItemEditor theme="dark" tab="recipe" composer={true} composerState="searchEmpty" createPrep={true}/>
+        </DCArtboard>
+
+        {/* Stock + Stock Editor */}
+        <DCArtboard id="stock-d" label="Cuisine · Stock" width={1440} height={1100}>
+          <Stock theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="stock-editor-d" label="Stock · Éditeur" width={1440} height={1100}>
+          <StockItemEditor theme="dark"/>
+        </DCArtboard>
+
+        {/* Preparations + Prep Editor */}
+        <DCArtboard id="prep-d" label="Cuisine · Préparations" width={1440} height={1100}>
+          <Preparations theme="dark"/>
+        </DCArtboard>
+        <DCArtboard id="prep-editor-d" label="Préparation · Éditeur" width={1440} height={1100}>
+          <PrepEditor theme="dark"/>
+        </DCArtboard>
+
+        {/* Reports */}
+        <DCArtboard id="reports-d" label="Rapports · Vue d'ensemble" width={1440} height={1100}>
+          <Reports theme="dark"/>
+        </DCArtboard>
       </DCSection>
 
-      <DCSection id="settings-dark" title="04 · Paramètres — Dark">
+      <DCSection id="settings-dark" title="03 · Paramètres — Dark">
         <DCArtboard id="settings-general-d" label="Paramètres · Général" width={1440} height={1100}>
           <SettingsGeneral theme="dark"/>
         </DCArtboard>
@@ -120,40 +148,66 @@ function App() {
         </DCArtboard>
       </DCSection>
 
-      <DCSection id="screens-light" title="05 · Écrans principaux — Light">
+      <DCSection id="screens-light" title="04 · Écrans principaux — Light">
+        {/* Dashboard */}
         <DCArtboard id="dashboard-l" label="Tableau de bord" width={1440} height={1360}>
           <Dashboard theme="light"/>
         </DCArtboard>
+
+        {/* Orders */}
         <DCArtboard id="orders-l" label="Commandes" width={1440} height={1000}>
           <Orders theme="light"/>
         </DCArtboard>
         <DCArtboard id="order-details-l" label="Commandes · Détails (drawer)" width={1440} height={1000}>
           <OrderDetails theme="light"/>
         </DCArtboard>
+
+        {/* Library + Item Editor */}
         <DCArtboard id="library-l" label="Bibliothèque d'articles" width={1440} height={1100}>
           <Library theme="light"/>
         </DCArtboard>
-        <DCArtboard id="stock-l" label="Cuisine · Stock" width={1440} height={1100}>
-          <Stock theme="light"/>
+        <DCArtboard id="editor-details-l" label="Modifier article · Détails" width={1440} height={1000}>
+          <ItemEditor theme="light" tab="details"/>
         </DCArtboard>
-        <DCArtboard id="stock-editor-l" label="Stock · Éditeur (drawer)" width={1440} height={1100}>
-          <StockItemEditor theme="light"/>
+        <DCArtboard id="editor-mods-l" label="Modifier article · Modificateurs" width={1440} height={1000}>
+          <ItemEditor theme="light" tab="mods"/>
         </DCArtboard>
-        <DCArtboard id="prep-l" label="Cuisine · Préparations" width={1440} height={1100}>
-          <Preparations theme="light"/>
+        <DCArtboard id="editor-recipe-l" label="Modifier article · Recette" width={1440} height={1000}>
+          <ItemEditor theme="light" tab="recipe"/>
         </DCArtboard>
-        <DCArtboard id="prep-editor-l" label="Préparation · Éditeur (drawer)" width={1440} height={1100}>
-          <PrepEditor theme="light"/>
+        <DCArtboard id="editor-recipe-edit-l" label="Modifier article · Recette — Ingrédient en édition" width={1440} height={1100}>
+          <ItemEditor theme="light" tab="recipe" editRow={true}/>
         </DCArtboard>
-        <DCArtboard id="reports-l" label="Rapports · Vue d'ensemble" width={1440} height={1100}>
-          <Reports theme="light"/>
+        <DCArtboard id="editor-recipe-composer-l" label="Modifier article · Recette — Composer ouvert" width={1440} height={1200}>
+          <ItemEditor theme="light" tab="recipe" composer={true}/>
         </DCArtboard>
         <DCArtboard id="editor-cost-l" label="Modifier article · Coût" width={1440} height={1000}>
           <ItemEditor theme="light" tab="cost"/>
         </DCArtboard>
+
+        {/* Stock + Stock Editor */}
+        <DCArtboard id="stock-l" label="Cuisine · Stock" width={1440} height={1100}>
+          <Stock theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="stock-editor-l" label="Stock · Éditeur" width={1440} height={1100}>
+          <StockItemEditor theme="light"/>
+        </DCArtboard>
+
+        {/* Preparations + Prep Editor */}
+        <DCArtboard id="prep-l" label="Cuisine · Préparations" width={1440} height={1100}>
+          <Preparations theme="light"/>
+        </DCArtboard>
+        <DCArtboard id="prep-editor-l" label="Préparation · Éditeur" width={1440} height={1100}>
+          <PrepEditor theme="light"/>
+        </DCArtboard>
+
+        {/* Reports */}
+        <DCArtboard id="reports-l" label="Rapports · Vue d'ensemble" width={1440} height={1100}>
+          <Reports theme="light"/>
+        </DCArtboard>
       </DCSection>
 
-      <DCSection id="settings-light" title="06 · Paramètres — Light">
+      <DCSection id="settings-light" title="05 · Paramètres — Light">
         <DCArtboard id="settings-general-l" label="Paramètres · Général" width={1440} height={1100}>
           <SettingsGeneral theme="light"/>
         </DCArtboard>

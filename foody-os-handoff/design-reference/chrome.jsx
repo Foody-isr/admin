@@ -46,6 +46,10 @@ const Icon = ({ name, size = 18 }) => {
     tag: <><path d="M3 12V3h9l9 9-9 9-9-9Z"/><circle cx="8" cy="8" r="1.5"/></>,
     sliders: <><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></>,
     rtl: <><path d="M15 6l-6 6 6 6M21 12H9"/></>,
+    flask: <><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7 15h10"/></>,
+    pin: <><path d="M12 17v5M8 3h8l-1 8 4 3H5l4-3-1-8Z"/></>,
+    chevronUp: <path d="m6 15 6-6 6 6"/>,
+    info: <><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></>,
   };
   return <svg {...P}>{paths[name] || null}</svg>;
 };

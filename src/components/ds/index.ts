@@ -29,3 +29,12 @@ export type { FullScreenEditorProps } from './FullScreenEditor';
 
 export { Drawer } from './Drawer';
 export type { DrawerProps } from './Drawer';
+
+export { Card, CardHeader, CardTitle, CardBody } from './Card';
+export type { CardProps } from './Card';
+
+export { Tabs, TabsList, Tab, TabsContent } from './Tabs';
+export type { TabsProps } from './Tabs';
+
+export { Avatar, AvatarStack } from './Avatar';
+export type { AvatarProps, AvatarStackProps } from './Avatar';
