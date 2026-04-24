@@ -120,20 +120,15 @@ export function RecipeComposer({
           </button>
           {helpOpen && <HelpPopover />}
         </div>
-        {/* Esc + X are grouped tightly — Esc is the keyboard shortcut for
-            the X close button, not a hint related to the help popover. */}
-        <div className="flex items-center gap-1">
-          <Kbd aria-hidden>Esc</Kbd>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
-            aria-label="Fermer (Esc)"
-            title="Fermer (Esc)"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center justify-center w-7 h-7 rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+          aria-label="Fermer"
+          title="Fermer"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* Body */}
