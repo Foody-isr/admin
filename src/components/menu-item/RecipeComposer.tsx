@@ -91,29 +91,21 @@ export function RecipeComposer({
 
   return (
     <div
-      className="relative bg-[var(--surface)] rounded-r-lg shadow-1 overflow-visible"
+      className="bg-[var(--surface)] rounded-r-lg shadow-1 overflow-visible"
       style={{
         border: '1px solid var(--brand-500)',
-        boxShadow: '0 0 0 3px color-mix(in oklab, var(--brand-500) 15%, transparent)',
+        boxShadow: '0 0 0 3px color-mix(in oklab, var(--brand-500) 12%, transparent)',
       }}
     >
-      {/* Brand accent bar */}
-      <span
-        aria-hidden
-        className="absolute top-0 bottom-0 start-0 w-[3px] bg-[var(--brand-500)] rounded-se-r-lg rounded-ee-r-lg"
-      />
-
-      {/* Header */}
-      <div
-        className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]"
-        style={{ background: 'color-mix(in oklab, var(--brand-500) 5%, var(--surface))' }}
-      >
+      {/* Header — unified background with the body so the card reads as a
+          single orange-bordered element (no internal borders / tinting). */}
+      <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] pt-[var(--s-3)]">
         <span
           className="w-6 h-6 rounded-r-sm grid place-items-center text-[var(--brand-500)] shrink-0"
           style={{ background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)' }}
           aria-hidden
         >
-          <span className="text-fs-sm font-semibold">+</span>
+          <span className="text-fs-sm font-semibold leading-none">+</span>
         </span>
         <div className="text-fs-sm font-semibold flex-1">Ajouter un ingrédient</div>
         <div className="relative" ref={helpRef}>
@@ -128,15 +120,20 @@ export function RecipeComposer({
           </button>
           {helpOpen && <HelpPopover />}
         </div>
-        <Kbd>Esc</Kbd>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center justify-center w-7 h-7 rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
-          aria-label="Fermer"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        {/* Esc + X are grouped tightly — Esc is the keyboard shortcut for
+            the X close button, not a hint related to the help popover. */}
+        <div className="flex items-center gap-1">
+          <Kbd aria-hidden>Esc</Kbd>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+            aria-label="Fermer (Esc)"
+            title="Fermer (Esc)"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Body */}
