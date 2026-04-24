@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem, createCategory,
+  getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem,
+  createCategory, updateCategory, uploadCategoryImage,
   MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -290,8 +291,32 @@ export default function ItemLibraryPage() {
     }
   };
 
-  const handleCreateCategory = async (name: string) => {
-    await createCategory(rid, { name });
+  const handleCreateCategory = async ({
+    name,
+    imageFile,
+  }: {
+    name: string;
+    imageFile?: File | null;
+  }) => {
+    const cat = await createCategory(rid, { name });
+    if (imageFile) {
+      await uploadCategoryImage(rid, cat.id, imageFile);
+    }
+    await reload();
+  };
+
+  const handleEditCategory = async (
+    oldName: string,
+    patch: { name: string; imageFile?: File | null },
+  ) => {
+    const cat = categories.find((c) => c.name === oldName);
+    if (!cat) return;
+    if (patch.name && patch.name !== oldName) {
+      await updateCategory(rid, cat.id, { name: patch.name });
+    }
+    if (patch.imageFile) {
+      await uploadCategoryImage(rid, cat.id, patch.imageFile);
+    }
     await reload();
   };
 
@@ -908,6 +933,7 @@ export default function ItemLibraryPage() {
         categories={categories.map((c) => ({
           name: c.name,
           count: c.items?.length ?? 0,
+          imageUrl: c.image_url || undefined,
         }))}
         currentCategory={
           selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
@@ -915,6 +941,8 @@ export default function ItemLibraryPage() {
         onSelect={handleCategorySelect}
         selectionCount={selectionCount}
         onCreateCategory={handleCreateCategory}
+        onEditCategory={handleEditCategory}
+        supportsImage
         processing={bulkProcessing}
       />
 
