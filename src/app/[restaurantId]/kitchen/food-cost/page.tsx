@@ -462,8 +462,10 @@ export default function FoodCostPage() {
           </div>
         </div>
 
-        {/* Details panel */}
-        <div className="flex-1 bg-[var(--bg)] p-8 overflow-y-auto">
+        {/* Details panel — top padding matches the items-list header (24px)
+            so the L'OR ROUGE header card aligns with the search bar on the
+            left. Sides/bottom stay at 32px for detail-view breathing room. */}
+        <div className="flex-1 bg-[var(--bg)] px-8 pt-[var(--s-6)] pb-8 overflow-y-auto">
           {!selectedItem ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
