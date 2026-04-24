@@ -2,7 +2,7 @@
 
 import { useImperativeHandle, forwardRef, useEffect, useState } from 'react';
 import {
-  ChevronDown, FlaskConical, Info, Package, Pin, Plus, Scale, Settings2, Trash2, X,
+  ChevronDown, FlaskConical, Info, Package, Pin, Plus, Scale, Settings2, Trash2,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -18,7 +18,9 @@ import {
   type RecipeStep,
   type RecipeStepInput,
 } from '@/lib/api';
-import SearchableSelect from '@/components/SearchableSelect';
+import { RecipeComposer, BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
+import CreateStockSheet from './CreateStockSheet';
+import CreatePrepSheet from './CreatePrepSheet';
 
 export type QuantityMode = 'adapt' | 'fixed' | 'custom';
 
@@ -64,6 +66,10 @@ interface Props {
   /** Persist a patched ingredient. Parent rewrites the full list via
    *  setMenuItemIngredients. */
   onUpdateIngredient: (id: number, patch: Partial<MenuItemIngredient>) => Promise<void>;
+  /** Re-fetch stockItems / prepItems after the composer creates a new one
+   *  via a sub-sheet. Optional — composer falls back to the freshly created
+   *  item directly even if the lists aren't refreshed. */
+  onRefreshLists?: () => Promise<void> | void;
 }
 
 function ingredientType(ing: MenuItemIngredient): 'preparation' | 'brut' {
@@ -99,7 +105,7 @@ function formatQty(n: number): string {
 const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function MenuItemTabRecipe(
   {
     rid, item, ingredients, stockItems, prepItems, variants,
-    onAddIngredient, onDeleteIngredient, onUpdateIngredient,
+    onAddIngredient, onDeleteIngredient, onUpdateIngredient, onRefreshLists,
   }: Props,
   ref,
 ) {
@@ -230,12 +236,15 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         <div className="flex flex-col gap-[var(--s-2)]">
           {addingDraft && (
             <RecipeIngredientDraft
+              rid={rid}
+              menuItemName={item.name}
               stockItems={stockItems}
               prepItems={prepItems}
               variants={variants}
               saving={draftSaving}
               onAdd={handleAddFromDraft}
               onCancel={() => setAddingDraft(false)}
+              onRefreshLists={onRefreshLists}
             />
           )}
           {ingredients.map((ing) => (
@@ -452,28 +461,32 @@ function RecipeIngredientItem({
         onClick={() => setExpanded((e) => !e)}
       >
         <div
-          className="shrink-0 w-8 h-8 rounded-r-sm grid place-items-center text-white font-bold text-fs-xs"
-          style={{
-            background:
-              type === 'preparation' ? 'var(--cat-5)' : 'var(--cat-4)',
-          }}
+          className="shrink-0 w-9 h-9 rounded-full grid place-items-center text-white"
+          style={{ background: type === 'preparation' ? PREP_COLOR : BRUT_COLOR }}
+          aria-hidden
         >
-          {name.charAt(0).toUpperCase()}
+          {type === 'preparation' ? (
+            <FlaskConical className="w-4 h-4" />
+          ) : (
+            <Package className="w-4 h-4" />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-[var(--s-2)]">
             <span className="text-fs-sm font-medium text-[var(--fg)] truncate">{name}</span>
             <span
-              className="inline-flex items-center h-[22px] px-2 text-fs-xs font-medium rounded-r-sm"
+              className="inline-flex items-center h-[20px] px-1.5 text-[10px] font-medium rounded-r-xs whitespace-nowrap"
               style={{
-                background: type === 'preparation'
-                  ? 'color-mix(in oklab, var(--brand-500) 14%, transparent)'
-                  : 'var(--surface-2)',
-                color: type === 'preparation'
-                  ? 'var(--brand-500)'
-                  : 'var(--fg-muted)',
+                background: `color-mix(in oklab, ${type === 'preparation' ? PREP_COLOR : BRUT_COLOR} 14%, transparent)`,
+                color: type === 'preparation' ? PREP_COLOR : BRUT_COLOR,
+                border: `1px solid color-mix(in oklab, ${type === 'preparation' ? PREP_COLOR : BRUT_COLOR} 30%, transparent)`,
               }}
+              title={
+                type === 'preparation'
+                  ? 'Une recette fabriquée en cuisine'
+                  : 'Un produit acheté tel quel'
+              }
             >
               {type === 'preparation' ? 'Préparation' : 'Ingrédient brut'}
             </span>
@@ -667,59 +680,71 @@ function RecipeIngredientItem({
 // the user can choose the source AND the mode in one step. Confirmed via
 // an explicit "Ajouter" button — matches the edit flow on existing rows.
 
+type PickedSource =
+  | { kind: 'brut'; item: StockItem }
+  | { kind: 'prep'; item: PrepItem };
+
 function RecipeIngredientDraft({
+  rid,
+  menuItemName,
   stockItems,
   prepItems,
   variants,
   saving,
   onAdd,
   onCancel,
+  onRefreshLists,
 }: {
+  rid: number;
+  menuItemName: string;
   stockItems: StockItem[];
   prepItems: PrepItem[];
   variants: VariantRef[];
   saving: boolean;
   onAdd: (input: IngredientInput) => Promise<void>;
   onCancel: () => void;
+  onRefreshLists?: () => Promise<void> | void;
 }) {
   const { t } = useI18n();
-  const [sourceValue, setSourceValue] = useState('');
+  const [picked, setPicked] = useState<PickedSource | null>(null);
+  const [createSheet, setCreateSheet] = useState<{ kind: 'brut' | 'prep'; query: string } | null>(
+    null,
+  );
   const [mode, setMode] = useState<QuantityMode>('adapt');
   const [quantity, setQuantity] = useState<number>(0);
   const [unit, setUnit] = useState<string>('');
   const [overrides, setOverrides] = useState<IngredientVariantOverride[]>([]);
 
-  const options = [
-    ...stockItems.map((s) => ({
-      value: `stock:${s.id}`,
-      label: s.name,
-      sublabel: s.unit || undefined,
-    })),
-    ...prepItems.map((p) => ({
-      value: `prep:${p.id}`,
-      label: p.name,
-      sublabel: `${p.unit || 'portion'} · ${t('preparation') || 'préparation'}`,
-    })),
-  ];
-
-  const handlePickSource = (val: string) => {
-    setSourceValue(val);
-    let sourceUnit = '';
-    if (val.startsWith('stock:')) {
-      const id = Number(val.slice(6));
-      sourceUnit = stockItems.find((x) => x.id === id)?.unit ?? '';
-    } else if (val.startsWith('prep:')) {
-      const id = Number(val.slice(5));
-      sourceUnit = prepItems.find((x) => x.id === id)?.unit ?? 'portion';
-    }
-    setUnit(sourceUnit);
+  const handlePickBrut = (s: StockItem) => {
+    setPicked({ kind: 'brut', item: s });
+    setUnit(s.unit ?? '');
     if (mode === 'custom') {
-      setOverrides((prev) =>
-        prev.length > 0
-          ? prev.map((o) => ({ ...o, unit: o.unit || sourceUnit }))
-          : variants.map((v) => ({ option_id: v.option_id, quantity: 0, unit: sourceUnit })),
+      setOverrides(variants.map((v) => ({ option_id: v.option_id, quantity: 0, unit: s.unit })));
+    }
+  };
+  const handlePickPrep = (p: PrepItem) => {
+    setPicked({ kind: 'prep', item: p });
+    setUnit(p.unit ?? 'portion');
+    if (mode === 'custom') {
+      setOverrides(
+        variants.map((v) => ({
+          option_id: v.option_id,
+          quantity: 0,
+          unit: p.unit ?? 'portion',
+        })),
       );
     }
+  };
+
+  const handleSheetCreatedBrut = async (created: StockItem) => {
+    setCreateSheet(null);
+    handlePickBrut(created);
+    if (onRefreshLists) await onRefreshLists();
+  };
+  const handleSheetCreatedPrep = async (created: PrepItem) => {
+    setCreateSheet(null);
+    handlePickPrep(created);
+    if (onRefreshLists) await onRefreshLists();
   };
 
   const handleModeChange = (next: QuantityMode) => {
@@ -734,21 +759,22 @@ function RecipeIngredientDraft({
     setOverrides((prev) => {
       const exists = prev.some((o) => o.option_id === optionId);
       if (exists) {
-        return prev.map((o) => (o.option_id === optionId ? { ...o, quantity: qty, unit: nextUnit } : o));
+        return prev.map((o) =>
+          o.option_id === optionId ? { ...o, quantity: qty, unit: nextUnit } : o,
+        );
       }
       return [...prev, { option_id: optionId, quantity: qty, unit: nextUnit }];
     });
   };
 
-  const canAdd = Boolean(sourceValue) && !saving && (
-    mode !== 'fixed' || quantity > 0
-  );
+  const canAdd = Boolean(picked) && !saving && (mode !== 'fixed' || quantity > 0);
 
   const handleSubmit = async () => {
-    if (!canAdd) return;
-    const base: { stock_item_id?: number; prep_item_id?: number } = {};
-    if (sourceValue.startsWith('stock:')) base.stock_item_id = Number(sourceValue.slice(6));
-    else if (sourceValue.startsWith('prep:')) base.prep_item_id = Number(sourceValue.slice(5));
+    if (!canAdd || !picked) return;
+    const base: { stock_item_id?: number; prep_item_id?: number } =
+      picked.kind === 'brut'
+        ? { stock_item_id: picked.item.id }
+        : { prep_item_id: picked.item.id };
 
     let input: IngredientInput;
     if (mode === 'adapt') {
@@ -767,42 +793,94 @@ function RecipeIngredientDraft({
     await onAdd(input);
   };
 
+  // Picker phase — RecipeComposer drives search + create cards.
+  if (!picked) {
+    return (
+      <>
+        <RecipeComposer
+          stockItems={stockItems}
+          prepItems={prepItems}
+          onPickBrut={handlePickBrut}
+          onPickPrep={handlePickPrep}
+          onCreateBrut={(q) => setCreateSheet({ kind: 'brut', query: q })}
+          onCreatePrep={(q) => setCreateSheet({ kind: 'prep', query: q })}
+          onClose={onCancel}
+          autoFocus
+          disabled={saving}
+        />
+        {createSheet?.kind === 'brut' && (
+          <CreateStockSheet
+            restaurantId={rid}
+            itemName={menuItemName}
+            initialName={createSheet.query}
+            onCancel={() => setCreateSheet(null)}
+            onCreated={handleSheetCreatedBrut}
+          />
+        )}
+        {createSheet?.kind === 'prep' && (
+          <CreatePrepSheet
+            restaurantId={rid}
+            menuItemName={menuItemName}
+            initialName={createSheet.query}
+            stockItems={stockItems}
+            onCancel={() => setCreateSheet(null)}
+            onCreated={handleSheetCreatedPrep}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Configure phase — picked source shown at top, mode picker + qty below.
+  const pickedColor = picked.kind === 'brut' ? BRUT_COLOR : PREP_COLOR;
+  const PickedIcon = picked.kind === 'brut' ? Package : FlaskConical;
+  const pickedKindLabel = picked.kind === 'brut' ? 'Ingrédient brut' : 'Préparation';
+
   return (
     <div
-      className="bg-[var(--surface)] rounded-r-md shadow-1"
-      style={{ border: '1px solid color-mix(in oklab, var(--brand-500) 40%, var(--line))' }}
+      className="bg-[var(--surface)] rounded-r-lg shadow-1 overflow-hidden"
+      style={{
+        border: '1px solid var(--brand-500)',
+        boxShadow: '0 0 0 3px color-mix(in oklab, var(--brand-500) 15%, transparent)',
+      }}
     >
-      {/* Header — source picker */}
-      <div className="flex items-center gap-[var(--s-3)] p-[var(--s-3)_var(--s-4)]">
-        <div
-          className="shrink-0 w-8 h-8 rounded-r-sm grid place-items-center text-[var(--brand-500)]"
-          style={{ background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)' }}
+      {/* Picked source header */}
+      <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]">
+        <span
+          className="w-9 h-9 rounded-full grid place-items-center text-white shrink-0"
+          style={{ background: pickedColor }}
+          aria-hidden
         >
-          <Plus size={16} />
-        </div>
-
+          <PickedIcon className="w-4 h-4" />
+        </span>
         <div className="flex-1 min-w-0">
-          <SearchableSelect
-            value={sourceValue}
-            onChange={handlePickSource}
-            options={options}
-            placeholder={t('selectIngredient') || 'Choisir un ingrédient ou une préparation…'}
-          />
+          <div className="flex items-center gap-[var(--s-2)]">
+            <span className="text-fs-sm font-semibold text-[var(--fg)] truncate">
+              {picked.item.name}
+            </span>
+            <span
+              className="inline-flex items-center h-[18px] px-1.5 rounded-r-xs text-[10px] font-medium"
+              style={{
+                background: `color-mix(in oklab, ${pickedColor} 14%, transparent)`,
+                color: pickedColor,
+                border: `1px solid color-mix(in oklab, ${pickedColor} 30%, transparent)`,
+              }}
+            >
+              {pickedKindLabel}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPicked(null)}
+            className="text-fs-xs text-[var(--fg-muted)] hover:text-[var(--brand-500)] underline-offset-2 hover:underline mt-0.5"
+          >
+            Changer
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="shrink-0 p-1.5 rounded-r-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] transition-colors disabled:opacity-50"
-          aria-label={t('cancel') || 'Annuler'}
-        >
-          <X size={14} />
-        </button>
       </div>
 
-      {/* Always-expanded body — mode picker + mode-specific editor */}
-      <div className="px-[var(--s-4)] pb-[var(--s-4)] pt-[var(--s-4)] border-t border-[var(--line)] space-y-[var(--s-4)]">
+      {/* Mode picker + quantity editor */}
+      <div className="px-[var(--s-4)] pb-[var(--s-4)] pt-[var(--s-4)] space-y-[var(--s-4)]">
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Info size={14} className="text-neutral-400" />

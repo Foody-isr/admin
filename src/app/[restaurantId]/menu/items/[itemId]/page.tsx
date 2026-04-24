@@ -630,6 +630,16 @@ export default function EditItemPage() {
                   );
                   setIngredients(saved);
                 }}
+                onRefreshLists={async () => {
+                  // Re-fetch only the lists the composer searches over —
+                  // cheaper than full loadData() on every inline create.
+                  const [stock, prep] = await Promise.all([
+                    listStockItems(rid),
+                    listPrepItems(rid),
+                  ]);
+                  setStockItems(stock ?? []);
+                  setPrepItems(prep ?? []);
+                }}
               />
             )}
 
