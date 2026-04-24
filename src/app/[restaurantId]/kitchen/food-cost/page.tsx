@@ -82,6 +82,24 @@ export default function FoodCostPage() {
   const [vatRate, setVatRate] = useState(18);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showChart, setShowChart] = useState(true);
+  // Cost-comparison multi-select. 2–6 items, triggered via the bar shown above
+  // the items list when anything is selected.
+  const [compareIds, setCompareIds] = useState<Set<number>>(new Set());
+  const MIN_COMPARE = 2;
+  const MAX_COMPARE = 6;
+  const toggleCompareId = (id: number) =>
+    setCompareIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < MAX_COMPARE) next.add(id);
+      return next;
+    });
+  const clearCompare = () => setCompareIds(new Set());
+  const goCompare = () => {
+    if (compareIds.size < MIN_COMPARE) return;
+    const ids = Array.from(compareIds).join(',');
+    router.push(`/${rid}/kitchen/food-cost/compare?ids=${ids}`);
+  };
 
   // Enriched cache: item id → computed cost summary. Keyed by item to avoid
   // re-fetching ingredients for every item in the list (we only pull
@@ -419,6 +437,45 @@ export default function FoodCostPage() {
             </div>
           </div>
 
+          {/* Compare bar — appears when 1+ items selected. Button enables at 2. */}
+          {compareIds.size > 0 && (
+            <div
+              className="flex items-center justify-between gap-[var(--s-2)] px-[var(--s-4)] py-[var(--s-2)] border-b border-[var(--line)]"
+              style={{
+                background: 'color-mix(in oklab, var(--brand-500) 10%, var(--surface))',
+              }}
+            >
+              <div className="flex items-center gap-[var(--s-2)] text-fs-sm min-w-0">
+                <span className="font-semibold text-[var(--brand-500)] tabular-nums">
+                  {compareIds.size}
+                </span>
+                <span className="text-[var(--fg-muted)] truncate">
+                  {compareIds.size < MIN_COMPARE
+                    ? t('compareMinHint') || `Sélectionnez ${MIN_COMPARE}+ articles`
+                    : t('selectedCount')?.replace('{n}', String(compareIds.size)) ||
+                      `${compareIds.size} sélectionnés`}
+                </span>
+              </div>
+              <div className="flex items-center gap-[var(--s-1)] shrink-0">
+                <button
+                  type="button"
+                  onClick={clearCompare}
+                  className="text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] px-[var(--s-2)] py-1 transition-colors"
+                >
+                  {t('deselectAll') || 'Effacer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={goCompare}
+                  disabled={compareIds.size < MIN_COMPARE}
+                  className="inline-flex items-center h-8 px-[var(--s-3)] rounded-r-md text-fs-sm font-medium bg-[var(--brand-500)] text-white hover:bg-[var(--brand-600)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t('compareCosts') || 'Comparer'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {filteredItems.length === 0 && enrichedList.length === 0 && (
               <div className="text-center py-8 text-sm text-neutral-500 dark:text-neutral-400">
@@ -426,39 +483,91 @@ export default function FoodCostPage() {
                 {t('computingCosts') || 'Calcul des coûts...'}
               </div>
             )}
-            {filteredItems.map((e) => (
-              <button
-                key={e.item.id}
-                onClick={() => selectItem(e)}
-                className={`w-full text-left p-4 rounded-xl transition-all ${
-                  selectedItem?.item.id === e.item.id
-                    ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500'
-                    : 'bg-[var(--surface-2)] border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-[#222222]'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="size-10 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center text-xl shrink-0">
-                    🍽️
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
-                      {e.item.name}
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                      {e.item.category_name}
-                    </p>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm font-bold ${getFoodCostColor(e.foodCostPercent)}`}>
-                        {e.foodCostPercent.toFixed(1)}%
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(e.status)}`}>
-                        {e.status}
-                      </span>
-                    </div>
+            {filteredItems.map((e) => {
+              const checked = compareIds.has(e.item.id);
+              const maxReached = !checked && compareIds.size >= MAX_COMPARE;
+              return (
+                <div
+                  key={e.item.id}
+                  className={`relative w-full p-4 rounded-xl transition-all ${
+                    selectedItem?.item.id === e.item.id
+                      ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500'
+                      : checked
+                        ? 'bg-[var(--surface-2)] border-2 border-[var(--brand-500)]'
+                        : 'bg-[var(--surface-2)] border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-[#222222]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Compare-mode checkbox. Stop propagation so clicking it
+                        doesn't also open the detail view. */}
+                    <button
+                      type="button"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        if (!maxReached) toggleCompareId(e.item.id);
+                      }}
+                      disabled={maxReached}
+                      title={
+                        maxReached
+                          ? t('compareMaxHint') || `Max ${MAX_COMPARE} articles`
+                          : undefined
+                      }
+                      className={`shrink-0 w-5 h-5 rounded-r-sm grid place-items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                        checked
+                          ? 'bg-[var(--brand-500)] border border-[var(--brand-500)]'
+                          : 'bg-[var(--surface)] border border-[var(--line-strong)] hover:border-[var(--fg-subtle)]'
+                      }`}
+                      aria-label={t('compareCosts') || 'Comparer les coûts'}
+                      aria-pressed={checked}
+                    >
+                      {checked && (
+                        <svg
+                          viewBox="0 0 12 12"
+                          className="w-3 h-3 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="m2.5 6.5 2.5 2.5 4.5-5" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectItem(e)}
+                      className="flex-1 min-w-0 text-left flex items-start gap-3"
+                    >
+                      <div className="size-10 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center text-xl shrink-0">
+                        🍽️
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
+                          {e.item.name}
+                        </h3>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+                          {e.item.category_name}
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`text-sm font-bold ${getFoodCostColor(e.foodCostPercent)}`}
+                          >
+                            {e.foodCostPercent.toFixed(1)}%
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(e.status)}`}
+                          >
+                            {e.status}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 

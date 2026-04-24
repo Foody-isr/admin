@@ -342,22 +342,6 @@ export default function ItemLibraryPage() {
   }
 
   const selectionCount = selected.size;
-  const MIN_COMPARE = 2;
-  const MAX_COMPARE = 6;
-  const compareDisabled = selectionCount < MIN_COMPARE || selectionCount > MAX_COMPARE;
-  const compareHint =
-    selectionCount > 0
-      ? selectionCount < MIN_COMPARE
-        ? t('compareMinHint') || 'Select at least 2 items to compare'
-        : selectionCount > MAX_COMPARE
-          ? t('compareMaxHint') || 'Select up to 6 items'
-          : ''
-      : '';
-  const goCompare = () => {
-    if (compareDisabled) return;
-    const ids = Array.from(selected).join(',');
-    router.push(`/${rid}/menu/items/compare?ids=${ids}`);
-  };
 
   // Category pills — the top-level quick filter (single-select pattern from Figma).
   // "Tous" clears the category filter. Any category pill toggles that single category.
@@ -422,11 +406,6 @@ export default function ItemLibraryPage() {
               <span className="font-semibold text-orange-900 dark:text-orange-300">
                 {selectionCount} {t('selectedItems') || 'article'}{selectionCount > 1 ? 's' : ''} {t('selectedSuffix') || 'sélectionné'}{selectionCount > 1 ? 's' : ''}
               </span>
-              {compareHint && (
-                <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                  {compareHint}
-                </span>
-              )}
               <button
                 onClick={() => setSelected(new Set())}
                 className="text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-200 text-sm font-medium"
@@ -442,15 +421,6 @@ export default function ItemLibraryPage() {
               >
                 <Tag size={16} />
                 {t('assignCategory') || 'Assigner une catégorie'}
-              </button>
-              <button
-                onClick={goCompare}
-                disabled={compareDisabled || bulkProcessing}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                title={compareHint || undefined}
-              >
-                {t('compareCosts') || 'Compare costs'}
-                {!compareDisabled && ` (${selectionCount})`}
               </button>
               <button
                 onClick={handleBulkDelete}

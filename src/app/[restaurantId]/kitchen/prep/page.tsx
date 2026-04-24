@@ -1054,40 +1054,46 @@ function BatchProduceModal({
             <button onClick={handlePreview} disabled={loading} className="btn-primary text-sm">{loading ? t('checking') : t('preview')}</button>
           </div>
         ) : (
-          <>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-fg-primary">{t('ingredientsToConsume')}</p>
-              {preview.ingredients.map((ing) => (
-                <div key={ing.stock_item_id} className="flex justify-between text-sm">
-                  <span className="text-fg-secondary">{ing.stock_item_name}</span>
-                  <span className="font-mono text-fg-primary">-{ing.quantity_used.toFixed(2)} (rem: {ing.remaining.toFixed(2)})</span>
+          (() => {
+            const previewIngredients = preview.ingredients ?? [];
+            const previewInsufficient = preview.insufficient ?? [];
+            return (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-fg-primary">{t('ingredientsToConsume')}</p>
+                  {previewIngredients.map((ing) => (
+                    <div key={ing.stock_item_id} className="flex justify-between text-sm">
+                      <span className="text-fg-secondary">{ing.stock_item_name}</span>
+                      <span className="font-mono text-fg-primary">-{ing.quantity_used.toFixed(2)} (rem: {ing.remaining.toFixed(2)})</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {preview.insufficient.length > 0 && (
-              <div className="bg-red-500/10 rounded-lg p-3 space-y-1">
-                <p className="text-sm font-medium text-red-500 flex items-center gap-1">
-                  <AlertTriangleIcon className="w-4 h-4" /> {t('insufficientStock')}
-                </p>
-                {preview.insufficient.map((s) => (
-                  <p key={s.stock_item_id} className="text-sm text-red-400">
-                    {t('insufficientDetail')
-                      .replace('{name}', s.stock_item_name)
-                      .replace('{required}', s.required.toFixed(2))
-                      .replace('{available}', s.available.toFixed(2))}
-                  </p>
-                ))}
-              </div>
-            )}
+                {previewInsufficient.length > 0 && (
+                  <div className="bg-red-500/10 rounded-lg p-3 space-y-1">
+                    <p className="text-sm font-medium text-red-500 flex items-center gap-1">
+                      <AlertTriangleIcon className="w-4 h-4" /> {t('insufficientStock')}
+                    </p>
+                    {previewInsufficient.map((s) => (
+                      <p key={s.stock_item_id} className="text-sm text-red-400">
+                        {t('insufficientDetail')
+                          .replace('{name}', s.stock_item_name)
+                          .replace('{required}', s.required.toFixed(2))
+                          .replace('{available}', s.available.toFixed(2))}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button onClick={handleProduce} disabled={loading || preview.insufficient.length > 0} className="btn-primary text-sm">
-                {loading ? t('producing') : t('confirmProduce')}
-              </button>
-            </div>
-          </>
+                <div className="flex justify-end gap-2">
+                  <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+                  <button onClick={handleProduce} disabled={loading || previewInsufficient.length > 0} className="btn-primary text-sm">
+                    {loading ? t('producing') : t('confirmProduce')}
+                  </button>
+                </div>
+              </>
+            );
+          })()
         )}
       </div>
     </Modal>
