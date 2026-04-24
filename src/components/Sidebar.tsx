@@ -39,7 +39,6 @@ import {
 } from 'lucide-react';
 import { useAi } from '@/lib/ai-context';
 import { useSidebar } from '@/lib/sidebar-context';
-import FullscreenToggle from '@/components/FullscreenToggle';
 
 interface SubItem {
   href: string;
@@ -310,7 +309,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         toggleKey(item.labelKey);
                       }
                     }}
-                    className={`w-full flex items-center justify-between gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-sm font-medium transition-colors duration-fast ease-out ${
+                    className={`w-full flex items-center justify-between gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
                       expanded
                         ? 'text-[var(--fg)]'
                         : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
@@ -339,7 +338,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   <Link
                     href={getNavHref(item)}
                     onClick={onClose}
-                    className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-sm font-medium transition-colors duration-fast ease-out ${
+                    className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
                       isActive
                         ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
                         : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
@@ -420,7 +419,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
             <IconBtn label="Foody AI" onClick={ai.toggleDrawer} active={ai.isOpen}>
               <Sparkles className="w-4 h-4" />
             </IconBtn>
-            <FullscreenToggle />
           </div>
           <div className="flex">
             <button
@@ -595,7 +593,7 @@ function SubLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-sm font-medium transition-colors duration-fast ease-out ${
+      className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
         active
           ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
           : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'

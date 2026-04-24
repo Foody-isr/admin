@@ -12,7 +12,6 @@ import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import IdleModal from '@/components/IdleModal';
 import AiDrawer from '@/components/ai/AiDrawer';
-import FullscreenExitButton from '@/components/FullscreenExitButton';
 import { AiChatProvider } from '@/lib/ai-context';
 import { getRestaurant, Restaurant } from '@/lib/api';
 
@@ -45,14 +44,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const [restaurantError, setRestaurantError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Track browser fullscreen so we can drop the sidebar chrome and let the
-  // page fill the screen. Syncs with Esc-to-exit via the fullscreenchange event.
-  const [fullscreenActive, setFullscreenActive] = useState(false);
-  useEffect(() => {
-    const onChange = () => setFullscreenActive(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
   const { showModal: idleVisible, countdown, dismiss: dismissIdle } = useIdleTimeout();
 
   const isRtl = direction === 'rtl';
@@ -130,7 +121,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
               sidebarOpen={sidebarOpen}
               toggleSidebar={toggleSidebar}
               closeSidebar={closeSidebar}
-              fullscreenActive={fullscreenActive}
               isRtl={isRtl}
               isWideLayout={isWideLayout}
               pageName={pageName}
@@ -138,7 +128,6 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
               {children}
             </RestaurantShell>
             <AiDrawer />
-            <FullscreenExitButton />
             {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
           </SidebarProvider>
         </AiChatProvider>
@@ -154,7 +143,6 @@ function RestaurantShell({
   sidebarOpen,
   toggleSidebar,
   closeSidebar,
-  fullscreenActive,
   isRtl,
   isWideLayout,
   pageName,
@@ -165,7 +153,6 @@ function RestaurantShell({
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   closeSidebar: () => void;
-  fullscreenActive: boolean;
   isRtl: boolean;
   isWideLayout: boolean;
   pageName: string;
@@ -173,36 +160,30 @@ function RestaurantShell({
   const { collapsed } = useSidebar();
   // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
   // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
-  const marginClass = fullscreenActive
-    ? ''
-    : collapsed
-      ? isRtl
-        ? 'lg:mr-[var(--sidebar-w-collapsed)]'
-        : 'lg:ml-[var(--sidebar-w-collapsed)]'
-      : isRtl
-        ? 'lg:mr-[var(--sidebar-w)]'
-        : 'lg:ml-[var(--sidebar-w)]';
+  const marginClass = collapsed
+    ? isRtl
+      ? 'lg:mr-[var(--sidebar-w-collapsed)]'
+      : 'lg:ml-[var(--sidebar-w-collapsed)]'
+    : isRtl
+      ? 'lg:mr-[var(--sidebar-w)]'
+      : 'lg:ml-[var(--sidebar-w)]';
   return (
     <div className="h-screen flex">
       <div className="flex flex-1 min-w-0">
-        {!fullscreenActive && (
-          <Sidebar
-            restaurantId={restaurantId}
-            restaurantName={restaurant.name}
-            isOpen={sidebarOpen}
-            onClose={closeSidebar}
-          />
-        )}
+        <Sidebar
+          restaurantId={restaurantId}
+          restaurantName={restaurant.name}
+          isOpen={sidebarOpen}
+          onClose={closeSidebar}
+        />
         <main
           className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
         >
-          {!fullscreenActive && (
-            <TopBar
-              restaurantName={restaurant.name}
-              pageName={pageName}
-              onToggleSidebar={toggleSidebar}
-            />
-          )}
+          <TopBar
+            restaurantName={restaurant.name}
+            pageName={pageName}
+            onToggleSidebar={toggleSidebar}
+          />
           <div className={`min-w-0 ${isWideLayout ? 'p-6 lg:p-8' : 'px-6 py-6 lg:px-8'}`}>
             {children}
           </div>
