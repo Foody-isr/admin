@@ -6,7 +6,9 @@ import {
   getDayComparison,
   getAnalyticsToday,
   getTopSellers,
+  getDailySeries,
   type ComparisonResult,
+  type DaySummary,
   type TodayStats,
   type TopSeller,
 } from '@/lib/api';
@@ -21,9 +23,8 @@ import {
   Plus,
   Package,
 } from 'lucide-react';
-import AiPromptBar from './AiPromptBar';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
-import { Badge, Button, Chip, Kpi, PageHead, Section } from '@/components/ds';
+import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 
 type Range = 'today' | 'week' | 'month';
 
@@ -60,6 +61,7 @@ export default function DashboardPage() {
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [stats, setStats] = useState<TodayStats | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
+  const [dailySeries, setDailySeries] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>('today');
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
@@ -70,11 +72,13 @@ export default function DashboardPage() {
       getDayComparison(rid),
       getAnalyticsToday(rid),
       getTopSellers(rid),
+      getDailySeries(rid, 7),
     ])
-      .then(([cmp, st, top]) => {
+      .then(([cmp, st, top, daily]) => {
         if (cmp.status === 'fulfilled') setComparison(cmp.value);
         if (st.status === 'fulfilled') setStats(st.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
+        if (daily.status === 'fulfilled') setDailySeries(daily.value ?? []);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -95,28 +99,23 @@ export default function DashboardPage() {
   const ticketChange = pct(current?.avg_sale ?? 0, previous?.avg_sale ?? 0);
   const laborChange = pct(current?.labor_percent ?? 0, previous?.labor_percent ?? 0);
 
-  // Daily volume bars — hourly data bucketed to weekday comparison
+  // Last 7 days vs the 7 days before, day-by-day.
   const weekBars = useMemo(() => {
-    if (!comparison) {
-      return [50, 45, 60, 52, 70, 80, 65].map((pct) => ({ day: '', cur: pct, prev: pct - 8 }));
+    const dayLabels = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    if (dailySeries.length === 0) {
+      return Array.from({ length: 7 }, () => ({ day: '', cur: 0, prev: 0, hasData: false }));
     }
-    const hourly = comparison.hourly ?? [];
-    const max = Math.max(1, ...hourly.map((h) => Math.max(h.current_amt, h.previous_amt)));
-    const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    // 7 buckets across 24 hours (visual proxy for weekday pattern)
-    return days.map((day, i) => {
-      const start = Math.floor((i / 7) * 24);
-      const end = Math.floor(((i + 1) / 7) * 24);
-      const bucket = hourly.filter((h) => h.hour >= start && h.hour < end);
-      const cur = bucket.reduce((s, h) => s + h.current_amt, 0);
-      const prev = bucket.reduce((s, h) => s + h.previous_amt, 0);
+    const max = Math.max(1, ...dailySeries.map((d) => d.net_sales));
+    return dailySeries.map((d) => {
+      const date = new Date(`${d.date}T00:00:00`);
       return {
-        day,
-        cur: Math.max(4, (cur / max) * 100),
-        prev: Math.max(4, (prev / max) * 100),
+        day: dayLabels[date.getDay()],
+        cur: (d.net_sales / max) * 100,
+        prev: 0,
+        hasData: true,
       };
     });
-  }, [comparison]);
+  }, [dailySeries]);
 
   if (loading) {
     return (
@@ -170,10 +169,6 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="mb-[var(--s-5)]">
-        <AiPromptBar />
-      </div>
-
       {/* KPI strip — 4 equal */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
         <KpiWithSpark
@@ -220,18 +215,6 @@ export default function DashboardPage() {
         <Section
           title="Rendement — 7 derniers jours"
           desc="Ventes nettes, hors TVA"
-          aside={
-            <div className="flex items-center gap-[var(--s-3)] text-fs-xs">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-[2px] bg-[var(--brand-500)]" />
-                Cette semaine
-              </span>
-              <span className="flex items-center gap-1.5 text-[var(--fg-muted)]">
-                <span className="w-2 h-2 rounded-[2px] bg-[var(--fg-subtle)] opacity-50" />
-                Semaine passée
-              </span>
-            </div>
-          }
         >
           <BarChart data={weekBars} />
         </Section>
@@ -265,35 +248,6 @@ export default function DashboardPage() {
               />
             </div>
           </Section>
-
-          <div
-            className="bg-[var(--surface)] rounded-r-lg shadow-1 border"
-            style={{
-              borderColor:
-                'color-mix(in oklab, var(--success-500) 30%, var(--line))',
-            }}
-          >
-            <div className="p-[var(--s-5)]">
-              <div className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)]">
-                Solde à verser
-              </div>
-              <div className="text-fs-3xl font-semibold leading-none mt-[var(--s-3)] tabular-nums text-[var(--fg)]">
-                {fmtMoney(revenue)}
-                <span className="text-fs-lg text-[var(--fg-muted)] ms-1.5">.00</span>
-              </div>
-              <div className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
-                Virement prévu vendredi
-              </div>
-              <Button
-                variant="secondary"
-                size="md"
-                className="w-full mt-[var(--s-4)]"
-                onClick={() => router.push(`/${rid}/orders/all`)}
-              >
-                Voir les transactions
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -455,7 +409,22 @@ function Sparkline({ trend }: { trend: 'up' | 'down' }) {
   );
 }
 
-function BarChart({ data }: { data: { day: string; cur: number; prev: number }[] }) {
+function BarChart({
+  data,
+}: {
+  data: { day: string; cur: number; prev: number; hasData: boolean }[];
+}) {
+  const anyData = data.some((d) => d.hasData && d.cur > 0);
+  if (!anyData) {
+    return (
+      <div
+        className="flex items-center justify-center text-fs-sm text-[var(--fg-subtle)]"
+        style={{ height: 180 }}
+      >
+        Aucune vente enregistrée sur les 7 derniers jours.
+      </div>
+    );
+  }
   return (
     <div
       className="flex items-end justify-between gap-[var(--s-3)]"
@@ -466,14 +435,10 @@ function BarChart({ data }: { data: { day: string; cur: number; prev: number }[]
           key={i}
           className="flex-1 flex flex-col items-center gap-[var(--s-2)] h-full"
         >
-          <div className="flex items-end gap-1 h-full w-full justify-center">
+          <div className="flex items-end h-full w-full justify-center">
             <div
-              className="w-3 rounded-t-[3px] bg-[var(--surface-3)]"
-              style={{ height: `${d.prev}%` }}
-            />
-            <div
-              className="w-3 rounded-t-[3px] bg-[var(--brand-500)]"
-              style={{ height: `${d.cur}%` }}
+              className="w-6 rounded-t-[3px] bg-[var(--brand-500)]"
+              style={{ height: `${Math.max(2, d.cur)}%` }}
             />
           </div>
           <span className="text-fs-xs text-[var(--fg-muted)]">{d.day}</span>

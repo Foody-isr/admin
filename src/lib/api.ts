@@ -1877,6 +1877,22 @@ export async function getDayComparison(
   );
 }
 
+export async function getDailySeries(
+  restaurantId: number,
+  days = 7,
+  date?: string
+): Promise<DaySummary[]> {
+  const params = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    days: String(days),
+  });
+  if (date) params.set('date', date);
+  const data = await apiFetch<{ days: DaySummary[] }>(
+    `/api/v1/analytics/daily?${params}`, restaurantId
+  );
+  return data.days ?? [];
+}
+
 // ─── Customer Insights ──────────────────────────────────────────────────────
 
 export async function getAnalyticsCustomers(
