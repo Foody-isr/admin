@@ -46,6 +46,8 @@ export default function OpeningHoursPage() {
   const [activeTab, setActiveTab] = useState<OrderType>('pickup');
   const [config, setConfig] = useState<OpeningHoursConfig>(defaultConfig());
   const [closures, setClosures] = useState<ExceptionalClosure[]>([]);
+  const [pickupEnabled, setPickupEnabled] = useState(true);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
 
   useEffect(() => {
     getRestaurant(rid)
@@ -62,6 +64,8 @@ export default function OpeningHoursPage() {
           }
           setConfig(merged);
         }
+        setPickupEnabled(r.pickup_enabled ?? true);
+        setDeliveryEnabled(r.delivery_enabled ?? false);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -87,8 +91,14 @@ export default function OpeningHoursPage() {
     }));
   };
 
-  const isOpenNow = (() => {
-    const week = config[activeTab] ?? defaultWeek();
+  const isServiceEnabled = (ot: OrderType): boolean => {
+    if (ot === 'pickup') return pickupEnabled;
+    if (ot === 'delivery') return deliveryEnabled;
+    return true; // dine_in is always available; controlled by tables
+  };
+
+  const isScheduleOpenNow = (ot: OrderType): boolean => {
+    const week = config[ot] ?? defaultWeek();
     const now = new Date();
     const dayIdx = (now.getDay() + 6) % 7; // Mon=0
     const day = DAYS[dayIdx];
@@ -101,7 +111,10 @@ export default function OpeningHoursPage() {
     let c = ch * 60 + cm;
     if (c <= o) c += 24 * 60;
     return cur >= o && cur <= c;
-  })();
+  };
+
+  const activeEnabled = isServiceEnabled(activeTab);
+  const isOpenNow = activeEnabled && isScheduleOpenNow(activeTab);
 
   if (loading) {
     return (
@@ -129,28 +142,54 @@ export default function OpeningHoursPage() {
         }
         actions={
           <Badge tone={isOpenNow ? 'success' : 'neutral'} dot>
-            {isOpenNow ? t('openNow') || 'Ouvert maintenant' : t('closedNow') || 'Fermé maintenant'}
+            {!activeEnabled
+              ? t('serviceDisabled') || 'Service désactivé'
+              : isOpenNow
+                ? t('openNow') || 'Ouvert maintenant'
+                : t('closedNow') || 'Fermé maintenant'}
           </Badge>
         }
       />
 
       <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md mb-[var(--s-4)]">
-        {tabs.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            aria-selected={activeTab === key}
-            onClick={() => setActiveTab(key)}
-            className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
-              activeTab === key
-                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        {tabs.map(({ key, label }) => {
+          const enabled = isServiceEnabled(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-selected={activeTab === key}
+              onClick={() => setActiveTab(key)}
+              className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
+                activeTab === key
+                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+              }`}
+            >
+              <span>{label}</span>
+              {!enabled && (
+                <span className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)]">
+                  {t('off') || 'off'}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {!activeEnabled && (
+        <div
+          className="mb-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md text-fs-sm"
+          style={{
+            background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+            color: 'var(--warning-500)',
+            border: '1px solid color-mix(in oklab, var(--warning-500) 35%, var(--line))',
+          }}
+        >
+          {(t('serviceDisabledBanner') ||
+            'Ce mode de commande est désactivé. Activez-le dans Paramètres → Général → Service & disponibilité pour qu’il soit visible par vos clients.')}
+        </div>
+      )}
 
       <Section title={t('businessHours') || "Heures d'ouverture"}>
         <div className="border border-[var(--line)] rounded-r-md overflow-hidden">

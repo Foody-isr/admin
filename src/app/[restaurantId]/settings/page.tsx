@@ -33,6 +33,11 @@ interface PrefsForm {
   number_format: '1 234,56' | '1,234.56';
 }
 
+interface ServiceForm {
+  pickup_enabled: boolean;
+  delivery_enabled: boolean;
+}
+
 export default function SettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -59,6 +64,11 @@ export default function SettingsPage() {
     number_format: '1 234,56',
   });
 
+  const [service, setService] = useState<ServiceForm>({
+    pickup_enabled: true,
+    delivery_enabled: false,
+  });
+
   useEffect(() => {
     getRestaurant(rid)
       .then((r) => {
@@ -70,6 +80,10 @@ export default function SettingsPage() {
           phone: r.phone ?? '',
         }));
         if (r.timezone) setPrefs((p) => ({ ...p, timezone: r.timezone }));
+        setService({
+          pickup_enabled: r.pickup_enabled ?? true,
+          delivery_enabled: r.delivery_enabled ?? false,
+        });
       })
       .finally(() => setLoading(false));
     getRestaurantSettings(rid).catch(() => {});
@@ -83,6 +97,8 @@ export default function SettingsPage() {
         address: info.address,
         phone: info.phone,
         timezone: prefs.timezone,
+        pickup_enabled: service.pickup_enabled,
+        delivery_enabled: service.delivery_enabled,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -216,6 +232,41 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      <Section
+        title={t('serviceAvailability') || 'Service & disponibilité'}
+        desc={
+          t('serviceAvailabilityDesc') ||
+          'Choisissez les modes de commande proposés à vos clients en ligne. La disponibilité dans la journée est gérée dans Horaires.'
+        }
+      >
+        <div className="flex flex-col gap-[var(--s-3)]">
+          <ServiceToggle
+            label={t('pickup') || 'À emporter'}
+            sub={t('pickupServiceDesc') || 'Le client retire sa commande au comptoir.'}
+            checked={service.pickup_enabled}
+            onChange={(v) => setService((p) => ({ ...p, pickup_enabled: v }))}
+          />
+          <ServiceToggle
+            label={t('delivery') || 'Livraison'}
+            sub={t('deliveryServiceDesc') || 'Le client se fait livrer à son adresse.'}
+            checked={service.delivery_enabled}
+            onChange={(v) => setService((p) => ({ ...p, delivery_enabled: v }))}
+          />
+          {!service.pickup_enabled && !service.delivery_enabled && (
+            <div
+              className="text-fs-xs px-[var(--s-3)] py-[var(--s-2)] rounded-r-md"
+              style={{
+                background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+                color: 'var(--warning-500)',
+              }}
+            >
+              {t('noServiceWarning') ||
+                'Aucun mode de commande activé : les clients ne pourront pas commander en ligne.'}
+            </div>
+          )}
+        </div>
+      </Section>
+
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
         <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
@@ -280,5 +331,48 @@ export default function SettingsPage() {
         </div>
       </Section>
     </div>
+  );
+}
+
+function ServiceToggle({
+  label,
+  sub,
+  checked,
+  onChange,
+}: {
+  label: string;
+  sub: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label
+      className="flex items-center justify-between gap-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md border border-[var(--line)] cursor-pointer hover:border-[var(--line-strong)] transition-colors"
+      style={{
+        background: checked
+          ? 'color-mix(in oklab, var(--brand-500) 6%, var(--surface))'
+          : 'var(--surface)',
+      }}
+    >
+      <div className="min-w-0">
+        <div className="text-fs-sm font-medium text-[var(--fg)]">{label}</div>
+        <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{sub}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
+        style={{
+          background: checked ? 'var(--brand-500)' : 'var(--surface-3)',
+        }}
+      >
+        <span
+          className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+          style={{ transform: checked ? 'translateX(22px)' : 'translateX(2px)' }}
+        />
+      </button>
+    </label>
   );
 }
