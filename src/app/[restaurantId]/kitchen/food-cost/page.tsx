@@ -397,11 +397,11 @@ export default function FoodCostPage() {
       <div className="flex flex-1 mt-[var(--s-6)]">
         {/* Items list */}
         <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col pt-[var(--s-6)]">
-          {/* Selector block — min-h matches the natural height of the right
-              "item title header" card so their bottoms align on the same
-              horizontal line (image=64px + button=40px + 16px gap +
-              p-[var(--s-5)] = 160px). */}
-          <div className="px-[var(--s-6)] pb-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)] min-h-40">
+          {/* Selector block — fixed min-height pairs with the right header
+              card's matching min-h so both blocks end on the same horizontal
+              line (search + filters + count sit at the top; any extra space
+              falls below the count, just above the bottom border). */}
+          <div className="px-[var(--s-6)] pb-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)] min-h-[184px]">
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
@@ -608,8 +608,11 @@ export default function FoodCostPage() {
           ) : (
             <div className="max-w-3xl mx-auto space-y-[var(--s-5)]">
               {/* Item header — portion variants removed (already shown as "Portion active" chips
-                  inside the Coût section below); actions consolidated to a single primary CTA. */}
-              <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+                  inside the Coût section below); actions consolidated to a single primary CTA.
+                  min-h pairs with the left selector block so both blocks end on
+                  the same horizontal line. flex-col + mt-auto on the action row
+                  pushes the button to the card's bottom edge. */}
+              <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)] min-h-[184px] flex flex-col">
                 <div className="flex items-start gap-[var(--s-4)]">
                   {selectedItem.item.image_url ? (
                     <img
@@ -637,8 +640,9 @@ export default function FoodCostPage() {
                   </span>
                 </div>
 
-                {/* Single primary action — opens the item edit modal on Recipe tab */}
-                <div className="mt-[var(--s-4)] flex items-center justify-end">
+                {/* Single primary action — opens the item edit modal on Recipe tab.
+                    mt-auto pushes the row to the card's bottom edge under min-h. */}
+                <div className="mt-auto pt-[var(--s-4)] flex items-center justify-end">
                   <button
                     onClick={() => router.push(`/${rid}/menu/items/${selectedItem.item.id}?tab=recipe`)}
                     className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-r-md transition-colors font-medium text-fs-sm"
@@ -658,10 +662,6 @@ export default function FoodCostPage() {
                 itemOptionOverrides={itemOptionOverrides}
                 vatRate={vatRate}
                 price={selectedItem.item.price}
-                // Align the "Coût" title with the "L'OR ROUGE" title in the
-                // header card above: emoji (text-4xl ≈ 36px) + gap-[var(--s-4)]
-                // (16px) − the bar's own 3px + gap-[var(--s-3)] (12px) ≈ 37px.
-                headerIndentClass="ms-[37px]"
               />
             </div>
           )}
