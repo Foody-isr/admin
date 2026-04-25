@@ -35,6 +35,10 @@ import {
   Sun,
   Moon,
   Languages,
+  Tag,
+  Clock,
+  DollarSign,
+  Printer,
   type LucideIcon,
 } from 'lucide-react';
 import { useAi } from '@/lib/ai-context';
@@ -213,6 +217,41 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     return !!(item.subItems?.length || item.subGroups?.length);
   }
 
+  // Settings sub-nav — when on /settings/*, the main rail is replaced by these
+  // groups so the user sees a single sidebar instead of two stacked. Mirrors
+  // design-reference/screens/settings.jsx SettingsShell groups.
+  const isSettingsRoute =
+    pathname === `${base}/settings` || pathname.startsWith(`${base}/settings/`);
+  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon }[] }[] = [
+    {
+      groupKey: 'settingsGroupAccount',
+      items: [
+        { id: 'general',  href: `${base}/settings`,                labelKey: 'general',      icon: Settings },
+        { id: 'branding', href: `${base}/settings/branding`,        labelKey: 'branding',     icon: Tag },
+        { id: 'hours',    href: `${base}/settings/opening-hours`,   labelKey: 'openingHours', icon: Clock },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupCommerce',
+      items: [
+        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign },
+        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupOrg',
+      items: [
+        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users },
+      ],
+    },
+  ];
+  const isSettingsItemActive = (href: string): boolean => {
+    // /settings is the general page; only mark it active on exact match so
+    // it doesn't stay highlighted when visiting a sibling sub-page.
+    if (href === `${base}/settings`) return pathname === href;
+    return isPathActive(href);
+  };
+
   const sidebarWidth = collapsed
     ? 'w-[var(--sidebar-w-collapsed)]'
     : 'w-[var(--sidebar-w)]';
@@ -274,7 +313,54 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
         {/* Navigation */}
         <nav className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
-          {nav.map((item) => {
+          {isSettingsRoute ? (
+            <>
+              {/* Back-to-app link */}
+              <Link
+                href={`${base}/dashboard`}
+                onClick={onClose}
+                className="w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out mb-[var(--s-2)]"
+              >
+                <BackArrow className="w-[18px] h-[18px] shrink-0" />
+                {!collapsed && <span className="truncate">{t('backToApp') || 'Back to app'}</span>}
+              </Link>
+              <div className="border-t border-[var(--line)] -mx-[var(--s-3)] mb-[var(--s-2)]" />
+              {!collapsed && (
+                <div className="text-fs-xs font-semibold uppercase tracking-[.08em] text-[var(--fg-muted)] px-[var(--s-3)] pt-[var(--s-2)] pb-[var(--s-3)]">
+                  {t('settings')}
+                </div>
+              )}
+              {settingsSections.map((s) => (
+                <div key={s.groupKey} className="mb-[var(--s-3)]">
+                  {!collapsed && (
+                    <div className="text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
+                      {t(s.groupKey)}
+                    </div>
+                  )}
+                  {s.items.map((it) => {
+                    const active = isSettingsItemActive(it.href);
+                    const Icon = it.icon;
+                    return (
+                      <Link
+                        key={it.id}
+                        href={it.href}
+                        onClick={onClose}
+                        className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                          active
+                            ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
+                            : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
+                        }`}
+                      >
+                        <Icon className="w-[18px] h-[18px] shrink-0" />
+                        {!collapsed && <span className="flex-1 truncate">{t(it.labelKey)}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </>
+          ) : (
+            nav.map((item) => {
             const isActive = isItemActive(item);
             const expanded = expandedKeys.has(item.labelKey) || isActive;
             const children = hasChildren(item);
@@ -392,7 +478,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                 )}
               </div>
             );
-          })}
+            })
+          )}
         </nav>
 
         {/* Footer — quick action icons (top), theme + collapse (bottom). */}
