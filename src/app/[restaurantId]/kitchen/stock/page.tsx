@@ -41,7 +41,18 @@ import {
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  SortableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableSelectAllCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+  DataTableSelectCell,
+} from '@/components/data-table';
 import { Button, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -548,77 +559,43 @@ export default function StockPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
-                <th className="text-left p-4 w-12">
-                  <Checkbox
-                    checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('item') || 'Article'}
-                    {sortKey === 'name' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('category') || 'Catégorie'}
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('quantity')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('quantity') || 'Quantité'}
-                    {sortKey === 'quantity' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('price')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('unitPrice') || 'Prix unitaire'}
-                    {sortKey === 'price' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('totalValue') || 'Valeur totale'}
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('supplier') || 'Fournisseur'}
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('status') || 'Statut'}
-                </th>
-                <th className="text-left p-4 w-12" />
-              </tr>
-            </thead>
-            <tbody>
+        <DataTable>
+            <DataTableHead>
+                <DataTableSelectAllCell
+                  checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <SortableHeadCell
+                  sortKey="name"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'name')}
+                >
+                  {t('item') || 'Article'}
+                </SortableHeadCell>
+                <DataTableHeadCell>{t('category') || 'Catégorie'}</DataTableHeadCell>
+                <SortableHeadCell
+                  sortKey="quantity"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'quantity')}
+                >
+                  {t('quantity') || 'Quantité'}
+                </SortableHeadCell>
+                <SortableHeadCell
+                  sortKey="price"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'price')}
+                >
+                  {t('unitPrice') || 'Prix unitaire'}
+                </SortableHeadCell>
+                <DataTableHeadCell>{t('totalValue') || 'Valeur totale'}</DataTableHeadCell>
+                <DataTableHeadCell>{t('supplier') || 'Fournisseur'}</DataTableHeadCell>
+                <DataTableHeadCell>{t('status') || 'Statut'}</DataTableHeadCell>
+                <DataTableHeadSpacerCell />
+            </DataTableHead>
+            <DataTableBody>
               {sorted.map((item, index) => {
                 const isLow = item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
                 const catColor = categories.find((c) => c.name === item.category)?.color;
@@ -627,21 +604,12 @@ export default function StockPage() {
                 const popoverOpen = levelPopover === item.id;
                 const lineValue = item.quantity * adjustedCost(item);
                 return (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors ${
-                      index % 2 === 0
-                        ? 'bg-white dark:bg-[#111111]'
-                        : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'
-                    }`}
-                  >
-                    <td className="p-4">
-                      <Checkbox
-                        checked={selected.has(item.id)}
-                        onCheckedChange={() => toggleSelect(item.id)}
-                      />
-                    </td>
-                    <td className="p-4">
+                  <DataTableRow key={item.id} index={index}>
+                    <DataTableSelectCell
+                      checked={selected.has(item.id)}
+                      onCheckedChange={() => toggleSelect(item.id)}
+                    />
+                    <DataTableCell>
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
@@ -663,8 +631,8 @@ export default function StockPage() {
                           {item.name}
                         </span>
                       </button>
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
                         {catColor && (
                           <span
@@ -674,9 +642,9 @@ export default function StockPage() {
                         )}
                         {item.category || '—'}
                       </span>
-                    </td>
-                    <td
-                      className="p-4 relative cursor-pointer hover:text-orange-500"
+                    </DataTableCell>
+                    <DataTableCell
+                      className="relative cursor-pointer hover:text-orange-500"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
                     >
@@ -731,8 +699,8 @@ export default function StockPage() {
                           </div>
                         </>
                       )}
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <span className="text-sm text-neutral-600 dark:text-neutral-400">
                         {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
                         {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
@@ -741,18 +709,18 @@ export default function StockPage() {
                           </span>
                         )}
                       </span>
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <span className="font-semibold text-neutral-900 dark:text-white">
                         {lineValue.toFixed(2)} ₪
                       </span>
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <span className="text-sm text-neutral-600 dark:text-neutral-400">
                         {item.supplier || '—'}
                       </span>
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       {isLow ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
                           <AlertTriangleIcon className="w-4 h-4" />
@@ -763,8 +731,8 @@ export default function StockPage() {
                           OK
                         </span>
                       )}
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <RowActionsMenu
                         actions={[
                           { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
@@ -773,13 +741,12 @@ export default function StockPage() {
                           { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
                         ]}
                       />
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+        </DataTable>
       )}
 
       {/* Pagination — Figma App.tsx:800 */}

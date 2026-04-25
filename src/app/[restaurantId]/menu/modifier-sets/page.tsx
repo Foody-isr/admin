@@ -8,6 +8,15 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, PencilIcon, TrashIcon } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 export default function ModifierSetsPage() {
   const { restaurantId } = useParams();
@@ -83,57 +92,53 @@ export default function ModifierSetsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('name') || 'Name'}</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('displayName') || 'Display name'}</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">{t('required') || 'Required'}</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">{t('modifiers') || 'Modifiers'}</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">{t('linkedItems') || 'Linked items'}</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {sets.map((set) => (
-                <tr key={set.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{set.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{set.display_name || '—'}</td>
-                  <td className="px-4 py-3 text-center">
-                    {set.is_required ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
-                        {t('required') || 'Required'}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-600">{set.modifiers?.length ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-gray-600">{set.menu_items?.length ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/${set.id}`)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700"
-                        title={t('edit') || 'Edit'}
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(set.id)}
-                        className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"
-                        title={t('delete') || 'Delete'}
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>{t('name') || 'Name'}</DataTableHeadCell>
+            <DataTableHeadCell>{t('displayName') || 'Display name'}</DataTableHeadCell>
+            <DataTableHeadCell align="center">{t('required') || 'Required'}</DataTableHeadCell>
+            <DataTableHeadCell align="center">{t('modifiers') || 'Modifiers'}</DataTableHeadCell>
+            <DataTableHeadCell align="center">{t('linkedItems') || 'Linked items'}</DataTableHeadCell>
+            <DataTableHeadSpacerCell />
+          </DataTableHead>
+          <DataTableBody>
+            {sets.map((set, index) => (
+              <DataTableRow key={set.id} index={index}>
+                <DataTableCell className="font-medium">{set.name}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{set.display_name || '—'}</DataTableCell>
+                <DataTableCell align="center">
+                  {set.is_required ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                      {t('required') || 'Required'}
+                    </span>
+                  ) : (
+                    <span className="text-fg-secondary">—</span>
+                  )}
+                </DataTableCell>
+                <DataTableCell align="center" className="text-fg-secondary">{set.modifiers?.length ?? 0}</DataTableCell>
+                <DataTableCell align="center" className="text-fg-secondary">{set.menu_items?.length ?? 0}</DataTableCell>
+                <DataTableCell>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => router.push(`/${restaurantId}/menu/modifier-sets/${set.id}`)}
+                      className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
+                      title={t('edit') || 'Edit'}
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(set.id)}
+                      className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
+                      title={t('delete') || 'Delete'}
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
     </div>
   );

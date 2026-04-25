@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getRestaurant, updateRestaurant,
+  getRestaurant,
+  updateRestaurant,
   Restaurant,
-  getSpokeConfig, updateSpokeConfig, SpokeConfigResponse,
-  getRestaurantSettings, updateRestaurantSettings,
+  getRestaurantSettings,
 } from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
-import { Button, Field, Input, PageHead, Section } from '@/components/ds';
+import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
@@ -17,62 +17,73 @@ const LOCALE_LABELS: Record<Locale, string> = {
   fr: 'Français',
 };
 
+interface InfoForm {
+  name: string;
+  legal_name: string;
+  address: string;
+  phone: string;
+  email: string;
+  tax_id: string;
+  capacity: string;
+}
+
+interface PrefsForm {
+  timezone: string;
+  currency: string;
+  number_format: '1 234,56' | '1,234.56';
+}
+
 export default function SettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale, setLocale } = useI18n();
 
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Spoke config
-  const [spokeConfig, setSpokeConfig] = useState<SpokeConfigResponse | null>(null);
-  const [spokeForm, setSpokeForm] = useState({
-    api_key: '',
-    enabled: false,
-    depot_id: '',
-    default_driver_name: '',
-    default_driver_phone: '',
+  const [info, setInfo] = useState<InfoForm>({
+    name: '',
+    legal_name: '',
+    address: '',
+    phone: '',
+    email: '',
+    tax_id: '',
+    capacity: '',
   });
-  const [spokeSaving, setSpokeSaving] = useState(false);
-  const [spokeSaved, setSpokeSaved] = useState(false);
 
-  // Restaurant info form
-  const [info, setInfo] = useState({ name: '', address: '', phone: '', description: '' });
-
-  // VAT rate
-  const [vatRate, setVatRate] = useState<number>(18);
-  const [vatSaving, setVatSaving] = useState(false);
-  const [vatSaved, setVatSaved] = useState(false);
+  const [prefs, setPrefs] = useState<PrefsForm>({
+    timezone: 'Asia/Jerusalem',
+    currency: 'ILS',
+    number_format: '1 234,56',
+  });
 
   useEffect(() => {
-    getSpokeConfig(rid).then((cfg) => {
-      setSpokeConfig(cfg);
-      if (cfg.configured) {
-        setSpokeForm((p) => ({
+    getRestaurant(rid)
+      .then((r) => {
+        setRestaurant(r);
+        setInfo((p) => ({
           ...p,
-          enabled: cfg.enabled ?? false,
-          depot_id: cfg.depot_id ?? '',
-          default_driver_name: cfg.default_driver_name ?? '',
-          default_driver_phone: cfg.default_driver_phone ?? '',
+          name: r.name ?? '',
+          address: r.address ?? '',
+          phone: r.phone ?? '',
         }));
-      }
-    }).catch(() => {});
-    getRestaurant(rid).then((r) => {
-      setRestaurant(r);
-      setInfo({ name: r.name, address: r.address, phone: r.phone, description: r.description });
-    }).finally(() => setLoading(false));
-    getRestaurantSettings(rid).then((s) => {
-      setVatRate(s.vat_rate ?? 18);
-    }).catch(() => {});
+        if (r.timezone) setPrefs((p) => ({ ...p, timezone: r.timezone }));
+      })
+      .finally(() => setLoading(false));
+    getRestaurantSettings(rid).catch(() => {});
   }, [rid]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateRestaurant(rid, info);
+      await updateRestaurant(rid, {
+        name: info.name,
+        address: info.address,
+        phone: info.phone,
+        timezone: prefs.timezone,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -83,195 +94,191 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-[var(--s-5)] max-w-2xl">
+    <div className="max-w-[880px]">
       <PageHead
-        title={t('settings') || 'Paramètres'}
-        desc={t('settingsGeneralDesc') || 'Informations générales du restaurant'}
+        title={t('general') || 'Général'}
+        desc={t('settingsGeneralDesc') || 'Informations générales du restaurant.'}
       />
 
-      <Section title={t('language')}>
-        <div className="flex gap-[var(--s-2)]">
-          {SUPPORTED_LOCALES.map((l) => (
-            <button
-              key={l}
-              onClick={() => setLocale(l)}
-              className={`px-[var(--s-4)] h-9 rounded-r-md text-fs-sm font-medium transition-colors border ${
-                locale === l
-                  ? 'border-[var(--brand-500)] text-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_5%,transparent)]'
-                  : 'border-[var(--line)] text-[var(--fg-muted)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
-              }`}
-            >
-              {LOCALE_LABELS[l]}
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <Section title={t('restaurantInfo')}>
+      <Section title={t('restaurantInfo') || 'Informations du restaurant'}>
         <div className="flex flex-col gap-[var(--s-4)]">
-          {[
-            { label: t('name'), key: 'name' as const },
-            { label: t('address'), key: 'address' as const },
-            { label: t('phone'), key: 'phone' as const },
-            { label: t('description'), key: 'description' as const },
-          ].map(({ label, key }) => (
-            <Field key={key} label={label}>
+          <div className="flex gap-[var(--s-4)] flex-wrap">
+            <Field grow label={t('name') || 'Nom'}>
               <Input
-                value={info[key]}
-                onChange={(e) => setInfo((p) => ({ ...p, [key]: e.target.value }))}
+                value={info.name}
+                onChange={(e) => setInfo((p) => ({ ...p, name: e.target.value }))}
               />
             </Field>
-          ))}
+            <Field grow label={t('legalName') || 'Nom légal'}>
+              <Input
+                value={info.legal_name}
+                onChange={(e) => setInfo((p) => ({ ...p, legal_name: e.target.value }))}
+                placeholder="Mamie Food Ltd."
+              />
+            </Field>
+          </div>
+          <Field label={t('address') || 'Adresse'}>
+            <Input
+              value={info.address}
+              onChange={(e) => setInfo((p) => ({ ...p, address: e.target.value }))}
+            />
+          </Field>
+          <div className="flex gap-[var(--s-4)] flex-wrap">
+            <Field grow label={t('phone') || 'Téléphone'}>
+              <Input
+                className="font-mono"
+                value={info.phone}
+                onChange={(e) => setInfo((p) => ({ ...p, phone: e.target.value }))}
+              />
+            </Field>
+            <Field grow label={t('email') || 'Email'}>
+              <Input
+                type="email"
+                value={info.email}
+                onChange={(e) => setInfo((p) => ({ ...p, email: e.target.value }))}
+                placeholder="contact@…"
+              />
+            </Field>
+          </div>
+          <div className="flex gap-[var(--s-4)] flex-wrap">
+            <Field grow label={t('taxId') || 'Numéro SIRET / Tax ID'}>
+              <Input
+                className="font-mono"
+                value={info.tax_id}
+                onChange={(e) => setInfo((p) => ({ ...p, tax_id: e.target.value }))}
+                placeholder="51-1234567"
+              />
+            </Field>
+            <Field grow label={t('seatingCapacity') || 'Capacité (couverts)'}>
+              <Input
+                className="font-mono tabular-nums"
+                value={info.capacity}
+                onChange={(e) => setInfo((p) => ({ ...p, capacity: e.target.value }))}
+                placeholder="48"
+              />
+            </Field>
+          </div>
         </div>
       </Section>
 
-      <div className="flex items-center gap-[var(--s-3)]">
+      <Section
+        title={t('preferences') || 'Préférences'}
+        desc={t('preferencesDesc') || 'Langue, fuseau horaire, devise et format des chiffres.'}
+      >
+        <div className="flex gap-[var(--s-4)] flex-wrap">
+          <Field grow label={t('language') || 'Langue'}>
+            <Select value={locale} onChange={(e) => setLocale(e.target.value as Locale)}>
+              {SUPPORTED_LOCALES.map((l) => (
+                <option key={l} value={l}>
+                  {LOCALE_LABELS[l]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field grow label={t('timezone') || 'Fuseau horaire'}>
+            <Select
+              value={prefs.timezone}
+              onChange={(e) => setPrefs((p) => ({ ...p, timezone: e.target.value }))}
+            >
+              <option value="Asia/Jerusalem">Asia/Jerusalem (GMT+3)</option>
+              <option value="Europe/Paris">Europe/Paris (GMT+1)</option>
+              <option value="America/New_York">America/New_York (GMT-5)</option>
+              <option value="UTC">UTC</option>
+            </Select>
+          </Field>
+          <Field grow label={t('currency') || 'Devise'}>
+            <Select
+              value={prefs.currency}
+              onChange={(e) => setPrefs((p) => ({ ...p, currency: e.target.value }))}
+            >
+              <option value="ILS">Shekel (₪)</option>
+              <option value="EUR">Euro (€)</option>
+              <option value="USD">US Dollar ($)</option>
+            </Select>
+          </Field>
+          <Field grow label={t('numberFormat') || 'Format numérique'}>
+            <Select
+              value={prefs.number_format}
+              onChange={(e) =>
+                setPrefs((p) => ({ ...p, number_format: e.target.value as PrefsForm['number_format'] }))
+              }
+            >
+              <option value="1 234,56">1 234,56</option>
+              <option value="1,234.56">1,234.56</option>
+            </Select>
+          </Field>
+        </div>
+      </Section>
+
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
         <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
         </Button>
         {saved && (
-          <span className="text-fs-sm text-[var(--success-500)] font-medium">
-            {t('saved')}
-          </span>
+          <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
         )}
       </div>
 
-      {/* VAT / Tax configuration */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">{t('vatRate')}</h2>
-        <div className="flex items-end gap-3">
-          <div className="flex-1 max-w-[200px]">
-            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('vatRate')}</label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              className="input w-full"
-              value={vatRate}
-              onChange={(e) => setVatRate(+e.target.value)}
-            />
-          </div>
-          <button
-            onClick={async () => {
-              setVatSaving(true);
-              try {
-                await updateRestaurantSettings(rid, { vat_rate: vatRate });
-                setVatSaved(true);
-                setTimeout(() => setVatSaved(false), 2000);
-              } finally {
-                setVatSaving(false);
-              }
+      <Section
+        title={t('dangerZone') || 'Zone dangereuse'}
+        desc={t('dangerZoneDesc') || 'Actions irréversibles. Contactez le support en cas de doute.'}
+      >
+        <div className="flex flex-col gap-[var(--s-2)]">
+          <div
+            className="flex items-center justify-between gap-[var(--s-4)] p-[var(--s-4)] rounded-r-md border"
+            style={{
+              background: 'color-mix(in oklab, var(--danger-500) 6%, var(--surface))',
+              borderColor: 'color-mix(in oklab, var(--danger-500) 25%, var(--line))',
             }}
-            disabled={vatSaving}
-            className="btn-primary disabled:opacity-50"
           >
-            {vatSaving ? t('saving') : t('saveChanges')}
-          </button>
-          {vatSaved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
-        </div>
-      </div>
-
-      {/* Spoke delivery integration */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-fg-primary">{t('spokeDeliveryIntegration')}</h2>
-        <p className="text-xs text-fg-secondary">
-          {t('spokeDesc')}
-        </p>
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('apiKey')}</label>
-          <input
-            className="input"
-            type="password"
-            value={spokeForm.api_key}
-            onChange={(e) => setSpokeForm((p) => ({ ...p, api_key: e.target.value }))}
-            placeholder={spokeConfig?.configured ? t('apiKeySavedPlaceholder') : t('enterApiKey')}
-          />
-        </div>
-
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={spokeForm.enabled}
-            onChange={(e) => setSpokeForm((p) => ({ ...p, enabled: e.target.checked }))}
-          />
-          <div>
-            <div className="text-sm font-medium text-fg-primary">{t('enableSpokeIntegration')}</div>
-            <div className="text-xs text-fg-secondary">{t('spokeEnabledDesc')}</div>
+            <div className="min-w-0">
+              <div className="text-fs-sm font-semibold text-[var(--fg)]">
+                {t('exportAllData') || 'Exporter toutes les données'}
+              </div>
+              <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                {t('exportAllDataDesc') ||
+                  'Archive complète (commandes, articles, clients) au format CSV.'}
+              </div>
+            </div>
+            <Button variant="secondary" size="sm">
+              {t('export') || 'Exporter'}
+            </Button>
           </div>
-        </label>
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('depotId')}</label>
-          <input
-            className="input"
-            value={spokeForm.depot_id}
-            onChange={(e) => setSpokeForm((p) => ({ ...p, depot_id: e.target.value }))}
-            placeholder={t('spokeDepotId')}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('defaultDriverName')}</label>
-            <input
-              className="input"
-              value={spokeForm.default_driver_name}
-              onChange={(e) => setSpokeForm((p) => ({ ...p, default_driver_name: e.target.value }))}
-              placeholder={t('driverName')}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('defaultDriverPhone')}</label>
-            <input
-              className="input"
-              value={spokeForm.default_driver_phone}
-              onChange={(e) => setSpokeForm((p) => ({ ...p, default_driver_phone: e.target.value }))}
-              placeholder="+972..."
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={async () => {
-              if (!spokeForm.api_key && !spokeConfig?.configured) return;
-              setSpokeSaving(true);
-              try {
-                await updateSpokeConfig(rid, {
-                  ...spokeForm,
-                  api_key: spokeForm.api_key || '__unchanged__',
-                });
-                setSpokeSaved(true);
-                setTimeout(() => setSpokeSaved(false), 2000);
-                const cfg = await getSpokeConfig(rid);
-                setSpokeConfig(cfg);
-                setSpokeForm((p) => ({ ...p, api_key: '' }));
-              } catch (e: any) {
-                alert(e.message || 'Failed to save Spoke config');
-              } finally {
-                setSpokeSaving(false);
-              }
+          <div
+            className="flex items-center justify-between gap-[var(--s-4)] p-[var(--s-4)] rounded-r-md border"
+            style={{
+              background: 'color-mix(in oklab, var(--danger-500) 10%, var(--surface))',
+              borderColor: 'color-mix(in oklab, var(--danger-500) 35%, var(--line))',
             }}
-            disabled={spokeSaving || (!spokeForm.api_key && !spokeConfig?.configured)}
-            className="btn-primary disabled:opacity-50"
           >
-            {spokeSaving ? t('saving') : t('saveSpokeConfig')}
-          </button>
-          {spokeSaved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
-          {spokeConfig?.configured && (
-            <span className="text-xs text-fg-secondary">{t('apiKeyConfigured')}</span>
-          )}
+            <div className="min-w-0">
+              <div className="text-fs-sm font-semibold text-[var(--danger-500)]">
+                {t('closeAccount') || 'Fermer définitivement ce compte'}
+              </div>
+              <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                {t('closeAccountDesc') || 'Toutes les données seront supprimées après 30 jours.'}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="h-8 px-[var(--s-3)] rounded-r-md border text-fs-sm font-medium transition-colors hover:bg-[color-mix(in_oklab,var(--danger-500)_8%,transparent)]"
+              style={{
+                color: 'var(--danger-500)',
+                borderColor: 'color-mix(in oklab, var(--danger-500) 40%, var(--line))',
+                background: 'transparent',
+              }}
+            >
+              {t('closeAccountAction') || 'Fermer le compte'}
+            </button>
+          </div>
         </div>
-      </div>
+      </Section>
     </div>
   );
 }

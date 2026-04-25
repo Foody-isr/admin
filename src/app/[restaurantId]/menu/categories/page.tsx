@@ -10,6 +10,15 @@ import { useI18n } from '@/lib/i18n';
 import { PlusIcon, PencilIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 export default function CategoriesPage() {
   const { restaurantId } = useParams();
@@ -106,47 +115,39 @@ export default function CategoriesPage() {
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-fg-secondary tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                <th className="py-3 px-4 font-normal">{t('name')}</th>
-                <th className="py-3 px-4 font-normal text-right">{t('item')}</th>
-                <th className="py-3 px-4 font-normal w-24" />
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((cat) => (
-                <tr
-                  key={cat.id}
-                  className="hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ borderBottom: '1px solid var(--divider)' }}
-                >
-                  <td className="py-3 px-4 font-medium text-fg-primary">{cat.name}</td>
-                  <td className="py-3 px-4 text-right text-fg-secondary">
-                    {(cat.items ?? []).length}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => setEditModal({ open: true, editing: cat })}
-                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(cat)}
-                        className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>{t('name')}</DataTableHeadCell>
+            <DataTableHeadCell align="right">{t('item')}</DataTableHeadCell>
+            <DataTableHeadSpacerCell />
+          </DataTableHead>
+          <DataTableBody>
+            {categories.map((cat, index) => (
+              <DataTableRow key={cat.id} index={index}>
+                <DataTableCell className="font-medium text-fg-primary">{cat.name}</DataTableCell>
+                <DataTableCell align="right" className="text-fg-secondary">
+                  {(cat.items ?? []).length}
+                </DataTableCell>
+                <DataTableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => setEditModal({ open: true, editing: cat })}
+                      className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cat)}
+                      className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
 
       {editModal.open && (

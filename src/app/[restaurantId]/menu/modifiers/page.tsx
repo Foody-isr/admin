@@ -12,6 +12,15 @@ import {
 } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 interface FlatItem extends MenuItem {
   category_name: string;
@@ -93,45 +102,37 @@ export default function ModifiersPage() {
               <h3 className="text-sm font-semibold text-fg-primary mb-2">
                 {item.name} <span className="text-fg-secondary font-normal">({item.category_name})</span>
               </h3>
-              <div className="overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-fg-secondary tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                      <th className="py-2 px-4 font-normal">{t('modifierName')}</th>
-                      <th className="py-2 px-4 font-normal">{t('action')}</th>
-                      <th className="py-2 px-4 font-normal">{t('categoryGroupName')}</th>
-                      <th className="py-2 px-4 font-normal text-right">{t('priceDelta')}</th>
-                      <th className="py-2 px-4 font-normal w-12" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(item.modifiers ?? []).map((mod) => (
-                      <tr
-                        key={mod.id}
-                        className="hover:bg-[var(--surface-subtle)] transition-colors"
-                        style={{ borderBottom: '1px solid var(--divider)' }}
-                      >
-                        <td className="py-2 px-4 font-medium text-fg-primary">{mod.name}</td>
-                        <td className="py-2 px-4 text-fg-secondary">{mod.action}</td>
-                        <td className="py-2 px-4 text-fg-secondary">{mod.category || '—'}</td>
-                        <td className="py-2 px-4 text-right text-fg-primary">
-                          {mod.price_delta !== 0
-                            ? `${mod.price_delta > 0 ? '+' : ''}₪${mod.price_delta.toFixed(2)}`
-                            : '—'}
-                        </td>
-                        <td className="py-2 px-4">
-                          <button
-                            onClick={() => handleDeleteModifier(mod.id)}
-                            className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable>
+                <DataTableHead>
+                  <DataTableHeadCell>{t('modifierName')}</DataTableHeadCell>
+                  <DataTableHeadCell>{t('action')}</DataTableHeadCell>
+                  <DataTableHeadCell>{t('categoryGroupName')}</DataTableHeadCell>
+                  <DataTableHeadCell align="right">{t('priceDelta')}</DataTableHeadCell>
+                  <DataTableHeadSpacerCell />
+                </DataTableHead>
+                <DataTableBody>
+                  {(item.modifiers ?? []).map((mod, modIdx) => (
+                    <DataTableRow key={mod.id} index={modIdx}>
+                      <DataTableCell className="font-medium text-fg-primary">{mod.name}</DataTableCell>
+                      <DataTableCell className="text-fg-secondary">{mod.action}</DataTableCell>
+                      <DataTableCell className="text-fg-secondary">{mod.category || '—'}</DataTableCell>
+                      <DataTableCell align="right" className="text-fg-primary">
+                        {mod.price_delta !== 0
+                          ? `${mod.price_delta > 0 ? '+' : ''}₪${mod.price_delta.toFixed(2)}`
+                          : '—'}
+                      </DataTableCell>
+                      <DataTableCell>
+                        <button
+                          onClick={() => handleDeleteModifier(mod.id)}
+                          className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))}
+                </DataTableBody>
+              </DataTable>
             </div>
           ))}
         </div>

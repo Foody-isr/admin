@@ -182,15 +182,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'settings',
       icon: Settings,
       perm: ['settings.view', 'settings.edit', 'tables.manage'],
-      subItems: [
-        { href: `${base}/settings`, labelKey: 'general' },
-        { href: `${base}/settings/opening-hours`, labelKey: 'openingHours' },
-        { href: `${base}/orders/settings`, labelKey: 'fulfillmentSettings' },
-        { href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans' },
-        { href: `${base}/restaurant/table-status`, labelKey: 'tableStatus' },
-        { href: `${base}/restaurant/workflow`, labelKey: 'workflow' },
-        { href: `${base}/billing`, labelKey: 'billing' },
-      ],
     },
   ];
   const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));

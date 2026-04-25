@@ -8,6 +8,15 @@ import { useI18n } from '@/lib/i18n';
 import { PlusIcon, TrashIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 export default function CustomersPage() {
   const { restaurantId } = useParams();
@@ -88,42 +97,38 @@ export default function CustomersPage() {
           {t('noTrustedCustomers')}
         </div>
       ) : (
-        <div className="overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="border-b border-divider" style={{ background: 'var(--surface-subtle)' }}>
-              <tr>
-                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('phone')}</th>
-                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('name')}</th>
-                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('notes')}</th>
-                <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('added')}</th>
-                {canManage && <th className="px-5 py-3" />}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-divider">
-              {customers.map((c) => (
-                <tr key={c.id} className="hover:bg-surface-subtle">
-                  <td className="px-5 py-3 font-medium text-fg-primary">{c.phone}</td>
-                  <td className="px-5 py-3 text-fg-primary">{c.name || '—'}</td>
-                  <td className="px-5 py-3 text-fg-secondary">{c.notes || '—'}</td>
-                  <td className="px-5 py-3 text-fg-secondary">
-                    {new Date(c.created_at).toLocaleDateString()}
-                  </td>
-                  {canManage && (
-                    <td className="px-5 py-3 text-right">
-                      <button
-                        disabled={actionLoading === c.id}
-                        onClick={() => handleRemove(c)}
-                        className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
-                      >
-                        <TrashIcon className="w-4 h-4 text-red-400" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>{t('phone')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('name')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('notes')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('added')}</DataTableHeadCell>
+            {canManage && <DataTableHeadSpacerCell />}
+          </DataTableHead>
+          <DataTableBody>
+            {customers.map((c, index) => (
+              <DataTableRow key={c.id} index={index}>
+                <DataTableCell className="font-medium text-fg-primary">{c.phone}</DataTableCell>
+                <DataTableCell className="text-fg-primary">{c.name || '—'}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{c.notes || '—'}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">
+                  {new Date(c.created_at).toLocaleDateString()}
+                </DataTableCell>
+                {canManage && (
+                  <DataTableCell align="right">
+                    <button
+                      disabled={actionLoading === c.id}
+                      onClick={() => handleRemove(c)}
+                      className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
+                    >
+                      <TrashIcon className="w-4 h-4 text-red-400" />
+                    </button>
+                  </DataTableCell>
+                )}
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
 
       {/* Add customer modal */}

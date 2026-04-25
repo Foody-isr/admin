@@ -17,6 +17,15 @@ import {
   TruckIcon, CheckCircleIcon, SendIcon, XCircleIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 type Tab = 'suppliers' | 'orders' | 'history';
@@ -242,50 +251,46 @@ function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDele
       {suppliers.length === 0 ? (
         <div className="text-center py-12 text-fg-secondary">{t('noSuppliers')}</div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: 'var(--surface-subtle)' }}>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('supplierName')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('contactName')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('phone')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('supplierProducts')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('status')}</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {suppliers.map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-t cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
-                  style={{ borderColor: 'var(--divider)' }}
-                  onClick={() => onDetail(s)}
-                >
-                  <td className="px-4 py-3 font-medium text-fg-primary">{s.name}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{s.contact_name}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{s.phone}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{s.products?.length ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {s.is_active ? t('active') : t('inactive')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => onEdit(s)} className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)]">
-                        <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                      </button>
-                      <button onClick={() => { if (confirm('Delete this supplier?')) onDelete(s.id); }} className="p-1.5 rounded-md hover:bg-red-50">
-                        <TrashIcon className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>{t('supplierName')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('contactName')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('phone')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('supplierProducts')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+            <DataTableHeadSpacerCell />
+          </DataTableHead>
+          <DataTableBody>
+            {suppliers.map((s, index) => (
+              <DataTableRow
+                key={s.id}
+                index={index}
+                className="cursor-pointer"
+                onClick={() => onDetail(s)}
+              >
+                <DataTableCell className="font-medium text-fg-primary">{s.name}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{s.contact_name}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{s.phone}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{s.products?.length ?? 0}</DataTableCell>
+                <DataTableCell>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {s.is_active ? t('active') : t('inactive')}
+                  </span>
+                </DataTableCell>
+                <DataTableCell>
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => onEdit(s)} className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)]">
+                      <PencilIcon className="w-4 h-4 text-fg-secondary" />
+                    </button>
+                    <button onClick={() => { if (confirm('Delete this supplier?')) onDelete(s.id); }} className="p-1.5 rounded-md hover:bg-red-50">
+                      <TrashIcon className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
     </>
   );
@@ -317,61 +322,57 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
       {orders.length === 0 ? (
         <div className="text-center py-12 text-fg-secondary">{t('noOrders')}</div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: 'var(--surface-subtle)' }}>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">#</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('suppliers')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('orderDate')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('status')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('totalAmount')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('items')}</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-t" style={{ borderColor: 'var(--divider)' }}>
-                  <td className="px-4 py-3 font-medium text-fg-primary">PO-{o.id}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{o.supplier?.name ?? supplierName(o.supplier_id)}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
-                      {t(o.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-fg-secondary">₪{o.total_amount.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{o.items?.length ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1">
-                      {o.status === 'draft' && (
-                        <>
-                          <button onClick={() => onSend(o.id)} title={t('markAsSent')} className="p-1.5 rounded-md hover:bg-blue-50">
-                            <SendIcon className="w-4 h-4 text-blue-500" />
-                          </button>
-                          <button onClick={() => { if (confirm('Delete this order?')) onDelete(o.id); }} className="p-1.5 rounded-md hover:bg-red-50">
-                            <TrashIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      )}
-                      {o.status === 'sent' && (
-                        <>
-                          <button onClick={() => onReceive(o)} title={t('receiveOrder')} className="p-1.5 rounded-md hover:bg-green-50">
-                            <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                          </button>
-                          <button onClick={() => { if (confirm('Cancel this order?')) onCancel(o.id); }} title={t('cancelled')} className="p-1.5 rounded-md hover:bg-red-50">
-                            <XCircleIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>#</DataTableHeadCell>
+            <DataTableHeadCell>{t('suppliers')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('orderDate')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('totalAmount')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('items')}</DataTableHeadCell>
+            <DataTableHeadSpacerCell />
+          </DataTableHead>
+          <DataTableBody>
+            {orders.map((o, index) => (
+              <DataTableRow key={o.id} index={index}>
+                <DataTableCell className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{o.supplier?.name ?? supplierName(o.supplier_id)}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
+                <DataTableCell>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
+                    {t(o.status)}
+                  </span>
+                </DataTableCell>
+                <DataTableCell className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
+                <DataTableCell>
+                  <div className="flex gap-1">
+                    {o.status === 'draft' && (
+                      <>
+                        <button onClick={() => onSend(o.id)} title={t('markAsSent')} className="p-1.5 rounded-md hover:bg-blue-50">
+                          <SendIcon className="w-4 h-4 text-blue-500" />
+                        </button>
+                        <button onClick={() => { if (confirm('Delete this order?')) onDelete(o.id); }} className="p-1.5 rounded-md hover:bg-red-50">
+                          <TrashIcon className="w-4 h-4 text-red-500" />
+                        </button>
+                      </>
+                    )}
+                    {o.status === 'sent' && (
+                      <>
+                        <button onClick={() => onReceive(o)} title={t('receiveOrder')} className="p-1.5 rounded-md hover:bg-green-50">
+                          <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                        </button>
+                        <button onClick={() => { if (confirm('Cancel this order?')) onCancel(o.id); }} title={t('cancelled')} className="p-1.5 rounded-md hover:bg-red-50">
+                          <XCircleIcon className="w-4 h-4 text-red-500" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
     </>
   );
@@ -386,36 +387,32 @@ function HistoryTab({ orders, t }: { orders: PurchaseOrder[]; t: (k: string) => 
       {orders.length === 0 ? (
         <div className="text-center py-12 text-fg-secondary">{t('noOrders')}</div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: 'var(--surface-subtle)' }}>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">#</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('suppliers')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('orderDate')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('status')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('totalAmount')}</th>
-                <th className="text-start px-4 py-3 font-medium text-fg-secondary">{t('items')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-t" style={{ borderColor: 'var(--divider)' }}>
-                  <td className="px-4 py-3 font-medium text-fg-primary">PO-{o.id}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{o.supplier?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
-                      {t(o.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-fg-secondary">₪{o.total_amount.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-fg-secondary">{o.items?.length ?? 0}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>#</DataTableHeadCell>
+            <DataTableHeadCell>{t('suppliers')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('orderDate')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('totalAmount')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('items')}</DataTableHeadCell>
+          </DataTableHead>
+          <DataTableBody>
+            {orders.map((o, index) => (
+              <DataTableRow key={o.id} index={index}>
+                <DataTableCell className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{o.supplier?.name ?? '—'}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
+                <DataTableCell>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
+                    {t(o.status)}
+                  </span>
+                </DataTableCell>
+                <DataTableCell className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
     </>
   );

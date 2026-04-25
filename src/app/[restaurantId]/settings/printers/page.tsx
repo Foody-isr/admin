@@ -1,32 +1,86 @@
 'use client';
 
+/**
+ * Imprimantes & KDS — settings sub-page.
+ * Layout matches design-reference/screens/settings.jsx SettingsPrinters:
+ *   - Imprimantes: card per printer with status, jobs as chips, test button
+ *   - Écran de cuisine (KDS): list of connected screens with status badge
+ *
+ * Backend persistence is not yet wired; state lives client-side until the
+ * dedicated printer/KDS endpoints land.
+ */
+
 import { useState } from 'react';
-import { Badge, Button, Field, Input, PageHead, Section } from '@/components/ds';
+import {
+  ClipboardList,
+  Flame,
+  MoreHorizontal,
+  Plus,
+  AlertTriangle,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { Printer, Plus, Trash2 } from 'lucide-react';
+import { Badge, Button, Chip, PageHead, Section } from '@/components/ds';
 
 interface PrinterDraft {
   id: number;
   name: string;
-  station: 'kitchen' | 'bar' | 'receipt';
-  ip: string;
-  width: '58mm' | '80mm';
-  online: boolean;
+  model: string;
+  conn: string;
+  status: 'online' | 'offline';
+  jobs: string[];
 }
 
-/**
- * Printers & KDS — scaffolded page matching the reference.
- * Backend endpoints for printer CRUD are not yet wired; this view renders
- * the anatomy and persists form state client-side until the API lands.
- */
+interface KdsScreen {
+  id: number;
+  name: string;
+  device: string;
+  connected: boolean;
+}
+
+const SAMPLE_PRINTERS: PrinterDraft[] = [
+  {
+    id: 1,
+    name: 'Cuisine principale',
+    model: 'Epson TM-T88VI',
+    conn: '192.168.1.48',
+    status: 'online',
+    jobs: ['Plats chauds', 'Grill', 'Fritures'],
+  },
+  {
+    id: 2,
+    name: 'Salade / Froid',
+    model: 'Epson TM-T20III',
+    conn: '192.168.1.52',
+    status: 'online',
+    jobs: ['Entrées froides', 'Salades'],
+  },
+  {
+    id: 3,
+    name: 'Bar',
+    model: 'Star TSP100',
+    conn: '192.168.1.55',
+    status: 'offline',
+    jobs: ['Boissons', 'Cocktails'],
+  },
+  {
+    id: 4,
+    name: 'Ticket client',
+    model: 'Epson TM-m30II',
+    conn: 'USB',
+    status: 'online',
+    jobs: ['Factures'],
+  },
+];
+
+const SAMPLE_KDS: KdsScreen[] = [
+  { id: 1, name: 'KDS Cuisine', device: 'iPad Pro 12.9" · Salle', connected: true },
+  { id: 2, name: 'KDS Bar', device: 'iPad Air · Bar', connected: true },
+];
+
 export default function PrintersSettingsPage() {
   const { t } = useI18n();
-  const [printers, setPrinters] = useState<PrinterDraft[]>([
-    { id: 1, name: 'Cuisine principale', station: 'kitchen', ip: '192.168.1.21', width: '80mm', online: true },
-    { id: 2, name: 'Bar', station: 'bar', ip: '192.168.1.22', width: '58mm', online: false },
-  ]);
-  const [kdsEnabled, setKdsEnabled] = useState(true);
-  const [autoPrint, setAutoPrint] = useState(true);
+  const [printers, setPrinters] = useState<PrinterDraft[]>(SAMPLE_PRINTERS);
+  const [kds] = useState<KdsScreen[]>(SAMPLE_KDS);
 
   const addPrinter = () =>
     setPrinters((p) => [
@@ -34,139 +88,120 @@ export default function PrintersSettingsPage() {
       {
         id: Date.now(),
         name: t('newPrinter') || 'Nouvelle imprimante',
-        station: 'kitchen',
-        ip: '',
-        width: '80mm',
-        online: false,
+        model: 'Epson TM-T88VI',
+        conn: '192.168.1.0',
+        status: 'offline',
+        jobs: [],
       },
     ]);
-  const removePrinter = (id: number) =>
-    setPrinters((p) => p.filter((x) => x.id !== id));
-  const updatePrinter = (id: number, patch: Partial<PrinterDraft>) =>
-    setPrinters((p) => p.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
   return (
-    <div className="max-w-3xl space-y-[var(--s-5)]">
+    <div className="max-w-[880px]">
       <PageHead
         title={t('printersAndKds') || 'Imprimantes & KDS'}
-        desc={
-          t('printersDesc') ||
-          "Tickets cuisine, tickets client, et affichage KDS pour les stations de préparation."
+        desc={t('printersDescNew') || 'Routage des tickets vers les imprimantes et écrans de cuisine.'}
+        actions={
+          <Button variant="primary" size="md" onClick={addPrinter}>
+            <Plus />
+            {t('add') || 'Ajouter'}
+          </Button>
         }
       />
 
-      <Section
-        title={t('printers') || 'Imprimantes'}
-        desc={t('printersHint') || 'Configurez chaque imprimante réseau et attribuez-la à une station.'}
-        aside={
-          <Button variant="secondary" size="sm" onClick={addPrinter}>
-            <Plus />
-            {t('addPrinter') || 'Ajouter'}
-          </Button>
-        }
-      >
-        {printers.length === 0 ? (
-          <div className="flex flex-col items-center gap-[var(--s-3)] py-[var(--s-8)] text-[var(--fg-muted)]">
-            <Printer className="w-10 h-10 text-[var(--fg-subtle)]" />
-            <p className="text-fs-sm">{t('noPrinters') || 'Aucune imprimante configurée.'}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-[var(--s-3)]">
-            {printers.map((p) => (
-              <div
-                key={p.id}
-                className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-[var(--s-3)] items-center p-[var(--s-3)] border border-[var(--line)] rounded-r-md"
-              >
-                <div
-                  className="w-9 h-9 rounded-r-sm grid place-items-center shrink-0"
-                  style={{
-                    background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                    color: 'var(--brand-500)',
-                  }}
-                >
-                  <Printer className="w-4 h-4" />
+      <Section title={t('printers') || 'Imprimantes'}>
+        <div className="flex flex-col gap-[var(--s-3)]">
+          {printers.map((p) => (
+            <div
+              key={p.id}
+              className="p-[var(--s-4)] bg-[var(--surface)] border border-[var(--line)] rounded-r-md"
+            >
+              <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
+                <div className="flex items-center gap-[var(--s-3)] min-w-0">
+                  <div className="w-10 h-10 rounded-r-sm bg-[var(--surface-2)] grid place-items-center text-[var(--fg-muted)] shrink-0">
+                    <ClipboardList className="w-[18px] h-[18px]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-fs-sm font-semibold text-[var(--fg)] truncate">
+                      {p.name}
+                    </div>
+                    <div className="text-fs-xs text-[var(--fg-subtle)] font-mono truncate">
+                      {p.model} · {p.conn}
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-[var(--s-2)]">
-                  <Input
-                    value={p.name}
-                    onChange={(e) => updatePrinter(p.id, { name: e.target.value })}
-                    placeholder={t('name')}
-                  />
-                  <Input
-                    value={p.ip}
-                    onChange={(e) => updatePrinter(p.id, { ip: e.target.value })}
-                    placeholder="192.168.1.20"
-                    className="font-mono"
-                  />
+                <div className="flex items-center gap-[var(--s-2)] shrink-0">
+                  {p.status === 'online' ? (
+                    <Badge tone="success" dot>
+                      {t('online') || 'En ligne'}
+                    </Badge>
+                  ) : (
+                    <Badge tone="danger">
+                      <AlertTriangle className="w-2.5 h-2.5" />
+                      {t('offline') || 'Hors ligne'}
+                    </Badge>
+                  )}
+                  <Button variant="ghost" size="sm">
+                    {t('test') || 'Test'}
+                  </Button>
+                  <button
+                    type="button"
+                    className="h-8 w-8 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                    aria-label={t('moreActions') || 'Plus'}
+                  >
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <select
-                  value={p.station}
-                  onChange={(e) => updatePrinter(p.id, { station: e.target.value as PrinterDraft['station'] })}
-                  className="h-9 px-[var(--s-3)] bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm"
-                >
-                  <option value="kitchen">{t('stationKitchen') || 'Cuisine'}</option>
-                  <option value="bar">{t('stationBar') || 'Bar'}</option>
-                  <option value="receipt">{t('stationReceipt') || 'Client'}</option>
-                </select>
-                <Badge tone={p.online ? 'success' : 'neutral'} dot>
-                  {p.online ? (t('online') || 'En ligne') : (t('offline') || 'Hors ligne')}
-                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                {p.jobs.map((j) => (
+                  <Chip key={j}>{j}</Chip>
+                ))}
                 <button
                   type="button"
-                  onClick={() => removePrinter(p.id)}
-                  className="p-2 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                  aria-label={t('remove')}
+                  className="inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] border border-dashed border-[var(--line-strong)] hover:text-[var(--fg)] hover:border-[var(--fg-subtle)]"
+                  onClick={() => {
+                    const job = window.prompt(t('addJobPrompt') || 'Nom du flux :');
+                    if (!job) return;
+                    setPrinters((prev) =>
+                      prev.map((x) =>
+                        x.id === p.id ? { ...x, jobs: [...x.jobs, job] } : x,
+                      ),
+                    );
+                  }}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Plus className="w-2.5 h-2.5" />
+                  {t('add') || 'Ajouter'}
                 </button>
               </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      <Section title={t('kds') || 'Affichage KDS'} desc={t('kdsDesc') || 'Écrans de cuisine par station.'}>
-        <div className="flex flex-col gap-[var(--s-3)]">
-          <label className="flex items-start gap-[var(--s-3)] cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={kdsEnabled}
-              onChange={(e) => setKdsEnabled(e.target.checked)}
-            />
-            <div>
-              <div className="text-fs-sm font-medium text-[var(--fg)]">
-                {t('kdsEnable') || 'Activer le KDS'}
-              </div>
-              <div className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('kdsEnableDesc') ||
-                  "Affiche les commandes en cuisine sur un écran dédié plutôt que sur un ticket papier."}
-              </div>
             </div>
-          </label>
-          <label className="flex items-start gap-[var(--s-3)] cursor-pointer">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={autoPrint}
-              onChange={(e) => setAutoPrint(e.target.checked)}
-            />
-            <div>
-              <div className="text-fs-sm font-medium text-[var(--fg)]">
-                {t('autoPrint') || 'Impression automatique'}
-              </div>
-              <div className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('autoPrintDesc') || "Imprime le ticket dès que la commande passe en cuisine."}
-              </div>
-            </div>
-          </label>
+          ))}
         </div>
       </Section>
 
-      <div className="text-fs-xs text-[var(--fg-subtle)]">
-        {t('printersComingSoon') ||
-          'Configuration réseau et persistance serveur à venir dans une prochaine mise à jour.'}
-      </div>
+      <Section
+        title={t('kdsTitle') || 'Écran de cuisine (KDS)'}
+        desc={t('kdsScreensDesc') || 'Écrans connectés affichant les commandes en cours.'}
+      >
+        <div className="flex flex-col gap-[var(--s-2)]">
+          {kds.map((k) => (
+            <div
+              key={k.id}
+              className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] bg-[var(--surface)] border border-[var(--line)] rounded-r-md"
+            >
+              <div className="flex items-center gap-[var(--s-3)] min-w-0">
+                <Flame className="w-4 h-4 text-[var(--brand-500)] shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-fs-sm font-medium text-[var(--fg)] truncate">{k.name}</div>
+                  <div className="text-fs-xs text-[var(--fg-subtle)] truncate">{k.device}</div>
+                </div>
+              </div>
+              <Badge tone={k.connected ? 'success' : 'neutral'} dot>
+                {k.connected ? t('connected') || 'Connecté' : t('disconnected') || 'Déconnecté'}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      </Section>
     </div>
   );
 }

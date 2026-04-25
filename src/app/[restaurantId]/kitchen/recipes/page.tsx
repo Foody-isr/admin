@@ -17,6 +17,18 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  SortableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableSelectAllCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+  DataTableSelectCell,
+} from '@/components/data-table';
 
 type RecipeStatus = 'complete' | 'partial' | 'none';
 
@@ -205,154 +217,118 @@ export default function RecipesPage() {
           </p>
         </div>
       ) : (
-        <div>
-          <table className="w-full text-sm border-separate border-spacing-0">
-            <thead>
-              <tr className="text-left text-xs text-fg-secondary tracking-wider">
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">
-                  <input
-                    type="checkbox"
-                    checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
-                    onChange={toggleSelectAll}
-                    className="rounded border-[var(--divider)]"
+        <DataTable>
+          <DataTableHead>
+            <DataTableSelectAllCell
+              checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
+              onCheckedChange={() => toggleSelectAll()}
+            />
+            <SortableHeadCell
+              sortKey="name"
+              currentSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as 'name')}
+            >
+              {t('item')}
+            </SortableHeadCell>
+            <DataTableHeadCell>{t('category')}</DataTableHeadCell>
+            <SortableHeadCell
+              sortKey="prep"
+              currentSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as 'prep')}
+              align="right"
+            >
+              {t('prepTime')}
+            </SortableHeadCell>
+            <SortableHeadCell
+              sortKey="ingredients"
+              currentSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as 'ingredients')}
+              align="right"
+            >
+              {t('recipeIngredients')}
+            </SortableHeadCell>
+            <SortableHeadCell
+              sortKey="steps"
+              currentSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as 'steps')}
+              align="right"
+            >
+              {t('steps')}
+            </SortableHeadCell>
+            <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+            <DataTableHeadSpacerCell />
+          </DataTableHead>
+          <DataTableBody>
+            {sorted.map((item, index) => {
+              const s = statusOf(item);
+              return (
+                <DataTableRow
+                  key={item.id}
+                  index={index}
+                  className={selected.has(item.id) ? 'bg-brand-500/5' : ''}
+                >
+                  <DataTableSelectCell
+                    checked={selected.has(item.id)}
+                    onCheckedChange={() => toggleSelect(item.id)}
                   />
-                </th>
-                <th
-                  aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors"
-                  >
-                    {t('item')}
-                    {sortKey === 'name' && (sortDir === 'asc'
-                      ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                      : <ChevronDownIcon className="w-3.5 h-3.5" />)}
-                  </button>
-                </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('category')}</th>
-                <th
-                  aria-sort={sortKey === 'prep' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('prep')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
-                  >
-                    {t('prepTime')}
-                    {sortKey === 'prep' && (sortDir === 'asc'
-                      ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                      : <ChevronDownIcon className="w-3.5 h-3.5" />)}
-                  </button>
-                </th>
-                <th
-                  aria-sort={sortKey === 'ingredients' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('ingredients')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
-                  >
-                    {t('recipeIngredients')}
-                    {sortKey === 'ingredients' && (sortDir === 'asc'
-                      ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                      : <ChevronDownIcon className="w-3.5 h-3.5" />)}
-                  </button>
-                </th>
-                <th
-                  aria-sort={sortKey === 'steps' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="py-3 px-2 font-medium text-right sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('steps')}
-                    className="inline-flex items-center gap-1 hover:text-fg-primary transition-colors ml-auto"
-                  >
-                    {t('steps')}
-                    {sortKey === 'steps' && (sortDir === 'asc'
-                      ? <ChevronUpIcon className="w-3.5 h-3.5" />
-                      : <ChevronDownIcon className="w-3.5 h-3.5" />)}
-                  </button>
-                </th>
-                <th className="py-3 px-2 font-medium sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary">{t('status')}</th>
-                <th className="py-3 px-2 font-medium w-10 sticky top-0 z-10 bg-[var(--bg)] border-b-2 border-fg-primary" />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((item) => {
-                const s = statusOf(item);
-                return (
-                  <tr
-                    key={item.id}
-                    className={`hover:bg-[var(--surface-subtle)] transition-colors [&>td]:border-b [&>td]:border-[var(--divider)] ${selected.has(item.id) ? 'bg-brand-500/5' : ''}`}
-                  >
-                    <td className="py-3.5 px-2 w-10">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        className="rounded border-[var(--divider)]"
-                      />
-                    </td>
-                    <td className="py-3.5 px-2">
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
-                        className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
-                      >
-                        {item.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                            <ImageIcon className="w-5 h-5 text-fg-tertiary" />
-                          </div>
-                        )}
-                        <span className="font-medium text-fg-primary">{item.name}</span>
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-2 text-fg-secondary">{item.category_name || '—'}</td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
-                      {item.prep_time_mins > 0 ? (
-                        <span className="inline-flex items-center gap-1 justify-end">
-                          <ClockIcon className="w-3.5 h-3.5 text-fg-tertiary" />
-                          {item.prep_time_mins}m
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
-                      {item.ingredient_count > 0 ? item.ingredient_count : '—'}
-                    </td>
-                    <td className="py-3.5 px-2 text-right font-mono text-fg-primary">
-                      {item.step_count > 0 ? item.step_count : '—'}
-                    </td>
-                    <td className="py-3.5 px-2">
-                      <span className="inline-flex items-center gap-2 text-xs font-medium text-fg-secondary">
-                        <span className={`w-2 h-2 rounded-full ${getStatusColor(s)}`} />
-                        {getStatusLabel(s)}
+                  <DataTableCell>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
+                      className="flex items-center gap-3 text-left hover:text-brand-500 transition-colors"
+                    >
+                      {item.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                          <ImageIcon className="w-5 h-5 text-fg-tertiary" />
+                        </div>
+                      )}
+                      <span className="font-medium text-fg-primary">{item.name}</span>
+                    </button>
+                  </DataTableCell>
+                  <DataTableCell className="text-fg-secondary">{item.category_name || '—'}</DataTableCell>
+                  <DataTableCell align="right" className="font-mono text-fg-primary">
+                    {item.prep_time_mins > 0 ? (
+                      <span className="inline-flex items-center gap-1 justify-end">
+                        <ClockIcon className="w-3.5 h-3.5 text-fg-tertiary" />
+                        {item.prep_time_mins}m
                       </span>
-                    </td>
-                    <td className="py-3.5 px-2">
-                      <RowActionsMenu
-                        actions={[
-                          {
-                            label: t('edit'),
-                            onClick: () => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`),
-                            icon: <PencilIcon className="w-4 h-4" />,
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    ) : '—'}
+                  </DataTableCell>
+                  <DataTableCell align="right" className="font-mono text-fg-primary">
+                    {item.ingredient_count > 0 ? item.ingredient_count : '—'}
+                  </DataTableCell>
+                  <DataTableCell align="right" className="font-mono text-fg-primary">
+                    {item.step_count > 0 ? item.step_count : '—'}
+                  </DataTableCell>
+                  <DataTableCell>
+                    <span className="inline-flex items-center gap-2 text-xs font-medium text-fg-secondary">
+                      <span className={`w-2 h-2 rounded-full ${getStatusColor(s)}`} />
+                      {getStatusLabel(s)}
+                    </span>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <RowActionsMenu
+                      actions={[
+                        {
+                          label: t('edit'),
+                          onClick: () => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`),
+                          icon: <PencilIcon className="w-4 h-4" />,
+                        },
+                      ]}
+                    />
+                  </DataTableCell>
+                </DataTableRow>
+              );
+            })}
+          </DataTableBody>
+        </DataTable>
       )}
 
       <StockFiltersDrawer

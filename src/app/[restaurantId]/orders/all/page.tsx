@@ -17,6 +17,14 @@ import {
   ChevronDownIcon, XIcon, PrinterIcon, MoreHorizontalIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 import { CheckIcon, ClockIcon, GlobeIcon, UserIcon, EditIcon } from 'lucide-react';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
@@ -429,41 +437,36 @@ export default function OrdersPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-fg-secondary tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
-                  <th className="py-3 px-4 font-normal">{t('name')}</th>
-                  <th className="py-3 px-4 font-normal">{t('source')}</th>
-                  <th className="py-3 px-4 font-normal">{t('type')}</th>
-                  <th className="py-3 px-4 font-normal">{t('items')}</th>
-                  <th className="py-3 px-4 font-normal">{t('status')}</th>
-                  <th className="py-3 px-4 font-normal">{t('payment')}</th>
-                  <th className="py-3 px-4 font-normal text-right">{t('total')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr
+          <>
+            <DataTable>
+              <DataTableHead>
+                <DataTableHeadCell>{t('name')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('source')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('type')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('items')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('payment')}</DataTableHeadCell>
+                <DataTableHeadCell align="right">{t('total')}</DataTableHeadCell>
+              </DataTableHead>
+              <DataTableBody>
+                {orders.map((order, index) => (
+                  <DataTableRow
                     key={order.id}
+                    index={index}
+                    striped={false}
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
-                    className={`cursor-pointer transition-colors ${
-                      selectedId === order.id
-                        ? 'bg-blue-500/10'
-                        : 'hover:bg-[var(--surface-subtle)]'
-                    }`}
-                    style={{ borderBottom: '1px solid var(--divider)' }}
+                    className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
-                    <td className="py-3 px-4">
+                    <DataTableCell>
                       <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
-                    </td>
-                    <td className="py-3 px-4 text-fg-secondary capitalize">
+                    </DataTableCell>
+                    <DataTableCell className="text-fg-secondary capitalize">
                       {(order.order_source ?? 'order').replace(/_/g, ' ')}
-                    </td>
-                    <td className="py-3 px-4 text-fg-secondary capitalize">
+                    </DataTableCell>
+                    <DataTableCell className="text-fg-secondary capitalize">
                       {order.order_type.replace(/_/g, ' ')}
-                    </td>
-                    <td className="py-3 px-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <div className="flex items-center gap-1">
                         {(order.items ?? []).slice(0, 3).map((item) => (
                           <span
@@ -481,24 +484,24 @@ export default function OrdersPage() {
                           </span>
                         )}
                       </div>
-                    </td>
-                    <td className="py-3 px-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
                         {order.status.replace(/_/g, ' ')}
                       </Badge>
-                    </td>
-                    <td className="py-3 px-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
                         {order.payment_status}
                       </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-right font-medium text-fg-primary">
+                    </DataTableCell>
+                    <DataTableCell align="right" className="font-medium text-fg-primary">
                       ₪{(order.total_amount ?? 0).toFixed(0)}
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 ))}
-              </tbody>
-            </table>
+              </DataTableBody>
+            </DataTable>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -527,7 +530,7 @@ export default function OrdersPage() {
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 

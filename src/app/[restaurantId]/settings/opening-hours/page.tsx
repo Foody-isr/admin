@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getRestaurant, updateRestaurant, OpeningHoursConfig, DayHours, WeeklyHours } from '@/lib/api';
+import { Calendar, Plus, Trash2 } from 'lucide-react';
+import {
+  getRestaurant,
+  updateRestaurant,
+  OpeningHoursConfig,
+  DayHours,
+  WeeklyHours,
+} from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Button, PageHead } from '@/components/ds';
-
-// ─── Constants ─────────────────────────────────────────────────────────────────
+import { Badge, Button, Field, Input, PageHead, Section } from '@/components/ds';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Day = typeof DAYS[number];
@@ -24,7 +29,11 @@ function defaultConfig(): OpeningHoursConfig {
   return { pickup: defaultWeek(), dine_in: defaultWeek(), delivery: defaultWeek() };
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+interface ExceptionalClosure {
+  id: string;
+  date: string;
+  reason: string;
+}
 
 export default function OpeningHoursPage() {
   const { restaurantId } = useParams();
@@ -36,12 +45,12 @@ export default function OpeningHoursPage() {
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<OrderType>('pickup');
   const [config, setConfig] = useState<OpeningHoursConfig>(defaultConfig());
+  const [closures, setClosures] = useState<ExceptionalClosure[]>([]);
 
   useEffect(() => {
     getRestaurant(rid)
       .then((r) => {
         if (r.opening_hours_config) {
-          // Merge with defaults so all days are always present
           const merged: OpeningHoursConfig = defaultConfig();
           for (const ot of ORDER_TYPES) {
             const src = (r.opening_hours_config as OpeningHoursConfig)[ot];
@@ -78,36 +87,54 @@ export default function OpeningHoursPage() {
     }));
   };
 
-  const copyToAll = (orderType: OrderType, day: Day) => {
-    const src = config[orderType]![day];
-    setConfig((prev) => ({
-      ...prev,
-      [orderType]: Object.fromEntries(DAYS.map((d) => [d, { ...src }])) as WeeklyHours,
-    }));
-  };
+  const isOpenNow = (() => {
+    const week = config[activeTab] ?? defaultWeek();
+    const now = new Date();
+    const dayIdx = (now.getDay() + 6) % 7; // Mon=0
+    const day = DAYS[dayIdx];
+    const dh = week[day];
+    if (!dh || dh.closed) return false;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const [oh, om] = dh.open.split(':').map(Number);
+    const [ch, cm] = dh.close.split(':').map(Number);
+    const o = oh * 60 + om;
+    let c = ch * 60 + cm;
+    if (c <= o) c += 24 * 60;
+    return cur >= o && cur <= c;
+  })();
 
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" />
       </div>
     );
   }
 
   const tabs: { key: OrderType; label: string }[] = [
-    { key: 'pickup', label: t('pickup') },
-    { key: 'dine_in', label: t('dineIn') },
-    { key: 'delivery', label: t('delivery') },
+    { key: 'pickup', label: t('pickup') || 'À emporter' },
+    { key: 'dine_in', label: t('dineIn') || 'Sur place' },
+    { key: 'delivery', label: t('delivery') || 'Livraison' },
   ];
 
   const weeklyHours = config[activeTab] ?? defaultWeek();
 
   return (
-    <div className="space-y-[var(--s-5)] max-w-2xl">
-      <PageHead title={t('openingHours')} desc={t('openingHoursDesc')} />
+    <div className="max-w-[880px]">
+      <PageHead
+        title={t('openingHours') || 'Horaires'}
+        desc={
+          t('openingHoursDescNew') ||
+          'Affichés sur votre menu en ligne. Les commandes sont bloquées en dehors de ces horaires.'
+        }
+        actions={
+          <Badge tone={isOpenNow ? 'success' : 'neutral'} dot>
+            {isOpenNow ? t('openNow') || 'Ouvert maintenant' : t('closedNow') || 'Fermé maintenant'}
+          </Badge>
+        }
+      />
 
-      {/* Order type tabs — matches .tabs pattern */}
-      <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
+      <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md mb-[var(--s-4)]">
         {tabs.map(({ key, label }) => (
           <button
             key={key}
@@ -125,86 +152,126 @@ export default function OpeningHoursPage() {
         ))}
       </div>
 
-      {/* Schedule table */}
-      <div className="card space-y-0 overflow-hidden p-0">
-        <table className="w-full text-sm">
-          <thead>
-            <tr
-              className="text-left text-xs text-fg-secondary tracking-wider"
-              style={{ borderBottom: '1px solid var(--divider)' }}
-            >
-              <th className="py-3 px-4 font-normal w-32">{t('day')}</th>
-              <th className="py-3 px-4 font-normal w-24">{t('status')}</th>
-              <th className="py-3 px-4 font-normal">{t('openTime')}</th>
-              <th className="py-3 px-4 font-normal">{t('closeTime')}</th>
-              <th className="py-3 px-4 font-normal w-28" />
-            </tr>
-          </thead>
-          <tbody>
-            {DAYS.map((day) => {
-              const dayHours = weeklyHours[day] ?? { ...DEFAULT_DAY };
-              return (
-                <tr key={day} style={{ borderBottom: '1px solid var(--divider)' }}>
-                  <td className="py-3 px-4 font-medium text-fg-primary capitalize">
-                    {t(day)}
-                  </td>
-                  <td className="py-3 px-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!dayHours.closed}
-                        onChange={(e) => updateDay(activeTab, day, { closed: !e.target.checked })}
+      <Section title={t('businessHours') || "Heures d'ouverture"}>
+        <div className="border border-[var(--line)] rounded-r-md overflow-hidden">
+          {DAYS.map((day, i) => {
+            const dh = weeklyHours[day] ?? { ...DEFAULT_DAY };
+            return (
+              <div
+                key={day}
+                className="grid items-center gap-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)]"
+                style={{
+                  gridTemplateColumns: '140px 1fr 220px 80px',
+                  borderTop: i > 0 ? '1px solid var(--line)' : 'none',
+                  background: dh.closed ? 'var(--surface-2)' : 'transparent',
+                }}
+              >
+                <div
+                  className="text-fs-sm font-medium capitalize"
+                  style={{ color: dh.closed ? 'var(--fg-muted)' : 'var(--fg)' }}
+                >
+                  {t(day) || day}
+                </div>
+                <div>
+                  {dh.closed ? (
+                    <span className="text-fs-sm text-[var(--fg-subtle)] italic">
+                      {t('closedDay') || 'Fermé'}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-[var(--s-2)]">
+                      <Input
+                        type="time"
+                        value={dh.open}
+                        onChange={(e) => updateDay(activeTab, day, { open: e.target.value })}
+                        className="font-mono text-center"
+                        style={{ width: 100 }}
                       />
-                      <span className={`text-xs font-medium ${dayHours.closed ? 'text-fg-secondary' : 'text-status-ready'}`}>
-                        {dayHours.closed ? t('closed') : t('open')}
-                      </span>
-                    </label>
-                  </td>
-                  <td className="py-3 px-4">
-                    <input
-                      type="time"
-                      className="input text-sm py-1"
-                      value={dayHours.open}
-                      disabled={dayHours.closed}
-                      onChange={(e) => updateDay(activeTab, day, { open: e.target.value })}
-                    />
-                  </td>
-                  <td className="py-3 px-4">
-                    <input
-                      type="time"
-                      className="input text-sm py-1"
-                      value={dayHours.close}
-                      disabled={dayHours.closed}
-                      onChange={(e) => updateDay(activeTab, day, { close: e.target.value })}
-                    />
-                  </td>
-                  <td className="py-3 px-4">
-                    <button
-                      onClick={() => copyToAll(activeTab, day)}
-                      className="text-xs text-brand-500 hover:underline whitespace-nowrap"
-                      title={t('copyToAllDays')}
-                    >
-                      {t('copyToAll')}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      <span className="text-[var(--fg-subtle)]">—</span>
+                      <Input
+                        type="time"
+                        value={dh.close}
+                        onChange={(e) => updateDay(activeTab, day, { close: e.target.value })}
+                        className="font-mono text-center"
+                        style={{ width: 100 }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="text-fs-xs text-[var(--fg-subtle)]">
+                  {dh.closed ? '' : t('lastOrderHint') || 'Dernière commande −30 min'}
+                </div>
+                <label className="flex items-center justify-end gap-1.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={dh.closed}
+                    onChange={(e) => updateDay(activeTab, day, { closed: e.target.checked })}
+                  />
+                  {t('closedLabel') || 'Fermé'}
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
 
-      {/* Save */}
-      <div className="flex items-center gap-[var(--s-3)]">
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
         <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
         </Button>
         {saved && (
-          <span className="text-fs-sm text-[var(--success-500)] font-medium">
-            {t('saved')}
-          </span>
+          <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
         )}
       </div>
+
+      <Section title={t('exceptionalClosures') || 'Fermetures exceptionnelles'}>
+        <div className="flex flex-col gap-[var(--s-2)]">
+          {closures.length === 0 ? (
+            <p className="text-fs-sm text-[var(--fg-subtle)]">
+              {t('noClosures') || 'Aucune fermeture exceptionnelle.'}
+            </p>
+          ) : (
+            closures.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] bg-[var(--surface-2)] rounded-r-sm"
+              >
+                <div className="flex items-center gap-[var(--s-3)] min-w-0">
+                  <Calendar className="w-3.5 h-3.5 shrink-0 text-[var(--fg-muted)]" />
+                  <div className="min-w-0">
+                    <div className="text-fs-sm font-medium truncate">{c.date}</div>
+                    <div className="text-fs-xs text-[var(--fg-subtle)] truncate">{c.reason}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="p-1.5 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)]"
+                  onClick={() => setClosures((p) => p.filter((x) => x.id !== c.id))}
+                  aria-label={t('remove') || 'Supprimer'}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onClick={() => {
+              const date = window.prompt(t('closureDatePrompt') || 'Date (ex. 15 avril) :');
+              if (!date) return;
+              const reason = window.prompt(t('closureReasonPrompt') || 'Raison :') || '';
+              setClosures((p) => [
+                ...p,
+                { id: Math.random().toString(36).slice(2), date, reason },
+              ]);
+            }}
+          >
+            <Plus />
+            {t('addClosure') || 'Ajouter une fermeture'}
+          </Button>
+        </div>
+      </Section>
     </div>
   );
 }

@@ -19,6 +19,15 @@ import {
 } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -303,49 +312,46 @@ export default function MenusPage() {
 
       {/* ── List mode: table with columns ── */}
       {filtered.length > 0 && viewMode === 'list' && (
-        <div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-fg-secondary tracking-wider border-b-2 border-fg-primary">
-                <th className="py-3 px-2 font-medium">{t('name')}</th>
-                <th className="py-3 px-2 font-medium">{t('pointOfSale')}</th>
-                <th className="py-3 px-2 font-medium">{t('salesChannels')}</th>
-                <th className="py-3 px-2 font-medium w-12" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m) => (
-                <tr
-                  key={m.id}
-                  onClick={() => router.push(`/${rid}/menu/menus/${m.id}`)}
-                  className="border-b border-[var(--divider)] hover:bg-[var(--surface-subtle)] cursor-pointer transition-colors"
-                >
-                  <td className="py-3.5 px-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-semibold text-fg-secondary">{menuAbbr(m.name)}</span>
-                      </div>
-                      <span className="font-medium text-fg-primary">{m.name}</span>
+        <DataTable>
+          <DataTableHead>
+            <DataTableHeadCell>{t('name')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('pointOfSale')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('salesChannels')}</DataTableHeadCell>
+            <DataTableHeadSpacerCell />
+          </DataTableHead>
+          <DataTableBody>
+            {filtered.map((m, index) => (
+              <DataTableRow
+                key={m.id}
+                index={index}
+                onClick={() => router.push(`/${rid}/menu/menus/${m.id}`)}
+                className="cursor-pointer"
+              >
+                <DataTableCell>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-fg-secondary">{menuAbbr(m.name)}</span>
                     </div>
-                  </td>
-                  <td className="py-3.5 px-2 text-fg-secondary">{restaurant?.name ?? '—'}</td>
-                  <td className="py-3.5 px-2 text-fg-secondary">{channelsSummary(m, t)}</td>
-                  <td className="py-3.5 px-2">
-                    <MenuDropdown
-                      menu={m}
-                      isOpen={openDropdown === m.id}
-                      onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
-                      onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                      onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); alert(t('comingSoon')); }}
-                      onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
-                      t={t}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <span className="font-medium text-fg-primary">{m.name}</span>
+                  </div>
+                </DataTableCell>
+                <DataTableCell className="text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell>
+                <DataTableCell className="text-fg-secondary">{channelsSummary(m, t)}</DataTableCell>
+                <DataTableCell>
+                  <MenuDropdown
+                    menu={m}
+                    isOpen={openDropdown === m.id}
+                    onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
+                    onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
+                    onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); alert(t('comingSoon')); }}
+                    onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
+                    t={t}
+                  />
+                </DataTableCell>
+              </DataTableRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
       )}
 
       {editModal.open && (

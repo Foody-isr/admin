@@ -27,6 +27,18 @@ import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  SortableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableSelectAllCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+  DataTableSelectCell,
+} from '@/components/data-table';
 
 // ─── Flat item with category name for table display ────────────────────────
 
@@ -557,56 +569,34 @@ export default function ItemLibraryPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
-                <th className="text-left p-4 w-12">
-                  <Checkbox
-                    checked={selected.size > 0 && selected.size === paged.length}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('item')}
-                    {sortKey === 'name' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('category')}
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('availability')}
-                </th>
-                <th className="text-right p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('price')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors ml-auto"
-                  >
-                    {t('price')}
-                    {sortKey === 'price' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 w-12" />
-              </tr>
-            </thead>
-            <tbody>
+        <DataTable>
+            <DataTableHead>
+                <DataTableSelectAllCell
+                  checked={selected.size > 0 && selected.size === paged.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <SortableHeadCell
+                  sortKey="name"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'name')}
+                >
+                  {t('item')}
+                </SortableHeadCell>
+                <DataTableHeadCell>{t('category')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('availability')}</DataTableHeadCell>
+                <SortableHeadCell
+                  sortKey="price"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'price')}
+                  align="right"
+                >
+                  {t('price')}
+                </SortableHeadCell>
+                <DataTableHeadSpacerCell />
+            </DataTableHead>
+            <DataTableBody>
               {/* Quick create */}
               {!quickCreateOpen ? (
                 <tr
@@ -719,11 +709,12 @@ export default function ItemLibraryPage() {
 
                 return (
                   <React.Fragment key={item.id}>
-                    <tr
-                      className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors cursor-pointer ${rowIdx % 2 === 0 ? 'bg-white dark:bg-[#111111]' : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'}`}
+                    <DataTableRow
+                      index={rowIdx}
+                      className="cursor-pointer"
                       onClick={() => openEditor(item, rid, router)}
                     >
-                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                      <DataTableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <Checkbox
                             checked={selected.has(item.id)}
@@ -743,8 +734,8 @@ export default function ItemLibraryPage() {
                             </button>
                           )}
                         </div>
-                      </td>
-                      <td className="p-4">
+                      </DataTableCell>
+                      <DataTableCell>
                         <div className="flex items-center gap-3">
                           {item.image_url ? (
                             <img
@@ -773,13 +764,13 @@ export default function ItemLibraryPage() {
                             )}
                           </div>
                         </div>
-                      </td>
-                      <td className="p-4">
+                      </DataTableCell>
+                      <DataTableCell>
                         <span className="px-3 py-1 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium">
                           {item.category_name}
                         </span>
-                      </td>
-                      <td className="p-4">
+                      </DataTableCell>
+                      <DataTableCell>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -793,13 +784,13 @@ export default function ItemLibraryPage() {
                         >
                           {item.is_active ? t('available') : t('unavailable')}
                         </button>
-                      </td>
-                      <td className="p-4 text-right">
+                      </DataTableCell>
+                      <DataTableCell align="right">
                         <span className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
                           {priceLabel}
                         </span>
-                      </td>
-                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                      </DataTableCell>
+                      <DataTableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => openEditor(item, rid, router)}
@@ -822,8 +813,8 @@ export default function ItemLibraryPage() {
                             ]}
                           />
                         </div>
-                      </td>
-                    </tr>
+                      </DataTableCell>
+                    </DataTableRow>
 
                     {hasVariants &&
                       isExpanded &&
@@ -862,9 +853,8 @@ export default function ItemLibraryPage() {
                   </React.Fragment>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+        </DataTable>
       )}
 
       {/* Pagination */}

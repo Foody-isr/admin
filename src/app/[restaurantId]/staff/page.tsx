@@ -11,6 +11,15 @@ import { useI18n } from '@/lib/i18n';
 import { PlusIcon, TrashIcon } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+} from '@/components/data-table';
 
 export default function StaffPage() {
   const { restaurantId } = useParams();
@@ -117,58 +126,54 @@ export default function StaffPage() {
         }
       />
 
-      <div className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="border-b border-divider" style={{ background: 'var(--surface-subtle)' }}>
-            <tr>
-              <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('name')}</th>
-              <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('email')}</th>
-              <th className="text-left px-5 py-3 font-normal text-fg-secondary">{t('role')}</th>
-              {canManage && <th className="px-5 py-3" />}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-divider">
-            {staff.map((member) => (
-              <tr key={member.id} className="hover:bg-surface-subtle">
-                <td className="px-5 py-3 font-medium text-fg-primary">{member.full_name}</td>
-                <td className="px-5 py-3 text-fg-secondary">{member.email}</td>
-                <td className="px-5 py-3">
-                  {canManage && member.role !== 'owner' ? (
-                    <select
-                      disabled={actionLoading === member.id}
-                      value={member.role_id ?? ''}
-                      onChange={(e) => handleRoleChange(member, Number(e.target.value))}
-                      className="text-xs border border-divider rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                      style={{ background: 'var(--surface)', color: 'var(--text-primary)' }}
-                    >
-                      {roles.map((r) => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="badge badge-neutral">
-                      {member.role_name || member.role}
-                    </span>
-                  )}
-                </td>
-                {canManage && (
-                  <td className="px-5 py-3 text-right">
-                    {member.role !== 'owner' && (
-                      <button
-                        disabled={actionLoading === member.id}
-                        onClick={() => handleRemove(member)}
-                        className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
-                      >
-                        <TrashIcon className="w-4 h-4 text-red-400" />
-                      </button>
-                    )}
-                  </td>
+      <DataTable>
+        <DataTableHead>
+          <DataTableHeadCell>{t('name')}</DataTableHeadCell>
+          <DataTableHeadCell>{t('email')}</DataTableHeadCell>
+          <DataTableHeadCell>{t('role')}</DataTableHeadCell>
+          {canManage && <DataTableHeadSpacerCell />}
+        </DataTableHead>
+        <DataTableBody>
+          {staff.map((member, index) => (
+            <DataTableRow key={member.id} index={index}>
+              <DataTableCell className="font-medium text-fg-primary">{member.full_name}</DataTableCell>
+              <DataTableCell className="text-fg-secondary">{member.email}</DataTableCell>
+              <DataTableCell>
+                {canManage && member.role !== 'owner' ? (
+                  <select
+                    disabled={actionLoading === member.id}
+                    value={member.role_id ?? ''}
+                    onChange={(e) => handleRoleChange(member, Number(e.target.value))}
+                    className="text-xs border border-divider rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    style={{ background: 'var(--surface)', color: 'var(--text-primary)' }}
+                  >
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="badge badge-neutral">
+                    {member.role_name || member.role}
+                  </span>
                 )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </DataTableCell>
+              {canManage && (
+                <DataTableCell align="right">
+                  {member.role !== 'owner' && (
+                    <button
+                      disabled={actionLoading === member.id}
+                      onClick={() => handleRemove(member)}
+                      className="p-1.5 rounded hover:bg-red-500/10 disabled:opacity-50"
+                    >
+                      <TrashIcon className="w-4 h-4 text-red-400" />
+                    </button>
+                  )}
+                </DataTableCell>
+              )}
+            </DataTableRow>
+          ))}
+        </DataTableBody>
+      </DataTable>
 
       {/* Invite modal */}
       {inviteOpen && (

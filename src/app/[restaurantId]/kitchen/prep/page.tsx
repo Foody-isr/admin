@@ -24,7 +24,18 @@ import StockFiltersDrawer, {
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DataTable,
+  DataTableHead,
+  DataTableHeadCell,
+  SortableHeadCell,
+  DataTableHeadSpacerCell,
+  DataTableSelectAllCell,
+  DataTableBody,
+  DataTableRow,
+  DataTableCell,
+  DataTableSelectCell,
+} from '@/components/data-table';
 import {
   SearchIcon, PlusIcon, TrashIcon, PencilIcon,
   BeakerIcon, CalendarDaysIcon, ArrowRightLeftIcon,
@@ -428,116 +439,58 @@ export default function PrepPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
-                <th className="text-left p-4 w-12">
-                  <Checkbox
-                    checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </th>
-                <th
-                  aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
+        <DataTable>
+            <DataTableHead>
+                <DataTableSelectAllCell
+                  checked={filtered.length > 0 && filtered.every((i) => selected.has(i.id))}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <SortableHeadCell
+                  sortKey="name"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'name')}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('item')}
-                    {sortKey === 'name' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('category')}
-                </th>
-                <th
-                  aria-sort={sortKey === 'quantity' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
+                  {t('item')}
+                </SortableHeadCell>
+                <DataTableHeadCell>{t('category')}</DataTableHeadCell>
+                <SortableHeadCell
+                  sortKey="quantity"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'quantity')}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('quantity')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('stock')}
-                    {sortKey === 'quantity' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th
-                  aria-sort={sortKey === 'yield' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
+                  {t('stock')}
+                </SortableHeadCell>
+                <SortableHeadCell
+                  sortKey="yield"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'yield')}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('yield')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('yieldPerBatch')}
-                    {sortKey === 'yield' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th
-                  aria-sort={sortKey === 'shelf' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                  className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider"
+                  {t('yieldPerBatch')}
+                </SortableHeadCell>
+                <SortableHeadCell
+                  sortKey="shelf"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'shelf')}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleSort('shelf')}
-                    className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors"
-                  >
-                    {t('shelfLife')}
-                    {sortKey === 'shelf' &&
-                      (sortDir === 'asc' ? (
-                        <ChevronUpIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDownIcon className="w-3.5 h-3.5" />
-                      ))}
-                  </button>
-                </th>
-                <th className="text-left p-4 font-semibold text-neutral-700 dark:text-neutral-300 text-sm uppercase tracking-wider">
-                  {t('status')}
-                </th>
-                <th className="text-left p-4 w-12" />
-              </tr>
-            </thead>
-            <tbody>
+                  {t('shelfLife')}
+                </SortableHeadCell>
+                <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+                <DataTableHeadSpacerCell />
+            </DataTableHead>
+            <DataTableBody>
               {sorted.map((item, index) => {
                 const low = isLow(item);
                 return (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-neutral-100 dark:border-neutral-800 hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors ${
-                      index % 2 === 0
-                        ? 'bg-white dark:bg-[#111111]'
-                        : 'bg-neutral-50/50 dark:bg-[#0f0f0f]'
-                    }`}
-                  >
-                    <td className="p-4">
-                      <Checkbox
-                        checked={selected.has(item.id)}
-                        onCheckedChange={() => toggleSelect(item.id)}
-                      />
-                    </td>
-                    <td className="p-4">
+                  <DataTableRow key={item.id} index={index}>
+                    <DataTableSelectCell
+                      checked={selected.has(item.id)}
+                      onCheckedChange={() => toggleSelect(item.id)}
+                    />
+                    <DataTableCell>
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
@@ -550,28 +503,28 @@ export default function PrepPage() {
                           {item.name}
                         </span>
                       </button>
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
                         {item.category || '—'}
                       </span>
-                    </td>
-                    <td className="p-4 font-mono tabular-nums text-neutral-900 dark:text-white">
+                    </DataTableCell>
+                    <DataTableCell className="font-mono tabular-nums text-neutral-900 dark:text-white">
                       {item.quantity}{' '}
                       <span className="text-neutral-500 dark:text-neutral-400 text-xs">{item.unit}</span>
-                    </td>
-                    <td className="p-4 font-mono tabular-nums text-neutral-900 dark:text-white">
+                    </DataTableCell>
+                    <DataTableCell className="font-mono tabular-nums text-neutral-900 dark:text-white">
                       {item.yield_per_batch > 0 ? `${item.yield_per_batch} ${item.unit}` : '—'}
-                    </td>
-                    <td className="p-4 font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
+                    </DataTableCell>
+                    <DataTableCell className="font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
                       {item.shelf_life_hours > 0 ? (
                         <span className="inline-flex items-center gap-1">
                           <ClockIcon className="w-3.5 h-3.5 text-neutral-400" />
                           {item.shelf_life_hours}h
                         </span>
                       ) : '—'}
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       {low ? (
                         <span className="inline-flex items-center gap-1 text-red-500 text-xs font-medium">
                           <AlertTriangleIcon className="w-4 h-4" /> {t('low')}
@@ -579,8 +532,8 @@ export default function PrepPage() {
                       ) : (
                         <span className="text-xs text-status-ready font-medium">{t('ok')}</span>
                       )}
-                    </td>
-                    <td className="p-4">
+                    </DataTableCell>
+                    <DataTableCell>
                       <RowActionsMenu
                         actions={[
                           { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
@@ -589,13 +542,12 @@ export default function PrepPage() {
                           { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
                         ]}
                       />
-                    </td>
-                  </tr>
+                    </DataTableCell>
+                  </DataTableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </DataTableBody>
+        </DataTable>
       )}
 
       {/* Category drawer — same component Articles & Stock use.
