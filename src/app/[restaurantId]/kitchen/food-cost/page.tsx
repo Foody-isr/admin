@@ -12,7 +12,7 @@ import {
 import RecipeImportModal from '../RecipeImportModal';
 import {
   DollarSign, TrendingDown, TrendingUp, AlertCircle,
-  ChevronDown, ChevronUp, Search, Sparkles,
+  ChevronDown, ChevronUp, Search, Sparkles, Image as ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -542,9 +542,17 @@ export default function FoodCostPage() {
                       onClick={() => selectItem(e)}
                       className="flex-1 min-w-0 text-left flex items-start gap-3"
                     >
-                      <div className="size-10 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center text-xl shrink-0">
-                        🍽️
-                      </div>
+                      {e.item.image_url ? (
+                        <img
+                          src={e.item.image_url}
+                          alt=""
+                          className="size-10 rounded-lg object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="size-10 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center shrink-0">
+                          <ImageIcon className="w-4 h-4 text-orange-600 dark:text-orange-200" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-neutral-900 dark:text-white truncate">
                           {e.item.name}
@@ -599,7 +607,17 @@ export default function FoodCostPage() {
                   inside the Coût section below); actions consolidated to a single primary CTA. */}
               <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
                 <div className="flex items-start gap-[var(--s-4)]">
-                  <div className="text-4xl">🍽️</div>
+                  {selectedItem.item.image_url ? (
+                    <img
+                      src={selectedItem.item.image_url}
+                      alt=""
+                      className="size-16 rounded-lg object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="size-16 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 flex items-center justify-center shrink-0">
+                      <ImageIcon className="w-6 h-6 text-orange-600 dark:text-orange-200" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <h2 className="text-fs-2xl font-semibold text-[var(--fg)] mb-1 truncate">
                       {selectedItem.item.name}
