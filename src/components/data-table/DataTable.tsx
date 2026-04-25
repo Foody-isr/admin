@@ -86,7 +86,7 @@ export const SortableHeadCell = React.forwardRef<HTMLTableCellElement, SortableH
           type="button"
           onClick={() => onSort(sortKey)}
           className={cn(
-            'inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white transition-colors',
+            'inline-flex items-center gap-1 uppercase tracking-wider hover:text-neutral-900 dark:hover:text-white transition-colors',
             buttonAlign,
           )}
         >
