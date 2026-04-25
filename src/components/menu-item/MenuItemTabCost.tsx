@@ -60,16 +60,17 @@ export default function MenuItemTabCost({
   const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
 
   // Variant pills — lets the user switch the "portion" the cost math uses.
-  // "" = base recipe (no variant override).
   const variants = useMemo(
     () => buildVariantOptions(item, itemOptionOverrides),
     [item, itemOptionOverrides],
   );
-  // Default to the first variant that has a portion so the Cost tab opens
-  // on a concrete portion, matching the old panel's UX.
-  const firstVariantWithPortion =
-    variants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? '';
-  const [variantId, setVariantId] = useState<string>(firstVariantWithPortion);
+  // Default to the first variant with a portion (concrete cost), else the
+  // first variant outright. We never default to "" (base recipe) because
+  // when an item has variants, exposing a synthetic "Base" pill is confusing
+  // — users only configured Normal/Grand/etc., not "Base".
+  const defaultVariantId =
+    variants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? variants[0]?.id ?? '';
+  const [variantId, setVariantId] = useState<string>(defaultVariantId);
   const activeVariant = variants.find((v) => v.id === variantId) ?? null;
 
   // Item price shown for the active variant — falls back to the base item price.
@@ -175,23 +176,6 @@ export default function MenuItemTabCost({
             {t('activePortion') || 'Portion active'}
           </p>
           <div className="flex gap-[var(--s-2)] flex-wrap">
-            <button
-              type="button"
-              onClick={() => setVariantId('')}
-              aria-pressed={variantId === ''}
-              className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
-                variantId === ''
-                  ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
-                  : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
-              }`}
-            >
-              {t('base') || 'Base'}
-              {item.portion_size ? (
-                <span className={`text-fs-xs ${variantId === '' ? 'text-white/80' : 'opacity-70'}`}>
-                  {item.portion_size} {item.portion_size_unit || 'g'}
-                </span>
-              ) : null}
-            </button>
             {variants.map((v) => {
               const active = variantId === v.id;
               return (

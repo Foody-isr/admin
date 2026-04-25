@@ -397,7 +397,11 @@ export default function FoodCostPage() {
       <div className="flex flex-1 mt-[var(--s-6)]">
         {/* Items list */}
         <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col pt-[var(--s-6)]">
-          <div className="px-[var(--s-6)] pb-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)]">
+          {/* Selector block — min-h matches the natural height of the right
+              "item title header" card so their bottoms align on the same
+              horizontal line (image=64px + button=40px + 16px gap +
+              p-[var(--s-5)] = 160px). */}
+          <div className="px-[var(--s-6)] pb-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)] min-h-40">
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
