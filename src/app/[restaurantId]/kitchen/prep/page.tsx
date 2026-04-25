@@ -6,7 +6,8 @@ import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
   getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
-  PrepItem, PrepItemInput, PrepIngredientInput,
+  getPrepCategories, createPrepCategory, updatePrepCategory, uploadPrepCategoryImage,
+  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory,
   StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
@@ -84,6 +85,14 @@ export default function PrepPage() {
     else setSelectedCategories(new Set([name]));
     setCategoryDrawer({ open: false, mode: 'filter' });
   };
+  // Prep category metadata (id, color, image_url, sort_order). Fetched
+  // alongside items via the dedicated /prep/categories endpoint. Enables
+  // image upload + rename from the drawer without touching the items list.
+  const [categoryMeta, setCategoryMeta] = useState<PrepCategory[]>([]);
+  const reloadCategoryMeta = useCallback(async () => {
+    const cats = await getPrepCategories(rid);
+    setCategoryMeta(cats);
+  }, [rid]);
 
   // Modals
   const [itemModal, setItemModal] = useState<{ open: boolean; editing?: PrepItem }>({ open: false });
@@ -94,12 +103,14 @@ export default function PrepPage() {
 
   const reload = useCallback(async () => {
     try {
-      const [prepItems, rawItems] = await Promise.all([
+      const [prepItems, rawItems, cats] = await Promise.all([
         listPrepItems(rid),
         listStockItems(rid),
+        getPrepCategories(rid),
       ]);
       setItems(prepItems);
       setStockItems(rawItems);
+      setCategoryMeta(cats);
     } finally {
       setLoading(false);
     }
@@ -587,19 +598,65 @@ export default function PrepPage() {
         </div>
       )}
 
-      {/* Category drawer — filter-only, same component Articles & Stock use. */}
+      {/* Category drawer — same component Articles & Stock use.
+          Create/edit back the prep_categories metadata table. */}
       <CategoryDrawer
         open={categoryDrawer.open}
         mode={categoryDrawer.mode}
         onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
-        categories={categoryNames.sort().map((name) => ({
-          name,
-          count: items.filter((i) => i.category === name).length,
-        }))}
+        categories={(() => {
+          const metaByName = new Map(categoryMeta.map((m) => [m.name, m]));
+          const seen = new Set<string>();
+          const entries: Array<{
+            name: string;
+            count: number;
+            color?: string;
+            imageUrl?: string;
+          }> = [];
+          for (const name of [...categoryNames].sort()) {
+            const m = metaByName.get(name);
+            entries.push({
+              name,
+              count: items.filter((i) => i.category === name).length,
+              color: m?.color,
+              imageUrl: m?.image_url || undefined,
+            });
+            seen.add(name);
+          }
+          for (const m of categoryMeta) {
+            if (seen.has(m.name)) continue;
+            entries.push({
+              name: m.name,
+              count: 0,
+              color: m.color,
+              imageUrl: m.image_url || undefined,
+            });
+          }
+          return entries;
+        })()}
         currentCategory={
           selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
         }
         onSelect={handleCategorySelect}
+        onCreateCategory={async ({ name, imageFile }) => {
+          const cat = await createPrepCategory(rid, { name });
+          if (imageFile) {
+            await uploadPrepCategoryImage(rid, cat.id, imageFile);
+          }
+          await reload();
+        }}
+        onEditCategory={async (oldName, patch) => {
+          const existing = categoryMeta.find((c) => c.name === oldName);
+          const ensured = existing ?? (await createPrepCategory(rid, { name: oldName }));
+          if (patch.name && patch.name !== oldName) {
+            await updatePrepCategory(rid, ensured.id, { name: patch.name });
+          }
+          if (patch.imageFile) {
+            await uploadPrepCategoryImage(rid, ensured.id, patch.imageFile);
+          }
+          await reload();
+        }}
+        supportsImage
       />
 
       <StockFiltersDrawer
