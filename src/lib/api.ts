@@ -46,6 +46,19 @@ export interface Restaurant {
   created_at: string;
 }
 
+/**
+ * BatchFulfillmentDay describes one weekly day on which all pre-orders are
+ * fulfilled, along with optional time windows per service type. `day` uses
+ * weekday numbers (0=Sunday … 6=Saturday). Times are "HH:MM".
+ */
+export interface BatchFulfillmentDay {
+  day: number;
+  pickup_start?: string;
+  pickup_end?: string;
+  delivery_start?: string;
+  delivery_end?: string;
+}
+
 export interface RestaurantSettings {
   id: number;
   restaurant_id: number;
@@ -62,6 +75,13 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Batch fulfillment — pre-orders that all ship on a fixed weekly day.
+  // Mutually exclusive with `scheduling_enabled` (slot-based).
+  batch_fulfillment_enabled?: boolean;
+  batch_cutoff_day?: number; // 0=Sun..6=Sat
+  batch_cutoff_time?: string; // "HH:MM"
+  batch_fulfillment_days?: BatchFulfillmentDay[];
+  batch_require_prepayment?: boolean;
 }
 
 export interface MenuAvailabilityHour {

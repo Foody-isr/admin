@@ -30,6 +30,7 @@ import {
   Sparkles,
   User as UserIcon,
   Calendar,
+  CalendarClock,
   LogOut,
   Flame,
   Sun,
@@ -236,6 +237,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       items: [
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer },
+        { id: 'scheduled', href: `${base}/settings/scheduled-orders`, labelKey: 'scheduledOrders', icon: CalendarClock },
       ],
     },
     {
