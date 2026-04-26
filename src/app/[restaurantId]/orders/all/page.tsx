@@ -671,6 +671,7 @@ function OrderDetailDrawer({
   const primaryBtn = (() => {
     const isDelivery = order.order_type === 'delivery';
     switch (order.status) {
+      case 'scheduled':
       case 'pending_review':
         return { label: t('accept'), onClick: onAccept };
       case 'accepted':
