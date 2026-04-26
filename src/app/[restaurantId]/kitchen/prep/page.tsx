@@ -1329,14 +1329,38 @@ function DailyPlanModal({ rid, onClose }: { rid: number; onClose: () => void }) 
               </tr>
             </thead>
             <tbody>
-              {plan.map((p) => (
-                <tr key={p.prep_item.id} style={{ borderBottom: '1px solid var(--divider)' }}>
-                  <td className="py-2 px-3 font-medium text-fg-primary">{p.prep_item.name}</td>
-                  <td className="py-2 px-3 text-right font-mono text-fg-secondary">{p.current_stock.toFixed(1)}</td>
-                  <td className="py-2 px-3 text-right font-mono text-fg-primary">{p.predicted_demand.toFixed(1)}</td>
-                  <td className="py-2 px-3 text-right font-mono font-bold text-brand-500">{p.recommended_batches}</td>
-                </tr>
-              ))}
+              {plan.map((p) => {
+                const priorityStyles =
+                  p.priority === 'high'
+                    ? { color: 'var(--danger-500)', bg: 'color-mix(in oklab, var(--danger-500) 12%, transparent)' }
+                    : p.priority === 'medium'
+                      ? { color: 'var(--warning-500)', bg: 'color-mix(in oklab, var(--warning-500) 12%, transparent)' }
+                      : { color: 'var(--fg-muted)', bg: 'var(--surface-2)' };
+                return (
+                  <tr key={p.prep_item_id} style={{ borderBottom: '1px solid var(--divider)' }}>
+                    <td className="py-2 px-3 font-medium text-fg-primary">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-flex items-center h-[20px] px-2 rounded-r-sm text-[10px] font-semibold uppercase tracking-[.04em]"
+                          style={{ color: priorityStyles.color, background: priorityStyles.bg }}
+                        >
+                          {p.priority}
+                        </span>
+                        <span>{p.prep_item_name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-fg-secondary">
+                      {p.current_qty.toFixed(1)} {p.unit}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-fg-primary">
+                      {p.required_qty.toFixed(1)} {p.unit}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-brand-500">
+                      {p.batches_needed}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

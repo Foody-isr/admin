@@ -818,11 +818,17 @@ export interface ConfirmDeliveryInput {
 }
 
 export interface DailyPlanItem {
-  prep_item: PrepItem;
-  current_stock: number;
-  predicted_demand: number;
-  recommended_batches: number;
-  ingredients_needed: { stock_item_id: number; stock_item_name: string; quantity_needed: number; available: number }[];
+  prep_item_id: number;
+  prep_item_name: string;
+  unit: string;
+  current_qty: number;
+  required_qty: number;
+  shortfall_qty: number;
+  batches_needed: number;
+  yield_per_batch: number;
+  shelf_life_hours: number;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
 }
 
 export interface DemandForecastItem {
