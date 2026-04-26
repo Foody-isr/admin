@@ -6,7 +6,7 @@ import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
   getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
-  getPrepCategories, createPrepCategory, updatePrepCategory, uploadPrepCategoryImage,
+  getPrepCategories, createPrepCategory, updatePrepCategory,
   PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory,
   StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
 } from '@/lib/api';
@@ -529,32 +529,18 @@ export default function PrepPage() {
         mode={categoryDrawer.mode}
         onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
         categories={(() => {
-          const metaByName = new Map(categoryMeta.map((m) => [m.name, m]));
           const seen = new Set<string>();
-          const entries: Array<{
-            name: string;
-            count: number;
-            color?: string;
-            imageUrl?: string;
-          }> = [];
+          const entries: Array<{ name: string; count: number }> = [];
           for (const name of [...categoryNames].sort()) {
-            const m = metaByName.get(name);
             entries.push({
               name,
               count: items.filter((i) => i.category === name).length,
-              color: m?.color,
-              imageUrl: m?.image_url || undefined,
             });
             seen.add(name);
           }
           for (const m of categoryMeta) {
             if (seen.has(m.name)) continue;
-            entries.push({
-              name: m.name,
-              count: 0,
-              color: m.color,
-              imageUrl: m.image_url || undefined,
-            });
+            entries.push({ name: m.name, count: 0 });
           }
           return entries;
         })()}
@@ -562,11 +548,8 @@ export default function PrepPage() {
           selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
         }
         onSelect={handleCategorySelect}
-        onCreateCategory={async ({ name, imageFile }) => {
-          const cat = await createPrepCategory(rid, { name });
-          if (imageFile) {
-            await uploadPrepCategoryImage(rid, cat.id, imageFile);
-          }
+        onCreateCategory={async ({ name }) => {
+          await createPrepCategory(rid, { name });
           await reload();
         }}
         onEditCategory={async (oldName, patch) => {
@@ -575,12 +558,8 @@ export default function PrepPage() {
           if (patch.name && patch.name !== oldName) {
             await updatePrepCategory(rid, ensured.id, { name: patch.name });
           }
-          if (patch.imageFile) {
-            await uploadPrepCategoryImage(rid, ensured.id, patch.imageFile);
-          }
           await reload();
         }}
-        supportsImage
       />
 
       <StockFiltersDrawer

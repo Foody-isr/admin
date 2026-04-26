@@ -1167,23 +1167,6 @@ export async function deleteCategory(restaurantId: number, id: number): Promise<
   );
 }
 
-export async function uploadCategoryImage(restaurantId: number, categoryId: number, file: File): Promise<string> {
-  const form = new FormData();
-  form.append('image', file);
-  const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/menu/categories/${categoryId}/image?restaurant_id=${restaurantId}`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-    throw new Error(err.error || 'Upload failed');
-  }
-  const data = await res.json();
-  return data.image_url as string;
-}
-
 export async function getCategoryHours(restaurantId: number, categoryId: number): Promise<CategoryAvailabilityHour[]> {
   const data = await apiFetch<{ hours: CategoryAvailabilityHour[] }>(
     `/api/v1/menu/categories/${categoryId}/hours?restaurant_id=${restaurantId}`, restaurantId
@@ -2335,23 +2318,6 @@ export async function deleteStockCategory(restaurantId: number, id: number): Pro
   await apiFetch(`/api/v1/stock/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
-export async function uploadStockCategoryImage(restaurantId: number, id: number, file: File): Promise<string> {
-  const form = new FormData();
-  form.append('image', file);
-  const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/stock/categories/${id}/image?restaurant_id=${restaurantId}`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-    throw new Error(err.error || 'Upload failed');
-  }
-  const data = await res.json();
-  return data.image_url as string;
-}
-
 export async function getLowStockCount(restaurantId: number): Promise<number> {
   const data = await apiFetch<{ count: number }>(`/api/v1/stock/low-stock-count?restaurant_id=${restaurantId}`, restaurantId);
   return data.count ?? 0;
@@ -2711,23 +2677,6 @@ export async function updatePrepCategory(restaurantId: number, id: number, input
 
 export async function deletePrepCategory(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/prep/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
-}
-
-export async function uploadPrepCategoryImage(restaurantId: number, id: number, file: File): Promise<string> {
-  const form = new FormData();
-  form.append('image', file);
-  const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/prep/categories/${id}/image?restaurant_id=${restaurantId}`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-    throw new Error(err.error || 'Upload failed');
-  }
-  const data = await res.json();
-  return data.image_url as string;
 }
 
 export async function getPrepLowStockCount(restaurantId: number): Promise<number> {

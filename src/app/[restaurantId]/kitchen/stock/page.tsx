@@ -7,7 +7,7 @@ import {
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
-  createStockCategory, updateStockCategory, uploadStockCategoryImage,
+  createStockCategory, updateStockCategory,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
   Supplier,
 } from '@/lib/api';
@@ -850,8 +850,6 @@ export default function StockPage() {
         onClose={() => setCategoryDrawer({ open: false, mode: 'filter' })}
         categories={categories.map((c) => ({
           name: c.name,
-          color: c.color,
-          imageUrl: c.image_url || undefined,
           count: items.filter((i) => i.category === c.name).length,
         }))}
         currentCategory={
@@ -859,11 +857,8 @@ export default function StockPage() {
         }
         onSelect={handleCategorySelect}
         selectionCount={selected.size}
-        onCreateCategory={async ({ name, imageFile }) => {
-          const cat = await createStockCategory(rid, { name });
-          if (imageFile) {
-            await uploadStockCategoryImage(rid, cat.id, imageFile);
-          }
+        onCreateCategory={async ({ name }) => {
+          await createStockCategory(rid, { name });
           const fresh = await getStockCategories(rid);
           setCategories(fresh);
         }}
@@ -871,14 +866,11 @@ export default function StockPage() {
           const cat = categories.find((c) => c.name === oldName);
           if (!cat) return;
           // If the category only exists as a string on items (no metadata
-          // row yet), upsert it first so we have an id to attach the image/
-          // rename to. `createStockCategory` is idempotent by name.
+          // row yet), upsert it first so we have an id to rename.
+          // `createStockCategory` is idempotent by name.
           const ensured = cat.id > 0 ? cat : await createStockCategory(rid, { name: oldName });
           if (patch.name && patch.name !== oldName) {
             await updateStockCategory(rid, ensured.id, { name: patch.name });
-          }
-          if (patch.imageFile) {
-            await uploadStockCategoryImage(rid, ensured.id, patch.imageFile);
           }
           const [fresh, items2] = await Promise.all([
             getStockCategories(rid),
@@ -887,7 +879,6 @@ export default function StockPage() {
           setCategories(fresh);
           setItems(items2);
         }}
-        supportsImage
         processing={bulkProcessing}
       />
 

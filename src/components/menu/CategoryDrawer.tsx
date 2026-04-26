@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { CheckCircle, ImageIcon, Loader2, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { CheckCircle, Loader2, Pencil, Plus, Search, X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 /** Minimal shape the drawer needs. Callers can project their own domain
@@ -10,24 +10,16 @@ export interface CategoryDrawerEntry {
   name: string;
   /** Item count shown next to the name. Omit or pass 0 to hide. */
   count?: number;
-  /** Optional solid color override for the icon tile. */
-  color?: string;
-  /** Optional uploaded image URL — replaces the hashed-palette emoji tile. */
-  imageUrl?: string;
 }
 
-/** Input passed to `onCreateCategory`. `imageFile` is null when the user
- *  didn't attach an image. */
+/** Input passed to `onCreateCategory`. */
 export interface CreateCategoryInput {
   name: string;
-  imageFile?: File | null;
 }
 
-/** Input passed to `onEditCategory`. Only the fields the user actually
- *  changed are set (`name` may equal the old name, `imageFile` may be null). */
+/** Input passed to `onEditCategory`. */
 export interface EditCategoryPatch {
   name: string;
-  imageFile?: File | null;
 }
 
 interface Props {
@@ -44,37 +36,11 @@ interface Props {
   selectionCount?: number;
   /** Optional handler for creating a new category inline. */
   onCreateCategory?: (input: CreateCategoryInput) => Promise<void> | void;
-  /** Optional handler for renaming / re-imaging an existing category.
+  /** Optional handler for renaming an existing category.
    *  When provided, each row shows an inline Edit affordance. */
   onEditCategory?: (oldName: string, patch: EditCategoryPatch) => Promise<void> | void;
-  /** When true, Create & Edit panels expose an image upload input.
-   *  Callers without a backing server entity (stock, prep) pass false. */
-  supportsImage?: boolean;
   /** Loading/processing flag for bulk operations. */
   processing?: boolean;
-}
-
-// Hashed-palette fallback when an entry has no imageUrl.
-const PALETTE: Array<{ color: string; icon: string }> = [
-  { color: 'from-yellow-500 to-yellow-600', icon: '⭐' },
-  { color: 'from-green-500 to-green-600', icon: '🥗' },
-  { color: 'from-pink-500 to-pink-600', icon: '🍰' },
-  { color: 'from-red-500 to-red-600', icon: '🍖' },
-  { color: 'from-blue-500 to-blue-600', icon: '🥤' },
-  { color: 'from-purple-500 to-purple-600', icon: '🍨' },
-  { color: 'from-orange-500 to-orange-600', icon: '🍔' },
-  { color: 'from-emerald-500 to-emerald-600', icon: '🥑' },
-];
-
-function hashName(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function decorate(name: string): { color: string; icon: string } {
-  if (!name) return { color: 'from-neutral-500 to-neutral-600', icon: '📦' };
-  return PALETTE[hashName(name) % PALETTE.length];
 }
 
 export default function CategoryDrawer({
@@ -87,7 +53,6 @@ export default function CategoryDrawer({
   selectionCount,
   onCreateCategory,
   onEditCategory,
-  supportsImage,
   processing,
 }: Props) {
   const { t } = useI18n();
@@ -156,8 +121,6 @@ export default function CategoryDrawer({
             {showAll && (
               <CategoryRow
                 name={t('all') || 'Tous'}
-                icon="📦"
-                color="from-neutral-500 to-neutral-600"
                 count={categories.reduce((a, c) => a + (c.count ?? 0), 0)}
                 active={allActive}
                 onClick={() => onSelect(null)}
@@ -165,7 +128,6 @@ export default function CategoryDrawer({
               />
             )}
             {filtered.map((category) => {
-              const { color, icon } = decorate(category.name);
               const count = category.count ?? 0;
               const active = currentCategory === category.name;
               const isEditing = editingName === category.name;
@@ -174,9 +136,6 @@ export default function CategoryDrawer({
                   <CategoryEditPanel
                     key={category.name}
                     entry={category}
-                    fallbackIcon={icon}
-                    fallbackColor={color}
-                    supportsImage={!!supportsImage}
                     onSave={async (patch) => {
                       await onEditCategory(category.name, patch);
                       setEditingName(null);
@@ -189,9 +148,6 @@ export default function CategoryDrawer({
                 <CategoryRow
                   key={category.name}
                   name={category.name}
-                  icon={icon}
-                  color={color}
-                  imageUrl={category.imageUrl}
                   count={count}
                   active={active}
                   onClick={() => onSelect(category.name)}
@@ -222,7 +178,6 @@ export default function CategoryDrawer({
           )}
           {onCreateCategory && showCreate && (
             <CategoryCreatePanel
-              supportsImage={!!supportsImage}
               onSubmit={async (input) => {
                 await onCreateCategory(input);
                 setShowCreate(false);
@@ -258,9 +213,6 @@ export default function CategoryDrawer({
 
 function CategoryRow({
   name,
-  icon,
-  color,
-  imageUrl,
   count,
   active,
   onClick,
@@ -268,9 +220,6 @@ function CategoryRow({
   disabled,
 }: {
   name: string;
-  icon: string;
-  color: string;
-  imageUrl?: string;
   count: number;
   active: boolean;
   onClick: () => void;
@@ -289,22 +238,8 @@ function CategoryRow({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="flex-1 min-w-0 flex items-center gap-4 text-left disabled:cursor-not-allowed"
+        className="flex-1 min-w-0 flex items-center text-left disabled:cursor-not-allowed"
       >
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt=""
-            className="size-12 rounded-xl object-cover shrink-0 shadow-lg"
-          />
-        ) : (
-          <div
-            className={`size-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-2xl shadow-lg shrink-0`}
-          >
-            {icon}
-          </div>
-        )}
         <div className="flex-1 text-left min-w-0">
           <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{name}</h3>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -332,30 +267,21 @@ function CategoryRow({
 // ─── Create panel ──────────────────────────────────────────────
 
 function CategoryCreatePanel({
-  supportsImage,
   onSubmit,
   onCancel,
 }: {
-  supportsImage: boolean;
   onSubmit: (input: CreateCategoryInput) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const pickImage = (f: File | null) => {
-    setImageFile(f);
-    setImagePreview(f ? URL.createObjectURL(f) : null);
-  };
 
   const submit = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim(), imageFile });
+      await onSubmit({ name: name.trim() });
     } finally {
       setSaving(false);
     }
@@ -363,9 +289,6 @@ function CategoryCreatePanel({
 
   return (
     <div className="mt-4 p-4 border-2 border-orange-500 rounded-xl bg-orange-50 dark:bg-orange-900/20 space-y-3">
-      {supportsImage && (
-        <ImagePickerBlock preview={imagePreview} onChange={pickImage} />
-      )}
       <input
         autoFocus
         type="text"
@@ -402,36 +325,22 @@ function CategoryCreatePanel({
 
 function CategoryEditPanel({
   entry,
-  fallbackIcon,
-  fallbackColor,
-  supportsImage,
   onSave,
   onCancel,
 }: {
   entry: CategoryDrawerEntry;
-  fallbackIcon: string;
-  fallbackColor: string;
-  supportsImage: boolean;
   onSave: (patch: EditCategoryPatch) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(entry.name);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(entry.imageUrl ?? null);
   const [saving, setSaving] = useState(false);
-
-  const pickImage = (f: File | null) => {
-    setImageFile(f);
-    setImagePreview(f ? URL.createObjectURL(f) : entry.imageUrl ?? null);
-  };
 
   const submit = async () => {
     if (!name.trim() || saving) return;
-    const patch: EditCategoryPatch = { name: name.trim(), imageFile };
     setSaving(true);
     try {
-      await onSave(patch);
+      await onSave({ name: name.trim() });
     } finally {
       setSaving(false);
     }
@@ -439,25 +348,6 @@ function CategoryEditPanel({
 
   return (
     <div className="p-4 border-2 border-orange-500 rounded-xl bg-orange-50 dark:bg-orange-900/20 space-y-3">
-      {supportsImage ? (
-        <ImagePickerBlock
-          preview={imagePreview}
-          fallbackIcon={fallbackIcon}
-          fallbackColor={fallbackColor}
-          onChange={pickImage}
-        />
-      ) : (
-        <div className="flex items-center gap-3">
-          <div
-            className={`size-12 rounded-xl bg-gradient-to-br ${fallbackColor} flex items-center justify-center text-2xl shadow-lg shrink-0`}
-          >
-            {fallbackIcon}
-          </div>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400">
-            {t('categoryRenameHint') || 'Renommer cette catégorie'}
-          </p>
-        </div>
-      )}
       <input
         autoFocus
         type="text"
@@ -485,78 +375,6 @@ function CategoryEditPanel({
         >
           {t('cancel') || 'Annuler'}
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Image picker ──────────────────────────────────────────────
-
-function ImagePickerBlock({
-  preview,
-  fallbackIcon,
-  fallbackColor,
-  onChange,
-}: {
-  preview: string | null;
-  fallbackIcon?: string;
-  fallbackColor?: string;
-  onChange: (file: File | null) => void;
-}) {
-  const { t } = useI18n();
-  const ref = useRef<HTMLInputElement>(null);
-
-  return (
-    <div className="flex items-center gap-3">
-      {preview ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={preview}
-          alt=""
-          className="size-14 rounded-xl object-cover shrink-0 shadow-lg"
-        />
-      ) : fallbackIcon && fallbackColor ? (
-        <div
-          className={`size-14 rounded-xl bg-gradient-to-br ${fallbackColor} flex items-center justify-center text-2xl shadow-lg shrink-0`}
-        >
-          {fallbackIcon}
-        </div>
-      ) : (
-        <div className="size-14 rounded-xl bg-neutral-100 dark:bg-[#1a1a1a] border border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center shrink-0">
-          <ImageIcon size={18} className="text-neutral-400" />
-        </div>
-      )}
-      <div className="flex-1 flex gap-2">
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] hover:bg-neutral-50 dark:hover:bg-[#222222] text-sm font-medium text-neutral-700 dark:text-neutral-300 transition-colors"
-        >
-          <Upload size={14} />
-          {preview ? (t('changeImage') || 'Changer') : (t('addImage') || 'Image')}
-        </button>
-        {preview && (
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors"
-            aria-label={t('remove') || 'Supprimer'}
-            title={t('remove') || 'Supprimer'}
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-        <input
-          ref={ref}
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0] ?? null;
-            if (file) onChange(file);
-            e.target.value = '';
-          }}
-        />
       </div>
     </div>
   );
