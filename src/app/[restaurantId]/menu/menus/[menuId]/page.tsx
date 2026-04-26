@@ -254,10 +254,10 @@ export default function MenuDetailPage() {
           const items = group.items ?? [];
           const isExpanded = expanded.has(group.id);
           return (
-            <div key={group.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
+            <div key={group.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface)]">
               {/* ── Group Header ── */}
               <div
-                className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors ${isExpanded ? '' : 'rounded-xl'}`}
                 onClick={() => toggleExpand(group.id)}
               >
                 {isExpanded
@@ -296,7 +296,7 @@ export default function MenuDetailPage() {
 
               {/* ── Group Content (expanded) ── */}
               {isExpanded && (
-                <div className="border-t border-[var(--divider)] overflow-x-auto">
+                <div className="border-t border-[var(--divider)] overflow-x-auto rounded-b-xl">
                   {/* Table Header Row */}
                   {items.length > 0 && (
                     <div className={`grid ${GRID_COLS} items-center px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
