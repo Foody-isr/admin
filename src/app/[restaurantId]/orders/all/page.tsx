@@ -6,7 +6,7 @@ import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery,
-  Order, OrderItem, OrderStatus, ListOrdersParams,
+  Order, OrderStatus, ListOrdersParams,
 } from '@/lib/api';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
@@ -121,7 +121,7 @@ export default function OrdersPage() {
   const prevEvent = useRef<WsEvent | null>(null);
 
   // Filters
-  const [activeTab, setActiveTab] = useState('active');
+  const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -501,7 +501,7 @@ export default function OrdersPage() {
                 <DataTableHeadCell>{t('name')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('source')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('items')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('date')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('status')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('payment')}</DataTableHeadCell>
                 <DataTableHeadCell align="right">{t('total')}</DataTableHeadCell>
@@ -524,23 +524,20 @@ export default function OrdersPage() {
                     <DataTableCell className="text-fg-secondary capitalize">
                       {order.order_type.replace(/_/g, ' ')}
                     </DataTableCell>
-                    <DataTableCell>
-                      <div className="flex items-center gap-1">
-                        {(order.items ?? []).slice(0, 3).map((item) => (
-                          <span
-                            key={item.id}
-                            className="w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
-                            style={{ background: itemColor(item.name) }}
-                            title={item.name}
-                          >
-                            {itemInitials(item.name)}
-                          </span>
-                        ))}
-                        {(order.items ?? []).length > 3 && (
-                          <span className="text-[10px] text-fg-secondary ml-0.5">
-                            +{order.items.length - 3}
-                          </span>
-                        )}
+                    <DataTableCell className="text-fg-secondary">
+                      <div className="flex flex-col">
+                        <span className="tabular-nums">
+                          {new Date(order.created_at).toLocaleDateString([], {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </span>
+                        <span className="text-fs-xs text-[var(--fg-subtle)] tabular-nums">
+                          {new Date(order.created_at).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
                       </div>
                     </DataTableCell>
                     <DataTableCell>
@@ -1001,131 +998,6 @@ function OrderDetailDrawer({
       </div>
     </Drawer>
   );
-}
-
-// Legacy OrderDetailPanel removed — replaced by OrderDetailDrawer above.
-
-// ─── Order Item Row ─────────────────────────────────────────────────────────
-
-function AdminOrderItemRow({ item }: { item: OrderItem }) {
-  const { t } = useI18n();
-  return (
-    <div
-      className="py-3"
-      style={{ borderBottom: '1px solid var(--divider)' }}
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-          style={{ background: itemColor(item.name) }}
-        >
-          {itemInitials(item.name)}
-        </span>
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-fg-primary">
-            {item.name}{item.selected_variant_name ? ` - ${item.selected_variant_name}` : ''}
-          </span>
-          <span className="text-sm text-fg-secondary ml-1">x {item.quantity}</span>
-        </div>
-        <span className="text-sm text-fg-primary font-medium">
-          ₪{(item.price * item.quantity).toFixed(2)}
-        </span>
-      </div>
-      {item.modifiers && item.modifiers.length > 0 && (
-        <div className="ml-12 mt-1 space-y-0.5">
-          {item.modifiers.map((mod) => (
-            <div key={mod.id} className="flex items-center justify-between text-xs text-fg-secondary">
-              <span>{mod.action === 'remove' ? '−' : '+'} {mod.name}</span>
-              {mod.price_delta !== 0 && (
-                <span>{mod.price_delta > 0 ? '+' : ''}₪{mod.price_delta.toFixed(2)}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      {item.notes && (
-        <div className="ml-12 mt-1 text-xs text-fg-secondary italic">
-          {t('note')} {item.notes}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Detail Row ──────────────────────────────────────────────────────────────
-
-function DetailRow({ label, value, capitalize: cap }: { label: string; value: string; capitalize?: boolean }) {
-  return (
-    <div className="flex items-center justify-between py-3" style={{ borderBottom: '1px solid var(--divider)' }}>
-      <span className="text-sm font-semibold text-fg-primary">{label}</span>
-      <span className={`text-sm text-fg-secondary ${cap ? 'capitalize' : ''}`}>{value}</span>
-    </div>
-  );
-}
-
-// ─── Panel Actions ───────────────────────────────────────────────────────────
-
-function OrderPanelActions({
-  status, isLoading, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
-}: {
-  status: OrderStatus;
-  isLoading: boolean;
-  onAccept: () => void;
-  onReject: () => void;
-  onSendToKitchen: () => void;
-  onMarkReady: () => void;
-  onMarkServed: () => void;
-}) {
-  const { t } = useI18n();
-  if (status === 'pending_review') {
-    return (
-      <div className="flex gap-2">
-        <button disabled={isLoading} onClick={onAccept} className="btn-primary flex-1 py-2.5 disabled:opacity-50">
-          {t('accept')}
-        </button>
-        <button
-          disabled={isLoading}
-          onClick={onReject}
-          className="flex-1 py-2.5 rounded-standard font-medium disabled:opacity-50 text-status-rejected"
-          style={{ background: 'rgba(247,56,56,0.1)' }}
-        >
-          {t('reject')}
-        </button>
-      </div>
-    );
-  }
-  if (status === 'accepted') {
-    return (
-      <button disabled={isLoading} onClick={onSendToKitchen} className="btn-primary w-full py-2.5 disabled:opacity-50">
-        {t('sendToKitchen')}
-      </button>
-    );
-  }
-  if (status === 'in_kitchen') {
-    return (
-      <button
-        disabled={isLoading}
-        onClick={onMarkReady}
-        className="w-full py-2.5 rounded-standard font-medium disabled:opacity-50"
-        style={{ background: 'rgba(119,186,75,0.15)', color: '#77BA4B' }}
-      >
-        {t('markReady')}
-      </button>
-    );
-  }
-  if (status === 'ready' || status === 'ready_for_pickup') {
-    return (
-      <button
-        disabled={isLoading}
-        onClick={onMarkServed}
-        className="w-full py-2.5 rounded-standard font-medium disabled:opacity-50"
-        style={{ background: 'rgba(52,211,153,0.15)', color: '#34D399' }}
-      >
-        {t('markServed')}
-      </button>
-    );
-  }
-  return null;
 }
 
 // ─── Filter Dropdown ─────────────────────────────────────────────────────────
