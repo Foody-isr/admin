@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
-  markOrderReceived, markOrderDelivered, markOrderOutForDelivery,
+  markOrderServed, markOrderDelivered, markOrderOutForDelivery,
   Order, OrderItem, OrderStatus, ListOrdersParams,
 } from '@/lib/api';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -113,7 +113,7 @@ export default function OrdersPage() {
   const { permission, requestPermission, notify } = useBrowserNotifications();
   const [soundOn, setSoundOn] = useState(true);
 
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [rawOrders, setRawOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -128,6 +128,15 @@ export default function OrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
   const [page, setPage] = useState(0);
+
+  // Mirrors foodypos: on the "Active" tab, hide orders that have reached a
+  // terminal state (served / received / picked_up / delivered / cancelled / rejected).
+  // The server includes `served` in the default active filter for backward
+  // compatibility with other clients, so we filter here.
+  const orders = activeTab === 'active'
+    ? rawOrders.filter((o) => !['served', 'received', 'picked_up', 'delivered', 'cancelled', 'rejected'].includes(o.status))
+    : rawOrders;
+  const setOrders = setRawOrders;
 
   // Selected order for right panel
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -266,7 +275,9 @@ export default function OrdersPage() {
       if (orderType === 'delivery') {
         await markOrderDelivered(rid, orderId);
       } else {
-        await markOrderReceived(rid, orderId);
+        // mark-served works from in_kitchen and ready (server validation).
+        // mark-received only works from ready, so prefer mark-served here.
+        await markOrderServed(rid, orderId);
       }
     });
     setSelectedId(null);
@@ -696,7 +707,7 @@ function OrderDetailDrawer({
     ? order.customer_name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : 'C';
 
-  const isTerminal = ['received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
+  const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
   const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
   const canCloseOrder = !isTerminal && order.payment_status === 'paid';
 
