@@ -733,12 +733,12 @@ export default function StockPage() {
                     </DataTableCell>
                     <DataTableCell>
                       {isLow ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                          <AlertTriangleIcon className="w-4 h-4" />
+                        <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-fs-xs font-semibold whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                          <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
                           {t('lowStock') || 'Bas'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                        <span className="inline-flex items-center h-7 px-2.5 rounded-md text-fs-xs font-semibold whitespace-nowrap bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                           OK
                         </span>
                       )}
