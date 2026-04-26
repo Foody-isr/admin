@@ -1207,6 +1207,13 @@ export async function deleteGroup(restaurantId: number, id: number): Promise<voi
   );
 }
 
+export async function reorderGroups(restaurantId: number, menuId: number, groupIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_id: menuId, group_ids: groupIds }) }
+  );
+}
+
 export async function addItemsToGroup(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
   await apiFetch<void>(
     `/api/v1/menu/groups/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,

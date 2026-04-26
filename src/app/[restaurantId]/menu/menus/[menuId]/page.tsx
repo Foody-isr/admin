@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, getRestaurant, deleteGroup, deleteMenu,
+  listMenus, getRestaurant, deleteGroup, deleteMenu, reorderGroups,
   listAllItems, addItemsToGroup, removeItemFromGroup,
   Menu, MenuGroup, MenuItem, Restaurant,
 } from '@/lib/api';
@@ -17,6 +17,7 @@ import {
   LayoutGridIcon,
   XIcon,
   SearchIcon,
+  GripVerticalIcon,
 } from 'lucide-react';
 
 type TFn = (k: string) => string;
@@ -71,6 +72,9 @@ export default function MenuDetailPage() {
   const [groupDropdown, setGroupDropdown] = useState<number | null>(null);
   const [itemPickerGroupId, setItemPickerGroupId] = useState<number | null>(null);
   const [allItems, setAllItems] = useState<MenuItem[]>([]);
+  const [orderedGroupIds, setOrderedGroupIds] = useState<number[] | null>(null);
+  const [draggingGroupId, setDraggingGroupId] = useState<number | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<number | null>(null);
 
   const reload = useCallback(() => {
     setLoading(true);
@@ -78,6 +82,7 @@ export default function MenuDetailPage() {
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       setAllItems(items);
+      setOrderedGroupIds(null);
       if (found?.groups) {
         setExpanded(new Set(found.groups.map((g) => g.id)));
       }
@@ -118,7 +123,52 @@ export default function MenuDetailPage() {
     );
   }
 
-  const groups = menu.groups ?? [];
+  const baseGroups = menu.groups ?? [];
+  const groups: MenuGroup[] = orderedGroupIds
+    ? (orderedGroupIds.map((id) => baseGroups.find((g) => g.id === id)).filter(Boolean) as MenuGroup[])
+    : baseGroups;
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, groupId: number) => {
+    setDraggingGroupId(groupId);
+    e.dataTransfer.effectAllowed = 'move';
+    // Required for Firefox to initiate drag
+    e.dataTransfer.setData('text/plain', String(groupId));
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, groupId: number) => {
+    if (draggingGroupId === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (groupId !== dragOverGroupId) setDragOverGroupId(groupId);
+  };
+
+  const clearDragState = () => {
+    setDraggingGroupId(null);
+    setDragOverGroupId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetGroupId: number) => {
+    e.preventDefault();
+    const dragId = draggingGroupId;
+    clearDragState();
+    if (dragId === null || dragId === targetGroupId) return;
+
+    const currentOrder = groups.map((g) => g.id);
+    const fromIdx = currentOrder.indexOf(dragId);
+    const toIdx = currentOrder.indexOf(targetGroupId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const next = [...currentOrder];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, dragId);
+    setOrderedGroupIds(next);
+
+    try {
+      await reorderGroups(rid, mid, next);
+    } catch {
+      reload();
+    }
+  };
 
   return (
     <div className="space-y-6 w-full min-w-0">
@@ -253,13 +303,25 @@ export default function MenuDetailPage() {
         {groups.map((group) => {
           const items = group.items ?? [];
           const isExpanded = expanded.has(group.id);
+          const isDragging = draggingGroupId === group.id;
+          const isDragTarget = dragOverGroupId === group.id && draggingGroupId !== null && draggingGroupId !== group.id;
           return (
-            <div key={group.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface)]">
+            <div
+              key={group.id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, group.id)}
+              onDragOver={(e) => handleDragOver(e, group.id)}
+              onDrop={(e) => handleDrop(e, group.id)}
+              onDragEnd={clearDragState}
+              onDragLeave={() => { if (dragOverGroupId === group.id) setDragOverGroupId(null); }}
+              className={`rounded-xl border bg-[var(--surface)] transition-all ${isDragging ? 'opacity-40' : ''} ${isDragTarget ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-[var(--divider)]'}`}
+            >
               {/* ── Group Header ── */}
               <div
                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors ${isExpanded ? '' : 'rounded-xl'}`}
                 onClick={() => toggleExpand(group.id)}
               >
+                <GripVerticalIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0 cursor-grab active:cursor-grabbing" />
                 {isExpanded
                   ? <ChevronUpIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                   : <ChevronDownIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
