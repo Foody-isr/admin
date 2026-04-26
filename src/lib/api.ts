@@ -40,6 +40,7 @@ export interface Restaurant {
   phone: string;
   delivery_enabled: boolean;
   pickup_enabled: boolean;
+  dine_in_enabled: boolean;
   is_active: boolean;
   opening_hours_config?: OpeningHoursConfig;
   created_at: string;

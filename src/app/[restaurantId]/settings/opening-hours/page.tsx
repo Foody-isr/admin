@@ -43,11 +43,13 @@ export default function OpeningHoursPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<OrderType>('pickup');
   const [config, setConfig] = useState<OpeningHoursConfig>(defaultConfig());
   const [closures, setClosures] = useState<ExceptionalClosure[]>([]);
   const [pickupEnabled, setPickupEnabled] = useState(true);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [dineInEnabled, setDineInEnabled] = useState(true);
 
   useEffect(() => {
     getRestaurant(rid)
@@ -66,16 +68,20 @@ export default function OpeningHoursPage() {
         }
         setPickupEnabled(r.pickup_enabled ?? true);
         setDeliveryEnabled(r.delivery_enabled ?? false);
+        setDineInEnabled(r.dine_in_enabled ?? true);
       })
       .finally(() => setLoading(false));
   }, [rid]);
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await updateRestaurant(rid, { opening_hours_config: config });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Échec de l’enregistrement');
     } finally {
       setSaving(false);
     }
@@ -94,7 +100,7 @@ export default function OpeningHoursPage() {
   const isServiceEnabled = (ot: OrderType): boolean => {
     if (ot === 'pickup') return pickupEnabled;
     if (ot === 'delivery') return deliveryEnabled;
-    return true; // dine_in is always available; controlled by tables
+    return dineInEnabled;
   };
 
   const isScheduleOpenNow = (ot: OrderType): boolean => {
@@ -113,8 +119,7 @@ export default function OpeningHoursPage() {
     return cur >= o && cur <= c;
   };
 
-  const activeEnabled = isServiceEnabled(activeTab);
-  const isOpenNow = activeEnabled && isScheduleOpenNow(activeTab);
+  const isOpenNow = isScheduleOpenNow(activeTab);
 
   if (loading) {
     return (
@@ -124,13 +129,18 @@ export default function OpeningHoursPage() {
     );
   }
 
-  const tabs: { key: OrderType; label: string }[] = [
+  const allTabs: { key: OrderType; label: string }[] = [
     { key: 'pickup', label: t('pickup') || 'À emporter' },
     { key: 'dine_in', label: t('dineIn') || 'Sur place' },
     { key: 'delivery', label: t('delivery') || 'Livraison' },
   ];
+  const tabs = allTabs.filter((tb) => isServiceEnabled(tb.key));
+  const noServiceEnabled = tabs.length === 0;
+  const effectiveActiveTab: OrderType = isServiceEnabled(activeTab)
+    ? activeTab
+    : (tabs[0]?.key ?? activeTab);
 
-  const weeklyHours = config[activeTab] ?? defaultWeek();
+  const weeklyHours = config[effectiveActiveTab] ?? defaultWeek();
 
   return (
     <div className="max-w-[880px]">
@@ -141,56 +151,49 @@ export default function OpeningHoursPage() {
           'Affichés sur votre menu en ligne. Les commandes sont bloquées en dehors de ces horaires.'
         }
         actions={
-          <Badge tone={isOpenNow ? 'success' : 'neutral'} dot>
-            {!activeEnabled
-              ? t('serviceDisabled') || 'Service désactivé'
-              : isOpenNow
-                ? t('openNow') || 'Ouvert maintenant'
-                : t('closedNow') || 'Fermé maintenant'}
-          </Badge>
+          noServiceEnabled ? null : (
+            <Badge tone={isOpenNow ? 'success' : 'neutral'} dot>
+              {isOpenNow ? t('openNow') || 'Ouvert maintenant' : t('closedNow') || 'Fermé maintenant'}
+            </Badge>
+          )
         }
       />
 
-      <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md mb-[var(--s-4)]">
-        {tabs.map(({ key, label }) => {
-          const enabled = isServiceEnabled(key);
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-selected={activeTab === key}
-              onClick={() => setActiveTab(key)}
-              className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
-                activeTab === key
-                  ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-              }`}
-            >
-              <span>{label}</span>
-              {!enabled && (
-                <span className="text-[10px] uppercase tracking-wider text-[var(--fg-subtle)]">
-                  {t('off') || 'off'}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {!activeEnabled && (
+      {noServiceEnabled ? (
         <div
-          className="mb-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md text-fs-sm"
+          className="mb-[var(--s-4)] px-[var(--s-4)] py-[var(--s-4)] rounded-r-md text-fs-sm"
           style={{
             background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
             color: 'var(--warning-500)',
             border: '1px solid color-mix(in oklab, var(--warning-500) 35%, var(--line))',
           }}
         >
-          {(t('serviceDisabledBanner') ||
-            'Ce mode de commande est désactivé. Activez-le dans Paramètres → Général → Service & disponibilité pour qu’il soit visible par vos clients.')}
+          {t('noServiceEnabledBanner') ||
+            'Aucun mode de commande n’est activé. Activez À emporter, Sur place ou Livraison dans Paramètres → Général → Service & disponibilité pour configurer leurs horaires.'}
         </div>
+      ) : (
+        tabs.length > 1 && (
+          <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md mb-[var(--s-4)]">
+            {tabs.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                aria-selected={effectiveActiveTab === key}
+                onClick={() => setActiveTab(key)}
+                className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
+                  effectiveActiveTab === key
+                    ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                    : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )
       )}
 
+      {!noServiceEnabled && (
       <Section title={t('businessHours') || "Heures d'ouverture"}>
         <div className="border border-[var(--line)] rounded-r-md overflow-hidden">
           {DAYS.map((day, i) => {
@@ -221,7 +224,7 @@ export default function OpeningHoursPage() {
                       <Input
                         type="time"
                         value={dh.open}
-                        onChange={(e) => updateDay(activeTab, day, { open: e.target.value })}
+                        onChange={(e) => updateDay(effectiveActiveTab, day, { open: e.target.value })}
                         className="font-mono text-center"
                         style={{ width: 100 }}
                       />
@@ -229,7 +232,7 @@ export default function OpeningHoursPage() {
                       <Input
                         type="time"
                         value={dh.close}
-                        onChange={(e) => updateDay(activeTab, day, { close: e.target.value })}
+                        onChange={(e) => updateDay(effectiveActiveTab, day, { close: e.target.value })}
                         className="font-mono text-center"
                         style={{ width: 100 }}
                       />
@@ -243,7 +246,7 @@ export default function OpeningHoursPage() {
                   <input
                     type="checkbox"
                     checked={dh.closed}
-                    onChange={(e) => updateDay(activeTab, day, { closed: e.target.checked })}
+                    onChange={(e) => updateDay(effectiveActiveTab, day, { closed: e.target.checked })}
                   />
                   {t('closedLabel') || 'Fermé'}
                 </label>
@@ -252,15 +255,23 @@ export default function OpeningHoursPage() {
           })}
         </div>
       </Section>
+      )}
 
-      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
+      {!noServiceEnabled && (
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)] flex-wrap">
         <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
         </Button>
         {saved && (
           <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
         )}
+        {saveError && (
+          <span className="text-fs-sm text-[var(--danger-500)] font-medium">
+            {saveError}
+          </span>
+        )}
       </div>
+      )}
 
       <Section title={t('exceptionalClosures') || 'Fermetures exceptionnelles'}>
         <div className="flex flex-col gap-[var(--s-2)]">

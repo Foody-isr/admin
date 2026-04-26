@@ -36,6 +36,7 @@ interface PrefsForm {
 interface ServiceForm {
   pickup_enabled: boolean;
   delivery_enabled: boolean;
+  dine_in_enabled: boolean;
 }
 
 export default function SettingsPage() {
@@ -47,6 +48,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [info, setInfo] = useState<InfoForm>({
     name: '',
@@ -67,6 +69,7 @@ export default function SettingsPage() {
   const [service, setService] = useState<ServiceForm>({
     pickup_enabled: true,
     delivery_enabled: false,
+    dine_in_enabled: true,
   });
 
   useEffect(() => {
@@ -83,6 +86,7 @@ export default function SettingsPage() {
         setService({
           pickup_enabled: r.pickup_enabled ?? true,
           delivery_enabled: r.delivery_enabled ?? false,
+          dine_in_enabled: r.dine_in_enabled ?? true,
         });
       })
       .finally(() => setLoading(false));
@@ -91,6 +95,7 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await updateRestaurant(rid, {
         name: info.name,
@@ -99,9 +104,12 @@ export default function SettingsPage() {
         timezone: prefs.timezone,
         pickup_enabled: service.pickup_enabled,
         delivery_enabled: service.delivery_enabled,
+        dine_in_enabled: service.dine_in_enabled,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Échec de l’enregistrement');
     } finally {
       setSaving(false);
     }
@@ -247,12 +255,18 @@ export default function SettingsPage() {
             onChange={(v) => setService((p) => ({ ...p, pickup_enabled: v }))}
           />
           <ServiceToggle
+            label={t('dineIn') || 'Sur place'}
+            sub={t('dineInServiceDesc') || 'Le client commande à table, via QR ou serveur.'}
+            checked={service.dine_in_enabled}
+            onChange={(v) => setService((p) => ({ ...p, dine_in_enabled: v }))}
+          />
+          <ServiceToggle
             label={t('delivery') || 'Livraison'}
             sub={t('deliveryServiceDesc') || 'Le client se fait livrer à son adresse.'}
             checked={service.delivery_enabled}
             onChange={(v) => setService((p) => ({ ...p, delivery_enabled: v }))}
           />
-          {!service.pickup_enabled && !service.delivery_enabled && (
+          {!service.pickup_enabled && !service.delivery_enabled && !service.dine_in_enabled && (
             <div
               className="text-fs-xs px-[var(--s-3)] py-[var(--s-2)] rounded-r-md"
               style={{
@@ -267,12 +281,17 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
+      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)] flex-wrap">
         <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
           {saving ? t('saving') : t('saveChanges')}
         </Button>
         {saved && (
           <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
+        )}
+        {saveError && (
+          <span className="text-fs-sm text-[var(--danger-500)] font-medium">
+            {saveError}
+          </span>
         )}
       </div>
 
