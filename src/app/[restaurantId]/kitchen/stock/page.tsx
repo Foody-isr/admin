@@ -35,8 +35,6 @@ import {
   ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
   SparklesIcon, ClockIcon, RefreshCwIcon,
   ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon, InfoIcon,
-  ShoppingBag, CheckCircle, DollarSign, AlertCircle,
-  type LucideIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -53,7 +51,7 @@ import {
   DataTableCell,
   DataTableSelectCell,
 } from '@/components/data-table';
-import { Button, PageHead } from '@/components/ds';
+import { Button, Kpi, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
   getPackaging,
@@ -376,44 +374,42 @@ export default function StockPage() {
 
         {/* KPIs */}
         {showKpis && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <KpiCard
-              kpiKey="articles-stock"
-              title={t('itemsInStock') || 'Articles en stock'}
-              value={String(items.length)}
-              onClick={setSelectedKpi}
-              icon={ShoppingBag}
-              change={String(categories.length)}
-              positive
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
+            <Kpi
+              label={t('itemsInStock') || 'Articles en stock'}
+              value={items.length}
+              sub={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
+              onClick={() => setSelectedKpi('articles-stock')}
             />
-            <KpiCard
-              kpiKey="statut-ok"
-              title={t('statusOk') || 'Statut OK'}
-              value={String(stockOk)}
-              onClick={setSelectedKpi}
-              icon={CheckCircle}
-              change={
+            <Kpi
+              label={t('statusOk') || 'Statut OK'}
+              value={stockOk}
+              sub={
                 items.length > 0
-                  ? `${((stockOk / items.length) * 100).toFixed(0)}%`
+                  ? `${((stockOk / items.length) * 100).toFixed(0)}% ${t('ofTotal') || 'du total'}`
                   : '—'
               }
-              positive={items.length === 0 || stockOk / items.length >= 0.8}
+              onClick={() => setSelectedKpi('statut-ok')}
             />
-            <KpiCard
-              kpiKey="valeur-totale"
-              title={t('totalValue') || 'Valeur totale'}
-              value={`₪${totalValue.toFixed(2)}`}
-              onClick={setSelectedKpi}
-              icon={DollarSign}
+            <Kpi
+              label={t('totalValue') || 'Valeur totale'}
+              value={
+                <>
+                  ₪{Math.round(totalValue).toLocaleString()}
+                  <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
+                    .{String(Math.round((totalValue % 1) * 100)).padStart(2, '0')}
+                  </span>
+                </>
+              }
+              sub={vatDisplayMode === 'inc' ? (t('incVat') || 'TTC') : (t('exVat') || 'HT')}
+              onClick={() => setSelectedKpi('valeur-totale')}
             />
-            <KpiCard
-              kpiKey="stock-bas"
-              title={t('stockAlerts') || 'Alertes stock'}
-              value={String(stockLow)}
-              onClick={setSelectedKpi}
-              icon={AlertCircle}
-              change={stockLow > 0 ? (t('toOrder') || 'À commander') : 'OK'}
-              positive={stockLow === 0}
+            <Kpi
+              tone={stockLow > 0 ? 'danger' : 'default'}
+              label={t('stockAlerts') || 'Alertes stock'}
+              value={stockLow}
+              sub={stockLow > 0 ? (t('toOrder') || 'À commander') : 'OK'}
+              onClick={() => setSelectedKpi('stock-bas')}
             />
           </div>
         )}
@@ -890,61 +886,6 @@ export default function StockPage() {
       )}
       </div>{/* /px-8 py-6 wrapper */}
     </div>
-  );
-}
-
-function KpiCard({
-  kpiKey,
-  title,
-  value,
-  onClick,
-  icon: Icon,
-  change,
-  positive = true,
-}: {
-  kpiKey: string;
-  title: string;
-  value: string;
-  onClick: (key: string) => void;
-  icon: LucideIcon;
-  change?: string;
-  positive?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(kpiKey)}
-      title="Cliquez pour plus d'informations"
-      className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] text-left hover:border-[var(--line-strong)] hover:shadow-2 transition-all"
-    >
-      <div className="flex items-center justify-between mb-[var(--s-3)]">
-        <div
-          className="w-12 h-12 rounded-r-md grid place-items-center text-white"
-          style={{
-            background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
-            boxShadow: '0 4px 12px color-mix(in oklab, var(--brand-500) 25%, transparent)',
-          }}
-        >
-          <Icon className="w-5 h-5" />
-        </div>
-        {change && (
-          <span
-            className="text-fs-sm font-semibold tabular-nums"
-            style={{
-              color: positive ? 'var(--success-500)' : 'var(--danger-500)',
-            }}
-          >
-            {change}
-          </span>
-        )}
-      </div>
-      <h3 className="text-fs-xs uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1">
-        {title}
-      </h3>
-      <p className="text-fs-3xl font-semibold text-[var(--fg)] tabular-nums leading-none">
-        {value}
-      </p>
-    </button>
   );
 }
 

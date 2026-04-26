@@ -43,7 +43,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { Button, PageHead } from '@/components/ds';
+import { Button, Kpi, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
 import { Layers as LayersIcon } from 'lucide-react';
@@ -272,63 +272,35 @@ export default function PrepPage() {
         {/* KPI strip — Actives / Coût total / À consommer bientôt / Périmées */}
         {showKpis && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
-            <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
-              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-                {t('activePreps') || 'Préparations actives'}
-              </p>
-              <p className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
-                {items.length}
-              </p>
-              <p className="text-fs-xs text-[var(--fg-subtle)]">
-                {categoryNames.length} {t('categoriesCount') || 'catégories'}
-              </p>
-            </div>
-            <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
-              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-                {t('totalCost') || 'Coût total en stock'}
-              </p>
-              <p className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
-                ₪{Math.round(totalCost).toLocaleString()}
-                <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
-                  .{String(Math.round((totalCost % 1) * 100)).padStart(2, '0')}
-                </span>
-              </p>
-              <p className="text-fs-xs text-[var(--fg-subtle)]">HT · basé sur recettes</p>
-            </div>
-            <div
-              className="rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]"
-              style={{
-                background: 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))',
-                border: '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))',
-              }}
-            >
-              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-                {t('expiringSoon') || 'À consommer bientôt'}
-              </p>
-              <p className="text-fs-3xl font-semibold leading-none text-[var(--warning-500)] tabular-nums">
-                {expiringCount}
-              </p>
-              <p className="text-fs-xs text-[var(--warning-500)]">
-                {t('shelfUnder48h') || 'DLC < 48h'}
-              </p>
-            </div>
-            <div
-              className="rounded-r-lg p-[var(--s-5)] flex flex-col gap-[var(--s-3)]"
-              style={{
-                background: 'color-mix(in oklab, var(--danger-500) 6%, var(--surface))',
-                border: '1px solid color-mix(in oklab, var(--danger-500) 25%, var(--line))',
-              }}
-            >
-              <p className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
-                {t('expired') || 'Périmées'}
-              </p>
-              <p className="text-fs-3xl font-semibold leading-none text-[var(--danger-500)] tabular-nums">
-                {expiredCount}
-              </p>
-              <p className="text-fs-xs text-[var(--danger-500)]">
-                {t('toDiscard') || 'À jeter'}
-              </p>
-            </div>
+            <Kpi
+              label={t('activePreps') || 'Préparations actives'}
+              value={items.length}
+              sub={`${categoryNames.length} ${t('categoriesCount') || 'catégories'}`}
+            />
+            <Kpi
+              label={t('totalCost') || 'Coût total en stock'}
+              value={
+                <>
+                  ₪{Math.round(totalCost).toLocaleString()}
+                  <span className="text-fs-lg text-[var(--fg-muted)] font-medium">
+                    .{String(Math.round((totalCost % 1) * 100)).padStart(2, '0')}
+                  </span>
+                </>
+              }
+              sub="HT · basé sur recettes"
+            />
+            <Kpi
+              tone="warning"
+              label={t('expiringSoon') || 'À consommer bientôt'}
+              value={expiringCount}
+              sub={t('shelfUnder48h') || 'DLC < 48h'}
+            />
+            <Kpi
+              tone="danger"
+              label={t('expired') || 'Périmées'}
+              value={expiredCount}
+              sub={t('toDiscard') || 'À jeter'}
+            />
           </div>
         )}
 

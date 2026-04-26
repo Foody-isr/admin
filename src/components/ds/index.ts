@@ -11,7 +11,7 @@ export { Chip } from './Chip';
 export type { ChipProps } from './Chip';
 
 export { Kpi } from './Kpi';
-export type { KpiProps } from './Kpi';
+export type { KpiProps, KpiTone } from './Kpi';
 
 export { Table, TableShell, Thead, Tbody, Tr, Td, Th, NumTd } from './Table';
 
