@@ -34,11 +34,10 @@ import {
   AlertTriangleIcon, TrashIcon, PencilIcon,
   ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
   SparklesIcon, ClockIcon, RefreshCwIcon,
-  ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon, InfoIcon,
+  ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
-import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import {
   DataTable,
   DataTableHead,
@@ -92,10 +91,17 @@ export default function StockPage() {
     }
   };
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [filtersDrawer, setFiltersDrawer] = useState<{ open: boolean; view: FilterView }>({
     open: false,
     view: 'index',
   });
+
+  const stockStatusOf = useCallback(
+    (item: StockItem): 'low' | 'ok' =>
+      item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold ? 'low' : 'ok',
+    [],
+  );
 
   const openFiltersDrawer = (view: FilterView) => setFiltersDrawer({ open: true, view });
   const closeFiltersDrawer = () => setFiltersDrawer((prev) => ({ ...prev, open: false }));
@@ -207,6 +213,7 @@ export default function StockPage() {
   const filtered = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (selectedCategories.size > 0 && !selectedCategories.has(item.category)) return false;
+    if (selectedStatuses.size > 0 && !selectedStatuses.has(stockStatusOf(item))) return false;
     return true;
   });
 
@@ -304,7 +311,11 @@ export default function StockPage() {
   };
 
   const [showKpis, setShowKpis] = useState(true);
-  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+
+  const filterByStatus = (status: 'low' | 'ok' | null) => {
+    setSelectedCategories(new Set());
+    setSelectedStatuses(status ? new Set([status]) : new Set());
+  };
 
   if (loading) {
     return (
@@ -315,10 +326,8 @@ export default function StockPage() {
   }
 
   // Figma KPIs — computed from real stock data
-  const stockOk = items.filter((i) => (i.quantity ?? 0) > (i.reorder_threshold ?? 0)).length;
-  const stockLow = items.filter(
-    (i) => (i.quantity ?? 0) <= (i.reorder_threshold ?? 0),
-  ).length;
+  const stockLow = items.filter((i) => stockStatusOf(i) === 'low').length;
+  const stockOk = items.length - stockLow;
   const totalValue = items.reduce(
     (sum, i) => sum + (i.quantity ?? 0) * (i.cost_per_unit ?? 0),
     0,
@@ -379,7 +388,7 @@ export default function StockPage() {
               label={t('itemsInStock') || 'Articles en stock'}
               value={items.length}
               sub={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
-              onClick={() => setSelectedKpi('articles-stock')}
+              onClick={() => filterByStatus(null)}
             />
             <Kpi
               label={t('statusOk') || 'Statut OK'}
@@ -389,7 +398,7 @@ export default function StockPage() {
                   ? `${((stockOk / items.length) * 100).toFixed(0)}% ${t('ofTotal') || 'du total'}`
                   : '—'
               }
-              onClick={() => setSelectedKpi('statut-ok')}
+              onClick={() => filterByStatus('ok')}
             />
             <Kpi
               label={t('totalValue') || 'Valeur totale'}
@@ -402,14 +411,13 @@ export default function StockPage() {
                 </>
               }
               sub={vatDisplayMode === 'inc' ? (t('incVat') || 'TTC') : (t('exVat') || 'HT')}
-              onClick={() => setSelectedKpi('valeur-totale')}
             />
             <Kpi
               tone={stockLow > 0 ? 'danger' : 'default'}
               label={t('stockAlerts') || 'Alertes stock'}
               value={stockLow}
               sub={stockLow > 0 ? (t('toOrder') || 'À commander') : 'OK'}
-              onClick={() => setSelectedKpi('stock-bas')}
+              onClick={() => filterByStatus('low')}
             />
           </div>
         )}
@@ -593,7 +601,7 @@ export default function StockPage() {
             </DataTableHead>
             <DataTableBody>
               {sorted.map((item, index) => {
-                const isLow = item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
+                const isLow = stockStatusOf(item) === 'low';
                 const catColor = categories.find((c) => c.name === item.category)?.color;
                 const pkg = getPackaging(item);
                 const level = getItemLevel(item);
@@ -754,11 +762,6 @@ export default function StockPage() {
         </div>
       )}
 
-      <KPIInfoModal
-        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
-        onClose={() => setSelectedKpi(null)}
-      />
-
       {/* Stock Item Modal */}
       {itemModal.open && (
         <StockItemModal
@@ -794,7 +797,7 @@ export default function StockPage() {
         />
       )}
 
-      {/* Stock Filters Drawer (nested: index → category) */}
+      {/* Stock Filters Drawer (nested: index → category | status) */}
       <StockFiltersDrawer
         open={filtersDrawer.open}
         initialView={filtersDrawer.view}
@@ -802,6 +805,12 @@ export default function StockPage() {
         categories={categories}
         selectedCategories={selectedCategories}
         onCategoryChange={setSelectedCategories}
+        statuses={[
+          { value: 'low', label: t('lowStock') || 'Stock bas', color: '#ef4444' },
+          { value: 'ok', label: t('statusOk') || 'OK', color: '#10b981' },
+        ]}
+        selectedStatuses={selectedStatuses}
+        onStatusChange={setSelectedStatuses}
       />
 
       {/* AI Delivery Import Modal */}
