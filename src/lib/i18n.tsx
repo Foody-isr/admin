@@ -1808,6 +1808,47 @@ const translations: Record<Locale, Record<string, string>> = {
     vatReduced: 'Reduced (books, newspapers)',
     vatStandard: 'Standard',
     viaCardProvider: 'Via card provider',
+
+    // ── Settings: Service & availability + Pre-orders / Batch fulfillment ──
+    serviceAvailability: 'Service & availability',
+    serviceAvailabilityDesc:
+      'Choose which order modes you offer to online customers. Day-to-day availability is managed in Hours.',
+    pickupServiceDesc: 'Customers pick up their order at the counter.',
+    dineInServiceDesc: 'Customers order at the table, via QR or a server.',
+    deliveryServiceDesc: 'Customers get their order delivered to their address.',
+    noServiceWarning:
+      "No order mode is enabled — customers won't be able to order online.",
+    noServiceEnabledBanner:
+      'No order mode is enabled. Turn on Pickup, Dine-in, or Delivery in Settings → General → Service & availability to configure their hours.',
+    off: 'Disabled',
+    mode: 'Mode',
+    scheduledOrdersPageDesc:
+      'Sell on pre-order: customers order during the week, and you fulfill everything on a fixed day.',
+    scheduledOrdersModeDesc:
+      'Pre-order mode replaces the regular opening hours for delivery and pickup.',
+    preOrderOffDesc:
+      'The restaurant operates immediately based on its opening hours.',
+    preOrderBatchTitle: 'Pre-orders (weekly batch)',
+    preOrderBatchDesc:
+      'Customers order continuously, and everything is delivered or picked up on the day(s) you set.',
+    batchFulfillmentActive: 'Pre-orders active',
+    batchFulfillmentDisabled: 'Disabled',
+    batchFulfillmentCutoff: 'Order cutoff',
+    batchFulfillmentCutoffDesc:
+      'Date and time at which the order book closes for the next batch.',
+    batchFulfillmentCutoffDay: 'Cutoff day',
+    batchFulfillmentCutoffTime: 'Cutoff time',
+    batchFulfillmentDays: 'Fulfillment days',
+    batchFulfillmentDaysDesc:
+      'Set one or more weekdays to deliver or hand off all queued orders.',
+    batchFulfillmentAddDay: 'Add a day',
+    batchFulfillmentNoDays:
+      'No fulfillment day defined. Add at least one to activate pre-orders.',
+    batchFulfillmentPickupWindow: 'Pickup window',
+    batchFulfillmentDeliveryWindow: 'Delivery window',
+    batchFulfillmentRequirePrepayment: 'Require payment at checkout',
+    batchFulfillmentRequirePrepaymentSubtitle:
+      'Customers must pay immediately when placing a pre-order.',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -3543,6 +3584,47 @@ const translations: Record<Locale, Record<string, string>> = {
     vatReduced: 'מופחת (ספרים, עיתונים)',
     vatStandard: 'רגיל',
     viaCardProvider: 'דרך ספק הכרטיסים',
+
+    // ── הגדרות: שירות וזמינות + הזמנות מראש / מרוכזות ──
+    serviceAvailability: 'שירות וזמינות',
+    serviceAvailabilityDesc:
+      'בחר אילו מצבי הזמנה זמינים ללקוחות באתר. הזמינות היומית מוגדרת ב"שעות".',
+    pickupServiceDesc: 'הלקוח אוסף את ההזמנה מהדלפק.',
+    dineInServiceDesc: 'הלקוח מזמין מהשולחן, דרך QR או מלצר.',
+    deliveryServiceDesc: 'ההזמנה נמסרת לכתובת הלקוח.',
+    noServiceWarning:
+      'אף מצב הזמנה אינו פעיל — לקוחות לא יוכלו להזמין באתר.',
+    noServiceEnabledBanner:
+      'אף מצב הזמנה אינו פעיל. הפעל איסוף עצמי, ישיבה במקום או משלוח בהגדרות → כללי → שירות וזמינות כדי להגדיר את שעות הפעילות.',
+    off: 'מושבת',
+    mode: 'מצב',
+    scheduledOrdersPageDesc:
+      'מכור בהזמנה מראש: לקוחות מזמינים במהלך השבוע, ואתה מבצע הכל ביום קבוע.',
+    scheduledOrdersModeDesc:
+      'מצב הזמנות מראש מחליף את שעות הפעילות הרגילות עבור משלוח ואיסוף.',
+    preOrderOffDesc:
+      'המסעדה פועלת באופן מיידי לפי שעות הפעילות הרגילות.',
+    preOrderBatchTitle: 'הזמנות מרוכזות (לפי שבוע)',
+    preOrderBatchDesc:
+      'הלקוחות מזמינים ברציפות, וכל ההזמנות נמסרות או נאספות ביום או בימים שתגדיר.',
+    batchFulfillmentActive: 'הזמנות מרוכזות פעילות',
+    batchFulfillmentDisabled: 'מושבת',
+    batchFulfillmentCutoff: 'סגירת הזמנות',
+    batchFulfillmentCutoffDesc:
+      'התאריך והשעה שבהם נסגרות ההזמנות עבור המחזור הבא.',
+    batchFulfillmentCutoffDay: 'יום סגירה',
+    batchFulfillmentCutoffTime: 'שעת סגירה',
+    batchFulfillmentDays: 'ימי ביצוע',
+    batchFulfillmentDaysDesc:
+      'הגדר יום או יותר בשבוע לאיסוף או משלוח של כל ההזמנות שהצטברו.',
+    batchFulfillmentAddDay: 'הוסף יום',
+    batchFulfillmentNoDays:
+      'לא הוגדר יום ביצוע. הוסף לפחות אחד כדי להפעיל את ההזמנות המרוכזות.',
+    batchFulfillmentPickupWindow: 'חלון איסוף',
+    batchFulfillmentDeliveryWindow: 'חלון משלוח',
+    batchFulfillmentRequirePrepayment: 'נדרש תשלום בעת ההזמנה',
+    batchFulfillmentRequirePrepaymentSubtitle:
+      'הלקוחות חייבים לשלם מיידית בעת ביצוע הזמנה מרוכזת.',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -5279,5 +5361,46 @@ const translations: Record<Locale, Record<string, string>> = {
     vatReduced: 'Réduit (livres, journaux)',
     vatStandard: 'Standard',
     viaCardProvider: 'Via le fournisseur de carte',
+
+    // ── Réglages : Service & disponibilité + Pré-commandes / Lots ──
+    serviceAvailability: 'Service & disponibilité',
+    serviceAvailabilityDesc:
+      'Choisissez les modes de commande proposés à vos clients en ligne. La disponibilité dans la journée est gérée dans Horaires.',
+    pickupServiceDesc: 'Le client retire sa commande au comptoir.',
+    dineInServiceDesc: 'Le client commande à table, via QR ou serveur.',
+    deliveryServiceDesc: 'Le client se fait livrer à son adresse.',
+    noServiceWarning:
+      'Aucun mode de commande activé : les clients ne pourront pas commander en ligne.',
+    noServiceEnabledBanner:
+      'Aucun mode de commande n’est activé. Activez À emporter, Sur place ou Livraison dans Paramètres → Général → Service & disponibilité pour configurer leurs horaires.',
+    off: 'Désactivé',
+    mode: 'Mode',
+    scheduledOrdersPageDesc:
+      'Vendez en pré-commande : les clients commandent pendant la semaine, vous livrez tout sur une journée fixe.',
+    scheduledOrdersModeDesc:
+      'Le mode pré-commandes remplace les horaires d’ouverture habituels pour la livraison et le retrait.',
+    preOrderOffDesc:
+      'Le restaurant fonctionne en service immédiat selon les horaires d’ouverture.',
+    preOrderBatchTitle: 'Pré-commandes (lot hebdomadaire)',
+    preOrderBatchDesc:
+      'Les clients commandent en continu, et tout est livré ou retiré le(s) jour(s) que vous fixez.',
+    batchFulfillmentActive: 'Pré-commandes actives',
+    batchFulfillmentDisabled: 'Désactivé',
+    batchFulfillmentCutoff: 'Clôture des commandes',
+    batchFulfillmentCutoffDesc:
+      'Date et heure auxquelles le carnet de commandes ferme pour le prochain lot.',
+    batchFulfillmentCutoffDay: 'Jour de clôture',
+    batchFulfillmentCutoffTime: 'Heure de clôture',
+    batchFulfillmentDays: 'Jours de livraison / retrait',
+    batchFulfillmentDaysDesc:
+      'Définissez un ou plusieurs jours de la semaine pour livrer ou faire retirer les commandes.',
+    batchFulfillmentAddDay: 'Ajouter un jour',
+    batchFulfillmentNoDays:
+      'Aucun jour défini. Ajoutez-en au moins un pour activer le mode pré-commandes.',
+    batchFulfillmentPickupWindow: 'Fenêtre retrait',
+    batchFulfillmentDeliveryWindow: 'Fenêtre livraison',
+    batchFulfillmentRequirePrepayment: 'Paiement requis à la commande',
+    batchFulfillmentRequirePrepaymentSubtitle:
+      'Les clients doivent payer immédiatement lors d’une pré-commande.',
   },
 };
