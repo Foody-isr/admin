@@ -12,7 +12,7 @@ export type PlanTier = 'starter' | 'premium' | 'enterprise';
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'deactivated' | 'cancelled';
 export type OrderStatus =
   | 'pending_review' | 'accepted' | 'in_kitchen' | 'ready'
-  | 'served' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
+  | 'served' | 'received' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
   | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery';
 export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'refunded';
 
@@ -1852,6 +1852,46 @@ export async function updateOrderStatus(restaurantId: number, orderId: number, s
     method: 'PUT',
     body: JSON.stringify({ status }),
   });
+  return data.order;
+}
+
+async function postOrderAction(restaurantId: number, orderId: number, action: string): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/${action}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+  return data.order;
+}
+
+export const sendOrderToKitchen = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'send-to-kitchen');
+export const markOrderReady = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-ready');
+export const markOrderServed = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-served');
+export const markOrderReceived = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-received');
+export const markOrderReadyForDelivery = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-ready-for-delivery');
+export const markOrderOutForDelivery = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-out-for-delivery');
+export const markOrderDelivered = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-delivered');
+
+export async function updateOrderPaymentStatus(
+  restaurantId: number,
+  orderId: number,
+  paymentStatus: PaymentStatus,
+  paymentMethod?: string,
+): Promise<Order> {
+  const body: Record<string, string> = { payment_status: paymentStatus };
+  if (paymentMethod) body.payment_method = paymentMethod;
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/payment-status?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
   return data.order;
 }
 

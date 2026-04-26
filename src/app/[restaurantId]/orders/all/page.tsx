@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
+  updateOrderPaymentStatus,
+  markOrderReceived, markOrderDelivered, markOrderOutForDelivery,
   Order, OrderItem, OrderStatus, ListOrdersParams,
 } from '@/lib/api';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -15,8 +17,10 @@ import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
   ChevronDownIcon, XIcon, PrinterIcon, MoreHorizontalIcon,
+  CreditCardIcon, CheckCircle2Icon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
+import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import {
   DataTable,
   DataTableHead,
@@ -40,7 +44,7 @@ const TABS: Tab[] = [
   { key: 'all', labelKey: 'all', active: undefined },
   { key: 'active', labelKey: 'active', active: true },
   { key: 'scheduled', labelKey: 'scheduled', statuses: 'scheduled' },
-  { key: 'completed', labelKey: 'completed', statuses: 'served,picked_up,delivered' },
+  { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
 ];
 
@@ -53,7 +57,9 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   ready: 'info',
   ready_for_pickup: 'info',
   ready_for_delivery: 'info',
+  out_for_delivery: 'info',
   served: 'success',
+  received: 'success',
   picked_up: 'success',
   delivered: 'success',
   rejected: 'danger',
@@ -224,6 +230,47 @@ export default function OrdersPage() {
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'ready').then(() => {}), 'ready');
   const handleMarkServed = (orderId: number) =>
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'served').then(() => {}), 'served');
+  const handleOutForDelivery = (orderId: number) =>
+    runAction(orderId, () => markOrderOutForDelivery(rid, orderId).then(() => {}), 'out_for_delivery');
+  const handleMarkDelivered = (orderId: number) =>
+    runAction(orderId, () => markOrderDelivered(rid, orderId).then(() => {}), 'delivered');
+
+  // ─── Payment / Close ─────────────────────────────────────────────
+  const [paymentOpen, setPaymentOpen] = useState(false);
+
+  const handleTakePayment = (method: PaymentMethod) => {
+    if (!selectedOrder) return Promise.resolve();
+    const orderId = selectedOrder.id;
+    setActionLoading(orderId);
+    addProcessingGuard(orderId);
+    // Optimistic
+    setOrders((prev) => prev.map((o) =>
+      o.id === orderId ? { ...o, payment_status: 'paid' } : o,
+    ));
+    return updateOrderPaymentStatus(rid, orderId, 'paid', method)
+      .then((updated) => {
+        setOrders((prev) => prev.map((o) =>
+          o.id === orderId ? { ...o, ...updated } : o,
+        ));
+      })
+      .catch(async () => { await fetchOrders(); })
+      .finally(() => {
+        setActionLoading(null);
+        removeProcessingGuard(orderId);
+      });
+  };
+
+  const handleCloseOrder = (orderId: number, orderType: string) => {
+    if (!confirm(t('closeOrderConfirm'))) return;
+    runAction(orderId, async () => {
+      if (orderType === 'delivery') {
+        await markOrderDelivered(rid, orderId);
+      } else {
+        await markOrderReceived(rid, orderId);
+      }
+    });
+    setSelectedId(null);
+  };
 
   // ─── Tab / search ─────────────────────────────────────────────────
 
@@ -544,6 +591,18 @@ export default function OrdersPage() {
         onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
         onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
         onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
+        onOutForDelivery={() => selectedOrder && handleOutForDelivery(selectedOrder.id)}
+        onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
+        onTakePayment={() => setPaymentOpen(true)}
+        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
+      />
+
+      {/* Take Payment dialog */}
+      <TakePaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        totalAmount={selectedOrder?.total_amount ?? 0}
+        onConfirm={handleTakePayment}
       />
     </div>
   );
@@ -561,8 +620,8 @@ const TIMELINE_STEPS = [
 
 function statusIndex(status: string) {
   // Map status to the furthest reached step (0..4)
-  if (['served', 'picked_up', 'delivered'].includes(status)) return 4;
-  if (['ready', 'ready_for_pickup', 'ready_for_delivery'].includes(status)) return 3;
+  if (['served', 'received', 'picked_up', 'delivered'].includes(status)) return 4;
+  if (['ready', 'ready_for_pickup', 'ready_for_delivery', 'out_for_delivery'].includes(status)) return 3;
   if (status === 'in_kitchen') return 2;
   if (status === 'accepted') return 1;
   if (['rejected', 'pending_review', 'scheduled'].includes(status)) return -1;
@@ -571,6 +630,8 @@ function statusIndex(status: string) {
 
 function OrderDetailDrawer({
   order, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+  onOutForDelivery, onMarkDelivered,
+  onTakePayment, onCloseOrder,
 }: {
   order: Order | null;
   isLoading: boolean;
@@ -580,6 +641,10 @@ function OrderDetailDrawer({
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
+  onOutForDelivery: () => void;
+  onMarkDelivered: () => void;
+  onTakePayment: () => void;
+  onCloseOrder: () => void;
 }) {
   const { t } = useI18n();
 
@@ -604,17 +669,23 @@ function OrderDetailDrawer({
     order.total_amount ?? subtotal;
 
   const primaryBtn = (() => {
+    const isDelivery = order.order_type === 'delivery';
     switch (order.status) {
       case 'pending_review':
         return { label: t('accept'), onClick: onAccept };
       case 'accepted':
-        return { label: t('sendToKitchen') || 'En cuisine', onClick: onSendToKitchen };
+        return { label: t('sendToKitchen'), onClick: onSendToKitchen };
       case 'in_kitchen':
-        return { label: t('markReady') || 'Prête', onClick: onMarkReady };
+        return { label: t('markReady'), onClick: onMarkReady };
       case 'ready':
       case 'ready_for_pickup':
+        return { label: t('markServed'), onClick: onMarkServed };
       case 'ready_for_delivery':
-        return { label: t('markServed') || 'Servie', onClick: onMarkServed };
+        return isDelivery
+          ? { label: t('markOutForDelivery'), onClick: onOutForDelivery }
+          : { label: t('markServed'), onClick: onMarkServed };
+      case 'out_for_delivery':
+        return { label: t('markDelivered'), onClick: onMarkDelivered };
       default:
         return null;
     }
@@ -623,6 +694,10 @@ function OrderDetailDrawer({
   const customerInitials = order.customer_name
     ? order.customer_name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : 'C';
+
+  const isTerminal = ['received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
+  const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
+  const canCloseOrder = !isTerminal && order.payment_status === 'paid';
 
   return (
     <Drawer
@@ -647,9 +722,34 @@ function OrderDetailDrawer({
               <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
             </Button>
           </div>
-          <Button variant="ghost" size="md" onClick={onReject} disabled={isLoading}>
-            <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
-          </Button>
+          <div className="flex items-center gap-[var(--s-2)]">
+            {canTakePayment && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={onTakePayment}
+                disabled={isLoading}
+                style={{ background: 'var(--success-500)', color: '#fff' }}
+              >
+                <CreditCardIcon /> {t('takePayment')}
+              </Button>
+            )}
+            {canCloseOrder && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={onCloseOrder}
+                disabled={isLoading}
+              >
+                <CheckCircle2Icon /> {t('closeOrder')}
+              </Button>
+            )}
+            {!isCancelled && (
+              <Button variant="ghost" size="md" onClick={onReject} disabled={isLoading}>
+                <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
+              </Button>
+            )}
+          </div>
         </div>
       }
     >
