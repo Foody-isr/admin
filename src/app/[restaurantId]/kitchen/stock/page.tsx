@@ -216,6 +216,8 @@ export default function StockPage() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const activeFilterCount = selectedCategories.size + selectedStatuses.size;
+
   // Derived
   const filtered = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -497,9 +499,18 @@ export default function StockPage() {
           <button
             type="button"
             onClick={() => openFiltersDrawer('index')}
-            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm font-medium text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+            className={`inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 rounded-r-lg text-fs-sm font-medium transition-colors whitespace-nowrap ${
+              activeFilterCount > 0
+                ? 'bg-[var(--brand-500)]/10 border border-[var(--brand-500)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/15'
+                : 'bg-[var(--surface)] border border-[var(--line-strong)] text-[var(--fg)] hover:bg-[var(--surface-2)]'
+            }`}
           >
             {t('allFilters')}
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[var(--brand-500)] text-white text-fs-xs font-semibold tabular-nums">
+                {activeFilterCount}
+              </span>
+            )}
             <ChevronDownIcon className="w-4 h-4" />
           </button>
           <ActionsDropdown
