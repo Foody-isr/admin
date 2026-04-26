@@ -97,9 +97,16 @@ export default function StockPage() {
     view: 'index',
   });
 
+  // Mirrors the server's low-stock count (stock/service.go:GetLowStockCount):
+  // item is low when out of stock OR at/below its reorder threshold. Keep this
+  // in sync — the sidebar badge uses the server count and they must agree.
   const stockStatusOf = useCallback(
     (item: StockItem): 'low' | 'ok' =>
-      item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold ? 'low' : 'ok',
+      item.is_active &&
+      (item.quantity <= 0 ||
+        (item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold))
+        ? 'low'
+        : 'ok',
     [],
   );
 
