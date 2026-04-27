@@ -169,15 +169,18 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
 
   return (
     <div
-      className="rounded-r-lg overflow-visible relative"
+      className="rounded-r-lg overflow-hidden relative"
       style={{
         border: '1px solid var(--brand-500)',
+        // box-shadow renders outside the border and is unaffected by
+        // `overflow: hidden`, so the brand-tinted glow stays visible while
+        // the inner panels' backgrounds get clipped at the rounded corners.
         boxShadow: '0 0 0 3px color-mix(in oklab, var(--brand-500) 15%, transparent)',
       }}
     >
       {/* Brand accent bar */}
       <div
-        className="absolute start-0 top-0 bottom-0 w-[3px] rounded-s-r-lg"
+        className="absolute start-0 top-0 bottom-0 w-[3px]"
         style={{ background: 'var(--brand-500)' }}
         aria-hidden
       />
