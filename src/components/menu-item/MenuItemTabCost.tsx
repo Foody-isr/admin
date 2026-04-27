@@ -40,6 +40,9 @@ interface Props {
    *  Defaults to no indent — inside the item-editor the 3px bar sits flush
    *  so "Recette" / "Coût" tabs align across the editor's content area. */
   headerIndentClass?: string;
+  /** Called after the simulator's Apply persists changes — caller refetches
+   *  ingredients / item state. */
+  onChangesApplied?: () => void | Promise<void>;
 }
 
 const CURRENCY = '\u20AA';
@@ -52,6 +55,7 @@ export default function MenuItemTabCost({
   vatRate,
   price,
   headerIndentClass = '',
+  onChangesApplied,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -359,12 +363,14 @@ export default function MenuItemTabCost({
       {/* "Et si… ?" simulator — sandbox the same KPIs by playing with portion,
           sell price, and per-ingredient cost. Nothing persists. */}
       <WhatIfSimulator
+        rid={rid}
         item={item}
         summary={summary}
         activeVariant={activeVariant}
         effectivePrice={effectivePrice}
         thresholdPct={COST_THRESHOLD * 100}
         resetKey={`${variantId}|${vatDisplayMode}`}
+        onApplied={onChangesApplied}
         t={t}
       />
 

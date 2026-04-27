@@ -11,9 +11,13 @@ import {
   ArrowUp,
   Info,
   Sparkles,
-  ChevronRight,
 } from 'lucide-react';
-import type { MenuItem } from '@/lib/api';
+import {
+  setItemOptionPrice,
+  updateMenuItem,
+  updateStockItem,
+  type MenuItem,
+} from '@/lib/api';
 import type { ItemCostSummary, VariantOption } from '@/lib/cost-utils';
 
 // "Et si… ?" simulator card — Figma reference:
@@ -21,12 +25,13 @@ import type { ItemCostSummary, VariantOption } from '@/lib/cost-utils';
 //
 // Three levers (portion · sell price · per-ingredient cost) and a side-by-side
 // outcome panel (% material cost gauge + side-by-side material cost / gross
-// profit cards). Sandbox only — nothing is persisted until "Appliquer les
-// changements" wires through to real save calls (TODO).
+// profit cards). Apply persists in three places: variant price+portion (or
+// item.price+portion when no variant) and per-stock cost_per_unit.
 
 const CURRENCY = '₪';
 
 interface Props {
+  rid: number;
   item: MenuItem;
   summary: ItemCostSummary;
   activeVariant: VariantOption | null;
@@ -39,6 +44,8 @@ interface Props {
    *  levers. Parent flips it on variant / VAT-display switches so the
    *  scenario stays tied to one (variant, basis) pair. */
   resetKey?: string;
+  /** Called after a successful Apply so the parent can refetch. */
+  onApplied?: () => void | Promise<void>;
   t: (k: string) => string;
 }
 
@@ -55,12 +62,14 @@ interface IngLeverRow {
 const SWATCH = ['#f97316', '#05df72', '#3b82f6', '#8e51ff', '#f59e0b', '#ec4899'];
 
 export default function WhatIfSimulator({
+  rid,
   item,
   summary,
   activeVariant,
   effectivePrice,
   thresholdPct,
   resetKey,
+  onApplied,
   t,
 }: Props) {
   // ── Bases ────────────────────────────────────────────────────────────────
@@ -166,11 +175,81 @@ export default function WhatIfSimulator({
     return Array.from(seen.values());
   }, [summary.lines]);
 
+  // ── Apply state ─────────────────────────────────────────────────────────
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+
+  // Walks the item's option_sets to find which set owns a given option_id —
+  // setItemOptionPrice needs both ids and `VariantOption.id` only carries the
+  // option id (`opt:<n>`). Returns null for legacy `var:` variants.
+  function setIdForOption(optionId: number): number | null {
+    for (const os of item.option_sets ?? []) {
+      if ((os.options ?? []).some((o) => o.id === optionId)) return os.id;
+    }
+    return null;
+  }
+
+  async function handleApply() {
+    if (!dirty || applying) return;
+    setApplyError(null);
+    setApplying(true);
+    try {
+      const calls: Promise<unknown>[] = [];
+
+      // 1) Variant-level updates (price + portion). Option-set variants use
+      //    setItemOptionPrice; legacy `var:` variants only support price via
+      //    updateVariant — portion edits on those need the variants page.
+      if (activeVariant && (priceChanged || portionChanged)) {
+        if (activeVariant.id.startsWith('opt:')) {
+          const optionId = Number(activeVariant.id.slice(4));
+          const setId = setIdForOption(optionId);
+          if (setId != null) {
+            calls.push(
+              setItemOptionPrice(rid, setId, item.id, optionId, {
+                price: simPrice,
+                portion_size: simPortion,
+                portion_size_unit: portionUnit,
+                is_active: true,
+              }),
+            );
+          }
+        }
+      } else {
+        // No active variant — apply to the item itself.
+        const patch: Partial<MenuItem> = {};
+        if (priceChanged) patch.price = simPrice;
+        if (portionChanged) {
+          patch.portion_size = simPortion;
+          patch.portion_size_unit = portionUnit;
+        }
+        if (Object.keys(patch).length > 0) {
+          calls.push(updateMenuItem(rid, item.id, patch));
+        }
+      }
+
+      // 2) Stock cost overrides — one PUT per stock_item.
+      for (const [sid, cost] of Object.entries(simStockCosts)) {
+        calls.push(updateStockItem(rid, Number(sid), { cost_per_unit: cost }));
+      }
+
+      await Promise.all(calls);
+      await onApplied?.();
+      // Local levers reset on the next props pass (parent re-fetches → resetKey
+      // changes via new base values), but clear them now for snappy feedback.
+      setSimStockCosts({});
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setApplying(false);
+    }
+  }
+
   // ── Quick-action chips (empty state)
   const reset = () => {
     setSimPortion(basePortion);
     setSimPrice(basePrice);
     setSimStockCosts({});
+    setApplyError(null);
   };
   const quickMinus10Portion = () =>
     basePortion > 0 && setSimPortion(Math.max(portionMin, Math.round(basePortion * 0.9)));
@@ -273,27 +352,39 @@ export default function WhatIfSimulator({
           )}
           <button
             type="button"
-            disabled={!dirty}
-            // Save logic intentionally not wired yet — applying touches stock
-            // costs (multi-table writes) and selling price; surface a TODO
-            // through the UI rather than silently no-op when wired up.
-            onClick={() => {
-              /* TODO(simulator): persist simPrice + simStockCosts via API. */
-            }}
+            disabled={!dirty || applying}
+            onClick={handleApply}
             className="inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors"
             style={{
               border: '1px solid var(--line)',
               background: dirty ? 'var(--surface)' : 'transparent',
               color: dirty ? 'var(--fg)' : 'var(--fg-subtle)',
-              opacity: dirty ? 1 : 0.5,
-              cursor: dirty ? 'pointer' : 'not-allowed',
+              opacity: dirty && !applying ? 1 : 0.5,
+              cursor: dirty && !applying ? 'pointer' : 'not-allowed',
             }}
           >
-            <Check className="w-3 h-3" />
+            {applying ? (
+              <RefreshCw className="w-3 h-3 animate-spin" />
+            ) : (
+              <Check className="w-3 h-3" />
+            )}
             {t('simulatorApply') || 'Appliquer les changements'}
           </button>
         </div>
       </div>
+
+      {applyError && (
+        <div
+          className="px-[var(--s-5)] py-[var(--s-3)] text-fs-xs"
+          style={{
+            background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)',
+            color: 'var(--danger-500)',
+            borderBottom: '1px solid color-mix(in oklab, var(--danger-500) 25%, var(--line))',
+          }}
+        >
+          {applyError}
+        </div>
+      )}
 
       {/* ── Body: 2 columns (Levers | Outcome) ───────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-[1.15fr_1fr]">

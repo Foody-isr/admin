@@ -8,10 +8,10 @@ import { ImageIcon } from 'lucide-react';
 // Shows the full math behind a prep ingredient's cost: raw ingredients →
 // batch cost → cost per unit → line cost at the current portion.
 // The "line cost" math here MUST mirror calcLineCost/calcVariantLineCost in
-// MenuItemCostPanel so the modal and the Cost table never disagree.
+// cost-utils so the modal and the Cost table never disagree.
 export default function PrepCostBreakdownModal({
   ing, item, portion, optionId, showExVat, restaurantRate,
-  simMode, simStockCosts, onEditStockCost, onClose, t,
+  onClose, t,
 }: {
   ing: MenuItemIngredient;
   item: MenuItem;
@@ -19,13 +19,6 @@ export default function PrepCostBreakdownModal({
   optionId?: number | null;
   showExVat: boolean;
   restaurantRate: number;
-  // Simulate mode — when true, the unit-cost cell for each sub-ingredient
-  // becomes an editable input. Edits flow back via onEditStockCost, keyed by
-  // the stock item's id so the same stock used across multiple menu items
-  // stays in lockstep.
-  simMode?: boolean;
-  simStockCosts?: Record<number, number>;
-  onEditStockCost?: (stockId: number, value: number) => void;
   onClose: () => void;
   t: (k: string) => string;
 }) {
@@ -124,58 +117,34 @@ export default function PrepCostBreakdownModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
-                    const editable = simMode && r.stockId != null && onEditStockCost;
-                    const inputValue = editable && simStockCosts && simStockCosts[r.stockId!] != null
-                      ? simStockCosts[r.stockId!]
-                      : Number(r.unitCost.toFixed(4));
-                    return (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--divider)' }}>
-                        <td className="py-2 font-medium text-fg-primary">
-                          <div className="flex items-center gap-2.5">
-                            {r.imageUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
-                            ) : (
-                              <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                                <ImageIcon className="w-4 h-4 text-fg-tertiary" />
-                              </div>
-                            )}
-                            <span className="truncate">{r.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-2 text-right font-mono text-fg-primary">
-                          {r.qty} <span className="text-fg-secondary text-xs">{r.stockUnit}</span>
-                        </td>
-                        <td className="py-2 text-right">
-                          {editable ? (
-                            <div className="inline-flex items-center gap-1 font-mono">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={inputValue}
-                                onChange={(e) => {
-                                  const raw = parseFloat(e.target.value);
-                                  const v = Number.isFinite(raw) && raw >= 0 ? raw : 0;
-                                  onEditStockCost!(r.stockId!, v);
-                                }}
-                                className="input w-24 text-sm py-1 text-right rounded"
-                              />
-                              <span className="text-fg-secondary text-xs">&#8362;/{r.stockUnit}</span>
-                            </div>
+                  {rows.map((r) => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--divider)' }}>
+                      <td className="py-2 font-medium text-fg-primary">
+                        <div className="flex items-center gap-2.5">
+                          {r.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
                           ) : (
-                            <span className="font-mono text-fg-secondary">
-                              {r.unitCost.toFixed(4)} &#8362;/{r.stockUnit}
-                            </span>
+                            <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                              <ImageIcon className="w-4 h-4 text-fg-tertiary" />
+                            </div>
                           )}
-                        </td>
-                        <td className="py-2 text-right font-mono text-fg-primary">
-                          {r.lineCost.toFixed(2)} &#8362;
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <span className="truncate">{r.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 text-right font-mono text-fg-primary">
+                        {r.qty} <span className="text-fg-secondary text-xs">{r.stockUnit}</span>
+                      </td>
+                      <td className="py-2 text-right">
+                        <span className="font-mono text-fg-secondary">
+                          {r.unitCost.toFixed(4)} &#8362;/{r.stockUnit}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right font-mono text-fg-primary">
+                        {r.lineCost.toFixed(2)} &#8362;
+                      </td>
+                    </tr>
+                  ))}
                   <tr style={{ background: 'var(--surface-subtle)' }}>
                     <td colSpan={3} className="py-2 text-right font-semibold text-fg-primary">
                       {t('breakdownBatchCost')}

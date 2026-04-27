@@ -662,6 +662,13 @@ export default function FoodCostPage() {
                 itemOptionOverrides={itemOptionOverrides}
                 vatRate={vatRate}
                 price={selectedItem.item.price}
+                onChangesApplied={async () => {
+                  // Refetch categories + the selected item's ingredients +
+                  // overrides so the simulator's persisted edits flow back
+                  // through into the KPI cards and breakdown table.
+                  await reload();
+                  if (selectedItem) await selectItem(selectedItem);
+                }}
               />
             </div>
           )}

@@ -652,6 +652,7 @@ export default function EditItemPage() {
                 itemOptionOverrides={itemOptionOverrides}
                 vatRate={vatRate}
                 price={parseFloat(price) || 0}
+                onChangesApplied={loadData}
               />
             )}
           </div>
