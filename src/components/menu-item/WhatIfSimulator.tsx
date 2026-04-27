@@ -10,7 +10,6 @@ import {
   ArrowDown,
   ArrowUp,
   Info,
-  Sparkles,
 } from 'lucide-react';
 import {
   setItemOptionPrice,
@@ -332,7 +331,10 @@ export default function WhatIfSimulator({
                 </span>
               )}
             </div>
-            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1">
+            {/* min-h reserves space for two lines so the header height stays
+                stable when "Réinitialiser" appears on the right and forces
+                the description to wrap. */}
+            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1 min-h-[2lh]">
               {t('simulatorIntro') ||
                 "Bougez les curseurs pour voir l'impact sur le coût et la marge. Rien n'est sauvegardé tant que vous n'appliquez pas."}
             </p>
@@ -717,40 +719,6 @@ export default function WhatIfSimulator({
             </div>
           )}
 
-          {/* Dirty state — projection block. Sales-history figures (10 dernières
-              ventes / mois) require a backend feed we don't have yet, so we
-              instead surface the per-portion margin delta as a teaser. Wire
-              real numbers when sales_count_30d ships from the API. */}
-          {dirty && (
-            <div
-              className="mt-[var(--s-5)] p-[var(--s-4)] rounded-r-md"
-              style={{
-                background: 'var(--surface)',
-                border: '1px dashed color-mix(in oklab, var(--brand-500) 30%, var(--line))',
-              }}
-            >
-              <div className="flex items-start gap-[var(--s-3)]">
-                <span
-                  className="inline-grid place-items-center shrink-0 rounded-r-xs"
-                  style={{
-                    width: 24,
-                    height: 24,
-                    background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                    color: 'var(--brand-500)',
-                  }}
-                >
-                  <Sparkles className="w-3 h-3" />
-                </span>
-                <p className="text-fs-sm text-[var(--fg)] leading-snug">
-                  {(t('simulatorProjectionTeaser') ||
-                    'Ces réglages changent la marge de {sign}{CURRENCY}{delta} par portion. Branchez l’historique des ventes pour voir l’impact mensuel.')
-                    .replace('{sign}', simMargin - baseMargin >= 0 ? '+' : '−')
-                    .replace('{CURRENCY}', CURRENCY)
-                    .replace('{delta}', Math.abs(simMargin - baseMargin).toFixed(2))}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </section>
