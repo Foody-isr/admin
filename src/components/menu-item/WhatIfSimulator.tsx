@@ -286,12 +286,8 @@ export default function WhatIfSimulator({
       }}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      {/* Fixed height so the card doesn't grow when "Réinitialiser" appears
-          on the right and the description wraps to a second line. h-[96px]
-          fits the worst case (dirty state, 2-line description) — content is
-          centered vertically so the clean state still looks balanced. */}
       <div
-        className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-5)] h-[96px]"
+        className="flex items-center justify-between gap-[var(--s-3)] p-[var(--s-5)]"
         style={{ borderBottom: '1px dashed var(--line)' }}
       >
         <div className="flex items-start gap-[var(--s-3)] min-w-0">
@@ -343,16 +339,23 @@ export default function WhatIfSimulator({
         </div>
 
         <div className="flex items-center gap-[var(--s-2)] shrink-0">
-          {dirty && (
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors"
-            >
-              <RefreshCw className="w-3 h-3" />
-              {t('simulatorReset') || 'Réinitialiser'}
-            </button>
-          )}
+          {/* Always rendered (just invisible when clean) so the right-side
+              width — and thus the wrapping of the description on the left —
+              stays constant between clean and dirty states. */}
+          <button
+            type="button"
+            onClick={reset}
+            aria-hidden={!dirty}
+            tabIndex={dirty ? 0 : -1}
+            className={`inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-medium transition-colors ${
+              dirty
+                ? 'text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]'
+                : 'invisible pointer-events-none'
+            }`}
+          >
+            <RefreshCw className="w-3 h-3" />
+            {t('simulatorReset') || 'Réinitialiser'}
+          </button>
           <button
             type="button"
             disabled={!dirty || applying}
