@@ -1,5 +1,5 @@
 // Item Editor — "Modifier l'article" — drawer/modal pattern
-function ItemEditor({ theme = 'dark', tab = 'cost', composer = false, editRow = false, composerState = 'default', helpOpen = false, createPrep = false }) {
+function ItemEditor({ theme = 'dark', tab = 'cost', composer = false, editRow = false, composerState = 'default', helpOpen = false, createPrep = false, simulating = false }) {
   // composerState: 'default' | 'searchResults' | 'searchEmpty'
   return (
     <div className={theme === 'dark' ? 'dark' : ''} data-theme={theme} style={{height:'100%', width:'100%', position:'relative', background:'#050504'}}>
@@ -82,7 +82,7 @@ function ItemEditor({ theme = 'dark', tab = 'cost', composer = false, editRow = 
               <button className="tab" aria-selected={tab==='cost'}><Icon name="dollar" size={14}/> Coût <span className="badge badge-warning" style={{height:18, padding:'0 6px', marginLeft:4}}><Icon name="warn" size={10}/></span></button>
             </div>
 
-            {tab === 'cost' && <CostTab/>}
+            {tab === 'cost' && <CostTab simulating={simulating}/>}
             {tab === 'recipe' && <RecipeTab composer={composer} editRow={editRow} composerState={composerState} helpOpen={helpOpen}/>}
             {tab === 'details' && <DetailsTab/>}
             {tab === 'mods' && <ModsTab/>}
@@ -96,7 +96,7 @@ function ItemEditor({ theme = 'dark', tab = 'cost', composer = false, editRow = 
   );
 }
 
-function CostTab() {
+function CostTab({ simulating = false }) {
   return (
     <>
       <div className="hstack" style={{justifyContent:'space-between', marginBottom:'var(--s-4)'}}>
@@ -208,6 +208,9 @@ function CostTab() {
           </tbody>
         </table>
       </div>
+
+      {/* What-if simulator — sandbox to see how levers move cost & margin */}
+      <WhatIfSimulator simulating={simulating}/>
     </>
   );
 }
@@ -808,4 +811,379 @@ function MiniIngredientRow({ icon, iconBg, name, qty, unit }) {
   );
 }
 
-Object.assign(window, { ItemEditor });
+Object.assign(window, { ItemEditor, WhatIfSimulator });
+
+/* ================================================================
+   WhatIfSimulator — sandbox what-if section in the Cost tab.
+   Three levers: portion size · sell price · ingredient prices.
+   When simulating=false: collapsed, neutral state — invitation to play.
+   When simulating=true:  expanded, sliders moved, deltas visible.
+   The numbers are pre-computed for the mock so the design is honest.
+   ================================================================ */
+function WhatIfSimulator({ simulating = false }) {
+  // Baseline (matches the cost breakdown above)
+  const base = {
+    portion: 250,        // g
+    portionDefault: 250,
+    sellPrice: 25.00,    // ₪ HT
+    sellDefault: 25.00,
+    foodCost: 12.57,
+    margin: 17.09,
+    pctCost: 42.4,
+    targetPct: 35,
+    ings: [
+      { id:'a', name:'PRÉPARATION OR ROUGE', unit:'/kg', cost:46.27, defaultCost:46.27, qty:'250 g', total:11.57, pct:92, color:'var(--cat-5)', tag:'A' },
+      { id:'b', name:'Boîte plastique 250g',  unit:'/u',  cost:1.00,  defaultCost:1.00,  qty:'1 u',   total:1.00,  pct:8,  color:'var(--cat-4)', tag:'B' },
+    ],
+  };
+
+  // Simulated state — these would be live state in a real implementation.
+  // For the mock we hand-pick a "before vs after" snapshot that tells a story:
+  //   - portion 250g → 220g  (−12%)
+  //   - sell 25.00  → 27.50  (+10%)
+  //   - or rouge prep cost   46.27 → 42.00  (after a supplier renegotiation)
+  // Resulting numbers below are computed from those:
+  //   prep usage → 11.57 × (220/250) × (42.00/46.27) ≈ 9.24
+  //   box stays 1.00 (fixed)
+  //   foodCost = 10.24
+  //   margin   = 27.50 − 10.24 = 17.26
+  //   pctCost  = 10.24 / 27.50 = 37.2%
+  const sim = {
+    portion: 220,
+    sellPrice: 27.50,
+    foodCost: 10.24,
+    margin: 17.26,
+    pctCost: 37.2,
+    ings: [
+      { id:'a', cost:42.00, total:9.24, pct:90, ingDelta:-9.2 },
+      { id:'b', cost:1.00,  total:1.00, pct:10, ingDelta:0 },
+    ],
+  };
+
+  // Helpers
+  const cur = simulating ? sim : { portion: base.portion, sellPrice: base.sellPrice, foodCost: base.foodCost, margin: base.margin, pctCost: base.pctCost };
+  const dirty = simulating;
+  const status =
+    cur.pctCost <= base.targetPct ? { tone:'good',  label:'Sous la cible' }
+    : cur.pctCost <= 40           ? { tone:'warn',  label:'Au-dessus de la cible' }
+    :                                { tone:'danger',label:'Bien au-dessus de la cible' };
+  const statusColor = status.tone === 'good' ? 'var(--success-500)' : status.tone === 'warn' ? 'var(--warning-500)' : 'var(--danger-500)';
+
+  return (
+    <div className="card" style={{
+      marginTop:'var(--s-5)',
+      borderColor: dirty ? 'color-mix(in oklab, var(--brand-500) 35%, var(--line))' : 'var(--line)',
+      background: dirty ? 'color-mix(in oklab, var(--brand-500) 3%, var(--surface))' : 'var(--surface)',
+      overflow:'hidden',
+    }}>
+      {/* Header */}
+      <div className="card-header" style={{borderBottom:'1px dashed var(--line)'}}>
+        <div className="hstack" style={{gap:'var(--s-3)'}}>
+          <div style={{
+            width:32, height:32, borderRadius:'var(--r-md)',
+            background:'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+            color:'var(--brand-500)',
+            display:'grid', placeItems:'center',
+          }}>
+            <Icon name="flask" size={14}/>
+          </div>
+          <div>
+            <div className="hstack" style={{gap:6}}>
+              <div className="card-title">Et si… ?</div>
+              <span className="badge badge-brand" style={{fontSize:10, height:18, padding:'0 6px'}}>SIMULATEUR</span>
+              {dirty && <span className="badge" style={{fontSize:10, height:18, padding:'0 6px', background:'color-mix(in oklab, var(--brand-500) 14%, transparent)', color:'var(--brand-500)'}}>3 changements en cours</span>}
+            </div>
+            <div className="subtle" style={{fontSize:'var(--fs-xs)', marginTop:2}}>
+              Bougez les curseurs pour voir l'impact sur le coût et la marge. Rien n'est sauvegardé tant que vous n'appliquez pas.
+            </div>
+          </div>
+        </div>
+        <div className="hstack">
+          {dirty && <button className="btn btn-ghost btn-sm"><Icon name="refresh" size={12}/> Réinitialiser</button>}
+          <button className="btn btn-secondary btn-sm" disabled={!dirty} style={{opacity: dirty ? 1 : .5}}>
+            <Icon name="check" size={12}/> Appliquer les changements
+          </button>
+        </div>
+      </div>
+
+      {/* Body — 2 columns: levers (left) + outcome (right) */}
+      <div style={{display:'grid', gridTemplateColumns:'1.15fr 1fr', gap:0}}>
+
+        {/* ——————— LEVERS ——————— */}
+        <div style={{padding:'var(--s-5)', borderRight:'1px solid var(--line)'}}>
+          <SectionLabel>Leviers à actionner</SectionLabel>
+
+          {/* Lever 1 — portion size for active variant */}
+          <Lever
+            icon="sliders"
+            title="Portion · Normal"
+            sub="Réduire la quantité servie pour cette variante"
+            valueLabel={cur.portion + ' g'}
+            baseLabel={dirty ? base.portionDefault + ' g' : null}
+            delta={dirty ? Math.round((sim.portion - base.portionDefault) / base.portionDefault * 100) : null}
+            sliderMin={150}
+            sliderMax={350}
+            sliderValue={cur.portion}
+            sliderUnit="g"
+            ticks={[{ v:200, l:'200g' }, { v:250, l:'250g · base' }, { v:300, l:'300g' }]}
+          />
+
+          {/* Lever 2 — sell price */}
+          <Lever
+            icon="dollar"
+            title="Prix de vente · HT"
+            sub="Augmenter le prix de vente sans toucher la recette"
+            valueLabel={'₪' + cur.sellPrice.toFixed(2)}
+            baseLabel={dirty ? '₪' + base.sellDefault.toFixed(2) : null}
+            delta={dirty ? Math.round((sim.sellPrice - base.sellDefault) / base.sellDefault * 100) : null}
+            sliderMin={20}
+            sliderMax={35}
+            sliderValue={cur.sellPrice}
+            sliderUnit="₪"
+            ticks={[{ v:22, l:'₪22' }, { v:25, l:'₪25 · base' }, { v:30, l:'₪30' }]}
+          />
+
+          {/* Lever 3 — ingredient cost overrides */}
+          <div style={{marginTop:'var(--s-5)'}}>
+            <SectionLabel sub="Renégocier ou tester un autre fournisseur">Coût des ingrédients</SectionLabel>
+            <div className="vstack" style={{gap:'var(--s-2)', marginTop:'var(--s-3)'}}>
+              {base.ings.map(ing => {
+                const simIng = sim.ings.find(s => s.id === ing.id);
+                const overridden = dirty && simIng.cost !== ing.defaultCost;
+                return (
+                  <div key={ing.id} style={{
+                    display:'grid',
+                    gridTemplateColumns:'24px 1fr 140px',
+                    alignItems:'center',
+                    gap:'var(--s-3)',
+                    padding:'var(--s-3)',
+                    borderRadius:'var(--r-md)',
+                    background:'var(--surface-2)',
+                    border:'1px solid ' + (overridden ? 'color-mix(in oklab, var(--brand-500) 35%, var(--line))' : 'var(--line)'),
+                  }}>
+                    <div style={{width:24, height:24, borderRadius:6, background:ing.color, display:'grid', placeItems:'center', color:'#fff', fontSize:10, fontWeight:700}}>{ing.tag}</div>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:'var(--fs-sm)', fontWeight:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{ing.name}</div>
+                      <div className="subtle" style={{fontSize:10, marginTop:2}}>
+                        Base · <span className="mono">₪{ing.defaultCost.toFixed(2)}{ing.unit}</span>
+                      </div>
+                    </div>
+                    <div className="input-group" style={{padding:'0 var(--s-2)', height:32, borderColor: overridden ? 'var(--brand-500)' : 'var(--line-strong)'}}>
+                      <span className="muted" style={{fontSize:'var(--fs-xs)'}}>₪</span>
+                      <input className="num" defaultValue={(dirty ? simIng.cost : ing.defaultCost).toFixed(2)} style={{textAlign:'right'}}/>
+                      <span className="muted" style={{fontSize:'var(--fs-xs)'}}>{ing.unit.replace('/','')}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {dirty && (
+              <div style={{display:'flex', alignItems:'flex-start', gap:6, marginTop:'var(--s-3)', fontSize:'var(--fs-xs)', color:'var(--fg-muted)'}}>
+                <Icon name="info" size={12}/>
+                <span>Les overrides sont locaux à cette simulation — votre fiche fournisseur n'est pas modifiée.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ——————— OUTCOME ——————— */}
+        <div style={{padding:'var(--s-5)', background: dirty ? 'color-mix(in oklab, var(--brand-500) 4%, var(--surface))' : 'var(--surface-2)'}}>
+          <SectionLabel>Résultat</SectionLabel>
+
+          {/* % Cost gauge — the headline metric */}
+          <div style={{marginTop:'var(--s-3)'}}>
+            <div className="hstack" style={{justifyContent:'space-between', marginBottom:6}}>
+              <div className="subtle" style={{fontSize:'var(--fs-xs)', textTransform:'uppercase', letterSpacing:'.06em', fontWeight:600}}>% Coût matière</div>
+              <div className="subtle" style={{fontSize:'var(--fs-xs)'}}>Cible {base.targetPct}%</div>
+            </div>
+            <div className="hstack" style={{gap:'var(--s-3)', alignItems:'baseline'}}>
+              <div className="num tabular" style={{fontSize:'var(--fs-4xl)', fontWeight:600, color:statusColor, letterSpacing:'-0.02em', lineHeight:1}}>
+                {cur.pctCost.toFixed(1)}<span style={{fontSize:'var(--fs-2xl)', marginLeft:2}}>%</span>
+              </div>
+              {dirty && (
+                <div className="hstack" style={{gap:6}}>
+                  <span className="num subtle" style={{fontSize:'var(--fs-md)', textDecoration:'line-through'}}>{base.pctCost.toFixed(1)}%</span>
+                  <Delta value={cur.pctCost - base.pctCost} unit="pt" inverse/>
+                </div>
+              )}
+            </div>
+            {/* Gauge bar */}
+            <div style={{position:'relative', height:8, background:'var(--surface-2)', borderRadius:4, marginTop:'var(--s-3)', overflow:'hidden', border:'1px solid var(--line)'}}>
+              <div style={{position:'absolute', left:0, top:0, bottom:0, width:Math.min(cur.pctCost, 60)/60*100 + '%', background:statusColor, transition:'width 200ms'}}/>
+              {dirty && (
+                <div style={{position:'absolute', left:Math.min(base.pctCost, 60)/60*100 + '%', top:-2, bottom:-2, width:2, background:'var(--fg-subtle)', borderRadius:1}}/>
+              )}
+              <div style={{position:'absolute', left:base.targetPct/60*100 + '%', top:-4, bottom:-4, width:2, background:'var(--success-500)', opacity:.6}}/>
+            </div>
+            <div className="hstack" style={{justifyContent:'space-between', marginTop:6, fontSize:10, color:'var(--fg-subtle)'}}>
+              <span>0%</span>
+              <span style={{color:'var(--success-500)', fontWeight:600}}>● {base.targetPct}% cible</span>
+              <span>60%</span>
+            </div>
+            <div style={{marginTop:'var(--s-3)', display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:'var(--r-full)', background:'color-mix(in oklab, ' + statusColor + ' 14%, transparent)', color:statusColor, fontSize:'var(--fs-xs)', fontWeight:600}}>
+              <span style={{width:6, height:6, borderRadius:3, background:'currentColor'}}/>
+              {status.label}
+            </div>
+          </div>
+
+          {/* Side-by-side: Coût matière + Marge */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'var(--s-3)', marginTop:'var(--s-5)'}}>
+            <ResultCard
+              label="Coût matière"
+              value={'₪' + cur.foodCost.toFixed(2)}
+              base={dirty ? '₪' + base.foodCost.toFixed(2) : null}
+              delta={dirty ? cur.foodCost - base.foodCost : null}
+              inverse
+            />
+            <ResultCard
+              label="Marge brute"
+              value={'₪' + cur.margin.toFixed(2)}
+              sub={(cur.margin / cur.sellPrice * 100).toFixed(1) + '%'}
+              base={dirty ? '₪' + base.margin.toFixed(2) : null}
+              delta={dirty ? cur.margin - base.margin : null}
+              accent="var(--success-500)"
+            />
+          </div>
+
+          {/* AI suggestion — when dirty, surfaces narrative insight */}
+          {dirty && (
+            <div style={{marginTop:'var(--s-5)', padding:'var(--s-4)', borderRadius:'var(--r-md)', background:'var(--surface)', border:'1px dashed color-mix(in oklab, var(--brand-500) 30%, var(--line))'}}>
+              <div className="hstack" style={{gap:'var(--s-3)', alignItems:'flex-start'}}>
+                <div style={{width:24, height:24, borderRadius:6, background:'color-mix(in oklab, var(--brand-500) 14%, transparent)', color:'var(--brand-500)', display:'grid', placeItems:'center', flexShrink:0}}>
+                  <Icon name="sparkles" size={12}/>
+                </div>
+                <div style={{fontSize:'var(--fs-sm)', color:'var(--fg)', lineHeight:1.5}}>
+                  Sur les <strong>10 dernières ventes</strong> de cette taille, ces réglages auraient ajouté <strong style={{color:'var(--success-500)'}}>+₪17,40</strong> de marge.
+                  À l'échelle d'un mois (~280 ventes), c'est <strong style={{color:'var(--success-500)'}}>+₪487</strong>.
+                  <button className="btn btn-ghost btn-sm" style={{paddingLeft:0, marginTop:6, color:'var(--brand-500)'}}>
+                    Voir la projection détaillée <Icon name="chevronRight" size={12}/>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!dirty && (
+            <div style={{marginTop:'var(--s-5)', padding:'var(--s-4)', borderRadius:'var(--r-md)', background:'var(--surface)', border:'1px dashed var(--line-strong)', textAlign:'center'}}>
+              <div style={{fontSize:'var(--fs-sm)', color:'var(--fg-muted)', lineHeight:1.5}}>
+                Bougez un curseur à gauche pour voir comment chaque levier change la rentabilité de cet article.
+              </div>
+              <div className="hstack" style={{justifyContent:'center', gap:6, marginTop:'var(--s-3)', flexWrap:'wrap'}}>
+                <button className="chip"><Icon name="sliders" size={12}/> −10% portion</button>
+                <button className="chip"><Icon name="dollar" size={12}/> +10% prix</button>
+                <button className="chip"><Icon name="refresh" size={12}/> −5% ingrédients</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ children, sub }) {
+  return (
+    <div style={{marginBottom:'var(--s-2)'}}>
+      <div style={{fontSize:'var(--fs-xs)', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700, color:'var(--fg-muted)'}}>{children}</div>
+      {sub && <div className="subtle" style={{fontSize:'var(--fs-xs)', marginTop:2}}>{sub}</div>}
+    </div>
+  );
+}
+
+function Lever({ icon, title, sub, valueLabel, baseLabel, delta, sliderMin, sliderMax, sliderValue, sliderUnit, ticks }) {
+  const range = sliderMax - sliderMin;
+  const pct = ((sliderValue - sliderMin) / range) * 100;
+  const dirty = baseLabel != null;
+  return (
+    <div style={{marginBottom:'var(--s-5)'}}>
+      <div className="hstack" style={{justifyContent:'space-between', marginBottom:'var(--s-2)'}}>
+        <div className="hstack" style={{gap:'var(--s-2)'}}>
+          <div style={{width:24, height:24, borderRadius:6, background:'var(--surface-2)', color:'var(--fg-muted)', display:'grid', placeItems:'center'}}>
+            <Icon name={icon} size={12}/>
+          </div>
+          <div>
+            <div style={{fontSize:'var(--fs-sm)', fontWeight:600}}>{title}</div>
+            <div className="subtle" style={{fontSize:10, marginTop:1}}>{sub}</div>
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div className="hstack" style={{gap:6}}>
+            {dirty && <span className="num subtle" style={{fontSize:'var(--fs-xs)', textDecoration:'line-through'}}>{baseLabel}</span>}
+            <span className="num" style={{fontSize:'var(--fs-lg)', fontWeight:600, color: dirty ? 'var(--brand-500)' : 'var(--fg)'}}>{valueLabel}</span>
+          </div>
+          {dirty && delta != null && delta !== 0 && (
+            <div style={{marginTop:2}}><Delta value={delta} unit="%"/></div>
+          )}
+        </div>
+      </div>
+
+      {/* Custom slider */}
+      <div style={{position:'relative', height:32, marginTop:8}}>
+        <div style={{position:'absolute', left:0, right:0, top:14, height:4, background:'var(--surface-2)', borderRadius:2}}/>
+        <div style={{position:'absolute', left:0, top:14, width: pct + '%', height:4, background: dirty ? 'var(--brand-500)' : 'var(--fg-subtle)', borderRadius:2, transition:'width 200ms'}}/>
+        {/* Base marker */}
+        {ticks && ticks.filter(t => t.l.includes('base')).map(t => {
+          const tp = ((t.v - sliderMin) / range) * 100;
+          return <div key={t.v} style={{position:'absolute', left:tp + '%', top:10, width:2, height:12, background:'var(--fg-subtle)', borderRadius:1, transform:'translateX(-50%)'}}/>;
+        })}
+        {/* Thumb */}
+        <div style={{
+          position:'absolute', left: pct + '%', top:8,
+          width:16, height:16, borderRadius:'50%',
+          background:'var(--surface)', border:'2px solid ' + (dirty ? 'var(--brand-500)' : 'var(--fg-subtle)'),
+          transform:'translateX(-50%)',
+          boxShadow:'var(--shadow-1)',
+          cursor:'grab',
+        }}/>
+      </div>
+
+      {/* Tick labels */}
+      <div className="hstack" style={{justifyContent:'space-between', marginTop:6, fontSize:10, color:'var(--fg-subtle)'}}>
+        {ticks.map(t => <span key={t.v} style={{fontWeight: t.l.includes('base') ? 600 : 400, color: t.l.includes('base') ? 'var(--fg-muted)' : undefined}}>{t.l}</span>)}
+      </div>
+    </div>
+  );
+}
+
+function Delta({ value, unit = '', inverse = false }) {
+  if (value === 0 || value == null) return null;
+  // inverse=true means "down is good" (e.g. food cost)
+  const isDown = value < 0;
+  const good = inverse ? isDown : !isDown;
+  const color = good ? 'var(--success-500)' : 'var(--danger-500)';
+  const sign = isDown ? '−' : '+';
+  const abs = Math.abs(value);
+  return (
+    <span className="num" style={{
+      display:'inline-flex', alignItems:'center', gap:2,
+      fontSize:'var(--fs-xs)', fontWeight:600, color,
+    }}>
+      <Icon name={isDown ? 'arrowDown' : 'arrowUp'} size={10}/>
+      {sign}{unit === '₪' ? unit : ''}{abs.toFixed(unit === 'pt' || unit === '%' ? 1 : 2)}{unit !== '₪' ? unit : ''}
+    </span>
+  );
+}
+
+function ResultCard({ label, value, sub, base, delta, accent, inverse }) {
+  const dirty = base != null;
+  return (
+    <div style={{
+      padding:'var(--s-4)',
+      borderRadius:'var(--r-md)',
+      background:'var(--surface)',
+      border:'1px solid var(--line)',
+    }}>
+      <div className="subtle" style={{fontSize:10, textTransform:'uppercase', letterSpacing:'.08em', fontWeight:700}}>{label}</div>
+      <div className="hstack" style={{gap:'var(--s-2)', marginTop:'var(--s-2)', alignItems:'baseline'}}>
+        <div className="num tabular" style={{fontSize:'var(--fs-2xl)', fontWeight:600, color: accent || 'var(--fg)', letterSpacing:'-0.01em', lineHeight:1}}>{value}</div>
+        {sub && <span className="subtle" style={{fontSize:'var(--fs-xs)'}}>{sub}</span>}
+      </div>
+      {dirty && (
+        <div className="hstack" style={{gap:6, marginTop:6}}>
+          <span className="num subtle" style={{fontSize:10, textDecoration:'line-through'}}>{base}</span>
+          <Delta value={delta} unit="₪" inverse={inverse}/>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -18,6 +18,7 @@ import type {
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
+import WhatIfSimulator from './WhatIfSimulator';
 
 // Shared Cost section — used by both the MenuItem edit page's Coût tab AND
 // the standalone Food Cost page's selected-item panel. Figma:644-807.
@@ -354,6 +355,18 @@ export default function MenuItemTabCost({
           )}
         </div>
       </section>
+
+      {/* "Et si… ?" simulator — sandbox the same KPIs by playing with portion,
+          sell price, and per-ingredient cost. Nothing persists. */}
+      <WhatIfSimulator
+        item={item}
+        summary={summary}
+        activeVariant={activeVariant}
+        effectivePrice={effectivePrice}
+        thresholdPct={COST_THRESHOLD * 100}
+        resetKey={`${variantId}|${vatDisplayMode}`}
+        t={t}
+      />
 
       {/* Suggestions — enhanced with concrete numeric examples. */}
       {(over || topPct >= 25) && (
