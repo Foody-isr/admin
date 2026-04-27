@@ -932,6 +932,10 @@ const translations: Record<Locale, Record<string, string>> = {
     customerOutcomeMore: '+{n} other combinations',
     customerOutcomeBaseDefault: 'Base price — default variant',
     customerOutcomeWithUpcharge: 'Base + ₪{delta} upcharge ({variant})',
+    // ── Combo savings rail panel ──
+    comboSavingsPanelTitle: 'Customer savings',
+    comboSurchargeLabel: 'Combo surcharge',
+    reduction: 'Discount',
     // ── Validation messages ──
     comboValidNoSteps: 'A combo must have at least one step.',
     comboValidStepNoOptions: 'Step "{name}" has no options.',
@@ -2824,6 +2828,10 @@ const translations: Record<Locale, Record<string, string>> = {
     customerOutcomeMore: '+{n} שילובים נוספים',
     customerOutcomeBaseDefault: 'מחיר בסיס — וריאנט ברירת מחדל',
     customerOutcomeWithUpcharge: 'בסיס + ₪{delta} תוספת ({variant})',
+    // ── Combo savings rail panel ──
+    comboSavingsPanelTitle: 'חיסכון ללקוח',
+    comboSurchargeLabel: 'תוספת קומבו',
+    reduction: 'הנחה',
     // ── Validation messages ──
     comboValidNoSteps: 'קומבו חייב להכיל לפחות שלב אחד.',
     comboValidStepNoOptions: 'בשלב "{name}" אין אפשרויות.',
@@ -4710,6 +4718,10 @@ const translations: Record<Locale, Record<string, string>> = {
     customerOutcomeMore: '+{n} autres combinaisons',
     customerOutcomeBaseDefault: 'Prix de base — variante par défaut',
     customerOutcomeWithUpcharge: 'Base + ₪{delta} supplément ({variant})',
+    // ── Combo savings rail panel ──
+    comboSavingsPanelTitle: 'Économies pour le client',
+    comboSurchargeLabel: 'Surcoût combo',
+    reduction: 'Réduction',
     // ── Validation messages ──
     comboValidNoSteps: 'Un combo doit avoir au moins une étape.',
     comboValidStepNoOptions: 'L\'étape "{name}" n\'a aucune option.',

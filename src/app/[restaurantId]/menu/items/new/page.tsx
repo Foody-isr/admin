@@ -9,7 +9,7 @@ import {
   listOptionSets, attachOptionSetToItems,
   createVariantGroup,
   getRestaurantSettings,
-  MenuCategory, Menu, ModifierSet, OptionSet, VariantInput,
+  MenuCategory, Menu, MenuItem, ModifierSet, OptionSet, VariantInput,
   ItemType, ComboStepInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -22,6 +22,7 @@ import { FormInput } from '@/components/menu-item/MenuItemForm';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
+import { computeComboSavings } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
 import {
@@ -300,6 +301,17 @@ export default function NewItemPage() {
     </Badge>
   );
 
+  // Compute combo savings for the rail. The same pure helper backs the
+  // PricingCard inside CompositionTab, so the two stay in sync.
+  const itemsByIdForSummary = useMemo(() => {
+    const m = new Map<number, MenuItem>();
+    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
+    return m;
+  }, [categories]);
+  const railComboSummary = itemType === 'combo'
+    ? computeComboSavings(parseFloat(price) || 0, comboSteps, itemsByIdForSummary)
+    : null;
+
   const rail = (
     <MenuItemSummaryRail
       imageUrl={imagePreview || undefined}
@@ -307,6 +319,7 @@ export default function NewItemPage() {
       price={parseFloat(price) || 0}
       activeStatus={isActive}
       categoryName={activeCategoryName}
+      comboSummary={railComboSummary}
       placeholderLabel={t('createItem')}
       onImageClick={() => fileInputRef.current?.click()}
     />

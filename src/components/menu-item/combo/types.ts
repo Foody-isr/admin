@@ -118,7 +118,13 @@ export function buildOptions(
   for (const [menuItemId, draftRows] of Array.from(byMenuItem.entries())) {
     const source = itemsById.get(menuItemId);
     const sourceVariants = source ? getSourceVariants(source) : [];
-    const itemName = draftRows[0].item_name ?? source?.name ?? `#${menuItemId}`;
+    // Prefer the live source name. `draftRows[0].item_name` is only used as a
+    // fallback when the source isn't loaded yet — it's a denormalized cache
+    // that, for variant rows, contains the variant-suffixed name (e.g.
+    // "AUBERGINE TOMATE — Normal"). Reading from the cache as primary causes
+    // the suffix to compound on every save→load→save cycle, since
+    // `toDraftItems` re-appends ` — ${v.name}` each time.
+    const itemName = source?.name ?? draftRows[0].item_name ?? `#${menuItemId}`;
     const imageUrl = source?.image_url || undefined;
 
     if (sourceVariants.length === 0) {

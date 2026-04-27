@@ -34,8 +34,12 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
   const [minPicks, setMinPicks] = useState(step.min_picks);
   const [maxPicks, setMaxPicks] = useState(step.max_picks);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<number | 'all' | 'suggested'>('all');
-  const [categoryDropdown, setCategoryDropdown] = useState<number | ''>('');
+  // Single source of truth: `null` means "all categories". Chips and the
+  // dropdown are two affordances bound to the same state — toggling one
+  // updates the other. (Earlier I had two separate filters that AND'd
+  // together, which is wrong: selecting "Tout" with a category in the
+  // dropdown silently kept the dropdown's filter on.)
+  const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
 
   const allItems = useMemo(
     () => categories.flatMap((c) => (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))),
@@ -44,15 +48,14 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
 
   const filteredItems = useMemo(() => {
     return allItems.filter((it) => {
-      if (categoryDropdown !== '' && it.category_id !== categoryDropdown) return false;
-      if (typeof categoryFilter === 'number' && it.category_id !== categoryFilter) return false;
+      if (categoryFilter !== null && it.category_id !== categoryFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!it.name.toLowerCase().includes(q) && !it.category_name.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [allItems, search, categoryFilter, categoryDropdown]);
+  }, [allItems, search, categoryFilter]);
 
   // Group filtered items by category for the catalog list.
   const grouped = useMemo(() => {
@@ -227,8 +230,8 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
               trailing={<Kbd>⌘K</Kbd>}
             />
             <Select
-              value={categoryDropdown}
-              onChange={(e) => setCategoryDropdown(e.target.value ? Number(e.target.value) : '')}
+              value={categoryFilter ?? ''}
+              onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
               className="sm:w-52 shrink-0"
             >
               <option value="">{t('pickerAllCategories')}</option>
@@ -238,11 +241,12 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
             </Select>
           </div>
 
-          {/* Quick filter chips */}
+          {/* Quick filter chips — bound to the same `categoryFilter` state as
+              the dropdown above, so toggling either one keeps both in sync. */}
           <div className="flex flex-wrap items-center gap-[var(--s-2)] mb-[var(--s-3)]">
             <Chip
-              active={categoryFilter === 'all'}
-              onClick={() => setCategoryFilter('all')}
+              active={categoryFilter === null}
+              onClick={() => setCategoryFilter(null)}
             >
               {t('pickerFilterAll')}
             </Chip>
@@ -250,7 +254,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
               <Chip
                 key={c.id}
                 active={categoryFilter === c.id}
-                onClick={() => setCategoryFilter(c.id)}
+                onClick={() => setCategoryFilter(categoryFilter === c.id ? null : c.id)}
               >
                 {c.name}
               </Chip>

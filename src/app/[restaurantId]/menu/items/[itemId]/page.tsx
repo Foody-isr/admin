@@ -26,6 +26,7 @@ import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
+import { computeComboSavings } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
 import { computeItemCostSummary } from '@/lib/cost-utils';
@@ -404,6 +405,17 @@ export default function EditItemPage() {
     </Badge>
   );
 
+  // Combo savings for the rail. Mirrors the PricingCard math via the same
+  // pure helper, so the two stay in sync.
+  const railItemsById = useMemo(() => {
+    const m = new Map<number, MenuItem>();
+    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
+    return m;
+  }, [categories]);
+  const railComboSummary = itemType === 'combo'
+    ? computeComboSavings(parseFloat(price) || 0, comboSteps, railItemsById)
+    : null;
+
   const rail = (
     <MenuItemSummaryRail
       imageUrl={imageUrl}
@@ -411,7 +423,10 @@ export default function EditItemPage() {
       price={parseFloat(price) || 0}
       activeStatus={isActive}
       categoryName={activeCategoryName}
-      costSummary={costSummary}
+      // Hide the food-cost summary for combos — it doesn't apply (a combo's
+      // cost is the sum of its constituent items' costs, not its own recipe).
+      costSummary={itemType === 'combo' ? null : costSummary}
+      comboSummary={railComboSummary}
       onImageClick={() => fileInputRef.current?.click()}
     />
   );

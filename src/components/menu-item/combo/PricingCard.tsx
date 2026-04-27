@@ -8,12 +8,12 @@
 // we just expose its label here as "Prix de base" since that's what it
 // represents for combos.
 
-import { Pin, Layers, DollarSign, Info } from 'lucide-react';
+import { Pin, Layers, DollarSign, Info, AlertTriangle } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Chip } from '@/components/ds';
 import type { ComboStepDraft } from './types';
-import { computePriceRange, computeSoldSeparately, type PricingMode } from './pricing';
+import { computeComboSavings, type PricingMode } from './pricing';
 
 interface Props {
   basePrice: string;
@@ -29,13 +29,21 @@ export default function PricingCard({
 }: Props) {
   const { t } = useI18n();
   const baseNum = parseFloat(basePrice) || 0;
-  const range = computePriceRange(baseNum, steps);
-  const solo = computeSoldSeparately(steps, itemsById);
+  const summary = computeComboSavings(baseNum, steps, itemsById);
 
-  const savingsMin = Math.max(0, solo.min - range.min);
-  const savingsMax = Math.max(0, solo.max - range.max);
-  const savingsPct = solo.min > 0 ? Math.round((savingsMin / solo.min) * 100) : 0;
-  const showSavings = solo.min > 0;
+  // Three states for the savings cell:
+  //   • unknown: items haven't loaded — no comparison possible. Render "—".
+  //   • saves:   savingsMin > 0 — combo cheaper than solo. Render in green.
+  //   • costs more: savingsMin < 0 — combo MORE expensive than solo (operator
+  //     misconfiguration warning).
+  const savingsState: 'unknown' | 'saves' | 'costs-more' | 'even' =
+    summary.unknown ? 'unknown'
+    : summary.savingsMin > 0 ? 'saves'
+    : summary.savingsMin < 0 ? 'costs-more'
+    : 'even';
+  const absSaveMin = Math.abs(summary.savingsMin);
+  const absSaveMax = Math.abs(summary.savingsMax);
+  const absSavePct = Math.round(Math.abs(summary.savingsPct));
 
   return (
     <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 p-[var(--s-4)]">
@@ -95,9 +103,9 @@ export default function PricingCard({
             {t('composePriceRange')}
           </span>
           <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] tabular-nums text-fs-sm font-medium">
-            {range.static
-              ? <>₪{range.min.toFixed(2)}</>
-              : <>₪{range.min.toFixed(2)} – ₪{range.max.toFixed(2)}</>
+            {summary.comboMin === summary.comboMax
+              ? <>₪{summary.comboMin.toFixed(2)}</>
+              : <>₪{summary.comboMin.toFixed(2)} – ₪{summary.comboMax.toFixed(2)}</>
             }
           </div>
         </div>
@@ -107,23 +115,41 @@ export default function PricingCard({
             {t('composeSavings')}
           </span>
           <div
-            className="flex items-center h-9 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold"
+            className="flex items-center gap-1.5 h-9 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold"
             style={{
-              background: showSavings && savingsMin > 0
+              background: savingsState === 'saves'
                 ? 'color-mix(in oklab, var(--success-500) 10%, transparent)'
-                : 'var(--surface-2)',
-              border: '1px solid ' + (showSavings && savingsMin > 0
-                ? 'color-mix(in oklab, var(--success-500) 30%, transparent)'
-                : 'var(--line)'),
-              color: showSavings && savingsMin > 0
+                : savingsState === 'costs-more'
+                  ? 'color-mix(in oklab, var(--warning-500) 10%, transparent)'
+                  : 'var(--surface-2)',
+              border: '1px solid ' + (
+                savingsState === 'saves'
+                  ? 'color-mix(in oklab, var(--success-500) 30%, transparent)'
+                  : savingsState === 'costs-more'
+                    ? 'color-mix(in oklab, var(--warning-500) 30%, transparent)'
+                    : 'var(--line)'
+              ),
+              color: savingsState === 'saves'
                 ? 'var(--success-500)'
-                : 'var(--fg-muted)',
+                : savingsState === 'costs-more'
+                  ? 'var(--warning-500)'
+                  : 'var(--fg-muted)',
             }}
           >
-            {!showSavings ? '—' : (
-              savingsMin === savingsMax
-                ? <>−₪{savingsMin.toFixed(2)} · {savingsPct}%</>
-                : <>−₪{savingsMin.toFixed(2)} … −₪{savingsMax.toFixed(2)}</>
+            {savingsState === 'unknown' && <>—</>}
+            {savingsState === 'even' && <>±₪0 · 0%</>}
+            {savingsState === 'saves' && (
+              absSaveMin === absSaveMax
+                ? <>−₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
+                : <>−₪{absSaveMin.toFixed(2)} … −₪{absSaveMax.toFixed(2)}</>
+            )}
+            {savingsState === 'costs-more' && (
+              <>
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                {absSaveMin === absSaveMax
+                  ? <>+₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
+                  : <>+₪{absSaveMin.toFixed(2)} … +₪{absSaveMax.toFixed(2)}</>}
+              </>
             )}
           </div>
         </div>

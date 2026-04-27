@@ -19,29 +19,38 @@ export interface PriceRange {
   static: boolean;
 }
 
-/** Min = base price (every step uses default option + baseline variant).
- *  Max = base + Σ_steps (max upcharge across that step's options).
- *  Optional steps contribute 0 to min (since the customer can skip). */
+/** Combo price range — accounts for the customer's `min_picks` selections per
+ *  step and for variant upcharges.
+ *
+ *  Min = base price (default options + zero-upcharge variants).
+ *  Max = base + Σ_steps (max upcharges over the customer's `picks` selections).
+ *
+ *  For "pick N from this step", we approximate worst-case as N × the highest
+ *  single upcharge in the step. This overestimates slightly when N > number of
+ *  distinct items but is directionally honest for the operator-facing range. */
 export function computePriceRange(
   basePrice: number,
   steps: ComboStepDraft[],
 ): PriceRange {
   let max = basePrice;
   for (const step of steps) {
-    const stepMaxUpcharge = maxUpchargeInStep(step);
-    max += stepMaxUpcharge;
+    const picks = picksPerStep(step);
+    const single = maxUpchargeInStep(step);
+    max += picks * single;
   }
   const min = basePrice;
   return { min, max, static: min === max };
 }
 
-/** Worst-case upcharge a customer can incur within this step — picking the
- *  most expensive included variant of the most expensive option. */
+/** Per-step "how many picks does the customer commit to". Optional steps
+ *  (`min_picks === 0`) contribute zero upcharge to the min/max math. */
+function picksPerStep(step: ComboStepDraft): number {
+  return Math.max(0, step.min_picks || 0);
+}
+
+/** Largest single upcharge in this step (any item / any variant). */
 function maxUpchargeInStep(step: ComboStepDraft): number {
   if (step.items.length === 0) return 0;
-  // For variant rows, items sharing a menu_item_id are alternative variants —
-  // take the max upcharge across them. For variant-less items they're just
-  // alternative options — same logic. So a flat max() works.
   let max = 0;
   for (const it of step.items) {
     if (it.price_delta > max) max = it.price_delta;
@@ -49,9 +58,14 @@ function maxUpchargeInStep(step: ComboStepDraft): number {
   return max;
 }
 
-/** Solo prices summed across one default-pick-per-step path. Used to show
- *  "if bought separately" / customer savings. Items without a known solo
- *  price contribute 0 (no warning surfaced for v1). */
+/** Solo (à-la-carte) price totals — what the customer would pay buying the
+ *  same items individually. Compared against the combo price to show savings.
+ *
+ *  Per step, the customer picks `min_picks` items. For the "min" of the
+ *  range we assume they pick the cheapest items (best case for the customer
+ *  buying separately); for "max" the most expensive.
+ *
+ *  Items with no known solo price (source not in `itemsById`) are skipped. */
 export function computeSoldSeparately(
   steps: ComboStepDraft[],
   itemsById: Map<number, MenuItem>,
@@ -59,21 +73,24 @@ export function computeSoldSeparately(
   let min = 0;
   let max = 0;
   for (const step of steps) {
+    const picks = picksPerStep(step);
+    if (picks === 0) continue;
+
     const options = buildOptions(step.items, itemsById);
     if (options.length === 0) continue;
 
-    // For "min", use the default option's baseline (default) variant.
-    const defaultOpt = options.find((o) => o.isDefault) ?? options[0];
-    const defaultSolo = soloPriceForOption(defaultOpt, itemsById);
-    min += defaultSolo.min;
+    // Pair each option with its solo price range, drop unknowns, sort ascending.
+    const priced = options
+      .map((opt) => ({ opt, solo: soloPriceForOption(opt, itemsById) }))
+      .filter(({ solo }) => solo.max > 0)
+      .sort((a, b) => a.solo.min - b.solo.min);
+    if (priced.length === 0) continue;
 
-    // For "max", take the most expensive solo across all options in the step.
-    let stepMax = 0;
-    for (const opt of options) {
-      const s = soloPriceForOption(opt, itemsById);
-      if (s.max > stepMax) stepMax = s.max;
-    }
-    max += stepMax;
+    const n = Math.min(picks, priced.length);
+    // Cheapest n options for the min (customer's best case buying separately).
+    for (let i = 0; i < n; i++) min += priced[i].solo.min;
+    // Most expensive n options for the max.
+    for (let i = priced.length - n; i < priced.length; i++) max += priced[i].solo.max;
   }
   return { min, max };
 }
@@ -144,6 +161,49 @@ export function buildSampleCombos(
     });
   }
   return out;
+}
+
+/** Bundle of figures the operator sees: combo price range, solo equivalent
+ *  range, and savings (positive = customer saves; negative = combo costs more
+ *  than buying separately, which is a configuration warning). */
+export interface ComboSavingsSummary {
+  comboMin: number;
+  comboMax: number;
+  soloMin: number;
+  soloMax: number;
+  /** Positive when the customer saves vs solo, negative when the combo is
+   *  more expensive. */
+  savingsMin: number;
+  savingsMax: number;
+  /** Same sign as savings. Computed against `soloMin` so it's stable when
+   *  upcharges move. 0 when soloMin is 0. */
+  savingsPct: number;
+  /** True when no solo prices were resolvable (items not loaded yet). The UI
+   *  can show "—" instead of a misleading "₪0". */
+  unknown: boolean;
+}
+
+export function computeComboSavings(
+  basePrice: number,
+  steps: ComboStepDraft[],
+  itemsById: Map<number, MenuItem>,
+): ComboSavingsSummary {
+  const range = computePriceRange(basePrice, steps);
+  const solo = computeSoldSeparately(steps, itemsById);
+  const unknown = solo.min === 0 && solo.max === 0;
+  const savingsMin = solo.min - range.min;
+  const savingsMax = solo.max - range.max;
+  const savingsPct = solo.min > 0 ? (savingsMin / solo.min) * 100 : 0;
+  return {
+    comboMin: range.min,
+    comboMax: range.max,
+    soloMin: solo.min,
+    soloMax: solo.max,
+    savingsMin,
+    savingsMax,
+    savingsPct,
+    unknown,
+  };
 }
 
 // Re-export so consumers can stay in this module.

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, Camera, Image as ImageIcon } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Camera, Image as ImageIcon } from 'lucide-react';
 import { COST_THRESHOLD } from '@/lib/cost-utils';
 import { useI18n } from '@/lib/i18n';
 
@@ -11,6 +11,19 @@ export interface RailCostSummary {
   currencySymbol?: string;
 }
 
+/** Mirrors `ComboSavingsSummary` from combo/pricing.ts. Keeping the rail
+ *  generic so it doesn't need to import combo internals. */
+export interface RailComboSummary {
+  comboMin: number;
+  comboMax: number;
+  soloMin: number;
+  soloMax: number;
+  savingsMin: number;
+  savingsMax: number;
+  savingsPct: number;
+  unknown: boolean;
+}
+
 interface Props {
   imageUrl?: string;
   name: string;
@@ -18,6 +31,10 @@ interface Props {
   activeStatus?: boolean;
   categoryName?: string;
   costSummary?: RailCostSummary | null;
+  /** When set, renders the "Économies pour le client" panel instead of /
+   *  alongside the cost summary. Supplied by the page when the item is a
+   *  combo. */
+  comboSummary?: RailComboSummary | null;
   placeholderLabel?: string;
   onImageClick?: () => void;
 }
@@ -31,6 +48,7 @@ export default function MenuItemSummaryRail({
   activeStatus,
   categoryName,
   costSummary,
+  comboSummary,
   placeholderLabel,
   onImageClick,
 }: Props) {
@@ -94,6 +112,10 @@ export default function MenuItemSummaryRail({
         </div>
       </div>
 
+      {/* Combo savings — replaces the cost summary for combos. Mirrors
+          the design's "ÉCONOMIES POUR LE CLIENT" panel. */}
+      {comboSummary && <ComboSavingsPanel summary={comboSummary} currency={currency} />}
+
       {/* Cost summary — Figma:65 */}
       {costSummary && (
         <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
@@ -153,4 +175,76 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function Divider() {
   return <div className="h-px bg-neutral-200 dark:bg-neutral-700" />;
+}
+
+// ── Combo savings panel ─────────────────────────────────────────────────
+// Three states:
+//   • unknown — no solo prices resolvable yet (categories still loading).
+//   • saves — combo cheaper than solo. Green badge with "−₪X · Y%".
+//   • costs-more — combo is MORE expensive than buying separately. Warning
+//     badge with "+₪X · Y%" — operator misconfiguration signal.
+function ComboSavingsPanel({ summary, currency }: { summary: RailComboSummary; currency: string }) {
+  const { t } = useI18n();
+  const state: 'unknown' | 'saves' | 'costs-more' | 'even' =
+    summary.unknown ? 'unknown'
+    : summary.savingsMin > 0 ? 'saves'
+    : summary.savingsMin < 0 ? 'costs-more'
+    : 'even';
+  const absSaveMin = Math.abs(summary.savingsMin);
+  const absSavePct = Math.round(Math.abs(summary.savingsPct));
+
+  return (
+    <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
+      <h4 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-4">
+        {t('comboSavingsPanelTitle') || 'Économies pour le client'}
+      </h4>
+      <div className="space-y-3">
+        <Row label={t('composeSoldSeparately')}>
+          <span className="text-sm text-neutral-500 dark:text-neutral-400 line-through tabular-nums">
+            {state === 'unknown' ? '—' : `${summary.soloMin.toFixed(2)} ${currency}`}
+          </span>
+        </Row>
+        <Divider />
+        <Row label={t('composeBasePriceLabel')}>
+          <span className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
+            {summary.comboMin.toFixed(2)} {currency}
+          </span>
+        </Row>
+        <Divider />
+        <Row label={state === 'costs-more'
+          ? (t('comboSurchargeLabel') || 'Surcoût combo')
+          : (t('reduction') || 'Réduction')}>
+          {state === 'unknown' && (
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">—</span>
+          )}
+          {state === 'even' && (
+            <span className="text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">±{currency}0</span>
+          )}
+          {state === 'saves' && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums"
+              style={{
+                background: 'color-mix(in oklab, var(--success-500) 14%, transparent)',
+                color: 'var(--success-500)',
+              }}
+            >
+              −{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+            </span>
+          )}
+          {state === 'costs-more' && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums"
+              style={{
+                background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
+                color: 'var(--warning-500)',
+              }}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              +{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+            </span>
+          )}
+        </Row>
+      </div>
+    </div>
+  );
 }
