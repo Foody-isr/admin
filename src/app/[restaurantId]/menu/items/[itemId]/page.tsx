@@ -23,15 +23,15 @@ import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-it
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
-import { SectionCard, Field, FormInput, FormTextarea } from '@/components/menu-item/MenuItemForm';
+import CompositionTab from '@/components/menu-item/combo/CompositionTab';
+import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
+import type { ComboStepDraft } from '@/components/menu-item/combo/types';
+import { Badge } from '@/components/ds';
+import { Boxes } from 'lucide-react';
 import { computeItemCostSummary } from '@/lib/cost-utils';
-import SearchableListField from '@/components/SearchableListField';
-import {
-  XIcon, ChevronDownIcon, ChevronUpIcon, TrashIcon,
-  SearchIcon, PlusIcon, ArrowLeftIcon,
-} from 'lucide-react';
+import { XIcon } from 'lucide-react';
 
-const VALID_TABS: MenuItemSection[] = ['details', 'modifiers', 'recipe', 'cost'];
+const VALID_TABS: MenuItemSection[] = ['details', 'modifiers', 'composition', 'recipe', 'cost'];
 
 export default function EditItemPage() {
   const { restaurantId, itemId } = useParams();
@@ -82,31 +82,14 @@ export default function EditItemPage() {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Combo steps
-  interface ComboStepDraft {
-    key: string;
-    name: string;
-    min_picks: number;
-    max_picks: number;
-    items: { menu_item_id: number; price_delta: number; item_name?: string; variant_id?: number; pick_key?: string }[];
-  }
+  // Combo steps — shape now imported from combo/types.ts (shared between
+  // create + edit pages).
   const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
 
-  // Combo modal state
-  type PickKey = string;
-  type PickInfo = { menuItemId: number; variantId?: number; name: string; price: number };
-  const [comboModalOpen, setComboModalOpen] = useState(false);
-  type ModalStep = 'select' | 'pricing' | 'configure';
-  const [modalStep, setModalStep] = useState<ModalStep>('select');
-  const [modalTab, setModalTab] = useState<'items' | 'categories'>('items');
-  const [modalSearch, setModalSearch] = useState('');
-  const [modalCategoryFilter, setModalCategoryFilter] = useState<number | null>(null);
-  const [modalPicks, setModalPicks] = useState<Map<PickKey, PickInfo>>(new Map());
-  const [modalItemDeltas, setModalItemDeltas] = useState<Map<PickKey, number>>(new Map());
-  const [modalGroupName, setModalGroupName] = useState('');
-  const [modalRequired, setModalRequired] = useState(1);
-  const [modalDefaultKey, setModalDefaultKey] = useState<PickKey | ''>('');
-  const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(new Set());
+  // Type-switch confirmation. The picker requests a switch; if any
+  // type-specific data exists, this holds the pending target until the user
+  // confirms. See `requestTypeChange` below.
+  const [pendingType, setPendingType] = useState<ItemType | null>(null);
 
   // Modifier sets modal
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
@@ -209,76 +192,63 @@ export default function EditItemPage() {
     (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))
   );
 
-  const removeComboStep = (key: string) => setComboSteps((prev) => prev.filter((s) => s.key !== key));
+  // Loss summary used by the type-switch confirmation modal. We count the
+  // currently-attached items the user might lose visibility of when changing
+  // type. Note: server records are not auto-deleted; the user can clean
+  // them up via their respective UIs after switching.
+  const variantsCountFromItem = useMemo(() => {
+    if (!item) return 0;
+    const fromGroups = (item.variant_groups ?? []).reduce(
+      (sum, g) => sum + (g.variants ?? []).length,
+      0,
+    );
+    return fromGroups + attachedOptionSets.reduce(
+      (sum, os) => sum + (os.options ?? []).length,
+      0,
+    );
+  }, [item, attachedOptionSets]);
 
-  const resetModal = () => {
-    setModalStep('select');
-    setModalTab('items');
-    setModalSearch('');
-    setModalCategoryFilter(null);
-    setModalPicks(new Map());
-    setModalItemDeltas(new Map());
-    setModalGroupName('');
-    setModalRequired(1);
-    setModalDefaultKey('');
-    setExpandedItemIds(new Set());
-  };
+  const lossSummary: TypeSwitchLossSummary = useMemo(() => ({
+    recipeCount: ingredients.length,
+    variantsCount: variantsCountFromItem,
+    modifiersCount: (item?.modifier_sets?.length ?? 0) + (item?.modifiers?.length ?? 0),
+    stepsCount: comboSteps.length,
+  }), [ingredients, variantsCountFromItem, item, comboSteps]);
 
-  const [editingStepKey, setEditingStepKey] = useState<string | null>(null);
-
-  const openAddOptionsModal = () => { resetModal(); setEditingStepKey(null); setComboModalOpen(true); };
-
-  const openEditStepModal = (step: ComboStepDraft) => {
-    resetModal();
-    setEditingStepKey(step.key);
-    setModalGroupName(step.name);
-    setModalRequired(step.min_picks);
-    const picks = new Map<PickKey, PickInfo>();
-    const deltas = new Map<PickKey, number>();
-    const expand = new Set<number>();
-    for (const si of step.items) {
-      const key = si.pick_key || `item:${si.menu_item_id}`;
-      picks.set(key, { menuItemId: si.menu_item_id, variantId: si.variant_id, name: si.item_name || `Item #${si.menu_item_id}`, price: 0 });
-      if (si.price_delta !== 0) deltas.set(key, si.price_delta);
-      if (si.variant_id) expand.add(si.menu_item_id);
-    }
-    setModalPicks(picks);
-    setModalItemDeltas(deltas);
-    setExpandedItemIds(expand);
-    setModalStep('select');
-    setComboModalOpen(true);
-  };
-
-  const togglePick = (key: PickKey, info: PickInfo) => {
-    setModalPicks((prev) => { const next = new Map(prev); next.has(key) ? next.delete(key) : next.set(key, info); return next; });
-  };
-
-  const toggleExpand = (itemId: number) => {
-    setExpandedItemIds((prev) => { const next = new Set(prev); next.has(itemId) ? next.delete(itemId) : next.add(itemId); return next; });
-  };
-
-  const modalPicksList = Array.from(modalPicks.entries()).map(([key, info]) => ({ key, ...info }));
-
-  const handleModalAdd = () => {
-    const draft: ComboStepDraft = {
-      key: editingStepKey || crypto.randomUUID(),
-      name: modalGroupName || `Choice ${comboSteps.length + 1}`,
-      min_picks: modalRequired,
-      max_picks: modalRequired,
-      items: modalPicksList.map((p) => ({
-        menu_item_id: p.menuItemId,
-        price_delta: modalItemDeltas.get(p.key) ?? 0,
-        item_name: p.name,
-        variant_id: p.variantId,
-        pick_key: p.key,
-      })),
-    };
-    if (editingStepKey) {
-      setComboSteps((prev) => prev.map((s) => s.key === editingStepKey ? draft : s));
+  const requestTypeChange = (next: ItemType) => {
+    if (next === itemType) return;
+    const wouldLose = next === 'combo'
+      ? (lossSummary.recipeCount ?? 0) + (lossSummary.variantsCount ?? 0) + (lossSummary.modifiersCount ?? 0)
+      : (lossSummary.stepsCount ?? 0);
+    if (wouldLose > 0) {
+      setPendingType(next);
     } else {
-      setComboSteps((prev) => [...prev, draft]);
+      setItemType(next);
+      if (next === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+        setActiveTab('details');
+      } else if (next !== 'combo' && activeTab === 'composition') {
+        setActiveTab('details');
+      }
     }
-    setComboModalOpen(false);
+  };
+
+  const confirmTypeChange = () => {
+    if (pendingType == null) return;
+    // Drop UI state for the type that's going away. Server records remain
+    // until the user explicitly cleans them up.
+    if (pendingType === 'combo') {
+      // No client-side wipe of recipe/variants/modifiers — they'd need API
+      // calls to delete from the server. We just hide them from the form.
+    } else {
+      setComboSteps([]);
+    }
+    setItemType(pendingType);
+    if (pendingType === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+      setActiveTab('details');
+    } else if (pendingType !== 'combo' && activeTab === 'composition') {
+      setActiveTab('details');
+    }
+    setPendingType(null);
   };
 
   const handleSave = async () => {
@@ -412,12 +382,27 @@ export default function EditItemPage() {
     );
   }
 
-  const tabs: TabBarItem[] = [
-    { id: 'details', label: t('tabDetails') },
-    { id: 'modifiers', label: t('tabModifiers') },
-    { id: 'recipe', label: t('tabRecipe') },
-    { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
-  ];
+  // Tab set adapts to item type. Combos: details · composition · cost.
+  // Articles: details · modifiers · recipe · cost.
+  const tabs: TabBarItem[] = itemType === 'combo'
+    ? [
+        { id: 'details', label: t('tabDetails') },
+        { id: 'composition', label: t('tabComposition'), count: comboSteps.length },
+        { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
+      ]
+    : [
+        { id: 'details', label: t('tabDetails') },
+        { id: 'modifiers', label: t('tabModifiers') },
+        { id: 'recipe', label: t('tabRecipe') },
+        { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
+      ];
+
+  const typeBadgeTrailing = (
+    <Badge tone="brand" className="h-6 px-2.5 font-semibold tracking-[.04em]">
+      <Boxes className="w-3 h-3" />
+      {itemType === 'combo' ? t('typeBadgeCombo') : t('typeBadgeArticle')}
+    </Badge>
+  );
 
   const rail = (
     <MenuItemSummaryRail
@@ -456,7 +441,12 @@ export default function EditItemPage() {
           {/* Tab bar — transparent banner that blends with modal bg,
               matching the food-cost page layout where tabs sit directly on the page bg */}
           <div className="px-[var(--s-6)] py-[var(--s-4)] border-b border-[var(--line)] shrink-0">
-            <MenuItemTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
+            <MenuItemTabBar
+              tabs={tabs}
+              active={activeTab}
+              onChange={setActiveTab}
+              trailing={typeBadgeTrailing}
+            />
           </div>
 
           {/* Tab content — same vertical rhythm as food-cost page */}
@@ -480,63 +470,27 @@ export default function EditItemPage() {
                 selectedMenuIds={selectedMenuIds}
                 setSelectedMenuIds={setSelectedMenuIds}
                 itemType={itemType}
-                setItemType={setItemType}
+                onTypeChange={requestTypeChange}
+                comboStepsCount={comboSteps.length}
+                onJumpToComposition={() => setActiveTab('composition')}
               />
             )}
 
-            {/* ── Tab: Modificateurs & Variantes — Figma:248 ───── */}
-            {activeTab === 'modifiers' && (
-              <>
-                {itemType === 'combo' && (
-                  <div className="max-w-4xl mb-8">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-                        {t('buildThisCombo')}
-                      </h3>
-                    </div>
-                    <div className="space-y-4">
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {t('comboBuilderDescription')}
-                      </p>
-                      {comboSteps.length > 0 && (
-                        <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                          <div className="flex items-center px-4 py-3 text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wider border-b border-neutral-200 dark:border-neutral-700">
-                            <span className="flex-1">{t('comboChoice')}</span>
-                            <span className="w-16 text-center">{t('required')}</span>
-                            <span className="w-14" />
-                          </div>
-                          {comboSteps.map((step) => (
-                            <div key={step.key} className="border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditStepModal(step)}>
-                                  <span className="text-sm font-medium text-orange-500 hover:underline">{step.name}</span>
-                                  <div className="text-xs text-neutral-600 dark:text-neutral-400 truncate mt-0.5">
-                                    {step.items.length > 0
-                                      ? step.items.map((si) => si.item_name || `#${si.menu_item_id}`).join(', ')
-                                      : `${step.items.length} ${t('options')}`}
-                                  </div>
-                                </div>
-                                <span className="w-16 text-center text-sm text-neutral-600 dark:text-neutral-400 shrink-0">{step.min_picks}</span>
-                                <button onClick={() => removeComboStep(step.key)} className="w-14 flex items-center justify-end p-1 text-neutral-600 dark:text-neutral-400 hover:text-red-400">
-                                  <TrashIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <button
-                        onClick={openAddOptionsModal}
-                        className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        {t('addOptions')}
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {/* ── Tab: Composition (combo only) ─────────────────── */}
+            {activeTab === 'composition' && itemType === 'combo' && (
+              <CompositionTab
+                comboName={name}
+                basePrice={price}
+                onBasePriceChange={setPrice}
+                steps={comboSteps}
+                onStepsChange={setComboSteps}
+                categories={categories}
+              />
+            )}
 
+            {/* ── Tab: Modificateurs & Variantes — articles only ─── */}
+            {activeTab === 'modifiers' && itemType !== 'combo' && (
+              <>
                 <MenuItemTabOptions
                   item={item}
                   attachedModifierSets={item.modifier_sets ?? []}
@@ -721,256 +675,16 @@ export default function EditItemPage() {
         </div>
       )}
 
-      {/* Combo Add Options Modal */}
-      {comboModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setComboModalOpen(false)}>
-          <div className="bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
-
-            {modalStep === 'select' && (
-              <>
-                <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
-                  <button onClick={() => setComboModalOpen(false)}
-                    className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                    <XIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
-                  </button>
-                  <button onClick={() => { if (modalPicks.size > 0) setModalStep('pricing'); }}
-                    disabled={modalPicks.size === 0}
-                    className="bg-orange-500 hover:bg-orange-600 text-white text-[14px] px-5 py-2 rounded-lg disabled:opacity-40">{t('next')}</button>
-                </div>
-                <div className="px-5 pb-4 shrink-0">
-                  <h2 className="text-[18px] font-bold text-neutral-900 dark:text-white">{t('addOptions')}</h2>
-                  <p className="text-[14px] text-neutral-600 dark:text-neutral-400 mt-1">{t('addOptionsDesc')}</p>
-                </div>
-                <div className="flex mx-5 rounded-lg overflow-hidden mb-4 shrink-0 border border-neutral-200 dark:border-neutral-700">
-                  <button onClick={() => { setModalTab('items'); setModalSearch(''); }}
-                    className={`flex-1 py-2.5 text-[14px] font-semibold transition-colors ${modalTab === 'items' ? 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white border-b-2 border-orange-500' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white'}`}>
-                    {t('items')}
-                  </button>
-                  <button onClick={() => { setModalTab('categories'); setModalSearch(''); }}
-                    className={`flex-1 py-2.5 text-[14px] font-semibold transition-colors ${modalTab === 'categories' ? 'bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white border-b-2 border-orange-500' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white'}`}>
-                    {t('categories')}
-                  </button>
-                </div>
-
-                {modalTab === 'items' ? (
-                  <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
-                    <div className="flex gap-2 mb-3">
-                      <div className="relative flex-1">
-                        <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
-                        <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)} placeholder={t('searchItems')}
-                          className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />
-                      </div>
-                      <select value={modalCategoryFilter ?? ''} onChange={(e) => setModalCategoryFilter(e.target.value ? Number(e.target.value) : null)}
-                        className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#f97316]">
-                        <option value="">{t('showAllCategories')}</option>
-                        {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="flex items-center text-[12px] font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider px-1 mb-1 pb-2 border-b border-neutral-200 dark:border-neutral-700">
-                      <span className="w-8" /><span className="flex-1">{t('name')}</span><span className="w-20 text-right">{t('price')}</span>
-                    </div>
-                    {allMenuItems
-                      .filter((i) => {
-                        if (modalCategoryFilter && i.category_id !== modalCategoryFilter) return false;
-                        if (modalSearch && !i.name.toLowerCase().includes(modalSearch.toLowerCase())) return false;
-                        return true;
-                      })
-                      .map((mi) => {
-                        const variantOpts = (mi.variant_groups ?? []).flatMap((g) => (g.variants ?? []).map((v) => ({ id: v.id, name: v.name, price: v.price, is_active: v.is_active })));
-                        const optionSetOpts = (mi.option_sets ?? []).flatMap((os) => (os.options ?? []).map((o) => ({ id: o.id, name: o.name, price: o.price, is_active: o.is_active })));
-                        const variants = [...variantOpts, ...optionSetOpts].filter((v) => v.is_active);
-                        const hasVariants = variants.length > 0;
-                        const isExpanded = expandedItemIds.has(mi.id);
-                        const itemKey = `item:${mi.id}`;
-                        return (
-                          <div key={mi.id}>
-                            {hasVariants ? (
-                              <>
-                                <div className="flex items-center gap-3 px-1 py-3 border-b border-neutral-200 dark:border-neutral-700 cursor-pointer hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors rounded-sm"
-                                  onClick={() => toggleExpand(mi.id)}>
-                                  <button className="w-5 h-5 flex items-center justify-center shrink-0 text-neutral-600 dark:text-neutral-400">
-                                    {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
-                                  </button>
-                                  <span className="flex-1 text-[14px] font-medium text-neutral-900 dark:text-white">
-                                    {mi.name}
-                                    <span className="text-[12px] text-neutral-600 dark:text-neutral-400 ml-2">{variants.length} {t('variants').toLowerCase()}</span>
-                                  </span>
-                                  <span className="w-20 text-right text-[14px] text-neutral-600 dark:text-neutral-400">-</span>
-                                </div>
-                                {isExpanded && variants.map((v) => {
-                                  const vKey = `variant:${mi.id}:${v.id}`;
-                                  return (
-                                    <label key={vKey} className="flex items-center gap-3 pl-8 pr-1 py-2.5 border-b border-neutral-200 dark:border-neutral-700 cursor-pointer hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors rounded-sm">
-                                      <input type="checkbox" checked={modalPicks.has(vKey)}
-                                        onChange={() => togglePick(vKey, { menuItemId: mi.id, variantId: v.id, name: `${mi.name} - ${v.name}`, price: v.price })}
-                                        className="w-4 h-4 rounded border-2 border-neutral-200 dark:border-neutral-700 accent-orange-500 shrink-0" />
-                                      <span className="flex-1 text-[14px] text-neutral-900 dark:text-white">{v.name}</span>
-                                      <span className="w-20 text-right text-[14px] text-neutral-600 dark:text-neutral-400">₪{v.price.toFixed(2)}</span>
-                                    </label>
-                                  );
-                                })}
-                              </>
-                            ) : (
-                              <label className="flex items-center gap-3 px-1 py-3 border-b border-neutral-200 dark:border-neutral-700 cursor-pointer hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors rounded-sm">
-                                <input type="checkbox" checked={modalPicks.has(itemKey)}
-                                  onChange={() => togglePick(itemKey, { menuItemId: mi.id, name: mi.name, price: mi.price })}
-                                  className="w-4 h-4 rounded border-2 border-neutral-200 dark:border-neutral-700 accent-orange-500 shrink-0" />
-                                <span className="flex-1 text-[14px] text-neutral-900 dark:text-white">{mi.name}</span>
-                                <span className="w-20 text-right text-[14px] text-neutral-600 dark:text-neutral-400">₪{mi.price.toFixed(2)}</span>
-                              </label>
-                            )}
-                          </div>
-                        );
-                      })}
-                    {modalPicks.size > 0 && (
-                      <div className="flex items-center gap-3 pt-3 text-[14px]">
-                        <span className="text-orange-500 font-medium">{modalPicks.size} {t('selected')}</span>
-                        <button onClick={() => setModalPicks(new Map())} className="text-orange-500 font-medium hover:underline">{t('deselectAll')}</button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
-                    <div className="relative mb-3">
-                      <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 pointer-events-none" />
-                      <input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)} placeholder={t('searchCategories')}
-                        className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-4 py-2.5 pl-9 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />
-                    </div>
-                    {categories
-                      .filter((c) => !modalSearch || c.name.toLowerCase().includes(modalSearch.toLowerCase()))
-                      .map((cat) => (
-                        <label key={cat.id} className="flex items-center gap-3 px-1 py-3 border-b border-neutral-200 dark:border-neutral-700 cursor-pointer hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors rounded-sm">
-                          <input type="radio" name="combo-cat-edit"
-                            checked={modalCategoryFilter === cat.id && (cat.items ?? []).every((ci) => modalPicks.has(`item:${ci.id}`))}
-                            onChange={() => {
-                              setModalPicks((prev) => {
-                                const next = new Map(prev);
-                                (cat.items ?? []).forEach((ci) => { const key = `item:${ci.id}`; if (!next.has(key)) next.set(key, { menuItemId: ci.id, name: ci.name, price: ci.price }); });
-                                return next;
-                              });
-                              setModalCategoryFilter(cat.id);
-                            }}
-                            className="w-4 h-4 accent-orange-500 shrink-0" />
-                          <span className="flex-1 text-[14px] text-neutral-900 dark:text-white">{cat.name}</span>
-                          <span className="w-16 text-right text-[14px] text-neutral-600 dark:text-neutral-400">{(cat.items ?? []).length}</span>
-                        </label>
-                      ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {modalStep === 'pricing' && (
-              <>
-                <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
-                  <button onClick={() => setModalStep('select')}
-                    className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                    <ArrowLeftIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
-                  </button>
-                  <div className="flex gap-2">
-                    <button onClick={() => setModalStep('configure')} className="text-[14px] px-4 py-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-white hover:bg-neutral-100 dark:bg-[#1a1a1a] transition-colors">{t('skip')}</button>
-                    <button onClick={() => setModalStep('configure')} className="bg-orange-500 hover:bg-orange-600 text-white text-[14px] px-5 py-2 rounded-lg">{t('next')}</button>
-                  </div>
-                </div>
-                <div className="px-5 pb-4 shrink-0">
-                  <h2 className="text-[18px] font-bold text-neutral-900 dark:text-white">{t('addDiscountsOrUpcharges')}</h2>
-                  <p className="text-[14px] text-neutral-600 dark:text-neutral-400 mt-1">{t('addDiscountsDesc')}</p>
-                </div>
-                <div className="px-5 flex-1 overflow-y-auto pb-5 min-h-0">
-                  {[...modalPicksList].sort((a, b) => b.price - a.price).map((pick) => (
-                    <div key={pick.key} className="flex items-center border-b border-neutral-200 dark:border-neutral-700 py-3 px-1">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[14px] font-medium text-neutral-900 dark:text-white">{pick.name}</div>
-                        <div className="text-[12px] text-neutral-600 dark:text-neutral-400">₪{pick.price.toFixed(2)}</div>
-                      </div>
-                      <div className="w-28">
-                        <input type="number" step="0.01" value={modalItemDeltas.get(pick.key) ?? 0}
-                          onChange={(e) => setModalItemDeltas((prev) => { const next = new Map(prev); next.set(pick.key, parseFloat(e.target.value) || 0); return next; })}
-                          className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white text-[14px] px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" placeholder="₪0.00" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {modalStep === 'configure' && (
-              <>
-                <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
-                  <button onClick={() => setModalStep('pricing')}
-                    className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#1a1a1a] hover:bg-[#3f3f46] transition-colors flex items-center justify-center">
-                    <ArrowLeftIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
-                  </button>
-                  <button onClick={handleModalAdd} className="bg-orange-500 hover:bg-orange-600 text-white text-[14px] px-5 py-2 rounded-lg">{t('add')}</button>
-                </div>
-                <div className="px-5 pb-5 flex flex-col gap-5">
-                  <h2 className="text-[18px] font-bold text-neutral-900 dark:text-white">{t('nameThisGroup')}</h2>
-                  <div>
-                    <label className="block text-[14px] font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">{t('name')}</label>
-                    <input value={modalGroupName} onChange={(e) => setModalGroupName(e.target.value)} placeholder={t('comboNamePlaceholder')}
-                      className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#f97316] placeholder:text-neutral-600 dark:text-neutral-400" />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">{t('howManySelections')}</label>
-                    <input type="number" min={0} value={modalRequired} onChange={(e) => setModalRequired(parseInt(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#f97316]" />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">{t('setDefaultOption')}</label>
-                    <select value={modalDefaultKey} onChange={(e) => setModalDefaultKey(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#f97316]">
-                      <option value="">{t('noDefaultSelection')}</option>
-                      {modalPicksList.map((pick) => <option key={pick.key} value={pick.key}>{pick.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+      {/* ── Type-switch confirmation modal ─────────────────────── */}
+      {pendingType && (
+        <TypeSwitchConfirm
+          fromType={itemType}
+          toType={pendingType}
+          loss={lossSummary}
+          onCancel={() => setPendingType(null)}
+          onConfirm={confirmTypeChange}
+        />
       )}
     </>
-  );
-}
-
-// ── Local helpers ────────────────────────────────────────────────────────
-
-// Split-button category picker: styled like a native select but shows a
-// separate chevron button on the right, matching Figma node 0:112.
-function CategorySelect({
-  value,
-  options,
-  onChange,
-  placeholder,
-}: {
-  value: number;
-  options: { value: number; label: string }[];
-  onChange: (v: number) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="relative flex items-center gap-2 w-full">
-      <div className="relative flex-1 min-w-0">
-        <select
-          value={value || ''}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="appearance-none w-full h-9 rounded-[6px] bg-neutral-100 dark:bg-[#1a1a1a] px-3 py-[9.5px] text-[14px] text-neutral-900 dark:text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] focus:outline-none focus:ring-2 focus:ring-[#f97316] cursor-pointer"
-        >
-          {!value && <option value="" disabled>{placeholder ?? ''}</option>}
-          {options.map((o) => (
-            <option key={o.value} value={o.value} className="bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-900 dark:text-white">
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div
-        aria-hidden
-        className="h-9 w-9 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-[6px] flex items-center justify-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] pointer-events-none"
-      >
-        <ChevronDownIcon className="w-4 h-4 text-neutral-900 dark:text-white" />
-      </div>
-    </div>
   );
 }

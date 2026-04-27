@@ -1,14 +1,19 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Boxes, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType } from '@/lib/api';
 import SearchableListField from '@/components/SearchableListField';
-import { Field, Input, Select, Textarea } from '@/components/ds';
+import { Field, Input, Textarea } from '@/components/ds';
+import TypePickerCards from './combo/TypePickerCards';
 
 // Aligned to design-reference/design/screens/item-editor.jsx:274-316 (DetailsTab).
 // Flat 2-col and 3-col grids with Field + Input primitives; status uses dot-pulse.
+//
+// As of the combo refactor: the "Type d'article" select is replaced by
+// `TypePickerCards` — a segmented two-card picker. For combos, a callout at
+// the bottom links to the Composition tab.
 
 interface Props {
   name: string;
@@ -28,7 +33,16 @@ interface Props {
   selectedMenuIds: Set<number>;
   setSelectedMenuIds: (s: Set<number>) => void;
   itemType: ItemType;
-  setItemType: (v: ItemType) => void;
+  /** Request a type change. The parent decides whether to confirm or apply
+   *  immediately (it owns the variant/recipe/modifier/step state that may
+   *  be lost). */
+  onTypeChange: (next: ItemType) => void;
+  /** Optional: number of combo steps to show in the "go to Composition"
+   *  callout. Only used when itemType === 'combo'. */
+  comboStepsCount?: number;
+  /** Optional: handler to navigate to the Composition tab from the Details
+   *  tab callout. */
+  onJumpToComposition?: () => void;
 }
 
 export default function MenuItemTabDetails({
@@ -43,11 +57,18 @@ export default function MenuItemTabDetails({
   selectedMenuIds,
   setSelectedMenuIds,
   itemType,
-  setItemType,
+  onTypeChange,
+  comboStepsCount = 0,
+  onJumpToComposition,
 }: Props) {
   const { t } = useI18n();
   const [categoryOpen, setCategoryOpen] = useState(false);
   const activeCategory = categories.find((c) => c.id === categoryId);
+  const isCombo = itemType === 'combo';
+
+  const priceLabel = isCombo
+    ? t('composeBasePriceLabel')
+    : (t('sellingPriceLabel') || 'Prix de vente');
 
   return (
     <div className="max-w-4xl">
@@ -59,17 +80,13 @@ export default function MenuItemTabDetails({
       </div>
 
       <div className="flex flex-col gap-[var(--s-5)]">
-        {/* Type d'article */}
-        <Field label={t('itemType') || "Type d'article"}>
-          <Select
-            value={itemType}
-            onChange={(e) => setItemType(e.target.value as ItemType)}
-            className="md:w-72"
-          >
-            <option value="food_and_beverage">{t('foodAndBeverage') || 'Nourriture et boisson'}</option>
-            <option value="combo">{t('combo') || 'Menu combo'}</option>
-          </Select>
-        </Field>
+        {/* Type d'article — segmented picker */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+            {t('itemType') || "Type d'article"}
+          </span>
+          <TypePickerCards value={itemType} onChange={onTypeChange} />
+        </div>
 
         {/* Row 1 — Nom | Catégorie */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-4)]">
@@ -121,7 +138,10 @@ export default function MenuItemTabDetails({
 
         {/* Row 2 — Prix | TVA | Statut */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-4)]">
-          <Field label={t('sellingPriceLabel') || 'Prix de vente'}>
+          <Field
+            label={priceLabel}
+            hint={isCombo ? t('composeBasePriceHint') : undefined}
+          >
             <div className="relative">
               <Input
                 type="number"
@@ -199,6 +219,43 @@ export default function MenuItemTabDetails({
             onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
           />
         </Field>
+
+        {/* Combo-only callout — link to Composition tab. */}
+        {isCombo && onJumpToComposition && (
+          <button
+            type="button"
+            onClick={onJumpToComposition}
+            className="flex items-center gap-[var(--s-3)] text-start rounded-r-lg border p-[var(--s-4)] transition-colors hover:bg-[color-mix(in_oklab,var(--brand-500)_6%,transparent)]"
+            style={{
+              background: 'color-mix(in oklab, var(--brand-500) 4%, var(--surface))',
+              borderColor: 'color-mix(in oklab, var(--brand-500) 22%, var(--line))',
+            }}
+          >
+            <div
+              className="w-10 h-10 rounded-r-md grid place-items-center shrink-0"
+              style={{
+                background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+                color: 'var(--brand-500)',
+              }}
+            >
+              <Boxes className="w-[18px] h-[18px]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-fs-sm font-semibold">{t('composeDetailsCalloutTitle')}</div>
+              <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                {comboStepsCount === 0
+                  ? t('composeNoStepsCallout')
+                  : comboStepsCount === 1
+                    ? t('composeStepsConfiguredOne')
+                    : t('composeStepsConfigured').replace('{n}', String(comboStepsCount))
+                }
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 text-fs-sm font-medium text-[var(--brand-500)]">
+              {t('composeConfigureCta').replace('→', '')} <ArrowRight className="w-4 h-4" />
+            </span>
+          </button>
+        )}
       </div>
       </section>
     </div>
