@@ -346,6 +346,8 @@ export default function MenuItemTabCost({
         activeVariant={activeVariant}
         effectivePrice={effectivePrice}
         thresholdPct={COST_THRESHOLD * 100}
+        vatRate={vatRate}
+        showCostsExVat={showCostsExVat}
         resetKey={`${variantId}|${vatDisplayMode}`}
         onApplied={onChangesApplied}
         t={t}

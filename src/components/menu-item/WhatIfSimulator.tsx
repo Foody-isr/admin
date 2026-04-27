@@ -10,14 +10,24 @@ import {
   ArrowDown,
   ArrowUp,
   Info,
+  ChevronRight,
 } from 'lucide-react';
 import {
   setItemOptionPrice,
   updateMenuItem,
   updateStockItem,
   type MenuItem,
+  type MenuItemIngredient,
 } from '@/lib/api';
-import type { ItemCostSummary, VariantOption } from '@/lib/cost-utils';
+import {
+  costExVat,
+  vatMultiplierForStock,
+  resolvePortion,
+  buildVariantOptions,
+  type ItemCostSummary,
+  type VariantOption,
+} from '@/lib/cost-utils';
+import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 
 // "Et si… ?" simulator card — Figma reference:
 //   foodyadmin/foody-os-handoff/design-reference/screens/item-editor.jsx (WhatIfSimulator).
@@ -39,6 +49,12 @@ interface Props {
   effectivePrice: number;
   /** Threshold percent (0–100). Defaults to 35 in the parent. */
   thresholdPct: number;
+  /** Restaurant VAT rate (percent). Used to convert sub-ingredient costs
+   *  inside preparations between ex/inc-VAT bases. */
+  vatRate: number;
+  /** When true, all costs in the simulator are shown ex-VAT; when false,
+   *  inc-VAT. Mirrors the parent's HT/TTC toggle. */
+  showCostsExVat: boolean;
   /** Reset signal: whenever this value changes, the simulator clears all
    *  levers. Parent flips it on variant / VAT-display switches so the
    *  scenario stays tied to one (variant, basis) pair. */
@@ -48,15 +64,32 @@ interface Props {
   t: (k: string) => string;
 }
 
-interface IngLeverRow {
-  stockId: number;
-  name: string;
-  isPrep: boolean;
-  baseUnitCost: number;
-  unitSuffix: string; // e.g. "/kg", "/u"
-  tag: string;        // letter A, B, …
-  color: string;      // swatch
-}
+// One editable cost row in the "Coût des ingrédients" list.
+//   • `stock` rows are inline-editable (raw ingredient).
+//   • `prep` rows show the aggregate cost and open a modal to drill into
+//     the recipe's sub-ingredients.
+type CostLever =
+  | {
+      type: 'stock';
+      key: string;
+      stockId: number;
+      name: string;
+      baseUnitCost: number;
+      unitSuffix: string;
+      tag: string;
+      color: string;
+    }
+  | {
+      type: 'prep';
+      key: string;
+      ingredient: MenuItemIngredient;
+      prepId: number;
+      name: string;
+      baseUnitCost: number;
+      unitSuffix: string;
+      tag: string;
+      color: string;
+    };
 
 const SWATCH = ['#f97316', '#05df72', '#3b82f6', '#8e51ff', '#f59e0b', '#ec4899'];
 
@@ -67,6 +100,8 @@ export default function WhatIfSimulator({
   activeVariant,
   effectivePrice,
   thresholdPct,
+  vatRate,
+  showCostsExVat,
   resetKey,
   onApplied,
   t,
@@ -114,25 +149,58 @@ export default function WhatIfSimulator({
     (portionChanged ? 1 : 0) + (priceChanged ? 1 : 0) + (ingChanged ? 1 : 0);
   const dirty = dirtyCount > 0;
 
-  // Recompute simulated foodCost line-by-line. For each line:
-  //   • costRatio = override / base (if user typed a stock-cost override)
-  //   • portionRatio applies only to lines that scale (batch items always
-  //     scale, variant-scoped lines via scales_with_variant).
-  // Lines without a stock_item (pure-prep) skip the cost override.
+  // Display-basis unit cost for a stock item — matches what the user sees in
+  // the simulator inputs and keeps `simStockCosts` consistent across stocks
+  // edited directly vs. through a prep modal.
+  function displayUnitCostFor(
+    stock: { cost_per_unit?: number; vat_rate_override?: number | null } | null | undefined,
+  ): number {
+    if (!stock) return 0;
+    const ex = costExVat(stock);
+    return showCostsExVat ? ex : ex * vatMultiplierForStock(stock, vatRate);
+  }
+
+  // Recompute simulated foodCost line-by-line. Two override paths:
+  //   • Stock line: costRatio = override / baseUnitCost.
+  //   • Prep line: re-derive the prep's batch cost from its sub-ingredients
+  //     using overrides on their stock_items, then ratio = newBatch/baseBatch.
+  // portionRatio applies only to lines that scale (batch items always scale;
+  // variant-scoped lines via scales_with_variant).
   const simFoodCost = useMemo(() => {
     return summary.lines.reduce((acc, line) => {
-      const stockId = line.ingredient.stock_item?.id;
-      const baseUnitCost = line.unitCost;
-      const overrideCost = stockId != null ? simStockCosts[stockId] : undefined;
-      const costRatio =
-        overrideCost != null && baseUnitCost > 0
-          ? overrideCost / baseUnitCost
-          : 1;
-      const scales = isBatch || !!line.ingredient.scales_with_variant;
+      const ing = line.ingredient;
+      const stock = ing.stock_item;
+      const prep = ing.prep_item;
+
+      let costRatio = 1;
+      if (stock?.id != null) {
+        const baseUnitCost = line.unitCost;
+        const overrideCost = simStockCosts[stock.id];
+        if (overrideCost != null && baseUnitCost > 0) {
+          costRatio = overrideCost / baseUnitCost;
+        }
+      } else if (prep) {
+        let baseBatch = 0;
+        let newBatch = 0;
+        for (const pi of prep.ingredients ?? []) {
+          const subStock = pi.stock_item;
+          const baseSub = displayUnitCostFor(subStock);
+          const ovr = subStock?.id != null ? simStockCosts[subStock.id] : undefined;
+          const newSub = ovr != null ? ovr : baseSub;
+          baseBatch += pi.quantity_needed * baseSub;
+          newBatch += pi.quantity_needed * newSub;
+        }
+        if (baseBatch > 0) costRatio = newBatch / baseBatch;
+      }
+
+      const scales = isBatch || !!ing.scales_with_variant;
       const ratio = scales ? portionRatio : 1;
       return acc + line.lineCost * costRatio * ratio;
     }, 0);
-  }, [summary.lines, simStockCosts, portionRatio, isBatch]);
+    // displayUnitCostFor depends on showCostsExVat + vatRate, both stable
+    // for the panel's lifetime; explicit deps keep the lint quiet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary.lines, simStockCosts, portionRatio, isBatch, showCostsExVat, vatRate]);
 
   const simMargin = simPrice - simFoodCost;
   const simMarginPct = simPrice > 0 ? (simMargin / simPrice) * 100 : 0;
@@ -152,27 +220,85 @@ export default function WhatIfSimulator({
       ? 'var(--warning-500)'
       : 'var(--danger-500)';
 
-  // ── Per-ingredient lever rows. Dedup by stock_item.id — multiple lines
-  //    for the same stock (e.g. base + option override) collapse to one
-  //    editable row whose override applies everywhere.
-  const ingLevers: IngLeverRow[] = useMemo(() => {
-    const seen = new Map<number, IngLeverRow>();
+  // ── Per-ingredient lever rows. Stock rows dedup by stock_item.id; prep
+  // rows dedup by prep_item.id. Multiple lines pointing at the same stock or
+  // prep (e.g. base + option override) collapse to one row whose override
+  // applies everywhere.
+  const costLevers: CostLever[] = useMemo(() => {
+    const seenStock = new Map<number, CostLever>();
+    const seenPrep = new Map<number, CostLever>();
     summary.lines.forEach((line, i) => {
-      const stock = line.ingredient.stock_item;
-      if (!stock || stock.id == null) return;
-      if (seen.has(stock.id)) return;
-      seen.set(stock.id, {
-        stockId: stock.id,
-        name: line.name,
-        isPrep: line.isPrep,
-        baseUnitCost: line.unitCost,
-        unitSuffix: line.sourceUnit ? `/${line.sourceUnit}` : '',
-        tag: String.fromCharCode(65 + (i % 26)),
-        color: SWATCH[i % SWATCH.length],
-      });
+      const ing = line.ingredient;
+      const stock = ing.stock_item;
+      const prep = ing.prep_item;
+      const tag = String.fromCharCode(65 + (i % 26));
+      const color = SWATCH[i % SWATCH.length];
+      const unitSuffix = line.sourceUnit ? `/${line.sourceUnit}` : '';
+      if (stock?.id != null) {
+        if (seenStock.has(stock.id)) return;
+        seenStock.set(stock.id, {
+          type: 'stock',
+          key: `s${stock.id}`,
+          stockId: stock.id,
+          name: line.name,
+          baseUnitCost: line.unitCost,
+          unitSuffix,
+          tag,
+          color,
+        });
+      } else if (prep?.id != null) {
+        if (seenPrep.has(prep.id)) return;
+        seenPrep.set(prep.id, {
+          type: 'prep',
+          key: `p${prep.id}`,
+          ingredient: ing,
+          prepId: prep.id,
+          name: line.name,
+          baseUnitCost: line.unitCost,
+          unitSuffix,
+          tag,
+          color,
+        });
+      }
     });
-    return Array.from(seen.values());
+    return Array.from(seenStock.values()).concat(Array.from(seenPrep.values()));
   }, [summary.lines]);
+
+  // Effective unit cost of a prep, taking sub-stock overrides into account.
+  // Used to render the live aggregate price next to a prep row.
+  function effectivePrepUnitCost(ing: MenuItemIngredient, fallback: number): number {
+    const prep = ing.prep_item;
+    if (!prep) return fallback;
+    let baseBatch = 0;
+    let newBatch = 0;
+    for (const pi of prep.ingredients ?? []) {
+      const subStock = pi.stock_item;
+      const baseSub = displayUnitCostFor(subStock);
+      const ovr = subStock?.id != null ? simStockCosts[subStock.id] : undefined;
+      const newSub = ovr != null ? ovr : baseSub;
+      baseBatch += pi.quantity_needed * baseSub;
+      newBatch += pi.quantity_needed * newSub;
+    }
+    if (baseBatch <= 0) return fallback;
+    return fallback * (newBatch / baseBatch);
+  }
+
+  // Whether a prep row currently has any sub-stock overrides applied.
+  function prepHasOverride(ing: MenuItemIngredient): boolean {
+    const prep = ing.prep_item;
+    if (!prep) return false;
+    for (const pi of prep.ingredients ?? []) {
+      const sid = pi.stock_item?.id;
+      if (sid != null && simStockCosts[sid] != null) return true;
+    }
+    return false;
+  }
+
+  // Modal state — which prep ingredient is currently expanded for editing.
+  const [openPrepIng, setOpenPrepIng] = useState<MenuItemIngredient | null>(null);
+  const variants = useMemo(() => buildVariantOptions(item), [item]);
+  const variantIdForPrep = activeVariant?.id ?? '';
+  const prepPortion = resolvePortion(item, variants, variantIdForPrep);
 
   // ── Apply state ─────────────────────────────────────────────────────────
   const [applying, setApplying] = useState(false);
@@ -226,9 +352,32 @@ export default function WhatIfSimulator({
         }
       }
 
-      // 2) Stock cost overrides — one PUT per stock_item.
+      // 2) Stock cost overrides — one PUT per stock_item. Storage is always
+      //    ex-VAT (migration 059), so when the user is viewing inc-VAT we
+      //    must deflate by the stock's effective VAT rate before saving.
       for (const [sid, cost] of Object.entries(simStockCosts)) {
-        calls.push(updateStockItem(rid, Number(sid), { cost_per_unit: cost }));
+        const stockId = Number(sid);
+        let exVat = cost;
+        if (!showCostsExVat) {
+          // Find the stock's VAT rate via the existing summary's lines so we
+          // don't need an extra fetch. Falls back to the restaurant rate.
+          let stockForRate: { vat_rate_override?: number | null } | undefined;
+          for (const line of summary.lines) {
+            if (line.ingredient.stock_item?.id === stockId) {
+              stockForRate = line.ingredient.stock_item;
+              break;
+            }
+            const subs = line.ingredient.prep_item?.ingredients ?? [];
+            const sub = subs.find((pi) => pi.stock_item?.id === stockId);
+            if (sub?.stock_item) {
+              stockForRate = sub.stock_item;
+              break;
+            }
+          }
+          const multiplier = vatMultiplierForStock(stockForRate, vatRate);
+          if (multiplier > 0) exVat = cost / multiplier;
+        }
+        calls.push(updateStockItem(rid, stockId, { cost_per_unit: exVat }));
       }
 
       await Promise.all(calls);
@@ -256,9 +405,24 @@ export default function WhatIfSimulator({
     basePrice > 0 && setSimPrice(Math.min(priceMax, +(basePrice * 1.1).toFixed(2)));
   const quickMinus5Ingredients = () => {
     const next: Record<number, number> = {};
-    ingLevers.forEach((l) => {
-      if (l.baseUnitCost > 0) next[l.stockId] = +(l.baseUnitCost * 0.95).toFixed(2);
-    });
+    // Apply -5% to every leaf stock item — both direct ingredients and
+    // sub-ingredients inside preparations — so the chip moves all material
+    // costs in lockstep.
+    for (const line of summary.lines) {
+      const stock = line.ingredient.stock_item;
+      if (stock?.id != null) {
+        const baseUnit = displayUnitCostFor(stock);
+        if (baseUnit > 0) next[stock.id] = +(baseUnit * 0.95).toFixed(4);
+        continue;
+      }
+      const prep = line.ingredient.prep_item;
+      for (const pi of prep?.ingredients ?? []) {
+        const sub = pi.stock_item;
+        if (sub?.id == null || next[sub.id] != null) continue;
+        const baseUnit = displayUnitCostFor(sub);
+        if (baseUnit > 0) next[sub.id] = +(baseUnit * 0.95).toFixed(4);
+      }
+    }
     setSimStockCosts(next);
   };
 
@@ -273,6 +437,7 @@ export default function WhatIfSimulator({
   const targetGaugePct = (thresholdPct / gaugeMax) * 100;
 
   return (
+    <>
     <section
       className="rounded-r-lg overflow-hidden"
       style={{
@@ -331,9 +496,19 @@ export default function WhatIfSimulator({
                 </span>
               )}
             </div>
-            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1">
-              {t('simulatorIntro') ||
-                "Bougez les curseurs pour voir l'impact sur le coût et la marge. Rien n'est sauvegardé tant que vous n'appliquez pas."}
+            {/* Two-line description split into halves and rendered as
+                explicit lines so the header height never depends on available
+                width. Without this the line wraps when "Réinitialiser"
+                appears on the right and the card jumps. */}
+            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1 leading-[16px]">
+              <span className="block">
+                {t('simulatorIntroLine1') ||
+                  "Bougez les curseurs pour voir l'impact sur le coût et la marge."}
+              </span>
+              <span className="block">
+                {t('simulatorIntroLine2') ||
+                  "Rien n'est sauvegardé tant que vous n'appliquez pas."}
+              </span>
             </p>
           </div>
         </div>
@@ -454,22 +629,102 @@ export default function WhatIfSimulator({
           )}
 
           {/* Lever 3 — ingredient cost overrides */}
-          {ingLevers.length > 0 && (
+          {costLevers.length > 0 && (
             <div className="mt-[var(--s-5)]">
               <SectionLabel sub={t('simulatorIngredientCostsHint') || 'Renégocier ou tester un autre fournisseur'}>
                 {t('simulatorIngredientCosts') || 'Coût des ingrédients'}
               </SectionLabel>
               <div className="flex flex-col gap-[var(--s-2)] mt-[var(--s-3)]">
-                {ingLevers.map((ing) => {
-                  const overrideVal = simStockCosts[ing.stockId];
-                  const overridden =
-                    overrideVal != null && Math.abs(overrideVal - ing.baseUnitCost) > 0.001;
+                {costLevers.map((row) => {
+                  if (row.type === 'stock') {
+                    const overrideVal = simStockCosts[row.stockId];
+                    const overridden =
+                      overrideVal != null && Math.abs(overrideVal - row.baseUnitCost) > 0.001;
+                    return (
+                      <div
+                        key={row.key}
+                        className="grid items-center gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md"
+                        style={{
+                          gridTemplateColumns: '24px 1fr 140px',
+                          background: 'var(--surface-2)',
+                          border: overridden
+                            ? '1px solid color-mix(in oklab, var(--brand-500) 35%, var(--line))'
+                            : '1px solid var(--line)',
+                        }}
+                      >
+                        <span
+                          className="inline-grid place-items-center text-white font-bold rounded-r-xs"
+                          style={{
+                            width: 24,
+                            height: 24,
+                            background: row.color,
+                            fontSize: 10,
+                          }}
+                        >
+                          {row.tag}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-fs-sm font-medium truncate">{row.name}</div>
+                          <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
+                            {t('base') || 'Base'} ·{' '}
+                            <span className="tabular-nums">
+                              {CURRENCY}
+                              {row.baseUnitCost.toFixed(2)}
+                              {row.unitSuffix}
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          className="flex items-center gap-1 h-8 px-[var(--s-2)] rounded-r-sm bg-[var(--surface)]"
+                          style={{
+                            border: `1px solid ${overridden ? 'var(--brand-500)' : 'var(--line)'}`,
+                          }}
+                        >
+                          <span className="text-fs-xs text-[var(--fg-subtle)]">{CURRENCY}</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={
+                              overrideVal != null
+                                ? overrideVal
+                                : row.baseUnitCost.toFixed(2)
+                            }
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              setSimStockCosts((prev) => {
+                                const next = { ...prev };
+                                if (!Number.isFinite(v) || v < 0) {
+                                  delete next[row.stockId];
+                                } else if (Math.abs(v - row.baseUnitCost) <= 0.001) {
+                                  delete next[row.stockId];
+                                } else {
+                                  next[row.stockId] = v;
+                                }
+                                return next;
+                              });
+                            }}
+                            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-fs-sm tabular-nums text-right text-[var(--fg)]"
+                          />
+                          <span className="text-fs-xs text-[var(--fg-subtle)]">
+                            {row.unitSuffix.replace('/', '')}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Prep row — clickable, opens the recipe modal where each
+                  // sub-stock cost is editable.
+                  const overridden = prepHasOverride(row.ingredient);
+                  const liveUnitCost = effectivePrepUnitCost(row.ingredient, row.baseUnitCost);
                   return (
-                    <div
-                      key={ing.stockId}
-                      className="grid items-center gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md"
+                    <button
+                      type="button"
+                      key={row.key}
+                      onClick={() => setOpenPrepIng(row.ingredient)}
+                      className="grid items-center gap-[var(--s-3)] p-[var(--s-3)] rounded-r-md text-left transition-colors hover:bg-[var(--surface-3,var(--surface-2))]"
                       style={{
-                        gridTemplateColumns: '24px 1fr 140px',
+                        gridTemplateColumns: '24px 1fr auto auto',
                         background: 'var(--surface-2)',
                         border: overridden
                           ? '1px solid color-mix(in oklab, var(--brand-500) 35%, var(--line))'
@@ -481,60 +736,38 @@ export default function WhatIfSimulator({
                         style={{
                           width: 24,
                           height: 24,
-                          background: ing.color,
+                          background: row.color,
                           fontSize: 10,
                         }}
                       >
-                        {ing.tag}
+                        {row.tag}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-fs-sm font-medium truncate">{ing.name}</div>
+                        <div className="text-fs-sm font-medium truncate flex items-center gap-1.5">
+                          <FlaskConical className="w-3 h-3 text-[var(--fg-subtle)] shrink-0" />
+                          {row.name}
+                        </div>
                         <div className="text-[10px] text-[var(--fg-subtle)] mt-0.5">
-                          {t('base') || 'Base'} ·{' '}
+                          {t('preparation') || 'Préparation'} ·{' '}
                           <span className="tabular-nums">
                             {CURRENCY}
-                            {ing.baseUnitCost.toFixed(2)}
-                            {ing.unitSuffix}
+                            {row.baseUnitCost.toFixed(2)}
+                            {row.unitSuffix}
                           </span>
                         </div>
                       </div>
                       <div
-                        className="flex items-center gap-1 h-8 px-[var(--s-2)] rounded-r-sm bg-[var(--surface)]"
-                        style={{
-                          border: `1px solid ${overridden ? 'var(--brand-500)' : 'var(--line)'}`,
-                        }}
+                        className="text-fs-sm font-semibold tabular-nums whitespace-nowrap"
+                        style={{ color: overridden ? 'var(--brand-500)' : 'var(--fg)' }}
                       >
-                        <span className="text-fs-xs text-[var(--fg-subtle)]">{CURRENCY}</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={
-                            overrideVal != null
-                              ? overrideVal
-                              : ing.baseUnitCost.toFixed(2)
-                          }
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            setSimStockCosts((prev) => {
-                              const next = { ...prev };
-                              if (!Number.isFinite(v) || v < 0) {
-                                delete next[ing.stockId];
-                              } else if (Math.abs(v - ing.baseUnitCost) <= 0.001) {
-                                delete next[ing.stockId];
-                              } else {
-                                next[ing.stockId] = v;
-                              }
-                              return next;
-                            });
-                          }}
-                          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-fs-sm tabular-nums text-right text-[var(--fg)]"
-                        />
-                        <span className="text-fs-xs text-[var(--fg-subtle)]">
-                          {ing.unitSuffix.replace('/', '')}
+                        {CURRENCY}
+                        {liveUnitCost.toFixed(2)}
+                        <span className="text-[10px] text-[var(--fg-subtle)] font-normal">
+                          {row.unitSuffix}
                         </span>
                       </div>
-                    </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--fg-subtle)]" />
+                    </button>
                   );
                 })}
               </div>
@@ -713,7 +946,7 @@ export default function WhatIfSimulator({
                     {t('simulatorQuickPlus10Price') || '+10% prix'}
                   </QuickChip>
                 )}
-                {ingLevers.length > 0 && (
+                {costLevers.length > 0 && (
                   <QuickChip onClick={quickMinus5Ingredients}>
                     <RefreshCw className="w-3 h-3" />
                     {t('simulatorQuickMinus5Ingredients') || '−5% ingrédients'}
@@ -726,6 +959,43 @@ export default function WhatIfSimulator({
         </div>
       </div>
     </section>
+
+    {/* Recipe drill-down: clicking a prep row in the levers list opens the
+        breakdown modal with sub-stock costs editable. Edits flow back into
+        simStockCosts so the simulator KPIs update in real time. */}
+    {openPrepIng && (
+      <PrepCostBreakdownModal
+        ing={openPrepIng}
+        item={item}
+        portion={prepPortion}
+        optionId={null}
+        showExVat={showCostsExVat}
+        restaurantRate={vatRate}
+        simStockCosts={simStockCosts}
+        onEditStockCost={(stockId, value) => {
+          setSimStockCosts((prev) => {
+            const next = { ...prev };
+            // Treat "value equals base" as clearing the override so the row
+            // visually returns to its base state when the user backs out.
+            const base = (() => {
+              const sub = openPrepIng.prep_item?.ingredients?.find(
+                (pi) => pi.stock_item?.id === stockId,
+              )?.stock_item;
+              return displayUnitCostFor(sub);
+            })();
+            if (Math.abs(value - base) <= 0.0001) {
+              delete next[stockId];
+            } else {
+              next[stockId] = value;
+            }
+            return next;
+          });
+        }}
+        onClose={() => setOpenPrepIng(null)}
+        t={t}
+      />
+    )}
+    </>
   );
 }
 

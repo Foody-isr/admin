@@ -1,7 +1,7 @@
 'use client';
 
 import { MenuItem, MenuItemIngredient } from '@/lib/api';
-import { convertQuantity, toBaseUnit, sameUnitFamily } from '@/lib/units';
+import { convertQuantity, toBaseUnit } from '@/lib/units';
 import { costExVat, vatMultiplierForStock } from '@/lib/cost-utils';
 import { ImageIcon } from 'lucide-react';
 
@@ -9,9 +9,14 @@ import { ImageIcon } from 'lucide-react';
 // batch cost → cost per unit → line cost at the current portion.
 // The "line cost" math here MUST mirror calcLineCost/calcVariantLineCost in
 // cost-utils so the modal and the Cost table never disagree.
+//
+// When `onEditStockCost` is provided (the simulator path), each sub-ingredient
+// row's unit cost becomes editable. Overrides are passed in via
+// `simStockCosts` (keyed by stock_item.id) and the modal recomputes batch
+// cost / cost per unit / line cost in real-time.
 export default function PrepCostBreakdownModal({
   ing, item, portion, optionId, showExVat, restaurantRate,
-  onClose, t,
+  simStockCosts, onEditStockCost, onClose, t,
 }: {
   ing: MenuItemIngredient;
   item: MenuItem;
@@ -19,26 +24,37 @@ export default function PrepCostBreakdownModal({
   optionId?: number | null;
   showExVat: boolean;
   restaurantRate: number;
+  /** Display-basis overrides keyed by stock_item.id. */
+  simStockCosts?: Record<number, number>;
+  /** When set, sub-ingredient unit costs become editable. */
+  onEditStockCost?: (stockId: number, value: number) => void;
   onClose: () => void;
   t: (k: string) => string;
 }) {
   const prep = ing.prep_item;
   if (!prep) return null;
 
+  const editable = !!onEditStockCost;
+
   const rows = (prep.ingredients ?? []).map((pi) => {
     const s = pi.stock_item;
     const ex = costExVat(s ?? null);
-    const unitCost = showExVat ? ex : ex * vatMultiplierForStock(s ?? null, restaurantRate);
+    const baseUnitCost = showExVat ? ex : ex * vatMultiplierForStock(s ?? null, restaurantRate);
+    const stockId = s?.id ?? null;
+    const overridden = stockId != null && simStockCosts?.[stockId] != null;
+    const unitCost = overridden ? simStockCosts![stockId!] : baseUnitCost;
     const lineCost = pi.quantity_needed * unitCost;
     return {
       id: pi.id,
-      stockId: s?.id ?? null,
+      stockId,
       name: s?.name ?? '?',
       imageUrl: s?.image_url ?? '',
       qty: pi.quantity_needed,
       stockUnit: s?.unit ?? '',
+      baseUnitCost,
       unitCost,
       lineCost,
+      overridden,
     };
   });
   const batchCost = rows.reduce((s, r) => s + r.lineCost, 0);
@@ -58,7 +74,7 @@ export default function PrepCostBreakdownModal({
   const batchMode = (item.recipe_yield ?? 0) > 0;
   let baseQty = ing.quantity_needed;
   let baseUnit = ing.unit || yieldUnit;
-  let variantRatio = 1;
+  const variantRatio = 1;
   let batchRatio = 1;
   let isMatchSize = false;
   const isVariantScoped = ing.option_id != null && ing.option_id === optionId;
@@ -92,6 +108,14 @@ export default function PrepCostBreakdownModal({
             <h3 className="font-semibold text-fg-primary">{t('costBreakdownTitle').replace('{name}', prep.name)}</h3>
             <p className="text-xs text-fg-secondary mt-0.5">
               {showExVat ? t('excludingVat') : t('includingVat')}
+              {editable && (
+                <>
+                  {' · '}
+                  <span style={{ color: 'var(--brand-500)' }}>
+                    {t('simulatorEditableHint') || 'Click a price to override'}
+                  </span>
+                </>
+              )}
             </p>
           </div>
           <button onClick={onClose} className="p-1 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors">
@@ -117,34 +141,69 @@ export default function PrepCostBreakdownModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id} style={{ borderBottom: '1px solid var(--divider)' }}>
-                      <td className="py-2 font-medium text-fg-primary">
-                        <div className="flex items-center gap-2.5">
-                          {r.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
+                  {rows.map((r) => {
+                    const canEdit = editable && r.stockId != null;
+                    return (
+                      <tr key={r.id} style={{ borderBottom: '1px solid var(--divider)' }}>
+                        <td className="py-2 font-medium text-fg-primary">
+                          <div className="flex items-center gap-2.5">
+                            {r.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
+                            ) : (
+                              <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                                <ImageIcon className="w-4 h-4 text-fg-tertiary" />
+                              </div>
+                            )}
+                            <span className="truncate">{r.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-2 text-right font-mono text-fg-primary">
+                          {r.qty} <span className="text-fg-secondary text-xs">{r.stockUnit}</span>
+                        </td>
+                        <td className="py-2 text-right">
+                          {canEdit ? (
+                            <div
+                              className="inline-flex items-center gap-1 h-8 px-2 rounded-md font-mono"
+                              style={{
+                                border: `1px solid ${r.overridden ? 'var(--brand-500)' : 'var(--divider)'}`,
+                                background: 'var(--surface)',
+                              }}
+                            >
+                              <input
+                                type="number"
+                                step="0.0001"
+                                min="0"
+                                value={r.unitCost}
+                                onChange={(e) => {
+                                  const v = parseFloat(e.target.value);
+                                  if (Number.isFinite(v) && v >= 0) {
+                                    onEditStockCost!(r.stockId!, v);
+                                  }
+                                }}
+                                className="w-24 bg-transparent border-0 outline-none text-sm text-right tabular-nums"
+                              />
+                              <span className="text-fg-secondary text-xs whitespace-nowrap">
+                                &#8362;/{r.stockUnit}
+                              </span>
+                            </div>
                           ) : (
-                            <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                              <ImageIcon className="w-4 h-4 text-fg-tertiary" />
+                            <span className="font-mono text-fg-secondary">
+                              {r.unitCost.toFixed(4)} &#8362;/{r.stockUnit}
+                            </span>
+                          )}
+                          {r.overridden && (
+                            <div className="text-[10px] text-fg-tertiary mt-1 line-through tabular-nums">
+                              {r.baseUnitCost.toFixed(4)}
                             </div>
                           )}
-                          <span className="truncate">{r.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-2 text-right font-mono text-fg-primary">
-                        {r.qty} <span className="text-fg-secondary text-xs">{r.stockUnit}</span>
-                      </td>
-                      <td className="py-2 text-right">
-                        <span className="font-mono text-fg-secondary">
-                          {r.unitCost.toFixed(4)} &#8362;/{r.stockUnit}
-                        </span>
-                      </td>
-                      <td className="py-2 text-right font-mono text-fg-primary">
-                        {r.lineCost.toFixed(2)} &#8362;
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-2 text-right font-mono text-fg-primary">
+                          {r.lineCost.toFixed(2)} &#8362;
+                        </td>
+                      </tr>
+                    );
+                  })}
                   <tr style={{ background: 'var(--surface-subtle)' }}>
                     <td colSpan={3} className="py-2 text-right font-semibold text-fg-primary">
                       {t('breakdownBatchCost')}
