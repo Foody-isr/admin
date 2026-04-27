@@ -96,7 +96,7 @@ export default function CustomersInsightsPage() {
   return (
     <div className="space-y-[var(--s-5)]">
       <PageHead
-        title={t('customerInsights') || 'Clients · Insights'}
+        title={t('salesByCustomer') || 'Sales by Customer'}
         desc={t('customerInsightsDesc') || 'Analyse du comportement et de la fidélité client'}
       />
 

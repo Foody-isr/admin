@@ -80,7 +80,7 @@ export default function CustomersPage() {
   return (
     <div className="space-y-[var(--s-5)]">
       <PageHead
-        title={t('customerDirectory') || 'Clients'}
+        title={t('customers') || 'Clients'}
         desc={t('trustedCustomersDesc')}
         actions={
           canManage && (

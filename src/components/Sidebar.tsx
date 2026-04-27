@@ -160,17 +160,16 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'customers',
       icon: Users,
       perm: ['customers.view', 'customers.manage'],
-      subItems: [
-        { href: `${base}/customers`, labelKey: 'customerDirectory' },
-        { href: `${base}/analytics/customers`, labelKey: 'customerInsights' },
-      ],
     },
     {
       href: `${base}/analytics`,
       labelKey: 'reports',
       icon: BarChart3,
       perm: ['analytics.view'],
-      subItems: [{ href: `${base}/analytics/overview`, labelKey: 'overview' }],
+      subItems: [
+        { href: `${base}/analytics/overview`, labelKey: 'overview' },
+        { href: `${base}/analytics/customers`, labelKey: 'salesByCustomer' },
+      ],
     },
     {
       href: `${base}/staff`,

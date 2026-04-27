@@ -1411,8 +1411,7 @@ const translations: Record<Locale, Record<string, string>> = {
     reports: 'Reports',
     staffMembers: 'Staff Members',
     rolesPermissions: 'Roles & Permissions',
-    customerDirectory: 'Directory',
-    customerInsights: 'Insights',
+    salesByCustomer: 'Sales by Customer',
     general: 'General',
     websiteBuilder: 'Website',
 
@@ -3213,8 +3212,7 @@ const translations: Record<Locale, Record<string, string>> = {
     reports: 'דוחות',
     staffMembers: 'עובדים',
     rolesPermissions: 'תפקידים והרשאות',
-    customerDirectory: 'רשימת לקוחות',
-    customerInsights: 'תובנות',
+    salesByCustomer: 'מכירות לפי לקוח',
     general: 'כללי',
     websiteBuilder: 'אתר',
 
@@ -5013,8 +5011,7 @@ const translations: Record<Locale, Record<string, string>> = {
     reports: 'Rapports',
     staffMembers: 'Membres du personnel',
     rolesPermissions: 'Rôles et permissions',
-    customerDirectory: 'Répertoire',
-    customerInsights: 'Statistiques',
+    salesByCustomer: 'Vente par client',
     general: 'Général',
     websiteBuilder: 'Site web',
 
