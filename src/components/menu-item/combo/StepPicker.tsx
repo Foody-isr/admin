@@ -15,6 +15,7 @@ import { Button, Chip, InputGroup, Kbd, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft, ComboStepDraftItem, ComboOptionView } from './types';
 import { buildOptions, getSourceVariants, toDraftItems, promoteDefaultOption } from './types';
+import StepRulesPanel from './StepRulesPanel';
 
 interface Props {
   step: ComboStepDraft;
@@ -75,14 +76,44 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
     [draftItems, itemsById],
   );
 
+  // Per-variant inclusion lookup: menu_item_id → Set<variantId>.
+  const includedVariantsByItem = useMemo(() => {
+    const m = new Map<number, Set<number>>();
+    for (const d of draftItems) {
+      if (d.variant_id == null) continue;
+      const set = m.get(d.menu_item_id) ?? new Set<number>();
+      set.add(d.variant_id);
+      m.set(d.menu_item_id, set);
+    }
+    return m;
+  }, [draftItems]);
+
+  /** Tri-state inclusion of a source item:
+   *    'empty'   — no rows for it
+   *    'partial' — some variants included (variant items only)
+   *    'full'    — variant-less item included, OR all variants included */
+  type ParentState = 'empty' | 'partial' | 'full';
+  const parentStateFor = (src: MenuItem): ParentState => {
+    const sourceVariants = getSourceVariants(src);
+    if (sourceVariants.length === 0) {
+      return includedItemIds.has(src.id) ? 'full' : 'empty';
+    }
+    const included = includedVariantsByItem.get(src.id);
+    if (!included || included.size === 0) return 'empty';
+    if (included.size === sourceVariants.length) return 'full';
+    return 'partial';
+  };
+
   const toggleItem = (sourceItem: MenuItem) => {
     const sourceVariants = getSourceVariants(sourceItem);
-    const alreadyIncluded = includedItemIds.has(sourceItem.id);
-    if (alreadyIncluded) {
-      // Remove all rows for this menu_item_id.
+    const state = parentStateFor(sourceItem);
+
+    // 'full' → clear (remove all rows for this menu_item_id).
+    if (state === 'full') {
       setDraftItems((prev) => prev.filter((d) => d.menu_item_id !== sourceItem.id));
       return;
     }
+
     if (sourceVariants.length === 0) {
       // Variant-less item — single row at zero upcharge.
       setDraftItems((prev) => [
@@ -94,20 +125,46 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
           pick_key: `item:${sourceItem.id}`,
         },
       ]);
-    } else {
-      // Variant item — include all variants at zero upcharge by default.
-      // Operator refines per-variant pricing in the step body afterwards.
-      setDraftItems((prev) => [
-        ...prev,
-        ...sourceVariants.map((sv) => ({
-          menu_item_id: sourceItem.id,
-          variant_id: sv.id,
-          price_delta: 0,
-          item_name: `${sourceItem.name} — ${sv.name}`,
-          pick_key: `variant:${sourceItem.id}:${sv.id}`,
-        })),
-      ]);
+      return;
     }
+
+    // Variant item: 'empty' or 'partial' → fill to 'full' (add the missing
+    // variants without disturbing those already included).
+    const alreadyIncluded = includedVariantsByItem.get(sourceItem.id) ?? new Set<number>();
+    const additions = sourceVariants
+      .filter((sv) => !alreadyIncluded.has(sv.id))
+      .map((sv) => ({
+        menu_item_id: sourceItem.id,
+        variant_id: sv.id,
+        price_delta: 0,
+        item_name: `${sourceItem.name} — ${sv.name}`,
+        pick_key: `variant:${sourceItem.id}:${sv.id}`,
+      }));
+    if (additions.length === 0) return;
+    setDraftItems((prev) => [...prev, ...additions]);
+  };
+
+  /** Toggle a single variant of a source item independently of its siblings.
+   *  Lets the operator pick exactly which variants to include without leaving
+   *  the picker. */
+  const toggleVariantInPicker = (sourceItem: MenuItem, variantId: number, variantName: string) => {
+    const exists = (includedVariantsByItem.get(sourceItem.id) ?? new Set()).has(variantId);
+    if (exists) {
+      setDraftItems((prev) =>
+        prev.filter((d) => !(d.menu_item_id === sourceItem.id && d.variant_id === variantId)),
+      );
+      return;
+    }
+    setDraftItems((prev) => [
+      ...prev,
+      {
+        menu_item_id: sourceItem.id,
+        variant_id: variantId,
+        price_delta: 0,
+        item_name: `${sourceItem.name} — ${variantName}`,
+        pick_key: `variant:${sourceItem.id}:${variantId}`,
+      },
+    ]);
   };
 
   const addAllInCategory = (catId: number) => {
@@ -288,17 +345,25 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
                 </div>
                 <div>
                   {group.items.map((src) => {
-                    const checked = includedItemIds.has(src.id);
                     const sourceVariants = getSourceVariants(src);
+                    const includedVariantIds = includedVariantsByItem.get(src.id) ?? new Set<number>();
+                    const state = parentStateFor(src);
                     return (
                       <CatalogRow
                         key={src.id}
                         name={src.name}
                         price={src.price}
-                        variantNames={sourceVariants.map((v) => v.name)}
-                        variantPrices={sourceVariants.map((v) => v.price)}
-                        checked={checked}
-                        onToggle={() => toggleItem(src)}
+                        variants={sourceVariants.map((v) => ({
+                          id: v.id,
+                          name: v.name,
+                          price: v.price,
+                          included: includedVariantIds.has(v.id),
+                        }))}
+                        parentState={state}
+                        onToggleParent={() => toggleItem(src)}
+                        onToggleVariant={(variantId, variantName) =>
+                          toggleVariantInPicker(src, variantId, variantName)
+                        }
                       />
                     );
                   })}
@@ -328,48 +393,17 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
             {t('pickerSelectedItems').replace('{n}', String(selectedOptions.length))}
           </div>
 
-          {/* Step rules mini-card */}
-          <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] mb-[var(--s-3)]">
-            <div className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)] mb-1.5">
-              {t('pickerStepRules')}
-            </div>
-            <div className="flex items-center justify-between mb-[var(--s-2)]">
-              <span className="text-fs-sm">{t('composeRequired')}</span>
-              <button
-                type="button"
-                onClick={() => setMinPicks(minPicks === 0 ? 1 : 0)}
-                aria-pressed={minPicks > 0}
-                className={`relative w-8 h-4 rounded-full transition-colors ${
-                  minPicks > 0 ? 'bg-[var(--success-500)]' : 'bg-[var(--surface-3)]'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${
-                    minPicks > 0 ? 'right-0.5' : 'left-0.5'
-                  }`}
-                />
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-[var(--s-2)]">
-              <span className="text-fs-sm">{t('composeMin')} — {t('composeMax')}</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  min={0}
-                  value={minPicks}
-                  onChange={(e) => setMinPicks(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-12 h-7 px-1.5 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)]"
-                />
-                <span className="text-[var(--fg-muted)]">–</span>
-                <input
-                  type="number"
-                  min={Math.max(1, minPicks)}
-                  value={maxPicks}
-                  onChange={(e) => setMaxPicks(Math.max(minPicks, parseInt(e.target.value) || 0))}
-                  className="w-12 h-7 px-1.5 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)]"
-                />
-              </div>
-            </div>
+          {/* Step rules mini-card — same component the StepCard "Règles"
+              popover uses, so the two surfaces can't drift. */}
+          <div className="mb-[var(--s-3)]">
+            <StepRulesPanel
+              minPicks={minPicks}
+              maxPicks={maxPicks}
+              onChange={({ minPicks: m, maxPicks: M }) => {
+                setMinPicks(m);
+                setMaxPicks(M);
+              }}
+            />
           </div>
 
           {/* Selected list */}
@@ -393,60 +427,106 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
 
 // ── Local row components ─────────────────────────────────────────────────
 
+interface CatalogVariantInfo {
+  id: number;
+  name: string;
+  price: number;
+  included: boolean;
+}
+
 function CatalogRow({
-  name, price, variantNames, variantPrices, checked, onToggle,
+  name, price, variants, parentState, onToggleParent, onToggleVariant,
 }: {
   name: string;
   price: number;
-  variantNames: string[];
-  variantPrices: number[];
-  checked: boolean;
-  onToggle: () => void;
+  variants: CatalogVariantInfo[];
+  parentState: 'empty' | 'partial' | 'full';
+  onToggleParent: () => void;
+  onToggleVariant: (variantId: number, variantName: string) => void;
 }) {
-  const priceLabel = variantPrices.length > 1
+  const hasVariants = variants.length > 1;
+  const variantPrices = variants.map((v) => v.price);
+  const priceLabel = hasVariants
     ? `₪${Math.min(...variantPrices).toFixed(0)} – ₪${Math.max(...variantPrices).toFixed(0)}`
     : `₪${(variantPrices[0] ?? price).toFixed(2)}`;
 
+  // Row is a div (not a button) so it can host nested interactive chips.
+  // Clicking the parent area (checkbox + name + price) triggers onToggleParent;
+  // chips have their own onClick + stopPropagation.
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`w-full flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] first:border-t-0 text-start transition-colors ${
-        checked
+    <div
+      className={`flex items-start gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] first:border-t-0 transition-colors ${
+        parentState !== 'empty'
           ? 'bg-[color-mix(in_oklab,var(--brand-500)_6%,transparent)]'
           : 'hover:bg-[var(--surface-2)]'
       }`}
     >
-      <div
-        className={`w-[18px] h-[18px] rounded-r-xs flex items-center justify-center shrink-0 ${
-          checked
-            ? 'bg-[var(--brand-500)] border border-[var(--brand-500)] text-white'
-            : 'bg-[var(--surface)] border border-[var(--line-strong)]'
-        }`}
-        aria-hidden
+      {/* Parent click target — checkbox + name + price */}
+      <button
+        type="button"
+        onClick={onToggleParent}
+        className="flex items-start gap-[var(--s-3)] flex-1 min-w-0 text-start"
+        aria-pressed={parentState === 'full'}
+        aria-label={name}
       >
-        {checked && <Check className="w-3 h-3" strokeWidth={3} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-fs-sm font-medium text-[var(--fg)] truncate">{name}</div>
-        {variantNames.length > 1 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {variantNames.slice(0, 4).map((v, i) => (
-              <span
-                key={v}
-                className="inline-flex items-center h-[18px] px-1.5 rounded-r-sm text-[10px] bg-[var(--surface-2)] text-[var(--fg-muted)] border border-[var(--line)]"
-              >
-                {v}{variantPrices[i] != null ? ` ₪${variantPrices[i].toFixed(0)}` : ''}
-              </span>
-            ))}
-            {variantNames.length > 4 && (
-              <span className="text-[10px] text-[var(--fg-subtle)]">+{variantNames.length - 4}</span>
-            )}
-          </div>
-        )}
-      </div>
-      <span className="text-fs-sm text-[var(--fg-muted)] tabular-nums">{priceLabel}</span>
-    </button>
+        <ParentCheckbox state={parentState} />
+        <div className="flex-1 min-w-0">
+          <div className="text-fs-sm font-medium text-[var(--fg)] truncate">{name}</div>
+        </div>
+        <span className="text-fs-sm text-[var(--fg-muted)] tabular-nums shrink-0">{priceLabel}</span>
+      </button>
+
+      {/* Variant chips — independent click targets. Rendered below the name
+          on a new flex row to avoid getting clipped by parent's flex gap. */}
+      {hasVariants && (
+        <div
+          className="basis-full flex flex-wrap gap-1 ps-[calc(18px+var(--s-3))]"
+          // The ps-[...] hangs the chips under the name (past the checkbox column).
+        >
+          {variants.slice(0, 6).map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleVariant(v.id, v.name);
+              }}
+              aria-pressed={v.included}
+              className={`inline-flex items-center h-[20px] px-1.5 rounded-r-sm text-[10px] font-medium transition-colors ${
+                v.included
+                  ? 'bg-[var(--brand-500)] text-white border border-[var(--brand-500)]'
+                  : 'bg-[var(--surface)] text-[var(--fg-muted)] border border-[var(--line-strong)] hover:border-[var(--fg-subtle)] hover:text-[var(--fg)]'
+              }`}
+            >
+              {v.name}
+              {v.price != null ? ` ₪${v.price.toFixed(0)}` : ''}
+            </button>
+          ))}
+          {variants.length > 6 && (
+            <span className="text-[10px] text-[var(--fg-subtle)] self-center">+{variants.length - 6}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Tri-state checkbox: empty / dash (partial) / check (full). Pure visual —
+ *  the parent click target handles the toggle. */
+function ParentCheckbox({ state }: { state: 'empty' | 'partial' | 'full' }) {
+  const filled = state !== 'empty';
+  return (
+    <div
+      className={`w-[18px] h-[18px] rounded-r-xs flex items-center justify-center shrink-0 mt-0.5 ${
+        filled
+          ? 'bg-[var(--brand-500)] border border-[var(--brand-500)] text-white'
+          : 'bg-[var(--surface)] border border-[var(--line-strong)]'
+      }`}
+      aria-hidden
+    >
+      {state === 'full' && <Check className="w-3 h-3" strokeWidth={3} />}
+      {state === 'partial' && <span className="block w-2 h-0.5 bg-white" />}
+    </div>
   );
 }
 

@@ -11,11 +11,13 @@ import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus } from 'lu
 import { useMemo, useState } from 'react';
 import type { MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
 import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant } from './types';
 import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
+import StepRulesPanel from './StepRulesPanel';
 
 interface Props {
   step: ComboStepDraft;
@@ -138,14 +140,31 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
           </div>
           <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{hint}</div>
         </div>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 h-7 px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
-          title={t('composeStepRules')}
-          onClick={() => setPicking(true)}
-        >
-          <Settings className="w-3.5 h-3.5" /> {t('composeStepRules')}
-        </button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 h-7 px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
+              title={t('composeStepRules')}
+            >
+              <Settings className="w-3.5 h-3.5" /> {t('composeStepRules')}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={6}
+            className="w-64 bg-[var(--surface)] border border-[var(--line)] text-[var(--fg)] rounded-r-md shadow-2 p-[var(--s-3)]"
+          >
+            <StepRulesPanel
+              flush
+              minPicks={step.min_picks}
+              maxPicks={step.max_picks}
+              onChange={({ minPicks, maxPicks }) =>
+                onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
+              }
+            />
+          </PopoverContent>
+        </Popover>
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}

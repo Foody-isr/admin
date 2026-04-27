@@ -344,6 +344,18 @@ export default function EditItemPage() {
     [categories, categoryId],
   );
 
+  // Combo savings for the rail. Mirrors the PricingCard math via the same
+  // pure helper, so the two stay in sync. Hooks must run unconditionally —
+  // declared here, *above* the loading early return below.
+  const railItemsById = useMemo(() => {
+    const m = new Map<number, MenuItem>();
+    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
+    return m;
+  }, [categories]);
+  const railComboSummary = itemType === 'combo'
+    ? computeComboSavings(parseFloat(price) || 0, comboSteps, railItemsById)
+    : null;
+
   // Render the modal shell immediately — matches the stock-editor UX where
   // the dimmed backdrop + inset container appear in one frame, then the body
   // populates. Prevents the full-screen white/black flash that happened while
@@ -404,17 +416,6 @@ export default function EditItemPage() {
       {itemType === 'combo' ? t('typeBadgeCombo') : t('typeBadgeArticle')}
     </Badge>
   );
-
-  // Combo savings for the rail. Mirrors the PricingCard math via the same
-  // pure helper, so the two stay in sync.
-  const railItemsById = useMemo(() => {
-    const m = new Map<number, MenuItem>();
-    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
-    return m;
-  }, [categories]);
-  const railComboSummary = itemType === 'combo'
-    ? computeComboSavings(parseFloat(price) || 0, comboSteps, railItemsById)
-    : null;
 
   const rail = (
     <MenuItemSummaryRail

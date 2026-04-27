@@ -270,6 +270,18 @@ export default function NewItemPage() {
     [categories, categoryId],
   );
 
+  // Compute combo savings for the rail. The same pure helper backs the
+  // PricingCard inside CompositionTab, so the two stay in sync. Hooks must
+  // run unconditionally — declared here, *above* the loading early return.
+  const itemsByIdForSummary = useMemo(() => {
+    const m = new Map<number, MenuItem>();
+    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
+    return m;
+  }, [categories]);
+  const railComboSummary = itemType === 'combo'
+    ? computeComboSavings(parseFloat(price) || 0, comboSteps, itemsByIdForSummary)
+    : null;
+
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] flex items-center justify-center">
@@ -300,17 +312,6 @@ export default function NewItemPage() {
       {itemType === 'combo' ? t('typeBadgeCombo') : t('typeBadgeArticle')}
     </Badge>
   );
-
-  // Compute combo savings for the rail. The same pure helper backs the
-  // PricingCard inside CompositionTab, so the two stay in sync.
-  const itemsByIdForSummary = useMemo(() => {
-    const m = new Map<number, MenuItem>();
-    for (const cat of categories) for (const it of cat.items ?? []) m.set(it.id, it);
-    return m;
-  }, [categories]);
-  const railComboSummary = itemType === 'combo'
-    ? computeComboSavings(parseFloat(price) || 0, comboSteps, itemsByIdForSummary)
-    : null;
 
   const rail = (
     <MenuItemSummaryRail
