@@ -286,8 +286,12 @@ export default function WhatIfSimulator({
       }}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* Fixed height so the card doesn't grow when "Réinitialiser" appears
+          on the right and the description wraps to a second line. h-[96px]
+          fits the worst case (dirty state, 2-line description) — content is
+          centered vertically so the clean state still looks balanced. */}
       <div
-        className="flex items-center justify-between gap-[var(--s-3)] p-[var(--s-5)]"
+        className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-5)] h-[96px]"
         style={{ borderBottom: '1px dashed var(--line)' }}
       >
         <div className="flex items-start gap-[var(--s-3)] min-w-0">
@@ -331,10 +335,7 @@ export default function WhatIfSimulator({
                 </span>
               )}
             </div>
-            {/* min-h reserves space for two lines so the header height stays
-                stable when "Réinitialiser" appears on the right and forces
-                the description to wrap. */}
-            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1 min-h-[2lh]">
+            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1">
               {t('simulatorIntro') ||
                 "Bougez les curseurs pour voir l'impact sur le coût et la marge. Rien n'est sauvegardé tant que vous n'appliquez pas."}
             </p>

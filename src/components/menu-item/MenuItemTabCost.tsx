@@ -113,29 +113,6 @@ export default function MenuItemTabCost({
   );
 
   const over = summary.costPct > COST_THRESHOLD;
-  const targetPriceForThreshold =
-    summary.foodCost > 0 ? summary.foodCost / COST_THRESHOLD : 0;
-
-  // ── Suggestions ────────────────────────────────────────────────
-  // Sort lines by cost share, pick the top two contributors as reduction
-  // candidates. For each, propose reducing by 12% and compute the ₪ savings.
-  const sortedLines = [...summary.lines].sort((a, b) => b.lineCost - a.lineCost);
-  const topLine = sortedLines[0];
-  const topPct = topLine && summary.foodCost > 0
-    ? Math.round((topLine.lineCost / summary.foodCost) * 100)
-    : 0;
-
-  // Reduction example: current qty × 0.88 (−12%). Savings = line cost × 0.12.
-  const reductionPct = 0.12;
-  const reductionSavings = topLine ? topLine.lineCost * reductionPct : 0;
-  const reducedQty = topLine ? topLine.qty * (1 - reductionPct) : 0;
-  const newCostPctAfterReduction = summary.foodCost > 0 && price > 0
-    ? ((summary.foodCost - reductionSavings) / price) * 100
-    : 0;
-
-  // Price hike example: price needed to land on COST_THRESHOLD (35%).
-  const currentPct = summary.costPct * 100;
-  const priceDelta = targetPriceForThreshold - effectivePrice;
 
   return (
     <div className="max-w-5xl space-y-[var(--s-5)]">
@@ -374,83 +351,6 @@ export default function MenuItemTabCost({
         t={t}
       />
 
-      {/* Suggestions — enhanced with concrete numeric examples. */}
-      {(over || topPct >= 25) && (
-        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-6 border border-orange-200 dark:border-orange-700">
-          <h4 className="font-semibold text-orange-900 dark:text-orange-300 mb-4 flex items-center gap-2">
-            <AlertCircle size={20} />
-            {t('optimizationSuggestions') || "Suggestions d'optimisation"}
-          </h4>
-
-          <div className="space-y-3 text-sm text-orange-800 dark:text-orange-400">
-            {/* Portion reduction suggestion */}
-            {topLine && topPct >= 25 && (
-              <SuggestionRow
-                title={`${t('reducePortionOf') || 'Réduire la portion de'} ${topLine.name}`}
-                body={
-                  <>
-                    {t('reducePortionFrom') || 'Passer de'}{' '}
-                    <strong>{topLine.qty.toFixed(topLine.qty >= 10 ? 0 : 2)} {topLine.qtyUnit}</strong>{' '}
-                    {t('to') || 'à'}{' '}
-                    <strong>{reducedQty.toFixed(reducedQty >= 10 ? 0 : 2)} {topLine.qtyUnit}</strong>{' '}
-                    ({t('minus') || '−'}12%) →{' '}
-                    <strong className="text-green-700 dark:text-green-400">
-                      {t('savings') || 'économie'} {reductionSavings.toFixed(2)} {CURRENCY}
-                    </strong>{' '}
-                    {t('perDish') || 'par plat'}
-                    {over && newCostPctAfterReduction > 0 && (
-                      <>
-                        {' '}·{' '}
-                        {t('fromTo') || 'de'} <strong>{currentPct.toFixed(1)}%</strong>{' '}
-                        {t('to') || 'à'}{' '}
-                        <strong>{newCostPctAfterReduction.toFixed(1)}%</strong>
-                      </>
-                    )}
-                  </>
-                }
-              />
-            )}
-
-            {/* Price hike suggestion */}
-            {over && targetPriceForThreshold > 0 && priceDelta > 0.01 && (
-              <SuggestionRow
-                title={t('raiseSellingPrice') || 'Augmenter le prix de vente'}
-                body={
-                  <>
-                    {t('raisePriceFrom') || 'De'}{' '}
-                    <strong>{price.toFixed(2)} {CURRENCY}</strong>{' '}
-                    {t('to') || 'à'}{' '}
-                    <strong>{targetPriceForThreshold.toFixed(2)} {CURRENCY}</strong>{' '}
-                    ({t('plus') || '+'}
-                    {priceDelta.toFixed(2)} {CURRENCY}) →{' '}
-                    <strong className="text-green-700 dark:text-green-400">
-                      {t('ratioAt') || 'ratio à'} {Math.round(COST_THRESHOLD * 100)}%
-                    </strong>{' '}
-                    ({t('fromTo') || 'de'} {currentPct.toFixed(1)}%)
-                  </>
-                }
-              />
-            )}
-
-            {/* Supplier renegotiation — fallback for secondary cost driver */}
-            {sortedLines[1] && sortedLines[1].lineCost / Math.max(summary.foodCost, 1) >= 0.15 && (
-              <SuggestionRow
-                title={`${t('renegotiateSupplier') || 'Renégocier le fournisseur de'} ${sortedLines[1].name}`}
-                body={
-                  <>
-                    {t('supplierSavingsHint') || "Une baisse de 10% sur cet ingrédient économiserait"}{' '}
-                    <strong className="text-green-700 dark:text-green-400">
-                      {(sortedLines[1].lineCost * 0.1).toFixed(2)} {CURRENCY}
-                    </strong>{' '}
-                    {t('perDish') || 'par plat'}.
-                  </>
-                }
-              />
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Modals */}
       <KPIInfoModal
         kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
@@ -554,11 +454,3 @@ function CostIngredientRow({
   );
 }
 
-function SuggestionRow({ title, body }: { title: string; body: React.ReactNode }) {
-  return (
-    <div className="bg-white dark:bg-[#0a0a0a] border border-orange-200 dark:border-orange-800 rounded-lg p-3">
-      <p className="font-semibold text-orange-900 dark:text-orange-300 mb-1">• {title}</p>
-      <p className="text-sm text-orange-800 dark:text-orange-400 ml-3">{body}</p>
-    </div>
-  );
-}
