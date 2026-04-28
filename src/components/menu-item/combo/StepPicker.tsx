@@ -450,39 +450,34 @@ function CatalogRow({
     ? `₪${Math.min(...variantPrices).toFixed(0)} – ₪${Math.max(...variantPrices).toFixed(0)}`
     : `₪${(variantPrices[0] ?? price).toFixed(2)}`;
 
-  // Row is a div (not a button) so it can host nested interactive chips.
-  // Clicking the parent area (checkbox + name + price) triggers onToggleParent;
-  // chips have their own onClick + stopPropagation.
+  // Outer is a vertical stack so the variant chips can sit on a new line
+  // below the parent click target without competing for horizontal space.
+  // The parent area (checkbox + name + price) is one button; chips are
+  // independent buttons indented to align under the name.
   return (
     <div
-      className={`flex items-start gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] first:border-t-0 transition-colors ${
+      className={`flex flex-col gap-1 px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] first:border-t-0 transition-colors ${
         parentState !== 'empty'
           ? 'bg-[color-mix(in_oklab,var(--brand-500)_6%,transparent)]'
           : 'hover:bg-[var(--surface-2)]'
       }`}
     >
-      {/* Parent click target — checkbox + name + price */}
+      {/* Parent click target — checkbox + name + price on one row */}
       <button
         type="button"
         onClick={onToggleParent}
-        className="flex items-start gap-[var(--s-3)] flex-1 min-w-0 text-start"
+        className="flex items-center gap-[var(--s-3)] w-full text-start"
         aria-pressed={parentState === 'full'}
-        aria-label={name}
       >
         <ParentCheckbox state={parentState} />
-        <div className="flex-1 min-w-0">
-          <div className="text-fs-sm font-medium text-[var(--fg)] truncate">{name}</div>
-        </div>
+        <span className="flex-1 min-w-0 truncate text-fs-sm font-medium text-[var(--fg)]">{name}</span>
         <span className="text-fs-sm text-[var(--fg-muted)] tabular-nums shrink-0">{priceLabel}</span>
       </button>
 
-      {/* Variant chips — independent click targets. Rendered below the name
-          on a new flex row to avoid getting clipped by parent's flex gap. */}
+      {/* Variant chips — independent click targets, indented to align under
+          the name. ps-[...] is checkbox width (18px) + the gap (s-3). */}
       {hasVariants && (
-        <div
-          className="basis-full flex flex-wrap gap-1 ps-[calc(18px+var(--s-3))]"
-          // The ps-[...] hangs the chips under the name (past the checkbox column).
-        >
+        <div className="flex flex-wrap gap-1 ps-[calc(18px+var(--s-3))]">
           {variants.slice(0, 6).map((v) => (
             <button
               key={v.id}
