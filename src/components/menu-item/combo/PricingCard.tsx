@@ -22,10 +22,14 @@ interface Props {
   itemsById: Map<number, MenuItem>;
   pricingMode: PricingMode;
   onPricingModeChange: (next: PricingMode) => void;
+  /** Optional drilldown — when set, the savings cell becomes a button that
+   *  calls this on click (the host page opens the breakdown modal). */
+  onShowSavingsDetail?: () => void;
 }
 
 export default function PricingCard({
   basePrice, onBasePriceChange, steps, itemsById, pricingMode, onPricingModeChange,
+  onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
   const baseNum = parseFloat(basePrice) || 0;
@@ -44,6 +48,7 @@ export default function PricingCard({
   const absSaveMin = Math.abs(summary.savingsMin);
   const absSaveMax = Math.abs(summary.savingsMax);
   const absSavePct = Math.round(Math.abs(summary.savingsPct));
+  const detailable = !!onShowSavingsDetail && (savingsState === 'saves' || savingsState === 'costs-more');
 
   return (
     <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 p-[var(--s-4)]">
@@ -114,9 +119,11 @@ export default function PricingCard({
           <span className="text-fs-xs font-semibold uppercase tracking-[.04em] text-[var(--fg-subtle)]">
             {t('composeSavings')}
           </span>
-          <div
-            className="flex items-center gap-1.5 h-9 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold"
-            style={{
+          {(() => {
+            const cellClass = `flex items-center gap-1.5 h-9 px-[var(--s-3)] rounded-r-md tabular-nums text-fs-sm font-semibold ${
+              detailable ? 'cursor-pointer hover:brightness-110' : ''
+            }`;
+            const cellStyle: React.CSSProperties = {
               background: savingsState === 'saves'
                 ? 'color-mix(in oklab, var(--success-500) 10%, transparent)'
                 : savingsState === 'costs-more'
@@ -134,24 +141,40 @@ export default function PricingCard({
                 : savingsState === 'costs-more'
                   ? 'var(--warning-500)'
                   : 'var(--fg-muted)',
-            }}
-          >
-            {savingsState === 'unknown' && <>—</>}
-            {savingsState === 'even' && <>±₪0 · 0%</>}
-            {savingsState === 'saves' && (
-              absSaveMin === absSaveMax
-                ? <>−₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
-                : <>−₪{absSaveMin.toFixed(2)} … −₪{absSaveMax.toFixed(2)}</>
-            )}
-            {savingsState === 'costs-more' && (
+            };
+            const inner = (
               <>
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                {absSaveMin === absSaveMax
-                  ? <>+₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
-                  : <>+₪{absSaveMin.toFixed(2)} … +₪{absSaveMax.toFixed(2)}</>}
+                {savingsState === 'unknown' && <>—</>}
+                {savingsState === 'even' && <>±₪0 · 0%</>}
+                {savingsState === 'saves' && (
+                  absSaveMin === absSaveMax
+                    ? <>−₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
+                    : <>−₪{absSaveMin.toFixed(2)} … −₪{absSaveMax.toFixed(2)}</>
+                )}
+                {savingsState === 'costs-more' && (
+                  <>
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    {absSaveMin === absSaveMax
+                      ? <>+₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
+                      : <>+₪{absSaveMin.toFixed(2)} … +₪{absSaveMax.toFixed(2)}</>}
+                  </>
+                )}
               </>
-            )}
-          </div>
+            );
+            return detailable ? (
+              <button
+                type="button"
+                onClick={onShowSavingsDetail}
+                title={t('savingsBreakdownDetailButton')}
+                className={cellClass}
+                style={cellStyle}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div className={cellClass} style={cellStyle}>{inner}</div>
+            );
+          })()}
         </div>
       </div>
 

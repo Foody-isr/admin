@@ -30,6 +30,9 @@ interface Props {
   categories: MenuCategory[];
   pricingMode?: PricingMode;
   onPricingModeChange?: (next: PricingMode) => void;
+  /** Forwarded to the PricingCard's savings cell — host opens the breakdown
+   *  modal. */
+  onShowSavingsDetail?: () => void;
 }
 
 export default function CompositionTab({
@@ -37,6 +40,7 @@ export default function CompositionTab({
   steps, onStepsChange,
   categories,
   pricingMode = 'fixed', onPricingModeChange,
+  onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
 
@@ -98,6 +102,7 @@ export default function CompositionTab({
         itemsById={itemsById}
         pricingMode={pricingMode}
         onPricingModeChange={onPricingModeChange ?? (() => {})}
+        onShowSavingsDetail={onShowSavingsDetail}
       />
 
       {/* Steps */}

@@ -35,6 +35,9 @@ interface Props {
    *  alongside the cost summary. Supplied by the page when the item is a
    *  combo. */
   comboSummary?: RailComboSummary | null;
+  /** Optional drilldown — when provided, the savings badge becomes a button
+   *  that calls this on click (the page opens its breakdown modal). */
+  onShowComboSavingsDetail?: () => void;
   placeholderLabel?: string;
   onImageClick?: () => void;
 }
@@ -49,6 +52,7 @@ export default function MenuItemSummaryRail({
   categoryName,
   costSummary,
   comboSummary,
+  onShowComboSavingsDetail,
   placeholderLabel,
   onImageClick,
 }: Props) {
@@ -114,7 +118,13 @@ export default function MenuItemSummaryRail({
 
       {/* Combo savings — replaces the cost summary for combos. Mirrors
           the design's "ÉCONOMIES POUR LE CLIENT" panel. */}
-      {comboSummary && <ComboSavingsPanel summary={comboSummary} currency={currency} />}
+      {comboSummary && (
+        <ComboSavingsPanel
+          summary={comboSummary}
+          currency={currency}
+          onShowDetail={onShowComboSavingsDetail}
+        />
+      )}
 
       {/* Cost summary — Figma:65 */}
       {costSummary && (
@@ -183,7 +193,13 @@ function Divider() {
 //   • saves — combo cheaper than solo. Green badge with "−₪X · Y%".
 //   • costs-more — combo is MORE expensive than buying separately. Warning
 //     badge with "+₪X · Y%" — operator misconfiguration signal.
-function ComboSavingsPanel({ summary, currency }: { summary: RailComboSummary; currency: string }) {
+function ComboSavingsPanel({
+  summary, currency, onShowDetail,
+}: {
+  summary: RailComboSummary;
+  currency: string;
+  onShowDetail?: () => void;
+}) {
   const { t } = useI18n();
   const state: 'unknown' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
@@ -192,6 +208,8 @@ function ComboSavingsPanel({ summary, currency }: { summary: RailComboSummary; c
     : 'even';
   const absSaveMin = Math.abs(summary.savingsMin);
   const absSavePct = Math.round(Math.abs(summary.savingsPct));
+  // Drilldown is only meaningful when there's an actual delta to explain.
+  const detailable = !!onShowDetail && (state === 'saves' || state === 'costs-more');
 
   return (
     <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
@@ -221,27 +239,58 @@ function ComboSavingsPanel({ summary, currency }: { summary: RailComboSummary; c
             <span className="text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">±{currency}0</span>
           )}
           {state === 'saves' && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums"
-              style={{
-                background: 'color-mix(in oklab, var(--success-500) 14%, transparent)',
-                color: 'var(--success-500)',
-              }}
-            >
-              −{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
-            </span>
+            detailable ? (
+              <button
+                type="button"
+                onClick={onShowDetail}
+                title={t('savingsBreakdownDetailButton')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums hover:brightness-110 hover:underline cursor-pointer"
+                style={{
+                  background: 'color-mix(in oklab, var(--success-500) 14%, transparent)',
+                  color: 'var(--success-500)',
+                }}
+              >
+                −{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums"
+                style={{
+                  background: 'color-mix(in oklab, var(--success-500) 14%, transparent)',
+                  color: 'var(--success-500)',
+                }}
+              >
+                −{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+              </span>
+            )
           )}
           {state === 'costs-more' && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums"
-              style={{
-                background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
-                color: 'var(--warning-500)',
-              }}
-            >
-              <AlertTriangle className="w-3 h-3" />
-              +{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
-            </span>
+            detailable ? (
+              <button
+                type="button"
+                onClick={onShowDetail}
+                title={t('savingsBreakdownDetailButton')}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums hover:brightness-110 hover:underline cursor-pointer"
+                style={{
+                  background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
+                  color: 'var(--warning-500)',
+                }}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                +{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold tabular-nums"
+                style={{
+                  background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
+                  color: 'var(--warning-500)',
+                }}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                +{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+              </span>
+            )
           )}
         </Row>
       </div>

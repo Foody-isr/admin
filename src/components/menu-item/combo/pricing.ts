@@ -163,6 +163,88 @@ export function buildSampleCombos(
   return out;
 }
 
+/** Per-step breakdown of how the "if bought separately" total is built.
+ *  Used by the savings drilldown modal — same data as `computeSoldSeparately`
+ *  but with attribution per step / per item. */
+export interface ComboSavingsBreakdownContributor {
+  itemName: string;
+  variantName?: string;
+  soloPrice: number;
+}
+
+export interface ComboSavingsBreakdownStep {
+  stepName: string;
+  picks: number;
+  /** The cheapest `picks` options in this step that drive the min savings.
+   *  Empty when the step is optional (`min_picks: 0`) or has no priced
+   *  options. */
+  contributors: ComboSavingsBreakdownContributor[];
+  stepTotal: number;
+}
+
+export interface ComboSavingsBreakdown {
+  basePrice: number;
+  steps: ComboSavingsBreakdownStep[];
+  soloTotal: number;
+  savings: number;     // positive = customer saves; negative = combo overpriced
+  savingsPct: number;  // signed
+}
+
+/** Builds a step-by-step breakdown of the savings calculation. The numbers
+ *  here always reconcile to `computeComboSavings(...).savingsMin`. */
+export function computeComboSavingsBreakdown(
+  basePrice: number,
+  steps: ComboStepDraft[],
+  itemsById: Map<number, MenuItem>,
+): ComboSavingsBreakdown {
+  const result: ComboSavingsBreakdownStep[] = [];
+  let soloTotal = 0;
+
+  for (const step of steps) {
+    const picks = picksPerStep(step);
+    if (picks === 0) {
+      result.push({ stepName: step.name, picks: 0, contributors: [], stepTotal: 0 });
+      continue;
+    }
+    const options = buildOptions(step.items, itemsById);
+    if (options.length === 0) {
+      result.push({ stepName: step.name, picks, contributors: [], stepTotal: 0 });
+      continue;
+    }
+
+    // For each option, surface its single cheapest included variant (or its
+    // flat solo for variant-less items). Drop options whose source isn't
+    // resolvable.
+    type OptInfo = ComboSavingsBreakdownContributor;
+    const optInfos: OptInfo[] = [];
+    for (const opt of options) {
+      const source = itemsById.get(opt.menuItemId);
+      if (!source) continue;
+      if (!opt.hasVariants) {
+        optInfos.push({ itemName: opt.itemName, soloPrice: source.price ?? 0 });
+        continue;
+      }
+      const sourceVariants = getSourceVariants(source);
+      const includedIds = new Set(opt.variants.filter((v) => v.included).map((v) => v.variantId));
+      const cheapest = sourceVariants
+        .filter((sv) => includedIds.has(sv.id))
+        .sort((a, b) => a.price - b.price)[0];
+      if (!cheapest) continue;
+      optInfos.push({ itemName: opt.itemName, variantName: cheapest.name, soloPrice: cheapest.price });
+    }
+
+    optInfos.sort((a, b) => a.soloPrice - b.soloPrice);
+    const chosen = optInfos.slice(0, Math.min(picks, optInfos.length));
+    const stepTotal = chosen.reduce((s, c) => s + c.soloPrice, 0);
+    soloTotal += stepTotal;
+    result.push({ stepName: step.name, picks, contributors: chosen, stepTotal });
+  }
+
+  const savings = soloTotal - basePrice;
+  const savingsPct = soloTotal > 0 ? (savings / soloTotal) * 100 : 0;
+  return { basePrice, steps: result, soloTotal, savings, savingsPct };
+}
+
 /** Bundle of figures the operator sees: combo price range, solo equivalent
  *  range, and savings (positive = customer saves; negative = combo costs more
  *  than buying separately, which is a configuration warning). */

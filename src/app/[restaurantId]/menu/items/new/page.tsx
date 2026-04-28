@@ -21,8 +21,9 @@ import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import { FormInput } from '@/components/menu-item/MenuItemForm';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
+import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
-import { computeComboSavings } from '@/components/menu-item/combo/pricing';
+import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
 import {
@@ -214,6 +215,7 @@ export default function NewItemPage() {
   // type-specific data exists, we show the confirmation modal before
   // mutating state. See `requestTypeChange` below.
   const [pendingType, setPendingType] = useState<ItemType | null>(null);
+  const [savingsModalOpen, setSavingsModalOpen] = useState(false);
 
   const lossSummary: TypeSwitchLossSummary = useMemo(() => ({
     variantsCount: variantGroups.reduce((sum, g) => sum + g.variants.filter((v) => v.name.trim()).length, 0),
@@ -321,6 +323,7 @@ export default function NewItemPage() {
       activeStatus={isActive}
       categoryName={activeCategoryName}
       comboSummary={railComboSummary}
+      onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
       placeholderLabel={t('createItem')}
       onImageClick={() => fileInputRef.current?.click()}
     />
@@ -391,6 +394,7 @@ export default function NewItemPage() {
                 steps={comboSteps}
                 onStepsChange={setComboSteps}
                 categories={categories}
+                onShowSavingsDetail={() => setSavingsModalOpen(true)}
               />
             )}
 
@@ -654,6 +658,19 @@ export default function NewItemPage() {
           loss={lossSummary}
           onCancel={() => setPendingType(null)}
           onConfirm={confirmTypeChange}
+        />
+      )}
+
+      {/* ── Combo savings breakdown modal ──────────────────────── */}
+      {savingsModalOpen && itemType === 'combo' && (
+        <ComboSavingsBreakdownModal
+          comboName={name || undefined}
+          breakdown={computeComboSavingsBreakdown(
+            parseFloat(price) || 0,
+            comboSteps,
+            itemsByIdForSummary,
+          )}
+          onClose={() => setSavingsModalOpen(false)}
         />
       )}
     </>
