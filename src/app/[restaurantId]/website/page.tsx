@@ -25,6 +25,9 @@ type PreviewMessage = {
   pairingId: string;
   brandColor: string | null;
   layoutDefault: 'compact' | 'magazine';
+  logoSize: number;
+  hideNavbarName: boolean;
+  faviconURL: string;
   direction: 'ltr' | 'rtl';
 };
 
@@ -182,6 +185,9 @@ export default function WebsitePage() {
       pairingId: next.pairing_id,
       brandColor: next.brand_color,
       layoutDefault: next.layout_default,
+      logoSize: next.logo_size,
+      hideNavbarName: next.hide_navbar_name,
+      faviconURL: next.favicon_url || '',
       direction: 'ltr',
     };
     win.postMessage(message, '*');
