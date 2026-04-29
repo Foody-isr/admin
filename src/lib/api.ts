@@ -375,10 +375,12 @@ export interface SubscriptionDetail extends Subscription {
 export interface WebsiteConfig {
   id: number;
   restaurant_id: number;
-  primary_color: string;
-  secondary_color: string;
-  background_color: string;
-  font_family: string;
+  // Theme system (menu/order page)
+  theme_id: string;
+  pairing_id: string;
+  brand_color: string | null;
+  layout_default: 'compact' | 'magazine';
+  // Landing-page concerns
   hero_layout: string;
   welcome_text: string;
   tagline: string;
@@ -386,14 +388,44 @@ export interface WebsiteConfig {
   show_address: boolean;
   show_phone: boolean;
   show_hours: boolean;
-  theme_mode: string;
   favicon_url: string;
-  menu_layout: string;
-  cart_style: string;
   navbar_style: string;
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
+}
+
+export interface ThemeCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+  mode: 'dark' | 'light';
+  preview: { swatches: [string, string, string, string]; sampleImage: string };
+  suggestedFor: string[];
+  tokens: Record<string, unknown>;
+  layout: Record<string, unknown>;
+}
+
+export interface TypographyPairingEntry {
+  id: string;
+  name: string;
+  description: string;
+  pairing: {
+    displayLatin: { family: string; weights: number[] };
+    bodyLatin: { family: string; weights: number[] };
+    displayHebrew: { family: string; weights: number[] };
+    bodyHebrew: { family: string; weights: number[] };
+  };
+  scale: Record<string, unknown>;
+}
+
+export interface ThemeCatalog {
+  themes: ThemeCatalogEntry[];
+  typography_pairings: TypographyPairingEntry[];
+}
+
+export async function getThemeCatalog(): Promise<ThemeCatalog> {
+  return apiFetch<ThemeCatalog>(`/api/v1/public/themes/catalog`);
 }
 
 export interface TodayStats {
