@@ -201,15 +201,39 @@ function ComboSavingsPanel({
   onShowDetail?: () => void;
 }) {
   const { t } = useI18n();
+  // State is driven by the OUTER bound of the savings range so a combo whose
+  // cheapest scenario breaks even but whose pricier scenarios save money still
+  // shows up as "saves" instead of falling silently into 'even'.
   const state: 'unknown' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
-    : summary.savingsMin > 0 ? 'saves'
+    : summary.savingsMax > 0 ? 'saves'
     : summary.savingsMin < 0 ? 'costs-more'
     : 'even';
   const absSaveMin = Math.abs(summary.savingsMin);
+  const absSaveMax = Math.abs(summary.savingsMax);
   const absSavePct = Math.round(Math.abs(summary.savingsPct));
-  // Drilldown is only meaningful when there's an actual delta to explain.
   const detailable = !!onShowDetail && (state === 'saves' || state === 'costs-more');
+
+  // Pretty range — drops the second half when min and max collapse, and uses
+  // a bare "₪0" on the lower bound so we don't render the awkward "−₪0.00"
+  // when the cheapest scenario happens to break even exactly.
+  const formatSavings = (sign: '−' | '+'): string => {
+    if (absSaveMin === absSaveMax) {
+      return `${sign}${currency}${absSaveMin.toFixed(2)} (${absSavePct}%)`;
+    }
+    const lo = absSaveMin === 0 ? `${currency}0` : `${sign}${currency}${absSaveMin.toFixed(2)}`;
+    const hi = `${sign}${currency}${absSaveMax.toFixed(2)}`;
+    return `${lo} – ${hi}`;
+  };
+
+  const soloLabel = state === 'unknown'
+    ? '—'
+    : summary.soloMin === summary.soloMax
+      ? `${summary.soloMin.toFixed(2)} ${currency}`
+      : `${summary.soloMin.toFixed(2)} – ${summary.soloMax.toFixed(2)} ${currency}`;
+  const comboLabel = summary.comboMin === summary.comboMax
+    ? `${summary.comboMin.toFixed(2)} ${currency}`
+    : `${summary.comboMin.toFixed(2)} – ${summary.comboMax.toFixed(2)} ${currency}`;
 
   return (
     <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
@@ -219,13 +243,13 @@ function ComboSavingsPanel({
       <div className="space-y-3">
         <Row label={t('composeSoldSeparately')}>
           <span className="text-sm text-neutral-500 dark:text-neutral-400 line-through tabular-nums">
-            {state === 'unknown' ? '—' : `${summary.soloMin.toFixed(2)} ${currency}`}
+            {soloLabel}
           </span>
         </Row>
         <Divider />
         <Row label={t('composeBasePriceLabel')}>
           <span className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
-            {summary.comboMin.toFixed(2)} {currency}
+            {comboLabel}
           </span>
         </Row>
         <Divider />
@@ -250,7 +274,7 @@ function ComboSavingsPanel({
                   color: 'var(--success-500)',
                 }}
               >
-                −{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+                {formatSavings('−')}
               </button>
             ) : (
               <span
@@ -260,7 +284,7 @@ function ComboSavingsPanel({
                   color: 'var(--success-500)',
                 }}
               >
-                −{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+                {formatSavings('−')}
               </span>
             )
           )}
@@ -277,7 +301,7 @@ function ComboSavingsPanel({
                 }}
               >
                 <AlertTriangle className="w-3 h-3" />
-                +{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+                {formatSavings('+')}
               </button>
             ) : (
               <span
@@ -288,7 +312,7 @@ function ComboSavingsPanel({
                 }}
               >
                 <AlertTriangle className="w-3 h-3" />
-                +{currency}{absSaveMin.toFixed(2)} ({absSavePct}%)
+                {formatSavings('+')}
               </span>
             )
           )}

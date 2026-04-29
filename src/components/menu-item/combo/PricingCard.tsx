@@ -37,12 +37,15 @@ export default function PricingCard({
 
   // Three states for the savings cell:
   //   • unknown: items haven't loaded — no comparison possible. Render "—".
-  //   • saves:   savingsMin > 0 — combo cheaper than solo. Render in green.
-  //   • costs more: savingsMin < 0 — combo MORE expensive than solo (operator
-  //     misconfiguration warning).
+  //   • saves:   savingsMax > 0 — combo cheaper than solo in at least the
+  //     pricier scenarios. We key off savingsMax (not savingsMin) so a combo
+  //     that breaks even at the cheapest pick but saves money elsewhere still
+  //     surfaces the upside.
+  //   • costs more: savingsMin < 0 — combo MORE expensive than solo in at
+  //     least one scenario (operator misconfiguration warning).
   const savingsState: 'unknown' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
-    : summary.savingsMin > 0 ? 'saves'
+    : summary.savingsMax > 0 ? 'saves'
     : summary.savingsMin < 0 ? 'costs-more'
     : 'even';
   const absSaveMin = Math.abs(summary.savingsMin);
@@ -149,14 +152,18 @@ export default function PricingCard({
                 {savingsState === 'saves' && (
                   absSaveMin === absSaveMax
                     ? <>−₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
-                    : <>−₪{absSaveMin.toFixed(2)} … −₪{absSaveMax.toFixed(2)}</>
+                    : (absSaveMin === 0
+                        ? <>₪0 … −₪{absSaveMax.toFixed(2)}</>
+                        : <>−₪{absSaveMin.toFixed(2)} … −₪{absSaveMax.toFixed(2)}</>)
                 )}
                 {savingsState === 'costs-more' && (
                   <>
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     {absSaveMin === absSaveMax
                       ? <>+₪{absSaveMin.toFixed(2)} · {absSavePct}%</>
-                      : <>+₪{absSaveMin.toFixed(2)} … +₪{absSaveMax.toFixed(2)}</>}
+                      : (absSaveMin === 0
+                          ? <>₪0 … +₪{absSaveMax.toFixed(2)}</>
+                          : <>+₪{absSaveMin.toFixed(2)} … +₪{absSaveMax.toFixed(2)}</>)}
                   </>
                 )}
               </>
