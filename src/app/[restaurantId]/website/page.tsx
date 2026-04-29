@@ -97,6 +97,46 @@ export default function WebsitePage() {
   const [activeTab, setActiveTab] = useState<Tab>('sections');
   const [previewMode, setPreviewMode] = useState<'mobile' | 'desktop'>('mobile');
 
+  // Resizable left sidebar (persisted to localStorage, bounded 220–520 px).
+  const [sidebarWidth, setSidebarWidth] = useState(280);
+  const isResizingRef = useRef(false);
+  const dragStateRef = useRef({ x: 0, w: 0 });
+
+  useEffect(() => {
+    const stored = Number(localStorage.getItem('foody-website-sidebar-w'));
+    if (Number.isFinite(stored) && stored >= 220 && stored <= 520) {
+      setSidebarWidth(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (!isResizingRef.current) return;
+      const next = Math.max(220, Math.min(520, dragStateRef.current.w + (e.clientX - dragStateRef.current.x)));
+      setSidebarWidth(next);
+    }
+    function onUp() {
+      if (!isResizingRef.current) return;
+      isResizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try { localStorage.setItem('foody-website-sidebar-w', String(sidebarWidth)); } catch {}
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [sidebarWidth]);
+
+  const startSidebarResize = useCallback((e: React.MouseEvent) => {
+    isResizingRef.current = true;
+    dragStateRef.current = { x: e.clientX, w: sidebarWidth };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [sidebarWidth]);
+
   // Data
   const [config, setConfig] = useState<WebsiteConfig | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -489,8 +529,20 @@ export default function WebsitePage() {
 
       {/* Main Layout: Left sidebar + Full preview */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <div className="w-60 border-r border-divider overflow-y-auto flex-shrink-0 flex flex-col" style={{ background: 'var(--surface)' }}>
+        {/* Left Sidebar (resizable) */}
+        <div
+          className="border-r border-divider overflow-y-auto flex-shrink-0 flex flex-col relative"
+          style={{ width: `${sidebarWidth}px`, background: 'var(--surface)' }}
+        >
+          {/* Resize handle — drag the right edge */}
+          <div
+            onMouseDown={startSidebarResize}
+            className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-500/40 active:bg-brand-500/60 transition-colors z-10"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            title="Drag to resize"
+          />
           {/* Page tabs + gear + add */}
           <div className="px-3 pt-3 pb-2 space-y-2">
             <div className="flex rounded-lg border border-divider overflow-hidden">
