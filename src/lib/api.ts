@@ -2083,9 +2083,15 @@ export async function getWebsiteConfig(restaurantId: number): Promise<WebsiteCon
 export async function updateWebsiteConfig(
   restaurantId: number, input: Partial<WebsiteConfig>
 ): Promise<WebsiteConfig> {
+  // The Go server uses pointer-based partial updates: an absent field and a
+  // JSON `null` field both unmarshal to a nil pointer, indistinguishable.
+  // Server treats empty string as the explicit "clear" sentinel for
+  // brand_color, so translate null → "" here.
+  const payload: Record<string, unknown> = { ...input };
+  if (payload.brand_color === null) payload.brand_color = '';
   const data = await apiFetch<{ website_config: WebsiteConfig }>(
     `/api/v1/restaurants/${restaurantId}/website-config`, restaurantId,
-    { method: 'PUT', body: JSON.stringify(input) }
+    { method: 'PUT', body: JSON.stringify(payload) }
   );
   return data.website_config;
 }
