@@ -153,6 +153,7 @@ export default function EditItemPage() {
             setComboSteps(found.combo_steps.map((s) => ({
               key: crypto.randomUUID(),
               name: s.name,
+              description: s.description ?? '',
               min_picks: s.min_picks,
               max_picks: s.max_picks,
               items: s.items.map((si) => ({
@@ -274,6 +275,7 @@ export default function EditItemPage() {
       if (itemType === 'combo') {
         updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
           name: s.name || `Choice ${i + 1}`,
+          description: s.description || '',
           min_picks: s.min_picks,
           max_picks: s.max_picks,
           sort_order: i,

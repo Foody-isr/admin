@@ -243,6 +243,7 @@ export interface ComboStep {
   menu_item_id?: number;
   combo_menu_id?: number;
   name: string;
+  description?: string;
   min_picks: number;
   max_picks: number;
   sort_order: number;
@@ -252,6 +253,7 @@ export interface ComboStep {
 
 export interface ComboStepInput {
   name: string;
+  description?: string;
   min_picks: number;
   max_picks: number;
   sort_order: number;

@@ -32,6 +32,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
   const { t } = useI18n();
   const [draftItems, setDraftItems] = useState<ComboStepDraftItem[]>(step.items);
   const [name, setName] = useState(step.name);
+  const [description, setDescription] = useState(step.description ?? '');
   const [minPicks, setMinPicks] = useState(step.min_picks);
   const [maxPicks, setMaxPicks] = useState(step.max_picks);
   const [search, setSearch] = useState('');
@@ -167,33 +168,65 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
     ]);
   };
 
-  const addAllInCategory = (catId: number) => {
+  /** Bulk-add every item in a category. When `variantNameFilter` is provided,
+   *  only variants whose name matches (case-insensitive) are added — letting
+   *  the operator say "include all salads, but only the Normal size".
+   *  Variant-less items are added unconditionally when no filter is set, and
+   *  skipped when one is (since they can't satisfy the filter). */
+  const addAllInCategory = (catId: number, variantNameFilter?: string) => {
     const sourceItems = (categories.find((c) => c.id === catId)?.items ?? []) as MenuItem[];
     const additions: ComboStepDraftItem[] = [];
+    const includedVariantsCache = includedVariantsByItem;
     for (const src of sourceItems) {
-      if (includedItemIds.has(src.id)) continue;
       const sourceVariants = getSourceVariants(src);
       if (sourceVariants.length === 0) {
+        if (variantNameFilter) continue;
+        if (includedItemIds.has(src.id)) continue;
         additions.push({
           menu_item_id: src.id,
           price_delta: 0,
           item_name: src.name,
           pick_key: `item:${src.id}`,
         });
-      } else {
-        for (const sv of sourceVariants) {
-          additions.push({
-            menu_item_id: src.id,
-            variant_id: sv.id,
-            price_delta: 0,
-            item_name: `${src.name} — ${sv.name}`,
-            pick_key: `variant:${src.id}:${sv.id}`,
-          });
-        }
+        continue;
+      }
+      const wanted = variantNameFilter
+        ? sourceVariants.filter((sv) => sv.name.trim().toLowerCase() === variantNameFilter.trim().toLowerCase())
+        : sourceVariants;
+      if (wanted.length === 0) continue;
+      const alreadyIncluded = includedVariantsCache.get(src.id) ?? new Set<number>();
+      for (const sv of wanted) {
+        if (alreadyIncluded.has(sv.id)) continue;
+        additions.push({
+          menu_item_id: src.id,
+          variant_id: sv.id,
+          price_delta: 0,
+          item_name: `${src.name} — ${sv.name}`,
+          pick_key: `variant:${src.id}:${sv.id}`,
+        });
       }
     }
     if (additions.length === 0) return;
     setDraftItems((prev) => [...prev, ...additions]);
+  };
+
+  /** Distinct variant names across items in a category, sorted by their first
+   *  appearance (preserves the operator's intended order — "Normal" before
+   *  "Grand", not alphabetical). Used to render quick-add chips. */
+  const variantNamesIn = (catId: number): string[] => {
+    const cat = categories.find((c) => c.id === catId);
+    if (!cat) return [];
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const item of cat.items ?? []) {
+      for (const v of getSourceVariants(item as MenuItem)) {
+        const key = v.name.trim();
+        if (!key || seen.has(key.toLowerCase())) continue;
+        seen.add(key.toLowerCase());
+        ordered.push(key);
+      }
+    }
+    return ordered;
   };
 
   const removeOption = (menuItemId: number) => {
@@ -218,6 +251,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
     onCommit({
       key: step.key,
       name,
+      description,
       min_picks: minPicks,
       max_picks: maxPicks,
       items: toDraftItems(opts),
@@ -261,6 +295,12 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
             onChange={(e) => setName(e.target.value)}
             placeholder={t('composeStepDefaultName').replace('{n}', String(stepNumber ?? ''))}
             className="w-full bg-transparent border-none outline-none text-fs-md font-semibold text-[var(--fg)] focus:underline focus:underline-offset-4 decoration-[var(--brand-500)]"
+          />
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('composeStepDescriptionPlaceholder')}
+            className="w-full bg-transparent border-none outline-none text-fs-xs text-[var(--fg-muted)] focus:text-[var(--fg)] placeholder:text-[var(--fg-subtle)]"
           />
           <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
             {t('pickerSelectedItems').replace('{n}', String(selectedOptions.length))}
@@ -330,18 +370,35 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
           <div className="flex flex-col gap-[var(--s-3)]">
             {grouped.map((group) => (
               <div key={group.catId} className="rounded-r-md border border-[var(--line)] overflow-hidden">
-                <div className="flex items-center justify-between px-[var(--s-3)] py-[var(--s-2)] bg-[var(--surface-2)] border-b border-[var(--line)]">
-                  <span className="text-fs-xs font-bold uppercase tracking-[.06em] text-[var(--fg)]">
+                <div className="flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] bg-[var(--surface-2)] border-b border-[var(--line)]">
+                  <span className="text-fs-xs font-bold uppercase tracking-[.06em] text-[var(--fg)] min-w-0 truncate">
                     {group.name}
                     <span className="text-[var(--fg-subtle)] font-normal ms-2">· {group.items.length}</span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => addAllInCategory(group.catId)}
-                    className="inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
-                  >
-                    <Plus className="w-3 h-3" /> {t('pickerCategoryAddAll')}
-                  </button>
+                  <div className="flex items-center gap-[var(--s-2)] shrink-0">
+                    {/* Quick-add per variant name — clicking "Normal" pulls all
+                        items in this category in at their Normal variant only.
+                        Variant-less categories show only the "Tout ajouter"
+                        button. */}
+                    {variantNamesIn(group.catId).map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => addAllInCategory(group.catId, name)}
+                        className="inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--brand-500)] hover:underline"
+                        title={t('pickerCategoryAddAllVariant').replace('{variant}', name)}
+                      >
+                        <Plus className="w-3 h-3" /> {name}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => addAllInCategory(group.catId)}
+                      className="inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
+                    >
+                      <Plus className="w-3 h-3" /> {t('pickerCategoryAddAll')}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   {group.items.map((src) => {

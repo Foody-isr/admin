@@ -138,6 +138,12 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
               {required ? t('composeRequired') : t('composeOptional')}
             </span>
           </div>
+          <input
+            value={step.description ?? ''}
+            onChange={(e) => onChange({ ...step, description: e.target.value })}
+            placeholder={t('composeStepDescriptionPlaceholder')}
+            className="w-full bg-transparent border-none outline-none text-fs-xs text-[var(--fg-muted)] placeholder:text-[var(--fg-subtle)] mt-0.5 focus:text-[var(--fg)]"
+          />
           <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{hint}</div>
         </div>
         <Popover>

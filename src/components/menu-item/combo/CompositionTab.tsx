@@ -79,6 +79,7 @@ export default function CompositionTab({
     const fresh: ComboStepDraft = {
       key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}`,
       name: t('composeStepDefaultName').replace('{n}', String(steps.length + 1)),
+      description: '',
       min_picks: 1,
       max_picks: 1,
       items: [],

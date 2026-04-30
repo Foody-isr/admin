@@ -129,6 +129,7 @@ export default function NewItemPage() {
       if (itemType === 'combo' && comboSteps.length > 0) {
         (createPayload as Record<string, unknown>).combo_steps = comboSteps.map((s, i): ComboStepInput => ({
           name: s.name || `Choice ${i + 1}`,
+          description: s.description || '',
           min_picks: s.min_picks,
           max_picks: s.max_picks,
           sort_order: i,

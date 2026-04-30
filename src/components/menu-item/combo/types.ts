@@ -33,6 +33,9 @@ export interface ComboStepDraft {
   /** UI-only stable key (uuid). Not sent to the server. */
   key: string;
   name: string;
+  /** Optional copy shown to the customer below the step name (e.g.
+   *  "Choose a starter to share"). Persists to `combo_steps.description`. */
+  description: string;
   min_picks: number;
   max_picks: number;
   items: ComboStepDraftItem[];
