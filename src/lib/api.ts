@@ -395,6 +395,7 @@ export interface WebsiteConfig {
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
+  hero_name_font: string;
 }
 
 export interface ThemeCatalogEntry {

@@ -159,6 +159,7 @@ export default function WebsitePage() {
   const [navbarColor, setNavbarColor] = useState<string>('');
   const [logoSize, setLogoSize] = useState<number>(40);
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
+  const [heroNameFont, setHeroNameFont] = useState<string>('');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -299,6 +300,7 @@ export default function WebsitePage() {
         setNavbarColor(cfg.navbar_color || '');
         setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
         setHideNavbarName(cfg.hide_navbar_name || false);
+        setHeroNameFont(cfg.hero_name_font || '');
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -339,6 +341,7 @@ export default function WebsitePage() {
         navbar_color: navbarColor,
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
+        hero_name_font: heroNameFont,
       });
       setConfig(updated);
       setSaved(true);
@@ -349,7 +352,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, sections]);
+  }, [restaurantId, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, sections]);
 
   const handleResetConfig = useCallback(async () => {
     try {
@@ -364,6 +367,7 @@ export default function WebsitePage() {
       setNavbarColor(cfg.navbar_color || '');
       setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
       setHideNavbarName(cfg.hide_navbar_name || false);
+      setHeroNameFont(cfg.hero_name_font || '');
       // Also refresh sections from reset response
       if (data.sections) {
         setSections(data.sections);
@@ -699,6 +703,7 @@ export default function WebsitePage() {
                   navbarColor={navbarColor}
                   logoSize={logoSize}
                   hideNavbarName={hideNavbarName}
+                  heroNameFont={heroNameFont}
                   onTaglineChange={setTagline}
                   onThemeModeChange={() => {}}
                   onShowAddressChange={setShowAddress}
@@ -708,6 +713,7 @@ export default function WebsitePage() {
                   onNavbarColorChange={setNavbarColor}
                   onLogoSizeChange={setLogoSize}
                   onHideNavbarNameChange={setHideNavbarName}
+                  onHeroNameFontChange={setHeroNameFont}
                   onRestaurantUpdate={setRestaurant}
                   onReset={handleResetConfig}
                 />
@@ -849,7 +855,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onLogoSizeChange, onHideNavbarNameChange, onRestaurantUpdate, onReset }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, onRestaurantUpdate, onReset }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -861,6 +867,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   navbarColor: string;
   logoSize: number;
   hideNavbarName: boolean;
+  heroNameFont: string;
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
@@ -870,6 +877,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   onNavbarColorChange: (v: string) => void;
   onLogoSizeChange: (v: number) => void;
   onHideNavbarNameChange: (v: boolean) => void;
+  onHeroNameFontChange: (v: string) => void;
   onRestaurantUpdate: (r: Restaurant) => void;
   onReset: () => void;
 }) {
@@ -880,6 +888,19 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   const [pickerColor, setPickerColor] = useState(restaurant?.background_color || '#EB5204');
 
   const coverMode = restaurant?.cover_display_mode || 'cover';
+
+  // Load the selected hero name font so the inline preview renders correctly.
+  useEffect(() => {
+    if (!heroNameFont || typeof document === 'undefined') return;
+    const id = `gf-${heroNameFont.replace(/\s+/g, '-')}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    const family = heroNameFont.replace(/\s+/g, '+');
+    link.href = `https://fonts.googleapis.com/css2?family=${family}:wght@400;600;700;800&display=swap`;
+    document.head.appendChild(link);
+  }, [heroNameFont]);
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1102,6 +1123,29 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
           <div>
             <label className="block text-sm font-medium text-fg-primary mb-1">Tagline</label>
             <input type="text" value={tagline} onChange={e => onTaglineChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="Fresh food, fast delivery" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-fg-primary mb-1">Restaurant name font</label>
+            <p className="text-xs text-fg-secondary mb-2">Font used for the restaurant name overlay on the order-page hero.</p>
+            <select
+              value={heroNameFont}
+              onChange={e => onHeroNameFontChange(e.target.value)}
+              className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary"
+              style={heroNameFont ? { fontFamily: `"${heroNameFont}", sans-serif` } : undefined}
+            >
+              <option value="">Default (theme font)</option>
+              {FONT_OPTIONS.map(f => (
+                <option key={f} value={f} style={{ fontFamily: `"${f}", sans-serif` }}>{f}</option>
+              ))}
+            </select>
+            {heroNameFont && restaurant?.name && (
+              <div className="mt-3 p-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)]">
+                <span className="text-xs text-fg-secondary block mb-1">Preview</span>
+                <span className="text-2xl font-bold text-fg-primary" style={{ fontFamily: `"${heroNameFont}", serif` }}>
+                  {restaurant.name}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
