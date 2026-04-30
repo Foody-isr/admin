@@ -396,6 +396,7 @@ export interface WebsiteConfig {
   logo_size: number;
   hide_navbar_name: boolean;
   hero_name_font: string;
+  category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
 }
 
 export interface ThemeCatalogEntry {

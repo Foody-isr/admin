@@ -160,6 +160,7 @@ export default function WebsitePage() {
   const [logoSize, setLogoSize] = useState<number>(40);
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
+  const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -301,6 +302,7 @@ export default function WebsitePage() {
         setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
         setHideNavbarName(cfg.hide_navbar_name || false);
         setHeroNameFont(cfg.hero_name_font || '');
+        setCategoryBannerStyle((cfg.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -342,6 +344,7 @@ export default function WebsitePage() {
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
         hero_name_font: heroNameFont,
+        category_banner_style: categoryBannerStyle,
       });
       setConfig(updated);
       setSaved(true);
@@ -352,7 +355,7 @@ export default function WebsitePage() {
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, sections]);
+  }, [restaurantId, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, sections]);
 
   const handleResetConfig = useCallback(async () => {
     try {
@@ -368,6 +371,7 @@ export default function WebsitePage() {
       setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
       setHideNavbarName(cfg.hide_navbar_name || false);
       setHeroNameFont(cfg.hero_name_font || '');
+      setCategoryBannerStyle((cfg.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
       // Also refresh sections from reset response
       if (data.sections) {
         setSections(data.sections);
@@ -704,6 +708,7 @@ export default function WebsitePage() {
                   logoSize={logoSize}
                   hideNavbarName={hideNavbarName}
                   heroNameFont={heroNameFont}
+                  categoryBannerStyle={categoryBannerStyle}
                   onTaglineChange={setTagline}
                   onThemeModeChange={() => {}}
                   onShowAddressChange={setShowAddress}
@@ -714,6 +719,7 @@ export default function WebsitePage() {
                   onLogoSizeChange={setLogoSize}
                   onHideNavbarNameChange={setHideNavbarName}
                   onHeroNameFontChange={setHeroNameFont}
+                  onCategoryBannerStyleChange={setCategoryBannerStyle}
                   onRestaurantUpdate={setRestaurant}
                   onReset={handleResetConfig}
                 />
@@ -855,7 +861,7 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, onRestaurantUpdate, onReset }: {
+function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, onCategoryBannerStyleChange, onRestaurantUpdate, onReset }: {
   restaurantId: number;
   restaurant: Restaurant | null;
   tagline: string;
@@ -868,6 +874,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   logoSize: number;
   hideNavbarName: boolean;
   heroNameFont: string;
+  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   onTaglineChange: (v: string) => void;
   onThemeModeChange: (v: 'light' | 'dark') => void;
   onShowAddressChange: (v: boolean) => void;
@@ -878,6 +885,7 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
   onLogoSizeChange: (v: number) => void;
   onHideNavbarNameChange: (v: boolean) => void;
   onHeroNameFontChange: (v: string) => void;
+  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
   onRestaurantUpdate: (r: Restaurant) => void;
   onReset: () => void;
 }) {
@@ -1146,6 +1154,32 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
                 </span>
               </div>
             )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-fg-primary mb-1">Category section style</label>
+            <p className="text-xs text-fg-secondary mb-2">How the category dividers appear on the order page. Image banners fall back to a text heading when a category has no image.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: 'image-overlay', label: 'Image banner', desc: 'Full-width image with category name overlay' },
+                { value: 'text-block', label: 'Text only', desc: 'Large text heading with underline' },
+                { value: 'striped-rule', label: 'Text with rules', desc: 'Centered text between two lines' },
+                { value: 'none', label: 'No divider', desc: 'Items flow continuously' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onCategoryBannerStyleChange(opt.value)}
+                  className={`text-left p-3 rounded-lg border-2 transition ${
+                    categoryBannerStyle === opt.value
+                      ? 'border-brand-500 bg-brand-500/10'
+                      : 'border-[var(--divider)] hover:border-fg-secondary/30'
+                  }`}
+                >
+                  <div className="text-sm font-medium text-fg-primary">{opt.label}</div>
+                  <div className="text-xs text-fg-secondary mt-0.5">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
