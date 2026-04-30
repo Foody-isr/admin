@@ -42,6 +42,8 @@ export default function GroupPage() {
   const [showParent, setShowParent] = useState(false);
   const [followsMenuHours, setFollowsMenuHours] = useState(true);
   const [isHidden, setIsHidden] = useState(false);
+  const [posEnabled, setPosEnabled] = useState(true);
+  const [webEnabled, setWebEnabled] = useState(true);
   const [hours, setHours] = useState<GroupAvailabilityHour[]>([]);
 
   const [imageUrl, setImageUrl] = useState('');
@@ -75,6 +77,8 @@ export default function GroupPage() {
           setShowParent(!!editing.parent_id);
           setFollowsMenuHours(editing.follows_menu_hours ?? true);
           setIsHidden(editing.is_hidden ?? false);
+          setPosEnabled(editing.pos_enabled ?? true);
+          setWebEnabled(editing.web_enabled ?? true);
           if (!editing.follows_menu_hours) {
             const h = await getGroupHours(rid, gid).catch(() => []);
             setHours(h);
@@ -98,6 +102,8 @@ export default function GroupPage() {
           parent_id: parentId,
           follows_menu_hours: followsMenuHours,
           is_hidden: isHidden,
+          pos_enabled: posEnabled,
+          web_enabled: webEnabled,
         });
         savedId = g.id;
       } else if (gid) {
@@ -107,6 +113,8 @@ export default function GroupPage() {
           parent_id: parentId,
           follows_menu_hours: followsMenuHours,
           is_hidden: isHidden,
+          pos_enabled: posEnabled,
+          web_enabled: webEnabled,
         });
       }
       if (!followsMenuHours && savedId) {
@@ -496,6 +504,29 @@ export default function GroupPage() {
             <button onClick={() => setShowHoursEditor(true)} className="text-base font-medium underline text-fg-primary shrink-0">
               {t('edit')}
             </button>
+          </div>
+
+          {/* Channels — controls where this group appears */}
+          <div className="flex items-center justify-between py-4 border-t border-[var(--divider)]">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-fg-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+              </svg>
+              <div>
+                <p className="text-base font-medium text-fg-primary">Channels</p>
+                <p className="text-sm text-fg-tertiary max-w-md">Where this group appears for customers and staff.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-primary">
+                <input type="checkbox" checked={posEnabled} onChange={(e) => setPosEnabled(e.target.checked)} className="rounded" />
+                POS
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-primary">
+                <input type="checkbox" checked={webEnabled} onChange={(e) => setWebEnabled(e.target.checked)} className="rounded" />
+                Web
+              </label>
+            </div>
           </div>
 
           {/* Hide on all channels */}
