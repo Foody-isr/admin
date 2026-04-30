@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getAllCategories, createGroup, updateGroup,
-  getGroupHours, setGroupHours, addItemsToGroup,
+  getGroupHours, setGroupHours, addItemsToGroup, uploadGroupImage,
   Menu, MenuGroup, MenuCategory, MenuItem, GroupAvailabilityHour,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -135,18 +135,27 @@ export default function GroupPage() {
   const getHour = (day: number): GroupAvailabilityHour =>
     hours.find((h) => h.day_of_week === day) ?? { id: 0, menu_group_id: gid ?? 0, day_of_week: day, open_time: '09:00', close_time: '21:00', is_closed: false };
 
-  const handleImageUpload = async (_file: File) => {
+  const handleImageUpload = async (file: File) => {
     if (!gid) return;
     setUploading(true);
     try {
-      // TODO: add dedicated group image upload endpoint
-      // For now, images are set via updateGroup
-      await updateGroup(rid, gid, { image_url: '' });
-      setImageUrl('');
+      const url = await uploadGroupImage(rid, gid, file);
+      await updateGroup(rid, gid, { image_url: url });
+      setImageUrl(url);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleImageRemove = async () => {
+    if (!gid) return;
+    try {
+      await updateGroup(rid, gid, { image_url: '' });
+      setImageUrl('');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Remove failed');
     }
   };
 
@@ -316,6 +325,14 @@ export default function GroupPage() {
                 {t('changeImage')}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleImageRemove(); }}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+              aria-label="Remove image"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
           </div>
         ) : (
           <div
