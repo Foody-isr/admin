@@ -1360,6 +1360,23 @@ export async function uploadMenuItemImage(restaurantId: number, itemId: number, 
   return data.image_url as string;
 }
 
+export async function uploadCategoryImage(restaurantId: number, categoryId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/menu/categories/${categoryId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
 // ─── Modifiers ────────────────────────────────────────────────────────────────
 
 export interface ModifierInput {
