@@ -16,7 +16,7 @@ import {
   RefreshCwIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { PageHead } from '@/components/ds';
+import { Button, Kpi, PageHead } from '@/components/ds';
 import {
   DataTable,
   DataTableHead,
@@ -67,6 +67,16 @@ export default function RecipesPage() {
 
   // Selection
   const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  // KPI collapse — parity with Stock page.
+  const [showKpis, setShowKpis] = useState(true);
+
+  // Click-to-filter — same pattern as Stock's `filterByStatus`.
+  // Pass null to clear all filters; pass a status value to apply it.
+  const filterByStatus = (status: RecipeStatus | null) => {
+    setSelectedCategories(new Set());
+    setSelectedStatuses(status ? new Set([status]) : new Set());
+  };
 
   const reload = useCallback(async () => {
     try {
@@ -134,12 +144,70 @@ export default function RecipesPage() {
     );
   }
 
+  // KPI counts — recipe status distribution.
+  const completeCount = items.filter((i) => statusOf(i) === 'complete').length;
+  const partialCount = items.filter((i) => statusOf(i) === 'partial').length;
+  const noneCount = items.filter((i) => statusOf(i) === 'none').length;
+
   return (
     <div className="space-y-[var(--s-5)] max-w-5xl mx-auto">
       <PageHead
         title={t('recipes') || 'Recettes'}
         desc={t('recipesDesc') || 'Recettes par article · état de renseignement'}
+        actions={
+          <Button
+            variant="ghost"
+            size="md"
+            icon
+            onClick={() => setShowKpis((v) => !v)}
+            aria-label="Toggle KPIs"
+            title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+          >
+            {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          </Button>
+        }
       />
+
+      {/* KPIs — clickable shortcuts that set filters directly (mirrors Stock). */}
+      {showKpis && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
+          <Kpi
+            label={t('recipes') || 'Recettes'}
+            value={items.length}
+            sub={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
+            onClick={() => filterByStatus(null)}
+          />
+          <Kpi
+            tone="success"
+            label={t('completeRecipe') || 'Complètes'}
+            value={completeCount}
+            sub={
+              items.length > 0
+                ? `${((completeCount / items.length) * 100).toFixed(0)}% ${t('ofTotal') || 'du total'}`
+                : '—'
+            }
+            onClick={() => filterByStatus('complete')}
+          />
+          <Kpi
+            tone="warning"
+            label={t('partialRecipe') || 'Partielles'}
+            value={partialCount}
+            sub={
+              items.length > 0
+                ? `${((partialCount / items.length) * 100).toFixed(0)}% ${t('ofTotal') || 'du total'}`
+                : '—'
+            }
+            onClick={() => filterByStatus('partial')}
+          />
+          <Kpi
+            tone={noneCount > 0 ? 'danger' : 'default'}
+            label={t('noRecipe') || 'Sans recette'}
+            value={noneCount}
+            sub={noneCount > 0 ? (t('toComplete') || 'À compléter') : 'OK'}
+            onClick={() => filterByStatus('none')}
+          />
+        </div>
+      )}
 
       {/* Filters + actions row */}
       <div className="flex flex-wrap items-center gap-3">

@@ -153,17 +153,43 @@ export default function PrepPage() {
   const statuses: FilterStatusOption[] = [
     { value: 'ok', label: t('ok'), color: '#10b981' },
     { value: 'low', label: t('low'), color: '#ef4444' },
+    { value: 'expiring', label: t('expiringSoon') || 'À consommer bientôt', color: '#f59e0b' },
+    { value: 'expired', label: t('expired') || 'Périmées', color: '#dc2626' },
   ];
 
   const isLow = (item: PrepItem) =>
     item.reorder_threshold > 0 && item.quantity <= item.reorder_threshold;
 
+  // Time-based status helpers — used by both the filter and the KPI counts.
+  // Computed inline (not memoized): items list is small and recomputes only on
+  // re-render anyway since it depends on `Date.now()`.
+  const nowMs = Date.now();
+  const expiresAtMs = (p: PrepItem) =>
+    new Date(p.updated_at).getTime() + (p.shelf_life_hours ?? 0) * 3600 * 1000;
+  const isExpiring = (p: PrepItem) =>
+    p.shelf_life_hours > 0 &&
+    expiresAtMs(p) - nowMs < 48 * 3600 * 1000 &&
+    expiresAtMs(p) > nowMs;
+  const isExpired = (p: PrepItem) =>
+    p.shelf_life_hours > 0 && expiresAtMs(p) <= nowMs;
+
+  // Multi-tag matching: an item can match several status filters at once
+  // (e.g. low AND expired). Keeping this independent prevents one status from
+  // hiding another.
+  const matchesStatus = (item: PrepItem, value: string) => {
+    if (value === 'low') return isLow(item);
+    if (value === 'ok') return !isLow(item);
+    if (value === 'expiring') return isExpiring(item);
+    if (value === 'expired') return isExpired(item);
+    return false;
+  };
+
   const filtered = items.filter((item) => {
     if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (selectedCategories.size > 0 && !selectedCategories.has(item.category)) return false;
     if (selectedStatuses.size > 0) {
-      const s = isLow(item) ? 'low' : 'ok';
-      if (!selectedStatuses.has(s)) return false;
+      const anyMatch = Array.from(selectedStatuses).some((s) => matchesStatus(item, s));
+      if (!anyMatch) return false;
     }
     return true;
   });
@@ -175,8 +201,6 @@ export default function PrepPage() {
     if (sortKey === 'yield') return (a.yield_per_batch - b.yield_per_batch) * dir;
     return (a.shelf_life_hours - b.shelf_life_hours) * dir;
   });
-
-  const lowCount = items.filter(isLow).length;
 
   const handleDelete = async (id: number) => {
     if (!confirm(t('deletePrepItemConfirm'))) return;
@@ -220,15 +244,15 @@ export default function PrepPage() {
     (s, p) => s + (p.cost_per_unit ?? 0) * (p.quantity ?? 0),
     0,
   );
-  const now = Date.now();
-  const shelfMs = (p: PrepItem) => (p.shelf_life_hours ?? 0) * 3600 * 1000;
-  const updatedMs = (p: PrepItem) => new Date(p.updated_at).getTime();
-  const expiresAt = (p: PrepItem) => updatedMs(p) + shelfMs(p);
-  const isExpiring = (p: PrepItem) =>
-    p.shelf_life_hours > 0 && expiresAt(p) - now < 48 * 3600 * 1000 && expiresAt(p) > now;
-  const isExpired = (p: PrepItem) => p.shelf_life_hours > 0 && expiresAt(p) <= now;
   const expiringCount = items.filter(isExpiring).length;
   const expiredCount = items.filter(isExpired).length;
+
+  // Click-to-filter — same pattern as Stock's `filterByStatus`.
+  // Pass null to clear all filters; pass a status value to apply it.
+  const filterByStatus = (status: 'ok' | 'low' | 'expiring' | 'expired' | null) => {
+    setSelectedCategories(new Set());
+    setSelectedStatuses(status ? new Set([status]) : new Set());
+  };
 
   // Category pill list — "Tous" first, then distinct names alphabetically.
   const pillCategories = ['Tous', ...[...categoryNames].sort()];
@@ -269,13 +293,15 @@ export default function PrepPage() {
       />
 
       <header className="mb-[var(--s-4)]">
-        {/* KPI strip — Actives / Coût total / À consommer bientôt / Périmées */}
+        {/* KPI strip — clickable shortcuts that set filters directly (mirrors Stock).
+            Total cost stays static (info-only, like Stock's "Total Value"). */}
         {showKpis && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
             <Kpi
               label={t('activePreps') || 'Préparations actives'}
               value={items.length}
               sub={`${categoryNames.length} ${t('categoriesCount') || 'catégories'}`}
+              onClick={() => filterByStatus(null)}
             />
             <Kpi
               label={t('totalCost') || 'Coût total en stock'}
@@ -290,16 +316,18 @@ export default function PrepPage() {
               sub="HT · basé sur recettes"
             />
             <Kpi
-              tone="warning"
+              tone={expiringCount > 0 ? 'warning' : 'default'}
               label={t('expiringSoon') || 'À consommer bientôt'}
               value={expiringCount}
               sub={t('shelfUnder48h') || 'DLC < 48h'}
+              onClick={() => filterByStatus('expiring')}
             />
             <Kpi
-              tone="danger"
+              tone={expiredCount > 0 ? 'danger' : 'default'}
               label={t('expired') || 'Périmées'}
               value={expiredCount}
               sub={t('toDiscard') || 'À jeter'}
+              onClick={() => filterByStatus('expired')}
             />
           </div>
         )}
