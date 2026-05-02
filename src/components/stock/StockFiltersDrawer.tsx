@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import {
-  XIcon,
-  SearchIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CheckIcon,
+  CheckCircle,
+  ChevronRight,
+  Search,
+  X,
+  ArrowLeft,
 } from 'lucide-react';
 
 export type FilterView = 'index' | 'category' | 'status';
@@ -48,37 +48,40 @@ export default function StockFiltersDrawer({
   onStatusChange,
   statusLabel,
 }: Props) {
-  const { t, direction } = useI18n();
-  const isRtl = direction === 'rtl';
+  const { t } = useI18n();
 
   const [view, setView] = useState<FilterView>(initialView);
   const [entryView, setEntryView] = useState<FilterView>(initialView);
-  const [categorySearch, setCategorySearch] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (open) {
       setView(initialView);
       setEntryView(initialView);
-      setCategorySearch('');
+      setSearch('');
     }
   }, [open, initialView]);
 
   const filteredCategories = useMemo(() => {
-    const q = categorySearch.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
     if (!q) return categories;
     return categories.filter((c) => c.name.toLowerCase().includes(q));
-  }, [categories, categorySearch]);
+  }, [categories, search]);
+
+  const filteredStatuses = useMemo(() => {
+    if (!statuses) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return statuses;
+    return statuses.filter((s) => s.label.toLowerCase().includes(q));
+  }, [statuses, search]);
+
+  if (!open) return null;
 
   const toggleCategory = (name: string) => {
     const next = new Set(selectedCategories);
     if (next.has(name)) next.delete(name);
     else next.add(name);
     onCategoryChange(next);
-  };
-
-  const resetAll = () => {
-    onCategoryChange(new Set());
-    onStatusChange?.(new Set());
   };
 
   const toggleStatus = (value: string) => {
@@ -89,245 +92,256 @@ export default function StockFiltersDrawer({
     onStatusChange(next);
   };
 
-  const statusText = statusLabel ?? t('status');
+  const resetAll = () => {
+    onCategoryChange(new Set());
+    onStatusChange?.(new Set());
+  };
 
   const goBack = () => {
     if (view === entryView) {
       onClose();
     } else {
       setView(entryView);
+      setSearch('');
     }
   };
 
-  const BackIcon = isRtl ? ChevronRightIcon : ChevronLeftIcon;
-  const ForwardIcon = isRtl ? ChevronLeftIcon : ChevronRightIcon;
-
   const showBackButton = view !== 'index' && entryView === 'index';
 
+  const statusText = statusLabel ?? t('status');
+
+  const title =
+    view === 'index'
+      ? t('filterBy') || 'Filtrer par'
+      : view === 'category'
+      ? t('category') || 'Catégorie'
+      : statusText;
+
+  const subtitle =
+    view === 'index'
+      ? t('selectFilter') || 'Sélectionnez un filtre'
+      : view === 'category'
+      ? t('selectCategory') || 'Sélectionnez une catégorie'
+      : t('selectStatus') || 'Sélectionnez un statut';
+
   return (
-    <>
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50"
-          onClick={onClose}
-        />
-      )}
-      <div
-        className={`fixed top-0 bottom-0 z-50 w-[400px] max-w-full flex flex-col transition-transform duration-300 ease-in-out ${
-          isRtl ? 'left-0' : 'right-0'
-        } ${
-          open
-            ? 'translate-x-0'
-            : isRtl
-            ? '-translate-x-full'
-            : 'translate-x-full'
-        }`}
-        style={{
-          background: 'var(--surface)',
-          borderLeft: isRtl ? 'none' : '1px solid var(--divider)',
-          borderRight: isRtl ? '1px solid var(--divider)' : 'none',
-        }}
-      >
-        <div
-          className="flex items-center justify-between px-4 h-14 border-b shrink-0"
-          style={{ borderColor: 'var(--divider)' }}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            {showBackButton ? (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+
+      <div className="absolute right-0 top-0 bottom-0 w-96 bg-white dark:bg-[#111111] shadow-2xl flex flex-col animate-slide-in">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center gap-3 min-w-0">
+            {showBackButton && (
               <button
                 onClick={goBack}
-                className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)] transition-colors text-fg-secondary"
+                className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors shrink-0"
                 aria-label={t('back') || 'Back'}
               >
-                <BackIcon className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)] transition-colors text-fg-secondary"
-                aria-label={t('close') || 'Close'}
-              >
-                <XIcon className="w-4 h-4" />
+                <ArrowLeft size={20} className="text-neutral-600 dark:text-neutral-400" />
               </button>
             )}
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-white truncate">{title}</h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1 truncate">{subtitle}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={resetAll}
-              className="text-xs font-medium text-fg-secondary hover:text-fg-primary transition-colors px-2 py-1"
-            >
-              {t('reset')}
-            </button>
-            <button
-              onClick={onClose}
-              className="text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 rounded-full px-3 py-1.5 transition-colors"
-            >
-              {t('apply')}
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition-colors shrink-0"
+            aria-label={t('close') || 'Close'}
+          >
+            <X size={20} className="text-neutral-600 dark:text-neutral-400" />
+          </button>
         </div>
 
-        {view === 'index' && (
-          <div className="flex-1 overflow-auto">
-            <div className="px-4 pt-4 pb-2">
-              <h2 className="text-lg font-semibold text-fg-primary">{t('filterBy')}</h2>
+        {/* Search (category/status views only) */}
+        {view !== 'index' && (
+          <div className="p-6 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="relative">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder={
+                  view === 'category'
+                    ? t('searchCategory') || 'Rechercher une catégorie...'
+                    : t('searchStatus') || 'Rechercher un statut...'
+                }
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              />
             </div>
-            <ul>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setView('category')}
-                  className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-left border-t"
-                  style={{ borderColor: 'var(--divider)' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-fg-primary">{t('category')}</div>
-                    <div className="text-xs text-fg-secondary truncate">
-                      {selectedCategories.size === 0
-                        ? t('allCategories')
-                        : Array.from(selectedCategories).join(', ')}
-                    </div>
-                  </div>
-                  <ForwardIcon className="w-4 h-4 text-fg-secondary shrink-0" />
-                </button>
-              </li>
-              {statuses && statuses.length > 0 && onStatusChange && (
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setView('status')}
-                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--surface-subtle)] transition-colors text-left border-t"
-                    style={{ borderColor: 'var(--divider)' }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-fg-primary">{statusText}</div>
-                      <div className="text-xs text-fg-secondary truncate">
-                        {(selectedStatuses?.size ?? 0) === 0
-                          ? t('all')
-                          : statuses
-                              .filter((s) => selectedStatuses?.has(s.value))
-                              .map((s) => s.label)
-                              .join(', ')}
-                      </div>
-                    </div>
-                    <ForwardIcon className="w-4 h-4 text-fg-secondary shrink-0" />
-                  </button>
-                </li>
-              )}
-            </ul>
           </div>
         )}
 
-        {view === 'status' && statuses && onStatusChange && (
-          <>
-            <div className="px-4 pt-4 pb-2 shrink-0">
-              <h2 className="text-lg font-semibold text-fg-primary">{statusText}</h2>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <ul>
-                {statuses.map((s) => {
-                  const isSelected = selectedStatuses?.has(s.value) ?? false;
-                  return (
-                    <li key={s.value}>
-                      <button
-                        type="button"
-                        onClick={() => toggleStatus(s.value)}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors text-left"
-                      >
-                        {s.color && (
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ background: s.color }}
-                          />
-                        )}
-                        <span className="flex-1 text-sm text-fg-primary truncate">
-                          {s.label}
-                        </span>
-                        <span
-                          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected
-                              ? 'bg-brand-500 border-brand-500'
-                              : 'border border-fg-secondary/40'
-                          }`}
-                        >
-                          {isSelected && (
-                            <CheckIcon className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                          )}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </>
-        )}
-
-        {view === 'category' && (
-          <>
-            <div className="px-4 pt-4 pb-2 shrink-0">
-              <h2 className="text-lg font-semibold text-fg-primary">{t('category')}</h2>
-            </div>
-            <div className="px-4 pb-3 shrink-0">
-              <div className="relative">
-                <SearchIcon
-                  className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 text-fg-secondary pointer-events-none z-10 ${
-                    isRtl ? 'right-3' : 'left-3'
-                  }`}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {view === 'index' && (
+            <div className="space-y-2">
+              <FilterIndexRow
+                label={t('category') || 'Catégorie'}
+                summary={
+                  selectedCategories.size === 0
+                    ? t('allCategories') || 'Toutes'
+                    : Array.from(selectedCategories).join(', ')
+                }
+                count={selectedCategories.size}
+                onClick={() => setView('category')}
+              />
+              {statuses && statuses.length > 0 && onStatusChange && (
+                <FilterIndexRow
+                  label={statusText}
+                  summary={
+                    (selectedStatuses?.size ?? 0) === 0
+                      ? t('all') || 'Tous'
+                      : statuses
+                          .filter((s) => selectedStatuses?.has(s.value))
+                          .map((s) => s.label)
+                          .join(', ')
+                  }
+                  count={selectedStatuses?.size ?? 0}
+                  onClick={() => setView('status')}
                 />
-                <input
-                  type="text"
-                  value={categorySearch}
-                  onChange={(e) => setCategorySearch(e.target.value)}
-                  placeholder={t('searchCategories')}
-                  className={`input py-2 text-sm w-full ${isRtl ? '!pr-9 !pl-3' : '!pl-9 !pr-3'}`}
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto">
-              {filteredCategories.length === 0 ? (
-                <div className="p-6 text-center text-sm text-fg-secondary">
-                  {t('noData') || '—'}
-                </div>
-              ) : (
-                <ul>
-                  {filteredCategories.map((cat) => {
-                    const isSelected = selectedCategories.has(cat.name);
-                    return (
-                      <li key={cat.name}>
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(cat.name)}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors text-left"
-                        >
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ background: cat.color || '#999' }}
-                          />
-                          <span className="flex-1 text-sm text-fg-primary truncate">
-                            {cat.name}
-                          </span>
-                          <span
-                            className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                              isSelected
-                                ? 'bg-brand-500 border-brand-500'
-                                : 'border border-fg-secondary/40'
-                            }`}
-                          >
-                            {isSelected && (
-                              <CheckIcon className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                            )}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
               )}
             </div>
-          </>
-        )}
+          )}
+
+          {view === 'category' && (
+            <div className="space-y-2">
+              {filteredCategories.length === 0 ? (
+                <p className="text-sm text-neutral-500 text-center py-8">
+                  {t('noResults') || 'No results'}
+                </p>
+              ) : (
+                filteredCategories.map((cat) => (
+                  <FilterOptionRow
+                    key={cat.name}
+                    name={cat.name}
+                    color={cat.color}
+                    active={selectedCategories.has(cat.name)}
+                    onClick={() => toggleCategory(cat.name)}
+                  />
+                ))
+              )}
+            </div>
+          )}
+
+          {view === 'status' && statuses && onStatusChange && (
+            <div className="space-y-2">
+              {filteredStatuses.length === 0 ? (
+                <p className="text-sm text-neutral-500 text-center py-8">
+                  {t('noResults') || 'No results'}
+                </p>
+              ) : (
+                filteredStatuses.map((s) => (
+                  <FilterOptionRow
+                    key={s.value}
+                    name={s.label}
+                    color={s.color}
+                    active={selectedStatuses?.has(s.value) ?? false}
+                    onClick={() => toggleStatus(s.value)}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-neutral-200 dark:border-neutral-800 flex gap-3">
+          <button
+            onClick={resetAll}
+            className="flex-1 px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors font-medium text-neutral-700 dark:text-neutral-300"
+          >
+            {t('reset') || 'Réinitialiser'}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 font-medium"
+          >
+            {t('apply') || 'Appliquer'}
+          </button>
+        </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+// ─── Index row (filter category → opens sub-view) ──────────────
+
+function FilterIndexRow({
+  label,
+  summary,
+  count,
+  onClick,
+}: {
+  label: string;
+  summary: string;
+  count: number;
+  onClick: () => void;
+}) {
+  const active = count > 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group w-full flex items-center gap-4 p-4 rounded-xl transition-all text-left ${
+        active
+          ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500'
+          : 'bg-neutral-50 dark:bg-[#1a1a1a] border-2 border-transparent hover:border-neutral-300 dark:hover:border-neutral-700'
+      }`}
+    >
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{label}</h3>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 truncate">{summary}</p>
+      </div>
+      {count > 0 && (
+        <span className="shrink-0 inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-orange-500 text-white text-xs font-semibold">
+          {count}
+        </span>
+      )}
+      <ChevronRight size={18} className="text-neutral-400 shrink-0" />
+    </button>
+  );
+}
+
+// ─── Option row (selectable in category/status views) ──────────
+
+function FilterOptionRow({
+  name,
+  color,
+  active,
+  onClick,
+}: {
+  name: string;
+  color?: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group w-full flex items-center gap-4 p-4 rounded-xl transition-all text-left ${
+        active
+          ? 'bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500'
+          : 'bg-neutral-50 dark:bg-[#1a1a1a] border-2 border-transparent hover:border-neutral-300 dark:hover:border-neutral-700'
+      }`}
+    >
+      {color && (
+        <span
+          className="size-3 rounded-full shrink-0"
+          style={{ background: color }}
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{name}</h3>
+      </div>
+      {active && <CheckCircle size={20} className="text-orange-500 shrink-0" />}
+    </button>
   );
 }
