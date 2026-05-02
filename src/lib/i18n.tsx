@@ -478,6 +478,50 @@ const translations: Record<Locale, Record<string, string>> = {
     rejectThisOrder: 'Reject this order?',
     note: 'Note:',
 
+    // ── Order timeline (short labels under each step) ──
+    orderReceived: 'Received',
+    inKitchen: 'In kitchen',
+    served: 'Served',
+
+    // ── Order status (full labels for badges & banners) ──
+    statusPendingReview: 'Pending review',
+    statusAccepted: 'Accepted',
+    statusInKitchen: 'In kitchen',
+    statusReady: 'Ready',
+    statusReadyForPickup: 'Ready for pickup',
+    statusReadyForDelivery: 'Ready for delivery',
+    statusOutForDelivery: 'Out for delivery',
+    statusServed: 'Served',
+    statusReceived: 'Received',
+    statusPickedUp: 'Picked up',
+    statusDelivered: 'Delivered',
+    statusRejected: 'Cancelled',
+    statusScheduled: 'Scheduled',
+
+    // ── Order source labels ──
+    sourceWebsiteOrder: 'Website order',
+    sourceCounter: 'Counter',
+    sourceOnline: 'Online',
+    sourceTabletPos: 'Tablet POS',
+
+    // ── Singular forms (used inline with counts) ──
+    selection: 'selection',
+    selections: 'selections',
+
+    // ── Combo / activity ──
+    comboMenuFallback: 'Combo Menu',
+    scheduledForLabel: 'Scheduled for',
+    activityCreatedSimple: 'Order created',
+    activityCreatedFrom: 'Created from {source}',
+    activityAccepted: 'Order accepted',
+    activityKitchen: 'Sent to kitchen',
+    activityReady: 'Marked ready',
+    activityCompleted: 'Order completed',
+    activityCancelled: 'Order cancelled',
+    minShort: 'min',
+    agoSuffix: 'ago',
+    shown: 'shown',
+
     // ── Payment ──
     takePayment: 'Take Payment',
     closeOrder: 'Close Order',
@@ -2411,6 +2455,50 @@ const translations: Record<Locale, Record<string, string>> = {
     rejectThisOrder: 'לדחות הזמנה זו?',
     note: 'הערה:',
 
+    // ── Order timeline (short labels under each step) ──
+    orderReceived: 'התקבלה',
+    inKitchen: 'במטבח',
+    served: 'הוגשה',
+
+    // ── Order status (full labels for badges & banners) ──
+    statusPendingReview: 'ממתין לאישור',
+    statusAccepted: 'אושרה',
+    statusInKitchen: 'במטבח',
+    statusReady: 'מוכנה',
+    statusReadyForPickup: 'מוכנה לאיסוף',
+    statusReadyForDelivery: 'מוכנה למשלוח',
+    statusOutForDelivery: 'בדרך למשלוח',
+    statusServed: 'הוגשה',
+    statusReceived: 'התקבלה',
+    statusPickedUp: 'נאספה',
+    statusDelivered: 'נמסרה',
+    statusRejected: 'בוטלה',
+    statusScheduled: 'מתוזמנת',
+
+    // ── Order source labels ──
+    sourceWebsiteOrder: 'הזמנת אתר',
+    sourceCounter: 'קופה',
+    sourceOnline: 'אונליין',
+    sourceTabletPos: 'POS טאבלט',
+
+    // ── Singular forms (used inline with counts) ──
+    selection: 'בחירה',
+    selections: 'בחירות',
+
+    // ── Combo / activity ──
+    comboMenuFallback: 'תפריט קומבו',
+    scheduledForLabel: 'מתוזמנת ל',
+    activityCreatedSimple: 'ההזמנה נוצרה',
+    activityCreatedFrom: 'נוצרה דרך {source}',
+    activityAccepted: 'ההזמנה אושרה',
+    activityKitchen: 'נשלחה למטבח',
+    activityReady: 'סומנה מוכנה',
+    activityCompleted: 'ההזמנה הושלמה',
+    activityCancelled: 'ההזמנה בוטלה',
+    minShort: 'דק׳',
+    agoSuffix: 'לפני',
+    shown: 'מוצגות',
+
     // ── Payment ──
     takePayment: 'גבה תשלום',
     closeOrder: 'סגור הזמנה',
@@ -4323,6 +4411,50 @@ const translations: Record<Locale, Record<string, string>> = {
     markDelivered: 'Marquer livrée',
     rejectThisOrder: 'Rejeter cette commande ?',
     note: 'Note :',
+
+    // ── Order timeline (short labels under each step) ──
+    orderReceived: 'Reçue',
+    inKitchen: 'En cuisine',
+    served: 'Servie',
+
+    // ── Order status (full labels for badges & banners) ──
+    statusPendingReview: 'À valider',
+    statusAccepted: 'Acceptée',
+    statusInKitchen: 'En cuisine',
+    statusReady: 'Prête',
+    statusReadyForPickup: 'Prête à retirer',
+    statusReadyForDelivery: 'Prête à livrer',
+    statusOutForDelivery: 'En livraison',
+    statusServed: 'Servie',
+    statusReceived: 'Reçue',
+    statusPickedUp: 'Retirée',
+    statusDelivered: 'Livrée',
+    statusRejected: 'Annulée',
+    statusScheduled: 'Programmée',
+
+    // ── Order source labels ──
+    sourceWebsiteOrder: 'Site web',
+    sourceCounter: 'Comptoir',
+    sourceOnline: 'En ligne',
+    sourceTabletPos: 'POS tablette',
+
+    // ── Singular forms (used inline with counts) ──
+    selection: 'sélection',
+    selections: 'sélections',
+
+    // ── Combo / activity ──
+    comboMenuFallback: 'Menu Combo',
+    scheduledForLabel: 'Programmée pour',
+    activityCreatedSimple: 'Commande créée',
+    activityCreatedFrom: 'Créée depuis {source}',
+    activityAccepted: 'Commande acceptée',
+    activityKitchen: 'Envoyée en cuisine',
+    activityReady: 'Marquée prête',
+    activityCompleted: 'Commande terminée',
+    activityCancelled: 'Commande annulée',
+    minShort: 'min',
+    agoSuffix: 'il y a',
+    shown: 'affichées',
 
     // ── Payment ──
     takePayment: 'Encaisser',

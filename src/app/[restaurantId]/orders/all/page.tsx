@@ -16,8 +16,9 @@ import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
-  ChevronDownIcon, XIcon, PrinterIcon, MoreHorizontalIcon,
+  ChevronDownIcon, XIcon, PrinterIcon,
   CreditCardIcon, CheckCircle2Icon,
+  CheckIcon, ClockIcon, GlobeIcon, EditIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
@@ -29,7 +30,6 @@ import {
   DataTableRow,
   DataTableCell,
 } from '@/components/data-table';
-import { CheckIcon, ClockIcon, GlobeIcon, UserIcon, EditIcon } from 'lucide-react';
 import type { OrderItem } from '@/lib/api';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
@@ -90,16 +90,84 @@ function defaultDateRange(): { from: Date; to: Date } {
   return { from, to };
 }
 
-function itemInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
 // Simple hash to pick a muted color for item avatars
 function itemColor(name: string): string {
   const colors = ['#F18A47', '#60A5FA', '#D89B35', '#77BA4B', '#A78BFA', '#F472B6', '#34D399', '#FB7185'];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
+}
+
+// ─── Localization helpers ──────────────────────────────────────────────────
+
+const STATUS_KEY: Record<string, string> = {
+  pending_review: 'statusPendingReview',
+  accepted: 'statusAccepted',
+  in_kitchen: 'statusInKitchen',
+  ready: 'statusReady',
+  ready_for_pickup: 'statusReadyForPickup',
+  ready_for_delivery: 'statusReadyForDelivery',
+  out_for_delivery: 'statusOutForDelivery',
+  served: 'statusServed',
+  received: 'statusReceived',
+  picked_up: 'statusPickedUp',
+  delivered: 'statusDelivered',
+  rejected: 'statusRejected',
+  scheduled: 'statusScheduled',
+};
+
+// `t()` returns the key itself when missing — treat that as "not translated".
+function localizeStatus(status: string, t: (k: string) => string): string {
+  const key = STATUS_KEY[status];
+  if (!key) return status.replace(/_/g, ' ');
+  const value = t(key);
+  return value === key ? status.replace(/_/g, ' ') : value;
+}
+
+const SOURCE_KEY: Record<string, string> = {
+  website_order: 'sourceWebsiteOrder',
+  online: 'sourceOnline',
+  counter: 'sourceCounter',
+  tablet_pos: 'sourceTabletPos',
+};
+
+function localizeSource(source: string | undefined, t: (k: string) => string): string {
+  if (!source) return t('sourceOnline');
+  const key = SOURCE_KEY[source];
+  if (key) {
+    const value = t(key);
+    if (value !== key) return value;
+  }
+  return source.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatScheduledFor(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString([], {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return iso;
+  }
+}
+
+function localizeOrderType(type: Order['order_type'], t: (k: string) => string): string {
+  if (type === 'dine_in') return t('dineIn');
+  if (type === 'pickup') return t('pickup');
+  if (type === 'delivery') return t('delivery');
+  return String(type).replace(/_/g, ' ');
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────
@@ -192,7 +260,7 @@ export default function OrdersPage() {
     if (type === 'order.created') {
       playSound();
       notify(t('newOrder'), {
-        body: `${t('orderNumber').replace('{id}', String(wsOrder.id))} — ${wsOrder.order_type?.replace(/_/g, ' ') ?? 'order'}`,
+        body: `${t('orderNumber').replace('{id}', String(wsOrder.id))} · ${localizeOrderType(wsOrder.order_type, t)}`,
         tag: `order-${wsOrder.id}`,
       });
     }
@@ -309,7 +377,7 @@ export default function OrdersPage() {
       <div className="flex-1 min-w-0 space-y-[var(--s-5)]">
         <PageHead
           title={t('orders')}
-          desc={`${total} commandes · ${activeCount} affichées`}
+          desc={`${total} ${t('orders').toLowerCase()} · ${activeCount} ${t('shown') || 'shown'}`}
           actions={
             <>
               {wsStatus === 'connected' && (
@@ -519,11 +587,11 @@ export default function OrdersPage() {
                     <DataTableCell>
                       <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
                     </DataTableCell>
-                    <DataTableCell className="text-fg-secondary capitalize">
-                      {(order.order_source ?? 'order').replace(/_/g, ' ')}
+                    <DataTableCell className="text-fg-secondary">
+                      {localizeSource(order.order_source, t)}
                     </DataTableCell>
-                    <DataTableCell className="text-fg-secondary capitalize">
-                      {order.order_type.replace(/_/g, ' ')}
+                    <DataTableCell className="text-fg-secondary">
+                      {localizeOrderType(order.order_type, t)}
                     </DataTableCell>
                     <DataTableCell className="text-fg-secondary">
                       <div className="flex flex-col">
@@ -543,12 +611,15 @@ export default function OrdersPage() {
                     </DataTableCell>
                     <DataTableCell>
                       <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-                        {order.status.replace(/_/g, ' ')}
+                        {localizeStatus(order.status, t)}
                       </Badge>
                     </DataTableCell>
                     <DataTableCell>
                       <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
-                        {order.payment_status}
+                        {(() => {
+                          const tv = t(order.payment_status);
+                          return tv === order.payment_status ? order.payment_status : tv;
+                        })()}
                       </Badge>
                     </DataTableCell>
                     <DataTableCell align="right" className="font-medium text-fg-primary">
@@ -621,9 +692,9 @@ export default function OrdersPage() {
 
 const TIMELINE_STEPS = [
   { key: 'received', labelKey: 'orderReceived', statuses: [] as string[] },
-  { key: 'accepted', labelKey: 'accepted', statuses: ['accepted'] },
+  { key: 'accepted', labelKey: 'statusAccepted', statuses: ['accepted'] },
   { key: 'in_kitchen', labelKey: 'inKitchen', statuses: ['in_kitchen'] },
-  { key: 'ready', labelKey: 'ready', statuses: ['ready', 'ready_for_pickup', 'ready_for_delivery'] },
+  { key: 'ready', labelKey: 'statusReady', statuses: ['ready', 'ready_for_pickup', 'ready_for_delivery'] },
   { key: 'served', labelKey: 'served', statuses: ['served', 'picked_up', 'delivered'] },
 ];
 
@@ -804,50 +875,75 @@ function OrderDetailDrawer({
       }
     >
       {/* Status banner */}
-      <div
-        className="p-[var(--s-4)_var(--s-5)] rounded-r-md grid grid-cols-[1fr_auto] gap-[var(--s-4)] items-center mb-[var(--s-4)]"
-        style={{
-          background: `color-mix(in oklab, var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500) 10%, var(--surface))`,
-          border: `1px solid color-mix(in oklab, var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500) 30%, var(--line))`,
-        }}
-      >
-        <div>
-          <div className="flex items-center gap-[var(--s-2)] mb-1">
-            <span
-              className="relative inline-block w-2 h-2 rounded-full"
-              style={{
-                background: `var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500)`,
-              }}
-            >
-              {isActive && (
+      {(() => {
+        const toneVar = bannerTone === 'warning'
+          ? 'warning' : bannerTone === 'success'
+          ? 'success' : bannerTone === 'danger'
+          ? 'danger' : 'info';
+        const orderTypeLabel = localizeOrderType(order.order_type, t);
+        const isScheduled = order.status === 'scheduled';
+        return (
+          <div
+            className="p-[var(--s-4)_var(--s-5)] rounded-r-md grid grid-cols-[1fr_auto] gap-[var(--s-4)] items-center mb-[var(--s-4)]"
+            style={{
+              background: `linear-gradient(135deg, color-mix(in oklab, var(--${toneVar}-500) 14%, var(--surface)) 0%, color-mix(in oklab, var(--${toneVar}-500) 6%, var(--surface)) 100%)`,
+              border: `1px solid color-mix(in oklab, var(--${toneVar}-500) 28%, var(--line))`,
+            }}
+          >
+            <div>
+              <div className="flex items-center gap-[var(--s-2)] mb-1">
                 <span
-                  className="absolute inset-0 rounded-full opacity-60 animate-ping"
-                  style={{ background: 'var(--warning-500)' }}
-                />
+                  className="relative inline-block w-2 h-2 rounded-full"
+                  style={{ background: `var(--${toneVar}-500)` }}
+                >
+                  {isActive && (
+                    <span
+                      className="absolute inset-0 rounded-full opacity-60 animate-ping"
+                      style={{ background: 'var(--warning-500)' }}
+                    />
+                  )}
+                </span>
+                <span
+                  className="text-fs-sm font-semibold tracking-[-0.005em]"
+                  style={{ color: `var(--${toneVar}-500)` }}
+                >
+                  {localizeStatus(order.status, t)}
+                </span>
+                {!isScheduled && !isTerminal && (
+                  <span className="text-fs-xs text-[var(--fg-muted)] font-medium tabular-nums">
+                    · {createdMins} {t('minShort') || 'min'}
+                  </span>
+                )}
+              </div>
+              <div className="text-fs-xs text-[var(--fg-subtle)] flex items-center gap-1.5">
+                <span>{orderTypeLabel}</span>
+                {order.table_number && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <span>Table {order.table_number}</span>
+                  </>
+                )}
+                {isScheduled && order.scheduled_for && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    <ClockIcon className="w-3 h-3" />
+                    <span>
+                      {t('scheduledForLabel') || 'Scheduled for'} {formatScheduledFor(order.scheduled_for)}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-[var(--s-2)]">
+              {primaryBtn && (
+                <Button variant="secondary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
+                  {primaryBtn.label}
+                </Button>
               )}
-            </span>
-            <span
-              className="text-fs-sm font-semibold"
-              style={{
-                color: `var(--${bannerTone === 'warning' ? 'warning' : bannerTone === 'success' ? 'success' : bannerTone === 'danger' ? 'danger' : 'info'}-500)`,
-              }}
-            >
-              {order.status.replace(/_/g, ' ')} · {createdMins} min
-            </span>
+            </div>
           </div>
-          <div className="text-fs-xs text-[var(--fg-subtle)]">
-            {order.order_type.replace(/_/g, ' ')}
-            {order.table_number ? ` · Table ${order.table_number}` : ''}
-          </div>
-        </div>
-        <div className="flex items-center gap-[var(--s-2)]">
-          {primaryBtn && (
-            <Button variant="secondary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
-              {primaryBtn.label}
-            </Button>
-          )}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* 2-column content */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--s-5)]">
@@ -899,80 +995,32 @@ function OrderDetailDrawer({
 
           {/* Items */}
           <Section
-            title={`${displayedLineCount} ${t('items')} · ${totalUnits} ${t('units') || 'unités'}`}
+            title={`${displayedLineCount} ${displayedLineCount === 1 ? t('item') : t('items')} · ${totalUnits} ${totalUnits === 1 ? (t('unit') || 'unité') : (t('units') || 'unités')}`}
           >
             <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
               {regularItems.map((item, i) => (
                 <OrderLineRow key={item.id} item={item} showTopBorder={i > 0} />
               ))}
               {comboGroups.map(([groupKey, comboItems], gi) => {
-                const comboName = comboItems[0]?.combo_name || t('combo') || 'Combo';
+                const comboName = comboItems[0]?.combo_name || t('comboMenuFallback') || 'Combo Menu';
                 const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
                 const comboTotal = comboPriceFor(comboItems) + deltas;
                 const showTopBorder = regularItems.length > 0 || gi > 0;
+                const totalPicks = comboItems.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
+                const picksLabel = totalPicks === 1 ? t('selection') : t('selections');
                 return (
                   <div
                     key={groupKey}
-                    className={`px-[var(--s-5)] py-[var(--s-3)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
+                    className={`px-[var(--s-5)] py-[var(--s-4)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
                   >
-                    <div className="grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start">
-                      <div
-                        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm -tracking-[0.02em]"
-                        style={{ background: itemColor(comboName) }}
-                      >
-                        1×
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-fs-sm font-semibold truncate">
-                          🍱 {comboName}
-                        </div>
-                      </div>
-                      <div className="text-end">
-                        <div className="font-mono tabular-nums font-medium">
-                          ₪{comboTotal.toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="ms-[calc(44px+var(--s-3))] mt-[var(--s-2)] flex flex-col gap-[var(--s-1)]">
-                      {comboItems.map((ci) => {
-                        const lineDelta = ci.price * ci.quantity;
-                        return (
-                          <div
-                            key={ci.id}
-                            className="grid grid-cols-[1fr_auto] gap-[var(--s-3)] items-start text-fs-xs text-[var(--fg-muted)]"
-                          >
-                            <div className="min-w-0">
-                              <span className="me-1">↳</span>
-                              <span>
-                                {ci.quantity > 1 ? `${ci.quantity}× ` : ''}
-                                {ci.name}
-                                {ci.selected_variant_name ? ` · ${ci.selected_variant_name}` : ''}
-                              </span>
-                              {ci.modifiers && ci.modifiers.length > 0 && (
-                                <span className="ms-1">
-                                  {ci.modifiers.map((m) => (
-                                    <span
-                                      key={m.id}
-                                      className="inline-flex items-center px-1.5 py-0.5 ms-1 rounded-full bg-[var(--surface-2)] text-[var(--fg-muted)]"
-                                    >
-                                      {m.name}
-                                    </span>
-                                  ))}
-                                </span>
-                              )}
-                              {ci.notes && (
-                                <span className="ms-1 italic">&ldquo;{ci.notes}&rdquo;</span>
-                              )}
-                            </div>
-                            {lineDelta > 0 && (
-                              <div className="font-mono tabular-nums">
-                                +₪{lineDelta.toFixed(2)}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <ComboCard
+                      comboName={comboName}
+                      comboTotal={comboTotal}
+                      comboItems={comboItems}
+                      totalPicks={totalPicks}
+                      picksLabel={picksLabel}
+                      comboLabel={(t('combo') || 'Combo').toUpperCase()}
+                    />
                   </div>
                 );
               })}
@@ -986,7 +1034,7 @@ function OrderDetailDrawer({
           <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg shadow-1 p-[var(--s-5)]">
             <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-4)]">
               <div
-                className="w-12 h-12 rounded-full grid place-items-center text-white font-semibold"
+                className="w-12 h-12 rounded-full grid place-items-center text-white font-semibold tracking-tight"
                 style={{ background: 'linear-gradient(135deg, var(--brand-400), var(--brand-600))' }}
               >
                 {customerInitials}
@@ -996,7 +1044,7 @@ function OrderDetailDrawer({
                   {order.customer_name || t('guestCustomer') || 'Client'}
                 </div>
                 <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                  {order.order_source?.replace(/_/g, ' ') || 'order'}
+                  {localizeSource(order.order_source, t)}
                 </div>
               </div>
             </div>
@@ -1009,19 +1057,19 @@ function OrderDetailDrawer({
               )}
               <div className="flex items-center justify-between">
                 <span className="text-[var(--fg-subtle)]">{t('type')}</span>
-                <span className="capitalize">{order.order_type.replace(/_/g, ' ')}</span>
+                <span>{localizeOrderType(order.order_type, t)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[var(--fg-subtle)]">{t('source')}</span>
-                <span className="inline-flex items-center gap-1 capitalize">
-                  <GlobeIcon className="w-3 h-3" />
-                  {(order.order_source ?? 'order').replace(/_/g, ' ')}
+                <span className="inline-flex items-center gap-1.5">
+                  <GlobeIcon className="w-3 h-3 text-[var(--fg-muted)]" />
+                  {localizeSource(order.order_source, t)}
                 </span>
               </div>
               {order.table_number && (
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--fg-subtle)]">Table</span>
-                  <span>{order.table_number}</span>
+                  <span className="font-mono tabular-nums">{order.table_number}</span>
                 </div>
               )}
             </div>
@@ -1035,13 +1083,16 @@ function OrderDetailDrawer({
                 <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
               </div>
               <div className="h-px bg-[var(--line)] my-[var(--s-2)]" />
-              <div className="flex items-center justify-between text-fs-lg font-semibold">
+              <div className="flex items-center justify-between text-fs-lg font-semibold tracking-tight">
                 <span>{t('total')}</span>
                 <span className="font-mono tabular-nums">₪{totalsLine.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between mt-[var(--s-2)]">
                 <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot>
-                  {order.payment_status}
+                  {(() => {
+                    const tv = t(order.payment_status);
+                    return tv === order.payment_status ? order.payment_status : tv;
+                  })()}
                 </Badge>
               </div>
             </div>
@@ -1049,19 +1100,7 @@ function OrderDetailDrawer({
 
           {/* Activity */}
           <Section title={t('activity') || 'Activité'}>
-            <div className="flex flex-col gap-[var(--s-3)] text-fs-xs">
-              <div className="flex items-start gap-[var(--s-3)]">
-                <span className="font-mono text-[var(--fg-subtle)] text-[11px] shrink-0">
-                  {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <div className="flex-1">
-                  <span className="text-[var(--fg-subtle)]">
-                    {t('createdFromSource') || 'Commande créée'}{' '}
-                    {order.order_source ? `depuis ${order.order_source.replace(/_/g, ' ')}` : ''}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <ActivityTimeline order={order} t={t} />
           </Section>
         </div>
       </div>
@@ -1079,27 +1118,32 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
       }`}
     >
       <div
-        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm -tracking-[0.02em]"
+        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm tracking-[-0.02em] shrink-0"
         style={{ background: itemColor(item.name) }}
       >
         {item.quantity}×
       </div>
       <div className="min-w-0">
-        <div className="text-fs-sm font-medium truncate">
+        <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
           {item.name}
-          {item.selected_variant_name && (
-            <span className="text-[var(--fg-muted)] font-normal">
-              {' · '}
-              {item.selected_variant_name}
-            </span>
-          )}
         </div>
-        {item.modifiers && item.modifiers.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {item.modifiers.map((m) => (
+        {(item.selected_variant_name || (item.modifiers && item.modifiers.length > 0)) && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {item.selected_variant_name && (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em]"
+                style={{
+                  background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                  color: 'var(--brand-500)',
+                }}
+              >
+                {item.selected_variant_name}
+              </span>
+            )}
+            {item.modifiers?.map((m) => (
               <span
                 key={m.id}
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs bg-[var(--surface-2)] text-[var(--fg-muted)]"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-[var(--surface-2)] text-[var(--fg-muted)]"
               >
                 {m.name}
               </span>
@@ -1108,8 +1152,8 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
         )}
         {item.notes && (
           <div className="flex items-center gap-1 mt-1.5 text-fs-xs text-[var(--fg-muted)] italic">
-            <EditIcon className="w-3 h-3" />
-            <span>&ldquo;{item.notes}&rdquo;</span>
+            <EditIcon className="w-3 h-3 shrink-0" />
+            <span className="truncate">&ldquo;{item.notes}&rdquo;</span>
           </div>
         )}
       </div>
@@ -1123,6 +1167,191 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Combo group card — distinct visual unit with brand-tinted rail ──────────
+
+function ComboCard({
+  comboName,
+  comboTotal,
+  comboItems,
+  totalPicks,
+  picksLabel,
+  comboLabel,
+}: {
+  comboName: string;
+  comboTotal: number;
+  comboItems: OrderItem[];
+  totalPicks: number;
+  picksLabel: string;
+  comboLabel: string;
+}) {
+  return (
+    <div
+      className="rounded-r-md overflow-hidden"
+      style={{
+        background:
+          'linear-gradient(180deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, color-mix(in oklab, var(--brand-500) 3%, var(--surface)) 100%)',
+        borderInlineStart: '2px solid var(--brand-500)',
+        border: '1px solid color-mix(in oklab, var(--brand-500) 18%, var(--line))',
+        borderInlineStartWidth: '2px',
+      }}
+    >
+      {/* Eyebrow row */}
+      <div className="px-[var(--s-4)] pt-[var(--s-3)] flex items-center justify-between gap-2">
+        <span
+          className="text-[10px] font-bold uppercase tracking-[0.14em]"
+          style={{ color: 'var(--brand-500)' }}
+        >
+          {comboLabel}
+        </span>
+        <span className="text-[11px] text-[var(--fg-subtle)] tabular-nums font-medium">
+          {totalPicks} {picksLabel}
+        </span>
+      </div>
+
+      {/* Title row */}
+      <div className="px-[var(--s-4)] pt-[var(--s-1)] pb-[var(--s-3)] grid grid-cols-[1fr_auto] gap-[var(--s-3)] items-baseline">
+        <div className="text-fs-md font-semibold truncate tracking-[-0.01em]">
+          {comboName}
+        </div>
+        <div className="font-mono tabular-nums font-semibold text-fs-md tracking-[-0.01em]">
+          ₪{comboTotal.toFixed(2)}
+        </div>
+      </div>
+
+      {/* Sub-items */}
+      <div
+        className="px-[var(--s-4)] py-[var(--s-3)] flex flex-col gap-[var(--s-2)]"
+        style={{
+          borderTop: '1px solid color-mix(in oklab, var(--brand-500) 14%, transparent)',
+          background: 'color-mix(in oklab, var(--brand-500) 2%, transparent)',
+        }}
+      >
+        {comboItems.map((ci) => {
+          const lineDelta = ci.price * ci.quantity;
+          const hasMods = ci.modifiers && ci.modifiers.length > 0;
+          return (
+            <div
+              key={ci.id}
+              className="grid grid-cols-[14px_1fr_auto] gap-[var(--s-2)] items-baseline text-fs-xs"
+            >
+              <span
+                className="block w-1.5 h-1.5 rounded-full mt-[7px]"
+                style={{ background: 'color-mix(in oklab, var(--brand-500) 60%, var(--fg-muted))' }}
+              />
+              <div className="min-w-0">
+                <span className="text-[var(--fg)] font-medium">
+                  {ci.quantity > 1 ? `${ci.quantity}× ` : ''}
+                  {ci.name}
+                </span>
+                {ci.selected_variant_name && (
+                  <span
+                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle"
+                    style={{
+                      background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+                      color: 'var(--brand-500)',
+                    }}
+                  >
+                    {ci.selected_variant_name}
+                  </span>
+                )}
+                {hasMods && (
+                  <span className="ms-2 text-[var(--fg-muted)]">
+                    {ci.modifiers!.map((m) => m.name).join(' · ')}
+                  </span>
+                )}
+                {ci.notes && (
+                  <div className="mt-0.5 flex items-center gap-1 text-[var(--fg-muted)] italic">
+                    <EditIcon className="w-2.5 h-2.5 shrink-0" />
+                    <span className="truncate">&ldquo;{ci.notes}&rdquo;</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-end font-mono tabular-nums text-[var(--fg-subtle)]">
+                {lineDelta > 0 ? `+₪${lineDelta.toFixed(2)}` : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Activity timeline — events from order timestamps ────────────────────────
+
+function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string }) {
+  const events: Array<{ at: string; label: string; future?: boolean }> = [];
+  events.push({
+    at: order.created_at,
+    label: order.order_source
+      ? (t('activityCreatedFrom') || 'Created from {source}').replace('{source}', localizeSource(order.order_source, t))
+      : (t('activityCreatedSimple') || 'Order created'),
+  });
+  if (order.scheduled_for) {
+    events.push({
+      at: order.scheduled_for,
+      label: `${t('scheduledForLabel') || 'Scheduled for'} ${formatScheduledFor(order.scheduled_for)}`,
+      future: true,
+    });
+  }
+  if (order.accepted_at) {
+    events.push({ at: order.accepted_at, label: t('activityAccepted') || 'Order accepted' });
+  }
+  if (order.in_kitchen_at) {
+    events.push({ at: order.in_kitchen_at, label: t('activityKitchen') || 'Sent to kitchen' });
+  }
+  if (order.ready_at) {
+    events.push({ at: order.ready_at, label: t('activityReady') || 'Marked ready' });
+  }
+  if (order.completed_at) {
+    const isCancelled = order.status === 'rejected';
+    events.push({
+      at: order.completed_at,
+      label: isCancelled
+        ? t('activityCancelled') || 'Order cancelled'
+        : t('activityCompleted') || 'Order completed',
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-[var(--s-3)] text-fs-xs relative">
+      {events.map((e, i) => (
+        <div key={`${e.at}-${i}`} className="flex items-start gap-[var(--s-3)] relative">
+          {/* Connector line */}
+          {i < events.length - 1 && (
+            <span
+              aria-hidden
+              className="absolute start-[18px] top-3 bottom-[-12px] w-px"
+              style={{ background: 'var(--line)' }}
+            />
+          )}
+          {/* Timestamp */}
+          <span className="font-mono text-[var(--fg-subtle)] text-[11px] shrink-0 w-[34px] tabular-nums pt-px">
+            {formatTime(e.at)}
+          </span>
+          {/* Dot */}
+          <span
+            className="block w-1.5 h-1.5 rounded-full shrink-0 mt-[6px] relative z-[1]"
+            style={{
+              background: e.future
+                ? 'color-mix(in oklab, var(--brand-500) 50%, var(--fg-muted))'
+                : 'var(--brand-500)',
+              boxShadow: e.future
+                ? 'none'
+                : '0 0 0 3px color-mix(in oklab, var(--brand-500) 14%, transparent)',
+            }}
+          />
+          <div className="flex-1 min-w-0">
+            <span className={e.future ? 'text-[var(--fg-muted)] italic' : 'text-[var(--fg)]'}>
+              {e.label}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
