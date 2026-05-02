@@ -735,6 +735,7 @@ function OrderDetailDrawer({
 
   const currentStep = statusIndex(order.status);
   const isCancelled = order.status === 'rejected';
+  const isScheduled = order.status === 'scheduled';
   const isActive = currentStep === 2;
   const bannerTone: 'warning' | 'success' | 'info' | 'danger' =
     isCancelled ? 'danger' : isActive ? 'warning' : currentStep >= 4 ? 'success' : 'info';
@@ -820,11 +821,65 @@ function OrderDetailDrawer({
   const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
   const canCloseOrder = !isTerminal && order.payment_status === 'paid';
 
+  const toneVar: 'warning' | 'success' | 'danger' | 'info' =
+    bannerTone === 'warning' ? 'warning'
+    : bannerTone === 'success' ? 'success'
+    : bannerTone === 'danger' ? 'danger'
+    : 'info';
+
+  const headerSubtitle = (
+    <span className="flex items-center gap-1.5 min-w-0">
+      <span
+        className="relative inline-block w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: `var(--${toneVar}-500)` }}
+      >
+        {isActive && (
+          <span
+            className="absolute inset-0 rounded-full opacity-70 animate-ping"
+            style={{ background: 'var(--warning-500)' }}
+          />
+        )}
+      </span>
+      <span
+        className="font-semibold tracking-[-0.005em] truncate"
+        style={{ color: `var(--${toneVar}-500)` }}
+      >
+        {localizeStatus(order.status, t)}
+      </span>
+      {!isScheduled && !isTerminal && (
+        <>
+          <span className="opacity-40">·</span>
+          <span className="tabular-nums shrink-0">
+            {createdMins} {t('minShort') || 'min'}
+          </span>
+        </>
+      )}
+      <span className="opacity-40">·</span>
+      <span className="shrink-0">{localizeOrderType(order.order_type, t)}</span>
+      {order.table_number && (
+        <>
+          <span className="opacity-40">·</span>
+          <span className="shrink-0">Table {order.table_number}</span>
+        </>
+      )}
+      {isScheduled && order.scheduled_for && (
+        <>
+          <span className="opacity-40">·</span>
+          <ClockIcon className="w-3 h-3 shrink-0" />
+          <span className="truncate">
+            {formatScheduledFor(order.scheduled_for)}
+          </span>
+        </>
+      )}
+    </span>
+  );
+
   return (
     <Drawer
       open={order != null}
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={t('orderNumber').replace('{id}', String(order.id))}
+      subtitle={headerSubtitle}
       width={1060}
       primaryAction={
         primaryBtn ? (
@@ -874,77 +929,6 @@ function OrderDetailDrawer({
         </div>
       }
     >
-      {/* Status banner */}
-      {(() => {
-        const toneVar = bannerTone === 'warning'
-          ? 'warning' : bannerTone === 'success'
-          ? 'success' : bannerTone === 'danger'
-          ? 'danger' : 'info';
-        const orderTypeLabel = localizeOrderType(order.order_type, t);
-        const isScheduled = order.status === 'scheduled';
-        return (
-          <div
-            className="p-[var(--s-4)_var(--s-5)] rounded-r-md grid grid-cols-[1fr_auto] gap-[var(--s-4)] items-center mb-[var(--s-4)]"
-            style={{
-              background: `linear-gradient(135deg, color-mix(in oklab, var(--${toneVar}-500) 14%, var(--surface)) 0%, color-mix(in oklab, var(--${toneVar}-500) 6%, var(--surface)) 100%)`,
-              border: `1px solid color-mix(in oklab, var(--${toneVar}-500) 28%, var(--line))`,
-            }}
-          >
-            <div>
-              <div className="flex items-center gap-[var(--s-2)] mb-1">
-                <span
-                  className="relative inline-block w-2 h-2 rounded-full"
-                  style={{ background: `var(--${toneVar}-500)` }}
-                >
-                  {isActive && (
-                    <span
-                      className="absolute inset-0 rounded-full opacity-60 animate-ping"
-                      style={{ background: 'var(--warning-500)' }}
-                    />
-                  )}
-                </span>
-                <span
-                  className="text-fs-sm font-semibold tracking-[-0.005em]"
-                  style={{ color: `var(--${toneVar}-500)` }}
-                >
-                  {localizeStatus(order.status, t)}
-                </span>
-                {!isScheduled && !isTerminal && (
-                  <span className="text-fs-xs text-[var(--fg-muted)] font-medium tabular-nums">
-                    · {createdMins} {t('minShort') || 'min'}
-                  </span>
-                )}
-              </div>
-              <div className="text-fs-xs text-[var(--fg-subtle)] flex items-center gap-1.5">
-                <span>{orderTypeLabel}</span>
-                {order.table_number && (
-                  <>
-                    <span className="opacity-40">·</span>
-                    <span>Table {order.table_number}</span>
-                  </>
-                )}
-                {isScheduled && order.scheduled_for && (
-                  <>
-                    <span className="opacity-40">·</span>
-                    <ClockIcon className="w-3 h-3" />
-                    <span>
-                      {t('scheduledForLabel') || 'Scheduled for'} {formatScheduledFor(order.scheduled_for)}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-[var(--s-2)]">
-              {primaryBtn && (
-                <Button variant="secondary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
-                  {primaryBtn.label}
-                </Button>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-
       {/* 2-column content */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--s-5)]">
         {/* LEFT — timeline + items */}
@@ -958,6 +942,13 @@ function OrderDetailDrawer({
               {TIMELINE_STEPS.map((step, i) => {
                 const reached = currentStep >= i;
                 const active = currentStep === i;
+                const stamp =
+                  step.key === 'received' ? order.created_at
+                  : step.key === 'accepted' ? order.accepted_at
+                  : step.key === 'in_kitchen' ? order.in_kitchen_at
+                  : step.key === 'ready' ? order.ready_at
+                  : step.key === 'served' ? order.completed_at
+                  : undefined;
                 return (
                   <div key={step.key} className="text-center relative">
                     {i < TIMELINE_STEPS.length - 1 && (
@@ -967,7 +958,7 @@ function OrderDetailDrawer({
                       />
                     )}
                     <div
-                      className="w-7 h-7 rounded-full mx-auto mb-2 grid place-items-center relative z-[1]"
+                      className="w-7 h-7 rounded-full mx-auto mb-2 grid place-items-center relative z-[1] transition-shadow"
                       style={{
                         background: active
                           ? 'var(--brand-500)'
@@ -976,17 +967,29 @@ function OrderDetailDrawer({
                           : 'var(--surface-3)',
                         color: reached || active ? '#fff' : 'var(--fg-muted)',
                         boxShadow: active
-                          ? '0 0 0 4px color-mix(in oklab, var(--brand-500) 20%, transparent)'
+                          ? '0 0 0 4px color-mix(in oklab, var(--brand-500) 22%, transparent)'
                           : undefined,
                       }}
                     >
                       {reached && !active ? <CheckIcon className="w-3.5 h-3.5" /> : null}
+                      {active && (
+                        <span
+                          aria-hidden
+                          className="absolute inset-0 rounded-full opacity-50 animate-ping"
+                          style={{ background: 'var(--brand-500)' }}
+                        />
+                      )}
                     </div>
                     <div
                       className={`text-fs-xs font-medium ${reached || active ? 'text-[var(--fg)]' : 'text-[var(--fg-muted)]'}`}
                     >
                       {t(step.labelKey)}
                     </div>
+                    {stamp && reached && (
+                      <div className="text-[10px] font-mono tabular-nums text-[var(--fg-subtle)] mt-0.5">
+                        {formatTime(stamp)}
+                      </div>
+                    )}
                   </div>
                 );
               })}
