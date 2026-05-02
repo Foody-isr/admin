@@ -30,6 +30,7 @@ import {
   DataTableCell,
 } from '@/components/data-table';
 import { CheckIcon, ClockIcon, GlobeIcon, UserIcon, EditIcon } from 'lucide-react';
+import type { OrderItem } from '@/lib/api';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
 
@@ -672,9 +673,49 @@ function OrderDetailDrawer({
     Math.round((Date.now() - new Date(order.created_at).getTime()) / 60000),
   );
 
-  const subtotal = (order.items ?? []).reduce((s, i) => s + i.price * i.quantity, 0);
-  const totalsLine =
-    order.total_amount ?? subtotal;
+  // Split items into regular vs combo groups (items sharing a combo_group).
+  // Combo step items are stored with price = price_delta (0 for non-premium picks),
+  // so the combo's base price lives only in the order total. We mirror the combo
+  // grouping logic from foodyweb's receipt and foodypos's order details page.
+  const allItems: OrderItem[] = order.items ?? [];
+  const regularItems = allItems.filter((i) => !i.combo_group);
+  const comboGroupsMap = new Map<string, OrderItem[]>();
+  for (const item of allItems) {
+    if (item.combo_group) {
+      const group = comboGroupsMap.get(item.combo_group) ?? [];
+      group.push(item);
+      comboGroupsMap.set(item.combo_group, group);
+    }
+  }
+  const comboGroups: Array<[string, OrderItem[]]> = Array.from(comboGroupsMap.entries());
+
+  const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const comboDeltasTotal = comboGroups.reduce(
+    (s, [, items]) => s + items.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0),
+    0,
+  );
+  // Fallback when server hasn't sent combo_price (older clients): split the
+  // remainder of order.total_amount evenly across combos.
+  const remainingForCombos = Math.max(
+    0,
+    (order.total_amount ?? 0) - regularTotal - comboDeltasTotal,
+  );
+  const comboCount = comboGroups.length;
+  const comboPriceFor = (items: OrderItem[]): number => {
+    const fromServer = items[0]?.combo_price;
+    if (fromServer && fromServer > 0) return fromServer;
+    return comboCount > 0 ? remainingForCombos / comboCount : 0;
+  };
+  const combosSubtotal = comboGroups.reduce((s, [, items]) => {
+    const deltas = items.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0);
+    return s + comboPriceFor(items) + deltas;
+  }, 0);
+
+  const subtotal = regularTotal + combosSubtotal;
+  const totalsLine = order.total_amount ?? subtotal;
+
+  const displayedLineCount = regularItems.length + comboGroups.length;
+  const totalUnits = allItems.reduce((s, i) => s + i.quantity, 0);
 
   const primaryBtn = (() => {
     const isDelivery = order.order_type === 'delivery';
@@ -858,55 +899,83 @@ function OrderDetailDrawer({
 
           {/* Items */}
           <Section
-            title={`${(order.items ?? []).length} ${t('items')} · ${(order.items ?? []).reduce((s, i) => s + i.quantity, 0)} ${t('units') || 'unités'}`}
+            title={`${displayedLineCount} ${t('items')} · ${totalUnits} ${t('units') || 'unités'}`}
           >
             <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {(order.items ?? []).map((item, i) => (
-                <div
-                  key={item.id}
-                  className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
-                    i > 0 ? 'border-t border-[var(--line)]' : ''
-                  }`}
-                >
-                  <div
-                    className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm -tracking-[0.02em]"
-                    style={{ background: itemColor(item.name) }}
-                  >
-                    {item.quantity}×
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-fs-sm font-medium truncate">{item.name}</div>
-                    {item.modifiers && item.modifiers.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {item.modifiers.map((m) => (
-                          <span
-                            key={m.id}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs bg-[var(--surface-2)] text-[var(--fg-muted)]"
-                          >
-                            {m.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {item.notes && (
-                      <div className="flex items-center gap-1 mt-1.5 text-fs-xs text-[var(--fg-muted)] italic">
-                        <EditIcon className="w-3 h-3" />
-                        <span>&ldquo;{item.notes}&rdquo;</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-end">
-                    <div className="font-mono tabular-nums font-medium">
-                      ₪{(item.price * item.quantity).toFixed(2)}
-                    </div>
-                    {item.quantity > 1 && (
-                      <div className="font-mono tabular-nums text-fs-xs text-[var(--fg-subtle)]">
-                        ₪{item.price.toFixed(2)} × {item.quantity}
-                      </div>
-                    )}
-                  </div>
-                </div>
+              {regularItems.map((item, i) => (
+                <OrderLineRow key={item.id} item={item} showTopBorder={i > 0} />
               ))}
+              {comboGroups.map(([groupKey, comboItems], gi) => {
+                const comboName = comboItems[0]?.combo_name || t('combo') || 'Combo';
+                const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
+                const comboTotal = comboPriceFor(comboItems) + deltas;
+                const showTopBorder = regularItems.length > 0 || gi > 0;
+                return (
+                  <div
+                    key={groupKey}
+                    className={`px-[var(--s-5)] py-[var(--s-3)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
+                  >
+                    <div className="grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start">
+                      <div
+                        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm -tracking-[0.02em]"
+                        style={{ background: itemColor(comboName) }}
+                      >
+                        1×
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-fs-sm font-semibold truncate">
+                          🍱 {comboName}
+                        </div>
+                      </div>
+                      <div className="text-end">
+                        <div className="font-mono tabular-nums font-medium">
+                          ₪{comboTotal.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="ms-[calc(44px+var(--s-3))] mt-[var(--s-2)] flex flex-col gap-[var(--s-1)]">
+                      {comboItems.map((ci) => {
+                        const lineDelta = ci.price * ci.quantity;
+                        return (
+                          <div
+                            key={ci.id}
+                            className="grid grid-cols-[1fr_auto] gap-[var(--s-3)] items-start text-fs-xs text-[var(--fg-muted)]"
+                          >
+                            <div className="min-w-0">
+                              <span className="me-1">↳</span>
+                              <span>
+                                {ci.quantity > 1 ? `${ci.quantity}× ` : ''}
+                                {ci.name}
+                                {ci.selected_variant_name ? ` · ${ci.selected_variant_name}` : ''}
+                              </span>
+                              {ci.modifiers && ci.modifiers.length > 0 && (
+                                <span className="ms-1">
+                                  {ci.modifiers.map((m) => (
+                                    <span
+                                      key={m.id}
+                                      className="inline-flex items-center px-1.5 py-0.5 ms-1 rounded-full bg-[var(--surface-2)] text-[var(--fg-muted)]"
+                                    >
+                                      {m.name}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
+                              {ci.notes && (
+                                <span className="ms-1 italic">&ldquo;{ci.notes}&rdquo;</span>
+                              )}
+                            </div>
+                            {lineDelta > 0 && (
+                              <div className="font-mono tabular-nums">
+                                +₪{lineDelta.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Section>
         </div>
@@ -997,6 +1066,64 @@ function OrderDetailDrawer({
         </div>
       </div>
     </Drawer>
+  );
+}
+
+// ─── Regular order line row (shared across the items list) ────────────────────
+
+function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder: boolean }) {
+  return (
+    <div
+      className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
+        showTopBorder ? 'border-t border-[var(--line)]' : ''
+      }`}
+    >
+      <div
+        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm -tracking-[0.02em]"
+        style={{ background: itemColor(item.name) }}
+      >
+        {item.quantity}×
+      </div>
+      <div className="min-w-0">
+        <div className="text-fs-sm font-medium truncate">
+          {item.name}
+          {item.selected_variant_name && (
+            <span className="text-[var(--fg-muted)] font-normal">
+              {' · '}
+              {item.selected_variant_name}
+            </span>
+          )}
+        </div>
+        {item.modifiers && item.modifiers.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {item.modifiers.map((m) => (
+              <span
+                key={m.id}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-fs-xs bg-[var(--surface-2)] text-[var(--fg-muted)]"
+              >
+                {m.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {item.notes && (
+          <div className="flex items-center gap-1 mt-1.5 text-fs-xs text-[var(--fg-muted)] italic">
+            <EditIcon className="w-3 h-3" />
+            <span>&ldquo;{item.notes}&rdquo;</span>
+          </div>
+        )}
+      </div>
+      <div className="text-end">
+        <div className="font-mono tabular-nums font-medium">
+          ₪{(item.price * item.quantity).toFixed(2)}
+        </div>
+        {item.quantity > 1 && (
+          <div className="font-mono tabular-nums text-fs-xs text-[var(--fg-subtle)]">
+            ₪{item.price.toFixed(2)} × {item.quantity}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
