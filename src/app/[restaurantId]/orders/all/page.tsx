@@ -338,17 +338,20 @@ export default function OrdersPage() {
       });
   };
 
-  const handleCloseOrder = (orderId: number, orderType: string) => {
+  const handleCloseOrder = (orderId: number, orderType: string, status: string) => {
     if (!confirm(t('closeOrderConfirm'))) return;
-    runAction(orderId, async () => {
-      if (orderType === 'delivery') {
-        await markOrderDelivered(rid, orderId);
-      } else {
-        // mark-served works from in_kitchen and ready (server validation).
-        // mark-received only works from ready, so prefer mark-served here.
-        await markOrderServed(rid, orderId);
-      }
-    });
+    const isTerminalStatus = ['served', 'received', 'picked_up', 'delivered'].includes(status);
+    if (!isTerminalStatus) {
+      runAction(orderId, async () => {
+        if (orderType === 'delivery') {
+          await markOrderDelivered(rid, orderId);
+        } else {
+          // mark-served works from in_kitchen and ready (server validation).
+          // mark-received only works from ready, so prefer mark-served here.
+          await markOrderServed(rid, orderId);
+        }
+      });
+    }
     setSelectedId(null);
   };
 
@@ -674,7 +677,7 @@ export default function OrdersPage() {
         onOutForDelivery={() => selectedOrder && handleOutForDelivery(selectedOrder.id)}
         onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
-        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
+        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type, selectedOrder.status)}
       />
 
       {/* Take Payment dialog */}
@@ -819,7 +822,8 @@ function OrderDetailDrawer({
 
   const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
   const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
-  const canCloseOrder = !isTerminal && order.payment_status === 'paid';
+  const canCloseOrder = !isCancelled && order.payment_status === 'paid';
+  const canCancelOrder = !isCancelled && !isTerminal;
 
   const toneVar: 'warning' | 'success' | 'danger' | 'info' =
     bannerTone === 'warning' ? 'warning'
@@ -920,7 +924,7 @@ function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {!isCancelled && (
+            {canCancelOrder && (
               <Button variant="ghost" size="md" onClick={onReject} disabled={isLoading}>
                 <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
               </Button>
