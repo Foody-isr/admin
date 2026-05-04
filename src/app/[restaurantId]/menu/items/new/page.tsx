@@ -24,7 +24,8 @@ import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
-import { Badge } from '@/components/ds';
+import { Badge, inputFieldClass } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 import { Boxes } from 'lucide-react';
 import {
   XIcon, PlusIcon, TrashIcon,
@@ -33,8 +34,8 @@ import {
 interface LocalVariant {
   key: string;
   name: string;
-  price: string;
-  onlinePrice: string;
+  price: number;
+  onlinePrice: number;
   isActive: boolean;
 }
 
@@ -45,7 +46,7 @@ interface LocalVariantGroup {
 }
 
 function newVariant(): LocalVariant {
-  return { key: crypto.randomUUID(), name: '', price: '', onlinePrice: '', isActive: true };
+  return { key: crypto.randomUUID(), name: '', price: 0, onlinePrice: 0, isActive: true };
 }
 
 function newVariantGroup(): LocalVariantGroup {
@@ -68,7 +69,7 @@ export default function NewItemPage() {
 
   // Form state
   const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
+  const [price, setPrice] = useState<number>(0);
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
@@ -113,13 +114,13 @@ export default function NewItemPage() {
   }, [rid]);
 
   const handleSave = async () => {
-    if (!name.trim() || !parseFloat(price)) return;
+    if (!name.trim() || price <= 0) return;
     setSaving(true);
     try {
       const createPayload: Parameters<typeof createMenuItem>[1] = {
         name: name.trim(),
         description,
-        price: parseFloat(price),
+        price,
         is_active: isActive,
         item_type: itemType,
         category_id: categoryId || categories[0]?.id,
@@ -162,8 +163,8 @@ export default function NewItemPage() {
           .filter((v) => v.name.trim())
           .map((v, vi) => ({
             name: v.name.trim(),
-            price: parseFloat(v.price) || 0,
-            online_price: v.onlinePrice ? parseFloat(v.onlinePrice) : null,
+            price: v.price,
+            online_price: v.onlinePrice > 0 ? v.onlinePrice : null,
             is_active: v.isActive,
             sort_order: vi,
           }));
@@ -282,7 +283,7 @@ export default function NewItemPage() {
     return m;
   }, [categories]);
   const railComboSummary = itemType === 'combo'
-    ? computeComboSavings(parseFloat(price) || 0, comboSteps, itemsByIdForSummary)
+    ? computeComboSavings(price, comboSteps, itemsByIdForSummary)
     : null;
 
   if (loading) {
@@ -320,7 +321,7 @@ export default function NewItemPage() {
     <MenuItemSummaryRail
       imageUrl={imagePreview || undefined}
       name={name}
-      price={parseFloat(price) || 0}
+      price={price}
       activeStatus={isActive}
       categoryName={activeCategoryName}
       comboSummary={railComboSummary}
@@ -345,7 +346,7 @@ export default function NewItemPage() {
         onClose={goBack}
         onSave={handleSave}
         saving={saving}
-        saveDisabled={!name.trim() || !price}
+        saveDisabled={!name.trim() || price <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -440,7 +441,7 @@ export default function NewItemPage() {
                             {vg.variants.filter((v) => v.name.trim()).map((v) => (
                               <div key={v.key} className="flex items-center justify-between px-4 py-2.5 border-t border-neutral-200 dark:border-neutral-700">
                                 <span className="text-sm text-neutral-900 dark:text-white">{v.name}</span>
-                                <span className="text-sm font-semibold text-neutral-900 dark:text-white">₪{(parseFloat(v.price) || 0).toFixed(2)}</span>
+                                <span className="text-sm font-semibold text-neutral-900 dark:text-white">₪{v.price.toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
@@ -576,10 +577,12 @@ export default function NewItemPage() {
                   <div key={v.key} className="grid grid-cols-[1fr_100px_100px_80px_40px] gap-2 items-center">
                     <FormInput placeholder={t('variantName')} value={v.name}
                       onChange={(e) => updateVariant(vg.key, v.key, { name: e.target.value })} />
-                    <FormInput type="number" min="0" step="0.01" placeholder="0.00" value={v.price}
-                      onChange={(e) => updateVariant(vg.key, v.key, { price: e.target.value })} />
-                    <FormInput type="number" min="0" step="0.01" placeholder="0.00" value={v.onlinePrice}
-                      onChange={(e) => updateVariant(vg.key, v.key, { onlinePrice: e.target.value })} />
+                    <NumberInput min={0} placeholder="0.00" value={v.price}
+                      onChange={(n) => updateVariant(vg.key, v.key, { price: n })}
+                      className={inputFieldClass} />
+                    <NumberInput min={0} placeholder="0.00" value={v.onlinePrice}
+                      onChange={(n) => updateVariant(vg.key, v.key, { onlinePrice: n })}
+                      className={inputFieldClass} />
                     <button onClick={() => updateVariant(vg.key, v.key, { isActive: !v.isActive })}
                       className={`text-[12px] font-medium px-2 py-1 rounded-full ${v.isActive ? 'text-green-500 dark:text-green-400' : 'text-neutral-600 dark:text-neutral-400'}`}
                       style={{ background: v.isActive ? 'rgba(5,223,114,0.12)' : '#27272a' }}>
@@ -667,7 +670,7 @@ export default function NewItemPage() {
         <ComboSavingsBreakdownModal
           comboName={name || undefined}
           breakdown={computeComboSavingsBreakdown(
-            parseFloat(price) || 0,
+            price,
             comboSteps,
             itemsByIdForSummary,
           )}

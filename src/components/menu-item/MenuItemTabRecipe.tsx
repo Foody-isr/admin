@@ -21,6 +21,7 @@ import {
 import { RecipeComposer, BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
 import CreateStockSheet from './CreateStockSheet';
 import CreatePrepSheet from './CreatePrepSheet';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 export type QuantityMode = 'adapt' | 'fixed' | 'custom';
 
@@ -295,10 +296,10 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
               key={idx}
               number={idx + 1}
               title={step.title ?? ''}
-              time={step.duration_mins ? `${step.duration_mins} min` : ''}
+              durationMins={step.duration_mins ?? 0}
               description={step.description ?? ''}
               onTitleChange={(v) => updateStep(idx, { title: v })}
-              onTimeChange={(v) => updateStep(idx, { duration_mins: Number(v) || 0 })}
+              onTimeChange={(n) => updateStep(idx, { duration_mins: n })}
               onDescriptionChange={(v) => updateStep(idx, { description: v })}
               onDelete={() => removeStep(idx)}
             />
@@ -317,12 +318,12 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
               {t('prepTime') || 'Temps de préparation'}
             </label>
             <div className="relative">
-              <input
-                type="number"
-                min="0"
+              <NumberInput
+                min={0}
+                integer
                 value={prepTime}
-                onChange={(e) => {
-                  setPrepTime(Number(e.target.value) || 0);
+                onChange={(n) => {
+                  setPrepTime(n);
                   setDirty(true);
                 }}
                 className="w-full px-4 py-2.5 pr-14 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
@@ -583,13 +584,10 @@ function RecipeIngredientItem({
                 <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                   Qté
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  defaultValue={quantity}
+                <FixedQtyInput
+                  initial={quantity}
                   disabled={saving}
-                  onBlur={(e) => handleFixedQtyChange(Number(e.target.value) || 0, unit)}
+                  onCommit={(n) => handleFixedQtyChange(n, unit)}
                   className="w-24 px-3 py-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                 />
                 <select
@@ -634,14 +632,11 @@ function RecipeIngredientItem({
                         <span className="font-medium text-neutral-900 dark:text-white">{v.name}</span>
                       </div>
                       <div className="col-span-6 flex items-center gap-2 justify-end">
-                        <input
-                          type="number"
-                          min={0}
-                          step="any"
-                          defaultValue={vqty}
+                        <FixedQtyInput
+                          initial={vqty}
                           disabled={saving}
                           placeholder="Qté"
-                          onBlur={(e) => handleOverrideChange(v.option_id, Number(e.target.value) || 0, vunit)}
+                          onCommit={(n) => handleOverrideChange(v.option_id, n, vunit)}
                           className="w-20 px-2 py-1.5 bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                         />
                         <select
@@ -931,13 +926,11 @@ function RecipeIngredientDraft({
               <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                 Qté
               </label>
-              <input
-                type="number"
+              <NumberInput
                 min={0}
-                step="any"
-                value={quantity || ''}
+                value={quantity}
                 disabled={saving}
-                onChange={(e) => setQuantity(Number(e.target.value) || 0)}
+                onChange={setQuantity}
                 className="w-24 px-3 py-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
               <select
@@ -980,14 +973,12 @@ function RecipeIngredientDraft({
                       <span className="font-medium text-neutral-900 dark:text-white">{v.name}</span>
                     </div>
                     <div className="col-span-6 flex items-center gap-2 justify-end">
-                      <input
-                        type="number"
+                      <NumberInput
                         min={0}
-                        step="any"
-                        value={vqty || ''}
+                        value={vqty}
                         disabled={saving}
                         placeholder="Qté"
-                        onChange={(e) => handleOverrideChange(v.option_id, Number(e.target.value) || 0, vunit)}
+                        onChange={(n) => handleOverrideChange(v.option_id, n, vunit)}
                         className="w-20 px-2 py-1.5 bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                       />
                       <select
@@ -1065,12 +1056,50 @@ function ModeBtn({
   );
 }
 
+// ─── Commit-on-blur quantity input ──────────────────────────────
+// Wraps NumberInput to keep the historical "type, then commit on blur"
+// semantics that the previous uncontrolled `<input defaultValue=...>` had.
+// We seed local state from `initial`, re-sync if the parent's `initial`
+// changes (e.g. after a successful save round-trip), and only fire
+// `onCommit` when the field loses focus.
+function FixedQtyInput({
+  initial,
+  disabled,
+  placeholder,
+  className,
+  onCommit,
+}: {
+  initial: number;
+  disabled?: boolean;
+  placeholder?: string;
+  className?: string;
+  onCommit: (n: number) => void;
+}) {
+  const [val, setVal] = useState<number>(initial);
+  useEffect(() => {
+    setVal(initial);
+  }, [initial]);
+  return (
+    <NumberInput
+      min={0}
+      value={val}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={className}
+      onChange={setVal}
+      onBlur={() => {
+        if (val !== initial) onCommit(val);
+      }}
+    />
+  );
+}
+
 // ─── Numbered instruction item — Figma:627-642 ─────────────────
 
 function InstructionItem({
   number,
   title,
-  time,
+  durationMins,
   description,
   onTitleChange,
   onTimeChange,
@@ -1079,10 +1108,10 @@ function InstructionItem({
 }: {
   number: number;
   title: string;
-  time: string;
+  durationMins: number;
   description: string;
   onTitleChange: (v: string) => void;
-  onTimeChange: (v: string) => void;
+  onTimeChange: (n: number) => void;
   onDescriptionChange: (v: string) => void;
   onDelete: () => void;
 }) {
@@ -1104,11 +1133,11 @@ function InstructionItem({
             className="flex-1 bg-transparent text-fs-md font-medium text-[var(--fg)] focus:outline-none placeholder:text-[var(--fg-subtle)]"
           />
           <div className="flex items-center gap-1 text-fs-sm text-[var(--fg-muted)] shrink-0">
-            <input
-              type="number"
-              min="0"
-              value={time.replace(/[^0-9]/g, '') || ''}
-              onChange={(e) => onTimeChange(e.target.value)}
+            <NumberInput
+              min={0}
+              integer
+              value={durationMins}
+              onChange={onTimeChange}
               placeholder="0"
               className="w-12 bg-transparent text-right font-mono tabular-nums text-[var(--fg)] focus:outline-none placeholder:text-[var(--fg-subtle)]"
             />

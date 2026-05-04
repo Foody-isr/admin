@@ -10,6 +10,7 @@ import SearchableSelect from '@/components/SearchableSelect';
 import { PlusIcon, TrashIcon, InfoIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { detectPrepSwaps, SwapSuggestion } from '@/lib/prep-swap';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // Inline label + tooltip — same pattern as the daily-operations page's ThTooltip.
 function FieldLabel({ text, tooltip }: { text: string; tooltip: string }) {
@@ -48,7 +49,7 @@ type Scope = 'base' | 'match' | 'custom';
 
 interface CardVariantRow {
   option_id: number;
-  quantity: string; // string so blank input ≠ 0
+  quantity: number; // 0 = blank
   unit: string;
 }
 
@@ -58,7 +59,7 @@ interface IngredientCard {
   prep_item_id?: number;
   scope: Scope;
   // For base/match: single qty/unit
-  quantity: string;
+  quantity: number;
   unit: string;
   // For custom: per-variant rows (one per attached variant)
   variants: CardVariantRow[];
@@ -68,7 +69,7 @@ function blankCard(defaultScope: Scope): IngredientCard {
   return {
     key: crypto.randomUUID(),
     scope: defaultScope,
-    quantity: '',
+    quantity: 0,
     unit: '',
     variants: [],
   };
@@ -120,7 +121,7 @@ export default function MenuItemIngredientsEditor({
           stock_item_id: ing.stock_item_id ?? undefined,
           prep_item_id: ing.prep_item_id ?? undefined,
           scope: scopeBucket,
-          quantity: '',
+          quantity: 0,
           unit: ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '',
           variants: [],
         };
@@ -129,11 +130,11 @@ export default function MenuItemIngredientsEditor({
       if (scopeBucket === 'custom' && ing.option_id != null) {
         card.variants.push({
           option_id: ing.option_id,
-          quantity: String(ing.quantity_needed || ''),
+          quantity: ing.quantity_needed || 0,
           unit: ing.unit || card.unit,
         });
       } else if (scopeBucket === 'base') {
-        card.quantity = String(ing.quantity_needed || '');
+        card.quantity = ing.quantity_needed || 0;
         card.unit = ing.unit || card.unit;
       }
       // match → quantity stays blank; cost math reads variant portion directly
@@ -156,7 +157,7 @@ export default function MenuItemIngredientsEditor({
           scales_with_variant: true,
         });
       } else if (card.scope === 'base') {
-        const qty = parseFloat(card.quantity);
+        const qty = card.quantity;
         if (!Number.isFinite(qty) || qty <= 0) continue;
         out.push({
           option_id: undefined,
@@ -169,7 +170,7 @@ export default function MenuItemIngredientsEditor({
       } else {
         // custom — one row per filled variant cell
         for (const vr of card.variants) {
-          const qty = parseFloat(vr.quantity);
+          const qty = vr.quantity;
           if (!Number.isFinite(qty) || qty <= 0) continue;
           out.push({
             option_id: vr.option_id,
@@ -240,7 +241,7 @@ export default function MenuItemIngredientsEditor({
             return existing ?? {
               option_id: v.option_id,
               // When coming from 'base', seed each variant with the base qty (user can adjust).
-              quantity: card.scope === 'base' ? card.quantity : '',
+              quantity: card.scope === 'base' ? card.quantity : 0,
               unit: card.unit || '',
             };
           })
@@ -249,7 +250,7 @@ export default function MenuItemIngredientsEditor({
     let collapsedQty = card.quantity;
     let collapsedUnit = card.unit;
     if (card.scope === 'custom' && next !== 'custom') {
-      const firstFilled = card.variants.find((vr) => parseFloat(vr.quantity) > 0);
+      const firstFilled = card.variants.find((vr) => vr.quantity > 0);
       if (firstFilled) {
         collapsedQty = firstFilled.quantity;
         collapsedUnit = firstFilled.unit || card.unit;
@@ -258,7 +259,7 @@ export default function MenuItemIngredientsEditor({
     updateCard(key, {
       scope: next,
       variants: seededVariants,
-      quantity: next === 'match' ? '' : collapsedQty,
+      quantity: next === 'match' ? 0 : collapsedQty,
       unit: collapsedUnit,
     });
   };
@@ -269,7 +270,7 @@ export default function MenuItemIngredientsEditor({
       const existing = c.variants.find((vr) => vr.option_id === optionId);
       const next = existing
         ? c.variants.map((vr) => (vr.option_id === optionId ? { ...vr, ...patch } : vr))
-        : [...c.variants, { option_id: optionId, quantity: '', unit: c.unit, ...patch } as CardVariantRow];
+        : [...c.variants, { option_id: optionId, quantity: 0, unit: c.unit, ...patch } as CardVariantRow];
       return { ...c, variants: next };
     }));
   };
@@ -315,7 +316,7 @@ export default function MenuItemIngredientsEditor({
       key: crypto.randomUUID(),
       prep_item_id: s.prep.id,
       scope: 'base',
-      quantity: '',
+      quantity: 0,
       unit: s.prep.unit || '',
       variants: [],
     };
@@ -414,13 +415,13 @@ export default function MenuItemIngredientsEditor({
               {card.scope === 'base' && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <FieldLabel text={t('qty') || 'Qty'} tooltip={t('qtyTooltip') || 'How much one sale draws. Literal number.'} />
-                  <input
-                    type="number" step="any" min="0"
+                  <NumberInput
+                    min={0}
                     className={`input w-24 py-1.5 text-sm text-right ${
-                      parseFloat(card.quantity || '0') <= 0 ? 'border-amber-500/60 ring-1 ring-amber-500/30' : ''
+                      card.quantity <= 0 ? 'border-amber-500/60 ring-1 ring-amber-500/30' : ''
                     }`}
                     value={card.quantity}
-                    onChange={(e) => updateCard(card.key, { quantity: e.target.value })}
+                    onChange={(v) => updateCard(card.key, { quantity: v })}
                     placeholder={t('qty')}
                   />
                   <select
@@ -434,7 +435,7 @@ export default function MenuItemIngredientsEditor({
                     <option value="ml">ml</option><option value="l">l</option>
                     <option value="unit">unit</option>
                   </select>
-                  {parseFloat(card.quantity || '0') <= 0 && (
+                  {card.quantity <= 0 && (
                     <span className="text-xs text-amber-500">{t('baseQtyMissing') || 'Base qty not set'}</span>
                   )}
                 </div>
@@ -454,11 +455,11 @@ export default function MenuItemIngredientsEditor({
                       <div key={v.option_id} className="grid items-center px-3 py-2 text-sm"
                         style={{ gridTemplateColumns: '1fr 100px 80px', borderTop: '1px solid var(--divider)' }}>
                         <span className="text-fg-primary">{v.name}</span>
-                        <input
-                          type="number" step="any" min="0"
+                        <NumberInput
+                          min={0}
                           className="input w-full py-1 text-xs text-right"
-                          value={row?.quantity ?? ''}
-                          onChange={(e) => updateVariantRow(card.key, v.option_id, { quantity: e.target.value })}
+                          value={row?.quantity ?? 0}
+                          onChange={(qv) => updateVariantRow(card.key, v.option_id, { quantity: qv })}
                           placeholder="—"
                         />
                         <select

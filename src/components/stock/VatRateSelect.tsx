@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/i18n';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // Three-way choice for an item's VAT rate:
 //   null → use restaurant default (no override stored on the item)
@@ -56,17 +57,12 @@ export default function VatRateSelect({ value, onChange, restaurantRate, compact
       </select>
       {mode === 'custom' && (
         <span className="inline-flex items-center gap-0.5">
-          <input
-            type="number"
-            min="0"
-            step="0.1"
+          <NumberInput
+            min={0}
             className={numCls}
             style={borderStyle}
             value={value ?? 0}
-            onChange={(e) => {
-              const n = parseFloat(e.target.value);
-              onChange(Number.isFinite(n) && n >= 0 ? n : 0);
-            }}
+            onChange={onChange}
           />
           <span className="text-fg-secondary text-xs">%</span>
         </span>

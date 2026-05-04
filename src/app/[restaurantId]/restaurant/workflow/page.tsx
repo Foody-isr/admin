@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { PageHead } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 export default function WorkflowPage() {
   const { restaurantId } = useParams();
@@ -80,13 +81,13 @@ export default function WorkflowPage() {
         <div>
           <label className="block text-sm font-medium text-fg-secondary mb-1">{t('pickupPrepTime')}</label>
           <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              max="240"
+            <NumberInput
+              integer
+              min={0}
+              max={240}
               className="input w-24"
               value={svc.pickup_prep_time_minutes}
-              onChange={(e) => setSvc((p) => ({ ...p, pickup_prep_time_minutes: parseInt(e.target.value) || 0 }))}
+              onChange={(n) => setSvc((p) => ({ ...p, pickup_prep_time_minutes: n }))}
             />
             <span className="text-sm text-fg-secondary">{t('minutes')}</span>
           </div>

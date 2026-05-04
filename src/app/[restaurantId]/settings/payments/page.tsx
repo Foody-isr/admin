@@ -17,7 +17,7 @@ import {
   RestaurantSettings,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Badge, Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
+import { Badge, Button, Field, NumberField, PageHead, Section, Select } from '@/components/ds';
 
 interface PaymentMethod {
   key: string;
@@ -200,13 +200,11 @@ export default function PaymentsSettingsPage() {
               <span className="text-right font-mono tabular-nums">
                 {v.id === 'standard' ? (
                   <span className="inline-flex items-center gap-1">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
+                    <NumberField
+                      min={0}
+                      max={100}
                       value={v.rate}
-                      onChange={(e) => setVatRate(+e.target.value)}
+                      onChange={setVatRate}
                       className="font-mono h-8 text-right"
                       style={{ width: 70 }}
                     />
@@ -246,13 +244,12 @@ export default function PaymentsSettingsPage() {
           <Field grow label={t('tipSuggestion') || 'Pourboire suggéré'}>
             <div className="flex items-center gap-[var(--s-2)]">
               {tipSuggestions.map((tip, i) => (
-                <Input
+                <NumberField
                   key={i}
-                  type="number"
                   value={tip}
-                  onChange={(e) => {
+                  onChange={(n) => {
                     const next = [...tipSuggestions] as typeof tipSuggestions;
-                    next[i] = +e.target.value;
+                    next[i] = n;
                     setTipSuggestions(next);
                   }}
                   className="font-mono tabular-nums text-right"

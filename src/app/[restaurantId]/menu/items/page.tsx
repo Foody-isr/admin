@@ -27,6 +27,7 @@ import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
   DataTableHead,
@@ -188,7 +189,7 @@ export default function ItemLibraryPage() {
   // Quick create
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [qcName, setQcName] = useState('');
-  const [qcPrice, setQcPrice] = useState('');
+  const [qcPrice, setQcPrice] = useState(0);
   const [qcCategoryId, setQcCategoryId] = useState(0);
   const [qcSaving, setQcSaving] = useState(false);
 
@@ -340,12 +341,12 @@ export default function ItemLibraryPage() {
     try {
       await createMenuItem(rid, {
         name: qcName.trim(),
-        price: parseFloat(qcPrice) || 0,
+        price: qcPrice,
         category_id: qcCategoryId || categories[0]?.id,
         is_active: true,
       });
       setQcName('');
-      setQcPrice('');
+      setQcPrice(0);
       setQcCategoryId(0);
       setQuickCreateOpen(false);
       reload();
@@ -628,12 +629,10 @@ export default function ItemLibraryPage() {
                   </td>
                   <td className="py-3 px-2" />
                   <td className="py-3 px-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <NumberInput
+                      min={0}
                       value={qcPrice}
-                      onChange={(e) => setQcPrice(e.target.value)}
+                      onChange={setQcPrice}
                       placeholder="0.00"
                       className="w-full px-3 py-1.5 text-sm text-right border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#1a1a1a] text-neutral-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       onKeyDown={(e) => {

@@ -6,6 +6,7 @@ import { createOptionSet, OptionSetInput } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // Create Option Set page — Figma-style full-screen modal with lucide icons,
 // orange gradient Save, and a rounded-card options table that mirrors the
@@ -17,14 +18,14 @@ import CenteredModalShell from '@/components/common/CenteredModalShell';
 interface LocalOption {
   key: string;
   name: string;
-  price: string;
+  price: number;
   sku: string;
 }
 
 const newOption = (): LocalOption => ({
   key: crypto.randomUUID(),
   name: '',
-  price: '',
+  price: 0,
   sku: '',
 });
 
@@ -48,7 +49,7 @@ export default function NewOptionSetPage() {
         name: name.trim(),
         options: validOptions.map((o, i) => ({
           name: o.name.trim(),
-          price: parseFloat(o.price) || 0,
+          price: o.price,
           sku: o.sku.trim() || undefined,
           is_active: true,
           sort_order: i,
@@ -141,12 +142,10 @@ export default function NewOptionSetPage() {
                   placeholder="—"
                   className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
                 />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <NumberInput
+                  min={0}
                   value={opt.price}
-                  onChange={(e) => updateOption(opt.key, { price: e.target.value })}
+                  onChange={(n) => updateOption(opt.key, { price: n })}
                   placeholder="0.00"
                   className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
                 />

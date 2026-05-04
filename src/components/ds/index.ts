@@ -1,7 +1,7 @@
 export { Button, buttonVariants } from './Button';
 export type { ButtonProps } from './Button';
 
-export { Input, Textarea, Select, InputGroup, Kbd } from './Input';
+export { Input, NumberField, Textarea, Select, InputGroup, Kbd, inputFieldClass } from './Input';
 export type { InputGroupProps } from './Input';
 
 export { Badge, badgeVariants } from './Badge';

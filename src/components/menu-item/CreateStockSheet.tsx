@@ -5,6 +5,7 @@ import { Info, Package, X } from 'lucide-react';
 import { Button, Input, Select, Field } from '@/components/ds';
 import { createStockItem, type StockItem, type StockUnit } from '@/lib/api';
 import { BRUT_COLOR } from './RecipeComposer';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 
@@ -30,7 +31,7 @@ export default function CreateStockSheet({
 }: Props) {
   const [name, setName] = React.useState(initialName);
   const [unit, setUnit] = React.useState<StockUnit>('kg');
-  const [cost, setCost] = React.useState<string>('');
+  const [cost, setCost] = React.useState<number>(0);
   const [category, setCategory] = React.useState('');
   const [supplier, setSupplier] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -64,7 +65,7 @@ export default function CreateStockSheet({
       const created = await createStockItem(restaurantId, {
         name: name.trim(),
         unit,
-        cost_per_unit: cost ? Number(cost) : 0,
+        cost_per_unit: cost,
         category: category.trim(),
         supplier: supplier.trim(),
         is_active: true,
@@ -140,13 +141,10 @@ export default function CreateStockSheet({
             <Field label={`Coût par ${unit}`}>
               <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
                 <span className="text-[var(--fg-subtle)] text-fs-sm">₪</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
+                <NumberInput
+                  min={0}
                   value={cost}
-                  onChange={(e) => setCost(e.target.value)}
+                  onChange={setCost}
                   disabled={saving}
                   placeholder="0.00"
                   className="flex-1 h-full bg-transparent border-none outline-none text-fs-sm font-mono tabular-nums placeholder:text-[var(--fg-subtle)]"

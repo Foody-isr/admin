@@ -12,6 +12,7 @@ import {
   type StockUnit,
 } from '@/lib/api';
 import { BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'portion' as StockUnit];
 // `portion` isn't in StockUnit but the API accepts it for preps — we cast.
@@ -19,7 +20,7 @@ const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'portion' as StockUnit
 interface Draft {
   id: string;
   stock_item_id: number | null;
-  quantity: string;
+  quantity: number;
 }
 
 interface Props {
@@ -45,11 +46,11 @@ export default function CreatePrepSheet({
   onCancel,
 }: Props) {
   const [name, setName] = React.useState(initialName);
-  const [yieldQty, setYieldQty] = React.useState('1');
+  const [yieldQty, setYieldQty] = React.useState<number>(1);
   const [unit, setUnit] = React.useState<StockUnit>('kg');
-  const [dlcDays, setDlcDays] = React.useState('3');
+  const [dlcDays, setDlcDays] = React.useState<number>(3);
   const [drafts, setDrafts] = React.useState<Draft[]>([
-    { id: crypto.randomUUID(), stock_item_id: null, quantity: '' },
+    { id: crypto.randomUUID(), stock_item_id: null, quantity: 0 },
   ]);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -72,23 +73,22 @@ export default function CreatePrepSheet({
   }, [onCancel]);
 
   const validDrafts = drafts.filter(
-    (d) => d.stock_item_id !== null && Number(d.quantity) > 0,
+    (d) => d.stock_item_id !== null && d.quantity > 0,
   );
 
   // Live cost preview: sum of (ingredient qty × cost/unit).
   const totalCost = validDrafts.reduce((sum, d) => {
     const item = stockItems.find((s) => s.id === d.stock_item_id);
     if (!item) return sum;
-    const qty = Number(d.quantity) || 0;
-    return sum + qty * (item.cost_per_unit || 0);
+    return sum + d.quantity * (item.cost_per_unit || 0);
   }, 0);
-  const yieldNum = Math.max(Number(yieldQty) || 0, 0.00001);
+  const yieldNum = Math.max(yieldQty, 0.00001);
   const costPerUnit = totalCost / yieldNum;
 
-  const canSubmit = name.trim().length > 0 && Number(yieldQty) > 0 && !saving;
+  const canSubmit = name.trim().length > 0 && yieldQty > 0 && !saving;
 
   const addDraft = () =>
-    setDrafts((d) => [...d, { id: crypto.randomUUID(), stock_item_id: null, quantity: '' }]);
+    setDrafts((d) => [...d, { id: crypto.randomUUID(), stock_item_id: null, quantity: 0 }]);
 
   const updateDraft = (id: string, patch: Partial<Draft>) =>
     setDrafts((arr) => arr.map((d) => (d.id === id ? { ...d, ...patch } : d)));
@@ -105,14 +105,14 @@ export default function CreatePrepSheet({
       const prep = await createPrepItem(restaurantId, {
         name: name.trim(),
         unit,
-        yield_per_batch: Number(yieldQty),
-        shelf_life_hours: Number(dlcDays) > 0 ? Number(dlcDays) * 24 : 0,
+        yield_per_batch: yieldQty,
+        shelf_life_hours: dlcDays > 0 ? dlcDays * 24 : 0,
         is_active: true,
       });
       if (validDrafts.length > 0) {
         const payload: PrepIngredientInput[] = validDrafts.map((d) => ({
           stock_item_id: d.stock_item_id as number,
-          quantity_needed: Number(d.quantity),
+          quantity_needed: d.quantity,
         }));
         await setPrepIngredients(restaurantId, prep.id, payload);
       }
@@ -173,13 +173,10 @@ export default function CreatePrepSheet({
             </Field>
             <Field label="Rendement">
               <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
+                <NumberInput
+                  min={0}
                   value={yieldQty}
-                  onChange={(e) => setYieldQty(e.target.value)}
+                  onChange={setYieldQty}
                   disabled={saving}
                   className="flex-1 h-full w-0 bg-transparent border-none outline-none text-fs-sm font-mono tabular-nums"
                 />
@@ -199,12 +196,11 @@ export default function CreatePrepSheet({
             </Field>
             <Field label="DLC">
               <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
+                <NumberInput
+                  integer
+                  min={0}
                   value={dlcDays}
-                  onChange={(e) => setDlcDays(e.target.value)}
+                  onChange={setDlcDays}
                   disabled={saving}
                   className="flex-1 h-full w-0 bg-transparent border-none outline-none text-fs-sm font-mono tabular-nums"
                 />
@@ -264,13 +260,10 @@ export default function CreatePrepSheet({
                         ))}
                     </Select>
                     <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 w-[140px] bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
+                      <NumberInput
+                        min={0}
                         value={d.quantity}
-                        onChange={(e) => updateDraft(d.id, { quantity: e.target.value })}
+                        onChange={(v) => updateDraft(d.id, { quantity: v })}
                         disabled={saving}
                         placeholder="0"
                         className="flex-1 h-full w-0 bg-transparent border-none outline-none text-end text-fs-sm font-mono tabular-nums placeholder:text-[var(--fg-subtle)]"

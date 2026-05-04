@@ -9,6 +9,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // Edit Option Set page — Figma-style full-screen modal. Option rows are
 // inline-editable (auto-persist on blur), and the header "Save" persists
@@ -26,7 +27,7 @@ export default function OptionSetDetailPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [newOptionName, setNewOptionName] = useState('');
-  const [newOptionPrice, setNewOptionPrice] = useState('');
+  const [newOptionPrice, setNewOptionPrice] = useState(0);
   const [newOptionSku, setNewOptionSku] = useState('');
 
   const loadData = useCallback(async () => {
@@ -60,14 +61,14 @@ export default function OptionSetDetailPage() {
     try {
       const input: OptionInSetInput = {
         name: newOptionName.trim(),
-        price: parseFloat(newOptionPrice) || 0,
+        price: newOptionPrice,
         sku: newOptionSku.trim() || undefined,
         is_active: true,
         sort_order: (optionSet?.options ?? []).length,
       };
       await createOptionInSet(rid, osid, input);
       setNewOptionName('');
-      setNewOptionPrice('');
+      setNewOptionPrice(0);
       setNewOptionSku('');
       loadData();
     } catch (err) {
@@ -184,12 +185,10 @@ export default function OptionSetDetailPage() {
                 className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
               />
-              <input
-                type="number"
-                min="0"
-                step="0.01"
+              <NumberInput
+                min={0}
                 value={newOptionPrice}
-                onChange={(e) => setNewOptionPrice(e.target.value)}
+                onChange={setNewOptionPrice}
                 placeholder="0.00"
                 className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddOption(); }}
@@ -231,14 +230,14 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
   t: (key: string) => string;
 }) {
   const [name, setName] = useState(option.name);
-  const [price, setPrice] = useState(String(option.price));
+  const [price, setPrice] = useState(option.price);
   const [sku, setSku] = useState(option.sku ?? '');
   const [isActive, setIsActive] = useState(option.is_active);
 
   const persist = async (patch: Partial<OptionInSetInput>) => {
     const payload: OptionInSetInput = {
       name: (patch.name ?? name).trim() || option.name,
-      price: patch.price ?? (parseFloat(price) || 0),
+      price: patch.price ?? price,
       sku: patch.sku ?? (sku.trim() || undefined),
       is_active: patch.is_active ?? isActive,
       sort_order: option.sort_order,
@@ -261,14 +260,8 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
   };
 
   const handlePriceBlur = () => {
-    const parsed = parseFloat(price);
-    const next = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    if (next === option.price) {
-      setPrice(String(option.price));
-      return;
-    }
-    setPrice(String(next));
-    persist({ price: next });
+    if (price === option.price) return;
+    persist({ price });
   };
 
   const handleSkuBlur = () => {
@@ -312,12 +305,10 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
         placeholder="—"
         className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
       />
-      <input
-        type="number"
-        min="0"
-        step="0.01"
+      <NumberInput
+        min={0}
         value={price}
-        onChange={(e) => setPrice(e.target.value)}
+        onChange={setPrice}
         onBlur={handlePriceBlur}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         placeholder="0.00"

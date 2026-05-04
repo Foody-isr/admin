@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
   DataTableHead,
@@ -159,7 +160,7 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
   const [name, setName] = useState('');
   const [action, setAction] = useState<'add' | 'remove'>('add');
   const [category, setCategory] = useState('');
-  const [priceDelta, setPriceDelta] = useState('0');
+  const [priceDelta, setPriceDelta] = useState(0);
   const [isRequired, setIsRequired] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -172,7 +173,7 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
         name: name.trim(),
         action,
         category,
-        price_delta: parseFloat(priceDelta) || 0,
+        price_delta: priceDelta,
         is_required: isRequired,
       };
       await createModifier(restaurantId, input);
@@ -207,7 +208,7 @@ function CreateModifierModal({ restaurantId, categories, onClose, onSaved }: {
           </div>
           <div>
             <label className="block text-sm font-medium text-fg-secondary mb-1">{t('priceDelta')}</label>
-            <input type="number" step="0.01" className="input" value={priceDelta} onChange={(e) => setPriceDelta(e.target.value)} />
+            <NumberInput min={-1000000} className="input" value={priceDelta} onChange={setPriceDelta} />
           </div>
         </div>
         <div>

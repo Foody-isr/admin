@@ -22,6 +22,7 @@ import {
   MailIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 function formatDate(d: Date): string {
   return d.toISOString().split('T')[0];
@@ -748,13 +749,11 @@ export default function DailyOperationsPage() {
                         <span className="text-right text-[var(--fg-secondary)]">{item.theoretical_usage.toFixed(2)}</span>
                         <div className="flex justify-end" onClick={e => e.stopPropagation()}>
                           {isOpen ? (
-                            <input
-                              type="number"
-                              step="0.01"
+                            <NumberInput
                               value={closingStocks[item.stock_item_id!] ?? item.closing_stock}
-                              onChange={(e) => item.stock_item_id && setClosingStocks(prev => ({
+                              onChange={(n) => item.stock_item_id && setClosingStocks(prev => ({
                                 ...prev,
-                                [item.stock_item_id!]: parseFloat(e.target.value) || 0,
+                                [item.stock_item_id!]: n,
                               }))}
                               className="input w-20 px-2 py-0.5 text-sm text-right"
                             />
@@ -1358,14 +1357,12 @@ function QuickReceiveModal({
                       <span className="text-[10px] text-[var(--fg-secondary)]">{si.category}</span>
                     )}
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={qty || ''}
-                    onChange={e => setQuantities(prev => ({
+                  <NumberInput
+                    min={0}
+                    value={qty}
+                    onChange={(n) => setQuantities(prev => ({
                       ...prev,
-                      [si.id]: parseFloat(e.target.value) || 0,
+                      [si.id]: n,
                     }))}
                     className="input px-2 py-1 text-sm text-right w-full"
                     placeholder="0"
@@ -1541,13 +1538,13 @@ function QuickSalesModal({
                     </span>
                   </div>
                   <span className="text-xs text-[var(--fg-secondary)] text-right">₪{item.price}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={qty || ''}
-                    onChange={e => setQuantities(prev => ({
+                  <NumberInput
+                    integer
+                    min={0}
+                    value={qty}
+                    onChange={(n) => setQuantities(prev => ({
                       ...prev,
-                      [item.id]: parseInt(e.target.value) || 0,
+                      [item.id]: n,
                     }))}
                     className="input px-2 py-1 text-sm text-right w-full"
                     placeholder="0"

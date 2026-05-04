@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { PageHead } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 export default function TableStatusPage() {
   const { restaurantId } = useParams();
@@ -80,12 +81,12 @@ export default function TableStatusPage() {
               <div className="flex-1">
                 <label className="text-sm font-medium text-fg-primary block mb-1">Passer en jaune après</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="240"
+                  <NumberInput
+                    integer
+                    min={1}
+                    max={240}
                     value={svc.table_yellow_after_minutes}
-                    onChange={(e) => setSvc((p) => ({ ...p, table_yellow_after_minutes: Number(e.target.value) }))}
+                    onChange={(n) => setSvc((p) => ({ ...p, table_yellow_after_minutes: n }))}
                     className="input w-24 text-sm"
                   />
                   <span className="text-sm text-fg-secondary">minutes</span>
@@ -98,12 +99,12 @@ export default function TableStatusPage() {
               <div className="flex-1">
                 <label className="text-sm font-medium text-fg-primary block mb-1">Passer en rouge après</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="480"
+                  <NumberInput
+                    integer
+                    min={1}
+                    max={480}
                     value={svc.table_red_after_minutes}
-                    onChange={(e) => setSvc((p) => ({ ...p, table_red_after_minutes: Number(e.target.value) }))}
+                    onChange={(n) => setSvc((p) => ({ ...p, table_red_after_minutes: n }))}
                     className="input w-24 text-sm"
                   />
                   <span className="text-sm text-fg-secondary">minutes</span>

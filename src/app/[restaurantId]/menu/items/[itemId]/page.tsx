@@ -73,7 +73,7 @@ export default function EditItemPage() {
   // Details tab shows populated fields immediately on modal open, matching
   // the stock-editor UX. Background fetch below overwrites with fresh values.
   const [name, setName] = useState(() => item?.name ?? '');
-  const [price, setPrice] = useState(() => (item?.price != null ? String(item.price) : ''));
+  const [price, setPrice] = useState<number>(() => item?.price ?? 0);
   const [description, setDescription] = useState(() => item?.description ?? '');
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
@@ -143,7 +143,7 @@ export default function EditItemPage() {
         if (found) {
           setItem(found);
           setName(found.name);
-          setPrice(String(found.price));
+          setPrice(found.price ?? 0);
           setDescription(found.description ?? '');
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
@@ -256,13 +256,13 @@ export default function EditItemPage() {
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !price) return;
+    if (!name.trim() || price <= 0) return;
     setSaving(true);
     try {
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
-        price: parseFloat(price),
+        price,
         is_active: isActive,
         item_type: itemType,
         category_id: categoryId,
@@ -357,7 +357,7 @@ export default function EditItemPage() {
     return m;
   }, [categories]);
   const railComboSummary = itemType === 'combo'
-    ? computeComboSavings(parseFloat(price) || 0, comboSteps, railItemsById)
+    ? computeComboSavings(price, comboSteps, railItemsById)
     : null;
 
   // Render the modal shell immediately — matches the stock-editor UX where
@@ -425,7 +425,7 @@ export default function EditItemPage() {
     <MenuItemSummaryRail
       imageUrl={imageUrl}
       name={name}
-      price={parseFloat(price) || 0}
+      price={price}
       activeStatus={isActive}
       categoryName={activeCategoryName}
       // Hide the food-cost summary for combos — it doesn't apply (a combo's
@@ -455,7 +455,7 @@ export default function EditItemPage() {
         onClose={goBack}
         onSave={handleSave}
         saving={saving}
-        saveDisabled={!name.trim() || !price}
+        saveDisabled={!name.trim() || price <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
@@ -627,7 +627,7 @@ export default function EditItemPage() {
                 ingredients={ingredients}
                 itemOptionOverrides={itemOptionOverrides}
                 vatRate={vatRate}
-                price={parseFloat(price) || 0}
+                price={price}
                 onChangesApplied={loadData}
               />
             )}
@@ -713,7 +713,7 @@ export default function EditItemPage() {
         <ComboSavingsBreakdownModal
           comboName={name || undefined}
           breakdown={computeComboSavingsBreakdown(
-            parseFloat(price) || 0,
+            price,
             comboSteps,
             railItemsById,
           )}

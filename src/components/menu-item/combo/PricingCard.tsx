@@ -12,12 +12,13 @@ import { Pin, Layers, DollarSign, Info, AlertTriangle } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Chip } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft } from './types';
 import { computeComboSavings, type PricingMode } from './pricing';
 
 interface Props {
-  basePrice: string;
-  onBasePriceChange: (next: string) => void;
+  basePrice: number;
+  onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   itemsById: Map<number, MenuItem>;
   pricingMode: PricingMode;
@@ -32,8 +33,7 @@ export default function PricingCard({
   onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
-  const baseNum = parseFloat(basePrice) || 0;
-  const summary = computeComboSavings(baseNum, steps, itemsById);
+  const summary = computeComboSavings(basePrice, steps, itemsById);
 
   // Three states for the savings cell:
   //   • unknown: items haven't loaded — no comparison possible. Render "—".
@@ -93,12 +93,10 @@ export default function PricingCard({
             {t('composeBasePriceLabel')}
           </span>
           <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md bg-[var(--surface)] border border-[var(--line-strong)] focus-within:border-[var(--brand-500)] focus-within:shadow-ring">
-            <input
-              type="number"
+            <NumberInput
               min={0}
-              step="0.50"
               value={basePrice}
-              onChange={(e) => onBasePriceChange(e.target.value)}
+              onChange={onBasePriceChange}
               placeholder="0.00"
               className="flex-1 bg-transparent border-none outline-none text-fs-sm tabular-nums"
             />

@@ -28,6 +28,7 @@ import {
   type VariantOption,
 } from '@/lib/cost-utils';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // "Et si… ?" simulator card — Figma reference:
 //   foodyadmin/foody-os-handoff/design-reference/screens/item-editor.jsx (WhatIfSimulator).
@@ -688,17 +689,10 @@ export default function WhatIfSimulator({
                           }}
                         >
                           <span className="text-fs-xs text-[var(--fg-subtle)]">{CURRENCY}</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={
-                              overrideVal != null
-                                ? overrideVal
-                                : row.baseUnitCost.toFixed(2)
-                            }
-                            onChange={(e) => {
-                              const v = parseFloat(e.target.value);
+                          <NumberInput
+                            min={0}
+                            value={overrideVal != null ? overrideVal : row.baseUnitCost}
+                            onChange={(v) => {
                               setSimStockCosts((prev) => {
                                 const next = { ...prev };
                                 if (!Number.isFinite(v) || v < 0) {
@@ -711,6 +705,7 @@ export default function WhatIfSimulator({
                                 return next;
                               });
                             }}
+                            format={(n) => n.toFixed(2)}
                             className="flex-1 min-w-0 bg-transparent border-0 outline-none text-fs-sm tabular-nums text-right text-[var(--fg)]"
                           />
                           <span className="text-fs-xs text-[var(--fg-subtle)]">

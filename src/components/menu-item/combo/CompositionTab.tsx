@@ -23,8 +23,8 @@ import type { PricingMode } from './pricing';
 
 interface Props {
   comboName: string;
-  basePrice: string;
-  onBasePriceChange: (next: string) => void;
+  basePrice: number;
+  onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   onStepsChange: (next: ComboStepDraft[]) => void;
   categories: MenuCategory[];
@@ -53,7 +53,6 @@ export default function CompositionTab({
     return m;
   }, [categories]);
 
-  const baseNum = parseFloat(basePrice) || 0;
 
   const errors = useMemo(
     () => validateCombo(steps, itemsById, {
@@ -113,7 +112,7 @@ export default function CompositionTab({
             key={step.key}
             step={step}
             index={i}
-            basePrice={baseNum}
+            basePrice={basePrice}
             categories={categories}
             itemsById={itemsById}
             onChange={(next) => updateStep(step.key, next)}
@@ -153,7 +152,7 @@ export default function CompositionTab({
       {/* Customer-facing preview */}
       <CustomerOutcomePreview
         comboName={comboName}
-        basePrice={baseNum}
+        basePrice={basePrice}
         steps={steps}
         itemsById={itemsById}
       />

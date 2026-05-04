@@ -9,6 +9,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { X, Plus, Trash2 } from 'lucide-react';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 /* ── Local row state (not yet persisted) ─────────────────────────── */
 
@@ -16,8 +17,8 @@ interface VariantRow {
   key: string;
   optionId?: number; // set when linked to a real OptionSetOption
   name: string;
-  price: string;
-  portionSize: string;
+  price: number;
+  portionSize: number;
   portionSizeUnit: string;
   isActive: boolean;
 }
@@ -32,8 +33,8 @@ interface GroupState {
 function newRow(defaultUnit: string = 'g'): VariantRow {
   return {
     key: crypto.randomUUID(),
-    name: '', price: '',
-    portionSize: '', portionSizeUnit: defaultUnit,
+    name: '', price: 0,
+    portionSize: 0, portionSizeUnit: defaultUnit,
     isActive: true,
   };
 }
@@ -98,8 +99,8 @@ export default function VariantsEditorPage() {
                 key: crypto.randomUUID(),
                 optionId: opt.id,
                 name: opt.name,
-                price: String(ov?.price ?? opt.price),
-                portionSize: (ov?.portion_size ?? 0) > 0 ? String(ov!.portion_size) : '',
+                price: ov?.price ?? opt.price,
+                portionSize: ov?.portion_size ?? 0,
                 portionSizeUnit: ov?.portion_size_unit || defaultUnit,
                 isActive: ov?.is_active ?? opt.is_active,
               };
@@ -143,8 +144,8 @@ export default function VariantsEditorPage() {
           variants: validRows.map((r, vi) => ({
             option_id: r.optionId ?? null,
             name: r.name.trim(),
-            price: parseFloat(r.price) || 0,
-            portion_size: r.portionSize ? parseFloat(r.portionSize) : 0,
+            price: r.price,
+            portion_size: r.portionSize,
             portion_size_unit: r.portionSizeUnit || 'g',
             is_active: r.isActive,
             sort_order: vi,
@@ -159,16 +160,13 @@ export default function VariantsEditorPage() {
       // grams), adopt the first variant's unit as the item's base portion so
       // variant scaling on ingredients works out of the box. Same-family case
       // and already-customized portions are left alone.
-      const firstVariant = groups.flatMap((g) => g.rows).find((r) => r.name.trim() && r.portionSize);
+      const firstVariant = groups.flatMap((g) => g.rows).find((r) => r.name.trim() && r.portionSize > 0);
       const itemIsDefault = itemPortionSize === 1 && itemPortionUnit === 'unit';
       if (firstVariant && itemIsDefault && firstVariant.portionSizeUnit && firstVariant.portionSizeUnit !== 'unit') {
-        const qty = parseFloat(firstVariant.portionSize);
-        if (Number.isFinite(qty) && qty > 0) {
-          await updateMenuItem(rid, iid, {
-            portion_size: qty,
-            portion_size_unit: firstVariant.portionSizeUnit,
-          });
-        }
+        await updateMenuItem(rid, iid, {
+          portion_size: firstVariant.portionSize,
+          portion_size_unit: firstVariant.portionSizeUnit,
+        });
       }
 
       setDirty(false);
@@ -236,8 +234,8 @@ export default function VariantsEditorPage() {
         key: crypto.randomUUID(),
         optionId: opt.id,
         name: opt.name,
-        price: String(opt.price),
-        portionSize: '',
+        price: opt.price,
+        portionSize: 0,
         portionSizeUnit: itemPortionUnit,
         isActive: opt.is_active,
       })),
@@ -352,12 +350,10 @@ export default function VariantsEditorPage() {
                     className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
                   />
                   <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <NumberInput
+                      min={0}
                       value={row.portionSize}
-                      onChange={(e) => updateRow(g.key, row.key, { portionSize: e.target.value })}
+                      onChange={(n) => updateRow(g.key, row.key, { portionSize: n })}
                       placeholder="0"
                       className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300 w-16"
                     />
@@ -373,12 +369,10 @@ export default function VariantsEditorPage() {
                       <option value="l">l</option>
                     </select>
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                  <NumberInput
+                    min={0}
                     value={row.price}
-                    onChange={(e) => updateRow(g.key, row.key, { price: e.target.value })}
+                    onChange={(n) => updateRow(g.key, row.key, { price: n })}
                     placeholder="0.00"
                     className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
                   />

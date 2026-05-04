@@ -17,6 +17,7 @@ import {
   TruckIcon, CheckCircleIcon, SendIcon, XCircleIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
   DataTableHead,
@@ -623,7 +624,7 @@ function ProductFormModal({ editing, stockItems, onClose, onSave, t }: {
         </div>
         <div>
           <label className="block text-xs font-medium text-fg-secondary mb-1">{t('pricePerUnit')}</label>
-          <input type="number" step="0.01" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
+          <NumberInput value={price} onChange={setPrice} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }} />
         </div>
         <div>
           <label className="block text-xs font-medium text-fg-secondary mb-1">{t('linkedStockItem')}</label>
@@ -727,16 +728,16 @@ function NewOrderModal({ suppliers, rid, onClose, onCreated, t }: {
                     <td className="px-3 py-2 text-fg-primary">{item.name}</td>
                     <td className="px-3 py-2 text-fg-secondary">{item.unit}</td>
                     <td className="px-3 py-2">
-                      <input
-                        type="number" step="0.01" value={item.price_per_unit}
-                        onChange={(e) => { const n = [...items]; n[idx] = { ...item, price_per_unit: Number(e.target.value) }; setItems(n); }}
+                      <NumberInput
+                        value={item.price_per_unit}
+                        onChange={(v) => { const n = [...items]; n[idx] = { ...item, price_per_unit: v }; setItems(n); }}
                         className="w-20 px-2 py-1 rounded border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
                       />
                     </td>
                     <td className="px-3 py-2">
-                      <input
-                        type="number" step="0.1" min="0" value={item.quantity}
-                        onChange={(e) => { const n = [...items]; n[idx] = { ...item, quantity: Number(e.target.value) }; setItems(n); }}
+                      <NumberInput
+                        min={0} value={item.quantity}
+                        onChange={(v) => { const n = [...items]; n[idx] = { ...item, quantity: v }; setItems(n); }}
                         className="w-20 px-2 py-1 rounded border text-sm" style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
                       />
                     </td>
@@ -813,12 +814,12 @@ function ReceiveOrderModal({ order, rid, onClose, onReceived, t }: {
                   <td className="px-3 py-2 text-fg-primary">{item.name}</td>
                   <td className="px-3 py-2 text-fg-secondary">{item.quantity} {item.unit}</td>
                   <td className="px-3 py-2">
-                    <input
-                      type="number" step="0.1" min="0"
+                    <NumberInput
+                      min={0}
                       value={receivedItems[idx]?.received_qty ?? item.quantity}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const n = [...receivedItems];
-                        n[idx] = { id: item.id, received_qty: Number(e.target.value) };
+                        n[idx] = { id: item.id, received_qty: v };
                         setReceivedItems(n);
                       }}
                       className="w-20 px-2 py-1 rounded border text-sm"

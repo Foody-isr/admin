@@ -5,6 +5,7 @@ import type { StockItem, StockUnit } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { ChevronDownIcon, InfoIcon } from 'lucide-react';
 import VatRateSelect from '@/components/stock/VatRateSelect';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -474,11 +475,10 @@ function SentenceBuilder({
 
   const outerPair = value.type !== 'simple' && (
     <span className={pairCls}>
-      <input
-        type="number" step={1} min="0" className={numCls} style={fieldStyle}
-        value={fmtNum(value.outerQuantity)}
-        onChange={(e) => {
-          const q = +e.target.value;
+      <NumberInput
+        integer min={0} className={numCls} style={fieldStyle}
+        value={value.outerQuantity}
+        onChange={(q) => {
           const total = d.pricePerOuter > 0 ? d.pricePerOuter * q : value.totalPrice;
           onChange({ ...value, outerQuantity: q, totalPrice: total });
         }}
@@ -490,10 +490,10 @@ function SentenceBuilder({
 
   const innerPair = value.type === 'packaged-nested' && (
     <span className={pairCls}>
-      <input
-        type="number" step={1} min="0" className={numCls} style={fieldStyle}
-        value={fmtNum(value.innerQuantity)}
-        onChange={(e) => onChange({ ...value, innerQuantity: +e.target.value })}
+      <NumberInput
+        integer min={0} className={numCls} style={fieldStyle}
+        value={value.innerQuantity}
+        onChange={(q) => onChange({ ...value, innerQuantity: q })}
         placeholder="0"
       />
       <select
@@ -527,11 +527,12 @@ function SentenceBuilder({
 
   const contentPair = value.type !== 'simple' && (
     <span className={pairCls}>
-      <input
-        type="number" step="any" min="0" className={numClsWide} style={fieldStyle}
-        value={fmtNum(value.contentQuantity)}
-        onChange={(e) => onChange({ ...value, contentQuantity: +e.target.value })}
+      <NumberInput
+        min={0} className={numClsWide} style={fieldStyle}
+        value={value.contentQuantity}
+        onChange={(q) => onChange({ ...value, contentQuantity: q })}
         placeholder="0"
+        format={fmtNum}
       />
       <select
         className={selectCls}
@@ -550,11 +551,12 @@ function SentenceBuilder({
       {value.type === 'simple' && (
         <div className={rowCls}>
           <span className={pairCls}>
-            <input
-              type="number" step="any" min="0" className={numCls} style={fieldStyle}
-              value={fmtNum(value.quantity)}
-              onChange={(e) => onChange({ ...value, quantity: +e.target.value })}
+            <NumberInput
+              min={0} className={numCls} style={fieldStyle}
+              value={value.quantity}
+              onChange={(q) => onChange({ ...value, quantity: q })}
               placeholder="0"
+              format={fmtNum}
             />
             <Step1UnitSelect unit={value.unit} onChange={onStep1UnitChange} t={t} />
           </span>
@@ -853,11 +855,12 @@ function PriceSentence({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         {renderLeading()}
         <span className="inline-flex items-center gap-1.5">
-          <input
-            type="number" step="any" min="0" className={priceNumCls} style={flashStyle}
-            value={fmtNum(displayed)}
-            onChange={(e) => setFromInput(+e.target.value)}
+          <NumberInput
+            min={0} className={priceNumCls} style={flashStyle}
+            value={displayed}
+            onChange={setFromInput}
             placeholder="0.00"
+            format={fmtNum}
           />
           <span className="text-[15px] font-semibold text-fg-secondary">&#8362;</span>
           {sideTag}

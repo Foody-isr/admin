@@ -16,6 +16,7 @@ import {
   ChevronUpIcon, ChevronDownIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 export interface MenuItemRecipeTabHandle {
   save: () => Promise<void>;
@@ -155,12 +156,12 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
       {/* Prep time */}
       <FormSection title={t('prepTime')}>
         <div className="flex items-center gap-2">
-          <input
-            type="number"
+          <NumberInput
             min={0}
+            integer
             className="input text-sm w-24"
-            value={prepTime || ''}
-            onChange={(e) => setPrepTime(+e.target.value)}
+            value={prepTime}
+            onChange={setPrepTime}
           />
           <span className="text-xs text-fg-secondary">min</span>
         </div>
@@ -210,11 +211,11 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
               />
               <div className="flex items-center gap-2">
                 <ClockIcon className="h-4 w-4 text-fg-secondary" />
-                <input
-                  type="number"
+                <NumberInput
                   min={0}
-                  value={step.duration_mins || ''}
-                  onChange={(e) => updateStep(idx, 'duration_mins', Number(e.target.value))}
+                  integer
+                  value={step.duration_mins ?? 0}
+                  onChange={(n) => updateStep(idx, 'duration_mins', n)}
                   placeholder={t('recipeStepDuration')}
                   className="input w-24 text-sm"
                 />

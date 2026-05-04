@@ -13,6 +13,7 @@ import {
   XIcon, PlusIcon, TrashIcon,
 } from 'lucide-react';
 import { ImageIcon } from 'lucide-react';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 interface ModifierRow {
   id?: number;
@@ -322,11 +323,10 @@ export default function ModifierSetEditorPage() {
                     {/* Price */}
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          step="0.01"
+                        <NumberInput
+                          min={-1000000}
                           value={row.price_delta}
-                          onChange={(e) => updateRow(i, { price_delta: parseFloat(e.target.value) || 0 })}
+                          onChange={(n) => updateRow(i, { price_delta: n })}
                           className="w-full px-2 py-1.5 text-sm bg-transparent outline-none text-fg-primary rounded"
                           style={{ border: '1px solid var(--divider)' }}
                         />
@@ -436,12 +436,10 @@ export default function ModifierSetEditorPage() {
                                 ))}
                               </optgroup>
                             </select>
-                            <input
-                              type="number"
-                              step="any"
-                              min="0"
-                              value={row.quantity || ''}
-                              onChange={(e) => updateRow(i, { quantity: parseFloat(e.target.value) || 0 })}
+                            <NumberInput
+                              min={0}
+                              value={row.quantity}
+                              onChange={(n) => updateRow(i, { quantity: n })}
                               placeholder={t('qty') || 'Qty'}
                               className="w-20 px-2 py-1 rounded text-xs bg-transparent text-right"
                               style={{ border: '1px solid var(--divider)' }}

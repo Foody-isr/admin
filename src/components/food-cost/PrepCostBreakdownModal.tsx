@@ -4,6 +4,7 @@ import { MenuItem, MenuItemIngredient } from '@/lib/api';
 import { convertQuantity, toBaseUnit } from '@/lib/units';
 import { costExVat, vatMultiplierForStock } from '@/lib/cost-utils';
 import { ImageIcon } from 'lucide-react';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // Shows the full math behind a prep ingredient's cost: raw ingredients →
 // batch cost → cost per unit → line cost at the current portion.
@@ -170,17 +171,10 @@ export default function PrepCostBreakdownModal({
                                 background: 'var(--surface)',
                               }}
                             >
-                              <input
-                                type="number"
-                                step="0.0001"
-                                min="0"
+                              <NumberInput
+                                min={0}
                                 value={r.unitCost}
-                                onChange={(e) => {
-                                  const v = parseFloat(e.target.value);
-                                  if (Number.isFinite(v) && v >= 0) {
-                                    onEditStockCost!(r.stockId!, v);
-                                  }
-                                }}
+                                onChange={(v) => onEditStockCost!(r.stockId!, v)}
                                 className="w-24 bg-transparent border-0 outline-none text-sm text-right tabular-nums"
                               />
                               <span className="text-fg-secondary text-xs whitespace-nowrap">

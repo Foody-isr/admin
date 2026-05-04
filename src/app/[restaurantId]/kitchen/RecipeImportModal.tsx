@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
+import { NumberInput } from '@/components/ui/NumberInput';
 import StockQuantityForm, {
   StockInput, BaseUnit, defaultStockInput, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
@@ -345,8 +346,8 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
             <label className="text-sm text-fg-secondary font-medium">
               {mode.kind === 'prep' ? t('yieldPerBatch') : t('recipeYield')}:
             </label>
-            <input type="number" step="any" min="0" className="input w-24 py-1.5 text-sm text-right"
-              value={editedYield || ''} onChange={(e) => setEditedYield(+e.target.value)} />
+            <NumberInput min={0} className="input w-24 py-1.5 text-sm text-right"
+              value={editedYield} onChange={setEditedYield} />
             <select className="input w-20 py-1.5 text-sm" value={editedYieldUnit} onChange={(e) => setEditedYieldUnit(e.target.value)}>
               <option value="kg">kg</option><option value="g">g</option>
               <option value="l">l</option><option value="ml">ml</option>
@@ -481,10 +482,10 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
                       <label className="text-xs text-fg-secondary font-medium mb-1 block">
                         {t('quantityNeededPerServing') || `${t('quantity')} / ${t('recipeYield') || 'serving'}`}
                       </label>
-                      <input
-                        type="number" step="any" min="0" className="input w-full py-1.5 text-sm text-right"
-                        value={ing.quantity_needed || ''}
-                        onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })}
+                      <NumberInput
+                        min={0} className="input w-full py-1.5 text-sm text-right"
+                        value={ing.quantity_needed}
+                        onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
                       />
                     </div>
                     <div>

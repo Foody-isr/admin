@@ -11,6 +11,7 @@
 // between 0 and `max(1, current)`; max_picks is preserved.
 
 import { useI18n } from '@/lib/i18n';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 interface Props {
   minPicks: number;
@@ -79,19 +80,19 @@ export default function StepRulesPanel({ minPicks, maxPicks, onChange, flush }: 
           {t('composeMin')} — {t('composeMax')}
         </span>
         <div className="flex items-center gap-1">
-          <input
-            type="number"
+          <NumberInput
+            integer
             min={0}
             value={minPicks}
-            onChange={(e) => setMin(parseInt(e.target.value, 10) || 0)}
+            onChange={setMin}
             className="w-12 h-7 px-1.5 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)]"
           />
           <span className="text-[var(--fg-muted)]">–</span>
-          <input
-            type="number"
+          <NumberInput
+            integer
             min={Math.max(1, minPicks)}
             value={maxPicks}
-            onChange={(e) => setMax(parseInt(e.target.value, 10) || 0)}
+            onChange={setMax}
             className="w-12 h-7 px-1.5 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)]"
           />
         </div>

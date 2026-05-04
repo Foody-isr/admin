@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType } from '@/lib/api';
 import SearchableListField from '@/components/SearchableListField';
-import { Field, Input, Textarea } from '@/components/ds';
+import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import TypePickerCards from './combo/TypePickerCards';
 
 // Aligned to design-reference/design/screens/item-editor.jsx:274-316 (DetailsTab).
@@ -18,8 +18,8 @@ import TypePickerCards from './combo/TypePickerCards';
 interface Props {
   name: string;
   setName: (v: string) => void;
-  price: string;
-  setPrice: (v: string) => void;
+  price: number;
+  setPrice: (v: number) => void;
   description: string;
   setDescription: (v: string) => void;
   categoryId: number;
@@ -143,12 +143,10 @@ export default function MenuItemTabDetails({
             hint={isCombo ? t('composeBasePriceHint') : undefined}
           >
             <div className="relative">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
+              <NumberField
+                min={0}
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={setPrice}
                 placeholder="0.00"
                 className="pr-8 font-mono"
               />

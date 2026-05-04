@@ -8,6 +8,7 @@ import { GripVertical, Pin, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView } from './types';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 interface Props {
   option: ComboOptionView;
@@ -40,13 +41,11 @@ export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDef
       {/* Upcharge: pill (collapsed) → inline number input (editing) */}
       {editing ? (
         <div className="flex items-center h-7 px-2 rounded-r-sm border border-[var(--brand-500)] bg-[var(--surface)]">
-          <input
-            type="number"
+          <NumberInput
             min={0}
-            step="0.50"
             autoFocus
             value={option.upcharge}
-            onChange={(e) => onUpchargeChange(Math.max(0, parseFloat(e.target.value) || 0))}
+            onChange={onUpchargeChange}
             onBlur={() => setEditing(false)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditing(false); }}
             className="w-16 bg-transparent border-none outline-none text-end text-fs-sm tabular-nums text-[var(--brand-500)] font-semibold"

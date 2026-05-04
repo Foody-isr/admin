@@ -9,6 +9,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XIcon, TrashIcon } from 'lucide-react';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,7 +136,7 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
               </div>
               <div>
                 <label className="text-xs text-fg-secondary block mb-1">{t('tableCount')}</label>
-                <input type="number" min="1" max="50" value={count} onChange={(e) => setCount(Number(e.target.value))} className="input text-sm w-full" />
+                <NumberInput integer min={1} max={50} value={count} onChange={setCount} className="input text-sm w-full" />
               </div>
             </div>
           ) : (
@@ -484,16 +485,16 @@ export default function FloorPlanEditorPage() {
                 </div>
                 <div>
                   <p className="text-xs text-fg-secondary mb-1">{t('tableWidth')}</p>
-                  <input type="number" min="3" max="30" step="0.5"
+                  <NumberInput min={3} max={30}
                     value={Math.round(selectedPlacement.width * 10) / 10}
-                    onChange={(e) => updateSelected({ width: Number(e.target.value) })}
+                    onChange={(n) => updateSelected({ width: n })}
                     className="input text-xs w-full" />
                 </div>
                 <div>
                   <p className="text-xs text-fg-secondary mb-1">{t('tableHeight')}</p>
-                  <input type="number" min="3" max="30" step="0.5"
+                  <NumberInput min={3} max={30}
                     value={Math.round(selectedPlacement.height * 10) / 10}
-                    onChange={(e) => updateSelected({ height: Number(e.target.value) })}
+                    onChange={(n) => updateSelected({ height: n })}
                     className="input text-xs w-full" />
                 </div>
                 <button onClick={removeSelected} className="p-2 rounded-md hover:bg-red-500/10 self-start">
@@ -530,16 +531,16 @@ export default function FloorPlanEditorPage() {
                 </div>
                 <div>
                   <p className="text-xs text-fg-secondary mb-1">{t('tableWidth')}</p>
-                  <input type="number" min="4" max="60" step="1"
+                  <NumberInput integer min={4} max={60}
                     value={Math.round(selectedDecoration.width)}
-                    onChange={(e) => updateSelectedDecoration({ width: Number(e.target.value) })}
+                    onChange={(n) => updateSelectedDecoration({ width: n })}
                     className="input text-xs w-full" />
                 </div>
                 <div>
                   <p className="text-xs text-fg-secondary mb-1">{t('tableHeight')}</p>
-                  <input type="number" min="4" max="60" step="1"
+                  <NumberInput integer min={4} max={60}
                     value={Math.round(selectedDecoration.height)}
-                    onChange={(e) => updateSelectedDecoration({ height: Number(e.target.value) })}
+                    onChange={(n) => updateSelectedDecoration({ height: n })}
                     className="input text-xs w-full" />
                 </div>
                 <div>

@@ -8,6 +8,7 @@
 
 import { Check, MoreHorizontal, Pin } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 interface Props {
   /** Source variant name. */
@@ -88,13 +89,11 @@ export default function VariantSubRow({
               : 'border-[var(--line-strong)]'
           }`}
         >
-          <input
-            type="number"
+          <NumberInput
             min={0}
-            step="0.50"
             value={upcharge}
             disabled={!included}
-            onChange={(e) => onUpchargeChange(Math.max(0, parseFloat(e.target.value) || 0))}
+            onChange={onUpchargeChange}
             className={`w-full bg-transparent border-none outline-none text-end text-fs-sm tabular-nums ${
               upchargeWarn ? 'font-semibold text-[var(--brand-500)]' : 'text-[var(--fg)]'
             }`}

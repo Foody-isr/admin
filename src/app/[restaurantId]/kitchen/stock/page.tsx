@@ -19,6 +19,7 @@ import StockQuantityForm, {
   serverToStockInput,
   stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
+import { NumberInput } from '@/components/ui/NumberInput';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import Modal from '@/components/Modal';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
@@ -27,7 +28,7 @@ import FormSection from '@/components/FormSection';
 import FormField from '@/components/FormField';
 import StatusPill from '@/components/StatusPill';
 import SearchableListField from '@/components/SearchableListField';
-import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
+import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
 import { Image as LucideImageIcon, Camera } from 'lucide-react';
 import {
   SearchIcon, PlusIcon, DownloadIcon,
@@ -1247,11 +1248,10 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             label={t('reorderThreshold') || 'Seuil de réapprovisionnement'}
             hint={t('reorderThresholdHelp') || 'Alerte déclenchée quand le stock descend sous ce niveau.'}
           >
-            <Input
-              type="number"
-              step="any"
-              value={reorder || ''}
-              onChange={(e) => setReorder(+e.target.value)}
+            <NumberField
+              min={0}
+              value={reorder}
+              onChange={setReorder}
               className="max-w-[220px]"
             />
           </Field>
@@ -1388,7 +1388,7 @@ function TransactionModal({
 
         <div>
           <label className="text-xs text-neutral-600 dark:text-neutral-400 block mb-1">{t('quantityUnit').replace('{unit}', item.unit)}</label>
-          <input type="number" step="any" min="0" required className="input w-full py-2 text-sm" value={qty || ''} onChange={(e) => setQty(+e.target.value)} />
+          <NumberInput min={0} required className="input w-full py-2 text-sm" value={qty} onChange={setQty} />
         </div>
 
         <div>

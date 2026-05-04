@@ -45,7 +45,8 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import RecipeImportModal from '../RecipeImportModal';
-import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, Textarea } from '@/components/ds';
+import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 import { Layers as LayersIcon } from 'lucide-react';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
@@ -922,18 +923,17 @@ function PrepItemModal({
               />
             </Field>
             <Field label={t('shelfLifeHours') || 'DLC (heures)'}>
-              <Input
-                type="number"
-                value={shelfLife || ''}
-                onChange={(e) => setShelfLife(+e.target.value)}
+              <NumberField
+                min={0}
+                value={shelfLife}
+                onChange={setShelfLife}
               />
             </Field>
             <Field label={t('reorderThreshold') || 'Seuil'}>
-              <Input
-                type="number"
-                step="any"
-                value={reorder || ''}
-                onChange={(e) => setReorder(+e.target.value)}
+              <NumberField
+                min={0}
+                value={reorder}
+                onChange={setReorder}
               />
             </Field>
           </div>
@@ -955,19 +955,17 @@ function PrepItemModal({
               </select>
             </Field>
             <Field label={t('yieldPerBatchLabel') || 'Rendement / batch'}>
-              <Input
-                type="number"
-                step="any"
-                value={yieldPerBatch || ''}
-                onChange={(e) => setYieldPerBatch(+e.target.value)}
+              <NumberField
+                min={0}
+                value={yieldPerBatch}
+                onChange={setYieldPerBatch}
               />
             </Field>
             <Field label={t('currentStock') || 'Stock actuel'}>
-              <Input
-                type="number"
-                step="any"
-                value={quantity || ''}
-                onChange={(e) => setQuantity(+e.target.value)}
+              <NumberField
+                min={0}
+                value={quantity}
+                onChange={setQuantity}
               />
             </Field>
           </div>
@@ -1005,9 +1003,6 @@ function PrepItemModal({
           <div className="space-y-2">
             {ingredients.map((ing, idx) => {
               const si = stockItems.find((s) => s.id === ing.stock_item_id);
-              const qtyStr = ing.quantity_needed
-                ? String(Math.round(ing.quantity_needed * 10000) / 10000)
-                : '';
               return (
                 <div key={idx} className="flex items-center gap-2">
                   <button
@@ -1033,13 +1028,11 @@ function PrepItemModal({
                     </div>
                   </button>
                   <div className="relative w-32 shrink-0">
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
+                    <NumberInput
+                      min={0}
                       className="input w-full text-sm text-right pr-9"
-                      value={qtyStr}
-                      onChange={(e) => updateIngredient(idx, { quantity_needed: +e.target.value })}
+                      value={ing.quantity_needed}
+                      onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
                       placeholder={t('qty')}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-fg-secondary pointer-events-none">
@@ -1125,7 +1118,7 @@ function BatchProduceModal({
       <div className="space-y-4">
         <div>
           <label className="text-xs text-fg-secondary block mb-1">{t('numberOfBatches')}</label>
-          <input type="number" min="1" className="input w-full py-2 text-sm" value={batches} onChange={(e) => { setBatches(+e.target.value); setPreview(null); }} />
+          <NumberInput integer min={1} className="input w-full py-2 text-sm" value={batches} onChange={(v) => { setBatches(v); setPreview(null); }} />
           <p className="text-xs text-fg-secondary mt-1">
             {t('willProduce')
               .replace('{amount}', (batches * item.yield_per_batch).toFixed(1))
@@ -1238,7 +1231,7 @@ function PrepTxModal({
 
         <div>
           <label className="text-xs text-fg-secondary block mb-1">{t('quantityUnit').replace('{unit}', item.unit)}</label>
-          <input type="number" step="any" min="0" required className="input w-full py-2 text-sm" value={qty || ''} onChange={(e) => setQty(+e.target.value)} />
+          <NumberInput min={0} required className="input w-full py-2 text-sm" value={qty} onChange={setQty} />
         </div>
 
         <div>

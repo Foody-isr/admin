@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { NumberInput, type NumberInputProps } from '@/components/ui/NumberInput';
 
 const baseField = [
   'block w-full bg-[var(--surface)] text-[var(--fg)]',
@@ -14,17 +15,28 @@ const baseField = [
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ].join(' ');
 
+export const inputFieldClass = cn(baseField, 'h-9 px-[var(--s-3)]');
+
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, type = 'text', ...props }, ref) => (
     <input
       ref={ref}
       type={type}
-      className={cn(baseField, 'h-9 px-[var(--s-3)]', className)}
+      className={cn(inputFieldClass, className)}
       {...props}
     />
   ),
 );
 Input.displayName = 'Input';
+
+// Number-typed sibling of `Input` with the same look. Use this instead of
+// `<Input type="number" ...>` so typing 0, decimals, and locale comma work.
+export const NumberField = React.forwardRef<HTMLInputElement, NumberInputProps>(
+  ({ className, ...props }, ref) => (
+    <NumberInput ref={ref} className={cn(inputFieldClass, className)} {...props} />
+  ),
+);
+NumberField.displayName = 'NumberField';
 
 export const Textarea = React.forwardRef<
   HTMLTextAreaElement,
