@@ -329,6 +329,9 @@ export interface Order {
   table_code?: string;
   is_scheduled?: boolean;
   scheduled_for?: string;
+  scheduled_pickup_window_start?: string;
+  scheduled_pickup_window_end?: string;
+  scheduled_accepted_at?: string;
   accepted_at?: string;
   in_kitchen_at?: string;
   ready_at?: string;
@@ -1959,6 +1962,97 @@ export async function updateOrderPaymentStatus(
     { method: 'PUT', body: JSON.stringify(body) },
   );
   return data.order;
+}
+
+// ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
+
+export interface KitchenPlanModifierBreakdown {
+  modifier_label: string;
+  quantity: number;
+}
+
+export interface KitchenPlanItem {
+  menu_item_id: number;
+  name: string;
+  total_quantity: number;
+  modifiers?: KitchenPlanModifierBreakdown[];
+}
+
+export interface KitchenPlanSlot {
+  start: string;
+  end: string;
+  order_count: number;
+  order_ids: string[];
+}
+
+export interface KitchenPlanDay {
+  date: string;
+  total_orders: number;
+  order_ids: string[];
+  items: KitchenPlanItem[];
+  slots: KitchenPlanSlot[];
+}
+
+export async function fetchKitchenPlan(
+  restaurantId: number,
+  from: string,
+  to: string,
+): Promise<KitchenPlanDay[]> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    from,
+    to,
+  });
+  const data = await apiFetch<{ plan: KitchenPlanDay[] }>(
+    `/api/v1/orders/kitchen-plan?${qs.toString()}`,
+    restaurantId,
+  );
+  return data.plan ?? [];
+}
+
+export interface KitchenPlanDetailItem {
+  menu_item_id: number;
+  name: string;
+  quantity: number;
+  modifier_label: string;
+}
+
+export interface KitchenPlanOrderDetail {
+  order_id: number;
+  customer_name: string;
+  customer_phone?: string;
+  pickup_window?: string;
+  items: KitchenPlanDetailItem[];
+}
+
+export interface KitchenPlanProductCol {
+  menu_item_id: number;
+  name: string;
+}
+
+export interface KitchenPlanDetailsResponse {
+  date: string;
+  products: KitchenPlanProductCol[];
+  orders: KitchenPlanOrderDetail[];
+}
+
+export async function fetchKitchenPlanDetails(
+  restaurantId: number,
+  date: string,
+): Promise<KitchenPlanDetailsResponse> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    date,
+  });
+  const data = await apiFetch<KitchenPlanDetailsResponse>(
+    `/api/v1/orders/kitchen-plan/details?${qs.toString()}`,
+    restaurantId,
+  );
+  return {
+    date: data.date,
+    products: data.products ?? [],
+    orders: data.orders ?? [],
+  };
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────

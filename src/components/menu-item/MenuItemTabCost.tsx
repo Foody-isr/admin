@@ -78,7 +78,9 @@ export default function MenuItemTabCost({
   const [variantId, setVariantId] = useState<string>(defaultVariantId);
   const activeVariant = variants.find((v) => v.id === variantId) ?? null;
 
-  // Item price shown for the active variant — falls back to the base item price.
+  // Raw stored price for the active variant (always inc-VAT — DB convention).
+  // Falls back to the base item price. Used by CostPctBreakdownModal which
+  // normalizes internally based on showCostsExVat.
   const effectivePrice = activeVariant?.price ?? price;
 
   // HT/TTC (ex-VAT / inc-VAT) display toggle — mirrors the stock page pattern
@@ -222,8 +224,8 @@ export default function MenuItemTabCost({
             {summary.margin.toFixed(2)} {CURRENCY}
           </p>
           <p className="text-fs-xs text-[var(--fg-subtle)]">
-            {effectivePrice > 0
-              ? `${((summary.margin / effectivePrice) * 100).toFixed(1)}% · ${t('healthy') || 'sain'}`
+            {summary.displayPrice > 0
+              ? `${((summary.margin / summary.displayPrice) * 100).toFixed(1)}% · ${t('healthy') || 'sain'}`
               : '—'}
           </p>
         </button>
@@ -344,7 +346,7 @@ export default function MenuItemTabCost({
         item={item}
         summary={summary}
         activeVariant={activeVariant}
-        effectivePrice={effectivePrice}
+        effectivePrice={summary.displayPrice}
         thresholdPct={COST_THRESHOLD * 100}
         vatRate={vatRate}
         showCostsExVat={showCostsExVat}

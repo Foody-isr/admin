@@ -321,6 +321,11 @@ export default function WhatIfSimulator({
     try {
       const calls: Promise<unknown>[] = [];
 
+      // Menu prices are stored inc-VAT at the restaurant rate. When the user
+      // is editing on the HT (ex-VAT) basis, inflate back to TTC before save.
+      const restaurantMultiplier = 1 + vatRate / 100;
+      const priceForStorage = showCostsExVat ? simPrice * restaurantMultiplier : simPrice;
+
       // 1) Variant-level updates (price + portion). Option-set variants use
       //    setItemOptionPrice; legacy `var:` variants only support price via
       //    updateVariant — portion edits on those need the variants page.
@@ -331,7 +336,7 @@ export default function WhatIfSimulator({
           if (setId != null) {
             calls.push(
               setItemOptionPrice(rid, setId, item.id, optionId, {
-                price: simPrice,
+                price: priceForStorage,
                 portion_size: simPortion,
                 portion_size_unit: portionUnit,
                 is_active: true,
@@ -342,7 +347,7 @@ export default function WhatIfSimulator({
       } else {
         // No active variant — apply to the item itself.
         const patch: Partial<MenuItem> = {};
-        if (priceChanged) patch.price = simPrice;
+        if (priceChanged) patch.price = priceForStorage;
         if (portionChanged) {
           patch.portion_size = simPortion;
           patch.portion_size_unit = portionUnit;
@@ -609,7 +614,9 @@ export default function WhatIfSimulator({
           {basePrice > 0 && (
             <Lever
               icon={<DollarSign className="w-3 h-3" />}
-              title={t('simulatorPriceLeverTitle') || 'Prix de vente · HT'}
+              title={`${t('simulatorPriceLeverTitle') || 'Prix de vente'} · ${
+                showCostsExVat ? (t('exVat') || 'HT') : (t('incVat') || 'TTC')
+              }`}
               sub={t('simulatorPriceLeverHint') || 'Augmenter le prix de vente sans toucher la recette'}
               valueLabel={`${CURRENCY}${simPrice.toFixed(2)}`}
               baseLabel={priceChanged ? `${CURRENCY}${basePrice.toFixed(2)}` : null}

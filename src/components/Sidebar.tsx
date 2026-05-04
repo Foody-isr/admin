@@ -147,6 +147,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'orders',
       icon: ClipboardList,
       perm: ['orders.view', 'orders.manage'],
+      clickHref: `${base}/orders/all`,
+      subItems: [
+        { href: `${base}/orders/all`, labelKey: 'orders' },
+        { href: `${base}/orders/calendar`, labelKey: 'calendarTitle' },
+      ],
     },
     {
       href: `${base}/website`,
