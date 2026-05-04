@@ -544,14 +544,16 @@ function CustomerList({
                         <div className="min-w-0 flex-1">
                           <p className="text-fs-sm text-[var(--fg)] truncate">
                             <span>{it.name}</span>
-                            {it.selected_variant_name && (
-                              <span className="ms-1 text-[var(--fg-muted)]">
-                                · {it.selected_variant_name}
-                              </span>
-                            )}
-                            {it.variant_portion && (
-                              <span className="ms-1 font-bold text-[var(--brand-500)] tabular">
-                                · {it.variant_portion}
+                            {(it.variant_portion || it.selected_variant_name) && (
+                              <span
+                                className={`ms-1 cursor-help ${it.variant_portion ? 'font-bold text-[var(--brand-500)] tabular' : 'text-[var(--fg-muted)]'}`}
+                                title={
+                                  it.variant_portion && it.selected_variant_name
+                                    ? it.selected_variant_name
+                                    : undefined
+                                }
+                              >
+                                · {it.variant_portion || it.selected_variant_name}
                               </span>
                             )}
                           </p>

@@ -595,23 +595,23 @@ function ItemsToPreparePanel({ planDay }: { planDay: KitchenPlanDay | undefined 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-[var(--s-2)] min-w-0">
                   <p className="text-fs-sm font-medium text-[var(--fg)] truncate flex-1">
-                    <span>{it.name || '—'}</span>
-                    {it.variant && (
-                      <span className="ms-1 text-[var(--fg-muted)]">
-                        · {it.variant}
-                      </span>
-                    )}
+                    {it.name || '—'}
                   </p>
-                  {it.variant_portion && (
+                  {(it.variant_portion || it.variant) && (
                     <span
-                      className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-bold tabular"
+                      className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-bold tabular cursor-help"
                       style={{
                         background:
                           'color-mix(in oklab, var(--brand-500) 14%, transparent)',
                         color: 'var(--brand-500)',
                       }}
+                      title={
+                        it.variant_portion && it.variant
+                          ? it.variant
+                          : undefined
+                      }
                     >
-                      {it.variant_portion}
+                      {it.variant_portion || it.variant}
                     </span>
                   )}
                 </div>
@@ -793,8 +793,9 @@ function OrderCard({
   const customer = order.customer_name?.trim() || `#${order.id}`;
 
   const itemSummaries = items.map((i) => {
-    const variant = i.selected_variant_name ? ` (${i.selected_variant_name})` : '';
-    return `${i.quantity}× ${i.name}${variant}`;
+    const variantBits = [i.variant_portion, i.selected_variant_name].filter(Boolean).join(' · ');
+    const suffix = variantBits ? ` (${variantBits})` : '';
+    return `${i.quantity}× ${i.name}${suffix}`;
   });
   const tooltip = [
     `${customer} · ${start ?? ''}–${end ?? ''}`,
@@ -846,8 +847,17 @@ function OrderCard({
               >
                 <span className="font-semibold tabular">{it.quantity}×</span>{' '}
                 <span>{it.name}</span>
-                {it.selected_variant_name && (
-                  <span className={tone.text}> · {it.selected_variant_name}</span>
+                {(it.variant_portion || it.selected_variant_name) && (
+                  <span
+                    className={`${tone.text} cursor-help`}
+                    title={
+                      it.variant_portion && it.selected_variant_name
+                        ? it.selected_variant_name
+                        : undefined
+                    }
+                  >
+                    {' '}· {it.variant_portion || it.selected_variant_name}
+                  </span>
                 )}
               </li>
             ))}

@@ -306,6 +306,7 @@ export interface OrderItem {
   selected_variant_id?: number;
   selected_variant_name?: string;
   selected_variant_price?: number;
+  variant_portion?: string;
   modifiers?: OrderItemModifier[];
   combo_item_id?: number;
   combo_group?: string;

@@ -1134,17 +1134,22 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
         <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
           {item.name}
         </div>
-        {(item.selected_variant_name || (item.modifiers && item.modifiers.length > 0)) && (
+        {(item.selected_variant_name || item.variant_portion || (item.modifiers && item.modifiers.length > 0)) && (
           <div className="flex flex-wrap gap-1 mt-1.5">
-            {item.selected_variant_name && (
+            {(item.variant_portion || item.selected_variant_name) && (
               <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em]"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em] cursor-help"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
                   color: 'var(--brand-500)',
                 }}
+                title={
+                  item.variant_portion && item.selected_variant_name
+                    ? item.selected_variant_name
+                    : undefined
+                }
               >
-                {item.selected_variant_name}
+                {item.variant_portion || item.selected_variant_name}
               </span>
             )}
             {item.modifiers?.map((m) => (
@@ -1254,15 +1259,20 @@ function ComboCard({
                   {ci.quantity > 1 ? `${ci.quantity}× ` : ''}
                   {ci.name}
                 </span>
-                {ci.selected_variant_name && (
+                {(ci.variant_portion || ci.selected_variant_name) && (
                   <span
-                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle"
+                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle cursor-help"
                     style={{
                       background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
                       color: 'var(--brand-500)',
                     }}
+                    title={
+                      ci.variant_portion && ci.selected_variant_name
+                        ? ci.selected_variant_name
+                        : undefined
+                    }
                   >
-                    {ci.selected_variant_name}
+                    {ci.variant_portion || ci.selected_variant_name}
                   </span>
                 )}
                 {hasMods && (
