@@ -1974,6 +1974,7 @@ export interface KitchenPlanModifierBreakdown {
 export interface KitchenPlanItem {
   menu_item_id: number;
   name: string;
+  variant?: string;
   total_quantity: number;
   modifiers?: KitchenPlanModifierBreakdown[];
 }
@@ -2013,6 +2014,7 @@ export async function fetchKitchenPlan(
 export interface KitchenPlanDetailItem {
   menu_item_id: number;
   name: string;
+  selected_variant_name?: string;
   quantity: number;
   modifier_label: string;
 }

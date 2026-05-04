@@ -58,8 +58,10 @@ interface ProductLine {
 }
 
 interface ProductGroup {
+  key: string;
   menuItemId: number;
   name: string;
+  variant: string;
   totalQty: number;
   lines: ProductLine[];
   modifierBreakdown: Array<{ label: string; qty: number }>;
@@ -69,21 +71,27 @@ function groupByProduct(
   data: KitchenPlanDetailsResponse,
   walkInLabel: string,
 ): ProductGroup[] {
-  const groups = new Map<number, ProductGroup>();
+  // Group by (menu_item_id, selected_variant_name) so different variants of the
+  // same item are reported as distinct prep cards.
+  const groups = new Map<string, ProductGroup>();
   for (const order of data.orders) {
     const customer = order.customer_name?.trim() || `#${order.order_id}`;
     const window = order.pickup_window || walkInLabel;
     for (const item of order.items) {
-      let g = groups.get(item.menu_item_id);
+      const variant = item.selected_variant_name ?? '';
+      const key = `${item.menu_item_id}|${variant}`;
+      let g = groups.get(key);
       if (!g) {
         g = {
+          key,
           menuItemId: item.menu_item_id,
           name: item.name,
+          variant,
           totalQty: 0,
           lines: [],
           modifierBreakdown: [],
         };
-        groups.set(item.menu_item_id, g);
+        groups.set(key, g);
       }
       g.totalQty += item.quantity;
       g.lines.push({
@@ -111,7 +119,9 @@ function groupByProduct(
   });
   return list.sort((a, b) => {
     if (b.totalQty !== a.totalQty) return b.totalQty - a.totalQty;
-    return a.name.localeCompare(b.name);
+    const byName = a.name.localeCompare(b.name);
+    if (byName !== 0) return byName;
+    return a.variant.localeCompare(b.variant);
   });
 }
 
@@ -371,8 +381,8 @@ function ProductList({ groups }: { groups: ProductGroup[] }) {
   return (
     <div className="grid gap-[var(--s-4)] grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
       {groups.map((g) => (
-        <Card key={g.menuItemId} className="p-0 overflow-hidden">
-          {/* Header: huge qty + product name */}
+        <Card key={g.key} className="p-0 overflow-hidden">
+          {/* Header: huge qty + product name (+ variant pill) */}
           <div className="flex items-stretch border-b border-[var(--line)]">
             <div
               className="flex items-center justify-center px-[var(--s-4)] min-w-[88px] border-e border-[var(--line)]"
@@ -386,10 +396,27 @@ function ProductList({ groups }: { groups: ProductGroup[] }) {
               </span>
             </div>
             <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
-              <p className="text-fs-md font-semibold text-[var(--fg)] truncate" title={g.name}>
-                {g.name || '—'}
-              </p>
-              <p className="text-fs-xs text-[var(--fg-subtle)]">
+              <div className="flex items-center gap-[var(--s-2)] min-w-0">
+                <p
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
+                  title={g.variant ? `${g.name} — ${g.variant}` : g.name}
+                >
+                  {g.name || '—'}
+                </p>
+                {g.variant && (
+                  <span
+                    className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-semibold"
+                    style={{
+                      background:
+                        'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+                      color: 'var(--brand-500)',
+                    }}
+                  >
+                    {g.variant}
+                  </span>
+                )}
+              </div>
+              <p className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
                 {g.lines.length === 1
                   ? t('prepPlanItemsOne')
                   : t('prepPlanItemsCount').replace('{count}', String(g.lines.length))}
@@ -491,7 +518,14 @@ function CustomerList({
                           {it.quantity}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-fs-sm text-[var(--fg)] truncate">{it.name}</p>
+                          <p className="text-fs-sm text-[var(--fg)] truncate">
+                            <span>{it.name}</span>
+                            {it.selected_variant_name && (
+                              <span className="ms-1 font-semibold text-[var(--brand-500)]">
+                                · {it.selected_variant_name}
+                              </span>
+                            )}
+                          </p>
                           {it.modifier_label && (
                             <p className="text-fs-xs text-[var(--fg-subtle)] truncate">
                               {it.modifier_label}

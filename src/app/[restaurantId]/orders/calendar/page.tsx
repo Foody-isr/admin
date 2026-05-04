@@ -584,16 +584,23 @@ function ItemsToPreparePanel({ planDay }: { planDay: KitchenPlanDay | undefined 
         <p className="p-[var(--s-4)] text-fs-sm text-[var(--fg-subtle)]">—</p>
       ) : (
         <ul className="divide-y divide-[var(--line)]">
-          {items.slice(0, 12).map((it) => (
+          {items.slice(0, 12).map((it, idx) => (
             <li
-              key={it.menu_item_id}
+              key={`${it.menu_item_id}-${it.variant ?? ''}-${idx}`}
               className="px-[var(--s-4)] py-[var(--s-3)] flex items-center gap-[var(--s-3)]"
             >
               <span className="text-fs-lg font-semibold text-[var(--fg)] tabular w-8 text-end">
                 {it.total_quantity}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-fs-sm font-medium text-[var(--fg)] truncate">{it.name || '—'}</p>
+                <p className="text-fs-sm font-medium text-[var(--fg)] truncate">
+                  <span>{it.name || '—'}</span>
+                  {it.variant && (
+                    <span className="ms-1 text-[var(--brand-500)] font-semibold">
+                      · {it.variant}
+                    </span>
+                  )}
+                </p>
                 {it.modifiers && it.modifiers.length > 0 && (
                   <p className="text-fs-xs text-[var(--fg-subtle)] truncate">
                     {it.modifiers.map((m) => `${m.quantity}× ${m.modifier_label}`).join(' · ')}
@@ -765,10 +772,29 @@ function OrderCard({
   tone: { fill: string; bar: string; text: string };
   compact: boolean;
 }) {
-  const itemCount = order.items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+  const items = order.items ?? [];
+  const itemCount = items.reduce((s, i) => s + i.quantity, 0);
   const start = order.scheduled_pickup_window_start;
   const end = order.scheduled_pickup_window_end;
   const customer = order.customer_name?.trim() || `#${order.id}`;
+
+  const itemSummaries = items.map((i) => {
+    const variant = i.selected_variant_name ? ` (${i.selected_variant_name})` : '';
+    return `${i.quantity}× ${i.name}${variant}`;
+  });
+  const tooltip = [
+    `${customer} · ${start ?? ''}–${end ?? ''}`,
+    ...itemSummaries,
+  ].join('\n');
+
+  // How many item lines fit in the remaining vertical space?
+  // ~14px per line; reserve ~38px for header (customer + window).
+  const headerReserve = compact ? 28 : 44;
+  const linesFit = Math.max(0, Math.floor((height - headerReserve) / 14));
+  const showItems = !compact && linesFit > 0 && items.length > 0;
+  const visibleItems = showItems ? items.slice(0, linesFit) : [];
+  const overflowCount = showItems ? items.length - visibleItems.length : 0;
+
   return (
     <div
       className={`absolute z-[5] ${tone.fill} rounded-r-sm overflow-hidden`}
@@ -778,7 +804,7 @@ function OrderCard({
         insetInlineStart: `calc(${leftPct}% + 2px)`,
         width: `calc(${widthPct}% - 4px)`,
       }}
-      title={`${customer} · ${start ?? ''}–${end ?? ''} · ${itemCount} items`}
+      title={tooltip}
     >
       <div className={`absolute inset-y-0 start-0 w-[3px] ${tone.bar}`} />
       <div className={`h-full ${compact ? 'p-[var(--s-2)]' : 'p-[var(--s-3)]'} flex flex-col gap-0.5 min-w-0`}>
@@ -796,6 +822,27 @@ function OrderCard({
           <span className="text-[10px] tabular text-[var(--fg-muted)]">
             {start} – {end}
           </span>
+        )}
+        {showItems && (
+          <ul className="mt-0.5 space-y-px">
+            {visibleItems.map((it, idx) => (
+              <li
+                key={`${it.id}-${idx}`}
+                className="text-[10px] leading-[14px] text-[var(--fg-muted)] truncate"
+              >
+                <span className="font-semibold tabular">{it.quantity}×</span>{' '}
+                <span>{it.name}</span>
+                {it.selected_variant_name && (
+                  <span className={tone.text}> · {it.selected_variant_name}</span>
+                )}
+              </li>
+            ))}
+            {overflowCount > 0 && (
+              <li className="text-[10px] leading-[14px] text-[var(--fg-subtle)] italic">
+                +{overflowCount}
+              </li>
+            )}
+          </ul>
         )}
       </div>
     </div>
