@@ -62,6 +62,7 @@ interface ProductGroup {
   menuItemId: number;
   name: string;
   variant: string;
+  variantPortion: string;
   totalQty: number;
   lines: ProductLine[];
   modifierBreakdown: Array<{ label: string; qty: number }>;
@@ -71,15 +72,17 @@ function groupByProduct(
   data: KitchenPlanDetailsResponse,
   walkInLabel: string,
 ): ProductGroup[] {
-  // Group by (menu_item_id, selected_variant_name) so different variants of the
-  // same item are reported as distinct prep cards.
+  // Group by (menu_item_id, variant_name, variant_portion) so different variants
+  // (and different portion sizes within the same variant label) of the same item
+  // are reported as distinct prep cards.
   const groups = new Map<string, ProductGroup>();
   for (const order of data.orders) {
     const customer = order.customer_name?.trim() || `#${order.order_id}`;
     const window = order.pickup_window || walkInLabel;
     for (const item of order.items) {
       const variant = item.selected_variant_name ?? '';
-      const key = `${item.menu_item_id}|${variant}`;
+      const portion = item.variant_portion ?? '';
+      const key = `${item.menu_item_id}|${variant}|${portion}`;
       let g = groups.get(key);
       if (!g) {
         g = {
@@ -87,6 +90,7 @@ function groupByProduct(
           menuItemId: item.menu_item_id,
           name: item.name,
           variant,
+          variantPortion: portion,
           totalQty: 0,
           lines: [],
           modifierBreakdown: [],
@@ -398,12 +402,24 @@ function ProductList({ groups }: { groups: ProductGroup[] }) {
             <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
               <div className="flex items-center gap-[var(--s-2)] min-w-0">
                 <p
-                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
-                  title={g.variant ? `${g.name} — ${g.variant}` : g.name}
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate flex-1"
+                  title={[g.name, g.variant, g.variantPortion].filter(Boolean).join(' — ')}
                 >
                   {g.name || '—'}
                 </p>
-                {g.variant && (
+                {g.variantPortion && (
+                  <span
+                    className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-r-full text-fs-xs font-bold tabular"
+                    style={{
+                      background: 'var(--brand-500)',
+                      color: 'white',
+                    }}
+                    title={g.variant || undefined}
+                  >
+                    {g.variantPortion}
+                  </span>
+                )}
+                {!g.variantPortion && g.variant && (
                   <span
                     className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-semibold"
                     style={{
@@ -416,11 +432,19 @@ function ProductList({ groups }: { groups: ProductGroup[] }) {
                   </span>
                 )}
               </div>
-              <p className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                {g.lines.length === 1
-                  ? t('prepPlanItemsOne')
-                  : t('prepPlanItemsCount').replace('{count}', String(g.lines.length))}
-              </p>
+              <div className="flex items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                <span>
+                  {g.lines.length === 1
+                    ? t('prepPlanItemsOne')
+                    : t('prepPlanItemsCount').replace('{count}', String(g.lines.length))}
+                </span>
+                {g.variantPortion && g.variant && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="truncate">{g.variant}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -521,8 +545,13 @@ function CustomerList({
                           <p className="text-fs-sm text-[var(--fg)] truncate">
                             <span>{it.name}</span>
                             {it.selected_variant_name && (
-                              <span className="ms-1 font-semibold text-[var(--brand-500)]">
+                              <span className="ms-1 text-[var(--fg-muted)]">
                                 · {it.selected_variant_name}
+                              </span>
+                            )}
+                            {it.variant_portion && (
+                              <span className="ms-1 font-bold text-[var(--brand-500)] tabular">
+                                · {it.variant_portion}
                               </span>
                             )}
                           </p>

@@ -1975,6 +1975,7 @@ export interface KitchenPlanItem {
   menu_item_id: number;
   name: string;
   variant?: string;
+  variant_portion?: string;
   total_quantity: number;
   modifiers?: KitchenPlanModifierBreakdown[];
 }
@@ -2015,6 +2016,7 @@ export interface KitchenPlanDetailItem {
   menu_item_id: number;
   name: string;
   selected_variant_name?: string;
+  variant_portion?: string;
   quantity: number;
   modifier_label: string;
 }

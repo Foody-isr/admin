@@ -586,23 +586,37 @@ function ItemsToPreparePanel({ planDay }: { planDay: KitchenPlanDay | undefined 
         <ul className="divide-y divide-[var(--line)]">
           {items.slice(0, 12).map((it, idx) => (
             <li
-              key={`${it.menu_item_id}-${it.variant ?? ''}-${idx}`}
+              key={`${it.menu_item_id}-${it.variant ?? ''}-${it.variant_portion ?? ''}-${idx}`}
               className="px-[var(--s-4)] py-[var(--s-3)] flex items-center gap-[var(--s-3)]"
             >
               <span className="text-fs-lg font-semibold text-[var(--fg)] tabular w-8 text-end">
                 {it.total_quantity}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-fs-sm font-medium text-[var(--fg)] truncate">
-                  <span>{it.name || '—'}</span>
-                  {it.variant && (
-                    <span className="ms-1 text-[var(--brand-500)] font-semibold">
-                      · {it.variant}
+                <div className="flex items-center gap-[var(--s-2)] min-w-0">
+                  <p className="text-fs-sm font-medium text-[var(--fg)] truncate flex-1">
+                    <span>{it.name || '—'}</span>
+                    {it.variant && (
+                      <span className="ms-1 text-[var(--fg-muted)]">
+                        · {it.variant}
+                      </span>
+                    )}
+                  </p>
+                  {it.variant_portion && (
+                    <span
+                      className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-bold tabular"
+                      style={{
+                        background:
+                          'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+                        color: 'var(--brand-500)',
+                      }}
+                    >
+                      {it.variant_portion}
                     </span>
                   )}
-                </p>
+                </div>
                 {it.modifiers && it.modifiers.length > 0 && (
-                  <p className="text-fs-xs text-[var(--fg-subtle)] truncate">
+                  <p className="text-fs-xs text-[var(--fg-subtle)] truncate mt-0.5">
                     {it.modifiers.map((m) => `${m.quantity}× ${m.modifier_label}`).join(' · ')}
                   </p>
                 )}
