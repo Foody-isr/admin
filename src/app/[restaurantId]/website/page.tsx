@@ -15,6 +15,7 @@ import {
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
+import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
@@ -968,6 +969,28 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
     } catch { /* */ }
   }
 
+  // Debounced focal-point save: drag fires many onChange events, but we only
+  // want one network round-trip per drag. Optimistic update keeps the marker
+  // tracking the pointer in real time.
+  const focalSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  async function handleFocalChange(x: number, y: number) {
+    if (!restaurant) return;
+    onRestaurantUpdate({ ...restaurant, cover_focal_x: x, cover_focal_y: y });
+    if (focalSaveTimer.current) clearTimeout(focalSaveTimer.current);
+    focalSaveTimer.current = setTimeout(async () => {
+      try {
+        const updated = await updateRestaurant(restaurantId, {
+          name: restaurant.name,
+          cover_focal_x: x,
+          cover_focal_y: y,
+        } as Partial<Restaurant>);
+        onRestaurantUpdate(updated);
+      } catch (err) {
+        console.error('Failed to save focal point', err);
+      }
+    }, 400);
+  }
+
   const DISPLAY_MODES = [
     { value: 'cover', label: 'Fill', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>) },
     { value: 'contain', label: 'Fit', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" /></svg>) },
@@ -1071,6 +1094,18 @@ function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, show
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Focal point picker — only meaningful for "cover" display mode */}
+            {restaurant?.cover_url && coverMode === 'cover' && (
+              <div className="mb-3">
+                <CoverFocalPicker
+                  src={restaurant.cover_url}
+                  focalX={typeof restaurant.cover_focal_x === 'number' ? restaurant.cover_focal_x : 50}
+                  focalY={typeof restaurant.cover_focal_y === 'number' ? restaurant.cover_focal_y : 50}
+                  onChange={handleFocalChange}
+                />
               </div>
             )}
 

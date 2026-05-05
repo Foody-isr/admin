@@ -36,6 +36,8 @@ export interface Restaurant {
   cover_url: string;
   background_color: string;
   cover_display_mode: string;
+  cover_focal_x?: number; // 0-100 percent from left, default 50 (center)
+  cover_focal_y?: number; // 0-100 percent from top,  default 50 (center)
   description: string;
   phone: string;
   delivery_enabled: boolean;
