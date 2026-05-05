@@ -2421,10 +2421,29 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
           <SectionImageUploader
             restaurantId={restaurantId}
             currentUrl={content.image_url || ''}
-            onUploaded={(url) => updateContent('image_url', url)}
+            onUploaded={(url) => {
+              // Reset focal to center on new upload — same rule as Restaurant cover.
+              onUpdate({ content: { ...content, image_url: url, image_focal_x: 50, image_focal_y: 50 } as any });
+            }}
             onRemove={() => updateContent('image_url', '')}
             label="Image"
           />
+        )}
+
+        {/* Focal-point picker — Hero Banner only, when an image is set. Both
+            axes saved in one onUpdate call so the debounced save can't drop
+            one of them. */}
+        {section.section_type === 'hero_banner' && content.image_url && (
+          <div>
+            <CoverFocalPicker
+              src={content.image_url}
+              focalX={typeof content.image_focal_x === 'number' ? content.image_focal_x : 50}
+              focalY={typeof content.image_focal_y === 'number' ? content.image_focal_y : 50}
+              onChange={(x, y) => {
+                onUpdate({ content: { ...content, image_focal_x: x, image_focal_y: y } as any });
+              }}
+            />
+          </div>
         )}
       </div>
     </div>
