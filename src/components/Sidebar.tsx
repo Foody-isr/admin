@@ -233,6 +233,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       items: [
         { id: 'general',  href: `${base}/settings`,                labelKey: 'general',      icon: Settings },
         { id: 'branding', href: `${base}/settings/branding`,        labelKey: 'branding',     icon: Tag },
+        { id: 'language', href: `${base}/settings/language`,        labelKey: 'language',     icon: Languages },
         { id: 'hours',    href: `${base}/settings/opening-hours`,   labelKey: 'openingHours', icon: Clock },
       ],
     },

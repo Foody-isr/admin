@@ -39,6 +39,8 @@ export interface Restaurant {
   cover_focal_x?: number; // 0-100 percent from left, default 50 (center)
   cover_focal_y?: number; // 0-100 percent from top,  default 50 (center)
   description: string;
+  /** Source language the owner types in. en | he | fr. Falls back to 'en' if unset. */
+  default_locale?: string;
   phone: string;
   delivery_enabled: boolean;
   pickup_enabled: boolean;
@@ -1104,6 +1106,42 @@ export async function updateRestaurantSettings(
     { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.settings;
+}
+
+// ─── Menu translations backfill ──────────────────────────────────────────────
+
+/**
+ * Counts of rows touched by a backfill run. All zero is fine — means nothing
+ * needed translating.
+ */
+export interface BackfillResult {
+  restaurant_id: number;
+  reset: boolean;
+  items: number;
+  groups: number;
+  modifier_sets: number;
+  modifiers: number;
+  variant_groups: number;
+  variants: number;
+}
+
+/**
+ * Regenerate auto-translations for every customer-visible menu entity owned
+ * by the current restaurant. When `reset` is true, existing translations are
+ * wiped before refilling — use that after changing the restaurant's source
+ * language so values generated under the wrong source assumption don't
+ * survive the re-run.
+ */
+export async function backfillTranslations(
+  restaurantId: number,
+  reset: boolean = false
+): Promise<BackfillResult> {
+  const qs = reset ? '?reset=true' : '';
+  return apiFetch<BackfillResult>(
+    `/api/v1/menu/translations/backfill${qs}`,
+    restaurantId,
+    { method: 'POST' }
+  );
 }
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
