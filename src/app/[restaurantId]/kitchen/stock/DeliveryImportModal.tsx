@@ -147,6 +147,11 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [reviewedItems, setReviewedItems] = useState<Set<number>>(new Set());
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string>(''); // MIME type for preview (from file or draft)
+  // S3 URL of the scanned bill once it's been persisted (via draft upload).
+  // Populated when resuming a draft; populated lazily on confirm for fresh
+  // imports so the resulting Approvisionnement keeps a reference to the bill.
+  const [documentUrl, setDocumentUrl] = useState<string>('');
+  const [documentType, setDocumentType] = useState<string>('');
   const [reviewTab, setReviewTab] = useState<'document' | 'items'>('items');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
@@ -180,6 +185,8 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         if (detail.draft.document_url) {
           setPreviewUrl(detail.draft.document_url);
           setPreviewType(detail.draft.document_type || '');
+          setDocumentUrl(detail.draft.document_url);
+          setDocumentType(detail.draft.document_type || '');
         }
         setStep('review');
       }).catch(() => {});
@@ -293,13 +300,38 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         : (selectedSupplierId > 0
           ? suppliers.find((s) => s.id === selectedSupplierId)?.name
           : extraction?.supplier_name) ?? '';
+
+      // Ensure the scanned bill is on S3 before confirming, so the
+      // Approvisionnement page can render it later. Resumed drafts already
+      // have an S3 URL; fresh imports upload via a transient draft that we
+      // delete right after confirm.
+      let draftIdToDelete = currentDraftId;
+      let docUrl = documentUrl;
+      let docType = documentType;
+      if (!docUrl && file && extraction) {
+        try {
+          const draft = await createImportDraft(rid, file, {
+            supplier_id: selectedSupplierId > 0 ? selectedSupplierId : undefined,
+            supplier_name: supplierName,
+            extraction,
+            edited_items: editedItems,
+          });
+          draftIdToDelete = draft.id;
+          docUrl = draft.document_url || '';
+          docType = draft.document_type || '';
+        } catch {
+          // Non-fatal: confirm without a document reference.
+        }
+      }
+
       await confirmDelivery(rid, {
         supplier_name: supplierName,
+        document_url: docUrl,
+        document_type: docType,
         items: itemsToImport,
       });
-      // Delete draft if this was resumed from one
-      if (currentDraftId) {
-        deleteImportDraft(rid, currentDraftId).catch(() => {});
+      if (draftIdToDelete) {
+        deleteImportDraft(rid, draftIdToDelete).catch(() => {});
       }
       onImported();
       onClose();
