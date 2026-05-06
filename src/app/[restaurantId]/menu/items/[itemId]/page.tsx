@@ -9,11 +9,14 @@ import {
   listModifierSets, attachModifierSetToItems,
   listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
   listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
+  getRestaurant,
   MenuCategory, MenuItem, ModifierSet, Menu,
   OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
   StockItem, PrepItem, MenuItemIngredient,
+  TranslationMap,
 } from '@/lib/api';
 import { getRestaurantSettings } from '@/lib/api';
+import type { Locale } from '@/components/i18n/LocaleTabs';
 import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
@@ -75,6 +78,9 @@ export default function EditItemPage() {
   const [name, setName] = useState(() => item?.name ?? '');
   const [price, setPrice] = useState<number>(() => item?.price ?? 0);
   const [description, setDescription] = useState(() => item?.description ?? '');
+  const [translations, setTranslations] = useState<TranslationMap>(() => item?.translations ?? {});
+  // The restaurant's source language. Loaded with the categories below.
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
   const [itemType, setItemType] = useState<ItemType>(
@@ -118,7 +124,7 @@ export default function EditItemPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [cats, allMenus, ms, optSets, optOverrides, stock, prep, ings] = await Promise.all([
+      const [cats, allMenus, ms, optSets, optOverrides, stock, prep, ings, restaurant] = await Promise.all([
         getAllCategories(rid),
         listMenus(rid),
         listModifierSets(rid),
@@ -127,7 +133,12 @@ export default function EditItemPage() {
         listStockItems(rid),
         listPrepItems(rid),
         getMenuItemIngredients(rid, iid),
+        getRestaurant(rid),
       ]);
+      const defaultLocale = restaurant.default_locale;
+      if (defaultLocale === 'en' || defaultLocale === 'he' || defaultLocale === 'fr') {
+        setSourceLocale(defaultLocale);
+      }
       setCategories(cats);
       setMenus(allMenus);
       setAllModifierSets(ms ?? []);
@@ -145,6 +156,7 @@ export default function EditItemPage() {
           setName(found.name);
           setPrice(found.price ?? 0);
           setDescription(found.description ?? '');
+          setTranslations(found.translations ?? {});
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
           setItemType(found.item_type || 'food_and_beverage');
@@ -271,6 +283,7 @@ export default function EditItemPage() {
         portion_size_unit: '',
         recipe_yield: 0,
         recipe_yield_unit: '',
+        translations,
       };
       if (itemType === 'combo') {
         updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
@@ -491,6 +504,9 @@ export default function EditItemPage() {
                 selectedMenuIds={selectedMenuIds}
                 setSelectedMenuIds={setSelectedMenuIds}
                 itemType={itemType}
+                sourceLocale={sourceLocale}
+                translations={translations}
+                setTranslations={setTranslations}
                 onTypeChange={requestTypeChange}
                 comboStepsCount={comboSteps.length}
                 onJumpToComposition={() => setActiveTab('composition')}

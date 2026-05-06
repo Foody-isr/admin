@@ -265,6 +265,14 @@ export interface ComboStepInput {
   items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
 }
 
+/**
+ * Per-locale overrides for an entity's translatable fields. The source-locale
+ * value lives in the entity's regular column (name, description, etc.) — it is
+ * never stored here. Shape:
+ *   { name: { he: '…', en: '…' }, description: { he: '…', en: '…' } }
+ */
+export type TranslationMap = Partial<Record<string, Partial<Record<'en' | 'he' | 'fr', string>>>>;
+
 export interface MenuItem {
   id: number;
   category_id: number;
@@ -288,6 +296,8 @@ export interface MenuItem {
   prep_time_mins?: number;
   recipe_notes?: string;
   recipe_steps?: RecipeStep[];
+  /** Per-locale name/description overrides. Source-locale is never stored here. */
+  translations?: TranslationMap;
 }
 
 export interface OrderItemModifier {
@@ -637,6 +647,8 @@ export interface StockTransaction {
   quantity_delta: number;
   notes: string;
   batch_id: string;
+  document_url?: string;
+  document_type?: string;
   created_by_id: number;
   created_at: string;
   stock_item?: StockItem;
@@ -858,6 +870,10 @@ export interface ConfirmDeliveryItemInput {
 
 export interface ConfirmDeliveryInput {
   supplier_name: string;
+  /** S3 URL of the scanned bill, propagated from the import draft so the
+   *  Approvisionnement page can render the document. */
+  document_url?: string;
+  document_type?: string;
   items: ConfirmDeliveryItemInput[];
 }
 
@@ -3658,6 +3674,8 @@ export interface SupplySummary {
   total_cost: number;
   created_at: string;
   created_by_id: number;
+  document_url?: string;
+  document_type?: string;
 }
 
 export async function listSupplies(restaurantId: number, supplier?: string): Promise<SupplySummary[]> {
