@@ -437,9 +437,11 @@ export default function OrdersPage() {
           }
         />
 
-        {/* Status tabs — underline style with inline counts + dot-pulse + updated-at */}
-        <div className="flex items-center justify-between border-b border-[var(--line)]">
-          <div className="flex items-center gap-[var(--s-5)]">
+        {/* Status tabs — underline style with inline counts + dot-pulse + updated-at.
+            Tabs scroll horizontally on mobile so trailing tabs (e.g. Annulées) stay reachable. */}
+        <div className="flex items-center justify-between border-b border-[var(--line)] gap-[var(--s-3)]">
+          <div className="no-scrollbar overflow-x-auto max-w-full -mx-[var(--s-4)] px-[var(--s-4)] md:mx-0 md:px-0 flex-1 min-w-0">
+            <div className="inline-flex items-center gap-[var(--s-5)]">
             {TABS.map((tab) => {
               const selected = activeTab === tab.key;
               const isActive = tab.key === 'active';
@@ -478,10 +480,11 @@ export default function OrdersPage() {
                 </button>
               );
             })}
+            </div>
           </div>
-          <div className="flex items-center gap-[var(--s-2)] pe-[var(--s-2)]">
+          <div className="flex items-center gap-[var(--s-2)] pe-[var(--s-2)] shrink-0">
             {lastUpdated && (
-              <span className="text-fs-xs text-[var(--fg-subtle)]">
+              <span className="hidden md:inline text-fs-xs text-[var(--fg-subtle)]">
                 {t('lastUpdated') || 'Mise à jour'}{' '}
                 {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </span>
@@ -501,8 +504,8 @@ export default function OrdersPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center">
-            <div className="relative">
+          <div className="flex items-center w-full md:w-auto">
+            <div className="relative flex-1 md:flex-initial">
               <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fg-secondary" />
               <input
                 type="text"
@@ -510,10 +513,10 @@ export default function OrdersPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="input pl-9 pr-3 py-2 text-sm w-48"
+                className="input pl-9 pr-3 py-2 text-sm w-full md:w-48"
               />
             </div>
-            <button onClick={handleSearch} className="btn-secondary text-sm py-2 px-4 ml-2">
+            <button onClick={handleSearch} className="btn-secondary text-sm py-2 px-4 ms-2 shrink-0">
               {t('search')}
             </button>
           </div>
