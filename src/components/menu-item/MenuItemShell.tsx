@@ -85,12 +85,14 @@ export default function MenuItemShell({
           </div>
         </div>
 
-        {/* Body — single column on mobile (rail hidden), 280px rail + main on md+ */}
-        <div className="flex-1 flex md:grid overflow-hidden min-h-0 md:[grid-template-columns:280px_1fr]">
-          <aside className="hidden md:block border-e border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] overflow-y-auto">
+        {/* Body — on mobile the summary rail stacks above the main content
+            (so image upload + summary stay reachable); on md+ it sits as a
+            280px sidebar to the start of the main content. */}
+        <div className="flex-1 flex flex-col md:grid overflow-y-auto md:overflow-hidden min-h-0 md:[grid-template-columns:280px_1fr]">
+          <aside className="md:border-e border-[var(--line)] md:bg-[var(--surface)] p-[var(--s-4)] md:p-[var(--s-5)] md:overflow-y-auto md:max-w-[280px]">
             {sidebar}
           </aside>
-          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <main className="flex md:flex-1 flex-col md:overflow-hidden min-w-0">
             {children}
           </main>
         </div>

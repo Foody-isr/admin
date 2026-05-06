@@ -50,26 +50,28 @@ export function FullScreenEditor({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
           className={cn(
-            // Horizontally centered via transform — immune to scrollbar-gutter
-            // reservation that Radix applies to <html> on open (which made
-            // inset-x anchoring look ~scrollbar-width off-center to the right).
-            'fixed z-50 top-[32px] bottom-[24px]',
-            'left-1/2 -translate-x-1/2',
-            'w-[calc(100%-48px)]',
+            // Edge-to-edge fullscreen on mobile, inset modal at md+ (centered
+            // horizontally via transform — immune to scrollbar-gutter
+            // reservation that Radix applies to <html> on open).
+            'fixed z-50 inset-0',
+            'md:top-[32px] md:bottom-[24px]',
+            'md:left-1/2 md:-translate-x-1/2',
+            'md:w-[calc(100%-48px)]',
             'flex flex-col overflow-hidden',
             'bg-[var(--bg)] text-[var(--fg)]',
-            'border border-[var(--line)] rounded-r-xl shadow-3',
+            'md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3',
             'focus:outline-none',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98]',
             className,
           )}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          {/* Head — close · title · actions */}
+          {/* Head — close · title · actions. Cancel button collapses on mobile
+              (the X icon already cancels) so the title has room to breathe. */}
           <div
             className={cn(
-              'h-[60px] shrink-0 px-[var(--s-5)]',
-              'flex items-center gap-[var(--s-4)]',
+              'h-[60px] shrink-0 px-[var(--s-4)] md:px-[var(--s-5)]',
+              'flex items-center gap-[var(--s-3)] md:gap-[var(--s-4)]',
               'bg-[var(--surface)] border-b border-[var(--line)]',
             )}
           >
@@ -94,7 +96,7 @@ export function FullScreenEditor({
               {status}
               {showCancel && (
                 <Dialog.Close asChild>
-                  <Button variant="secondary" size="md">
+                  <Button variant="secondary" size="md" className="hidden md:inline-flex">
                     {cancelLabel}
                   </Button>
                 </Dialog.Close>
@@ -112,23 +114,22 @@ export function FullScreenEditor({
             </div>
           </div>
 
-          {/* Body — optional 280px rail + scrollable main */}
-          <div
-            className="flex-1 grid overflow-hidden min-h-0"
-            style={{ gridTemplateColumns: rail ? '280px 1fr' : '1fr' }}
-          >
+          {/* Body — on mobile the rail stacks above the main content (so the
+              image upload + summary stay reachable); on md+ it sits as a
+              280px sidebar to the start of the main content. */}
+          <div className="flex-1 flex flex-col md:grid overflow-y-auto md:overflow-hidden min-h-0 md:[grid-template-columns:280px_1fr]">
             {rail && (
-              <div className="border-r border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] overflow-y-auto">
+              <div className="md:border-e border-[var(--line)] md:bg-[var(--surface)] p-[var(--s-4)] md:p-[var(--s-5)] md:overflow-y-auto md:max-w-[280px]">
                 {rail}
               </div>
             )}
-            <div className="overflow-y-auto p-[var(--s-6)_var(--s-8)] min-w-0">
+            <div className="md:overflow-y-auto p-[var(--s-4)] md:p-[var(--s-6)_var(--s-8)] min-w-0">
               {children}
             </div>
           </div>
 
           {footer && (
-            <div className="border-t border-[var(--line)] bg-[var(--surface)] px-[var(--s-5)] py-[var(--s-3)] shrink-0">
+            <div className="border-t border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] md:px-[var(--s-5)] py-[var(--s-3)] shrink-0">
               {footer}
             </div>
           )}
