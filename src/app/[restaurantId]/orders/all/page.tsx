@@ -21,6 +21,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
+import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import {
   DataTable,
@@ -438,9 +439,10 @@ export default function OrdersPage() {
         />
 
         {/* Status tabs — underline style with inline counts + dot-pulse + updated-at.
-            Tabs scroll horizontally on mobile so trailing tabs (e.g. Annulées) stay reachable. */}
+            Tabs scroll horizontally on mobile, with edge fade + chevron
+            indicators showing there's more to swipe. */}
         <div className="flex items-center justify-between border-b border-[var(--line)] gap-[var(--s-3)]">
-          <div className="no-scrollbar overflow-x-auto max-w-full -mx-[var(--s-4)] px-[var(--s-4)] md:mx-0 md:px-0 flex-1 min-w-0">
+          <HorizontalScrollRail activeKey={activeTab} edgeFlush>
             <div className="inline-flex items-center gap-[var(--s-5)]">
             {TABS.map((tab) => {
               const selected = activeTab === tab.key;
@@ -451,7 +453,8 @@ export default function OrdersPage() {
                   key={tab.key}
                   onClick={() => switchTab(tab.key)}
                   aria-selected={selected}
-                  className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors inline-flex items-center gap-[var(--s-2)] ${
+                  data-rail-active={selected ? '' : undefined}
+                  className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors inline-flex items-center gap-[var(--s-2)] [scroll-snap-align:start] ${
                     selected
                       ? 'text-[var(--fg)] after:content-[""] after:absolute after:start-0 after:end-0 after:-bottom-px after:h-[2px] after:bg-[var(--brand-500)] after:rounded-[1px]'
                       : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
@@ -481,7 +484,7 @@ export default function OrdersPage() {
               );
             })}
             </div>
-          </div>
+          </HorizontalScrollRail>
           <div className="flex items-center gap-[var(--s-2)] pe-[var(--s-2)] shrink-0">
             {lastUpdated && (
               <span className="hidden md:inline text-fs-xs text-[var(--fg-subtle)]">
