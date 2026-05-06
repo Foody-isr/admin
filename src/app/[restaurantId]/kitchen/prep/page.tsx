@@ -278,6 +278,7 @@ export default function PrepPage() {
               onClick={() => setShowKpis((v) => !v)}
               aria-label="Toggle KPIs"
               title={showKpis ? (t('hideKpis') || 'Masquer les KPIs') : (t('showKpis') || 'Afficher les KPIs')}
+              className="hidden md:inline-flex"
             >
               {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </Button>
