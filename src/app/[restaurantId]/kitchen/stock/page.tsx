@@ -519,9 +519,13 @@ export default function StockPage() {
           <ActionsDropdown
             actions={[
               {
+                // Label describes the result of clicking — "switch to the
+                // OTHER mode" — not the mode you're already in. So when
+                // currently displaying TTC, the action says "HT" because
+                // that's what tapping it will give you, and vice versa.
                 label: vatDisplayMode === 'inc'
-                  ? `${t('displayPrice')}: ${t('incVat')}`
-                  : `${t('displayPrice')}: ${t('exVat')}`,
+                  ? `${t('displayPrice')}: ${t('exVat')}`
+                  : `${t('displayPrice')}: ${t('incVat')}`,
                 onClick: toggleVatDisplay,
                 icon: <ArrowRightLeftIcon className="w-4 h-4" />,
               },
