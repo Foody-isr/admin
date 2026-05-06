@@ -551,3 +551,12 @@ input::placeholder, textarea::placeholder {
     inset-inline-end: 12px;
   }
 }
+
+/* Hide the native scrollbar on horizontally-scrollable rails (mobile tab
+ * bars, chip rows, etc.) while keeping scroll behavior intact. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

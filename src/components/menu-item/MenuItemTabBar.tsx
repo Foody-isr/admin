@@ -40,11 +40,15 @@ function TabIcon({ id }: { id: MenuItemSection }) {
 export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Props) {
   return (
     <div className="flex items-center justify-between gap-[var(--s-3)] flex-wrap">
-      <div
-        role="tablist"
-        className="inline-flex gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md"
-      >
-        {tabs.map((tab) => {
+      {/* Horizontal-scroll container so tabs stay reachable on narrow screens
+          (the pill wrapper itself never shrinks). The negative-margin trick
+          lets the scroll area run flush with the page edges on mobile. */}
+      <div className="no-scrollbar overflow-x-auto max-w-full -mx-[var(--s-4)] px-[var(--s-4)] md:mx-0 md:px-0">
+        <div
+          role="tablist"
+          className="inline-flex gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md"
+        >
+          {tabs.map((tab) => {
           const isActive = tab.id === active;
           return (
             <button
@@ -74,7 +78,8 @@ export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Pro
               )}
             </button>
           );
-        })}
+          })}
+        </div>
       </div>
       {trailing}
     </div>
