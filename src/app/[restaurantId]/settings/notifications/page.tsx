@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard } from 'lucide-react';
+import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX } from 'lucide-react';
 import { Badge, Button, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -20,15 +20,15 @@ import {
 
 type Status = 'idle' | 'subscribing' | 'unsubscribing' | 'testing';
 
-/** Subset of preference keys exposed in the UI today. The server schema
- *  also has `low_stock_enabled` and `big_order_enabled` but neither has
- *  a Web Push trigger wired yet — hide them from users to avoid the
- *  "I enabled it but get nothing" trap. Add back once their trigger
- *  sites land. */
+/** Subset of preference keys exposed in the UI today. `big_order_enabled`
+ *  isn't shown because no Web Push trigger fires for it yet (would be
+ *  redundant with new_order anyway). Add the toggle back if/when a
+ *  separate "big order" template gets wired. */
 type ExposedPrefKey =
   | 'new_order_enabled'
   | 'order_canceled_enabled'
-  | 'payment_failure_enabled';
+  | 'payment_failure_enabled'
+  | 'low_stock_enabled';
 
 export default function NotificationsSettingsPage() {
   const { restaurantId } = useParams();
@@ -158,10 +158,12 @@ export default function NotificationsSettingsPage() {
         />
       )}
 
-      {/* Per-event opt-ins. Only useful once subscribed (no point fine-tuning
-          which events to receive when you receive none) — but we still
-          render the card hidden so prefs aren't lost between sessions. */}
-      {subscribed && prefs && (
+      {/* Per-event opt-ins. Editable from any device — prefs are stored
+          per-user-per-restaurant, not per-device, so you can configure
+          them from desktop and have them apply to phone subscriptions
+          (and vice-versa). Only hidden if push isn't supported at all
+          (no point editing prefs that can never fire). */}
+      {env?.supported && prefs && (
         <div className="mt-[var(--s-4)]">
           <EventPreferences prefs={prefs} saving={savingPref} onToggle={handleTogglePref} t={t} />
         </div>
@@ -369,6 +371,14 @@ const EVENTS: EventDef[] = [
     titleFallback: 'Échec de paiement',
     descKey: 'prefPaymentFailureDesc',
     descFallback: 'Quand le débit d’un client échoue après confirmation.',
+  },
+  {
+    key: 'low_stock_enabled',
+    icon: PackageX,
+    titleKey: 'prefLowStockTitle',
+    titleFallback: 'Stock bas',
+    descKey: 'prefLowStockDesc',
+    descFallback: 'Quand un article passe sous son seuil de réapprovisionnement.',
   },
 ];
 
