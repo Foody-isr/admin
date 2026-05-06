@@ -632,7 +632,7 @@ export default function StockPage() {
                       checked={selected.has(item.id)}
                       onCheckedChange={() => toggleSelect(item.id)}
                     />
-                    <DataTableCell>
+                    <DataTableCell mobilePrimary>
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
@@ -655,7 +655,7 @@ export default function StockPage() {
                         </span>
                       </button>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('category') || 'Catégorie'}>
                       <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
                         {catColor && (
                           <span
@@ -670,6 +670,7 @@ export default function StockPage() {
                       className="relative cursor-pointer hover:text-orange-500"
                       onClick={() => setLevelPopover(item.id)}
                       title={t('displayAs') || 'Display as'}
+                      mobileLabel={t('quantity') || 'Quantité'}
                     >
                       <span className="inline-flex items-center gap-1.5 font-medium text-neutral-900 dark:text-white">
                         {formatQuantityAtLevel(item, level, t)}
@@ -723,7 +724,7 @@ export default function StockPage() {
                         </>
                       )}
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('unitPrice') || 'Prix unitaire'}>
                       <span className="text-sm text-neutral-600 dark:text-neutral-400">
                         {formatUnitPriceAtLevel(item, level, adjustedCost(item), t)}
                         {item.vat_rate_override != null && item.vat_rate_override !== vatRate && (
@@ -733,17 +734,17 @@ export default function StockPage() {
                         )}
                       </span>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('totalValue') || 'Valeur totale'}>
                       <span className="font-semibold text-neutral-900 dark:text-white">
                         {lineValue.toFixed(2)} ₪
                       </span>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('supplier') || 'Fournisseur'}>
                       <span className="text-sm text-neutral-600 dark:text-neutral-400">
                         {item.supplier || '—'}
                       </span>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('status') || 'Statut'}>
                       {isLow ? (
                         <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-fs-xs font-semibold whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
                           <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />

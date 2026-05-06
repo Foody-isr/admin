@@ -698,7 +698,7 @@ export default function ItemLibraryPage() {
                       className="cursor-pointer"
                       onClick={() => openEditor(item, rid, router)}
                     >
-                      <DataTableCell onClick={(e) => e.stopPropagation()}>
+                      <DataTableCell onClick={(e) => e.stopPropagation()} mobileHidden>
                         <div className="flex items-center gap-2">
                           <Checkbox
                             checked={selected.has(item.id)}
@@ -719,7 +719,7 @@ export default function ItemLibraryPage() {
                           )}
                         </div>
                       </DataTableCell>
-                      <DataTableCell>
+                      <DataTableCell mobilePrimary>
                         <div className="flex items-center gap-3">
                           {item.image_url ? (
                             <img
@@ -749,12 +749,12 @@ export default function ItemLibraryPage() {
                           </div>
                         </div>
                       </DataTableCell>
-                      <DataTableCell>
+                      <DataTableCell mobileLabel={t('category')}>
                         <span className="px-3 py-1 bg-neutral-100 dark:bg-[#1a1a1a] text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium">
                           {item.category_name}
                         </span>
                       </DataTableCell>
-                      <DataTableCell>
+                      <DataTableCell mobileLabel={t('availability')}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -769,7 +769,7 @@ export default function ItemLibraryPage() {
                           {item.is_active ? t('available') : t('unavailable')}
                         </button>
                       </DataTableCell>
-                      <DataTableCell align="right">
+                      <DataTableCell align="right" mobileLabel={t('price')}>
                         <span className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
                           {priceLabel}
                         </span>

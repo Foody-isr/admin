@@ -27,7 +27,7 @@ export function PageHead({ title, desc, actions, className, ...props }: PageHead
           <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5">{desc}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-[var(--s-2)]">{actions}</div>}
+      {actions && <div className="flex items-center gap-[var(--s-2)] flex-wrap">{actions}</div>}
     </div>
   );
 }
