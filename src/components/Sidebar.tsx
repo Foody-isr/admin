@@ -25,11 +25,7 @@ import {
   ChevronLeft,
   ArrowLeft,
   ArrowRight,
-  Bell,
-  HelpCircle,
-  Sparkles,
   User as UserIcon,
-  Calendar,
   CalendarClock,
   LogOut,
   Flame,
@@ -42,7 +38,6 @@ import {
   Printer,
   type LucideIcon,
 } from 'lucide-react';
-import { useAi } from '@/lib/ai-context';
 import { useSidebar } from '@/lib/sidebar-context';
 
 interface SubItem {
@@ -79,7 +74,6 @@ const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית',
 export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, restaurantIds, logout } = useAuth();
-  const ai = useAi();
   const { theme, toggleTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
   const { hasAnyPermission } = usePermissions();
@@ -489,22 +483,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           )}
         </nav>
 
-        {/* Footer — quick action icons (top), theme + collapse (bottom). */}
+        {/* Footer — theme + collapse. */}
         <div className="border-t border-[var(--line)]">
-          <div className="flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-3)] border-b border-[var(--line)]">
-            <IconBtn label={t('notifications')} badge>
-              <Bell className="w-4 h-4" />
-            </IconBtn>
-            <IconBtn label={t('calendar')}>
-              <Calendar className="w-4 h-4" />
-            </IconBtn>
-            <IconBtn label={t('help')}>
-              <HelpCircle className="w-4 h-4" />
-            </IconBtn>
-            <IconBtn label="Foody AI" onClick={ai.toggleDrawer} active={ai.isOpen}>
-              <Sparkles className="w-4 h-4" />
-            </IconBtn>
-          </div>
           <div className="flex">
             <button
               onClick={toggleTheme}
@@ -700,32 +680,3 @@ function SubLink({
   );
 }
 
-function IconBtn({
-  children,
-  label,
-  onClick,
-  badge,
-  active,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-  badge?: boolean;
-  active?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative inline-flex items-center justify-center w-7 h-7 rounded-r-md transition-colors duration-fast ease-out text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] focus-visible:outline-none focus-visible:shadow-ring ${
-        active ? 'bg-[var(--sidebar-hover)] text-[var(--fg)]' : ''
-      }`}
-      aria-label={label}
-      title={label}
-    >
-      {children}
-      {badge && (
-        <span className="absolute top-1 end-1 w-1.5 h-1.5 bg-[var(--info-500)] rounded-full" />
-      )}
-    </button>
-  );
-}

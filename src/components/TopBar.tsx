@@ -11,14 +11,11 @@ import {
   ChevronDownIcon,
   BellIcon,
   SearchIcon,
-  SparklesIcon,
   SunIcon,
   MoonIcon,
   LogOutIcon,
   MenuIcon,
 } from 'lucide-react';
-import { useAi } from '@/lib/ai-context';
-
 interface TopBarProps {
   restaurantName: string;
   pageName: string;
@@ -34,7 +31,6 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useI18n();
-  const ai = useAi();
   const pathname = usePathname();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -100,15 +96,6 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
           ⌘K
         </kbd>
       </div>
-
-      {/* AI button */}
-      <button
-        onClick={ai.toggleDrawer}
-        className={`relative p-2 rounded-r-md hover:bg-[var(--sidebar-hover)] transition-colors ${ai.isOpen ? 'bg-[var(--sidebar-hover)]' : ''}`}
-        aria-label="Foody AI"
-      >
-        <SparklesIcon className="w-4 h-4" />
-      </button>
 
       {/* Bell */}
       <button
