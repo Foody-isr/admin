@@ -156,6 +156,49 @@ function formatScheduledFor(iso: string): string {
   }
 }
 
+function formatScheduledDateLong(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString([], {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatScheduledTimeOnly(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return iso;
+  }
+}
+
+// Returns "Today" / "Tomorrow" / "in 3 days" / null when date is too far out.
+// Used by ScheduledBanner to give the staff an at-a-glance sense of urgency.
+function relativeDayLabel(iso: string, t: (k: string) => string): string | null {
+  try {
+    const target = new Date(iso);
+    const t0 = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = Math.round((t0.getTime() - today.getTime()) / 86400000);
+    if (days === 0) return t('today') || 'Today';
+    if (days === 1) return t('tomorrow') || 'Tomorrow';
+    if (days > 1 && days < 14) {
+      const tmpl = t('inDaysShort');
+      const fallback = `in ${days} days`;
+      const used = tmpl && tmpl !== 'inDaysShort' ? tmpl : fallback;
+      return used.replace('{n}', String(days));
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function formatTime(iso: string): string {
   try {
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -872,15 +915,9 @@ function OrderDetailDrawer({
           <span className="shrink-0">Table {order.table_number}</span>
         </>
       )}
-      {isScheduled && order.scheduled_for && (
-        <>
-          <span className="opacity-40">·</span>
-          <ClockIcon className="w-3 h-3 shrink-0" />
-          <span className="truncate">
-            {formatScheduledFor(order.scheduled_for)}
-          </span>
-        </>
-      )}
+      {/* Scheduled date intentionally NOT rendered here — it lives in the
+          dedicated ScheduledBanner inside the body so it stays visible and
+          prominent on both mobile and desktop instead of being truncated. */}
     </span>
   );
 
@@ -899,16 +936,19 @@ function OrderDetailDrawer({
         ) : null
       }
       footer={
-        <div className="flex items-center justify-between gap-[var(--s-3)]">
-          <div className="flex items-center gap-[var(--s-2)]">
-            <Button variant="secondary" size="md">
+        // Mobile: stack into two rows with primary actions on top (flex-col-reverse
+        // since DOM has secondary first), each Button stretches to fill width so
+        // labels never get truncated. Desktop: original split-layout preserved.
+        <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:items-center md:justify-between md:gap-[var(--s-3)]">
+          <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+            <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
               <EditIcon /> {t('edit') || 'Modifier'}
             </Button>
-            <Button variant="secondary" size="md">
+            <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
               <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
             </Button>
           </div>
-          <div className="flex items-center gap-[var(--s-2)]">
+          <div className="flex flex-wrap items-center gap-[var(--s-2)]">
             {canTakePayment && (
               <Button
                 variant="primary"
@@ -916,6 +956,7 @@ function OrderDetailDrawer({
                 onClick={onTakePayment}
                 disabled={isLoading}
                 style={{ background: 'var(--success-500)', color: '#fff' }}
+                className="flex-1 md:flex-none justify-center"
               >
                 <CreditCardIcon /> {t('takePayment')}
               </Button>
@@ -926,12 +967,19 @@ function OrderDetailDrawer({
                 size="md"
                 onClick={onCloseOrder}
                 disabled={isLoading}
+                className="flex-1 md:flex-none justify-center"
               >
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
             {canCancelOrder && (
-              <Button variant="ghost" size="md" onClick={onReject} disabled={isLoading}>
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={onReject}
+                disabled={isLoading}
+                className="flex-1 md:flex-none justify-center"
+              >
                 <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
               </Button>
             )}
@@ -943,6 +991,13 @@ function OrderDetailDrawer({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--s-5)]">
         {/* LEFT — timeline + items */}
         <div className="flex flex-col gap-[var(--s-4)]">
+          {/* Scheduled banner — prominent date/time when the order is scheduled.
+              Lives at the top of the body so staff see it immediately on both
+              desktop and mobile (whereas the drawer subtitle truncates). */}
+          {isScheduled && order.scheduled_for && (
+            <ScheduledBanner iso={order.scheduled_for} t={t} />
+          )}
+
           {/* Timeline */}
           <Section title={t('progress') || 'Progression'}>
             <div
@@ -990,8 +1045,11 @@ function OrderDetailDrawer({
                         />
                       )}
                     </div>
+                    {/* Reserve a constant 2-line height so labels that wrap
+                        on narrow widths (e.g. "In kitchen") don't shift the
+                        timestamp row out of alignment with neighbouring steps. */}
                     <div
-                      className={`text-fs-xs font-medium ${reached || active ? 'text-[var(--fg)]' : 'text-[var(--fg-muted)]'}`}
+                      className={`text-fs-xs font-medium leading-tight min-h-[2.4em] flex items-start justify-center px-0.5 ${reached || active ? 'text-[var(--fg)]' : 'text-[var(--fg-muted)]'}`}
                     >
                       {t(step.labelKey)}
                     </div>
@@ -1118,6 +1176,53 @@ function OrderDetailDrawer({
         </div>
       </div>
     </Drawer>
+  );
+}
+
+// ─── Scheduled banner — prominent date/time callout for scheduled orders ──────
+
+function ScheduledBanner({ iso, t }: { iso: string; t: (k: string) => string }) {
+  const rel = relativeDayLabel(iso, t);
+  return (
+    <div
+      className="flex items-center gap-[var(--s-4)] rounded-r-lg p-[var(--s-4)]"
+      style={{
+        background: 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))',
+        border: '1px solid color-mix(in oklab, var(--brand-500) 28%, var(--line))',
+      }}
+    >
+      <div
+        className="w-11 h-11 rounded-r-md grid place-items-center shrink-0"
+        style={{
+          background: 'color-mix(in oklab, var(--brand-500) 18%, transparent)',
+          color: 'var(--brand-500)',
+        }}
+      >
+        <ClockIcon className="w-5 h-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-[var(--s-2)] text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--brand-500)]">
+          <span className="truncate">{t('scheduledForLabel') || 'Scheduled for'}</span>
+          {rel && (
+            <span
+              className="inline-flex items-center px-1.5 h-[18px] rounded-r-sm text-[10px] tracking-[.04em] shrink-0"
+              style={{
+                background: 'color-mix(in oklab, var(--brand-500) 16%, transparent)',
+                color: 'var(--brand-500)',
+              }}
+            >
+              {rel}
+            </span>
+          )}
+        </div>
+        <div className="text-fs-lg sm:text-fs-xl font-semibold tracking-tight text-[var(--fg)] mt-0.5 break-words">
+          {formatScheduledDateLong(iso)}
+        </div>
+        <div className="text-fs-sm tabular-nums text-[var(--fg-muted)] mt-0.5">
+          {formatScheduledTimeOnly(iso)}
+        </div>
+      </div>
+    </div>
   );
 }
 
