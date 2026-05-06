@@ -23,8 +23,9 @@ import {
 
 type TFn = (k: string) => string;
 
-// Grid column template shared by header, item rows, and add-item row
-const GRID_COLS = 'grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] min-w-[700px]';
+// Grid column template — applied at md+ only. On mobile each row collapses to a
+// stacked card with inline labels (see ItemRow below).
+const GRID_COLS_DESKTOP = 'md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] md:items-center';
 
 function channelsMeta(m: Menu, t: TFn): string {
   const parts = [m.pos_enabled && t('posSystem'), m.web_enabled && 'Web'].filter(Boolean) as string[];
@@ -174,7 +175,7 @@ export default function MenuDetailPage() {
   return (
     <div className="space-y-6 w-full min-w-0">
       {/* ── Page Header ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push(`/${rid}/menu/menus`)}
@@ -322,7 +323,8 @@ export default function MenuDetailPage() {
                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors ${isExpanded ? '' : 'rounded-xl'}`}
                 onClick={() => toggleExpand(group.id)}
               >
-                <GripVerticalIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0 cursor-grab active:cursor-grabbing" />
+                {/* Drag handle is desktop-only — touch reorder isn't supported. */}
+                <GripVerticalIcon className="hidden md:block w-5 h-5 text-[var(--text-muted)] shrink-0 cursor-grab active:cursor-grabbing" />
                 {isExpanded
                   ? <ChevronUpIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                   : <ChevronDownIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
@@ -359,10 +361,10 @@ export default function MenuDetailPage() {
 
               {/* ── Group Content (expanded) ── */}
               {isExpanded && (
-                <div className="border-t border-[var(--divider)] overflow-x-auto rounded-b-xl">
-                  {/* Table Header Row */}
+                <div className="border-t border-[var(--divider)] rounded-b-xl">
+                  {/* Table Header Row — desktop only, mobile rows show inline labels */}
                   {items.length > 0 && (
-                    <div className={`grid ${GRID_COLS} items-center px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
+                    <div className={`hidden ${GRID_COLS_DESKTOP} px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
                       <div><input type="checkbox" className="rounded border-[var(--divider)]" disabled /></div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('article')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('pointOfSale')}</div>
@@ -390,14 +392,18 @@ export default function MenuDetailPage() {
                   {/* Add Item Row */}
                   <button
                     onClick={() => setItemPickerGroupId(group.id)}
-                    className={`grid ${GRID_COLS} items-center w-full px-4 py-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]`}
+                    className={`flex md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] md:items-center w-full px-4 py-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]`}
                   >
-                    <div />
+                    <div className="hidden md:block" />
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <PlusIcon className="w-4 h-4" />
                       {t('addArticle')}
                     </div>
-                    <div /><div /><div /><div /><div />
+                    <div className="hidden md:block" />
+                    <div className="hidden md:block" />
+                    <div className="hidden md:block" />
+                    <div className="hidden md:block" />
+                    <div className="hidden md:block" />
                   </button>
                 </div>
               )}
@@ -633,16 +639,16 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
 
   return (
     <div
-      className={`grid ${GRID_COLS} items-center px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer`}
+      className={`relative flex flex-col gap-2 ${GRID_COLS_DESKTOP} md:gap-0 px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer`}
       onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
     >
-      {/* Checkbox */}
-      <div onClick={(e) => e.stopPropagation()}>
+      {/* Checkbox — desktop only on mobile cards */}
+      <div className="hidden md:block" onClick={(e) => e.stopPropagation()}>
         <input type="checkbox" className="rounded border-[var(--divider)]" />
       </div>
 
-      {/* Article name + image */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* Article name + image (card heading on mobile) */}
+      <div className="flex items-center gap-3 min-w-0 pe-10 md:pe-0">
         {item.image_url ? (
           <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
         ) : (
@@ -654,25 +660,35 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
       </div>
 
       {/* Point of sale */}
-      <div>
-        {restaurantName && <Tag>{restaurantName}</Tag>}
+      <div className="flex items-center justify-between md:block gap-3">
+        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('pointOfSale')}</span>
+        <div>{restaurantName && <Tag>{restaurantName}</Tag>}</div>
       </div>
 
       {/* Sales channels */}
-      <div className="flex gap-1.5 flex-wrap">
-        {channelTags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+      <div className="flex items-center justify-between md:block gap-3">
+        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('salesChannels')}</span>
+        <div className="flex gap-1.5 flex-wrap justify-end md:justify-start">
+          {channelTags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+        </div>
       </div>
 
       {/* Modifiers */}
-      <div className="text-sm text-[var(--text-secondary)] truncate">{modifierNames}</div>
-
-      {/* Price */}
-      <div className="text-sm font-semibold text-[var(--text-primary)] text-right">
-        {item.price?.toFixed(2)} ₪
+      <div className="flex items-center justify-between md:block gap-3 min-w-0">
+        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)] shrink-0">{t('modifiers')}</span>
+        <div className="text-sm text-[var(--text-secondary)] truncate text-end md:text-start">{modifierNames}</div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+      {/* Price */}
+      <div className="flex items-center justify-between md:block gap-3">
+        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('price')}</span>
+        <div className="text-sm font-semibold text-[var(--text-primary)] text-end">
+          {item.price?.toFixed(2)} ₪
+        </div>
+      </div>
+
+      {/* Actions — pinned to top-end corner on mobile, inline on desktop */}
+      <div className="absolute top-3 end-4 md:static md:flex md:justify-center" onClick={(e) => e.stopPropagation()}>
         <button
           ref={buttonRef}
           onClick={() => (dropdownOpen ? setDropdownOpen(false) : openDropdown())}

@@ -50,16 +50,17 @@ export default function MenuItemShell({
       />
 
       {/* Inset container — 32px top, 24px bottom, centered horizontally with
-          48px total side gap. Using transform centering (not inset-x-24)
-          keeps the modal visually symmetric regardless of page scrollbar
-          gutter reservation.
+          48px total side gap on desktop; full-screen edge-to-edge on mobile.
+          Using transform centering (not inset-x-24) keeps the modal visually
+          symmetric regardless of page scrollbar gutter reservation.
           Entrance animation (fade-in + subtle zoom) matches the Radix-powered
           FullScreenEditor used by Stock / Prep editors. */}
       <div
-        className="absolute top-[32px] bottom-[24px] left-1/2 -translate-x-1/2 w-[calc(100%-48px)] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] border border-[var(--line)] rounded-r-xl shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
+        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-1/2 md:-translate-x-1/2 md:w-[calc(100%-48px)] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
       >
-        {/* Head — 60px, close-left · centered title · save/cancel right */}
-        <div className="h-[60px] shrink-0 px-[var(--s-5)] flex items-center gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
+        {/* Head — 60px, close-left · centered title · save/cancel right.
+            Cancel button hides on mobile (X already cancels). */}
+        <div className="h-[60px] shrink-0 px-[var(--s-4)] md:px-[var(--s-5)] flex items-center gap-[var(--s-3)] md:gap-[var(--s-4)] bg-[var(--surface)] border-b border-[var(--line)]">
           <Button variant="ghost" size="md" icon onClick={onClose} aria-label={t('cancel')}>
             <X />
           </Button>
@@ -69,7 +70,7 @@ export default function MenuItemShell({
             </h2>
           </div>
           <div className="flex items-center gap-[var(--s-2)] shrink-0">
-            <Button variant="secondary" size="md" onClick={onClose}>
+            <Button variant="secondary" size="md" onClick={onClose} className="hidden md:inline-flex">
               {t('cancel')}
             </Button>
             <Button
@@ -84,15 +85,12 @@ export default function MenuItemShell({
           </div>
         </div>
 
-        {/* Body — 280px rail + scrollable main */}
-        <div
-          className="flex-1 grid overflow-hidden min-h-0"
-          style={{ gridTemplateColumns: '280px 1fr' }}
-        >
-          <aside className="border-r border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] overflow-y-auto">
+        {/* Body — single column on mobile (rail hidden), 280px rail + main on md+ */}
+        <div className="flex-1 flex md:grid overflow-hidden min-h-0 md:[grid-template-columns:280px_1fr]">
+          <aside className="hidden md:block border-e border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] overflow-y-auto">
             {sidebar}
           </aside>
-          <main className="flex flex-col overflow-hidden min-w-0">
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0">
             {children}
           </main>
         </div>
