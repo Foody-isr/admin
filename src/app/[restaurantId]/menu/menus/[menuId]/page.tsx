@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getRestaurant, deleteGroup, deleteMenu, reorderGroups,
@@ -594,6 +595,30 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
 }) {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const openDropdown = () => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    setDropdownOpen(true);
+  };
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const close = () => setDropdownOpen(false);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [dropdownOpen]);
+
   const modifierNames = (item.modifier_sets ?? []).map((ms) => ms.name).join(', ') || '—';
   const channelTags: string[] = [];
   if (menu.pos_enabled) channelTags.push(t('posSystem'));
@@ -647,50 +672,59 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
       </div>
 
       {/* Actions */}
-      <div className="relative flex justify-center" onClick={(e) => e.stopPropagation()}>
+      <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
         <button
-          onClick={() => setDropdownOpen(!dropdownOpen)}
+          ref={buttonRef}
+          onClick={() => (dropdownOpen ? setDropdownOpen(false) : openDropdown())}
           className="p-1 rounded-lg hover:bg-[var(--surface-subtle)] text-[var(--text-muted)] transition-colors"
         >
           <MoreHorizontalIcon className="w-4 h-4" />
         </button>
-        {dropdownOpen && (
-          <div className="absolute right-0 top-8 z-30 w-64 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
-            <button
-              onClick={() => { setDropdownOpen(false); router.push(`/${rid}/menu/items/${item.id}`); }}
-              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+        {dropdownOpen && dropdownPos && createPortal(
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+            <div
+              className="fixed z-50 w-64 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden"
+              style={{ top: dropdownPos.top, right: dropdownPos.right }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {t('editItemDetails')}
-            </button>
-            <div className="border-t border-[var(--divider)]" />
-            <button
-              onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
-              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {t('duplicateItem')}
-            </button>
-            <div className="border-t border-[var(--divider)]" />
-            <button
-              onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
-              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {t('changeModifiers')}
-            </button>
-            <div className="border-t border-[var(--divider)]" />
-            <button
-              onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
-              className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
-            >
-              {t('archiveItem')}
-            </button>
-            <div className="border-t border-[var(--divider)]" />
-            <button
-              onClick={handleRemoveFromGroup}
-              className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
-            >
-              {t('removeFromGroup')}
-            </button>
-          </div>
+              <button
+                onClick={() => { setDropdownOpen(false); router.push(`/${rid}/menu/items/${item.id}`); }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                {t('editItemDetails')}
+              </button>
+              <div className="border-t border-[var(--divider)]" />
+              <button
+                onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                {t('duplicateItem')}
+              </button>
+              <div className="border-t border-[var(--divider)]" />
+              <button
+                onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                {t('changeModifiers')}
+              </button>
+              <div className="border-t border-[var(--divider)]" />
+              <button
+                onClick={() => { setDropdownOpen(false); alert(t('comingSoon')); }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                {t('archiveItem')}
+              </button>
+              <div className="border-t border-[var(--divider)]" />
+              <button
+                onClick={handleRemoveFromGroup}
+                className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+              >
+                {t('removeFromGroup')}
+              </button>
+            </div>
+          </>,
+          document.body,
         )}
       </div>
     </div>
