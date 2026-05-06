@@ -5643,7 +5643,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiSuggestCustomers: 'Qui sont mes meilleurs clients ?',
 
     // ── Sub-navigation ──
-    itemLibrary: 'Bibliothèque d\'articles',
+    itemLibrary: 'Articles',
     aiImport: 'Import IA',
     allOrders2: 'Toutes les commandes',
     fulfillmentSettings: 'Paramètres de livraison',
