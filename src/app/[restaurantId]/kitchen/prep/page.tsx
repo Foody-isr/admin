@@ -491,7 +491,7 @@ export default function PrepPage() {
                       checked={selected.has(item.id)}
                       onCheckedChange={() => toggleSelect(item.id)}
                     />
-                    <DataTableCell>
+                    <DataTableCell mobilePrimary>
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
@@ -505,19 +505,19 @@ export default function PrepPage() {
                         </span>
                       </button>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('category')}>
                       <span className="inline-flex items-center gap-[var(--s-2)] h-[22px] px-[var(--s-2)] bg-[var(--surface-2)] text-[var(--fg-muted)] rounded-r-sm text-fs-xs font-semibold uppercase tracking-[.02em] whitespace-nowrap">
                         {item.category || '—'}
                       </span>
                     </DataTableCell>
-                    <DataTableCell className="font-mono tabular-nums text-neutral-900 dark:text-white">
+                    <DataTableCell mobileLabel={t('stock')} className="font-mono tabular-nums text-neutral-900 dark:text-white">
                       {item.quantity}{' '}
                       <span className="text-neutral-500 dark:text-neutral-400 text-xs">{item.unit}</span>
                     </DataTableCell>
-                    <DataTableCell className="font-mono tabular-nums text-neutral-900 dark:text-white">
+                    <DataTableCell mobileLabel={t('yieldPerBatch')} className="font-mono tabular-nums text-neutral-900 dark:text-white">
                       {item.yield_per_batch > 0 ? `${item.yield_per_batch} ${item.unit}` : '—'}
                     </DataTableCell>
-                    <DataTableCell className="font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
+                    <DataTableCell mobileLabel={t('shelfLife')} className="font-mono tabular-nums text-neutral-500 dark:text-neutral-400">
                       {item.shelf_life_hours > 0 ? (
                         <span className="inline-flex items-center gap-1">
                           <ClockIcon className="w-3.5 h-3.5 text-neutral-400" />
@@ -525,7 +525,7 @@ export default function PrepPage() {
                         </span>
                       ) : '—'}
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('status')}>
                       {low ? (
                         <span className="inline-flex items-center gap-1 text-red-500 text-xs font-medium">
                           <AlertTriangleIcon className="w-4 h-4" /> {t('low')}

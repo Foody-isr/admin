@@ -44,6 +44,8 @@ interface SubItem {
   href: string;
   labelKey: string;
   badge?: number;
+  /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
+  desktopOnly?: boolean;
 }
 
 interface SubItemGroup {
@@ -60,6 +62,8 @@ interface NavItem {
   subGroups?: SubItemGroup[];
   /** Override the href used when clicking the main nav item (defaults to first sub-item). */
   clickHref?: string;
+  /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
+  desktopOnly?: boolean;
 }
 
 interface SidebarProps {
@@ -132,7 +136,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         // Recipes page is hidden for now — per-item recipes are edited inside the menu item Recette tab.
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
         { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost' },
-        { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations' },
+        { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations', desktopOnly: true },
         { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
       ],
     },
@@ -152,6 +156,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'online',
       icon: Globe,
       perm: ['settings.edit'],
+      desktopOnly: true,
       subItems: [{ href: `${base}/website`, labelKey: 'websiteBuilder' }],
     },
     {
@@ -175,6 +180,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'staff',
       icon: UserCog,
       perm: ['staff.view', 'staff.manage', 'roles.manage'],
+      desktopOnly: true,
       subItems: [
         { href: `${base}/staff`, labelKey: 'staffMembers' },
         { href: `${base}/roles`, labelKey: 'rolesPermissions' },
@@ -221,7 +227,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   // design-reference/screens/settings.jsx SettingsShell groups.
   const isSettingsRoute =
     pathname === `${base}/settings` || pathname.startsWith(`${base}/settings/`);
-  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon }[] }[] = [
+  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean }[] }[] = [
     {
       groupKey: 'settingsGroupAccount',
       items: [
@@ -234,15 +240,15 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       groupKey: 'settingsGroupCommerce',
       items: [
-        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign },
-        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer },
+        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
+        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'scheduled', href: `${base}/settings/scheduled-orders`, labelKey: 'scheduledOrders', icon: CalendarClock },
       ],
     },
     {
       groupKey: 'settingsGroupOrg',
       items: [
-        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users },
+        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users, desktopOnly: true },
       ],
     },
   ];
@@ -331,8 +337,13 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                   {t('settings')}
                 </div>
               )}
-              {settingsSections.map((s) => (
-                <div key={s.groupKey} className="mb-[var(--s-3)]">
+              {settingsSections.map((s) => {
+                const allDesktopOnly = s.items.every((it) => it.desktopOnly);
+                return (
+                <div
+                  key={s.groupKey}
+                  className={`mb-[var(--s-3)]${allDesktopOnly ? ' max-lg:hidden' : ''}`}
+                >
                   {!collapsed && (
                     <div className="text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
                       {t(s.groupKey)}
@@ -347,6 +358,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                         href={it.href}
                         onClick={onClose}
                         className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                          it.desktopOnly ? 'max-lg:hidden ' : ''
+                        }${
                           active
                             ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
                             : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
@@ -358,7 +371,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                     );
                   })}
                 </div>
-              ))}
+                );
+              })}
             </>
           ) : (
             nav.map((item) => {
@@ -373,7 +387,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
               ) ?? 0);
 
             return (
-              <div key={item.labelKey}>
+              <div key={item.labelKey} className={item.desktopOnly ? 'max-lg:hidden' : undefined}>
                 {/* Top-level row */}
                 {children ? (
                   // Parent groups never get the orange gradient — only text color
@@ -456,6 +470,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                               label={t(sub.labelKey)}
                               badge={sub.badge}
                               active={active}
+                              desktopOnly={sub.desktopOnly}
                               onClick={onClose}
                             />
                           );
@@ -471,6 +486,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
                           label={t(sub.labelKey)}
                           badge={sub.badge}
                           active={active}
+                          desktopOnly={sub.desktopOnly}
                           onClick={onClose}
                         />
                       );
@@ -646,12 +662,14 @@ function SubLink({
   label,
   badge,
   active,
+  desktopOnly,
   onClick,
 }: {
   href: string;
   label: string;
   badge?: number;
   active: boolean;
+  desktopOnly?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -659,6 +677,8 @@ function SubLink({
       href={href}
       onClick={onClick}
       className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+        desktopOnly ? 'max-lg:hidden ' : ''
+      }${
         active
           ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
           : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'

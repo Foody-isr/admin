@@ -71,6 +71,10 @@ export function useI18n() {
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    // ── Desktop-only placeholder ──
+    desktopOnlyTitle: 'Open on a larger screen',
+    desktopOnlyMessage: 'This view is built for tablets and desktops. Sign in from a wider screen to manage these settings.',
+
     // ── Auth / Login ──
     foodyAdmin: 'Foody Admin',
     restaurantPortal: 'Restaurant portal',
@@ -2103,6 +2107,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
   he: {
+    // ── Desktop-only placeholder ──
+    desktopOnlyTitle: 'יש לפתוח במסך גדול יותר',
+    desktopOnlyMessage: 'תצוגה זו מותאמת לטאבלטים ומחשבים. היכנס ממסך רחב יותר כדי לנהל את ההגדרות.',
+
     // ── Auth / Login ──
     foodyAdmin: 'Foody Admin',
     restaurantPortal: 'פורטל מסעדות',
@@ -4115,6 +4123,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
   // ── French ──────────────────────────────────────────────────────────────
   fr: {
+    // ── Desktop-only placeholder ──
+    desktopOnlyTitle: 'À ouvrir sur un écran plus grand',
+    desktopOnlyMessage: 'Cette vue est conçue pour les tablettes et les ordinateurs. Connectez-vous depuis un écran plus large pour gérer ces paramètres.',
+
     // ── Auth / Login ──
     foodyAdmin: 'Foody Admin',
     restaurantPortal: 'Portail restaurant',

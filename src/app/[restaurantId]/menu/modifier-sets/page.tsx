@@ -104,9 +104,9 @@ export default function ModifierSetsPage() {
           <DataTableBody>
             {sets.map((set, index) => (
               <DataTableRow key={set.id} index={index}>
-                <DataTableCell className="font-medium">{set.name}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{set.display_name || '—'}</DataTableCell>
-                <DataTableCell align="center">
+                <DataTableCell mobilePrimary className="font-medium">{set.name}</DataTableCell>
+                <DataTableCell mobileLabel={t('displayName') || 'Display name'} className="text-fg-secondary">{set.display_name || '—'}</DataTableCell>
+                <DataTableCell align="center" mobileLabel={t('required') || 'Required'}>
                   {set.is_required ? (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
                       {t('required') || 'Required'}
@@ -115,8 +115,8 @@ export default function ModifierSetsPage() {
                     <span className="text-fg-secondary">—</span>
                   )}
                 </DataTableCell>
-                <DataTableCell align="center" className="text-fg-secondary">{set.modifiers?.length ?? 0}</DataTableCell>
-                <DataTableCell align="center" className="text-fg-secondary">{set.menu_items?.length ?? 0}</DataTableCell>
+                <DataTableCell align="center" mobileLabel={t('modifiers') || 'Modifiers'} className="text-fg-secondary">{set.modifiers?.length ?? 0}</DataTableCell>
+                <DataTableCell align="center" mobileLabel={t('linkedItems') || 'Linked items'} className="text-fg-secondary">{set.menu_items?.length ?? 0}</DataTableCell>
                 <DataTableCell>
                   <div className="flex items-center justify-end gap-2">
                     <button

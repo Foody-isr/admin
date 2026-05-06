@@ -343,7 +343,7 @@ export default function RecipesPage() {
                     checked={selected.has(item.id)}
                     onCheckedChange={() => toggleSelect(item.id)}
                   />
-                  <DataTableCell>
+                  <DataTableCell mobilePrimary>
                     <button
                       type="button"
                       onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
@@ -360,8 +360,8 @@ export default function RecipesPage() {
                       <span className="font-medium text-fg-primary">{item.name}</span>
                     </button>
                   </DataTableCell>
-                  <DataTableCell className="text-fg-secondary">{item.category_name || '—'}</DataTableCell>
-                  <DataTableCell align="right" className="font-mono text-fg-primary">
+                  <DataTableCell mobileLabel={t('category')} className="text-fg-secondary">{item.category_name || '—'}</DataTableCell>
+                  <DataTableCell align="right" mobileLabel={t('prepTime')} className="font-mono text-fg-primary">
                     {item.prep_time_mins > 0 ? (
                       <span className="inline-flex items-center gap-1 justify-end">
                         <ClockIcon className="w-3.5 h-3.5 text-fg-tertiary" />
@@ -369,13 +369,13 @@ export default function RecipesPage() {
                       </span>
                     ) : '—'}
                   </DataTableCell>
-                  <DataTableCell align="right" className="font-mono text-fg-primary">
+                  <DataTableCell align="right" mobileLabel={t('recipeIngredients')} className="font-mono text-fg-primary">
                     {item.ingredient_count > 0 ? item.ingredient_count : '—'}
                   </DataTableCell>
-                  <DataTableCell align="right" className="font-mono text-fg-primary">
+                  <DataTableCell align="right" mobileLabel={t('steps')} className="font-mono text-fg-primary">
                     {item.step_count > 0 ? item.step_count : '—'}
                   </DataTableCell>
-                  <DataTableCell>
+                  <DataTableCell mobileLabel={t('status')}>
                     <span className="inline-flex items-center gap-2 text-xs font-medium text-fg-secondary">
                       <span className={`w-2 h-2 rounded-full ${getStatusColor(s)}`} />
                       {getStatusLabel(s)}

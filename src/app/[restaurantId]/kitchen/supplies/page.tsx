@@ -388,7 +388,7 @@ export default function SuppliesPage() {
                     onClick={() => openDrawer(supply.batch_id)}
                     className="cursor-pointer"
                   >
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('date') || 'Date'}>
                       <div className="flex flex-col">
                         <span className="font-medium text-neutral-900 dark:text-white tabular-nums">
                           {formatDate(supply.created_at)}
@@ -398,7 +398,7 @@ export default function SuppliesPage() {
                         </span>
                       </div>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobilePrimary>
                       <div className="flex items-center gap-[var(--s-3)]">
                         <div className="w-9 h-9 rounded-lg bg-[var(--brand-500)]/10 grid place-items-center shrink-0">
                           <TruckIcon className="w-4 h-4 text-[var(--brand-500)]" />
@@ -408,17 +408,17 @@ export default function SuppliesPage() {
                         </span>
                       </div>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('items') || 'Articles'}>
                       <Badge tone="neutral">
                         {supply.item_count} {t('items') || 'articles'}
                       </Badge>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('supplyTotal') || 'Total'}>
                       <span className="font-semibold tabular-nums text-neutral-900 dark:text-white">
                         ₪{supply.total_cost.toFixed(2)}
                       </span>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('document') || 'Document'}>
                       {docPresent ? (
                         <button
                           type="button"

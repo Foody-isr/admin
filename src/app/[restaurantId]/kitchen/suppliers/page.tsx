@@ -269,11 +269,11 @@ function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDele
                 className="cursor-pointer"
                 onClick={() => onDetail(s)}
               >
-                <DataTableCell className="font-medium text-fg-primary">{s.name}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{s.contact_name}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{s.phone}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{s.products?.length ?? 0}</DataTableCell>
-                <DataTableCell>
+                <DataTableCell mobilePrimary className="font-medium text-fg-primary">{s.name}</DataTableCell>
+                <DataTableCell mobileLabel={t('contactName')} className="text-fg-secondary">{s.contact_name}</DataTableCell>
+                <DataTableCell mobileLabel={t('phone')} className="text-fg-secondary">{s.phone}</DataTableCell>
+                <DataTableCell mobileLabel={t('supplierProducts')} className="text-fg-secondary">{s.products?.length ?? 0}</DataTableCell>
+                <DataTableCell mobileLabel={t('status')}>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                     {s.is_active ? t('active') : t('inactive')}
                   </span>
@@ -336,16 +336,16 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
           <DataTableBody>
             {orders.map((o, index) => (
               <DataTableRow key={o.id} index={index}>
-                <DataTableCell className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{o.supplier?.name ?? supplierName(o.supplier_id)}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
-                <DataTableCell>
+                <DataTableCell mobilePrimary className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
+                <DataTableCell mobileLabel={t('suppliers')} className="text-fg-secondary">{o.supplier?.name ?? supplierName(o.supplier_id)}</DataTableCell>
+                <DataTableCell mobileLabel={t('orderDate')} className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
+                <DataTableCell mobileLabel={t('status')}>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
                     {t(o.status)}
                   </span>
                 </DataTableCell>
-                <DataTableCell className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
+                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
+                <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
                 <DataTableCell>
                   <div className="flex gap-1">
                     {o.status === 'draft' && (
@@ -400,16 +400,16 @@ function HistoryTab({ orders, t }: { orders: PurchaseOrder[]; t: (k: string) => 
           <DataTableBody>
             {orders.map((o, index) => (
               <DataTableRow key={o.id} index={index}>
-                <DataTableCell className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{o.supplier?.name ?? '—'}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
-                <DataTableCell>
+                <DataTableCell mobilePrimary className="font-medium text-fg-primary">PO-{o.id}</DataTableCell>
+                <DataTableCell mobileLabel={t('suppliers')} className="text-fg-secondary">{o.supplier?.name ?? '—'}</DataTableCell>
+                <DataTableCell mobileLabel={t('orderDate')} className="text-fg-secondary">{o.order_date ? new Date(o.order_date).toLocaleDateString() : '—'}</DataTableCell>
+                <DataTableCell mobileLabel={t('status')}>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLORS[o.status]}`}>
                     {t(o.status)}
                   </span>
                 </DataTableCell>
-                <DataTableCell className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
+                <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
+                <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
               </DataTableRow>
             ))}
           </DataTableBody>

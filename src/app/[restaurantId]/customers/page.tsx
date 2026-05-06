@@ -108,10 +108,10 @@ export default function CustomersPage() {
           <DataTableBody>
             {customers.map((c, index) => (
               <DataTableRow key={c.id} index={index}>
-                <DataTableCell className="font-medium text-fg-primary">{c.phone}</DataTableCell>
-                <DataTableCell className="text-fg-primary">{c.name || '—'}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{c.notes || '—'}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">
+                <DataTableCell mobilePrimary className="font-medium text-fg-primary">{c.phone}</DataTableCell>
+                <DataTableCell mobileLabel={t('name')} className="text-fg-primary">{c.name || '—'}</DataTableCell>
+                <DataTableCell mobileLabel={t('notes')} className="text-fg-secondary">{c.notes || '—'}</DataTableCell>
+                <DataTableCell mobileLabel={t('added')} className="text-fg-secondary">
                   {new Date(c.created_at).toLocaleDateString()}
                 </DataTableCell>
                 {canManage && (

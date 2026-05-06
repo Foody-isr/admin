@@ -91,7 +91,7 @@ export default function CategoriesPage() {
           <DataTableBody>
             {categories.map((cat, index) => (
               <DataTableRow key={cat.id} index={index}>
-                <DataTableCell className="font-medium text-fg-primary">
+                <DataTableCell mobilePrimary className="font-medium text-fg-primary">
                   <div className="flex items-center gap-3">
                     {cat.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -104,7 +104,7 @@ export default function CategoriesPage() {
                     <span>{cat.name}</span>
                   </div>
                 </DataTableCell>
-                <DataTableCell align="right" className="text-fg-secondary">
+                <DataTableCell align="right" mobileLabel={t('item')} className="text-fg-secondary">
                   {(cat.items ?? []).length}
                 </DataTableCell>
                 <DataTableCell>

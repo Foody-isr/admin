@@ -198,22 +198,22 @@ export default function CustomersInsightsPage() {
                     className="cursor-pointer"
                     onClick={() => setSelectedPhone(c.customer_phone)}
                   >
-                    <DataTableCell className="whitespace-nowrap">
+                    <DataTableCell mobilePrimary className="whitespace-nowrap">
                       <div className="text-fg-primary font-medium">{c.customer_name || '—'}</div>
                       <div className="text-xs text-fg-secondary">{c.customer_phone}</div>
                     </DataTableCell>
-                    <DataTableCell align="right" className="text-fg-primary whitespace-nowrap">{c.total_orders}</DataTableCell>
-                    <DataTableCell align="right" className="font-medium text-fg-primary whitespace-nowrap">₪{c.total_spent.toFixed(0)}</DataTableCell>
-                    <DataTableCell align="right" className="text-fg-secondary whitespace-nowrap">₪{c.avg_order_value.toFixed(0)}</DataTableCell>
-                    <DataTableCell align="right" className="text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order, t)}</DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('orders')} className="text-fg-primary whitespace-nowrap">{c.total_orders}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('totalSpent')} className="font-medium text-fg-primary whitespace-nowrap">₪{c.total_spent.toFixed(0)}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('avgOrder')} className="text-fg-secondary whitespace-nowrap">₪{c.avg_order_value.toFixed(0)}</DataTableCell>
+                    <DataTableCell align="right" mobileLabel={t('lastOrder')} className="text-fg-secondary whitespace-nowrap">{daysAgoLabel(c.days_since_last_order, t)}</DataTableCell>
+                    <DataTableCell mobileLabel={t('topItems')}>
                       <div className="text-xs text-fg-secondary truncate max-w-[200px]">
                         {c.favorite_items.length > 0
                           ? c.favorite_items.map(f => f.name).join(', ')
                           : '—'}
                       </div>
                     </DataTableCell>
-                    <DataTableCell align="center" className="whitespace-nowrap">
+                    <DataTableCell align="center" mobileLabel={t('status')} className="whitespace-nowrap">
                       <StatusBadge days={c.days_since_last_order} t={t} />
                     </DataTableCell>
                   </DataTableRow>

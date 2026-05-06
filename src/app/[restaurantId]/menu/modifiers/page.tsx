@@ -114,10 +114,10 @@ export default function ModifiersPage() {
                 <DataTableBody>
                   {(item.modifiers ?? []).map((mod, modIdx) => (
                     <DataTableRow key={mod.id} index={modIdx}>
-                      <DataTableCell className="font-medium text-fg-primary">{mod.name}</DataTableCell>
-                      <DataTableCell className="text-fg-secondary">{mod.action}</DataTableCell>
-                      <DataTableCell className="text-fg-secondary">{mod.category || '—'}</DataTableCell>
-                      <DataTableCell align="right" className="text-fg-primary">
+                      <DataTableCell mobilePrimary className="font-medium text-fg-primary">{mod.name}</DataTableCell>
+                      <DataTableCell mobileLabel={t('action')} className="text-fg-secondary">{mod.action}</DataTableCell>
+                      <DataTableCell mobileLabel={t('categoryGroupName')} className="text-fg-secondary">{mod.category || '—'}</DataTableCell>
+                      <DataTableCell align="right" mobileLabel={t('priceDelta')} className="text-fg-primary">
                         {mod.price_delta !== 0
                           ? `${mod.price_delta > 0 ? '+' : ''}₪${mod.price_delta.toFixed(2)}`
                           : '—'}

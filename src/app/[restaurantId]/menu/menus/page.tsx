@@ -327,7 +327,7 @@ export default function MenusPage() {
                 onClick={() => router.push(`/${rid}/menu/menus/${m.id}`)}
                 className="cursor-pointer"
               >
-                <DataTableCell>
+                <DataTableCell mobilePrimary>
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                       <span className="text-xs font-semibold text-fg-secondary">{menuAbbr(m.name)}</span>
@@ -335,8 +335,8 @@ export default function MenusPage() {
                     <span className="font-medium text-fg-primary">{m.name}</span>
                   </div>
                 </DataTableCell>
-                <DataTableCell className="text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell>
-                <DataTableCell className="text-fg-secondary">{channelsSummary(m, t)}</DataTableCell>
+                <DataTableCell mobileLabel={t('pointOfSale')} className="text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell>
+                <DataTableCell mobileLabel={t('salesChannels')} className="text-fg-secondary">{channelsSummary(m, t)}</DataTableCell>
                 <DataTableCell>
                   <MenuDropdown
                     menu={m}
