@@ -80,7 +80,7 @@ export default function StockPage() {
 
   // Filters
   const [search, setSearch] = useState('');
-  type SortKey = 'name' | 'quantity' | 'price';
+  type SortKey = 'name' | 'quantity' | 'price' | 'total';
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const toggleSort = (key: SortKey) => {
@@ -249,6 +249,7 @@ export default function StockPage() {
     const dir = sortDir === 'asc' ? 1 : -1;
     if (sortKey === 'name') return a.name.localeCompare(b.name) * dir;
     if (sortKey === 'quantity') return (a.quantity - b.quantity) * dir;
+    if (sortKey === 'total') return (a.quantity * incVatCost(a) - b.quantity * incVatCost(b)) * dir;
     return (incVatCost(a) - incVatCost(b)) * dir;
   });
 
@@ -614,7 +615,14 @@ export default function StockPage() {
                 >
                   {t('unitPrice') || 'Prix unitaire'}
                 </SortableHeadCell>
-                <DataTableHeadCell>{t('totalValue') || 'Valeur totale'}</DataTableHeadCell>
+                <SortableHeadCell
+                  sortKey="total"
+                  currentSortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={(k) => toggleSort(k as 'total')}
+                >
+                  {t('totalValue') || 'Valeur totale'}
+                </SortableHeadCell>
                 <DataTableHeadCell>{t('supplier') || 'Fournisseur'}</DataTableHeadCell>
                 <DataTableHeadCell>{t('status') || 'Statut'}</DataTableHeadCell>
                 <DataTableHeadSpacerCell />

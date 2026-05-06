@@ -477,16 +477,31 @@ export default function OrdersPage() {
               >
                 {permission === 'granted' ? <BellIcon /> : <BellOffIcon />}
               </Button>
+              <Button
+                variant="ghost"
+                size="md"
+                icon
+                onClick={fetchOrders}
+                aria-label={t('refresh')}
+                title={
+                  lastUpdated
+                    ? `${t('refresh')} · ${t('lastUpdated') || 'Mise à jour'} ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                    : t('refresh')
+                }
+              >
+                <RefreshCwIcon />
+              </Button>
             </>
           }
         />
 
-        {/* Status tabs — underline style with inline counts + dot-pulse + updated-at.
-            Tabs scroll horizontally on mobile, with edge fade + chevron
-            indicators showing there's more to swipe. */}
-        <div className="flex items-center justify-between border-b border-[var(--line)] gap-[var(--s-3)]">
+        {/* Status tabs — underline style with inline counts + dot-pulse.
+            The rail spans the full row so partial tabs can fade off the end
+            without competing with adjacent buttons. Refresh moved to the
+            page-head actions above. */}
+        <div className="border-b border-[var(--line)]">
           <HorizontalScrollRail activeKey={activeTab} edgeFlush>
-            <div className="inline-flex items-center gap-[var(--s-5)]">
+            <div className="inline-flex items-center gap-[var(--s-4)] md:gap-[var(--s-5)] pe-[var(--s-4)] md:pe-0">
             {TABS.map((tab) => {
               const selected = activeTab === tab.key;
               const isActive = tab.key === 'active';
@@ -497,7 +512,7 @@ export default function OrdersPage() {
                   onClick={() => switchTab(tab.key)}
                   aria-selected={selected}
                   data-rail-active={selected ? '' : undefined}
-                  className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors inline-flex items-center gap-[var(--s-2)] [scroll-snap-align:start] ${
+                  className={`relative py-[var(--s-3)] bg-transparent border-none text-fs-sm font-medium transition-colors inline-flex items-center gap-[var(--s-2)] whitespace-nowrap [scroll-snap-align:start] ${
                     selected
                       ? 'text-[var(--fg)] after:content-[""] after:absolute after:start-0 after:end-0 after:-bottom-px after:h-[2px] after:bg-[var(--brand-500)] after:rounded-[1px]'
                       : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
@@ -528,24 +543,6 @@ export default function OrdersPage() {
             })}
             </div>
           </HorizontalScrollRail>
-          <div className="flex items-center gap-[var(--s-2)] pe-[var(--s-2)] shrink-0">
-            {lastUpdated && (
-              <span className="hidden md:inline text-fs-xs text-[var(--fg-subtle)]">
-                {t('lastUpdated') || 'Mise à jour'}{' '}
-                {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              icon
-              onClick={fetchOrders}
-              aria-label={t('refresh')}
-              title={t('refresh')}
-            >
-              <RefreshCwIcon />
-            </Button>
-          </div>
         </div>
 
         {/* Filters */}

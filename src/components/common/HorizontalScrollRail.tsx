@@ -42,8 +42,12 @@ export function HorizontalScrollRail({
       // RTL browsers report scrollLeft as negative — Math.abs normalizes.
       const scrolled = Math.abs(el.scrollLeft);
       const max = el.scrollWidth - el.clientWidth;
-      setHasOverflowStart(scrolled > 4);
-      setHasOverflowEnd(scrolled < max - 4);
+      // Threshold is wider than the rail's edge padding (px-4 = 16px) plus a
+      // small slack, so that snap-to-start landing positions don't trip the
+      // "there is more to scroll on the left" indicator on top of the first
+      // tab when the user is actually at the rail's beginning.
+      setHasOverflowStart(scrolled > 20);
+      setHasOverflowEnd(scrolled < max - 20);
     };
     update();
     el.addEventListener('scroll', update, { passive: true });
