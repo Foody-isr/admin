@@ -560,3 +560,17 @@ input::placeholder, textarea::placeholder {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* iOS Safari auto-zooms whenever a focused form control's font-size is
+ * smaller than 16px, and the bounce-back can feel janky. Forcing 16px on
+ * mobile suppresses the zoom entirely. Desktop keeps whatever Tailwind
+ * size the component picked. !important is needed because most inputs
+ * carry text-fs-sm / text-sm utility classes whose specificity beats
+ * a plain `input` selector. */
+@media (max-width: 767.98px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
