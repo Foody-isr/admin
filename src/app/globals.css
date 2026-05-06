@@ -465,3 +465,89 @@ input::placeholder, textarea::placeholder {
   background: var(--surface-subtle);
   color: var(--text-secondary);
 }
+
+/* ---------------------------------------------------------------------------
+ * Responsive data tables
+ *
+ * Below the `md` breakpoint, every <table> inside `.responsive-table` is
+ * flattened into a stack of card-shaped rows. Each cell becomes a
+ * label/value flex row. The label comes from the cell's `data-label`
+ * attribute (set via the `mobileLabel` prop on DataTableCell). Cells with
+ * no label still render — just without the leading label text.
+ *
+ * Cells can opt out of the row treatment with `data-mobile-hidden`
+ * (hidden on mobile) or `data-mobile-primary` (rendered as a heading at
+ * the top of the card instead of a label/value row).
+ * ------------------------------------------------------------------------- */
+@media (max-width: 767.98px) {
+  .responsive-table {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  .responsive-table > table,
+  .responsive-table > table > tbody {
+    display: block;
+    width: 100%;
+  }
+  .responsive-table > table > thead {
+    display: none;
+  }
+  .responsive-table > table > tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .responsive-table > table > tbody > tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+  .responsive-table > table > tbody > tr > td {
+    padding: 0;
+    text-align: start;
+    border: none;
+    min-width: 0;
+  }
+  .responsive-table > table > tbody > tr > td[data-mobile-hidden] {
+    display: none;
+  }
+  .responsive-table > table > tbody > tr > td[data-mobile-primary] {
+    font-size: 16px;
+    font-weight: 600;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 4px;
+  }
+  .responsive-table > table > tbody > tr > td[data-label] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: end;
+  }
+  .responsive-table > table > tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-secondary, var(--text-secondary));
+    text-align: start;
+  }
+  /* Selection checkbox — pinned to top-end corner of the card */
+  .responsive-table > table > tbody > tr > td[data-mobile-select] {
+    position: absolute;
+    top: 12px;
+    inset-inline-end: 12px;
+  }
+}

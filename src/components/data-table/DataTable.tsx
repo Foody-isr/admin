@@ -18,21 +18,31 @@ const headCellBase =
 
 export type SortDir = 'asc' | 'desc';
 
-export const DataTable = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      'bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden',
-      className,
-    )}
-    {...props}
-  >
-    <table className="w-full">{children}</table>
-  </div>
-));
+type DataTableProps = React.HTMLAttributes<HTMLDivElement> & {
+  /**
+   * When false, the table keeps the desktop layout at all breakpoints
+   * (use this for views that should not collapse to cards on mobile —
+   * e.g. dashboards intentionally restricted to wider screens).
+   * Defaults to true.
+   */
+  responsive?: boolean;
+};
+
+export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
+  ({ className, children, responsive = true, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'bg-white dark:bg-[#111111] rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden',
+        responsive && 'responsive-table',
+        className,
+      )}
+      {...props}
+    >
+      <table className="w-full">{children}</table>
+    </div>
+  ),
+);
 DataTable.displayName = 'DataTable';
 
 export const DataTableHead = React.forwardRef<
@@ -167,13 +177,29 @@ DataTableRow.displayName = 'DataTableRow';
 
 type CellProps = React.TdHTMLAttributes<HTMLTableCellElement> & {
   align?: Align;
+  /**
+   * Label shown next to the cell value when the table collapses to cards
+   * on mobile. When omitted, the cell still renders but without a label.
+   * Use one of the role props below for non-standard treatments.
+   */
+  mobileLabel?: string;
+  /**
+   * Render this cell as the card heading on mobile (full-width, larger,
+   * no leading label). Typically the order number, item name, etc.
+   */
+  mobilePrimary?: boolean;
+  /** Hide this cell entirely on mobile (e.g. low-value metadata). */
+  mobileHidden?: boolean;
 };
 
 export const DataTableCell = React.forwardRef<HTMLTableCellElement, CellProps>(
-  ({ align, className, children, ...props }, ref) => (
+  ({ align, className, children, mobileLabel, mobilePrimary, mobileHidden, ...props }, ref) => (
     <td
       ref={ref}
       className={cn('p-4', align ? alignClass[align] : '', className)}
+      data-label={mobileLabel}
+      data-mobile-primary={mobilePrimary ? '' : undefined}
+      data-mobile-hidden={mobileHidden ? '' : undefined}
       {...props}
     >
       {children}
@@ -189,7 +215,7 @@ type SelectCellProps = {
 
 export function DataTableSelectCell({ checked, onCheckedChange }: SelectCellProps) {
   return (
-    <DataTableCell>
+    <DataTableCell data-mobile-select="">
       <Checkbox checked={checked} onCheckedChange={onCheckedChange} />
     </DataTableCell>
   );

@@ -587,17 +587,17 @@ export default function OrdersPage() {
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
                     className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
-                    <DataTableCell>
+                    <DataTableCell mobilePrimary>
                       <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
                     </DataTableCell>
-                    <DataTableCell className="text-fg-secondary">
+                    <DataTableCell className="text-fg-secondary" mobileLabel={t('source')}>
                       {localizeSource(order.order_source, t)}
                     </DataTableCell>
-                    <DataTableCell className="text-fg-secondary">
+                    <DataTableCell className="text-fg-secondary" mobileLabel={t('type')}>
                       {localizeOrderType(order.order_type, t)}
                     </DataTableCell>
-                    <DataTableCell className="text-fg-secondary">
-                      <div className="flex flex-col">
+                    <DataTableCell className="text-fg-secondary" mobileLabel={t('date')}>
+                      <div className="flex md:flex-col items-baseline md:items-stretch gap-1.5 md:gap-0">
                         <span className="tabular-nums">
                           {new Date(order.created_at).toLocaleDateString([], {
                             day: '2-digit',
@@ -612,12 +612,12 @@ export default function OrdersPage() {
                         </span>
                       </div>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('status')}>
                       <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
                         {localizeStatus(order.status, t)}
                       </Badge>
                     </DataTableCell>
-                    <DataTableCell>
+                    <DataTableCell mobileLabel={t('payment')}>
                       <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
                         {(() => {
                           const tv = t(order.payment_status);
@@ -625,7 +625,7 @@ export default function OrdersPage() {
                         })()}
                       </Badge>
                     </DataTableCell>
-                    <DataTableCell align="right" className="font-medium text-fg-primary">
+                    <DataTableCell align="right" className="font-medium text-fg-primary" mobileLabel={t('total')}>
                       ₪{(order.total_amount ?? 0).toFixed(0)}
                     </DataTableCell>
                   </DataTableRow>
