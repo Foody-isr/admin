@@ -449,46 +449,78 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface)' }}>
-      {/* ─ Header ─ */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-        <div className="flex items-center gap-3">
-          <SparklesIcon className="w-5 h-5 text-brand-500" />
-          <h3 className="font-semibold text-fg-primary">{t('aiDeliveryImport')}</h3>
-          {(() => {
-            const displaySupplier = selectedSupplierId === -1
-              ? newSupplierName
-              : selectedSupplierId > 0
-                ? suppliers.find((s) => s.id === selectedSupplierId)?.name
-                : extraction?.supplier_name;
-            return displaySupplier ? <span className="text-sm text-fg-secondary">— {displaySupplier}</span> : null;
-          })()}
-          {(() => {
-            const skipped = editedItems.filter((i) => i.skipped).length;
-            const active = editedItems.length - skipped;
-            return (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
-                {active} {t('items')}
-                {skipped > 0 && <> · {skipped} {t('skipped').toLowerCase()}</>}
-              </span>
-            );
-          })()}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
-          <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-secondary text-sm">
-            {savingDraft ? t('saving') : t('saveDraft')}
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={loading || unreviewedFlaggedCount > 0}
-            title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
-            className="btn-primary text-sm"
-          >
-            {loading ? t('confirming') : t('confirmImport')}
-          </button>
-          <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
-        </div>
-      </div>
+      {(() => {
+        const displaySupplier = selectedSupplierId === -1
+          ? newSupplierName
+          : selectedSupplierId > 0
+            ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+            : extraction?.supplier_name;
+        const skipped = editedItems.filter((i) => i.skipped).length;
+        const active = editedItems.length - skipped;
+        const skippedSuffix = skipped > 0
+          ? ` · ${skipped} ${t('skipped').toLowerCase()}`
+          : '';
+        return (
+          <>
+            {/* ─ Header ─ Compact on mobile (X · title · count), inline on lg+. */}
+            <div
+              className="flex items-center justify-between gap-3 px-3 lg:px-5 py-3 border-b border-[var(--divider)]"
+              style={{ background: 'var(--surface-subtle)' }}
+            >
+              <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
+                {/* Mobile-only close X (lg+ keeps it on the right of the action group) */}
+                <button
+                  onClick={onClose}
+                  aria-label={t('close')}
+                  className="lg:hidden text-fg-secondary hover:text-fg-primary text-2xl leading-none px-1 shrink-0"
+                >
+                  &times;
+                </button>
+                <SparklesIcon className="w-5 h-5 text-brand-500 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-fg-primary truncate">
+                    {t('aiDeliveryImport')}
+                  </h3>
+                  {/* Mobile: supplier + count stacked under the title */}
+                  <div className="lg:hidden flex items-center gap-2 text-xs text-fg-secondary mt-0.5 min-w-0">
+                    {displaySupplier && (
+                      <span className="truncate min-w-0">{displaySupplier}</span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium shrink-0">
+                      {active} {t('items')}{skippedSuffix}
+                    </span>
+                  </div>
+                </div>
+                {/* Desktop: supplier + count inline next to the title */}
+                {displaySupplier && (
+                  <span className="hidden lg:inline text-sm text-fg-secondary">
+                    — {displaySupplier}
+                  </span>
+                )}
+                <span className="hidden lg:inline-flex text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
+                  {active} {t('items')}{skippedSuffix}
+                </span>
+              </div>
+              {/* Desktop action group — buttons live in a sticky footer on mobile (see bottom of modal). */}
+              <div className="hidden lg:flex items-center gap-2 shrink-0">
+                <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
+                <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-secondary text-sm">
+                  {savingDraft ? t('saving') : t('saveDraft')}
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={loading || unreviewedFlaggedCount > 0}
+                  title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+                  className="btn-primary text-sm"
+                >
+                  {loading ? t('confirming') : t('confirmImport')}
+                </button>
+                <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ─ Mobile tabs (below lg) ─ */}
       <div className="flex lg:hidden border-b border-[var(--divider)]">
@@ -574,6 +606,38 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             />
           </div>
         )}
+      </div>
+
+      {/* ─ Mobile sticky action bar ─
+          The desktop layout puts Back / Save draft / Confirm in the header.
+          On phones those got clipped off-screen, so they live in a
+          full-width footer bar instead. The Back link doubles as a small
+          tertiary action on the left. */}
+      <div
+        className="lg:hidden flex items-center gap-2 px-3 py-3 border-t border-[var(--divider)] shrink-0"
+        style={{ background: 'var(--surface-subtle)' }}
+      >
+        <button
+          onClick={() => { setStep('upload'); }}
+          className="text-fg-secondary hover:text-fg-primary text-sm px-2 shrink-0"
+        >
+          {t('back')}
+        </button>
+        <button
+          onClick={handleSaveDraft}
+          disabled={savingDraft}
+          className="btn-secondary text-sm flex-1 min-w-0"
+        >
+          {savingDraft ? t('saving') : t('saveDraft')}
+        </button>
+        <button
+          onClick={handleConfirm}
+          disabled={loading || unreviewedFlaggedCount > 0}
+          title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+          className="btn-primary text-sm flex-1 min-w-0"
+        >
+          {loading ? t('confirming') : t('confirmImport')}
+        </button>
       </div>
     </div>
   );
