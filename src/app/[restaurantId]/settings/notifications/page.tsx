@@ -2,19 +2,33 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Bell, BellOff, Smartphone, AlertTriangle } from 'lucide-react';
+import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard } from 'lucide-react';
 import { Badge, Button, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
   getCurrentSubscription,
   getEnvironment,
+  getNotificationPreferences,
   sendTestPush,
   subscribe,
   unsubscribe,
+  updateNotificationPreferences,
+  type NotificationPreferences,
+  type NotificationPreferencesUpdate,
   type PushEnvironment,
 } from '@/lib/push';
 
 type Status = 'idle' | 'subscribing' | 'unsubscribing' | 'testing';
+
+/** Subset of preference keys exposed in the UI today. The server schema
+ *  also has `low_stock_enabled` and `big_order_enabled` but neither has
+ *  a Web Push trigger wired yet — hide them from users to avoid the
+ *  "I enabled it but get nothing" trap. Add back once their trigger
+ *  sites land. */
+type ExposedPrefKey =
+  | 'new_order_enabled'
+  | 'order_canceled_enabled'
+  | 'payment_failure_enabled';
 
 export default function NotificationsSettingsPage() {
   const { restaurantId } = useParams();
@@ -26,16 +40,46 @@ export default function NotificationsSettingsPage() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
+  const [savingPref, setSavingPref] = useState<ExposedPrefKey | null>(null);
 
   const refresh = useCallback(async () => {
     setEnv(getEnvironment());
     const existing = await getCurrentSubscription();
     setSubscribed(Boolean(existing));
-  }, []);
+    // Fetch prefs in parallel — don't block the toggle UI if the
+    // endpoint is slow. Errors here aren't fatal (the toggles just
+    // won't show until next refresh).
+    try {
+      const p = await getNotificationPreferences(rid);
+      setPrefs(p);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[notifications] failed to load prefs:', err);
+    }
+  }, [rid]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const handleTogglePref = async (key: ExposedPrefKey, next: boolean) => {
+    if (!prefs) return;
+    // Optimistic update so the switch flips instantly; revert on failure.
+    const prev = prefs[key];
+    setPrefs({ ...prefs, [key]: next });
+    setSavingPref(key);
+    try {
+      const update: NotificationPreferencesUpdate = { [key]: next };
+      const fresh = await updateNotificationPreferences(rid, update);
+      setPrefs(fresh);
+    } catch (err) {
+      setPrefs({ ...prefs, [key]: prev });
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingPref(null);
+    }
+  };
 
   const handleEnable = async () => {
     setError(null);
@@ -112,6 +156,15 @@ export default function NotificationsSettingsPage() {
           onTest={handleTest}
           t={t}
         />
+      )}
+
+      {/* Per-event opt-ins. Only useful once subscribed (no point fine-tuning
+          which events to receive when you receive none) — but we still
+          render the card hidden so prefs aren't lost between sessions. */}
+      {subscribed && prefs && (
+        <div className="mt-[var(--s-4)]">
+          <EventPreferences prefs={prefs} saving={savingPref} onToggle={handleTogglePref} t={t} />
+        </div>
       )}
 
       {testResult && (
@@ -277,5 +330,135 @@ function UnsupportedCard({ t }: { t: (k: string) => string }) {
           || "Ce navigateur ne prend pas en charge les notifications push. Essayez Chrome, Edge, Firefox, ou Safari sur iOS 16.4+ après avoir ajouté l'application à l'écran d'accueil."}
       </p>
     </div>
+  );
+}
+
+// ─── Per-event preference toggles ───────────────────────────────────────────
+
+interface EventDef {
+  key: ExposedPrefKey;
+  icon: React.ComponentType<{ className?: string }>;
+  titleKey: string;
+  titleFallback: string;
+  descKey: string;
+  descFallback: string;
+}
+
+// Order matters — most actionable / highest-frequency first.
+const EVENTS: EventDef[] = [
+  {
+    key: 'new_order_enabled',
+    icon: ShoppingCart,
+    titleKey: 'prefNewOrderTitle',
+    titleFallback: 'Nouvelle commande',
+    descKey: 'prefNewOrderDesc',
+    descFallback: 'Une notification dès qu’une commande payée arrive.',
+  },
+  {
+    key: 'order_canceled_enabled',
+    icon: XCircle,
+    titleKey: 'prefOrderCanceledTitle',
+    titleFallback: 'Commande annulée',
+    descKey: 'prefOrderCanceledDesc',
+    descFallback: 'Quand une commande déjà acceptée est annulée ou rejetée.',
+  },
+  {
+    key: 'payment_failure_enabled',
+    icon: CreditCard,
+    titleKey: 'prefPaymentFailureTitle',
+    titleFallback: 'Échec de paiement',
+    descKey: 'prefPaymentFailureDesc',
+    descFallback: 'Quand le débit d’un client échoue après confirmation.',
+  },
+];
+
+function EventPreferences({
+  prefs,
+  saving,
+  onToggle,
+  t,
+}: {
+  prefs: NotificationPreferences;
+  saving: ExposedPrefKey | null;
+  onToggle: (key: ExposedPrefKey, next: boolean) => void;
+  t: (k: string) => string;
+}) {
+  return (
+    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
+      <h3 className="text-fs-sm font-semibold uppercase tracking-[0.06em] text-[var(--fg-muted)] mb-[var(--s-4)]">
+        {t('prefEventsHeading') || 'Que voulez-vous recevoir ?'}
+      </h3>
+      <ul className="flex flex-col gap-[var(--s-3)]">
+        {EVENTS.map((ev) => {
+          const Icon = ev.icon;
+          const enabled = prefs[ev.key];
+          const title = i18nOr(t, ev.titleKey, ev.titleFallback);
+          const desc = i18nOr(t, ev.descKey, ev.descFallback);
+          return (
+            <li key={ev.key} className="flex items-start gap-[var(--s-3)]">
+              <div
+                className="w-9 h-9 shrink-0 rounded-r-md grid place-items-center bg-[var(--surface-2)]"
+                aria-hidden
+              >
+                <Icon className="w-4 h-4 text-[var(--fg-muted)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-fs-md font-medium text-[var(--fg)]">{title}</p>
+                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5 leading-snug">{desc}</p>
+              </div>
+              <PreferenceSwitch
+                checked={enabled}
+                disabled={saving === ev.key}
+                onChange={(next) => onToggle(ev.key, next)}
+                ariaLabel={title}
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** t() returns the key on miss — `i18nOr` falls back to the supplied default
+ *  string in that case so French copy stays readable while translations
+ *  trickle in. */
+function i18nOr(t: (k: string) => string, key: string, fallback: string): string {
+  const v = t(key);
+  return v && v !== key ? v : fallback;
+}
+
+/** Minimal ARIA-compliant toggle switch — the design system doesn't ship one
+ *  so we inline a small implementation here. Brand-colored when checked, neutral
+ *  when off, dimmed while a save round-trip is in flight. */
+function PreferenceSwitch({
+  checked,
+  disabled,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-fast ${
+        checked ? 'bg-[var(--brand-500)]' : 'bg-[var(--surface-2)] border border-[var(--line)]'
+      } ${disabled ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-fast ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
   );
 }

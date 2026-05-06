@@ -221,3 +221,49 @@ export async function sendTestPush(restaurantId: number): Promise<TestSendResult
   });
   return (await res.json()) as TestSendResult;
 }
+
+/** Per-event opt-ins persisted on staff_notification_preferences. Shared
+ *  between Web Push and the (parked) native iOS push pipeline; each event
+ *  here gates one notification kind across both channels. */
+export interface NotificationPreferences {
+  new_order_enabled: boolean;
+  order_canceled_enabled: boolean;
+  low_stock_enabled: boolean;
+  big_order_enabled: boolean;
+  payment_failure_enabled: boolean;
+  big_order_threshold: number;
+}
+
+export type NotificationPreferencesUpdate = Partial<
+  Pick<
+    NotificationPreferences,
+    'new_order_enabled'
+    | 'order_canceled_enabled'
+    | 'low_stock_enabled'
+    | 'big_order_enabled'
+    | 'payment_failure_enabled'
+    | 'big_order_threshold'
+  >
+>;
+
+/** Fetch the calling user's notification preferences for the active restaurant.
+ *  Server creates default-true rows on first read so the UI never gets a 404. */
+export async function getNotificationPreferences(
+  restaurantId: number,
+): Promise<NotificationPreferences> {
+  const res = await authedFetch('/api/v1/notification-preferences', restaurantId);
+  return (await res.json()) as NotificationPreferences;
+}
+
+/** Partial update via pointer-style payload — only fields explicitly provided
+ *  are written. Returns the refreshed preferences row. */
+export async function updateNotificationPreferences(
+  restaurantId: number,
+  update: NotificationPreferencesUpdate,
+): Promise<NotificationPreferences> {
+  const res = await authedFetch('/api/v1/notification-preferences', restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(update),
+  });
+  return (await res.json()) as NotificationPreferences;
+}
