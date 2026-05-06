@@ -4205,7 +4205,7 @@ const translations: Record<Locale, Record<string, string>> = {
     adminPortal: 'Portail Admin',
     switchRestaurant: 'Changer de restaurant',
     dashboard: 'Tableau de bord',
-    menu: 'Articles et menus',
+    menu: 'Articles et cartes',
     kitchen: 'Cuisine',
     orders: 'Commandes',
     staff: 'Personnel',
