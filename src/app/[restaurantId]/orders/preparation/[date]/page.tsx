@@ -360,7 +360,8 @@ function KpiStrip({
     { label: t('prepPlanKpiWindows'), value: kpis.windows, tone: 'var(--warning-500)' },
   ];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-[var(--s-3)] mb-[var(--s-5)]">
+    /* KPIs — desktop only; product/customer breakdown below is the mobile primary view */
+    <div className="hidden md:grid md:grid-cols-4 gap-[var(--s-3)] mb-[var(--s-5)]">
       {cells.map((c) => (
         <Card key={c.label} className="p-[var(--s-4)]">
           <p className="text-fs-xs uppercase tracking-[0.06em] font-semibold text-[var(--fg-muted)]">

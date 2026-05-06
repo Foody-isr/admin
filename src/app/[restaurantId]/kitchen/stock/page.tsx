@@ -392,9 +392,9 @@ export default function StockPage() {
       <header className="mb-[var(--s-4)]">
         <div className="hidden" />
 
-        {/* KPIs */}
+        {/* KPIs — desktop only (mobile keeps the table primary) */}
         {showKpis && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
+          <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
             <Kpi
               label={t('itemsInStock') || 'Articles en stock'}
               value={items.length}

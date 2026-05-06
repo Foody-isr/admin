@@ -170,8 +170,9 @@ export default function RecipesPage() {
       />
 
       {/* KPIs — clickable shortcuts that set filters directly (mirrors Stock). */}
+      {/* KPIs — desktop only (mobile keeps the table primary) */}
       {showKpis && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)]">
           <Kpi
             label={t('recipes') || 'Recettes'}
             value={items.length}

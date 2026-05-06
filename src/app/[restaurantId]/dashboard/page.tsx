@@ -169,8 +169,9 @@ export default function DashboardPage() {
         }
       />
 
-      {/* KPI strip — 4 equal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
+      {/* KPI strip — 4 equal. Hidden on mobile per the responsive policy:
+          the dashboard's chart + activity sections cover the mobile use case. */}
+      <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
         <KpiWithSpark
           label="Revenu brut"
           value={fmtMoney(revenue)}

@@ -415,9 +415,9 @@ export default function ItemLibraryPage() {
           <div />
         </div>
 
-        {/* KPI row */}
+        {/* KPI row — desktop only (mobile keeps the table primary) */}
         {showKpis && (
-          <div className="mb-6">
+          <div className="hidden md:block mb-6">
             <ArticlesKpiRow
               items={allItems}
               categoriesCount={categories.length}
