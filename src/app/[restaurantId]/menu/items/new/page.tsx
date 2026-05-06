@@ -310,8 +310,11 @@ export default function NewItemPage() {
         { id: 'cost', label: t('tabCost'), disabled: true },
       ];
 
+  // Hidden on mobile: tab bar is tight on phones, and the orange brand badge
+  // visually competes with the active-tab pill. The type is already chosen
+  // explicitly via the picker cards in the Details tab.
   const typeBadgeTrailing = (
-    <Badge tone="brand" className="h-6 px-2.5 font-semibold tracking-[.04em]">
+    <Badge tone="brand" className="hidden md:inline-flex h-6 px-2.5 font-semibold tracking-[.04em]">
       <Boxes className="w-3 h-3" />
       {itemType === 'combo' ? t('typeBadgeCombo') : t('typeBadgeArticle')}
     </Badge>

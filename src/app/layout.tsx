@@ -1,10 +1,11 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Instrument_Serif } from 'next/font/google';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme-context';
 import { LocaleProvider } from '@/lib/i18n';
+import { ServiceWorkerRegister } from '@/components/common/ServiceWorkerRegister';
 
 const instrumentSerif = Instrument_Serif({
   subsets: ['latin'],
@@ -16,6 +17,25 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: 'Foody Admin',
   description: 'Restaurant management portal',
+  manifest: '/manifest.json',
+  applicationName: 'Foody Admin',
+  appleWebApp: {
+    capable: true,
+    title: 'Foody Admin',
+    statusBarStyle: 'black-translucent',
+  },
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icon.svg' }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#ea580c',
+  // Allow user pinch-zoom (accessibility); the iOS focus-zoom is handled by
+  // forcing inputs to 16px on mobile (see globals.css).
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -43,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <ServiceWorkerRegister />
         <ThemeProvider>
           <LocaleProvider>{children}</LocaleProvider>
         </ThemeProvider>
