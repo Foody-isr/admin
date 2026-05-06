@@ -153,6 +153,8 @@ export interface MenuGroup {
   is_hidden: boolean;
   items?: MenuItem[];
   availability_hours?: GroupAvailabilityHour[];
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface MenuCategory {

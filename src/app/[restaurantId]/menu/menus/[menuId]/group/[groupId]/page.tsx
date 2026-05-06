@@ -5,10 +5,15 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getAllCategories, createGroup, updateGroup,
   getGroupHours, setGroupHours, addItemsToGroup, uploadGroupImage,
+  getRestaurant,
   Menu, MenuGroup, MenuCategory, MenuItem, GroupAvailabilityHour,
+  TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
+import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+
+const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -38,6 +43,9 @@ export default function GroupPage() {
 
   // Editable fields
   const [name, setName] = useState('');
+  const [translations, setTranslations] = useState<TranslationMap>({});
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
+  const [activeLocale, setActiveLocale] = useState<Locale>('en');
   const [parentId, setParentId] = useState<number | undefined>(undefined);
   const [showParent, setShowParent] = useState(false);
   const [followsMenuHours, setFollowsMenuHours] = useState(true);
@@ -61,9 +69,13 @@ export default function GroupPage() {
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([listMenus(rid), getAllCategories(rid)]).then(async ([menus, fullCats]) => {
+    Promise.all([listMenus(rid), getAllCategories(rid), getRestaurant(rid)]).then(async ([menus, fullCats, restaurant]) => {
       setAllCats(fullCats);
       setAllMenus(menus);
+      const dl = restaurant.default_locale;
+      const resolved: Locale = dl === 'en' || dl === 'he' || dl === 'fr' ? dl : 'en';
+      setSourceLocale(resolved);
+      setActiveLocale(resolved);
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       const grps = found?.groups ?? [];
@@ -72,6 +84,7 @@ export default function GroupPage() {
         const editing = grps.find((g) => g.id === gid);
         if (editing) {
           setName(editing.name);
+          setTranslations(editing.translations ?? {});
           setImageUrl(editing.image_url ?? '');
           setParentId(editing.parent_id ?? undefined);
           setShowParent(!!editing.parent_id);
@@ -104,6 +117,7 @@ export default function GroupPage() {
           is_hidden: isHidden,
           pos_enabled: posEnabled,
           web_enabled: webEnabled,
+          translations,
         });
         savedId = g.id;
       } else if (gid) {
@@ -115,6 +129,7 @@ export default function GroupPage() {
           is_hidden: isHidden,
           pos_enabled: posEnabled,
           web_enabled: webEnabled,
+          translations,
         });
       }
       if (!followsMenuHours && savedId) {
@@ -292,15 +307,68 @@ export default function GroupPage() {
           <h1 className="text-2xl font-bold text-fg-primary mb-8">{t('createGroup')}</h1>
         )}
 
-        {/* Name */}
-        <div className="mb-8">
-          <input
-            autoFocus
-            className="input w-full text-lg"
-            placeholder={t('groupName')}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+        {/* Name (with per-locale translation overrides) */}
+        <div className="mb-8 space-y-3">
+          {(() => {
+            const isSourceTab = activeLocale === sourceLocale;
+            const translatedName = translations.name?.[activeLocale] ?? '';
+            const setTranslatedName = (value: string) => {
+              const next: TranslationMap = { ...translations };
+              const fieldMap = { ...(next.name ?? {}) };
+              if (value === '') {
+                delete fieldMap[activeLocale];
+              } else {
+                fieldMap[activeLocale] = value;
+              }
+              if (Object.keys(fieldMap).length === 0) {
+                delete next.name;
+              } else {
+                next.name = fieldMap;
+              }
+              setTranslations(next);
+            };
+            const missing: Partial<Record<Locale, boolean>> = {};
+            for (const loc of SUPPORTED_LOCALES) {
+              if (loc === sourceLocale) continue;
+              missing[loc] = !translations.name?.[loc];
+            }
+            return (
+              <>
+                <LocaleTabs
+                  locales={SUPPORTED_LOCALES}
+                  source={sourceLocale}
+                  active={activeLocale}
+                  onChange={setActiveLocale}
+                  missing={missing}
+                />
+                {isSourceTab ? (
+                  <input
+                    autoFocus
+                    className="input w-full text-lg"
+                    placeholder={t('groupName')}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                ) : (
+                  <>
+                    <input
+                      className="input w-full text-lg"
+                      placeholder={name || t('groupName')}
+                      value={translatedName}
+                      onChange={(e) => setTranslatedName(e.target.value)}
+                    />
+                    <div className="text-xs text-fg-subtle">
+                      {(t('languageSourceLabel') || 'Source') + ': '}
+                      <span className="text-fg-muted">{name || '—'}</span>
+                      {' · '}
+                      {t('languageEditingTranslation') ||
+                        'Leave blank to use the auto-translation; what you type here overrides it.'}
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Image upload */}
