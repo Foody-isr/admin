@@ -487,20 +487,25 @@ export default function WhatIfSimulator({
               >
                 {t('simulatorBadge') || 'SIMULATEUR'}
               </span>
-              {dirty && (
-                <span
-                  className="inline-flex items-center h-[18px] px-[6px] rounded-r-xs text-[10px] font-semibold"
-                  style={{
-                    background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                    color: 'var(--brand-500)',
-                  }}
-                >
-                  {(t('simulatorChangesInProgress') || '{n} changements en cours').replace(
-                    '{n}',
-                    String(dirtyCount),
-                  )}
-                </span>
-              )}
+              {/* Always rendered (just invisible when clean) so the badges row
+                  never wraps when entering the dirty state — without this, the
+                  third badge can push the description down a line and the
+                  whole header (and section below) jumps. */}
+              <span
+                aria-hidden={!dirty}
+                className={`inline-flex items-center h-[18px] px-[6px] rounded-r-xs text-[10px] font-semibold ${
+                  dirty ? '' : 'invisible'
+                }`}
+                style={{
+                  background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+                  color: 'var(--brand-500)',
+                }}
+              >
+                {(t('simulatorChangesInProgress') || '{n} changements en cours').replace(
+                  '{n}',
+                  String(dirtyCount),
+                )}
+              </span>
             </div>
             {/* Two-line description split into halves and rendered as
                 explicit lines so the header height never depends on available

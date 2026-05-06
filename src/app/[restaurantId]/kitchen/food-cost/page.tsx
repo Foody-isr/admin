@@ -397,11 +397,10 @@ export default function FoodCostPage() {
       <div className="flex flex-1 mt-[var(--s-6)]">
         {/* Items list */}
         <div className="w-96 shrink-0 bg-[var(--surface)] border-r border-[var(--line)] flex flex-col pt-[var(--s-6)]">
-          {/* Selector block — fixed min-height pairs with the right header
-              card's matching min-h so both blocks end on the same horizontal
-              line (search + filters + count sit at the top; any extra space
-              falls below the count, just above the bottom border). */}
-          <div className="px-[var(--s-6)] pb-[var(--s-6)] border-b border-[var(--line)] space-y-[var(--s-3)] min-h-[184px]">
+          {/* Selector block — natural height; bottom padding kept tight so
+              the items list begins right under the count text, with no dead
+              space pushing the first card down. */}
+          <div className="px-[var(--s-6)] pb-[var(--s-4)] border-b border-[var(--line)] space-y-[var(--s-3)]">
             <div className="relative">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
@@ -482,7 +481,7 @@ export default function FoodCostPage() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 pt-[var(--s-3)] space-y-2">
             {filteredItems.length === 0 && enrichedList.length === 0 && (
               <div className="text-center py-8 text-sm text-neutral-500 dark:text-neutral-400">
                 <div className="animate-spin w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-3" />
@@ -608,11 +607,8 @@ export default function FoodCostPage() {
           ) : (
             <div className="max-w-3xl mx-auto space-y-[var(--s-5)]">
               {/* Item header — portion variants removed (already shown as "Portion active" chips
-                  inside the Coût section below); actions consolidated to a single primary CTA.
-                  min-h pairs with the left selector block so both blocks end on
-                  the same horizontal line. flex-col + mt-auto on the action row
-                  pushes the button to the card's bottom edge. */}
-              <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)] min-h-[184px] flex flex-col">
+                  inside the Coût section below); actions consolidated to a single primary CTA. */}
+              <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
                 <div className="flex items-start gap-[var(--s-4)]">
                   {selectedItem.item.image_url ? (
                     <img
@@ -640,9 +636,8 @@ export default function FoodCostPage() {
                   </span>
                 </div>
 
-                {/* Single primary action — opens the item edit modal on Recipe tab.
-                    mt-auto pushes the row to the card's bottom edge under min-h. */}
-                <div className="mt-auto pt-[var(--s-4)] flex items-center justify-end">
+                {/* Single primary action — opens the item edit modal on Recipe tab. */}
+                <div className="mt-[var(--s-4)] flex items-center justify-end">
                   <button
                     onClick={() => router.push(`/${rid}/menu/items/${selectedItem.item.id}?tab=recipe`)}
                     className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-r-md transition-colors font-medium text-fs-sm"
