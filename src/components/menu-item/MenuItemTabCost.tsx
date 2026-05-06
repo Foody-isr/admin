@@ -153,37 +153,48 @@ export default function MenuItemTabCost({
         </div>
       </div>
 
-      {/* Variant pills — .chip pattern */}
+      {/* Variant pills + active variant's selling price (follows HT/TTC) */}
       {variants.length > 0 && (
-        <div className="mb-[var(--s-5)]">
-          <p className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] mb-[var(--s-2)]">
-            {t('activePortion') || 'Portion active'}
-          </p>
-          <div className="flex gap-[var(--s-2)] flex-wrap">
-            {variants.map((v) => {
-              const active = variantId === v.id;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setVariantId(v.id)}
-                  aria-pressed={active}
-                  title={`${v.name} — ${v.price.toFixed(2)} ₪`}
-                  className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
-                    active
-                      ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
-                      : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
-                  }`}
-                >
-                  {v.name}
-                  {v.portion_size > 0 && (
-                    <span className={`text-fs-xs ${active ? 'text-white/80' : 'opacity-70'}`}>
-                      {v.portion_size} {v.portion_size_unit}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+        <div className="mb-[var(--s-5)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
+          <div className="min-w-0">
+            <p className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] mb-[var(--s-2)]">
+              {t('activePortion') || 'Portion active'}
+            </p>
+            <div className="flex gap-[var(--s-2)] flex-wrap">
+              {variants.map((v) => {
+                const active = variantId === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setVariantId(v.id)}
+                    aria-pressed={active}
+                    title={`${v.name}: ${v.price.toFixed(2)} ₪`}
+                    className={`inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-xl border text-fs-sm font-medium whitespace-nowrap transition-colors duration-fast ${
+                      active
+                        ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
+                        : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)] hover:border-[var(--line-strong)]'
+                    }`}
+                  >
+                    {v.name}
+                    {v.portion_size > 0 && (
+                      <span className={`text-fs-xs ${active ? 'text-white/80' : 'opacity-70'}`}>
+                        {v.portion_size} {v.portion_size_unit}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="text-end shrink-0">
+            <p className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] mb-[var(--s-2)]">
+              {t('sellingPriceLabel') || 'Prix de vente'}
+            </p>
+            <p className="text-fs-lg font-semibold leading-none tabular-nums text-[var(--fg)]">
+              {summary.displayPrice.toFixed(2)} {CURRENCY}
+            </p>
           </div>
         </div>
       )}
