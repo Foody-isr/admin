@@ -106,11 +106,35 @@ export async function getCurrentSubscription(): Promise<PushSubscription | null>
   return reg.pushManager.getSubscription();
 }
 
+/** Constant-time-irrelevant byte equality between two BufferSources — used to
+ *  detect VAPID key rotation between an existing browser subscription and
+ *  the server's current key. */
+function buffersEqual(
+  a: ArrayBuffer | ArrayBufferView | null,
+  b: ArrayBuffer | ArrayBufferView,
+): boolean {
+  if (!a) return false;
+  const av = a instanceof ArrayBuffer ? new Uint8Array(a) : new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+  const bv = b instanceof ArrayBuffer ? new Uint8Array(b) : new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+  if (av.byteLength !== bv.byteLength) return false;
+  for (let i = 0; i < av.byteLength; i++) if (av[i] !== bv[i]) return false;
+  return true;
+}
+
 /**
  * Subscribe this device to push for the given restaurant. Caller is
  * responsible for ensuring permission was granted (this throws otherwise).
- * The returned subscription is also persisted server-side; if the server
- * call fails the subscription is rolled back so we don't drift.
+ * The returned subscription is also persisted server-side via an idempotent
+ * upsert.
+ *
+ * Two recovery paths covered:
+ *   1. Server lost the row (or never had it because an earlier POST failed
+ *      after the local sub was created): we always re-POST on every
+ *      subscribe call, which the server upserts on the unique endpoint.
+ *   2. VAPID key rotated since the browser last subscribed: we compare the
+ *      stored applicationServerKey against the server's current public key
+ *      and force a clean unsubscribe + resubscribe when they differ —
+ *      otherwise the stored endpoint would be unreachable.
  */
 export async function subscribe(restaurantId: number): Promise<PushSubscription> {
   if (!getEnvironment().supported) {
@@ -124,30 +148,36 @@ export async function subscribe(restaurantId: number): Promise<PushSubscription>
   }
 
   const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) return existing;
-
   const publicKey = await fetchVapidPublicKey(restaurantId);
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey),
-  });
+  const appServerKey = urlBase64ToUint8Array(publicKey);
 
-  try {
-    const json = sub.toJSON();
-    await authedFetch('/api/v1/admin/push/subscribe', restaurantId, {
-      method: 'POST',
-      body: JSON.stringify({
-        endpoint: sub.endpoint,
-        p256dh_key: json.keys?.p256dh ?? '',
-        auth_key: json.keys?.auth ?? '',
-      }),
-    });
-  } catch (err) {
-    // Server rejected — undo the local subscribe so we stay in sync.
-    await sub.unsubscribe().catch(() => {});
-    throw err;
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const existingKey = sub.options.applicationServerKey;
+    if (!buffersEqual(existingKey, appServerKey)) {
+      await sub.unsubscribe().catch(() => {});
+      sub = null;
+    }
   }
+  if (!sub) {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: appServerKey,
+    });
+  }
+
+  // Always upsert server-side. Idempotent on the unique endpoint column,
+  // so a successful repeat call costs ~one indexed write and fixes the
+  // case where the server has no row for an existing local subscription.
+  const json = sub.toJSON();
+  await authedFetch('/api/v1/admin/push/subscribe', restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({
+      endpoint: sub.endpoint,
+      p256dh_key: json.keys?.p256dh ?? '',
+      auth_key: json.keys?.auth ?? '',
+    }),
+  });
   return sub;
 }
 
