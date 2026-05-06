@@ -3,7 +3,7 @@
 // support yet (that's a separate concern; conflating them makes both harder
 // to debug). Bump the version string on any structural change so clients
 // upgrade.
-const SW_VERSION = 'foody-admin-sw-v1';
+const SW_VERSION = 'foody-admin-sw-v2';
 
 self.addEventListener('install', () => {
   // Activate immediately on first install / update so push events flow as
@@ -31,8 +31,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Foody Admin';
   const options = {
     body: data.body || '',
-    icon: data.icon || '/icon.svg',
-    badge: data.badge || '/icon.svg',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-192.png',
     tag: data.tag,
     renotify: Boolean(data.tag) && Boolean(data.renotify),
     data: {
