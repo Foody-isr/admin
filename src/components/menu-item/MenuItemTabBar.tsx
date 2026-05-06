@@ -79,14 +79,17 @@ export default function MenuItemTabBar({ tabs, active, onChange, trailing }: Pro
   return (
     <div className="flex items-center justify-between gap-[var(--s-3)] flex-wrap">
       {/* Horizontal-scroll container so tabs stay reachable on narrow screens
-          (the pill wrapper itself never shrinks). The negative-margin trick
-          lets the scroll area run flush with the page edges on mobile.
-          On mobile, fade overlays + a chevron indicator on the overflow side
+          (the pill wrapper itself never shrinks). The pill respects the
+          parent's natural horizontal padding so the gutter on the left and
+          right stays equal — earlier we used a negative-margin trick to run
+          the scroll area flush with page edges, but that gave the start tab
+          a small inset while the end tab had no breathing room.
+          Fade overlays + a chevron indicator on the overflow side still
           signal that more tabs exist beyond the visible edge. */}
-      <div className="relative max-w-full -mx-[var(--s-4)] md:mx-0 flex-1 min-w-0">
+      <div className="relative max-w-full flex-1 min-w-0">
         <div
           ref={scrollerRef}
-          className="no-scrollbar overflow-x-auto px-[var(--s-4)] md:px-0 md:overflow-visible [scroll-snap-type:x_proximity]"
+          className="no-scrollbar overflow-x-auto md:overflow-visible [scroll-snap-type:x_proximity]"
         >
           <div
             role="tablist"
