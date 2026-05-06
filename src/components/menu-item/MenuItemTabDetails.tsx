@@ -3,10 +3,13 @@
 import { ChevronDown, Boxes, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { MenuCategory, Menu, ItemType } from '@/lib/api';
+import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import SearchableListField from '@/components/SearchableListField';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
+import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import TypePickerCards from './combo/TypePickerCards';
+
+const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
 // Aligned to design-reference/design/screens/item-editor.jsx:274-316 (DetailsTab).
 // Flat 2-col and 3-col grids with Field + Input primitives; status uses dot-pulse.
@@ -43,6 +46,16 @@ interface Props {
   /** Optional: handler to navigate to the Composition tab from the Details
    *  tab callout. */
   onJumpToComposition?: () => void;
+  /**
+   * Restaurant's default content language. When omitted (e.g. on the
+   * new-item page), the locale tab strip is not rendered and the editor
+   * behaves as before.
+   */
+  sourceLocale?: Locale;
+  /** Per-locale name/description overrides. */
+  translations?: TranslationMap;
+  /** Updater for translations. Pass a fresh object back to the parent. */
+  setTranslations?: (t: TranslationMap) => void;
 }
 
 export default function MenuItemTabDetails({
@@ -60,11 +73,52 @@ export default function MenuItemTabDetails({
   onTypeChange,
   comboStepsCount = 0,
   onJumpToComposition,
+  sourceLocale,
+  translations,
+  setTranslations,
 }: Props) {
   const { t } = useI18n();
   const [categoryOpen, setCategoryOpen] = useState(false);
+  // i18n editor is only enabled when the parent passes the trio of
+  // sourceLocale / translations / setTranslations. The new-item page omits
+  // them, so the editor behaves exactly as before there.
+  const i18nEnabled = !!sourceLocale && !!setTranslations;
+  const effectiveSource: Locale = sourceLocale ?? 'en';
+  const [activeLocale, setActiveLocale] = useState<Locale>(effectiveSource);
   const activeCategory = categories.find((c) => c.id === categoryId);
   const isCombo = itemType === 'combo';
+
+  const isSourceTab = !i18nEnabled || activeLocale === effectiveSource;
+  const nameTranslation = translations?.name?.[activeLocale] ?? '';
+  const descriptionTranslation = translations?.description?.[activeLocale] ?? '';
+
+  const setTranslatedField = (field: 'name' | 'description', value: string) => {
+    if (!setTranslations) return;
+    const next: TranslationMap = { ...(translations ?? {}) };
+    const fieldMap = { ...(next[field] ?? {}) };
+    if (value === '') {
+      delete fieldMap[activeLocale];
+    } else {
+      fieldMap[activeLocale] = value;
+    }
+    if (Object.keys(fieldMap).length === 0) {
+      delete next[field];
+    } else {
+      next[field] = fieldMap;
+    }
+    setTranslations(next);
+  };
+
+  // Highlight tabs where a non-source translation is missing, so the owner
+  // can see at a glance which locales still need attention. The source tab
+  // is never marked missing — its content lives in `name` / `description`.
+  const missing: Partial<Record<Locale, boolean>> = {};
+  for (const loc of SUPPORTED_LOCALES) {
+    if (loc === effectiveSource) continue;
+    const hasName = !!translations?.name?.[loc];
+    const hasDesc = !!translations?.description?.[loc] || !description.trim();
+    missing[loc] = !hasName || !hasDesc;
+  }
 
   const priceLabel = isCombo
     ? t('composeBasePriceLabel')
@@ -88,15 +142,50 @@ export default function MenuItemTabDetails({
           <TypePickerCards value={itemType} onChange={onTypeChange} />
         </div>
 
+        {/* Locale tab strip — switches name + description between source language
+            and translation overrides. Other fields (price, category, etc.) are
+            language-independent and only show on the source tab. */}
+        {i18nEnabled && (
+          <div className="flex items-center gap-[var(--s-3)] flex-wrap">
+            <LocaleTabs
+              locales={SUPPORTED_LOCALES}
+              source={effectiveSource}
+              active={activeLocale}
+              onChange={setActiveLocale}
+              missing={missing}
+            />
+            {!isSourceTab && (
+              <span className="text-fs-xs text-[var(--fg-subtle)]">
+                {t('languageEditingTranslation') ||
+                  'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Row 1 — Nom | Catégorie */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-4)]">
           <Field label={t('itemNameLabel') || "Nom de l'article"}>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('nameRequired') || 'Nom *'}
-              autoFocus
-            />
+            {isSourceTab ? (
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('nameRequired') || 'Nom *'}
+                autoFocus
+              />
+            ) : (
+              <>
+                <Input
+                  value={nameTranslation}
+                  onChange={(e) => setTranslatedField('name', e.target.value)}
+                  placeholder={name || (t('nameRequired') || 'Nom *')}
+                />
+                <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
+                  {(t('languageSourceLabel') || 'Source') + ': '}
+                  <span className="font-medium text-[var(--fg-muted)]">{name || '—'}</span>
+                </div>
+              </>
+            )}
           </Field>
 
           <Field label={t('category') || 'Catégorie'}>
@@ -198,12 +287,27 @@ export default function MenuItemTabDetails({
 
         {/* Description */}
         <Field label={t('description') || 'Description'}>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={t('addDescription') || 'Ajouter une description'}
-            rows={4}
-          />
+          {isSourceTab ? (
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('addDescription') || 'Ajouter une description'}
+              rows={4}
+            />
+          ) : (
+            <>
+              <Textarea
+                value={descriptionTranslation}
+                onChange={(e) => setTranslatedField('description', e.target.value)}
+                placeholder={description || (t('addDescription') || 'Ajouter une description')}
+                rows={4}
+              />
+              <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
+                {(t('languageSourceLabel') || 'Source') + ': '}
+                <span className="text-[var(--fg-muted)]">{description || '—'}</span>
+              </div>
+            </>
+          )}
         </Field>
 
         {/* Menus / Cartes — foody-specific; below reference fields. */}

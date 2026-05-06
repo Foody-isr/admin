@@ -1797,6 +1797,8 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateConfirmTitle: 'Re-translate everything?',
     languageRetranslateConfirmBody: 'All current translations on every menu item, group, modifier and variant will be erased and regenerated from your default menu language ({lang}). This cannot be undone except by editing items individually.',
     languageRetranslateConfirmAction: 'Re-translate everything',
+    languageEditingTranslation: 'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.',
+    languageSourceLabel: 'Source',
 
     // ── Opening Hours ──
     openingHours: 'Opening Hours',
@@ -3809,6 +3811,8 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateConfirmTitle: 'לתרגם הכל מחדש?',
     languageRetranslateConfirmBody: 'כל התרגומים הנוכחיים בכל פריט, קבוצה, מאפיין ווריאציה יימחקו וייווצרו מחדש משפת ברירת המחדל ({lang}). פעולה זו אינה ניתנת לביטול אלא בעריכה ידנית של פריטים.',
     languageRetranslateConfirmAction: 'תרגם הכל מחדש',
+    languageEditingTranslation: 'עריכת תרגום. השאר ריק כדי להשתמש בתרגום אוטומטי; מה שתקליד כאן יעקוף אותו.',
+    languageSourceLabel: 'מקור',
 
     openingHours: 'שעות פתיחה',
     openingHoursDesc: 'הגדר שעות פתיחה לפי סוג הזמנה ויום בשבוע.',
@@ -5833,6 +5837,8 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateConfirmTitle: 'Tout retraduire ?',
     languageRetranslateConfirmBody: 'Toutes les traductions actuelles sur chaque article, groupe, modificateur et variante seront effacées et régénérées à partir de votre langue par défaut ({lang}). Cette action ne peut être annulée qu\'en éditant les articles un par un.',
     languageRetranslateConfirmAction: 'Tout retraduire',
+    languageEditingTranslation: 'Édition d\'une traduction. Laissez vide pour utiliser la traduction automatique ; ce que vous saisissez ici la remplace.',
+    languageSourceLabel: 'Source',
 
     openingHours: 'Horaires d\'ouverture',
     openingHoursDesc: 'Définissez vos horaires par type de commande et jour de la semaine.',
