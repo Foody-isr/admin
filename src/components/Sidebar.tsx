@@ -36,6 +36,7 @@ import {
   Clock,
   DollarSign,
   Printer,
+  Bell,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -231,10 +232,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     {
       groupKey: 'settingsGroupAccount',
       items: [
-        { id: 'general',  href: `${base}/settings`,                labelKey: 'general',      icon: Settings },
-        { id: 'branding', href: `${base}/settings/branding`,        labelKey: 'branding',     icon: Tag },
-        { id: 'language', href: `${base}/settings/language`,        labelKey: 'language',     icon: Languages },
-        { id: 'hours',    href: `${base}/settings/opening-hours`,   labelKey: 'openingHours', icon: Clock },
+        { id: 'general',       href: `${base}/settings`,                labelKey: 'general',       icon: Settings },
+        { id: 'branding',      href: `${base}/settings/branding`,        labelKey: 'branding',      icon: Tag },
+        { id: 'language',      href: `${base}/settings/language`,        labelKey: 'language',      icon: Languages },
+        { id: 'hours',         href: `${base}/settings/opening-hours`,   labelKey: 'openingHours',  icon: Clock },
+        { id: 'notifications', href: `${base}/settings/notifications`,   labelKey: 'notifications', icon: Bell },
       ],
     },
     {
