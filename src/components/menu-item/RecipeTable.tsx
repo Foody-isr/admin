@@ -206,8 +206,11 @@ export default function RecipeTable({
   //   2. No item-level base → fall back to the first variant. Multiplier 1
   //      on the first column, others scale relative to it.
   //
-  // v2 key — bumped to invalidate stale localStorage from earlier sessions.
-  const multStorageKey = `foody.recipeMultipliers.v2.${item.id}`;
+  // v3 key — bumped after a bug where derived multipliers were leaking into
+  // localStorage, freezing stale values (e.g. 1.5) once the variant
+  // portion_sizes had been corrected (5/6/8). v3 stores ONLY user-typed
+  // overrides; derived values are recomputed every render.
+  const multStorageKey = `foody.recipeMultipliers.v3.${item.id}`;
   const itemBasePortion = item.portion_size ?? 0;
   const itemBaseUnit = item.portion_size_unit || 'g';
   const usingItemBase = itemBasePortion > 0;
@@ -245,46 +248,32 @@ export default function RecipeTable({
     }
     return out;
   }, [variants, usingItemBase, itemBasePortion, itemBaseUnit]);
-  // Merge derived defaults with whatever the user previously typed. User
-  // values win when present; derived covers any variant the user didn't
-  // touch. Clearing a value deletes the localStorage key, so the next render
-  // falls back to derived — which is usually what the user expects.
-  const [multipliers, setMultipliers] = useState<Record<number, number>>(() => {
-    if (typeof window === 'undefined') return derivedMultipliers;
+  // userMultipliers persists ONLY the values the user explicitly typed into
+  // the multiplier inputs. Derived values stay computed (live) and are never
+  // written to storage. Effective state = derived ⊕ userMultipliers, so when
+  // variant portion_sizes change on the server, the recipe table picks up the
+  // new derived values immediately.
+  const [userMultipliers, setUserMultipliers] = useState<Record<number, number>>(() => {
+    if (typeof window === 'undefined') return {};
     try {
       const raw = window.localStorage.getItem(multStorageKey);
-      const userSet = raw ? (JSON.parse(raw) as Record<number, number>) : {};
-      return { ...derivedMultipliers, ...userSet };
+      return raw ? (JSON.parse(raw) as Record<number, number>) : {};
     } catch {
-      return derivedMultipliers;
+      return {};
     }
   });
-  // When the derived defaults change (item loaded variants async), re-apply
-  // them for any optionId the user hasn't explicitly set. Preserves user
-  // edits while still picking up newly-arrived portion data.
-  useEffect(() => {
-    if (Object.keys(derivedMultipliers).length === 0) return;
-    setMultipliers((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const [k, v] of Object.entries(derivedMultipliers)) {
-        const id = Number(k);
-        if (next[id] === undefined) {
-          next[id] = v;
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [derivedMultipliers]);
+  const multipliers = useMemo(
+    () => ({ ...derivedMultipliers, ...userMultipliers }),
+    [derivedMultipliers, userMultipliers],
+  );
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(multStorageKey, JSON.stringify(multipliers));
+      window.localStorage.setItem(multStorageKey, JSON.stringify(userMultipliers));
     } catch {
       // Quota or private mode — silently ignore; multipliers are a UX nicety.
     }
-  }, [multStorageKey, multipliers]);
+  }, [multStorageKey, userMultipliers]);
 
   // Transient hint shown next to the Apply button when the click was a no-op
   // (e.g. user clicked Apply before entering any base value). Replaces a
@@ -557,7 +546,7 @@ export default function RecipeTable({
                     value={value}
                     onChange={(n) => {
                       if (isBase) return;
-                      setMultipliers((prev) => {
+                      setUserMultipliers((prev) => {
                         if (n <= 0) {
                           const next = { ...prev };
                           delete next[v.optionId];
