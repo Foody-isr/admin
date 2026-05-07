@@ -15,8 +15,8 @@
 //     pre-filling each cell from the variant's portion_size; saved as
 //     custom on the next edit.
 
-import { useEffect, useMemo, useState } from 'react';
-import { FlaskConical, Package, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
 import type {
@@ -27,6 +27,8 @@ import type {
   PrepItem,
   StockItem,
 } from '@/lib/api';
+import { computePrepUnitCostExVat } from '@/lib/cost-utils';
+import { convertQuantity, sameUnitFamily } from '@/lib/units';
 import { BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
 
 const UNITS = ['g', 'kg', 'ml', 'l', 'unit'] as const;
@@ -64,6 +66,27 @@ interface Row {
   baseQty: number;
   /** Per-variant overrides keyed by option_id. */
   cells: Map<number, number>;
+  /** Cost reference. Populated from the API ingredient so the table can show
+   *  per-variant totals without an extra fetch. `null` when the ingredient
+   *  isn't priced (new stock item, prep with zero yield, etc.). */
+  costPerUnit: number | null;
+  costUnit: string | null;
+}
+
+// Resolve unit cost for an ingredient. Stock items expose cost_per_unit
+// directly; prep items derive theirs from sub-ingredients × yield. Both
+// are returned ex-VAT — VAT is presentation-only and lives in the Coût tab.
+function resolveCost(ing: MenuItemIngredient): { cost: number | null; unit: string | null } {
+  if (ing.prep_item) {
+    const derived = computePrepUnitCostExVat(ing.prep_item);
+    const cost = derived ?? ing.prep_item.cost_per_unit ?? null;
+    return { cost: cost && cost > 0 ? cost : null, unit: ing.prep_item.unit ?? null };
+  }
+  if (ing.stock_item) {
+    const c = ing.stock_item.cost_per_unit ?? 0;
+    return { cost: c > 0 ? c : null, unit: ing.stock_item.unit ?? null };
+  }
+  return { cost: null, unit: null };
 }
 
 function ingredientName(ing: MenuItemIngredient): string {
@@ -103,6 +126,7 @@ function toRow(ing: MenuItemIngredient, variants: VariantColumn[]): Row {
   // sameForAll = no per-variant data, but a base quantity is set.
   const baseQty = ing.quantity_needed ?? 0;
   const sameForAll = cells.size === 0;
+  const { cost, unit: costUnit } = resolveCost(ing);
   return {
     id: ing.id,
     name: ingredientName(ing),
@@ -111,6 +135,8 @@ function toRow(ing: MenuItemIngredient, variants: VariantColumn[]): Row {
     sameForAll,
     baseQty,
     cells,
+    costPerUnit: cost,
+    costUnit,
   };
 }
 
@@ -140,7 +166,7 @@ function rowToPatch(row: Row): Partial<MenuItemIngredient> {
 }
 
 export default function RecipeTable({
-  item: _item,
+  item,
   ingredients,
   variants,
   onUpdate,
@@ -163,6 +189,29 @@ export default function RecipeTable({
 
   // Item without variants → single "Quantité" column.
   const hasVariants = variants.length > 0;
+
+  // Per-variant multipliers, persisted in localStorage. The first variant
+  // is implicitly the base (multiplier = 1). For Mamie's Table on BTSOL
+  // MARDNOUSS the user types [3, 5, 6, 8] once, hits Apply, and every
+  // ingredient row's empty cells fill from the base × multiplier.
+  const multStorageKey = `foody.recipeMultipliers.${item.id}`;
+  const [multipliers, setMultipliers] = useState<Record<number, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(multStorageKey);
+      return raw ? (JSON.parse(raw) as Record<number, number>) : {};
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(multStorageKey, JSON.stringify(multipliers));
+    } catch {
+      // Quota or private mode — silently ignore; multipliers are a UX nicety.
+    }
+  }, [multStorageKey, multipliers]);
 
   // Commit a single row's current state. Errors are swallowed at the parent
   // boundary (which surfaces them via alert), so we don't double-handle here.
@@ -189,6 +238,96 @@ export default function RecipeTable({
   const setUnit = (id: number, unit: string) => {
     updateRow(id, (r) => ({ ...r, unit }));
   };
+
+  // Fill each row's empty variant cells from `base × multiplier`. Base is
+  // taken per-row as either the "Same for all" base value or the leftmost
+  // variant cell that has data. Cells that already have a positive value
+  // are left alone — the action is non-destructive.
+  const applyMultipliers = useCallback(async () => {
+    if (variants.length < 2) return;
+    const baseVariantId = variants[0].optionId;
+    const updated: Row[] = [];
+    let touched = 0;
+    setRows((prev) => {
+      const next = prev.map((r) => {
+        // Pick the base value: explicit "same for all" base, else the base
+        // variant's cell, else the first non-empty cell.
+        let base = 0;
+        if (r.sameForAll && r.baseQty > 0) base = r.baseQty;
+        else if ((r.cells.get(baseVariantId) ?? 0) > 0) base = r.cells.get(baseVariantId)!;
+        else {
+          for (const v of variants) {
+            const q = r.cells.get(v.optionId) ?? 0;
+            if (q > 0) {
+              base = q;
+              break;
+            }
+          }
+        }
+        if (base <= 0) return r; // nothing to scale from
+
+        const nextCells = new Map(r.cells);
+        let rowTouched = false;
+        for (const v of variants) {
+          const existing = nextCells.get(v.optionId) ?? 0;
+          if (existing > 0) continue; // never overwrite
+          const mult =
+            v.optionId === baseVariantId
+              ? 1
+              : multipliers[v.optionId];
+          if (!mult || mult <= 0) continue;
+          nextCells.set(v.optionId, +(base * mult).toFixed(3));
+          rowTouched = true;
+        }
+        if (!rowTouched) return r;
+        touched += 1;
+        const filled: Row = { ...r, sameForAll: false, cells: nextCells };
+        updated.push(filled);
+        return filled;
+      });
+      return next;
+    });
+    // Persist each touched row.
+    for (const r of updated) await onUpdate(r.id, rowToPatch(r));
+    if (touched === 0) {
+      // Helpful nudge — likely the user clicked Apply before entering a base
+      // value or before setting any non-1 multiplier.
+      // eslint-disable-next-line no-alert
+      alert(
+        'Aucune ligne à remplir. Vérifiez que la première colonne contient une valeur et qu’au moins un multiplicateur est défini.',
+      );
+    }
+  }, [variants, multipliers, onUpdate]);
+
+  // Per-variant total cost. Sums (cell qty in stock unit × cost_per_unit)
+  // across rows. Cross-family unit mismatches contribute 0 — the warning
+  // icon on the row tells the user something's off.
+  const totals = useMemo(() => {
+    const out = new Map<number | 'base', number>();
+    const cellFor = (r: Row, optionId: number | null): number => {
+      if (r.sameForAll) return r.baseQty;
+      if (optionId == null) return 0;
+      return r.cells.get(optionId) ?? 0;
+    };
+    const rowCost = (r: Row, qty: number): number => {
+      if (qty <= 0 || !r.costPerUnit || !r.costUnit) return 0;
+      if (!sameUnitFamily(r.unit, r.costUnit)) return 0;
+      const inStock = convertQuantity(qty, r.unit, r.costUnit);
+      return inStock * r.costPerUnit;
+    };
+    if (variants.length === 0) {
+      let sum = 0;
+      for (const r of rows) sum += rowCost(r, cellFor(r, null));
+      out.set('base', sum);
+    } else {
+      for (const v of variants) {
+        let sum = 0;
+        for (const r of rows) sum += rowCost(r, cellFor(r, v.optionId));
+        out.set(v.optionId, sum);
+      }
+    }
+    return out;
+  }, [rows, variants]);
 
   const toggleSameForAll = (id: number, sameForAll: boolean) => {
     updateRow(id, (r) => {
@@ -233,6 +372,62 @@ export default function RecipeTable({
           {t('addIngredient') || 'Ajouter un ingrédient'}
         </button>
       </div>
+
+      {/* Multipliers strip — shown only when there are 2+ variants. The first
+          variant is the base (multiplier = 1, displayed but not editable).
+          Other multipliers default to "—" until the user enters them.
+          Persisted to localStorage so the user types them once per item. */}
+      {hasVariants && variants.length > 1 && rows.length > 0 && (
+        <div className="mb-[var(--s-2)] flex items-start gap-[var(--s-3)] flex-wrap rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]/40 px-[var(--s-3)] py-[var(--s-2)]">
+          <div className="flex-1 min-w-[180px]">
+            <div className="text-fs-xs font-semibold text-[var(--fg)]">
+              Multiplicateurs par variante
+            </div>
+            <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+              Quantité {variants[0].name} × multiplicateur. Cliquez sur Appliquer pour remplir
+              les cellules vides.
+            </div>
+          </div>
+          <div className="flex items-end gap-[var(--s-3)] flex-wrap">
+            {variants.map((v, i) => {
+              const isBase = i === 0;
+              const value = isBase ? 1 : multipliers[v.optionId] ?? 0;
+              return (
+                <label key={v.optionId} className="flex flex-col gap-0.5">
+                  <span className="text-fs-xs text-[var(--fg-muted)]">{v.name}</span>
+                  <NumberInput
+                    value={value}
+                    onChange={(n) => {
+                      if (isBase) return;
+                      setMultipliers((prev) => {
+                        if (n <= 0) {
+                          const next = { ...prev };
+                          delete next[v.optionId];
+                          return next;
+                        }
+                        return { ...prev, [v.optionId]: n };
+                      });
+                    }}
+                    placeholder={isBase ? '1' : '—'}
+                    disabled={isBase}
+                    className={`w-16 px-[var(--s-2)] py-1 text-fs-sm font-mono tabular-nums text-end bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] ${
+                      isBase ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  />
+                </label>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => void applyMultipliers()}
+              className="inline-flex items-center gap-1 h-8 px-[var(--s-3)] rounded-r-sm bg-[var(--brand-500)] text-white text-fs-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Appliquer aux lignes vides
+            </button>
+          </div>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
@@ -282,6 +477,41 @@ export default function RecipeTable({
                 />
               ))}
             </tbody>
+            {/* Footer: total food cost per variant column. Surfaces what the
+                Coût tab shows — but live, in the same view the chef is editing. */}
+            {rows.length > 0 && (
+              <tfoot className="bg-[var(--surface-2)]">
+                <tr className="border-t-2 border-[var(--line-strong)]">
+                  <td
+                    className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]"
+                    colSpan={2}
+                  >
+                    Coût matière (HT)
+                  </td>
+                  {hasVariants ? (
+                    variants.map((v) => {
+                      const total = totals.get(v.optionId) ?? 0;
+                      return (
+                        <td
+                          key={v.optionId}
+                          className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]"
+                        >
+                          {total > 0 ? `${total.toFixed(2)} ₪` : '—'}
+                        </td>
+                      );
+                    })
+                  ) : (
+                    <td className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                      {(() => {
+                        const v = totals.get('base') ?? 0;
+                        return v > 0 ? `${v.toFixed(2)} ₪` : '—';
+                      })()}
+                    </td>
+                  )}
+                  <td aria-hidden />
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}
@@ -335,7 +565,20 @@ function RecipeRow({
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-fs-sm font-medium text-[var(--fg)] truncate">{row.name}</div>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-fs-sm font-medium text-[var(--fg)] truncate">{row.name}</span>
+              {/* Cross-family unit mismatch — chef wrote "g" but stock is in
+                  "unit", or vice versa. The deduction silently falls back to
+                  1× scaling, which surprised the user during testing. */}
+              {row.costUnit && !sameUnitFamily(row.unit, row.costUnit) && (
+                <span
+                  title={`L'unité de cet ingrédient (${row.unit}) n'est pas compatible avec celle du stock (${row.costUnit}). La déduction et le coût seront incorrects.`}
+                  className="shrink-0 inline-flex"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-[var(--warn-500,#d97706)]" />
+                </span>
+              )}
+            </div>
             {hasVariants && (
               <label className="inline-flex items-center gap-1 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
                 <input
