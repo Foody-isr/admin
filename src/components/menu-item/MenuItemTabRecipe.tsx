@@ -179,9 +179,11 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
       </div>
 
-      {/* Ingrédients — table editor (one row per ingredient × one column per variant). */}
-      <div className="mb-[var(--s-6)]">
-        {addingDraft ? (
+      {/* Ingrédients — table editor (one row per ingredient × one column per variant).
+          The picker appears *above* the table when adding so the user keeps
+          context on what's already in the recipe while choosing what to add. */}
+      <div className="mb-[var(--s-6)] flex flex-col gap-[var(--s-4)]">
+        {addingDraft && (
           <SimpleIngredientPicker
             rid={rid}
             menuItemName={item.name}
@@ -192,8 +194,8 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             onCancel={() => setAddingDraft(false)}
             onRefreshLists={onRefreshLists}
           />
-        ) : (
-          <RecipeTable
+        )}
+        <RecipeTable
             item={item}
             ingredients={ingredients}
             variants={variants.map((v): VariantColumn => ({
@@ -206,7 +208,6 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             onDelete={onDeleteIngredient}
             onAddClick={() => setAddingDraft(true)}
           />
-        )}
       </div>
 
       {/* Instructions de préparation */}
