@@ -308,13 +308,23 @@ export default function RecipeTable({
     );
   };
 
-  // Commit current state for a row by id (used on blur). Reads the latest
-  // state via the setRows callback. Also auto-scales empty cells when the
-  // user has typed exactly ONE value in the row — turning "type 5 numbers"
-  // into "type 1 number" for ingredients that scale linearly with the dish
-  // weight. To preserve a single-cell variant-specific entry, the auto-fill
-  // only fires when other cells are still empty (qty = 0); typing in an
-  // already-populated row never overwrites siblings.
+  // Commit current state for a row by id (used on blur). Smart auto-scaling:
+  //
+  //   • If the row's cells already form a consistent ratio (all cells = base
+  //     × their multiplier for some base), the row is "scale-locked". This
+  //     happens after auto-fill on add, or after a previous auto-scale.
+  //   • When the user edits ONE cell in a scale-locked row (typing a value
+  //     that breaks the ratio), the row re-scales: new base = typed value /
+  //     its multiplier, then every OTHER cell updates to base × its multiplier.
+  //   • If the user has manually set cells to non-uniform values (intentional
+  //     non-linear recipe), the row is NOT scale-locked and edits only touch
+  //     the cell typed.
+  //
+  // Net effect: type once per ingredient, the rest fills automatically.
+  const multForOption = (optionId: number): number => {
+    if (usingItemBase) return multipliers[optionId] ?? 0;
+    return optionId === variants[0]?.optionId ? 1 : multipliers[optionId] ?? 0;
+  };
   const commitRowById = (id: number) => {
     setRows((prev) => {
       const idx = prev.findIndex((x) => x.id === id);
@@ -322,33 +332,52 @@ export default function RecipeTable({
       let r = prev[idx];
 
       if (variants.length > 1 && !r.sameForAll) {
-        const valued = variants.filter((v) => (r.cells.get(v.optionId) ?? 0) > 0);
-        if (valued.length === 1) {
-          const source = valued[0];
-          const sourceQty = r.cells.get(source.optionId)!;
-          const sourceMult = usingItemBase
-            ? multipliers[source.optionId] ?? 0
-            : source.optionId === variants[0].optionId
-              ? 1
-              : multipliers[source.optionId] ?? 0;
-          if (sourceMult > 0) {
-            const base = sourceQty / sourceMult;
-            const nextCells = new Map(r.cells);
-            let changed = false;
-            for (const v of variants) {
-              if (v.optionId === source.optionId) continue;
-              if ((nextCells.get(v.optionId) ?? 0) > 0) continue;
-              const m = usingItemBase
-                ? multipliers[v.optionId] ?? 0
-                : v.optionId === variants[0].optionId
-                  ? 1
-                  : multipliers[v.optionId] ?? 0;
-              if (m > 0) {
-                nextCells.set(v.optionId, +(base * m).toFixed(3));
-                changed = true;
+        // Detect if the row is scale-locked: every populated cell agrees on
+        // the same base (cell / multiplier ≈ same value across the row,
+        // within rounding tolerance). Empty cells don't break the lock —
+        // they just need filling.
+        const valued: { v: VariantColumn; qty: number; mult: number }[] = [];
+        for (const v of variants) {
+          const qty = r.cells.get(v.optionId) ?? 0;
+          if (qty <= 0) continue;
+          const m = multForOption(v.optionId);
+          if (m <= 0) continue;
+          valued.push({ v, qty, mult: m });
+        }
+        if (valued.length > 0) {
+          // Pick the most recently edited cell as the source-of-truth: there's
+          // no edit timestamp, so we use the cell whose ratio differs from the
+          // others (= the user's latest input). If all ratios agree, the row
+          // is already consistent and we keep it as-is.
+          const ratios = valued.map(({ qty, mult }) => qty / mult);
+          const minR = Math.min(...ratios);
+          const maxR = Math.max(...ratios);
+          const consistent = maxR - minR < 0.005 * Math.max(maxR, 0.001);
+
+          if (!consistent || valued.length < variants.length) {
+            // Find the source: the outlier (if inconsistent) or the only
+            // populated cell (if some are empty). Outlier = the one whose
+            // ratio differs most from the others' median.
+            let source = valued[0];
+            if (!consistent && valued.length >= 2) {
+              const sorted = [...ratios].sort((a, b) => a - b);
+              const median = sorted[Math.floor(sorted.length / 2)];
+              let bestDist = -1;
+              for (const entry of valued) {
+                const dist = Math.abs(entry.qty / entry.mult - median);
+                if (dist > bestDist) {
+                  bestDist = dist;
+                  source = entry;
+                }
               }
             }
-            if (changed) r = { ...r, cells: nextCells };
+            const base = source.qty / source.mult;
+            const nextCells = new Map<number, number>();
+            for (const v of variants) {
+              const m = multForOption(v.optionId);
+              if (m > 0) nextCells.set(v.optionId, +(base * m).toFixed(3));
+            }
+            r = { ...r, cells: nextCells };
           }
         }
       }

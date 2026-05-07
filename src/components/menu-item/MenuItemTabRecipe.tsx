@@ -10,6 +10,7 @@ import {
   type MenuItem,
   type MenuItemIngredient,
   type IngredientInput,
+  type IngredientVariantOverride,
   type StockItem,
   type PrepItem,
   type RecipeStep,
@@ -189,6 +190,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             menuItemName={item.name}
             stockItems={stockItems}
             prepItems={prepItems}
+            variants={variants}
             saving={draftSaving}
             onAdd={handleAddFromDraft}
             onCancel={() => setAddingDraft(false)}
@@ -311,6 +313,7 @@ function SimpleIngredientPicker({
   menuItemName,
   stockItems,
   prepItems,
+  variants,
   saving,
   onAdd,
   onCancel,
@@ -320,6 +323,7 @@ function SimpleIngredientPicker({
   menuItemName: string;
   stockItems: StockItem[];
   prepItems: PrepItem[];
+  variants: VariantRef[];
   saving: boolean;
   onAdd: (input: IngredientInput) => Promise<void>;
   onCancel: () => void;
@@ -329,27 +333,49 @@ function SimpleIngredientPicker({
     null,
   );
 
+  // Pre-fill variant cells with each variant's portion_size when we have it.
+  // For a "main ingredient = dish weight" case (e.g. chicken in BTSOL
+  // MARDNOUSS, where item.portion_size is the chicken weight), this means
+  // ZERO typing — the cells already match. For other ingredients (olives,
+  // sauce…) the user types in any one cell and the table re-scales the
+  // others on blur.
+  const seedOverrides = (unit: string) => {
+    const overrides: IngredientVariantOverride[] = [];
+    for (const v of variants) {
+      if (v.portion_size && v.portion_size > 0) {
+        overrides.push({
+          option_id: v.option_id,
+          quantity: v.portion_size,
+          unit: v.portion_size_unit || unit,
+        });
+      }
+    }
+    return overrides;
+  };
+
   const submit = async (input: IngredientInput) => {
     await onAdd(input);
   };
 
   const handlePickBrut = async (s: StockItem) => {
+    const unit = s.unit ?? 'g';
     await submit({
       stock_item_id: s.id,
       quantity_needed: 0,
-      unit: s.unit ?? 'g',
+      unit,
       scales_with_variant: false,
-      variant_overrides: [],
+      variant_overrides: seedOverrides(unit),
     });
   };
 
   const handlePickPrep = async (p: PrepItem) => {
+    const unit = p.unit ?? 'portion';
     await submit({
       prep_item_id: p.id,
       quantity_needed: 0,
-      unit: p.unit ?? 'portion',
+      unit,
       scales_with_variant: false,
-      variant_overrides: [],
+      variant_overrides: seedOverrides(unit),
     });
   };
 
