@@ -1614,6 +1614,10 @@ export interface OptionSetOption {
   sku?: string;
   is_active: boolean;
   sort_order: number;
+  /** Per-item flag (carried via the override application pass on the server).
+   *  True when this option is combo-only on the surrounding item — should be
+   *  excluded from à la carte price ranges and cost summaries. */
+  is_combo_only?: boolean;
 }
 
 export interface OptionSet {

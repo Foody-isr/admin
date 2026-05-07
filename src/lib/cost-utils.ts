@@ -58,6 +58,11 @@ export function buildVariantOptions(
     for (const opt of os.options ?? []) {
       if (!opt.is_active) continue;
       const override = overrides.find((ov) => ov.option_id === opt.id);
+      // Combo-only variants are excluded from the cost summary — they have
+      // price 0 by design (combo total covers them) so cost % computations
+      // would divide by zero or report nonsensical margins. They still drive
+      // stock deduction inside combos via the combo step's option_id lock.
+      if (override?.is_combo_only ?? opt.is_combo_only) continue;
       variants.push({
         id: `opt:${opt.id}`,
         name: opt.name,

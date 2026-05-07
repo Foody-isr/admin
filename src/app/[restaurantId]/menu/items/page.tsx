@@ -669,6 +669,7 @@ export default function ItemLibraryPage() {
                     name: v.name,
                     price: v.price,
                     is_active: v.is_active,
+                    is_combo_only: false,
                   })),
                 );
                 const optionSetOpts = (item.option_sets ?? []).flatMap((os) =>
@@ -677,9 +678,16 @@ export default function ItemLibraryPage() {
                     name: o.name,
                     price: o.price,
                     is_active: o.is_active,
+                    is_combo_only: o.is_combo_only ?? false,
                   })),
                 );
-                const variants = [...variantOpts, ...optionSetOpts].filter((v) => v.is_active);
+                // Combo-only variants are excluded from the displayed price
+                // range — their price is 0 by design (combo total covers them)
+                // and showing "₪0.00 – ₪75.00" misleads operators reading the
+                // article list. They still count for stock & combos elsewhere.
+                const variants = [...variantOpts, ...optionSetOpts].filter(
+                  (v) => v.is_active && !v.is_combo_only,
+                );
                 const hasVariants = variants.length > 0;
                 const isExpanded = expandedItemIds.has(item.id);
 
