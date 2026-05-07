@@ -582,12 +582,23 @@ export default function EditItemPage() {
                     .filter((o) => o.is_active)
                     .map((o) => {
                       const override = itemOptionOverrides.find((ov) => ov.option_id === o.id);
-                      return {
-                        option_id: o.id,
-                        name: o.name,
-                        portion_size: override?.portion_size,
-                        portion_size_unit: override?.portion_size_unit,
-                      };
+                      // Fallback: legacy items may carry portion_size on
+                      // MenuItemVariant (item.variant_groups) rather than
+                      // ItemOptionOverride. Match by name across all variant
+                      // groups when the override is missing it.
+                      let portion_size = override?.portion_size;
+                      let portion_size_unit = override?.portion_size_unit;
+                      if (!portion_size && item.variant_groups) {
+                        for (const g of item.variant_groups) {
+                          const m = g.variants?.find((v) => v.name === o.name);
+                          if (m?.portion_size) {
+                            portion_size = m.portion_size;
+                            portion_size_unit = m.portion_size_unit;
+                            break;
+                          }
+                        }
+                      }
+                      return { option_id: o.id, name: o.name, portion_size, portion_size_unit };
                     }),
                 )}
                 onAddIngredient={async (input) => {

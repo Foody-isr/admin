@@ -198,7 +198,10 @@ export default function RecipeTable({
   // When variants carry portion_size data (Normal 250 g / Grand 500 g),
   // we pre-derive the multipliers as `variant.portion_size / base.portion_size`
   // so the user doesn't have to type them — they just hit Apply.
-  const multStorageKey = `foody.recipeMultipliers.${item.id}`;
+  // v2 key — bumped from "foody.recipeMultipliers" to invalidate stale entries
+  // (some early sessions saved {} or partial data, blocking the new derive
+  // logic). Once tested in production, this number doesn't need to change.
+  const multStorageKey = `foody.recipeMultipliers.v2.${item.id}`;
   const derivedMultipliers = useMemo<Record<number, number>>(() => {
     if (variants.length < 2) return {};
     const base = variants[0];
@@ -217,15 +220,38 @@ export default function RecipeTable({
     }
     return out;
   }, [variants]);
+  // Merge derived defaults with whatever the user previously typed. User
+  // values win when present; derived covers any variant the user didn't
+  // touch. Clearing a value deletes the localStorage key, so the next render
+  // falls back to derived — which is usually what the user expects.
   const [multipliers, setMultipliers] = useState<Record<number, number>>(() => {
     if (typeof window === 'undefined') return derivedMultipliers;
     try {
       const raw = window.localStorage.getItem(multStorageKey);
-      return raw ? (JSON.parse(raw) as Record<number, number>) : derivedMultipliers;
+      const userSet = raw ? (JSON.parse(raw) as Record<number, number>) : {};
+      return { ...derivedMultipliers, ...userSet };
     } catch {
       return derivedMultipliers;
     }
   });
+  // When the derived defaults change (item loaded variants async), re-apply
+  // them for any optionId the user hasn't explicitly set. Preserves user
+  // edits while still picking up newly-arrived portion data.
+  useEffect(() => {
+    if (Object.keys(derivedMultipliers).length === 0) return;
+    setMultipliers((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(derivedMultipliers)) {
+        const id = Number(k);
+        if (next[id] === undefined) {
+          next[id] = v;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [derivedMultipliers]);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
