@@ -9,6 +9,7 @@ import type {
   ItemOptionOverride,
 } from '@/lib/api';
 import { Badge } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 
 // Aligned to design-reference/design/screens/item-editor.jsx:318-355 (ModsTab).
 // Section head with 3px brand accent; cards use --surface + --line; actions are
@@ -19,6 +20,13 @@ interface Props {
   attachedModifierSets: ModifierSet[];
   attachedOptionSets: OptionSet[];
   itemOptionOverrides: ItemOptionOverride[];
+  /** Item-level base portion. Inline editor for the Recette tab's multiplier
+   *  reference. Persisted via the parent's save flow. Optional — items that
+   *  aren't pondéré can leave it at 0. */
+  portionSize: number;
+  setPortionSize: (n: number) => void;
+  portionSizeUnit: string;
+  setPortionSizeUnit: (u: string) => void;
   onAddModifierSet: () => void;
   onDetachModifierSet: (id: number) => void;
   onDeleteModifier: (id: number) => void;
@@ -35,6 +43,10 @@ export default function MenuItemTabOptions({
   attachedModifierSets,
   attachedOptionSets,
   itemOptionOverrides,
+  portionSize,
+  setPortionSize,
+  portionSizeUnit,
+  setPortionSizeUnit,
   onAddModifierSet,
   onDetachModifierSet,
   onDeleteModifier,
@@ -74,6 +86,40 @@ export default function MenuItemTabOptions({
         <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
           {t('tabModifiers') || 'Modificateurs et variantes'}
         </h3>
+      </div>
+
+      {/* Portion de base de l'article — inline. Drives the Recette tab's
+          multiplier reference: variant.portion_size / item.portion_size.
+          Optional; items without weighted portions leave it at 0. */}
+      <div className="mb-[var(--s-6)] rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]/40 p-[var(--s-4)]">
+        <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+          Portion de base de l&apos;article
+        </h4>
+        <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5 mb-[var(--s-3)]">
+          Quantité d&apos;une portion individuelle (1 personne). Optionnelle —
+          renseignez-la pour que les multiplicateurs des variantes (ex&nbsp;: Pour
+          Table 4 = 3×) s&apos;appliquent automatiquement dans la recette. Laissez
+          à 0 si l&apos;article n&apos;est pas pondéré.
+        </p>
+        <div className="flex items-center gap-[var(--s-2)] max-w-sm">
+          <NumberInput
+            value={portionSize}
+            onChange={setPortionSize}
+            placeholder="0"
+            className="flex-1 px-[var(--s-3)] py-1.5 text-fs-sm font-mono tabular-nums text-end bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)]"
+          />
+          <select
+            value={portionSizeUnit || 'g'}
+            onChange={(e) => setPortionSizeUnit(e.target.value)}
+            className="px-[var(--s-3)] py-1.5 text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)]"
+          >
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+            <option value="ml">ml</option>
+            <option value="l">l</option>
+            <option value="unit">unit</option>
+          </select>
+        </div>
       </div>
 
       {/* Modificateurs */}

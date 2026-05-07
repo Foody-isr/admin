@@ -547,6 +547,10 @@ export default function EditItemPage() {
                   attachedModifierSets={item.modifier_sets ?? []}
                   attachedOptionSets={attachedOptionSets}
                   itemOptionOverrides={itemOptionOverrides}
+                  portionSize={portionSize}
+                  setPortionSize={setPortionSize}
+                  portionSizeUnit={portionSizeUnit}
+                  setPortionSizeUnit={setPortionSizeUnit}
                   onAddModifierSet={() => setModifierModalOpen(true)}
                   onDetachModifierSet={async (id) => {
                     if (!confirm('Unlink this modifier set from item?')) return;
