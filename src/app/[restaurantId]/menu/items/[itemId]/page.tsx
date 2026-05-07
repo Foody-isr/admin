@@ -87,6 +87,12 @@ export default function EditItemPage() {
     () => (item?.item_type as ItemType) || 'food_and_beverage',
   );
   const [imageUrl, setImageUrl] = useState(() => item?.image_url ?? '');
+  const [portionSize, setPortionSize] = useState<number>(() => item?.portion_size ?? 0);
+  const [portionSizeUnit, setPortionSizeUnit] = useState<string>(() => item?.portion_size_unit ?? 'g');
+  // Recipe yield is not surfaced here yet, but we round-trip it so saving
+  // Détails doesn't wipe a value set elsewhere.
+  const [recipeYield, setRecipeYield] = useState<number>(() => item?.recipe_yield ?? 0);
+  const [recipeYieldUnit, setRecipeYieldUnit] = useState<string>(() => item?.recipe_yield_unit ?? '');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,6 +167,10 @@ export default function EditItemPage() {
           setIsActive(found.is_active);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
+          setPortionSize(found.portion_size ?? 0);
+          setPortionSizeUnit(found.portion_size_unit || 'g');
+          setRecipeYield(found.recipe_yield ?? 0);
+          setRecipeYieldUnit(found.recipe_yield_unit ?? '');
           if (found.item_type === 'combo' && found.combo_steps) {
             setComboSteps(found.combo_steps.map((s) => ({
               key: crypto.randomUUID(),
@@ -279,10 +289,10 @@ export default function EditItemPage() {
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
-        portion_size: 0,
-        portion_size_unit: '',
-        recipe_yield: 0,
-        recipe_yield_unit: '',
+        portion_size: portionSize,
+        portion_size_unit: portionSizeUnit,
+        recipe_yield: recipeYield,
+        recipe_yield_unit: recipeYieldUnit,
         translations,
       };
       if (itemType === 'combo') {
@@ -502,6 +512,10 @@ export default function EditItemPage() {
                 isActive={isActive}
                 setIsActive={setIsActive}
                 vatRate={vatRate}
+                portionSize={portionSize}
+                setPortionSize={setPortionSize}
+                portionSizeUnit={portionSizeUnit}
+                setPortionSizeUnit={setPortionSizeUnit}
                 categories={categories}
                 menus={menus}
                 selectedMenuIds={selectedMenuIds}

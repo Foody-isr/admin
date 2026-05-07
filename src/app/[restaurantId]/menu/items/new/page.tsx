@@ -76,6 +76,8 @@ export default function NewItemPage() {
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [portionSize, setPortionSize] = useState<number>(0);
+  const [portionSizeUnit, setPortionSizeUnit] = useState<string>('g');
   const [saving, setSaving] = useState(false);
   const [vatRate, setVatRate] = useState(18);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,8 +126,8 @@ export default function NewItemPage() {
         is_active: isActive,
         item_type: itemType,
         category_id: categoryId || categories[0]?.id,
-        portion_size: 0,
-        portion_size_unit: '',
+        portion_size: portionSize,
+        portion_size_unit: portionSizeUnit,
       };
       if (itemType === 'combo' && comboSteps.length > 0) {
         (createPayload as Record<string, unknown>).combo_steps = comboSteps.map((s, i): ComboStepInput => ({
@@ -379,6 +381,10 @@ export default function NewItemPage() {
                 isActive={isActive}
                 setIsActive={setIsActive}
                 vatRate={vatRate}
+                portionSize={portionSize}
+                setPortionSize={setPortionSize}
+                portionSizeUnit={portionSizeUnit}
+                setPortionSizeUnit={setPortionSizeUnit}
                 categories={categories}
                 menus={menus}
                 selectedMenuIds={selectedMenuIds}
