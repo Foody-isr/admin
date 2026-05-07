@@ -580,7 +580,15 @@ export default function EditItemPage() {
                 variants={attachedOptionSets.flatMap((os) =>
                   (os.options ?? [])
                     .filter((o) => o.is_active)
-                    .map((o) => ({ option_id: o.id, name: o.name })),
+                    .map((o) => {
+                      const override = itemOptionOverrides.find((ov) => ov.option_id === o.id);
+                      return {
+                        option_id: o.id,
+                        name: o.name,
+                        portion_size: override?.portion_size,
+                        portion_size_unit: override?.portion_size_unit,
+                      };
+                    }),
                 )}
                 onAddIngredient={async (input) => {
                   const next = [

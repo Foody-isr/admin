@@ -24,6 +24,10 @@ import RecipeTable, { type VariantColumn } from './RecipeTable';
 export interface VariantRef {
   option_id: number;
   name: string;
+  /** Optional per-variant portion size — when present, used to derive the
+   *  default multiplier and to migrate legacy adapt-mode rows on load. */
+  portion_size?: number;
+  portion_size_unit?: string;
 }
 
 // Backend stores a single `instruction` string per step. Figma shows a
@@ -195,6 +199,8 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             variants={variants.map((v): VariantColumn => ({
               optionId: v.option_id,
               name: v.name,
+              portionSize: v.portion_size,
+              portionSizeUnit: v.portion_size_unit,
             }))}
             onUpdate={onUpdateIngredient}
             onDelete={onDeleteIngredient}

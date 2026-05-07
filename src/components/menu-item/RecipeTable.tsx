@@ -194,14 +194,36 @@ export default function RecipeTable({
   // is implicitly the base (multiplier = 1). For Mamie's Table on BTSOL
   // MARDNOUSS the user types [3, 5, 6, 8] once, hits Apply, and every
   // ingredient row's empty cells fill from the base × multiplier.
+  //
+  // When variants carry portion_size data (Normal 250 g / Grand 500 g),
+  // we pre-derive the multipliers as `variant.portion_size / base.portion_size`
+  // so the user doesn't have to type them — they just hit Apply.
   const multStorageKey = `foody.recipeMultipliers.${item.id}`;
+  const derivedMultipliers = useMemo<Record<number, number>>(() => {
+    if (variants.length < 2) return {};
+    const base = variants[0];
+    if (!base.portionSize || base.portionSize <= 0) return {};
+    const out: Record<number, number> = {};
+    for (let i = 1; i < variants.length; i += 1) {
+      const v = variants[i];
+      if (!v.portionSize || v.portionSize <= 0) continue;
+      const baseQty = convertQuantity(
+        base.portionSize,
+        base.portionSizeUnit ?? 'g',
+        v.portionSizeUnit ?? base.portionSizeUnit ?? 'g',
+      );
+      if (baseQty <= 0) continue;
+      out[v.optionId] = +(v.portionSize / baseQty).toFixed(3);
+    }
+    return out;
+  }, [variants]);
   const [multipliers, setMultipliers] = useState<Record<number, number>>(() => {
-    if (typeof window === 'undefined') return {};
+    if (typeof window === 'undefined') return derivedMultipliers;
     try {
       const raw = window.localStorage.getItem(multStorageKey);
-      return raw ? (JSON.parse(raw) as Record<number, number>) : {};
+      return raw ? (JSON.parse(raw) as Record<number, number>) : derivedMultipliers;
     } catch {
-      return {};
+      return derivedMultipliers;
     }
   });
   useEffect(() => {
@@ -384,8 +406,10 @@ export default function RecipeTable({
               Multiplicateurs par variante
             </div>
             <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-              Quantité {variants[0].name} × multiplicateur. Cliquez sur Appliquer pour remplir
-              les cellules vides.
+              Combien de fois la quantité <strong>{variants[0].name}</strong> ? Ex&nbsp;: si{' '}
+              {variants[1].name} fait 2× la quantité de {variants[0].name}, mettez{' '}
+              <span className="font-mono">2</span>. Saisissez la quantité dans la colonne{' '}
+              {variants[0].name} pour chaque ligne, puis cliquez sur Appliquer.
             </div>
           </div>
           <div className="flex items-end gap-[var(--s-3)] flex-wrap">
