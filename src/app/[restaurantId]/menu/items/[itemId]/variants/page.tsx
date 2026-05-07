@@ -155,14 +155,21 @@ export default function VariantsEditorPage() {
 
       await syncItemVariants(rid, iid, { groups: payloadGroups });
 
-      // Auto-sync: if the parent item is still at the default "1 unit" portion
-      // but the user is creating variants with a different unit family (e.g.
-      // grams), adopt the first variant's unit as the item's base portion so
-      // variant scaling on ingredients works out of the box. Same-family case
-      // and already-customized portions are left alone.
-      const firstVariant = groups.flatMap((g) => g.rows).find((r) => r.name.trim() && r.portionSize > 0);
+      // Persist the item's base portion when the user has set it explicitly,
+      // OR auto-sync it from the first variant's portion when still at the
+      // legacy default "1 unit". The base portion is the multiplier reference
+      // the recipe table uses ("1 portion = X grams"); variants describe
+      // multiples of it.
+      const firstVariant = groups
+        .flatMap((g) => g.rows)
+        .find((r) => r.name.trim() && r.portionSize > 0);
       const itemIsDefault = itemPortionSize === 1 && itemPortionUnit === 'unit';
-      if (firstVariant && itemIsDefault && firstVariant.portionSizeUnit && firstVariant.portionSizeUnit !== 'unit') {
+      if (itemPortionSize > 0 && itemPortionUnit) {
+        await updateMenuItem(rid, iid, {
+          portion_size: itemPortionSize,
+          portion_size_unit: itemPortionUnit,
+        });
+      } else if (firstVariant && itemIsDefault && firstVariant.portionSizeUnit && firstVariant.portionSizeUnit !== 'unit') {
         await updateMenuItem(rid, iid, {
           portion_size: firstVariant.portionSize,
           portion_size_unit: firstVariant.portionSizeUnit,
@@ -285,6 +292,48 @@ export default function VariantsEditorPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+        {/* Item-level base portion. Optional but powerful: when set, the
+            recipe table interprets it as "1 portion = X g/ml" and derives
+            multipliers as variant.portion_size / item.portion_size. Lets
+            you keep variants like "Pour Table 4..10" without inventing a
+            fake "À la carte" entry just to anchor the base. */}
+        <section className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+            Portion de base de l&apos;article
+          </label>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+            Quantité d&apos;une portion individuelle (1 personne). Optionnelle —
+            renseignez-la pour que les multiplicateurs des variantes (ex&nbsp;:
+            Pour Table 4 = 3×) s&apos;appliquent automatiquement dans la recette.
+            Laissez à 0 si l&apos;article n&apos;est pas pondéré.
+          </p>
+          <div className="flex items-center gap-3 max-w-md">
+            <NumberInput
+              value={itemPortionSize}
+              onChange={(n) => {
+                setItemPortionSize(n);
+                setDirty(true);
+              }}
+              placeholder="0"
+              className="flex-1 px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white text-right font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+            />
+            <select
+              value={itemPortionUnit || 'g'}
+              onChange={(e) => {
+                setItemPortionUnit(e.target.value);
+                setDirty(true);
+              }}
+              className="px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+            >
+              <option value="g">g</option>
+              <option value="kg">kg</option>
+              <option value="ml">ml</option>
+              <option value="l">l</option>
+              <option value="unit">unit</option>
+            </select>
+          </div>
+        </section>
+
         {groups.map((g, gi) => (
           <section key={g.key} className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
             {/* Group title with option-set autocomplete */}

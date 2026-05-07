@@ -196,23 +196,42 @@ export default function RecipeTable({
   // Item without variants → single "Quantité" column.
   const hasVariants = variants.length > 0;
 
-  // Per-variant multipliers, persisted in localStorage. The first variant
-  // is implicitly the base (multiplier = 1). For Mamie's Table on BTSOL
-  // MARDNOUSS the user types [3, 5, 6, 8] once, hits Apply, and every
-  // ingredient row's empty cells fill from the base × multiplier.
+  // Per-variant multipliers, persisted in localStorage.
   //
-  // When variants carry portion_size data (Normal 250 g / Grand 500 g),
-  // we pre-derive the multipliers as `variant.portion_size / base.portion_size`
-  // so the user doesn't have to type them — they just hit Apply.
-  // v2 key — bumped from "foody.recipeMultipliers" to invalidate stale entries
-  // (some early sessions saved {} or partial data, blocking the new derive
-  // logic). Once tested in production, this number doesn't need to change.
+  // Two ways to anchor the base:
+  //   1. `item.portion_size` set (e.g. "1 portion = 250 g") → use as base.
+  //      Each variant's multiplier = variant.portion_size / item.portion_size.
+  //      Lets the user keep variants like "Pour Table 4..10" without
+  //      inventing a fake "À la carte" entry to anchor the base.
+  //   2. No item-level base → fall back to the first variant. Multiplier 1
+  //      on the first column, others scale relative to it.
+  //
+  // v2 key — bumped to invalidate stale localStorage from earlier sessions.
   const multStorageKey = `foody.recipeMultipliers.v2.${item.id}`;
+  const itemBasePortion = item.portion_size ?? 0;
+  const itemBaseUnit = item.portion_size_unit || 'g';
+  const usingItemBase = itemBasePortion > 0;
   const derivedMultipliers = useMemo<Record<number, number>>(() => {
+    if (variants.length === 0) return {};
+    const out: Record<number, number> = {};
+    if (usingItemBase) {
+      // Item-level base: every variant is a multiple of item.portion_size.
+      for (const v of variants) {
+        if (!v.portionSize || v.portionSize <= 0) continue;
+        const inSameUnit = convertQuantity(
+          itemBasePortion,
+          itemBaseUnit,
+          v.portionSizeUnit ?? itemBaseUnit,
+        );
+        if (inSameUnit <= 0) continue;
+        out[v.optionId] = +(v.portionSize / inSameUnit).toFixed(3);
+      }
+      return out;
+    }
+    // Variant-anchored base: first variant is multiplier 1 (locked).
     if (variants.length < 2) return {};
     const base = variants[0];
     if (!base.portionSize || base.portionSize <= 0) return {};
-    const out: Record<number, number> = {};
     for (let i = 1; i < variants.length; i += 1) {
       const v = variants[i];
       if (!v.portionSize || v.portionSize <= 0) continue;
@@ -225,7 +244,7 @@ export default function RecipeTable({
       out[v.optionId] = +(v.portionSize / baseQty).toFixed(3);
     }
     return out;
-  }, [variants]);
+  }, [variants, usingItemBase, itemBasePortion, itemBaseUnit]);
   // Merge derived defaults with whatever the user previously typed. User
   // values win when present; derived covers any variant the user didn't
   // touch. Clearing a value deletes the localStorage key, so the next render
@@ -323,28 +342,52 @@ export default function RecipeTable({
     updateAndCommit(id, (r) => ({ ...r, unit }));
   };
 
-  // Fill each row's empty variant cells from `base × multiplier`. Base is
-  // taken per-row as either the "Same for all" base value or the leftmost
-  // variant cell that has data. Cells that already have a positive value
-  // are left alone — the action is non-destructive.
+  // Fill each row's empty variant cells from `base × multiplier`.
+  //
+  // With an item-level base (item.portion_size > 0) the user types each
+  // ingredient's "1 portion" amount into ANY variant cell. Apply uses that
+  // cell's value divided by its variant's multiplier to recover the base
+  // amount, then fills the empty cells = base × their multipliers.
+  //
+  // Without an item-level base, the first variant column is the base; the
+  // user types there directly and Apply scales by the per-variant multipliers.
+  // Cells that already have a positive value are left alone — non-destructive.
   const applyMultipliers = useCallback(async () => {
     if (variants.length < 2) return;
     const baseVariantId = variants[0].optionId;
     const updated: Row[] = [];
     let touched = 0;
+    const multFor = (optionId: number): number => {
+      if (usingItemBase) return multipliers[optionId] ?? 0;
+      return optionId === baseVariantId ? 1 : multipliers[optionId] ?? 0;
+    };
     setRows((prev) => {
       const next = prev.map((r) => {
-        // Pick the base value: explicit "same for all" base, else the base
-        // variant's cell, else the first non-empty cell.
+        // Resolve the per-1-portion base for this row.
         let base = 0;
-        if (r.sameForAll && r.baseQty > 0) base = r.baseQty;
-        else if ((r.cells.get(baseVariantId) ?? 0) > 0) base = r.cells.get(baseVariantId)!;
-        else {
+        if (r.sameForAll && r.baseQty > 0) {
+          base = r.baseQty;
+        } else if (usingItemBase) {
+          // Find any cell with data and back-derive: base = cell / its multiplier.
           for (const v of variants) {
             const q = r.cells.get(v.optionId) ?? 0;
-            if (q > 0) {
-              base = q;
+            const m = multFor(v.optionId);
+            if (q > 0 && m > 0) {
+              base = q / m;
               break;
+            }
+          }
+        } else {
+          // Variant-anchored: use the first variant's cell as the base.
+          if ((r.cells.get(baseVariantId) ?? 0) > 0) {
+            base = r.cells.get(baseVariantId)!;
+          } else {
+            for (const v of variants) {
+              const q = r.cells.get(v.optionId) ?? 0;
+              if (q > 0) {
+                base = q;
+                break;
+              }
             }
           }
         }
@@ -355,10 +398,7 @@ export default function RecipeTable({
         for (const v of variants) {
           const existing = nextCells.get(v.optionId) ?? 0;
           if (existing > 0) continue; // never overwrite
-          const mult =
-            v.optionId === baseVariantId
-              ? 1
-              : multipliers[v.optionId];
+          const mult = multFor(v.optionId);
           if (!mult || mult <= 0) continue;
           nextCells.set(v.optionId, +(base * mult).toFixed(3));
           rowTouched = true;
@@ -371,17 +411,16 @@ export default function RecipeTable({
       });
       return next;
     });
-    // Persist each touched row.
     for (const r of updated) await onUpdate(r.id, rowToPatch(r, allVariantIds));
     if (touched === 0) {
-      // Helpful nudge — likely the user clicked Apply before entering a base
-      // value or before setting any non-1 multiplier.
       // eslint-disable-next-line no-alert
       alert(
-        'Aucune ligne à remplir. Vérifiez que la première colonne contient une valeur et qu’au moins un multiplicateur est défini.',
+        usingItemBase
+          ? "Aucune ligne à remplir. Saisissez d'abord une quantité dans n'importe quelle colonne, puis cliquez sur Appliquer."
+          : 'Aucune ligne à remplir. Vérifiez que la première colonne contient une valeur et qu’au moins un multiplicateur est défini.',
       );
     }
-  }, [variants, multipliers, onUpdate]);
+  }, [variants, multipliers, onUpdate, usingItemBase, allVariantIds]);
 
   // Per-variant total cost. Sums (cell qty in stock unit × cost_per_unit)
   // across rows. Cross-family unit mismatches contribute 0 — the warning
@@ -457,10 +496,10 @@ export default function RecipeTable({
         </button>
       </div>
 
-      {/* Multipliers strip — shown only when there are 2+ variants. The first
-          variant is the base (multiplier = 1, displayed but not editable).
-          Other multipliers default to "—" until the user enters them.
-          Persisted to localStorage so the user types them once per item. */}
+      {/* Multipliers strip — shown only when there are 2+ variants. With an
+          item-level base portion set, every variant has an editable multiplier
+          (no implicit "first variant = 1" rule). Without it, the first variant
+          is the base. Persisted to localStorage per item. */}
       {hasVariants && variants.length > 1 && rows.length > 0 && (
         <div className="mb-[var(--s-2)] flex items-start gap-[var(--s-3)] flex-wrap rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]/40 px-[var(--s-3)] py-[var(--s-2)]">
           <div className="flex-1 min-w-[180px]">
@@ -468,15 +507,37 @@ export default function RecipeTable({
               Multiplicateurs par variante
             </div>
             <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-              Combien de fois la quantité <strong>{variants[0].name}</strong> ? Ex&nbsp;: si{' '}
-              {variants[1].name} fait 2× la quantité de {variants[0].name}, mettez{' '}
-              <span className="font-mono">2</span>. Saisissez la quantité dans la colonne{' '}
-              {variants[0].name} pour chaque ligne, puis cliquez sur Appliquer.
+              {usingItemBase ? (
+                <>
+                  Une portion de base = <strong>{itemBasePortion} {itemBaseUnit}</strong>. Chaque
+                  variante est un multiple. Saisissez la quantité dans n&apos;importe quelle
+                  colonne, puis cliquez sur Appliquer pour remplir les autres.
+                </>
+              ) : (
+                <>
+                  Combien de fois la quantité <strong>{variants[0].name}</strong> ? Ex&nbsp;: si{' '}
+                  {variants[1].name} fait 2× la quantité de {variants[0].name}, mettez{' '}
+                  <span className="font-mono">2</span>. Saisissez la quantité dans la colonne{' '}
+                  {variants[0].name} pour chaque ligne, puis cliquez sur Appliquer.
+                </>
+              )}
             </div>
           </div>
           <div className="flex items-end gap-[var(--s-3)] flex-wrap">
+            {usingItemBase && (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-fs-xs text-[var(--fg-muted)]">
+                  Base ({itemBasePortion} {itemBaseUnit})
+                </span>
+                <div className="w-16 px-[var(--s-2)] py-1 text-fs-sm font-mono tabular-nums text-end bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm opacity-50 cursor-not-allowed">
+                  1
+                </div>
+              </div>
+            )}
             {variants.map((v, i) => {
-              const isBase = i === 0;
+              // First variant is locked to "1" only when there's no item-level
+              // base. With one, every variant is editable relative to the base.
+              const isBase = !usingItemBase && i === 0;
               const value = isBase ? 1 : multipliers[v.optionId] ?? 0;
               return (
                 <label key={v.optionId} className="flex flex-col gap-0.5">
