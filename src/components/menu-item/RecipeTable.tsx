@@ -142,9 +142,12 @@ function toRow(ing: MenuItemIngredient, variants: VariantColumn[]): Row {
 
 // Translate a row back into an API patch.
 //   sameForAll → quantity_needed + unit, no overrides.
-//   Otherwise  → variant_overrides[] for every cell with a positive quantity,
-//                quantity_needed reset to 0.
-function rowToPatch(row: Row): Partial<MenuItemIngredient> {
+//   Otherwise  → variant_overrides[] for EVERY cell (including 0), so the
+//                round-trip preserves the "per-variant" mode even when the
+//                user has only unchecked the toggle without entering values.
+//                Without this, a row with all-zero cells would load back as
+//                sameForAll=true and the toggle would visually re-check.
+function rowToPatch(row: Row, allVariantIds: number[]): Partial<MenuItemIngredient> {
   if (row.sameForAll) {
     return {
       quantity_needed: row.baseQty,
@@ -154,9 +157,12 @@ function rowToPatch(row: Row): Partial<MenuItemIngredient> {
     };
   }
   const overrides: IngredientVariantOverride[] = [];
-  row.cells.forEach((qty, optionId) => {
-    if (qty > 0) overrides.push({ option_id: optionId, quantity: qty, unit: row.unit });
-  });
+  // Emit one entry per known variant — keeps the row's mode stable across
+  // round-trips, even when cells are empty.
+  for (const optionId of allVariantIds) {
+    const qty = row.cells.get(optionId) ?? 0;
+    overrides.push({ option_id: optionId, quantity: qty, unit: row.unit });
+  }
   return {
     quantity_needed: 0,
     unit: row.unit,
@@ -261,30 +267,60 @@ export default function RecipeTable({
     }
   }, [multStorageKey, multipliers]);
 
-  // Commit a single row's current state. Errors are swallowed at the parent
-  // boundary (which surfaces them via alert), so we don't double-handle here.
-  const commit = async (row: Row) => {
-    await onUpdate(row.id, rowToPatch(row));
+  // Memoised list of variant IDs for serialisation. Used by rowToPatch so
+  // every override is emitted (even zeros) when sameForAll is off.
+  const allVariantIds = useMemo(() => variants.map((v) => v.optionId), [variants]);
+
+  // Update local state and commit synchronously with the freshly-computed
+  // row. Avoids the stale-closure trap where a deferred commit captures the
+  // pre-mutation state — historically, that caused the "Même quantité"
+  // checkbox to re-check after a save.
+  const updateAndCommit = (
+    id: number,
+    mutate: (r: Row) => Row,
+    options: { commit: boolean } = { commit: true },
+  ) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const next = mutate(r);
+        if (options.commit) void onUpdate(id, rowToPatch(next, allVariantIds));
+        return next;
+      }),
+    );
   };
 
-  const updateRow = (id: number, mutate: (r: Row) => Row) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? mutate(r) : r)));
-  };
-
-  const setCell = (id: number, optionId: number, qty: number) => {
-    updateRow(id, (r) => {
-      const nextCells = new Map(r.cells);
-      nextCells.set(optionId, qty);
-      return { ...r, sameForAll: false, cells: nextCells };
+  // Commit current state for a row by id (used on blur). Reads the latest
+  // state via the setRows callback so we never persist stale values, and
+  // returns the previous rows unchanged.
+  const commitRowById = (id: number) => {
+    setRows((prev) => {
+      const r = prev.find((x) => x.id === id);
+      if (r) void onUpdate(id, rowToPatch(r, allVariantIds));
+      return prev;
     });
   };
 
+  const setCell = (id: number, optionId: number, qty: number) => {
+    // No commit here — onBlur will persist after the user finishes typing.
+    updateAndCommit(
+      id,
+      (r) => {
+        const nextCells = new Map(r.cells);
+        nextCells.set(optionId, qty);
+        return { ...r, sameForAll: false, cells: nextCells };
+      },
+      { commit: false },
+    );
+  };
+
   const setBase = (id: number, qty: number) => {
-    updateRow(id, (r) => ({ ...r, baseQty: qty }));
+    updateAndCommit(id, (r) => ({ ...r, baseQty: qty }), { commit: false });
   };
 
   const setUnit = (id: number, unit: string) => {
-    updateRow(id, (r) => ({ ...r, unit }));
+    // Commit immediately — unit is a discrete change with no further input.
+    updateAndCommit(id, (r) => ({ ...r, unit }));
   };
 
   // Fill each row's empty variant cells from `base × multiplier`. Base is
@@ -336,7 +372,7 @@ export default function RecipeTable({
       return next;
     });
     // Persist each touched row.
-    for (const r of updated) await onUpdate(r.id, rowToPatch(r));
+    for (const r of updated) await onUpdate(r.id, rowToPatch(r, allVariantIds));
     if (touched === 0) {
       // Helpful nudge — likely the user clicked Apply before entering a base
       // value or before setting any non-1 multiplier.
@@ -378,7 +414,7 @@ export default function RecipeTable({
   }, [rows, variants]);
 
   const toggleSameForAll = (id: number, sameForAll: boolean) => {
-    updateRow(id, (r) => {
+    updateAndCommit(id, (r) => {
       if (sameForAll) {
         // Collapse: keep the largest non-zero cell as the base, clear cells.
         let base = r.baseQty;
@@ -522,7 +558,7 @@ export default function RecipeTable({
                   onBaseChange={(qty) => setBase(row.id, qty)}
                   onUnitChange={(unit) => setUnit(row.id, unit)}
                   onSameForAllChange={(v) => toggleSameForAll(row.id, v)}
-                  onCommit={() => commit(row)}
+                  onCommit={() => commitRowById(row.id)}
                   onDelete={() => onDelete(row.id)}
                 />
               ))}
@@ -634,11 +670,7 @@ function RecipeRow({
                 <input
                   type="checkbox"
                   checked={row.sameForAll}
-                  onChange={(e) => {
-                    onSameForAllChange(e.target.checked);
-                    // Defer commit to next tick so state has applied.
-                    setTimeout(() => void onCommit(), 0);
-                  }}
+                  onChange={(e) => onSameForAllChange(e.target.checked)}
                   className="w-3 h-3 rounded-r-xs border-[var(--line-strong)]"
                 />
                 Même quantité
@@ -651,10 +683,7 @@ function RecipeRow({
       <td className="px-[var(--s-3)] py-[var(--s-2)]">
         <select
           value={row.unit}
-          onChange={(e) => {
-            onUnitChange(e.target.value);
-            setTimeout(() => void onCommit(), 0);
-          }}
+          onChange={(e) => onUnitChange(e.target.value)}
           className="w-full px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)]"
         >
           {UNITS.map((u) => (
