@@ -1726,6 +1726,10 @@ export interface ItemOptionOverride {
   portion_size?: number;
   portion_size_unit?: string;
   is_active: boolean;
+  /** Hides the variant from à la carte browsing on guest apps; combos that
+   *  reference it explicitly still show it. Used for variants that exist
+   *  purely for combo recipe scaling (e.g. "Pour Table 8" of a meat item). */
+  is_combo_only?: boolean;
 }
 
 export interface ItemOptionPriceInput {
@@ -1769,6 +1773,7 @@ export interface VariantSyncInput {
   portion_size: number;
   portion_size_unit: string;
   is_active: boolean;
+  is_combo_only?: boolean;
   sort_order: number;
 }
 

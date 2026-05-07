@@ -21,6 +21,9 @@ interface VariantRow {
   portionSize: number;
   portionSizeUnit: string;
   isActive: boolean;
+  /** When true, the variant is hidden from à la carte browsing on guest apps
+   *  (combos that lock to it still expose it). Used for combo-only sizes. */
+  isComboOnly: boolean;
 }
 
 interface GroupState {
@@ -36,6 +39,7 @@ function newRow(defaultUnit: string = 'g'): VariantRow {
     name: '', price: 0,
     portionSize: 0, portionSizeUnit: defaultUnit,
     isActive: true,
+    isComboOnly: false,
   };
 }
 
@@ -103,6 +107,7 @@ export default function VariantsEditorPage() {
                 portionSize: ov?.portion_size ?? 0,
                 portionSizeUnit: ov?.portion_size_unit || defaultUnit,
                 isActive: ov?.is_active ?? opt.is_active,
+                isComboOnly: ov?.is_combo_only ?? false,
               };
             }),
           });
@@ -148,6 +153,7 @@ export default function VariantsEditorPage() {
             portion_size: r.portionSize,
             portion_size_unit: r.portionSizeUnit || 'g',
             is_active: r.isActive,
+            is_combo_only: r.isComboOnly,
             sort_order: vi,
           })),
         });
@@ -245,6 +251,7 @@ export default function VariantsEditorPage() {
         portionSize: 0,
         portionSizeUnit: itemPortionUnit,
         isActive: opt.is_active,
+        isComboOnly: false,
       })),
     });
     setDropdownGroupIdx(null);
@@ -388,12 +395,15 @@ export default function VariantsEditorPage() {
             <div>
               <div
                 className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
-                style={{ gridTemplateColumns: '1fr 150px 110px 120px 36px' }}
+                style={{ gridTemplateColumns: '1fr 150px 110px 120px 130px 36px' }}
               >
                 <span>{t('variantName')}</span>
                 <span>{t('portionSize')}</span>
                 <span className="text-right">{t('price')}</span>
                 <span>{t('status')}</span>
+                <span title="Variantes destinées uniquement aux combos (ex : Pour Table 8). Cachées de la fiche article côté client.">
+                  Combo seulement
+                </span>
                 <span />
               </div>
 
@@ -401,7 +411,7 @@ export default function VariantsEditorPage() {
                 <div
                   key={row.key}
                   className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-                  style={{ gridTemplateColumns: '1fr 150px 110px 120px 36px' }}
+                  style={{ gridTemplateColumns: '1fr 150px 110px 120px 130px 36px' }}
                 >
                   <input
                     value={row.name}
@@ -444,6 +454,15 @@ export default function VariantsEditorPage() {
                     <option value="active">{t('available')}</option>
                     <option value="inactive">{t('unavailable')}</option>
                   </select>
+                  <label className="inline-flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={row.isComboOnly}
+                      onChange={(e) => updateRow(g.key, row.key, { isComboOnly: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded border-neutral-300 dark:border-neutral-600"
+                    />
+                    Combo seul
+                  </label>
                   <button
                     onClick={() => removeRow(g.key, row.key)}
                     className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
