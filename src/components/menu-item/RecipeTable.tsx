@@ -309,13 +309,56 @@ export default function RecipeTable({
   };
 
   // Commit current state for a row by id (used on blur). Reads the latest
-  // state via the setRows callback so we never persist stale values, and
-  // returns the previous rows unchanged.
+  // state via the setRows callback. Also auto-scales empty cells when the
+  // user has typed exactly ONE value in the row — turning "type 5 numbers"
+  // into "type 1 number" for ingredients that scale linearly with the dish
+  // weight. To preserve a single-cell variant-specific entry, the auto-fill
+  // only fires when other cells are still empty (qty = 0); typing in an
+  // already-populated row never overwrites siblings.
   const commitRowById = (id: number) => {
     setRows((prev) => {
-      const r = prev.find((x) => x.id === id);
-      if (r) void onUpdate(id, rowToPatch(r, allVariantIds));
-      return prev;
+      const idx = prev.findIndex((x) => x.id === id);
+      if (idx < 0) return prev;
+      let r = prev[idx];
+
+      if (variants.length > 1 && !r.sameForAll) {
+        const valued = variants.filter((v) => (r.cells.get(v.optionId) ?? 0) > 0);
+        if (valued.length === 1) {
+          const source = valued[0];
+          const sourceQty = r.cells.get(source.optionId)!;
+          const sourceMult = usingItemBase
+            ? multipliers[source.optionId] ?? 0
+            : source.optionId === variants[0].optionId
+              ? 1
+              : multipliers[source.optionId] ?? 0;
+          if (sourceMult > 0) {
+            const base = sourceQty / sourceMult;
+            const nextCells = new Map(r.cells);
+            let changed = false;
+            for (const v of variants) {
+              if (v.optionId === source.optionId) continue;
+              if ((nextCells.get(v.optionId) ?? 0) > 0) continue;
+              const m = usingItemBase
+                ? multipliers[v.optionId] ?? 0
+                : v.optionId === variants[0].optionId
+                  ? 1
+                  : multipliers[v.optionId] ?? 0;
+              if (m > 0) {
+                nextCells.set(v.optionId, +(base * m).toFixed(3));
+                changed = true;
+              }
+            }
+            if (changed) r = { ...r, cells: nextCells };
+          }
+        }
+      }
+
+      void onUpdate(id, rowToPatch(r, allVariantIds));
+
+      if (r === prev[idx]) return prev;
+      const next = [...prev];
+      next[idx] = r;
+      return next;
     });
   };
 
