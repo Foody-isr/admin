@@ -22,6 +22,7 @@ import { RecipeComposer, BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
 import CreateStockSheet from './CreateStockSheet';
 import CreatePrepSheet from './CreatePrepSheet';
 import { NumberInput } from '@/components/ui/NumberInput';
+import RecipeTable, { type VariantColumn } from './RecipeTable';
 
 export type QuantityMode = 'adapt' | 'fixed' | 'custom';
 
@@ -209,61 +210,32 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
       </div>
 
-      {/* Ingrédients */}
+      {/* Ingrédients — table editor (one row per ingredient × one column per variant). */}
       <div className="mb-[var(--s-6)]">
-        <div className="flex items-center justify-between mb-[var(--s-3)]">
-          <div>
-            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
-              {t('ingredients') || 'Ingrédients'}
-              <span className="text-[var(--fg-muted)] font-normal ms-1.5">
-                · {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
-              </span>
-            </h4>
-            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-              {t('ingredientsSubtitle') || 'Liste des ingrédients nécessaires pour cette recette'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setAddingDraft(true)}
-            disabled={addingDraft}
-            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('addIngredient') || 'Ajouter un ingrédient'}
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-[var(--s-2)]">
-          {addingDraft && (
-            <RecipeIngredientDraft
-              rid={rid}
-              menuItemName={item.name}
-              stockItems={stockItems}
-              prepItems={prepItems}
-              variants={variants}
-              saving={draftSaving}
-              onAdd={handleAddFromDraft}
-              onCancel={() => setAddingDraft(false)}
-              onRefreshLists={onRefreshLists}
-            />
-          )}
-          {ingredients.map((ing) => (
-            <RecipeIngredientItem
-              key={ing.id}
-              ingredient={ing}
-              item={item}
-              variants={variants}
-              onDelete={() => onDeleteIngredient(ing.id)}
-              onUpdate={(patch) => onUpdateIngredient(ing.id, patch)}
-            />
-          ))}
-          {ingredients.length === 0 && !addingDraft && (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
-              {t('noIngredients') || 'Aucun ingrédient ajouté.'}
-            </p>
-          )}
-        </div>
+        {addingDraft ? (
+          <SimpleIngredientPicker
+            rid={rid}
+            menuItemName={item.name}
+            stockItems={stockItems}
+            prepItems={prepItems}
+            saving={draftSaving}
+            onAdd={handleAddFromDraft}
+            onCancel={() => setAddingDraft(false)}
+            onRefreshLists={onRefreshLists}
+          />
+        ) : (
+          <RecipeTable
+            item={item}
+            ingredients={ingredients}
+            variants={variants.map((v): VariantColumn => ({
+              optionId: v.option_id,
+              name: v.name,
+            }))}
+            onUpdate={onUpdateIngredient}
+            onDelete={onDeleteIngredient}
+            onAddClick={() => setAddingDraft(true)}
+          />
+        )}
       </div>
 
       {/* Instructions de préparation */}
@@ -355,6 +327,106 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 });
 
 export default MenuItemTabRecipe;
+
+// ─── Simple picker for the new table editor ─────────────────────
+// User clicks "Ajouter un ingrédient" → this picker appears → they
+// search/create a stock or prep item → on pick we immediately add
+// the ingredient with empty defaults. The user fills the per-variant
+// quantities directly in the table after that.
+
+function SimpleIngredientPicker({
+  rid,
+  menuItemName,
+  stockItems,
+  prepItems,
+  saving,
+  onAdd,
+  onCancel,
+  onRefreshLists,
+}: {
+  rid: number;
+  menuItemName: string;
+  stockItems: StockItem[];
+  prepItems: PrepItem[];
+  saving: boolean;
+  onAdd: (input: IngredientInput) => Promise<void>;
+  onCancel: () => void;
+  onRefreshLists?: () => Promise<void> | void;
+}) {
+  const [createSheet, setCreateSheet] = useState<{ kind: 'brut' | 'prep'; query: string } | null>(
+    null,
+  );
+
+  const submit = async (input: IngredientInput) => {
+    await onAdd(input);
+  };
+
+  const handlePickBrut = async (s: StockItem) => {
+    await submit({
+      stock_item_id: s.id,
+      quantity_needed: 0,
+      unit: s.unit ?? 'g',
+      scales_with_variant: false,
+      variant_overrides: [],
+    });
+  };
+
+  const handlePickPrep = async (p: PrepItem) => {
+    await submit({
+      prep_item_id: p.id,
+      quantity_needed: 0,
+      unit: p.unit ?? 'portion',
+      scales_with_variant: false,
+      variant_overrides: [],
+    });
+  };
+
+  const handleSheetCreatedBrut = async (created: StockItem) => {
+    setCreateSheet(null);
+    if (onRefreshLists) await onRefreshLists();
+    await handlePickBrut(created);
+  };
+  const handleSheetCreatedPrep = async (created: PrepItem) => {
+    setCreateSheet(null);
+    if (onRefreshLists) await onRefreshLists();
+    await handlePickPrep(created);
+  };
+
+  return (
+    <>
+      <RecipeComposer
+        stockItems={stockItems}
+        prepItems={prepItems}
+        onPickBrut={handlePickBrut}
+        onPickPrep={handlePickPrep}
+        onCreateBrut={(q) => setCreateSheet({ kind: 'brut', query: q })}
+        onCreatePrep={(q) => setCreateSheet({ kind: 'prep', query: q })}
+        onClose={onCancel}
+        autoFocus
+        disabled={saving}
+      />
+      {createSheet?.kind === 'brut' && (
+        <CreateStockSheet
+          restaurantId={rid}
+          itemName={menuItemName}
+          initialName={createSheet.query}
+          onCancel={() => setCreateSheet(null)}
+          onCreated={handleSheetCreatedBrut}
+        />
+      )}
+      {createSheet?.kind === 'prep' && (
+        <CreatePrepSheet
+          restaurantId={rid}
+          menuItemName={menuItemName}
+          initialName={createSheet.query}
+          stockItems={stockItems}
+          onCancel={() => setCreateSheet(null)}
+          onCreated={handleSheetCreatedPrep}
+        />
+      )}
+    </>
+  );
+}
 
 // ─── Ingredient card — Figma:435-624 ───────────────────────────
 

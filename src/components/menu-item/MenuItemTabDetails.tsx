@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import SearchableListField from '@/components/SearchableListField';
-import { Field, Input, NumberField, Select, Textarea } from '@/components/ds';
+import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import TypePickerCards from './combo/TypePickerCards';
 
@@ -30,14 +30,6 @@ interface Props {
   isActive: boolean;
   setIsActive: (v: boolean) => void;
   vatRate: number;
-  /** Reference portion size — the amount that represents "1 portion / 1 person".
-   *  Used as the base for variant scaling (e.g. a 500 g variant on a 250 g
-   *  reference doubles ingredient deductions) and as the unit cost denominator
-   *  in the Recette tab. Hidden for combo items. */
-  portionSize: number;
-  setPortionSize: (v: number) => void;
-  portionSizeUnit: string;
-  setPortionSizeUnit: (v: string) => void;
   categories: MenuCategory[];
   // Foody-specific: menu attachment (kept below the reference fields).
   menus: Menu[];
@@ -73,10 +65,6 @@ export default function MenuItemTabDetails({
   categoryId, setCategoryId,
   isActive, setIsActive,
   vatRate,
-  portionSize,
-  setPortionSize,
-  portionSizeUnit,
-  setPortionSizeUnit,
   categories,
   menus,
   selectedMenuIds,
@@ -296,39 +284,6 @@ export default function MenuItemTabDetails({
             </button>
           </Field>
         </div>
-
-        {/* Row 3 — Portion de référence (articles only).
-            Explicit base portion replaces the prior auto-fill from the first
-            variant. Drives recipe scaling and per-variant cost computation. */}
-        {!isCombo && (
-          <Field
-            label={t('referencePortionLabel') || 'Portion de référence'}
-            hint={
-              t('referencePortionHint') ||
-              "Quantité pour 1 portion individuelle. Sert de base aux variantes (ex. Pour 4 = 3×) et au calcul des coûts. Laisser à 0 si l'article n'est pas pondéré."
-            }
-          >
-            <div className="grid grid-cols-[1fr_120px] gap-[var(--s-2)]">
-              <NumberField
-                min={0}
-                value={portionSize}
-                onChange={setPortionSize}
-                placeholder="0"
-                className="font-mono"
-              />
-              <Select
-                value={portionSizeUnit || 'g'}
-                onChange={(e) => setPortionSizeUnit(e.target.value)}
-              >
-                <option value="g">g</option>
-                <option value="kg">kg</option>
-                <option value="ml">ml</option>
-                <option value="l">l</option>
-                <option value="unit">unit</option>
-              </Select>
-            </div>
-          </Field>
-        )}
 
         {/* Description */}
         <Field label={t('description') || 'Description'}>

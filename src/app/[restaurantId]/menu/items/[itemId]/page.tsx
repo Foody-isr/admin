@@ -512,10 +512,6 @@ export default function EditItemPage() {
                 isActive={isActive}
                 setIsActive={setIsActive}
                 vatRate={vatRate}
-                portionSize={portionSize}
-                setPortionSize={setPortionSize}
-                portionSizeUnit={portionSizeUnit}
-                setPortionSizeUnit={setPortionSizeUnit}
                 categories={categories}
                 menus={menus}
                 selectedMenuIds={selectedMenuIds}
