@@ -8,7 +8,7 @@ import {
   OptionSet, ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 
 /* ── Local row state (not yet persisted) ─────────────────────────── */
@@ -233,6 +233,23 @@ export default function VariantsEditorPage() {
     setGroups((prev) => prev.filter((g) => g.key !== key));
   };
 
+  // Reorder a row within its group. The save loop assigns sort_order from
+  // the array index, so swapping array positions is enough — no extra
+  // bookkeeping. Out-of-bounds moves are no-ops.
+  const moveRow = (groupKey: string, rowIdx: number, direction: 'up' | 'down') => {
+    setDirty(true);
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.key !== groupKey) return g;
+        const target = direction === 'up' ? rowIdx - 1 : rowIdx + 1;
+        if (target < 0 || target >= g.rows.length) return g;
+        const rows = [...g.rows];
+        [rows[rowIdx], rows[target]] = [rows[target], rows[rowIdx]];
+        return { ...g, rows };
+      }),
+    );
+  };
+
   const addGroup = () => {
     setDirty(true);
     setGroups((prev) => [...prev, newGroup(itemPortionUnit)]);
@@ -395,8 +412,9 @@ export default function VariantsEditorPage() {
             <div>
               <div
                 className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
-                style={{ gridTemplateColumns: '1fr 150px 110px 120px 130px 36px' }}
+                style={{ gridTemplateColumns: '32px 1fr 150px 110px 120px 130px 36px' }}
               >
+                <span />
                 <span>{t('variantName')}</span>
                 <span>{t('portionSize')}</span>
                 <span className="text-right">{t('price')}</span>
@@ -407,12 +425,32 @@ export default function VariantsEditorPage() {
                 <span />
               </div>
 
-              {g.rows.map((row) => (
+              {g.rows.map((row, ri) => (
                 <div
                   key={row.key}
                   className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-                  style={{ gridTemplateColumns: '1fr 150px 110px 120px 130px 36px' }}
+                  style={{ gridTemplateColumns: '32px 1fr 150px 110px 120px 130px 36px' }}
                 >
+                  <div className="flex flex-col items-center justify-center -my-1 text-neutral-400">
+                    <button
+                      type="button"
+                      onClick={() => moveRow(g.key, ri, 'up')}
+                      disabled={ri === 0}
+                      title="Monter"
+                      className="size-5 flex items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveRow(g.key, ri, 'down')}
+                      disabled={ri === g.rows.length - 1}
+                      title="Descendre"
+                      className="size-5 flex items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
                   <input
                     value={row.name}
                     onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
