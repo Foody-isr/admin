@@ -1409,6 +1409,18 @@ export async function deleteMenuItem(restaurantId: number, id: number): Promise<
   );
 }
 
+/** Server-side clone of a menu item plus its full configuration (modifiers,
+ *  variants, ingredients, combo steps, menu group memberships, etc.). The new
+ *  item lands inactive with " (copie)" suffixed to the name so the operator
+ *  can adjust before publishing. Returns the new item's ID. */
+export async function duplicateMenuItem(restaurantId: number, id: number): Promise<{ id: number }> {
+  const data = await apiFetch<{ id: number }>(
+    `/api/v1/menu/items/${id}/duplicate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data;
+}
+
 export async function uploadMenuItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
   const form = new FormData();
   form.append('image', file);

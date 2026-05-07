@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getAllCategories, updateMenuItem, deleteMenuItem, createMenuItem,
+  getAllCategories, updateMenuItem, deleteMenuItem, duplicateMenuItem, createMenuItem,
   createCategory, updateCategory,
   MenuCategory, MenuItem,
 } from '@/lib/api';
@@ -797,6 +797,22 @@ export default function ItemLibraryPage() {
                               {
                                 label: t('edit'),
                                 onClick: () => openEditor(item, rid, router),
+                              },
+                              {
+                                label: t('duplicate') || 'Dupliquer',
+                                onClick: async () => {
+                                  try {
+                                    const created = await duplicateMenuItem(rid, item.id);
+                                    // Open the new item in the editor so the
+                                    // user can adjust price / step rules
+                                    // before publishing. The clone landed
+                                    // inactive; saving from the editor
+                                    // (with isActive toggled on) publishes it.
+                                    router.push(`/${rid}/menu/items/${created.id}`);
+                                  } catch (err) {
+                                    alert(err instanceof Error ? err.message : 'Failed to duplicate');
+                                  }
+                                },
                               },
                               {
                                 label: t('delete'),
