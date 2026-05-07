@@ -286,6 +286,16 @@ export default function RecipeTable({
     }
   }, [multStorageKey, multipliers]);
 
+  // Transient hint shown next to the Apply button when the click was a no-op
+  // (e.g. user clicked Apply before entering any base value). Replaces a
+  // blocking native alert() that surprised testers as a "browser warning".
+  const [applyHint, setApplyHint] = useState<string | null>(null);
+  useEffect(() => {
+    if (!applyHint) return;
+    const timer = window.setTimeout(() => setApplyHint(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [applyHint]);
+
   // Memoised list of variant IDs for serialisation. Used by rowToPatch so
   // every override is emitted (even zeros) when sameForAll is off.
   const allVariantIds = useMemo(() => variants.map((v) => v.optionId), [variants]);
@@ -413,12 +423,13 @@ export default function RecipeTable({
     });
     for (const r of updated) await onUpdate(r.id, rowToPatch(r, allVariantIds));
     if (touched === 0) {
-      // eslint-disable-next-line no-alert
-      alert(
+      setApplyHint(
         usingItemBase
-          ? "Aucune ligne à remplir. Saisissez d'abord une quantité dans n'importe quelle colonne, puis cliquez sur Appliquer."
-          : 'Aucune ligne à remplir. Vérifiez que la première colonne contient une valeur et qu’au moins un multiplicateur est défini.',
+          ? "Saisissez d'abord une quantité dans n'importe quelle colonne."
+          : 'Renseignez une valeur dans la première colonne et au moins un multiplicateur.',
       );
+    } else {
+      setApplyHint(null);
     }
   }, [variants, multipliers, onUpdate, usingItemBase, allVariantIds]);
 
@@ -573,6 +584,15 @@ export default function RecipeTable({
               Appliquer aux lignes vides
             </button>
           </div>
+          {applyHint && (
+            <div
+              className="basis-full text-fs-xs text-[var(--warn-500,#d97706)] mt-[var(--s-2)]"
+              role="status"
+              aria-live="polite"
+            >
+              {applyHint}
+            </div>
+          )}
         </div>
       )}
 
