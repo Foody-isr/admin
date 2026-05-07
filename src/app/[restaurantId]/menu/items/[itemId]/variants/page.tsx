@@ -300,14 +300,24 @@ export default function VariantsEditorPage() {
                 placeholder={t('variantGroupTitle')}
                 className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
               />
-              {dropdownGroupIdx === gi && allOptionSets.length > 0 && (
-                <div className="absolute left-5 right-5 top-full mt-1 z-30 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
-                  <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700">
-                    {t('savedOptionSets') || 'Saved option sets'}
-                  </div>
-                  {allOptionSets
-                    .filter((os) => !g.title || os.name.toLowerCase().includes(g.title.toLowerCase()))
-                    .map((os) => (
+              {(() => {
+                // Only surface the saved-option-sets dropdown when the user
+                // is actually typing a search query AND there are matches.
+                // Auto-opening on focus covered the variant rows below the
+                // input even when the user wanted to type a new title.
+                if (dropdownGroupIdx !== gi) return null;
+                const query = g.title.trim().toLowerCase();
+                if (query.length === 0) return null;
+                const matches = allOptionSets.filter((os) =>
+                  os.name.toLowerCase().includes(query),
+                );
+                if (matches.length === 0) return null;
+                return (
+                  <div className="absolute left-5 right-5 top-full mt-1 z-30 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700">
+                      {t('savedOptionSets') || 'Saved option sets'}
+                    </div>
+                    {matches.map((os) => (
                       <button
                         key={os.id}
                         onMouseDown={(e) => e.preventDefault()}
@@ -320,8 +330,9 @@ export default function VariantsEditorPage() {
                         </p>
                       </button>
                     ))}
-                </div>
-              )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Variants table */}
