@@ -25,10 +25,6 @@ import RecipeTable, { type VariantColumn } from './RecipeTable';
 export interface VariantRef {
   option_id: number;
   name: string;
-  /** Optional per-variant portion size — when present, used to derive the
-   *  default multiplier and to migrate legacy adapt-mode rows on load. */
-  portion_size?: number;
-  portion_size_unit?: string;
 }
 
 // Backend stores a single `instruction` string per step. Figma shows a
@@ -44,10 +40,9 @@ function joinInstruction(title: string, description: string): string {
 }
 
 // Figma MenuItemDetails.tsx:323-642 — Recette tab.
-// Expandable ingredient cards with 3-mode quantity system:
-//   adapt  → scales_with_variant = true, no overrides
-//   fixed  → scales_with_variant = false, quantity_needed + unit apply to all
-//   custom → scales_with_variant = false, variant_overrides[] per variant
+// Expandable ingredient cards with 2-mode quantity system:
+//   fixed  → quantity_needed + unit apply to every variant
+//   custom → variant_overrides[] supplies a per-variant quantity
 
 export interface MenuItemTabRecipeHandle {
   save: () => Promise<void>;
@@ -203,8 +198,6 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             variants={variants.map((v): VariantColumn => ({
               optionId: v.option_id,
               name: v.name,
-              portionSize: v.portion_size,
-              portionSizeUnit: v.portion_size_unit,
             }))}
             onUpdate={onUpdateIngredient}
             onDelete={onDeleteIngredient}
@@ -333,25 +326,9 @@ function SimpleIngredientPicker({
     null,
   );
 
-  // Pre-fill variant cells with each variant's portion_size when we have it.
-  // For a "main ingredient = dish weight" case (e.g. chicken in BTSOL
-  // MARDNOUSS, where item.portion_size is the chicken weight), this means
-  // ZERO typing — the cells already match. For other ingredients (olives,
-  // sauce…) the user types in any one cell and the table re-scales the
-  // others on blur.
-  const seedOverrides = (unit: string) => {
-    const overrides: IngredientVariantOverride[] = [];
-    for (const v of variants) {
-      if (v.portion_size && v.portion_size > 0) {
-        overrides.push({
-          option_id: v.option_id,
-          quantity: v.portion_size,
-          unit: v.portion_size_unit || unit,
-        });
-      }
-    }
-    return overrides;
-  };
+  // New ingredients start with no variant overrides — the chef types each
+  // variant cell in the recipe table (or uses the bulk-fill multiplier helper).
+  const seedOverrides = (_unit: string): IngredientVariantOverride[] => [];
 
   const submit = async (input: IngredientInput) => {
     await onAdd(input);
@@ -363,7 +340,6 @@ function SimpleIngredientPicker({
       stock_item_id: s.id,
       quantity_needed: 0,
       unit,
-      scales_with_variant: false,
       variant_overrides: seedOverrides(unit),
     });
   };
@@ -374,7 +350,6 @@ function SimpleIngredientPicker({
       prep_item_id: p.id,
       quantity_needed: 0,
       unit,
-      scales_with_variant: false,
       variant_overrides: seedOverrides(unit),
     });
   };

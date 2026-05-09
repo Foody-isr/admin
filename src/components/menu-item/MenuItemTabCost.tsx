@@ -8,7 +8,6 @@ import {
   COST_THRESHOLD,
   computeItemCostSummary,
   buildVariantOptions,
-  resolvePortion,
 } from '@/lib/cost-utils';
 import type {
   MenuItem,
@@ -69,12 +68,10 @@ export default function MenuItemTabCost({
     () => buildVariantOptions(item, itemOptionOverrides),
     [item, itemOptionOverrides],
   );
-  // Default to the first variant with a portion (concrete cost), else the
-  // first variant outright. We never default to "" (base recipe) because
-  // when an item has variants, exposing a synthetic "Base" pill is confusing
-  // — users only configured Normal/Grand/etc., not "Base".
-  const defaultVariantId =
-    variants.find((v) => (v.portion_size ?? 0) > 0)?.id ?? variants[0]?.id ?? '';
+  // Default to the first variant. When an item has variants, exposing a
+  // synthetic "Base" pill is confusing — users only configured the named
+  // variants.
+  const defaultVariantId = variants[0]?.id ?? '';
   const [variantId, setVariantId] = useState<string>(defaultVariantId);
   const activeVariant = variants.find((v) => v.id === variantId) ?? null;
 
@@ -177,11 +174,6 @@ export default function MenuItemTabCost({
                     }`}
                   >
                     {v.name}
-                    {v.portion_size > 0 && (
-                      <span className={`text-fs-xs ${active ? 'text-white/80' : 'opacity-70'}`}>
-                        {v.portion_size} {v.portion_size_unit}
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -385,8 +377,6 @@ export default function MenuItemTabCost({
         <PrepCostBreakdownModal
           ing={breakdownIng}
           item={item}
-          portion={resolvePortion(item, variants, variantId)}
-          optionId={null}
           showExVat={showCostsExVat}
           restaurantRate={vatRate}
           onClose={() => setBreakdownIng(null)}

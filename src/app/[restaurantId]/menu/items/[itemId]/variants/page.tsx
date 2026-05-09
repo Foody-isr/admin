@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listOptionSets, getItemOptionPrices, listAllItems, updateMenuItem,
+  listOptionSets, getItemOptionPrices, listAllItems,
   syncItemVariants, VariantGroupSyncInput,
   OptionSet, ItemOptionOverride,
 } from '@/lib/api';
@@ -18,8 +18,6 @@ interface VariantRow {
   optionId?: number; // set when linked to a real OptionSetOption
   name: string;
   price: number;
-  portionSize: number;
-  portionSizeUnit: string;
   isActive: boolean;
   /** When true, the variant is hidden from à la carte browsing on guest apps
    *  (combos that lock to it still expose it). Used for combo-only sizes. */
@@ -33,18 +31,17 @@ interface GroupState {
   rows: VariantRow[];
 }
 
-function newRow(defaultUnit: string = 'g'): VariantRow {
+function newRow(): VariantRow {
   return {
     key: crypto.randomUUID(),
     name: '', price: 0,
-    portionSize: 0, portionSizeUnit: defaultUnit,
     isActive: true,
     isComboOnly: false,
   };
 }
 
-function newGroup(defaultUnit: string = 'g'): GroupState {
-  return { key: crypto.randomUUID(), title: '', rows: [newRow(defaultUnit)] };
+function newGroup(): GroupState {
+  return { key: crypto.randomUUID(), title: '', rows: [newRow()] };
 }
 
 /* ── Page ─────────────────────────────────────────────────────────── */
@@ -60,11 +57,6 @@ export default function VariantsEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  // The parent item's portion — used as the default unit when the user adds
-  // new variants, and to detect whether the item is still at the default
-  // "1 unit" so we can auto-sync it to the first variant's unit on save.
-  const [itemPortionUnit, setItemPortionUnit] = useState('g');
-  const [itemPortionSize, setItemPortionSize] = useState(0);
 
   // Existing option sets for the dropdown
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
@@ -72,16 +64,12 @@ export default function VariantsEditorPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [optSets, overrides, items] = await Promise.all([
+      const [optSets, overrides] = await Promise.all([
         listOptionSets(rid),
         getItemOptionPrices(rid, iid),
         listAllItems(rid),
       ]);
       setAllOptionSets(optSets ?? []);
-      const parentItem = (items ?? []).find((i) => i.id === iid);
-      const defaultUnit = parentItem?.portion_size_unit || 'g';
-      setItemPortionUnit(defaultUnit);
-      setItemPortionSize(parentItem?.portion_size ?? 0);
 
       // Build override lookup
       const overrideMap = new Map<number, ItemOptionOverride>();
@@ -104,8 +92,6 @@ export default function VariantsEditorPage() {
                 optionId: opt.id,
                 name: opt.name,
                 price: ov?.price ?? opt.price,
-                portionSize: ov?.portion_size ?? 0,
-                portionSizeUnit: ov?.portion_size_unit || defaultUnit,
                 isActive: ov?.is_active ?? opt.is_active,
                 isComboOnly: ov?.is_combo_only ?? false,
               };
@@ -115,10 +101,6 @@ export default function VariantsEditorPage() {
       }
       if (attached.length > 0) {
         setGroups(attached);
-      } else {
-        // No attached option sets yet — replace the initial placeholder group
-        // so its portion unit matches the item's default rather than 'g'.
-        setGroups([newGroup(defaultUnit)]);
       }
     } finally {
       setLoading(false);
@@ -150,8 +132,6 @@ export default function VariantsEditorPage() {
             option_id: r.optionId ?? null,
             name: r.name.trim(),
             price: r.price,
-            portion_size: r.portionSize,
-            portion_size_unit: r.portionSizeUnit || 'g',
             is_active: r.isActive,
             is_combo_only: r.isComboOnly,
             sort_order: vi,
@@ -160,27 +140,6 @@ export default function VariantsEditorPage() {
       }
 
       await syncItemVariants(rid, iid, { groups: payloadGroups });
-
-      // Persist the item's base portion when the user has set it explicitly,
-      // OR auto-sync it from the first variant's portion when still at the
-      // legacy default "1 unit". The base portion is the multiplier reference
-      // the recipe table uses ("1 portion = X grams"); variants describe
-      // multiples of it.
-      const firstVariant = groups
-        .flatMap((g) => g.rows)
-        .find((r) => r.name.trim() && r.portionSize > 0);
-      const itemIsDefault = itemPortionSize === 1 && itemPortionUnit === 'unit';
-      if (itemPortionSize > 0 && itemPortionUnit) {
-        await updateMenuItem(rid, iid, {
-          portion_size: itemPortionSize,
-          portion_size_unit: itemPortionUnit,
-        });
-      } else if (firstVariant && itemIsDefault && firstVariant.portionSizeUnit && firstVariant.portionSizeUnit !== 'unit') {
-        await updateMenuItem(rid, iid, {
-          portion_size: firstVariant.portionSize,
-          portion_size_unit: firstVariant.portionSizeUnit,
-        });
-      }
 
       setDirty(false);
       router.back();
@@ -214,7 +173,7 @@ export default function VariantsEditorPage() {
   const addRow = (groupKey: string) => {
     setDirty(true);
     setGroups((prev) => prev.map((g) =>
-      g.key === groupKey ? { ...g, rows: [...g.rows, newRow(itemPortionUnit)] } : g
+      g.key === groupKey ? { ...g, rows: [...g.rows, newRow()] } : g
     ));
   };
 
@@ -252,7 +211,7 @@ export default function VariantsEditorPage() {
 
   const addGroup = () => {
     setDirty(true);
-    setGroups((prev) => [...prev, newGroup(itemPortionUnit)]);
+    setGroups((prev) => [...prev, newGroup()]);
   };
 
   /** Apply an existing option set from the dropdown */
@@ -265,8 +224,6 @@ export default function VariantsEditorPage() {
         optionId: opt.id,
         name: opt.name,
         price: opt.price,
-        portionSize: 0,
-        portionSizeUnit: itemPortionUnit,
         isActive: opt.is_active,
         isComboOnly: false,
       })),
@@ -316,48 +273,6 @@ export default function VariantsEditorPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
-        {/* Item-level base portion. Optional but powerful: when set, the
-            recipe table interprets it as "1 portion = X g/ml" and derives
-            multipliers as variant.portion_size / item.portion_size. Lets
-            you keep variants like "Pour Table 4..10" without inventing a
-            fake "À la carte" entry just to anchor the base. */}
-        <section className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5">
-          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
-            Portion de base de l&apos;article
-          </label>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
-            Quantité d&apos;une portion individuelle (1 personne). Optionnelle —
-            renseignez-la pour que les multiplicateurs des variantes (ex&nbsp;:
-            Pour Table 4 = 3×) s&apos;appliquent automatiquement dans la recette.
-            Laissez à 0 si l&apos;article n&apos;est pas pondéré.
-          </p>
-          <div className="flex items-center gap-3 max-w-md">
-            <NumberInput
-              value={itemPortionSize}
-              onChange={(n) => {
-                setItemPortionSize(n);
-                setDirty(true);
-              }}
-              placeholder="0"
-              className="flex-1 px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white text-right font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
-            />
-            <select
-              value={itemPortionUnit || 'g'}
-              onChange={(e) => {
-                setItemPortionUnit(e.target.value);
-                setDirty(true);
-              }}
-              className="px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
-            >
-              <option value="g">g</option>
-              <option value="kg">kg</option>
-              <option value="ml">ml</option>
-              <option value="l">l</option>
-              <option value="unit">unit</option>
-            </select>
-          </div>
-        </section>
-
         {groups.map((g, gi) => (
           <section key={g.key} className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
             {/* Group title with option-set autocomplete */}
@@ -412,11 +327,10 @@ export default function VariantsEditorPage() {
             <div>
               <div
                 className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
-                style={{ gridTemplateColumns: '32px 1fr 150px 110px 120px 130px 36px' }}
+                style={{ gridTemplateColumns: '32px 1fr 110px 120px 130px 36px' }}
               >
                 <span />
                 <span>{t('variantName')}</span>
-                <span>{t('portionSize')}</span>
                 <span className="text-right">{t('price')}</span>
                 <span>{t('status')}</span>
                 <span title="Variantes destinées uniquement aux combos (ex : Pour Table 8). Cachées de la fiche article côté client.">
@@ -429,7 +343,7 @@ export default function VariantsEditorPage() {
                 <div
                   key={row.key}
                   className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
-                  style={{ gridTemplateColumns: '32px 1fr 150px 110px 120px 130px 36px' }}
+                  style={{ gridTemplateColumns: '32px 1fr 110px 120px 130px 36px' }}
                 >
                   <div className="flex flex-col items-center justify-center -my-1 text-neutral-400">
                     <button
@@ -457,26 +371,6 @@ export default function VariantsEditorPage() {
                     placeholder={t('variantName')}
                     className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
                   />
-                  <div className="flex items-center gap-1">
-                    <NumberInput
-                      min={0}
-                      value={row.portionSize}
-                      onChange={(n) => updateRow(g.key, row.key, { portionSize: n })}
-                      placeholder="0"
-                      className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300 w-16"
-                    />
-                    <select
-                      value={row.portionSizeUnit}
-                      onChange={(e) => updateRow(g.key, row.key, { portionSizeUnit: e.target.value })}
-                      className="text-xs bg-transparent border-0 outline-none text-neutral-500 dark:text-neutral-400 w-14"
-                    >
-                      <option value="unit">unit</option>
-                      <option value="g">g</option>
-                      <option value="kg">kg</option>
-                      <option value="ml">ml</option>
-                      <option value="l">l</option>
-                    </select>
-                  </div>
                   <NumberInput
                     min={0}
                     value={row.price}

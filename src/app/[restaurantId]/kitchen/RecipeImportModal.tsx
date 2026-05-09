@@ -142,8 +142,6 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
       if (mode.kind === 'menu-item') {
         const input: ConfirmRecipeItemInput = {
           menu_item_id: mode.menuItem.id,
-          recipe_yield: editedYield,
-          recipe_yield_unit: editedYieldUnit,
           ingredients,
         };
         await confirmRecipes(rid, { recipes: [input] });

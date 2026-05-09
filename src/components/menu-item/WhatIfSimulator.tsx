@@ -22,7 +22,6 @@ import {
 import {
   costExVat,
   vatMultiplierForStock,
-  resolvePortion,
   buildVariantOptions,
   type ItemCostSummary,
   type VariantOption,
@@ -108,46 +107,32 @@ export default function WhatIfSimulator({
   t,
 }: Props) {
   // ── Bases ────────────────────────────────────────────────────────────────
-  const basePortion = activeVariant?.portion_size ?? item.portion_size ?? 0;
-  const portionUnit =
-    activeVariant?.portion_size_unit || item.portion_size_unit || 'g';
   const basePrice = effectivePrice;
   const baseFoodCost = summary.foodCost;
   const baseMargin = summary.margin;
   const basePctCost = summary.costPct * 100;
-  const isBatch = (item.recipe_yield ?? 0) > 0;
 
   // Slider bounds — ±50% around base, clamped sensibly. Avoids 0-base
   // divide-by-zero by falling back to a fixed range.
-  const portionMin = basePortion > 0 ? Math.max(1, Math.round(basePortion * 0.5)) : 0;
-  const portionMax = basePortion > 0 ? Math.round(basePortion * 1.5) : 0;
-  const portionStep = basePortion >= 100 ? 5 : 1;
   const priceMin = basePrice > 0 ? Math.max(0.5, +(basePrice * 0.5).toFixed(2)) : 0;
   const priceMax = basePrice > 0 ? +(basePrice * 1.5).toFixed(2) : 0;
 
   // ── Lever state ──────────────────────────────────────────────────────────
-  const [simPortion, setSimPortion] = useState<number>(basePortion);
   const [simPrice, setSimPrice] = useState<number>(basePrice);
   const [simStockCosts, setSimStockCosts] = useState<Record<number, number>>({});
 
   // Reset when the parent signals (variant change, VAT toggle, etc.). Also
-  // covers initial mount when basePortion/basePrice arrive after an async
-  // load — without this, the sliders stick at 0.
+  // covers initial mount when basePrice arrives after an async load.
   useEffect(() => {
-    setSimPortion(basePortion);
     setSimPrice(basePrice);
     setSimStockCosts({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, basePortion, basePrice]);
+  }, [resetKey, basePrice]);
 
   // ── Derived ──────────────────────────────────────────────────────────────
-  const portionRatio = basePortion > 0 ? simPortion / basePortion : 1;
-  const portionChanged =
-    basePortion > 0 && Math.abs(simPortion - basePortion) > 0.001;
   const priceChanged = Math.abs(simPrice - basePrice) > 0.001;
   const ingChanged = Object.keys(simStockCosts).length > 0;
-  const dirtyCount =
-    (portionChanged ? 1 : 0) + (priceChanged ? 1 : 0) + (ingChanged ? 1 : 0);
+  const dirtyCount = (priceChanged ? 1 : 0) + (ingChanged ? 1 : 0);
   const dirty = dirtyCount > 0;
 
   // Display-basis unit cost for a stock item — matches what the user sees in
@@ -165,8 +150,6 @@ export default function WhatIfSimulator({
   //   • Stock line: costRatio = override / baseUnitCost.
   //   • Prep line: re-derive the prep's batch cost from its sub-ingredients
   //     using overrides on their stock_items, then ratio = newBatch/baseBatch.
-  // portionRatio applies only to lines that scale (batch items always scale;
-  // variant-scoped lines via scales_with_variant).
   const simFoodCost = useMemo(() => {
     return summary.lines.reduce((acc, line) => {
       const ing = line.ingredient;
@@ -194,14 +177,12 @@ export default function WhatIfSimulator({
         if (baseBatch > 0) costRatio = newBatch / baseBatch;
       }
 
-      const scales = isBatch || !!ing.scales_with_variant;
-      const ratio = scales ? portionRatio : 1;
-      return acc + line.lineCost * costRatio * ratio;
+      return acc + line.lineCost * costRatio;
     }, 0);
     // displayUnitCostFor depends on showCostsExVat + vatRate, both stable
     // for the panel's lifetime; explicit deps keep the lint quiet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summary.lines, simStockCosts, portionRatio, isBatch, showCostsExVat, vatRate]);
+  }, [summary.lines, simStockCosts, showCostsExVat, vatRate]);
 
   const simMargin = simPrice - simFoodCost;
   const simMarginPct = simPrice > 0 ? (simMargin / simPrice) * 100 : 0;
@@ -297,9 +278,6 @@ export default function WhatIfSimulator({
 
   // Modal state — which prep ingredient is currently expanded for editing.
   const [openPrepIng, setOpenPrepIng] = useState<MenuItemIngredient | null>(null);
-  const variants = useMemo(() => buildVariantOptions(item), [item]);
-  const variantIdForPrep = activeVariant?.id ?? '';
-  const prepPortion = resolvePortion(item, variants, variantIdForPrep);
 
   // ── Apply state ─────────────────────────────────────────────────────────
   const [applying, setApplying] = useState(false);
@@ -327,10 +305,10 @@ export default function WhatIfSimulator({
       const restaurantMultiplier = 1 + vatRate / 100;
       const priceForStorage = showCostsExVat ? simPrice * restaurantMultiplier : simPrice;
 
-      // 1) Variant-level updates (price + portion). Option-set variants use
+      // 1) Variant-level price updates. Option-set variants use
       //    setItemOptionPrice; legacy `var:` variants only support price via
-      //    updateVariant — portion edits on those need the variants page.
-      if (activeVariant && (priceChanged || portionChanged)) {
+      //    updateVariant.
+      if (activeVariant && priceChanged) {
         if (activeVariant.id.startsWith('opt:')) {
           const optionId = Number(activeVariant.id.slice(4));
           const setId = setIdForOption(optionId);
@@ -338,24 +316,14 @@ export default function WhatIfSimulator({
             calls.push(
               setItemOptionPrice(rid, setId, item.id, optionId, {
                 price: priceForStorage,
-                portion_size: simPortion,
-                portion_size_unit: portionUnit,
                 is_active: true,
               }),
             );
           }
         }
-      } else {
+      } else if (priceChanged) {
         // No active variant — apply to the item itself.
-        const patch: Partial<MenuItem> = {};
-        if (priceChanged) patch.price = priceForStorage;
-        if (portionChanged) {
-          patch.portion_size = simPortion;
-          patch.portion_size_unit = portionUnit;
-        }
-        if (Object.keys(patch).length > 0) {
-          calls.push(updateMenuItem(rid, item.id, patch));
-        }
+        calls.push(updateMenuItem(rid, item.id, { price: priceForStorage }));
       }
 
       // 2) Stock cost overrides — one PUT per stock_item. Storage is always
@@ -400,13 +368,10 @@ export default function WhatIfSimulator({
 
   // ── Quick-action chips (empty state)
   const reset = () => {
-    setSimPortion(basePortion);
     setSimPrice(basePrice);
     setSimStockCosts({});
     setApplyError(null);
   };
-  const quickMinus10Portion = () =>
-    basePortion > 0 && setSimPortion(Math.max(portionMin, Math.round(basePortion * 0.9)));
   const quickPlus10Price = () =>
     basePrice > 0 && setSimPrice(Math.min(priceMax, +(basePrice * 1.1).toFixed(2)));
   const quickMinus5Ingredients = () => {
@@ -433,7 +398,6 @@ export default function WhatIfSimulator({
   };
 
   // ── Deltas (formatted) ───────────────────────────────────────────────────
-  const portionDeltaPct = basePortion > 0 ? ((simPortion - basePortion) / basePortion) * 100 : 0;
   const priceDeltaPct = basePrice > 0 ? ((simPrice - basePrice) / basePrice) * 100 : 0;
 
   // % cost gauge — clamp at 60 (matches the design's ceiling)
@@ -587,36 +551,7 @@ export default function WhatIfSimulator({
         >
           <SectionLabel>{t('simulatorLeversTitle') || 'Leviers à actionner'}</SectionLabel>
 
-          {/* Lever 1 — portion (only when item has a portion size) */}
-          {basePortion > 0 ? (
-            <Lever
-              icon={<SlidersHorizontal className="w-3 h-3" />}
-              title={`${t('simulatorPortionLeverTitle') || 'Portion'} · ${activeVariant?.name || (t('baseVariant') || 'Base')}`}
-              sub={t('simulatorPortionLeverHint') || 'Réduire la quantité servie pour cette variante'}
-              valueLabel={`${formatPortion(simPortion)} ${portionUnit}`}
-              baseLabel={portionChanged ? `${formatPortion(basePortion)} ${portionUnit}` : null}
-              deltaPct={portionChanged ? portionDeltaPct : null}
-              dirty={portionChanged}
-              min={portionMin}
-              max={portionMax}
-              step={portionStep}
-              value={simPortion}
-              onChange={setSimPortion}
-              ticks={[
-                { v: portionMin, l: `${portionMin}${portionUnit}` },
-                { v: basePortion, l: `${basePortion}${portionUnit} · ${t('simulatorBase') || 'base'}`, base: true },
-                { v: portionMax, l: `${portionMax}${portionUnit}` },
-              ]}
-              inverseDelta
-            />
-          ) : (
-            <div className="mb-[var(--s-5)] p-[var(--s-3)] rounded-r-md text-fs-xs text-[var(--fg-subtle)] bg-[var(--surface-2)]">
-              {t('simulatorNoPortionHint') ||
-                "Pas de taille de portion configurée — le levier portion est désactivé."}
-            </div>
-          )}
-
-          {/* Lever 2 — sell price */}
+          {/* Lever — sell price */}
           {basePrice > 0 && (
             <Lever
               icon={<DollarSign className="w-3 h-3" />}
@@ -941,12 +876,6 @@ export default function WhatIfSimulator({
                   "Bougez un curseur à gauche pour voir comment chaque levier change la rentabilité de cet article."}
               </p>
               <div className="flex items-center justify-center gap-1.5 mt-[var(--s-3)] flex-wrap">
-                {basePortion > 0 && (
-                  <QuickChip onClick={quickMinus10Portion}>
-                    <SlidersHorizontal className="w-3 h-3" />
-                    {t('simulatorQuickMinus10Portion') || '−10% portion'}
-                  </QuickChip>
-                )}
                 {basePrice > 0 && (
                   <QuickChip onClick={quickPlus10Price}>
                     <DollarSign className="w-3 h-3" />
@@ -974,8 +903,6 @@ export default function WhatIfSimulator({
       <PrepCostBreakdownModal
         ing={openPrepIng}
         item={item}
-        portion={prepPortion}
-        optionId={null}
         showExVat={showCostsExVat}
         restaurantRate={vatRate}
         simStockCosts={simStockCosts}

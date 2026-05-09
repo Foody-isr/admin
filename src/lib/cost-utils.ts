@@ -1,5 +1,5 @@
 import type { MenuItem, MenuItemIngredient, PrepItem, ItemOptionOverride } from '@/lib/api';
-import { convertQuantity, toBaseUnit } from '@/lib/units';
+import { convertQuantity } from '@/lib/units';
 
 // Industry guideline used as the threshold below which a menu item has a
 // healthy food-cost %. Lives here so the Cost tab and any other consumer
@@ -13,8 +13,6 @@ export interface VariantOption {
   id: string;              // "opt:<id>" for option-set options, "var:<id>" for legacy variants
   name: string;
   price: number;
-  portion_size: number;
-  portion_size_unit: string;
 }
 
 export type PrepConfigIssue = 'missing_yield' | 'no_ingredients' | 'zero_cost_ingredients';
@@ -47,8 +45,7 @@ export const costIncVat = (
 ) => costExVat(stock) * vatMultiplierForStock(stock, restaurantRate);
 
 // Flattens an item's option-set options AND legacy variant groups into one
-// list of selectable variants, applying per-item price/portion overrides when
-// present.
+// list of selectable variants, applying per-item price overrides when present.
 export function buildVariantOptions(
   item: MenuItem,
   overrides: ItemOptionOverride[] = [],
@@ -67,8 +64,6 @@ export function buildVariantOptions(
         id: `opt:${opt.id}`,
         name: opt.name,
         price: override?.price ?? opt.price,
-        portion_size: override?.portion_size ?? 0,
-        portion_size_unit: override?.portion_size_unit ?? 'g',
       });
     }
   }
@@ -79,31 +74,10 @@ export function buildVariantOptions(
         id: `var:${v.id}`,
         name: v.name,
         price: v.price,
-        portion_size: v.portion_size ?? 0,
-        portion_size_unit: v.portion_size_unit ?? 'g',
       });
     }
   }
   return variants;
-}
-
-// Resolves the per-serving portion to use for ingredient scaling, in
-// priority: active variant's portion → item's base portion → null (no scaling
-// possible). Never falls back to recipe_yield because yield is the whole
-// batch, not a portion.
-export function resolvePortion(
-  item: MenuItem,
-  variants: VariantOption[],
-  activeVariantId: string,
-): { qty: number; unit: string } | null {
-  const v = variants.find((vv) => String(vv.id) === activeVariantId);
-  if (v && (v.portion_size ?? 0) > 0) {
-    return { qty: v.portion_size, unit: v.portion_size_unit || 'g' };
-  }
-  if ((item.portion_size ?? 0) > 0) {
-    return { qty: item.portion_size!, unit: item.portion_size_unit || 'g' };
-  }
-  return null;
 }
 
 // Extracts the OptionSetOption id from an "opt:N" variant id. Returns null
@@ -129,15 +103,12 @@ export function computePrepUnitCostExVat(prep: PrepItem): number | null {
   return batchExVat / prep.yield_per_batch;
 }
 
-// Line cost for one recipe ingredient, honoring per-variant overrides,
-// scales_with_variant, and package-unit conversion. Does NOT prorate batch
-// items by variant portion — callers apply that in calcVariantLineCost when
-// the item is in batch mode. Stock cost is always ex-VAT; inc-VAT display
-// uses the per-item rate (falls back to restaurantRate).
+// Line cost for one recipe ingredient. Resolution rule (canonical):
+//   1. If a VariantOverride matches the active variant's option_id, use it.
+//   2. Otherwise fall back to ing.quantity_needed + ing.unit.
+// Stock cost is always ex-VAT; inc-VAT display uses the per-item rate.
 export function calcLineCost(
   ing: MenuItemIngredient,
-  item: MenuItem,
-  portionOverride: { qty: number; unit: string } | null | undefined,
   variantOptionId: number | null | undefined,
   showCostsExVat: boolean,
   restaurantRate: number,
@@ -146,21 +117,16 @@ export function calcLineCost(
   const prep = ing.prep_item;
   const stockUnit = stock?.unit ?? prep?.unit ?? '';
 
-  let qty: number;
-  let qtyUnit: string = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
-  const batchMode = (item.recipe_yield ?? 0) > 0;
+  const fallbackUnit = ing.unit || (MEASURABLE_UNITS.includes(stockUnit) ? stockUnit : '');
+  let qty = ing.quantity_needed;
+  let qtyUnit: string = fallbackUnit;
 
-  const override = !batchMode && variantOptionId != null
-    ? (ing.variant_overrides ?? []).find((o) => o.option_id === variantOptionId)
-    : undefined;
-  if (override && override.quantity > 0) {
-    qty = override.quantity;
-    qtyUnit = override.unit || qtyUnit;
-  } else if (ing.scales_with_variant && !batchMode && portionOverride) {
-    qty = portionOverride.qty;
-    qtyUnit = portionOverride.unit || qtyUnit;
-  } else {
-    qty = ing.quantity_needed;
+  if (variantOptionId != null) {
+    const override = (ing.variant_overrides ?? []).find((o) => o.option_id === variantOptionId);
+    if (override) {
+      qty = override.quantity;
+      qtyUnit = override.unit || fallbackUnit;
+    }
   }
 
   // Unit cost, ex-VAT. For prep items, the derived cost is already ex-VAT
@@ -199,29 +165,6 @@ export function calcLineCost(
   if (PACKAGE_UNITS.includes(stockUnit) && MEASURABLE_UNITS.includes(qtyUnit)) return 0;
   if (MEASURABLE_UNITS.includes(stockUnit) && PACKAGE_UNITS.includes(qtyUnit)) return 0;
   return qty * unitCost;
-}
-
-// Variant-aware line cost. For batch items (recipe_yield > 0), applies the
-// (portion / yield) proration so a 450 ml serving of a 5 L soup pays only
-// its share of the batch cost.
-export function calcVariantLineCost(
-  ing: MenuItemIngredient,
-  item: MenuItem,
-  portion: { qty: number; unit: string } | null,
-  optionId: number | null | undefined,
-  showCostsExVat: boolean,
-  restaurantRate: number,
-): number {
-  const raw = calcLineCost(ing, item, portion, optionId, showCostsExVat, restaurantRate);
-  const hasYield = (item.recipe_yield ?? 0) > 0;
-  if (hasYield && portion) {
-    const yieldBase = toBaseUnit(item.recipe_yield!, item.recipe_yield_unit || 'kg');
-    if (yieldBase > 0) {
-      const portionBase = toBaseUnit(portion.qty, portion.unit);
-      return raw * (portionBase / yieldBase);
-    }
-  }
-  return raw;
 }
 
 // Filters ingredients to those that apply to the current variant selection:
@@ -276,29 +219,18 @@ export interface ItemCostSummary {
   lines: CostLineDetail[];       // per-ingredient breakdown for the modal
 }
 
-// Effective display qty + unit for an ingredient given the current context.
-// Mirrors the precedence used by the Cost tab render:
-//   1) per-variant quantity override (legacy matrix data)
-//   2) scales_with_variant → current variant's portion
-//   3) base qty
-// Batch items always display the base qty (proration happens separately on
-// the line cost, not on the displayed qty).
+// Effective display qty + unit for an ingredient given the current variant.
+// Mirrors calcLineCost: per-variant override wins, else base qty.
 function effectiveQty(
   ing: MenuItemIngredient,
-  item: MenuItem,
-  portion: { qty: number; unit: string } | null,
   optionId: number | null,
 ): { qty: number; unit: string } {
   const fallbackUnit = ing.unit || ing.stock_item?.unit || ing.prep_item?.unit || '';
-  const batchMode = (item.recipe_yield ?? 0) > 0;
-  const override = !batchMode && optionId != null
-    ? (ing.variant_overrides ?? []).find((o) => o.option_id === optionId)
-    : undefined;
-  if (override && override.quantity > 0) {
-    return { qty: override.quantity, unit: override.unit || fallbackUnit };
-  }
-  if (!batchMode && ing.scales_with_variant && portion) {
-    return { qty: portion.qty, unit: portion.unit || fallbackUnit };
+  if (optionId != null) {
+    const override = (ing.variant_overrides ?? []).find((o) => o.option_id === optionId);
+    if (override) {
+      return { qty: override.quantity, unit: override.unit || fallbackUnit };
+    }
   }
   return { qty: ing.quantity_needed, unit: fallbackUnit };
 }
@@ -329,7 +261,7 @@ function unitCostFor(
 
 // Computes the full KPI summary for one item. Used by the compare view to
 // render each column. When no variantId is provided, picks the first variant
-// that has a configured portion size (matching the Cost tab's default).
+// (matching the Cost tab's default).
 export function computeItemCostSummary(input: {
   item: MenuItem;
   ingredients: MenuItemIngredient[];
@@ -343,19 +275,14 @@ export function computeItemCostSummary(input: {
   // the restaurant multiplier (not per-item) when showing ex-VAT.
   const restaurantMultiplier = vatMultiplierFor(restaurantRate);
   const variants = buildVariantOptions(input.item, input.overrides);
-  const activeVariantId = input.variantId
-    ?? variants.find((v) => (v.portion_size ?? 0) > 0)?.id
-    ?? '';
+  const activeVariantId = input.variantId ?? variants[0]?.id ?? '';
   const activeVariant = variants.find((v) => String(v.id) === activeVariantId) ?? null;
-  const portion = resolvePortion(input.item, variants, activeVariantId);
   const optionId = optionIdFromVariant(activeVariantId);
 
   const scoped = scopedIngredients(input.ingredients, optionId);
   const lineDetails: CostLineDetail[] = scoped.map((ing) => {
-    const lineCost = portion
-      ? calcVariantLineCost(ing, input.item, portion, optionId, input.showCostsExVat, restaurantRate)
-      : calcLineCost(ing, input.item, null, optionId, input.showCostsExVat, restaurantRate);
-    const eff = effectiveQty(ing, input.item, portion, optionId);
+    const lineCost = calcLineCost(ing, optionId, input.showCostsExVat, restaurantRate);
+    const eff = effectiveQty(ing, optionId);
     const sourceUnit = ing.stock_item?.unit ?? ing.prep_item?.unit ?? '';
     return {
       ingredient: ing,

@@ -249,8 +249,6 @@ export default function CompareCostsPage() {
                   }}
                 >
                   {s.activeVariant.name}
-                  {s.activeVariant.portion_size > 0 &&
-                    ` · ${s.activeVariant.portion_size}${s.activeVariant.portion_size_unit}`}
                 </span>
               )}
               <button

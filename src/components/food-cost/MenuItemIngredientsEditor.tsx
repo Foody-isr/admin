@@ -45,7 +45,7 @@ function ScopeButton({ icon, label, active, onClick }: { icon: string; label: st
   );
 }
 
-type Scope = 'base' | 'match' | 'custom';
+type Scope = 'base' | 'custom';
 
 interface CardVariantRow {
   option_id: number;
@@ -100,19 +100,15 @@ export default function MenuItemIngredientsEditor({
 
   // ── Load: DB rows → cards ────────────────────────────────────────────
   // Group by (ingredient, scope bucket):
-  //   - scales_with_variant + no option_id → 'match' (1 card)
-  //   - !scales + no option_id            → 'base'  (1 card)
-  //   - option_id set                     → 'custom' (1 card with N sub-rows)
-  // An ingredient can appear in multiple cards if it has entries in more than
-  // one bucket (rare but supported — e.g. "base cheese 10g" AND extra cheese
+  //   - option_id set → 'custom' (1 card with N sub-rows)
+  //   - else          → 'base'   (1 card)
+  // An ingredient can appear in multiple cards if it has entries in both
+  // buckets (rare but supported — e.g. "base cheese 10g" AND extra cheese
   // per-variant).
   const toCards = (ings: MenuItemIngredient[]): IngredientCard[] => {
     const byKey = new Map<string, IngredientCard>();
     for (const ing of ings) {
-      const scopeBucket: Scope =
-        ing.option_id != null ? 'custom'
-        : ing.scales_with_variant ? 'match'
-        : 'base';
+      const scopeBucket: Scope = ing.option_id != null ? 'custom' : 'base';
       const ingKey = `${ing.stock_item_id ?? 'none'}:${ing.prep_item_id ?? 'none'}:${scopeBucket}`;
       let card = byKey.get(ingKey);
       if (!card) {
@@ -133,11 +129,10 @@ export default function MenuItemIngredientsEditor({
           quantity: ing.quantity_needed || 0,
           unit: ing.unit || card.unit,
         });
-      } else if (scopeBucket === 'base') {
+      } else {
         card.quantity = ing.quantity_needed || 0;
         card.unit = ing.unit || card.unit;
       }
-      // match → quantity stays blank; cost math reads variant portion directly
     }
     return Array.from(byKey.values());
   };
@@ -147,16 +142,7 @@ export default function MenuItemIngredientsEditor({
     const out: IngredientInput[] = [];
     for (const card of cards) {
       if (!card.stock_item_id && !card.prep_item_id) continue;
-      if (card.scope === 'match') {
-        out.push({
-          option_id: undefined,
-          stock_item_id: card.stock_item_id,
-          prep_item_id: card.prep_item_id,
-          quantity_needed: 0,
-          unit: card.unit || '',
-          scales_with_variant: true,
-        });
-      } else if (card.scope === 'base') {
+      if (card.scope === 'base') {
         const qty = card.quantity;
         if (!Number.isFinite(qty) || qty <= 0) continue;
         out.push({
@@ -165,7 +151,6 @@ export default function MenuItemIngredientsEditor({
           prep_item_id: card.prep_item_id,
           quantity_needed: qty,
           unit: card.unit || '',
-          scales_with_variant: false,
         });
       } else {
         // custom — one row per filled variant cell
@@ -178,7 +163,6 @@ export default function MenuItemIngredientsEditor({
             prep_item_id: card.prep_item_id,
             quantity_needed: qty,
             unit: vr.unit || card.unit || '',
-            scales_with_variant: false,
           });
         }
       }
@@ -246,7 +230,7 @@ export default function MenuItemIngredientsEditor({
             };
           })
         : card.variants;
-    // base/match collapsing: take first non-empty variant qty as the new base qty
+    // custom→base collapsing: take first non-empty variant qty as the new base qty
     let collapsedQty = card.quantity;
     let collapsedUnit = card.unit;
     if (card.scope === 'custom' && next !== 'custom') {
@@ -259,7 +243,7 @@ export default function MenuItemIngredientsEditor({
     updateCard(key, {
       scope: next,
       variants: seededVariants,
-      quantity: next === 'match' ? 0 : collapsedQty,
+      quantity: collapsedQty,
       unit: collapsedUnit,
     });
   };
@@ -291,7 +275,6 @@ export default function MenuItemIngredientsEditor({
             prep_item_id: i.prep_item_id ?? undefined,
             quantity_needed: ov.quantity,
             unit: ov.unit || i.unit || '',
-            scales_with_variant: false,
           });
         }
       }
@@ -330,7 +313,6 @@ export default function MenuItemIngredientsEditor({
   const hasChanges = JSON.stringify(toInputs(cards)) !== JSON.stringify(toInputs(toCards(current)));
 
   const iconBase = '📌';
-  const iconMatch = '📏';
   const iconCustom = '⚙️';
 
   return (
@@ -373,8 +355,7 @@ export default function MenuItemIngredientsEditor({
             ? `prep:${card.prep_item_id}`
             : '';
           const hint =
-            card.scope === 'match' ? (t('scopeFollowHint') || '')
-            : card.scope === 'base' ? (t('scopeBaseHint') || '')
+            card.scope === 'base' ? (t('scopeBaseHint') || '')
             : (t('scopeCustomHint') || '');
           return (
             <div key={card.key} className="p-[var(--s-4)] rounded-r-md border border-[var(--line)] space-y-[var(--s-3)] shadow-1" style={{ background: 'var(--surface-2)' }}>
@@ -403,9 +384,8 @@ export default function MenuItemIngredientsEditor({
                     tooltip={t('ingredientScopeTooltip') || 'Pick how this ingredient behaves across variants.'}
                   />
                   <div className="flex flex-wrap items-center gap-2">
-                    <ScopeButton icon={iconMatch}  label={t('scopeFollowVariant') || 'Match item size'}     active={card.scope === 'match'}  onClick={() => changeScope(card.key, 'match')} />
-                    <ScopeButton icon={iconBase}   label={t('scopeBase') || 'Fixed quantity'}                active={card.scope === 'base'}   onClick={() => changeScope(card.key, 'base')} />
-                    <ScopeButton icon={iconCustom} label={t('scopeCustom') || 'Custom per variant'}          active={card.scope === 'custom'} onClick={() => changeScope(card.key, 'custom')} />
+                    <ScopeButton icon={iconBase}   label={t('scopeBase') || 'Same for all variants'}         active={card.scope === 'base'}   onClick={() => changeScope(card.key, 'base')} />
+                    <ScopeButton icon={iconCustom} label={t('scopeCustom') || 'Per variant'}                 active={card.scope === 'custom'} onClick={() => changeScope(card.key, 'custom')} />
                   </div>
                   {hint && <p className="text-[11px] text-fg-tertiary italic pt-0.5">{hint}</p>}
                 </div>
@@ -477,7 +457,6 @@ export default function MenuItemIngredientsEditor({
                 </div>
               )}
 
-              {/* match scope: no editor — hint row above is enough */}
             </div>
           );
         })

@@ -87,12 +87,6 @@ export default function EditItemPage() {
     () => (item?.item_type as ItemType) || 'food_and_beverage',
   );
   const [imageUrl, setImageUrl] = useState(() => item?.image_url ?? '');
-  const [portionSize, setPortionSize] = useState<number>(() => item?.portion_size ?? 0);
-  const [portionSizeUnit, setPortionSizeUnit] = useState<string>(() => item?.portion_size_unit ?? 'g');
-  // Recipe yield is not surfaced here yet, but we round-trip it so saving
-  // Détails doesn't wipe a value set elsewhere.
-  const [recipeYield, setRecipeYield] = useState<number>(() => item?.recipe_yield ?? 0);
-  const [recipeYieldUnit, setRecipeYieldUnit] = useState<string>(() => item?.recipe_yield_unit ?? '');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -167,10 +161,6 @@ export default function EditItemPage() {
           setIsActive(found.is_active);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
-          setPortionSize(found.portion_size ?? 0);
-          setPortionSizeUnit(found.portion_size_unit || 'g');
-          setRecipeYield(found.recipe_yield ?? 0);
-          setRecipeYieldUnit(found.recipe_yield_unit ?? '');
           if (found.item_type === 'combo' && found.combo_steps) {
             setComboSteps(found.combo_steps.map((s) => ({
               key: crypto.randomUUID(),
@@ -289,10 +279,6 @@ export default function EditItemPage() {
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
-        portion_size: portionSize,
-        portion_size_unit: portionSizeUnit,
-        recipe_yield: recipeYield,
-        recipe_yield_unit: recipeYieldUnit,
         translations,
       };
       if (itemType === 'combo') {
@@ -547,10 +533,6 @@ export default function EditItemPage() {
                   attachedModifierSets={item.modifier_sets ?? []}
                   attachedOptionSets={attachedOptionSets}
                   itemOptionOverrides={itemOptionOverrides}
-                  portionSize={portionSize}
-                  setPortionSize={setPortionSize}
-                  portionSizeUnit={portionSizeUnit}
-                  setPortionSizeUnit={setPortionSizeUnit}
                   onAddModifierSet={() => setModifierModalOpen(true)}
                   onDetachModifierSet={async (id) => {
                     if (!confirm('Unlink this modifier set from item?')) return;
@@ -584,26 +566,7 @@ export default function EditItemPage() {
                 variants={attachedOptionSets.flatMap((os) =>
                   (os.options ?? [])
                     .filter((o) => o.is_active)
-                    .map((o) => {
-                      const override = itemOptionOverrides.find((ov) => ov.option_id === o.id);
-                      // Fallback: legacy items may carry portion_size on
-                      // MenuItemVariant (item.variant_groups) rather than
-                      // ItemOptionOverride. Match by name across all variant
-                      // groups when the override is missing it.
-                      let portion_size = override?.portion_size;
-                      let portion_size_unit = override?.portion_size_unit;
-                      if (!portion_size && item.variant_groups) {
-                        for (const g of item.variant_groups) {
-                          const m = g.variants?.find((v) => v.name === o.name);
-                          if (m?.portion_size) {
-                            portion_size = m.portion_size;
-                            portion_size_unit = m.portion_size_unit;
-                            break;
-                          }
-                        }
-                      }
-                      return { option_id: o.id, name: o.name, portion_size, portion_size_unit };
-                    }),
+                    .map((o) => ({ option_id: o.id, name: o.name })),
                 )}
                 onAddIngredient={async (input) => {
                   const next = [
@@ -612,7 +575,6 @@ export default function EditItemPage() {
                       prep_item_id: ing.prep_item_id,
                       quantity_needed: ing.quantity_needed,
                       unit: ing.unit,
-                      scales_with_variant: ing.scales_with_variant,
                       option_id: ing.option_id,
                       variant_overrides: ing.variant_overrides,
                     })),
@@ -632,7 +594,6 @@ export default function EditItemPage() {
                       prep_item_id: ing.prep_item_id,
                       quantity_needed: ing.quantity_needed,
                       unit: ing.unit,
-                      scales_with_variant: ing.scales_with_variant,
                       option_id: ing.option_id,
                       variant_overrides: ing.variant_overrides,
                     })),
@@ -651,7 +612,6 @@ export default function EditItemPage() {
                       prep_item_id: ing.prep_item_id,
                       quantity_needed: ing.quantity_needed,
                       unit: ing.unit,
-                      scales_with_variant: ing.scales_with_variant,
                       option_id: ing.option_id,
                       variant_overrides: ing.variant_overrides,
                     })),

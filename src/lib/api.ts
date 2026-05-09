@@ -219,8 +219,6 @@ export interface MenuItemVariant {
   price: number;
   online_price?: number | null;
   sku?: string;
-  portion_size?: number;
-  portion_size_unit?: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -286,10 +284,6 @@ export interface MenuItem {
   item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
-  recipe_yield?: number;
-  recipe_yield_unit?: string;
-  portion_size?: number;
-  portion_size_unit?: string;
   modifiers?: MenuItemModifier[];
   modifier_sets?: ModifierSet[];
   variant_groups?: ItemVariantGroup[];
@@ -790,7 +784,6 @@ export interface MenuItemIngredient {
   prep_item_id?: number;
   quantity_needed: number;
   unit?: string;
-  scales_with_variant?: boolean;
   created_at: string;
   stock_item?: StockItem;
   prep_item?: PrepItem;
@@ -803,7 +796,6 @@ export interface IngredientInput {
   prep_item_id?: number;
   quantity_needed: number;
   unit?: string;
-  scales_with_variant?: boolean;
   variant_overrides?: IngredientVariantOverride[];
 }
 
@@ -1739,8 +1731,6 @@ export interface ItemOptionOverride {
   price: number;
   online_price?: number | null;
   sku: string;
-  portion_size?: number;
-  portion_size_unit?: string;
   is_active: boolean;
   /** Hides the variant from à la carte browsing on guest apps; combos that
    *  reference it explicitly still show it. Used for variants that exist
@@ -1752,8 +1742,6 @@ export interface ItemOptionPriceInput {
   price: number;
   online_price?: number | null;
   sku?: string;
-  portion_size?: number;
-  portion_size_unit?: string;
   is_active: boolean;
 }
 
@@ -1786,8 +1774,6 @@ export interface VariantSyncInput {
   option_id?: number | null;
   name: string;
   price: number;
-  portion_size: number;
-  portion_size_unit: string;
   is_active: boolean;
   is_combo_only?: boolean;
   sort_order: number;
@@ -2748,8 +2734,6 @@ export interface ConfirmRecipeIngredientInput {
 
 export interface ConfirmRecipeItemInput {
   menu_item_id: number;
-  recipe_yield: number;
-  recipe_yield_unit: string;
   ingredients: ConfirmRecipeIngredientInput[];
 }
 
@@ -2808,12 +2792,6 @@ export async function confirmPrepRecipe(restaurantId: number, input: ConfirmPrep
     { method: 'POST', body: JSON.stringify(input) }
   );
   return data.item;
-}
-
-export async function setRecipeYield(restaurantId: number, menuItemId: number, recipeYield: number, recipeYieldUnit: string): Promise<void> {
-  await apiFetch(`/api/v1/stock/menu-items/${menuItemId}/yield?restaurant_id=${restaurantId}`, restaurantId, {
-    method: 'PUT', body: JSON.stringify({ recipe_yield: recipeYield, recipe_yield_unit: recipeYieldUnit }),
-  });
 }
 
 export async function getDemandForecast(
@@ -3623,8 +3601,6 @@ export interface RecipeCardItem {
   category_name: string;
   image_url: string;
   price: number;
-  recipe_yield: number;
-  recipe_yield_unit: string;
   prep_time_mins: number;
   has_steps: boolean;
   step_count: number;

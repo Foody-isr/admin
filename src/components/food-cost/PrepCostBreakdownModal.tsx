@@ -16,13 +16,11 @@ import { NumberInput } from '@/components/ui/NumberInput';
 // `simStockCosts` (keyed by stock_item.id) and the modal recomputes batch
 // cost / cost per unit / line cost in real-time.
 export default function PrepCostBreakdownModal({
-  ing, item, portion, optionId, showExVat, restaurantRate,
+  ing, item, showExVat, restaurantRate,
   simStockCosts, onEditStockCost, onClose, t,
 }: {
   ing: MenuItemIngredient;
   item: MenuItem;
-  portion: { qty: number; unit: string } | null;
-  optionId?: number | null;
   showExVat: boolean;
   restaurantRate: number;
   /** Display-basis overrides keyed by stock_item.id. */
@@ -65,34 +63,12 @@ export default function PrepCostBreakdownModal({
 
   // Mirror the Cost panel's math exactly so this modal and the ingredient
   // table always agree. Precedence:
-  //   1) batchMode (item.recipe_yield > 0): prorate base qty by
-  //      variant.portion / item.recipe_yield.
-  //   2) scales_with_variant ("Match item size"): qty = current variant's
-  //      portion (no base number to multiply; the portion IS the qty).
-  //   3) variant-scoped (option_id matches the selected variant): literal qty
+  //   1) variant-scoped (option_id matches the selected variant): literal qty
   //      from this row.
-  //   4) base qty.
-  const batchMode = (item.recipe_yield ?? 0) > 0;
-  let baseQty = ing.quantity_needed;
-  let baseUnit = ing.unit || yieldUnit;
-  const variantRatio = 1;
-  let batchRatio = 1;
-  let isMatchSize = false;
-  const isVariantScoped = ing.option_id != null && ing.option_id === optionId;
-
-  if (batchMode && portion) {
-    const yieldBase = toBaseUnit(item.recipe_yield ?? 0, item.recipe_yield_unit || 'kg');
-    const portionBase = toBaseUnit(portion.qty, portion.unit);
-    if (yieldBase > 0) batchRatio = portionBase / yieldBase;
-  } else if (!batchMode && ing.scales_with_variant && portion) {
-    // Match item size: qty IS the variant's portion. Override baseQty/baseUnit
-    // because scales_with_variant rows have qty=0 in storage (sentinel).
-    baseQty = portion.qty;
-    baseUnit = portion.unit || baseUnit;
-    isMatchSize = true;
-  }
-  const effectiveQty = (isVariantScoped || isMatchSize) ? baseQty : baseQty * variantRatio * batchRatio;
-  const effectiveInYieldUnit = convertQuantity(effectiveQty, baseUnit, yieldUnit);
+  //   2) base qty.
+  const baseQty = ing.quantity_needed;
+  const baseUnit = ing.unit || yieldUnit;
+  const effectiveInYieldUnit = convertQuantity(baseQty, baseUnit, yieldUnit);
   const lineCost = effectiveInYieldUnit * costPerUnit;
 
   return (
@@ -232,17 +208,7 @@ export default function PrepCostBreakdownModal({
             <div className="px-3 py-3 rounded-lg space-y-1 font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
               <div className="text-fg-secondary">
                 {baseQty} {baseUnit}
-                {isVariantScoped && (
-                  <span className="text-brand-500"> ({t('variantIngredient') || 'variant ingredient'})</span>
-                )}
-                {isMatchSize && (
-                  <span className="text-brand-500"> ({t('scopeFollowVariant') || 'match item size'})</span>
-                )}
-                {batchRatio !== 1 && (
-                  <span> &times; {batchRatio.toFixed(3)} ({t('batch') || 'batch'})</span>
-                )}
-                {' = '}{Number(effectiveQty.toFixed(4))} {baseUnit}
-                {effectiveInYieldUnit !== effectiveQty && (
+                {effectiveInYieldUnit !== baseQty && (
                   <span> = {effectiveInYieldUnit.toFixed(4)} {yieldUnit}</span>
                 )}
               </div>
@@ -253,9 +219,6 @@ export default function PrepCostBreakdownModal({
                 = {lineCost.toFixed(2)} &#8362;
               </div>
             </div>
-            {ing.scales_with_variant && !portion && !batchMode && (
-              <p className="text-xs text-amber-500">{t('missingVariantPortion')}</p>
-            )}
           </section>
 
           <p className="text-xs text-fg-tertiary italic">
