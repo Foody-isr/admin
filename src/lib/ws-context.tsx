@@ -32,6 +32,8 @@ function buildWsUrl(restaurantId: number): string {
   return `${base}/ws?restaurant_id=${restaurantId}${token ? `&token=${token}` : ''}`;
 }
 
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 export function WsProvider({ restaurantId, children }: { restaurantId: number; children: ReactNode }) {
   const [status, setStatus] = useState<WsStatus>('disconnected');
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null);
@@ -101,6 +103,12 @@ export function WsProvider({ restaurantId, children }: { restaurantId: number; c
 
   const scheduleReconnect = useCallback(() => {
     if (disposed.current) return;
+    if (retryCount.current >= MAX_RECONNECT_ATTEMPTS) {
+      // Server appears to be down — stop retrying to avoid infinite 502 loops.
+      // The user can refresh the page to reconnect.
+      setStatus('disconnected');
+      return;
+    }
     const delay = Math.min(Math.pow(2, retryCount.current) * 1000, 30000);
     retryCount.current++;
     retryTimer.current = setTimeout(() => {
@@ -110,6 +118,7 @@ export function WsProvider({ restaurantId, children }: { restaurantId: number; c
 
   useEffect(() => {
     disposed.current = false;
+    retryCount.current = 0;
     connect();
 
     return () => {

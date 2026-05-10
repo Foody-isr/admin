@@ -12,7 +12,7 @@ export type PlanTier = 'starter' | 'premium' | 'enterprise';
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'deactivated' | 'cancelled';
 export type OrderStatus =
   | 'pending_review' | 'accepted' | 'in_kitchen' | 'ready'
-  | 'served' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
+  | 'served' | 'received' | 'picked_up' | 'delivered' | 'rejected' | 'scheduled'
   | 'ready_for_pickup' | 'ready_for_delivery' | 'out_for_delivery';
 export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'refunded';
 
@@ -36,12 +36,31 @@ export interface Restaurant {
   cover_url: string;
   background_color: string;
   cover_display_mode: string;
+  cover_focal_x?: number; // 0-100 percent from left, default 50 (center)
+  cover_focal_y?: number; // 0-100 percent from top,  default 50 (center)
   description: string;
+  /** Source language the owner types in. en | he | fr. Falls back to 'en' if unset. */
+  default_locale?: string;
   phone: string;
   delivery_enabled: boolean;
   pickup_enabled: boolean;
+  dine_in_enabled: boolean;
   is_active: boolean;
+  opening_hours_config?: OpeningHoursConfig;
   created_at: string;
+}
+
+/**
+ * BatchFulfillmentDay describes one weekly day on which all pre-orders are
+ * fulfilled, along with optional time windows per service type. `day` uses
+ * weekday numbers (0=Sunday … 6=Saturday). Times are "HH:MM".
+ */
+export interface BatchFulfillmentDay {
+  day: number;
+  pickup_start?: string;
+  pickup_end?: string;
+  delivery_start?: string;
+  delivery_end?: string;
 }
 
 export interface RestaurantSettings {
@@ -55,26 +74,204 @@ export interface RestaurantSettings {
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
+  floor_plan_color_indicators: boolean;
+  table_yellow_after_minutes: number;
+  table_red_after_minutes: number;
+  pickup_prep_time_minutes?: number;
+  vat_rate: number;
+  // Batch fulfillment — pre-orders that all ship on a fixed weekly day.
+  // Mutually exclusive with `scheduling_enabled` (slot-based).
+  batch_fulfillment_enabled?: boolean;
+  batch_cutoff_day?: number; // 0=Sun..6=Sat
+  batch_cutoff_time?: string; // "HH:MM"
+  batch_fulfillment_days?: BatchFulfillmentDay[];
+  batch_require_prepayment?: boolean;
+}
+
+export interface MenuAvailabilityHour {
+  id: number;
+  menu_id: number;
+  day_of_week: number; // 0=Sun … 6=Sat
+  open_time: string;   // "HH:MM" 24h
+  close_time: string;  // "HH:MM" 24h
+  is_closed: boolean;
+}
+
+export interface CategoryAvailabilityHour {
+  id: number;
+  category_id: number;
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
+export interface Location {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  address: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Menu {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  is_active: boolean;
+  pos_enabled: boolean;
+  web_enabled: boolean;
+  follows_restaurant_hours: boolean;
+  availability_hours?: MenuAvailabilityHour[];
+  groups?: MenuGroup[];
+  categories?: MenuCategory[]; // Deprecated: use groups
+  locations?: Location[];
+}
+
+export interface GroupAvailabilityHour {
+  id: number;
+  menu_group_id: number;
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
+export interface MenuGroup {
+  id: number;
+  restaurant_id: number;
+  menu_id: number;
+  parent_id?: number;
+  name: string;
+  image_url: string;
+  sort_order: number;
+  pos_enabled: boolean;
+  web_enabled: boolean;
+  follows_menu_hours: boolean;
+  is_hidden: boolean;
+  items?: MenuItem[];
+  availability_hours?: GroupAvailabilityHour[];
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface MenuCategory {
   id: number;
   restaurant_id: number;
+  menu_id?: number;
+  parent_id?: number;
   name: string;
   image_url: string;
   sort_order: number;
+  pos_enabled: boolean;
+  web_enabled: boolean;
+  follows_menu_hours: boolean;
+  is_hidden: boolean;
+  availability_hours?: CategoryAvailabilityHour[];
   items?: MenuItem[];
 }
 
 export interface MenuItemModifier {
   id: number;
-  menu_item_id: number;
+  menu_item_id?: number;
+  modifier_set_id?: number;
   name: string;
+  kitchen_name: string;
   action: 'add' | 'remove';
   category: string;
   price_delta: number;
+  is_active: boolean;
+  is_preselected: boolean;
+  hide_online: boolean;
+  is_required: boolean;
+  sort_order: number;
+  // Stock consumption: picking this modifier consumes `quantity` of the linked
+  // stock/prep item (`unit`). Multi-pick count multiplies consumption at cost time.
+  stock_item_id?: number;
+  prep_item_id?: number;
+  quantity?: number;
+  unit?: string;
+}
+
+export interface ModifierSet {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  display_name: string;
+  is_required: boolean;
+  allow_multiple: boolean;
+  min_selections: number;
+  max_selections: number;
+  hide_on_receipt: boolean;
+  use_conversational: boolean;
+  sort_order: number;
+  modifiers: MenuItemModifier[];
+  menu_items?: { id: number; name: string }[];
+  created_at: string;
+}
+
+export interface MenuItemVariant {
+  id: number;
+  group_id: number;
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
   sort_order: number;
 }
+
+export interface ItemVariantGroup {
+  id: number;
+  menu_item_id: number;
+  title: string;
+  sort_order: number;
+  variants: MenuItemVariant[];
+}
+
+export type ItemType = 'food_and_beverage' | 'combo';
+
+export interface ComboStepItem {
+  id?: number;
+  combo_step_id?: number;
+  menu_item_id: number;
+  option_id?: number | null;
+  price_delta: number;
+  menu_item?: MenuItem;
+}
+
+export interface ComboStep {
+  id?: number;
+  menu_item_id?: number;
+  combo_menu_id?: number;
+  name: string;
+  description?: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order: number;
+  fixed_modifier_name?: string;
+  items: ComboStepItem[];
+}
+
+export interface ComboStepInput {
+  name: string;
+  description?: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order: number;
+  fixed_modifier_name?: string;
+  items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
+}
+
+/**
+ * Per-locale overrides for an entity's translatable fields. The source-locale
+ * value lives in the entity's regular column (name, description, etc.) — it is
+ * never stored here. Shape:
+ *   { name: { he: '…', en: '…' }, description: { he: '…', en: '…' } }
+ */
+export type TranslationMap = Partial<Record<string, Partial<Record<'en' | 'he' | 'fr', string>>>>;
 
 export interface MenuItem {
   id: number;
@@ -84,8 +281,19 @@ export interface MenuItem {
   image_url: string;
   price: number;
   is_active: boolean;
+  item_type: ItemType;
   sort_order: number;
+  rotation_group?: string;
   modifiers?: MenuItemModifier[];
+  modifier_sets?: ModifierSet[];
+  variant_groups?: ItemVariantGroup[];
+  option_sets?: OptionSet[];
+  combo_steps?: ComboStep[];
+  prep_time_mins?: number;
+  recipe_notes?: string;
+  recipe_steps?: RecipeStep[];
+  /** Per-locale name/description overrides. Source-locale is never stored here. */
+  translations?: TranslationMap;
 }
 
 export interface OrderItemModifier {
@@ -105,8 +313,12 @@ export interface OrderItem {
   quantity: number;
   notes?: string;
   target_station?: string;
+  selected_variant_id?: number;
+  selected_variant_name?: string;
+  selected_variant_price?: number;
+  variant_portion?: string;
   modifiers?: OrderItemModifier[];
-  combo_menu_id?: number;
+  combo_item_id?: number;
   combo_group?: string;
   combo_name?: string;
   combo_price?: number;
@@ -128,6 +340,9 @@ export interface Order {
   table_code?: string;
   is_scheduled?: boolean;
   scheduled_for?: string;
+  scheduled_pickup_window_start?: string;
+  scheduled_pickup_window_end?: string;
+  scheduled_accepted_at?: string;
   accepted_at?: string;
   in_kitchen_at?: string;
   ready_at?: string;
@@ -140,6 +355,8 @@ export interface StaffMember {
   email: string;
   phone: string;
   role: Role;
+  role_id?: number;
+  role_name?: string;
 }
 
 export interface Subscription {
@@ -174,10 +391,12 @@ export interface SubscriptionDetail extends Subscription {
 export interface WebsiteConfig {
   id: number;
   restaurant_id: number;
-  primary_color: string;
-  secondary_color: string;
-  background_color: string;
-  font_family: string;
+  // Theme system (menu/order page)
+  theme_id: string;
+  pairing_id: string;
+  brand_color: string | null;
+  layout_default: 'compact' | 'magazine';
+  // Landing-page concerns
   hero_layout: string;
   welcome_text: string;
   tagline: string;
@@ -185,12 +404,46 @@ export interface WebsiteConfig {
   show_address: boolean;
   show_phone: boolean;
   show_hours: boolean;
-  theme_mode: string;
   favicon_url: string;
-  menu_layout: string;
-  cart_style: string;
   navbar_style: string;
   navbar_color: string;
+  logo_size: number;
+  hide_navbar_name: boolean;
+  hero_name_font: string;
+  category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+}
+
+export interface ThemeCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+  mode: 'dark' | 'light';
+  preview: { swatches: [string, string, string, string]; sampleImage: string };
+  suggestedFor: string[];
+  tokens: Record<string, unknown>;
+  layout: Record<string, unknown>;
+}
+
+export interface TypographyPairingEntry {
+  id: string;
+  name: string;
+  description: string;
+  pairing: {
+    displayLatin: { family: string; weights: number[] };
+    bodyLatin: { family: string; weights: number[] };
+    displayHebrew: { family: string; weights: number[] };
+    bodyHebrew: { family: string; weights: number[] };
+  };
+  scale: Record<string, unknown>;
+}
+
+export interface ThemeCatalog {
+  themes: ThemeCatalogEntry[];
+  typography_pairings: TypographyPairingEntry[];
+}
+
+export async function getThemeCatalog(): Promise<ThemeCatalog> {
+  return apiFetch<ThemeCatalog>(`/api/v1/public/themes/catalog`);
 }
 
 export interface TodayStats {
@@ -202,6 +455,104 @@ export interface TopSeller {
   name: string;
   quantity: number;
   revenue: number;
+}
+
+// ─── Dashboard Analytics Types ──────────────────────────────────────────────
+
+export interface HourlyBucket {
+  hour: number;
+  order_count: number;
+  total_amount: number;
+}
+
+export interface DaySummary {
+  date: string;
+  gross_sales: number;
+  net_sales: number;
+  transactions: number;
+  avg_sale: number;
+  tips: number;
+  discounts: number;
+  labor_percent: number;
+}
+
+export interface HourlyPair {
+  hour: number;
+  current_amt: number;
+  previous_amt: number;
+  current_count: number;
+  previous_count: number;
+}
+
+export interface ComparisonResult {
+  current: DaySummary;
+  previous: DaySummary;
+  hourly: HourlyPair[];
+}
+
+// ─── Customer Insights Types ────────────────────────────────────────────────
+
+export interface FavoriteItem {
+  menu_item_id: number;
+  name: string;
+  quantity: number;
+}
+
+export interface CustomerInsight {
+  customer_phone: string;
+  customer_name: string;
+  total_orders: number;
+  total_spent: number;
+  avg_order_value: number;
+  first_order_date: string;
+  last_order_date: string;
+  days_since_last_order: number;
+  favorite_items: FavoriteItem[];
+  order_type_breakdown: Record<string, number>;
+  payment_method_breakdown: Record<string, number>;
+  order_source_breakdown: Record<string, number>;
+  preferred_day_of_week: string;
+  preferred_hour: number;
+}
+
+export interface CustomerListResult {
+  customers: CustomerInsight[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_active: number;
+  total_at_risk: number;
+  total_churned: number;
+}
+
+export interface OrderBrief {
+  id: number;
+  order_type: string;
+  total_amount: number;
+  payment_method: string;
+  status: string;
+  created_at: string;
+  item_count: number;
+}
+
+export interface ProductBreakdown {
+  menu_item_id: number;
+  name: string;
+  times_ordered: number;
+  total_quantity: number;
+  total_spent: number;
+}
+
+export interface MonthlySpend {
+  month: string;
+  total_spent: number;
+  order_count: number;
+}
+
+export interface CustomerDetailResponse extends CustomerInsight {
+  orders: OrderBrief[];
+  product_breakdown: ProductBreakdown[];
+  monthly_spending: MonthlySpend[];
 }
 
 // ─── Stock & Kitchen Types ───────────────────────────────────────────────────
@@ -227,18 +578,62 @@ export interface StockItem {
   reorder_threshold: number;
   cost_per_unit: number;
   supplier: string;
+  supplier_id?: number | null;
   category: string;
   notes: string;
+  unit_content?: number;
+  unit_content_unit?: string;
+  pack_size: number;
+  container_type: string;
+  unit_type: string;
+  /** @deprecated cost_per_unit is always ex-VAT now. Field kept for backward parsing only. */
+  price_includes_vat: boolean;
+  /** Per-item VAT rate. `null` means "use restaurant default". `0` means exempt (e.g. Israeli produce). */
+  vat_rate_override: number | null;
+  image_url: string;
+  sku: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   aliases?: StockItemAlias[];
 }
 
+// StockItemAliasInput mirrors the server's write payload: the list replaces
+// the item's alias set when passed to create/update (nil/absent = untouched).
+export interface StockItemAliasInput {
+  alias: string;
+  language: string;
+}
+
 export interface StockCategory {
+  /** Metadata-row id. 0 when no StockCategoryMeta row exists yet (category
+   *  is implied by a distinct `category` string on one or more items). */
+  id: number;
   name: string;
   color: string;
+  image_url: string;
+  sort_order: number;
+  is_active: boolean;
 }
+
+export interface StockCategoryInput {
+  name: string;
+  color?: string;
+  image_url?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface PrepCategory {
+  id: number;
+  name: string;
+  color: string;
+  image_url: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export type PrepCategoryInput = StockCategoryInput;
 
 export interface StockTransaction {
   id: number;
@@ -247,6 +642,9 @@ export interface StockTransaction {
   type: StockTransactionType;
   quantity_delta: number;
   notes: string;
+  batch_id: string;
+  document_url?: string;
+  document_type?: string;
   created_by_id: number;
   created_at: string;
   stock_item?: StockItem;
@@ -259,9 +657,22 @@ export interface StockItemInput {
   reorder_threshold?: number;
   cost_per_unit?: number;
   supplier?: string;
+  supplier_id?: number | null;
   category?: string;
   notes?: string;
+  unit_content?: number;
+  unit_content_unit?: string;
+  pack_size?: number;
+  container_type?: string;
+  unit_type?: string;
+  /** @deprecated cost_per_unit is always ex-VAT now. UI should stop writing this. */
+  price_includes_vat?: boolean;
+  /** Per-item VAT rate. Omit or send `null` to use restaurant default; `0` for exempt. */
+  vat_rate_override?: number | null;
+  image_url?: string;
+  sku?: string;
   is_active?: boolean;
+  aliases?: StockItemAliasInput[];
 }
 
 export interface StockTransactionInput {
@@ -355,21 +766,37 @@ export interface ProduceBatchResult {
   insufficient: Shortage[];
 }
 
+export interface IngredientVariantOverride {
+  id?: number;
+  ingredient_id?: number;
+  option_id: number;
+  quantity: number;
+  unit?: string;
+}
+
 export interface MenuItemIngredient {
   id: number;
   menu_item_id: number;
+  // option_id = null → base recipe (applies to every variant).
+  // option_id set   → variant-specific ingredient (lives on that variant).
+  option_id?: number | null;
   stock_item_id?: number;
   prep_item_id?: number;
   quantity_needed: number;
+  unit?: string;
   created_at: string;
   stock_item?: StockItem;
   prep_item?: PrepItem;
+  variant_overrides?: IngredientVariantOverride[];
 }
 
 export interface IngredientInput {
+  option_id?: number | null;
   stock_item_id?: number;
   prep_item_id?: number;
   quantity_needed: number;
+  unit?: string;
+  variant_overrides?: IngredientVariantOverride[];
 }
 
 export interface PrepIngredientInput {
@@ -380,14 +807,26 @@ export interface PrepIngredientInput {
 export interface DeliveryItem {
   original_name: string;
   translated_name: string;
+  sku: string;
   quantity: number;
   unit: string;
+  pack_count: number;
+  units_per_pack: number;
+  unit_size: number;
+  unit_size_unit: string;
+  container_type: string;
+  unit_type: string;
   category: string;
   estimated_cost: number;
+  price_per_pack: number;
+  total_price: number;
   matched_item_id?: number;
   matched_item_name: string;
   confidence: number;
   is_new: boolean;
+  row_index?: number;
+  needs_review?: boolean;
+  review_reason?: string;
 }
 
 export interface DeliveryExtraction {
@@ -401,23 +840,49 @@ export interface ConfirmDeliveryItemInput {
   stock_item_id?: number;
   name: string;
   original_name: string;
+  sku?: string;
   quantity: number;
   unit: string;
   category: string;
   cost_per_unit: number;
+  pack_count?: number;
+  units_per_pack?: number;
+  price_per_pack?: number;
+  total_price?: number;
+  unit_size?: number;
+  unit_size_unit?: string;
+  container_type?: string;
+  unit_type?: string;
+  /** @deprecated cost is always ex-VAT now. */
+  price_includes_vat?: boolean;
+  vat_rate_override?: number | null;
+  skipped?: boolean;
+  row_index?: number;
+  needs_review?: boolean;
+  review_reason?: string;
 }
 
 export interface ConfirmDeliveryInput {
   supplier_name: string;
+  /** S3 URL of the scanned bill, propagated from the import draft so the
+   *  Approvisionnement page can render the document. */
+  document_url?: string;
+  document_type?: string;
   items: ConfirmDeliveryItemInput[];
 }
 
 export interface DailyPlanItem {
-  prep_item: PrepItem;
-  current_stock: number;
-  predicted_demand: number;
-  recommended_batches: number;
-  ingredients_needed: { stock_item_id: number; stock_item_name: string; quantity_needed: number; available: number }[];
+  prep_item_id: number;
+  prep_item_name: string;
+  unit: string;
+  current_qty: number;
+  required_qty: number;
+  shortfall_qty: number;
+  batches_needed: number;
+  yield_per_batch: number;
+  shelf_life_hours: number;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
 }
 
 export interface DemandForecastItem {
@@ -458,6 +923,9 @@ async function apiFetch<T>(
     }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || body.message || `API error ${res.status}`);
+  }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
   }
   return res.json();
 }
@@ -650,16 +1118,123 @@ export async function updateRestaurantSettings(
   return data.settings;
 }
 
+// ─── Menu translations backfill ──────────────────────────────────────────────
+
+/**
+ * Counts of rows touched by a backfill run. All zero is fine — means nothing
+ * needed translating.
+ */
+export interface BackfillResult {
+  restaurant_id: number;
+  reset: boolean;
+  items: number;
+  groups: number;
+  modifier_sets: number;
+  modifiers: number;
+  variant_groups: number;
+  variants: number;
+}
+
+/**
+ * Regenerate auto-translations for every customer-visible menu entity owned
+ * by the current restaurant. When `reset` is true, existing translations are
+ * wiped before refilling — use that after changing the restaurant's source
+ * language so values generated under the wrong source assumption don't
+ * survive the re-run.
+ */
+export async function backfillTranslations(
+  restaurantId: number,
+  reset: boolean = false
+): Promise<BackfillResult> {
+  const qs = reset ? '?reset=true' : '';
+  return apiFetch<BackfillResult>(
+    `/api/v1/menu/translations/backfill${qs}`,
+    restaurantId,
+    { method: 'POST' }
+  );
+}
+
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
-export async function getMenu(restaurantId: number): Promise<MenuCategory[]> {
-  const data = await apiFetch<{ categories: MenuCategory[] }>(
+export async function getMenu(restaurantId: number): Promise<Menu[]> {
+  const data = await apiFetch<{ menus: Menu[] }>(
     `/api/v1/menu/?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.menus ?? [];
+}
+
+/**
+ * Returns all item categories for a restaurant (global, independent of menus).
+ * Pass `withRecipeOnly: true` to scope to items that can be costed standalone —
+ * excludes combos, combo-only items, and items without any ingredients.
+ */
+export async function getAllCategories(
+  restaurantId: number,
+  opts: { withRecipeOnly?: boolean } = {},
+): Promise<MenuCategory[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (opts.withRecipeOnly) params.set("with_recipe_only", "true");
+  const data = await apiFetch<{ categories: MenuCategory[] }>(
+    `/api/v1/menu/item-categories?${params.toString()}`,
+    restaurantId,
   );
   return data.categories ?? [];
 }
 
-export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number }): Promise<MenuCategory> {
+/** Returns all items for a restaurant (global, independent of menus). */
+export async function listAllItems(restaurantId: number): Promise<MenuItem[]> {
+  const data = await apiFetch<{ items: MenuItem[] }>(
+    `/api/v1/menu/items?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.items ?? [];
+}
+
+export async function listMenus(restaurantId: number): Promise<Menu[]> {
+  const data = await apiFetch<{ menus: Menu[] }>(
+    `/api/v1/menu/menus?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.menus ?? [];
+}
+
+export async function createMenu(restaurantId: number, input: Partial<Menu>): Promise<Menu> {
+  const data = await apiFetch<{ menu: Menu }>(
+    `/api/v1/menu/menus?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.menu;
+}
+
+export async function updateMenu(restaurantId: number, id: number, input: Partial<Menu>): Promise<Menu> {
+  const data = await apiFetch<{ menu: Menu }>(
+    `/api/v1/menu/menus/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.menu;
+}
+
+export async function deleteMenu(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/menus/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function getMenuHours(restaurantId: number, menuId: number): Promise<MenuAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: MenuAvailabilityHour[] }>(
+    `/api/v1/menu/menus/${menuId}/hours?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.hours ?? [];
+}
+
+export async function setMenuHours(restaurantId: number, menuId: number, hours: Omit<MenuAvailabilityHour, 'id' | 'menu_id'>[]): Promise<MenuAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: MenuAvailabilityHour[] }>(
+    `/api/v1/menu/menus/${menuId}/hours?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(hours) }
+  );
+  return data.hours ?? [];
+}
+
+export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string; pos_enabled?: boolean; web_enabled?: boolean; follows_menu_hours?: boolean; is_hidden?: boolean }): Promise<MenuCategory> {
   const data = await apiFetch<{ category: MenuCategory }>(
     `/api/v1/menu/categories?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
@@ -680,6 +1255,127 @@ export async function deleteCategory(restaurantId: number, id: number): Promise<
     `/api/v1/menu/categories/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+export async function getCategoryHours(restaurantId: number, categoryId: number): Promise<CategoryAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: CategoryAvailabilityHour[] }>(
+    `/api/v1/menu/categories/${categoryId}/hours?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.hours ?? [];
+}
+
+export async function setCategoryHours(restaurantId: number, categoryId: number, hours: Omit<CategoryAvailabilityHour, 'id' | 'category_id'>[]): Promise<CategoryAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: CategoryAvailabilityHour[] }>(
+    `/api/v1/menu/categories/${categoryId}/hours?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(hours) }
+  );
+  return data.hours ?? [];
+}
+
+// ─── Menu Groups ─────────────────────────────────────────────────────────────
+
+export async function createGroup(restaurantId: number, input: Partial<MenuGroup> & { menu_id: number; name: string }): Promise<MenuGroup> {
+  const data = await apiFetch<{ group: MenuGroup }>(
+    `/api/v1/menu/groups?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.group;
+}
+
+export async function updateGroup(restaurantId: number, id: number, input: Partial<MenuGroup>): Promise<MenuGroup> {
+  const data = await apiFetch<{ group: MenuGroup }>(
+    `/api/v1/menu/groups/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.group;
+}
+
+export async function deleteGroup(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function reorderGroups(restaurantId: number, menuId: number, groupIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_id: menuId, group_ids: groupIds }) }
+  );
+}
+
+export async function addItemsToGroup(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }
+  );
+}
+
+export async function removeItemFromGroup(restaurantId: number, groupId: number, itemId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${groupId}/items/${itemId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function getGroupHours(restaurantId: number, groupId: number): Promise<GroupAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: GroupAvailabilityHour[] }>(
+    `/api/v1/menu/groups/${groupId}/hours?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.hours ?? [];
+}
+
+export async function setGroupHours(restaurantId: number, groupId: number, hours: Omit<GroupAvailabilityHour, 'id' | 'menu_group_id'>[]): Promise<GroupAvailabilityHour[]> {
+  const data = await apiFetch<{ hours: GroupAvailabilityHour[] }>(
+    `/api/v1/menu/groups/${groupId}/hours?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(hours) }
+  );
+  return data.hours ?? [];
+}
+
+// --- Locations ---
+
+export async function getLocations(restaurantId: number): Promise<Location[]> {
+  const data = await apiFetch<{ locations: Location[] }>(
+    `/api/v1/locations?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.locations ?? [];
+}
+
+export async function createLocation(restaurantId: number, input: { name: string; address?: string; is_active?: boolean }): Promise<Location> {
+  return apiFetch<Location>(
+    `/api/v1/locations?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+export async function updateLocation(restaurantId: number, id: number, input: { name: string; address?: string; is_active?: boolean }): Promise<Location> {
+  return apiFetch<Location>(
+    `/api/v1/locations/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+}
+
+export async function deleteLocation(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/locations/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function getMenuLocations(restaurantId: number, menuId: number): Promise<Location[]> {
+  const data = await apiFetch<{ locations: Location[] }>(
+    `/api/v1/menu/menus/${menuId}/locations?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.locations ?? [];
+}
+
+export async function setMenuLocations(restaurantId: number, menuId: number, locationIds: number[]): Promise<Location[]> {
+  const data = await apiFetch<{ locations: Location[] }>(
+    `/api/v1/menu/menus/${menuId}/locations?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ location_ids: locationIds }) }
+  );
+  return data.locations ?? [];
 }
 
 export async function createMenuItem(restaurantId: number, input: Partial<MenuItem> & { category_id: number; name: string; price: number }): Promise<MenuItem> {
@@ -705,6 +1401,69 @@ export async function deleteMenuItem(restaurantId: number, id: number): Promise<
   );
 }
 
+/** Server-side clone of a menu item plus its full configuration (modifiers,
+ *  variants, ingredients, combo steps, menu group memberships, etc.). The new
+ *  item lands inactive with " (copie)" suffixed to the name so the operator
+ *  can adjust before publishing. Returns the new item's ID. */
+export async function duplicateMenuItem(restaurantId: number, id: number): Promise<{ id: number }> {
+  const data = await apiFetch<{ id: number }>(
+    `/api/v1/menu/items/${id}/duplicate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data;
+}
+
+export async function uploadMenuItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/menu/items/${itemId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
+export async function uploadCategoryImage(restaurantId: number, categoryId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/menu/categories/${categoryId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
+export async function uploadGroupImage(restaurantId: number, groupId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/menu/groups/${groupId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
 // ─── Modifiers ────────────────────────────────────────────────────────────────
 
 export interface ModifierInput {
@@ -714,7 +1473,12 @@ export interface ModifierInput {
   category: string;
   price_delta: number;
   is_active?: boolean;
+  is_required?: boolean;
   sort_order?: number;
+  stock_item_id?: number | null;
+  prep_item_id?: number | null;
+  quantity?: number;
+  unit?: string;
 }
 
 export async function createModifier(restaurantId: number, input: ModifierInput): Promise<MenuItemModifier> {
@@ -740,6 +1504,382 @@ export async function deleteModifier(restaurantId: number, id: number): Promise<
   );
 }
 
+// ─── Modifier Sets ────────────────────────────────────────────────────────────
+
+export interface ModifierInSetInput {
+  name: string;
+  kitchen_name?: string;
+  action?: 'add' | 'remove';
+  price_delta?: number;
+  is_active?: boolean;
+  is_preselected?: boolean;
+  hide_online?: boolean;
+  sort_order?: number;
+  stock_item_id?: number | null;
+  prep_item_id?: number | null;
+  quantity?: number;
+  unit?: string;
+}
+
+export interface ModifierSetInput {
+  name: string;
+  display_name?: string;
+  is_required?: boolean;
+  allow_multiple?: boolean;
+  min_selections?: number;
+  max_selections?: number;
+  hide_on_receipt?: boolean;
+  use_conversational?: boolean;
+  sort_order?: number;
+  modifiers?: ModifierInSetInput[];
+}
+
+export async function listModifierSets(restaurantId: number): Promise<ModifierSet[]> {
+  const data = await apiFetch<{ modifier_sets: ModifierSet[] }>(
+    `/api/v1/menu/modifier-sets?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.modifier_sets;
+}
+
+export async function getModifierSet(restaurantId: number, id: number): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets/${id}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.modifier_set;
+}
+
+export async function createModifierSet(restaurantId: number, input: ModifierSetInput): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.modifier_set;
+}
+
+export async function updateModifierSet(restaurantId: number, id: number, input: ModifierSetInput): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.modifier_set;
+}
+
+export async function deleteModifierSet(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function attachModifierSetToItems(restaurantId: number, setId: number, menuItemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_item_ids: menuItemIds }) }
+  );
+}
+
+export async function detachModifierSetFromItem(restaurantId: number, setId: number, menuItemId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/items/${menuItemId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function reorderModifierSetModifiers(restaurantId: number, setId: number, modifierIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/modifiers/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ modifier_ids: modifierIds }) }
+  );
+}
+
+export async function createModifierInSet(restaurantId: number, setId: number, input: ModifierInSetInput): Promise<MenuItemModifier> {
+  const data = await apiFetch<{ modifier: MenuItemModifier }>(
+    `/api/v1/menu/modifier-sets/${setId}/modifiers?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.modifier;
+}
+
+export async function migrateLegacyModifiers(restaurantId: number): Promise<{ sets_created: number }> {
+  return apiFetch<{ sets_created: number }>(
+    `/api/v1/menu/modifier-sets/migrate-legacy?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+}
+
+// ─── Option Sets (reusable variant groups — Square "Item Options") ───────────
+
+export interface OptionSetOption {
+  id: number;
+  option_set_id: number;
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+  /** Per-item flag (carried via the override application pass on the server).
+   *  True when this option is combo-only on the surrounding item — should be
+   *  excluded from à la carte price ranges and cost summaries. */
+  is_combo_only?: boolean;
+}
+
+export interface OptionSet {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  options?: OptionSetOption[];
+  menu_items?: MenuItem[];
+}
+
+export interface OptionInSetInput {
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface OptionSetInput {
+  name: string;
+  sort_order?: number;
+  options?: OptionInSetInput[];
+}
+
+export async function listOptionSets(restaurantId: number): Promise<OptionSet[]> {
+  const data = await apiFetch<{ option_sets: OptionSet[] }>(
+    `/api/v1/menu/option-sets?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.option_sets ?? [];
+}
+
+export async function getOptionSet(restaurantId: number, id: number): Promise<OptionSet> {
+  const data = await apiFetch<{ option_set: OptionSet }>(
+    `/api/v1/menu/option-sets/${id}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.option_set;
+}
+
+export async function createOptionSet(restaurantId: number, input: OptionSetInput): Promise<OptionSet> {
+  const data = await apiFetch<{ option_set: OptionSet }>(
+    `/api/v1/menu/option-sets?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.option_set;
+}
+
+export async function updateOptionSet(restaurantId: number, id: number, input: OptionSetInput): Promise<OptionSet> {
+  const data = await apiFetch<{ option_set: OptionSet }>(
+    `/api/v1/menu/option-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.option_set;
+}
+
+export async function deleteOptionSet(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/option-sets/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function attachOptionSetToItems(restaurantId: number, setId: number, menuItemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/option-sets/${setId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ menu_item_ids: menuItemIds }) }
+  );
+}
+
+export async function detachOptionSetFromItem(restaurantId: number, setId: number, itemId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/option-sets/${setId}/items/${itemId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function createOptionInSet(restaurantId: number, setId: number, input: OptionInSetInput): Promise<OptionSetOption> {
+  const data = await apiFetch<{ option: OptionSetOption }>(
+    `/api/v1/menu/option-sets/${setId}/options?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.option;
+}
+
+export async function updateOptionInSet(restaurantId: number, setId: number, optionId: number, input: OptionInSetInput): Promise<OptionSetOption> {
+  const data = await apiFetch<{ option: OptionSetOption }>(
+    `/api/v1/menu/option-sets/${setId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.option;
+}
+
+export async function deleteOptionInSet(restaurantId: number, setId: number, optionId: number): Promise<void> {
+  await apiFetch(`/api/v1/menu/option-sets/${setId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
+// ─── Per-item option pricing ────────────────────────────────────────────────
+
+export interface ItemOptionOverride {
+  id: number;
+  option_set_id: number;
+  menu_item_id: number;
+  option_id: number;
+  price: number;
+  online_price?: number | null;
+  sku: string;
+  is_active: boolean;
+  /** Hides the variant from à la carte browsing on guest apps; combos that
+   *  reference it explicitly still show it. Used for variants that exist
+   *  purely for combo recipe scaling (e.g. "Pour Table 8" of a meat item). */
+  is_combo_only?: boolean;
+}
+
+export interface ItemOptionPriceInput {
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+}
+
+export async function setItemOptionPrice(restaurantId: number, setId: number, itemId: number, optionId: number, input: ItemOptionPriceInput): Promise<ItemOptionOverride> {
+  const data = await apiFetch<{ item_option: ItemOptionOverride }>(
+    `/api/v1/menu/option-sets/${setId}/items/${itemId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.item_option;
+}
+
+export async function getItemOptionPrices(restaurantId: number, itemId: number): Promise<ItemOptionOverride[]> {
+  const data = await apiFetch<{ item_options: ItemOptionOverride[] }>(
+    `/api/v1/menu/items/${itemId}/option-prices?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.item_options ?? [];
+}
+
+export async function migrateVariantsToOptionSets(restaurantId: number): Promise<number> {
+  const data = await apiFetch<{ sets_created: number }>(
+    `/api/v1/menu/option-sets/migrate-variants?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data.sets_created;
+}
+
+// ── Atomic variants sync for a single item ───────────────────────────────────
+
+export interface VariantSyncInput {
+  option_id?: number | null;
+  name: string;
+  price: number;
+  is_active: boolean;
+  is_combo_only?: boolean;
+  sort_order: number;
+}
+
+export interface VariantGroupSyncInput {
+  option_set_id?: number | null;
+  name: string;
+  sort_order: number;
+  variants: VariantSyncInput[];
+}
+
+export interface ItemVariantsSyncInput {
+  groups: VariantGroupSyncInput[];
+}
+
+export interface ItemVariantsSyncResult {
+  option_sets: OptionSet[];
+  overrides: ItemOptionOverride[];
+}
+
+// Replaces the full variants state for a menu item in one transactional call.
+// Creates missing option sets / options, updates existing ones (renames,
+// sort, active flags), upserts per-item price+portion overrides, and detaches
+// option sets dropped from the payload.
+export async function syncItemVariants(
+  restaurantId: number,
+  itemId: number,
+  input: ItemVariantsSyncInput,
+): Promise<ItemVariantsSyncResult> {
+  return apiFetch<ItemVariantsSyncResult>(
+    `/api/v1/menu/items/${itemId}/variants-sync?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
+// ─── Item Variants (legacy per-item — prefer Option Sets) ───────────────────
+
+export interface VariantInput {
+  name: string;
+  price: number;
+  online_price?: number | null;
+  sku?: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface VariantGroupInput {
+  title: string;
+  sort_order: number;
+  variants?: VariantInput[];
+}
+
+export async function listVariantGroups(restaurantId: number, itemId: number): Promise<ItemVariantGroup[]> {
+  const data = await apiFetch<{ variant_groups: ItemVariantGroup[] }>(
+    `/api/v1/menu/items/${itemId}/variants?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.variant_groups;
+}
+
+export async function createVariantGroup(restaurantId: number, itemId: number, input: VariantGroupInput): Promise<ItemVariantGroup> {
+  const data = await apiFetch<{ variant_group: ItemVariantGroup }>(
+    `/api/v1/menu/items/${itemId}/variants?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.variant_group;
+}
+
+export async function updateVariantGroup(restaurantId: number, itemId: number, groupId: number, input: VariantGroupInput): Promise<ItemVariantGroup> {
+  const data = await apiFetch<{ variant_group: ItemVariantGroup }>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.variant_group;
+}
+
+export async function deleteVariantGroup(restaurantId: number, itemId: number, groupId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function createVariant(restaurantId: number, itemId: number, groupId: number, input: VariantInput): Promise<MenuItemVariant> {
+  const data = await apiFetch<{ variant: MenuItemVariant }>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.variant;
+}
+
+export async function updateVariant(restaurantId: number, itemId: number, groupId: number, variantId: number, input: VariantInput): Promise<MenuItemVariant> {
+  const data = await apiFetch<{ variant: MenuItemVariant }>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}/items/${variantId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.variant;
+}
+
+export async function deleteVariant(restaurantId: number, itemId: number, groupId: number, variantId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/items/${itemId}/variants/${groupId}/items/${variantId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
 // ─── AI Menu Import ──────────────────────────────────────────────────────────
 
 export interface ExtractedItem {
@@ -757,11 +1897,13 @@ export interface MenuExtraction {
   categories: ExtractedCategory[];
 }
 
-export async function importMenuAI(restaurantId: number, file: File): Promise<MenuExtraction> {
+export async function importMenuAI(restaurantId: number, file: File, lang?: string): Promise<MenuExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${API_URL}/api/v1/menu/import?restaurant_id=${restaurantId}`, {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  const res = await fetch(`${API_URL}/api/v1/menu/import?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -848,6 +1990,141 @@ export async function updateOrderStatus(restaurantId: number, orderId: number, s
   return data.order;
 }
 
+async function postOrderAction(restaurantId: number, orderId: number, action: string): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/${action}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+  return data.order;
+}
+
+export const sendOrderToKitchen = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'send-to-kitchen');
+export const markOrderReady = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-ready');
+export const markOrderServed = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-served');
+export const markOrderReceived = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-received');
+export const markOrderReadyForDelivery = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-ready-for-delivery');
+export const markOrderOutForDelivery = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-out-for-delivery');
+export const markOrderDelivered = (restaurantId: number, orderId: number) =>
+  postOrderAction(restaurantId, orderId, 'mark-delivered');
+
+export async function updateOrderPaymentStatus(
+  restaurantId: number,
+  orderId: number,
+  paymentStatus: PaymentStatus,
+  paymentMethod?: string,
+): Promise<Order> {
+  const body: Record<string, string> = { payment_status: paymentStatus };
+  if (paymentMethod) body.payment_method = paymentMethod;
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/payment-status?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
+  return data.order;
+}
+
+// ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
+
+export interface KitchenPlanModifierBreakdown {
+  modifier_label: string;
+  quantity: number;
+}
+
+export interface KitchenPlanItem {
+  menu_item_id: number;
+  name: string;
+  variant?: string;
+  variant_portion?: string;
+  total_quantity: number;
+  modifiers?: KitchenPlanModifierBreakdown[];
+}
+
+export interface KitchenPlanSlot {
+  start: string;
+  end: string;
+  order_count: number;
+  order_ids: string[];
+}
+
+export interface KitchenPlanDay {
+  date: string;
+  total_orders: number;
+  order_ids: string[];
+  items: KitchenPlanItem[];
+  slots: KitchenPlanSlot[];
+}
+
+export async function fetchKitchenPlan(
+  restaurantId: number,
+  from: string,
+  to: string,
+): Promise<KitchenPlanDay[]> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    from,
+    to,
+  });
+  const data = await apiFetch<{ plan: KitchenPlanDay[] }>(
+    `/api/v1/orders/kitchen-plan?${qs.toString()}`,
+    restaurantId,
+  );
+  return data.plan ?? [];
+}
+
+export interface KitchenPlanDetailItem {
+  menu_item_id: number;
+  name: string;
+  selected_variant_name?: string;
+  variant_portion?: string;
+  quantity: number;
+  modifier_label: string;
+}
+
+export interface KitchenPlanOrderDetail {
+  order_id: number;
+  customer_name: string;
+  customer_phone?: string;
+  pickup_window?: string;
+  items: KitchenPlanDetailItem[];
+}
+
+export interface KitchenPlanProductCol {
+  menu_item_id: number;
+  name: string;
+}
+
+export interface KitchenPlanDetailsResponse {
+  date: string;
+  products: KitchenPlanProductCol[];
+  orders: KitchenPlanOrderDetail[];
+}
+
+export async function fetchKitchenPlanDetails(
+  restaurantId: number,
+  date: string,
+): Promise<KitchenPlanDetailsResponse> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    date,
+  });
+  const data = await apiFetch<KitchenPlanDetailsResponse>(
+    `/api/v1/orders/kitchen-plan/details?${qs.toString()}`,
+    restaurantId,
+  );
+  return {
+    date: data.date,
+    products: data.products ?? [],
+    orders: data.orders ?? [],
+  };
+}
+
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
 export async function getAnalyticsToday(restaurantId: number): Promise<TodayStats> {
@@ -864,6 +2141,75 @@ export async function getTopSellers(restaurantId: number): Promise<TopSeller[]> 
   return data.top_items ?? [];
 }
 
+// ─── Dashboard Analytics ────────────────────────────────────────────────────
+
+export async function getHourlyAnalytics(
+  restaurantId: number,
+  date?: string
+): Promise<HourlyBucket[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (date) params.set('date', date);
+  const data = await apiFetch<{ buckets: HourlyBucket[] }>(
+    `/api/v1/analytics/hourly?${params}`, restaurantId
+  );
+  return data.buckets ?? [];
+}
+
+export async function getDayComparison(
+  restaurantId: number,
+  date?: string,
+  compare?: string
+): Promise<ComparisonResult> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (date) params.set('date', date);
+  if (compare) params.set('compare', compare);
+  return apiFetch<ComparisonResult>(
+    `/api/v1/analytics/comparison?${params}`, restaurantId
+  );
+}
+
+export async function getDailySeries(
+  restaurantId: number,
+  days = 7,
+  date?: string
+): Promise<DaySummary[]> {
+  const params = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    days: String(days),
+  });
+  if (date) params.set('date', date);
+  const data = await apiFetch<{ days: DaySummary[] }>(
+    `/api/v1/analytics/daily?${params}`, restaurantId
+  );
+  return data.days ?? [];
+}
+
+// ─── Customer Insights ──────────────────────────────────────────────────────
+
+export async function getAnalyticsCustomers(
+  restaurantId: number,
+  params?: { sort_by?: string; sort_dir?: string; search?: string; page?: number; per_page?: number }
+): Promise<CustomerListResult> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.sort_by) query.set('sort_by', params.sort_by);
+  if (params?.sort_dir) query.set('sort_dir', params.sort_dir);
+  if (params?.search) query.set('search', params.search);
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.per_page) query.set('per_page', String(params.per_page));
+  return apiFetch<CustomerListResult>(`/api/v1/analytics/customers?${query}`, restaurantId);
+}
+
+export async function getAnalyticsCustomerDetail(
+  restaurantId: number,
+  phone: string
+): Promise<CustomerDetailResponse> {
+  const data = await apiFetch<{ customer: CustomerDetailResponse }>(
+    `/api/v1/analytics/customers/${encodeURIComponent(phone)}?restaurant_id=${restaurantId}`,
+    restaurantId
+  );
+  return data.customer;
+}
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
 export async function listStaff(restaurantId: number): Promise<StaffMember[]> {
@@ -878,7 +2224,8 @@ export async function inviteStaff(restaurantId: number, input: {
   email: string;
   phone?: string;
   password: string;
-  role: Role;
+  role?: Role;
+  role_id?: number;
 }): Promise<StaffMember> {
   const data = await apiFetch<{ staff_member: StaffMember }>(
     `/api/v1/restaurants/${restaurantId}/staff/invite`, restaurantId,
@@ -887,10 +2234,12 @@ export async function inviteStaff(restaurantId: number, input: {
   return data.staff_member;
 }
 
-export async function updateStaffRole(restaurantId: number, userId: number, role: Role): Promise<void> {
+export async function updateStaffRole(
+  restaurantId: number, userId: number, update: { role?: Role; role_id?: number }
+): Promise<void> {
   await apiFetch<void>(
     `/api/v1/restaurants/${restaurantId}/staff/${userId}/role`, restaurantId,
-    { method: 'PUT', body: JSON.stringify({ role }) }
+    { method: 'PUT', body: JSON.stringify(update) }
   );
 }
 
@@ -936,9 +2285,15 @@ export async function getWebsiteConfig(restaurantId: number): Promise<WebsiteCon
 export async function updateWebsiteConfig(
   restaurantId: number, input: Partial<WebsiteConfig>
 ): Promise<WebsiteConfig> {
+  // The Go server uses pointer-based partial updates: an absent field and a
+  // JSON `null` field both unmarshal to a nil pointer, indistinguishable.
+  // Server treats empty string as the explicit "clear" sentinel for
+  // brand_color, so translate null → "" here.
+  const payload: Record<string, unknown> = { ...input };
+  if (payload.brand_color === null) payload.brand_color = '';
   const data = await apiFetch<{ website_config: WebsiteConfig }>(
     `/api/v1/restaurants/${restaurantId}/website-config`, restaurantId,
-    { method: 'PUT', body: JSON.stringify(input) }
+    { method: 'PUT', body: JSON.stringify(payload) }
   );
   return data.website_config;
 }
@@ -978,6 +2333,26 @@ export async function uploadRestaurantBackground(restaurantId: number, file: Fil
   const formData = new FormData();
   formData.append('image', file);
   const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/background`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
+}
+
+export async function uploadSectionImage(restaurantId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/sections/upload-image`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1108,6 +2483,23 @@ export async function deleteStockItem(restaurantId: number, id: number): Promise
   await apiFetch(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
+export async function uploadStockItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('image', file);
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/stock/items/${itemId}/image?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.image_url as string;
+}
+
 export async function batchUpdateStockCategory(
   restaurantId: number, input: { item_ids: number[]; category: string }
 ): Promise<void> {
@@ -1116,12 +2508,23 @@ export async function batchUpdateStockCategory(
   });
 }
 
+// `vat_rate_override`: `null` clears the override (items fall back to the
+// restaurant default); a number sets an explicit rate (0 = exempt).
+export async function batchUpdateStockVat(
+  restaurantId: number, input: { item_ids: number[]; vat_rate_override: number | null }
+): Promise<void> {
+  await apiFetch(`/api/v1/stock/items/batch-vat?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PATCH', body: JSON.stringify(input),
+  });
+}
+
 export async function listStockTransactions(
-  restaurantId: number, params?: { stock_item_id?: number; limit?: number }
+  restaurantId: number, params?: { stock_item_id?: number; limit?: number; type?: string }
 ): Promise<StockTransaction[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.stock_item_id) qs.set('stock_item_id', String(params.stock_item_id));
   if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.type) qs.set('type', params.type);
   const data = await apiFetch<{ transactions: StockTransaction[] }>(`/api/v1/stock/transactions?${qs}`, restaurantId);
   return data.transactions ?? [];
 }
@@ -1142,6 +2545,24 @@ export async function updateStockCategoryColor(restaurantId: number, input: { ca
   await apiFetch(`/api/v1/stock/category-color?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify(input),
   });
+}
+
+export async function createStockCategory(restaurantId: number, input: StockCategoryInput): Promise<StockCategory> {
+  const data = await apiFetch<{ category: StockCategory }>(`/api/v1/stock/categories?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.category;
+}
+
+export async function updateStockCategory(restaurantId: number, id: number, input: StockCategoryInput): Promise<StockCategory> {
+  const data = await apiFetch<{ category: StockCategory }>(`/api/v1/stock/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.category;
+}
+
+export async function deleteStockCategory(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/stock/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
 export async function getLowStockCount(restaurantId: number): Promise<number> {
@@ -1171,14 +2592,16 @@ export async function getStockItemMenuLinks(restaurantId: number, stockItemId: n
   return data.menu_items ?? [];
 }
 
-export async function importDelivery(restaurantId: number, file: File, lang?: string, method?: string, supplier?: string): Promise<DeliveryExtraction> {
+export async function importDelivery(restaurantId: number, file: File, lang?: string, method?: string, supplier?: string, supplierId?: number): Promise<DeliveryExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
-  if (lang) formData.append('language', lang);
-  if (method) formData.append('method', method);
-  if (supplier) formData.append('supplier', supplier);
-  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?restaurant_id=${restaurantId}`, {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  if (method) params.set('method', method);
+  if (supplier) params.set('supplier', supplier);
+  if (supplierId) params.set('supplier_id', String(supplierId));
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery?${params}`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1198,6 +2621,177 @@ export async function confirmDelivery(restaurantId: number, input: ConfirmDelive
   await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
   });
+}
+
+// ─── Delivery Import Drafts ───────────────────────────────────────
+
+export interface DeliveryImportDraft {
+  id: number;
+  restaurant_id: number;
+  supplier_id?: number;
+  supplier_name: string;
+  item_count: number;
+  document_url: string;
+  document_type: string;
+  created_by_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryImportDraftDetail {
+  draft: DeliveryImportDraft;
+  extraction: DeliveryExtraction;
+  edited_items: ConfirmDeliveryItemInput[];
+}
+
+export async function listImportDrafts(restaurantId: number): Promise<DeliveryImportDraft[]> {
+  const data = await apiFetch<{ drafts: DeliveryImportDraft[] }>(
+    `/api/v1/stock/import/drafts?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.drafts;
+}
+
+export async function getImportDraft(restaurantId: number, draftId: number): Promise<DeliveryImportDraftDetail> {
+  const data = await apiFetch<DeliveryImportDraftDetail>(
+    `/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data;
+}
+
+export async function createImportDraft(
+  restaurantId: number, file: File | null, input: {
+    supplier_id?: number; supplier_name: string;
+    extraction: DeliveryExtraction; edited_items: ConfirmDeliveryItemInput[];
+  }
+): Promise<DeliveryImportDraft> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('input', JSON.stringify(input));
+  if (file) formData.append('file', file);
+  const res = await fetch(`${API_URL}/api/v1/stock/import/drafts?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Failed to create draft (${res.status})`);
+  }
+  const data = await res.json();
+  return data.draft;
+}
+
+export async function deleteImportDraft(restaurantId: number, draftId: number): Promise<void> {
+  await apiFetch(`/api/v1/stock/import/drafts/${draftId}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
+// ─── Recipe Import ────────────────────────────────────────────────
+
+export interface ExtractedIngredient {
+  original_name: string;
+  translated_name: string;
+  quantity: number;
+  unit: string;
+  matched_item_id?: number | null;
+  matched_item_name: string;
+  confidence: number;
+  is_new: boolean;
+}
+
+export interface ExtractedRecipe {
+  dish_name: string;
+  dish_description: string;
+  servings: number;
+  total_yield: number;
+  total_yield_unit: string;
+  ingredients: ExtractedIngredient[];
+  matched_menu_item_id?: number | null;
+  matched_menu_item_name: string;
+  confidence: number;
+}
+
+export interface RecipeExtraction {
+  recipes: ExtractedRecipe[];
+}
+
+export interface ConfirmRecipeIngredientInput {
+  stock_item_id?: number | null;
+  name: string;
+  original_name: string;
+  quantity_needed: number;
+  unit: string;
+  category: string;
+  cost_per_unit?: number;
+  /** @deprecated cost is always ex-VAT now. */
+  price_includes_vat?: boolean;
+  vat_rate_override?: number | null;
+}
+
+export interface ConfirmRecipeItemInput {
+  menu_item_id: number;
+  ingredients: ConfirmRecipeIngredientInput[];
+}
+
+export interface ConfirmRecipeInput {
+  recipes: ConfirmRecipeItemInput[];
+}
+
+export async function importRecipesFromFile(restaurantId: number, file: File, lang?: string): Promise<RecipeExtraction> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  const res = await fetch(`${API_URL}/api/v1/stock/import/recipes?${params}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Import failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.extraction;
+}
+
+export async function importRecipesFromText(restaurantId: number, text: string, lang?: string): Promise<RecipeExtraction> {
+  const data = await apiFetch<{ extraction: RecipeExtraction }>(
+    `/api/v1/stock/import/recipes/text?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ text, lang: lang || 'en' }) }
+  );
+  return data.extraction;
+}
+
+export async function confirmRecipes(restaurantId: number, input: ConfirmRecipeInput): Promise<void> {
+  await apiFetch(`/api/v1/stock/import/recipes/confirm?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+}
+
+export interface ConfirmPrepRecipeInput {
+  name: string;
+  category?: string;
+  notes?: string;
+  yield: number;
+  yield_unit: string;
+  ingredients: ConfirmRecipeIngredientInput[];
+}
+
+export async function confirmPrepRecipe(restaurantId: number, input: ConfirmPrepRecipeInput): Promise<PrepItem> {
+  const data = await apiFetch<{ item: PrepItem }>(
+    `/api/v1/stock/import/recipes/confirm-prep?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.item;
 }
 
 export async function getDemandForecast(
@@ -1231,17 +2825,15 @@ export async function getPrepItem(restaurantId: number, id: number): Promise<Pre
 }
 
 export async function createPrepItem(restaurantId: number, input: PrepItemInput): Promise<PrepItem> {
-  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items?restaurant_id=${restaurantId}`, restaurantId, {
+  return apiFetch<PrepItem>(`/api/v1/prep/items?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
   });
-  return data.item;
 }
 
 export async function updatePrepItem(restaurantId: number, id: number, input: Partial<PrepItemInput>): Promise<PrepItem> {
-  const data = await apiFetch<{ item: PrepItem }>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+  return apiFetch<PrepItem>(`/api/v1/prep/items/${id}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify(input),
   });
-  return data.item;
 }
 
 export async function deletePrepItem(restaurantId: number, id: number): Promise<void> {
@@ -1303,9 +2895,27 @@ export async function createPrepTransaction(restaurantId: number, input: PrepTra
   return data.transaction;
 }
 
-export async function getPrepCategories(restaurantId: number): Promise<StockCategory[]> {
-  const data = await apiFetch<{ categories: StockCategory[] }>(`/api/v1/prep/categories?restaurant_id=${restaurantId}`, restaurantId);
+export async function getPrepCategories(restaurantId: number): Promise<PrepCategory[]> {
+  const data = await apiFetch<{ categories: PrepCategory[] }>(`/api/v1/prep/categories?restaurant_id=${restaurantId}`, restaurantId);
   return data.categories ?? [];
+}
+
+export async function createPrepCategory(restaurantId: number, input: PrepCategoryInput): Promise<PrepCategory> {
+  const data = await apiFetch<{ category: PrepCategory }>(`/api/v1/prep/categories?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.category;
+}
+
+export async function updatePrepCategory(restaurantId: number, id: number, input: PrepCategoryInput): Promise<PrepCategory> {
+  const data = await apiFetch<{ category: PrepCategory }>(`/api/v1/prep/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.category;
+}
+
+export async function deletePrepCategory(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/prep/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
 export async function getPrepLowStockCount(restaurantId: number): Promise<number> {
@@ -1352,5 +2962,931 @@ export async function updateSpokeConfig(
   return apiFetch<{ message: string }>(`/api/v1/spoke/config`, restaurantId, {
     method: 'PUT',
     body: JSON.stringify(config),
+  });
+}
+
+// ─── Trusted Customers ──────────────────────────────────────────────────────
+
+export interface TrustedCustomer {
+  id: number;
+  restaurant_id: number;
+  phone: string;
+  name: string;
+  notes?: string;
+  created_at: string;
+}
+
+export async function listTrustedCustomers(restaurantId: number): Promise<TrustedCustomer[]> {
+  const data = await apiFetch<{ trusted_customers: TrustedCustomer[] }>(
+    `/api/v1/restaurants/${restaurantId}/customers/trusted`, restaurantId
+  );
+  return data.trusted_customers ?? [];
+}
+
+export async function addTrustedCustomer(
+  restaurantId: number,
+  input: { phone: string; name: string; notes?: string }
+): Promise<TrustedCustomer> {
+  const data = await apiFetch<{ trusted_customer: TrustedCustomer }>(
+    `/api/v1/restaurants/${restaurantId}/customers/trusted`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.trusted_customer;
+}
+
+export async function removeTrustedCustomer(restaurantId: number, customerId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/customers/trusted/${customerId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+// ─── RBAC: Roles & Permissions ────────────────────────────────────────────────
+
+export interface RolePermission {
+  id: number;
+  restaurant_role_id: number;
+  permission: string;
+}
+
+export interface RestaurantRole {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  description: string;
+  is_system_default: boolean;
+  permissions: RolePermission[];
+  user_count: number;
+  created_at: string;
+}
+
+export interface PermissionInfo {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface PermissionGroup {
+  domain: string;
+  permissions: PermissionInfo[];
+}
+
+export interface MeWithPermissions {
+  user: User;
+  permissions?: string[];
+  role_name?: string;
+}
+
+export async function listRoles(restaurantId: number): Promise<RestaurantRole[]> {
+  const data = await apiFetch<{ roles: RestaurantRole[] }>(
+    `/api/v1/restaurants/${restaurantId}/roles`, restaurantId
+  );
+  return data.roles ?? [];
+}
+
+export async function createRole(
+  restaurantId: number,
+  input: { name: string; description: string; permissions: string[] }
+): Promise<RestaurantRole> {
+  const data = await apiFetch<{ role: RestaurantRole }>(
+    `/api/v1/restaurants/${restaurantId}/roles`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.role;
+}
+
+export async function updateRole(
+  restaurantId: number,
+  roleId: number,
+  input: { name?: string; description?: string; permissions?: string[] }
+): Promise<RestaurantRole> {
+  const data = await apiFetch<{ role: RestaurantRole }>(
+    `/api/v1/restaurants/${restaurantId}/roles/${roleId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.role;
+}
+
+export async function deleteRole(restaurantId: number, roleId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/roles/${roleId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function listPermissions(): Promise<PermissionGroup[]> {
+  const data = await apiFetch<{ permissions: PermissionGroup[] }>('/api/v1/permissions');
+  return data.permissions ?? [];
+}
+
+export async function getMyPermissions(restaurantId: number): Promise<MeWithPermissions> {
+  return apiFetch<MeWithPermissions>(
+    `/api/v1/users/me?restaurant_id=${restaurantId}`
+  );
+}
+
+// ─── AI Streaming ─────────────────────────────────────────────────────────────
+
+export interface AiHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function streamAiChat(
+  restaurantId: number,
+  message: string,
+  history: AiHistoryMessage[],
+  onDelta: (delta: string) => void,
+): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/ai/chat/stream?restaurant_id=${restaurantId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message, history }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'AI error' }));
+    throw new Error(err.error || 'AI error');
+  }
+  const reader = res.body?.getReader();
+  if (!reader) return;
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const obj = JSON.parse(line.slice(6));
+          if (obj.type === 'delta' && typeof obj.text === 'string') {
+            onDelta(obj.text);
+          }
+        } catch { /* ignore non-JSON lines */ }
+      }
+    }
+  }
+}
+
+// ─── Suppliers ────────────────────────────────────────────────────────────────
+
+export interface Supplier {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  contact_name: string;
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+  extraction_hints: string;
+  is_active: boolean;
+  products?: SupplierProduct[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierInput {
+  name: string;
+  contact_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  extraction_hints?: string;
+  is_active?: boolean;
+}
+
+export interface SupplierProduct {
+  id: number;
+  supplier_id: number;
+  restaurant_id: number;
+  name: string;
+  sku: string;
+  unit: string;
+  price_per_unit: number;
+  stock_item_id: number | null;
+  is_active: boolean;
+  stock_item?: { id: number; name: string };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierProductInput {
+  name: string;
+  sku?: string;
+  unit?: string;
+  price_per_unit?: number;
+  stock_item_id?: number | null;
+  is_active?: boolean;
+}
+
+export type PurchaseOrderStatus = 'draft' | 'sent' | 'received' | 'cancelled';
+
+export interface PurchaseOrder {
+  id: number;
+  restaurant_id: number;
+  supplier_id: number;
+  status: PurchaseOrderStatus;
+  notes: string;
+  total_amount: number;
+  order_date: string | null;
+  received_date: string | null;
+  source_report_id?: number | null;
+  created_by_id: number;
+  supplier: Supplier;
+  items: PurchaseOrderItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PurchaseOrderItem {
+  id: number;
+  purchase_order_id: number;
+  supplier_product_id: number | null;
+  stock_item_id: number | null;
+  name: string;
+  unit: string;
+  quantity: number;
+  price_per_unit: number;
+  total_price: number;
+  received_qty: number | null;
+}
+
+export interface PurchaseOrderItemInput {
+  supplier_product_id?: number | null;
+  stock_item_id?: number | null;
+  name: string;
+  unit?: string;
+  quantity: number;
+  price_per_unit: number;
+}
+
+export async function listSuppliers(restaurantId: number): Promise<Supplier[]> {
+  const data = await apiFetch<{ suppliers: Supplier[] }>(`/api/v1/suppliers?restaurant_id=${restaurantId}`, restaurantId);
+  return data.suppliers ?? [];
+}
+
+export async function createSupplier(restaurantId: number, input: SupplierInput): Promise<Supplier> {
+  const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.supplier;
+}
+
+export async function updateSupplier(restaurantId: number, id: number, input: Partial<SupplierInput>): Promise<Supplier> {
+  const data = await apiFetch<{ supplier: Supplier }>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.supplier;
+}
+
+export async function deleteSupplier(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function listSupplierProducts(restaurantId: number, supplierId: number): Promise<SupplierProduct[]> {
+  const data = await apiFetch<{ products: SupplierProduct[] }>(`/api/v1/suppliers/${supplierId}/products?restaurant_id=${restaurantId}`, restaurantId);
+  return data.products ?? [];
+}
+
+export async function createSupplierProduct(restaurantId: number, supplierId: number, input: SupplierProductInput): Promise<SupplierProduct> {
+  const data = await apiFetch<{ product: SupplierProduct }>(`/api/v1/suppliers/${supplierId}/products?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.product;
+}
+
+export async function updateSupplierProduct(restaurantId: number, supplierId: number, pid: number, input: Partial<SupplierProductInput>): Promise<SupplierProduct> {
+  const data = await apiFetch<{ product: SupplierProduct }>(`/api/v1/suppliers/${supplierId}/products/${pid}?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.product;
+}
+
+export async function deleteSupplierProduct(restaurantId: number, supplierId: number, pid: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/suppliers/${supplierId}/products/${pid}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function listPurchaseOrders(restaurantId: number, params?: { supplier_id?: number; status?: string; source_report_id?: number }): Promise<PurchaseOrder[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.supplier_id) qs.set('supplier_id', String(params.supplier_id));
+  if (params?.status) qs.set('status', params.status);
+  if (params?.source_report_id) qs.set('source_report_id', String(params.source_report_id));
+  const data = await apiFetch<{ orders: PurchaseOrder[] }>(`/api/v1/purchase-orders?${qs}`, restaurantId);
+  return data.orders ?? [];
+}
+
+export async function createPurchaseOrder(restaurantId: number, input: { supplier_id: number; notes?: string; items: PurchaseOrderItemInput[] }): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.order;
+}
+
+export async function updatePurchaseOrderStatus(restaurantId: number, id: number, status: PurchaseOrderStatus): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/status?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify({ status }),
+  });
+  return data.order;
+}
+
+export async function receivePurchaseOrder(restaurantId: number, id: number, items: { id: number; received_qty: number }[]): Promise<PurchaseOrder> {
+  const data = await apiFetch<{ order: PurchaseOrder }>(`/api/v1/purchase-orders/${id}/receive?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST', body: JSON.stringify({ items }),
+  });
+  return data.order;
+}
+
+export async function deletePurchaseOrder(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/purchase-orders/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function sendOrderEmail(restaurantId: number, poId: number, to?: string): Promise<{ sent: boolean }> {
+  return await apiFetch<{ sent: boolean }>(`/api/v1/purchase-orders/${poId}/send-email?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ to: to || '' }),
+  });
+}
+
+export interface EstimatedSuppliesResult {
+  purchase_orders: PurchaseOrder[];
+  forecasted_items: number;
+  items_with_recipe: number;
+  total_shortages: number;
+  target_day: string;
+}
+
+export async function generateEstimatedSupplies(restaurantId: number, reportId: number, source: 'pos' | 'manual' | 'both' = 'pos'): Promise<EstimatedSuppliesResult> {
+  const response = await apiFetch<EstimatedSuppliesResult>(`/api/v1/stock/daily-reports/${reportId}/estimated-supplies?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ source }),
+  });
+  return {
+    ...response,
+    purchase_orders: response.purchase_orders ?? [],
+  };
+}
+
+// ─── Floor Plans & Table Sections ─────────────────────────────────────────────
+
+export interface TableSection {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  tables: RestaurantTableRef[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RestaurantTableRef {
+  id: number;
+  code: string;
+  name: string;
+  seats: number;
+  active: boolean;
+  section_id: number | null;
+}
+
+export interface FloorPlanPlacement {
+  id: number;
+  floor_plan_id: number;
+  table_id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'square' | 'circle';
+  rotation: number; // degrees
+  table: RestaurantTableRef;
+}
+
+export interface FloorPlanDecoration {
+  id: number;
+  floor_plan_id: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'rectangle' | 'circle';
+  color: string;
+  rotation: number; // degrees
+}
+
+export interface DecorationInput {
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'rectangle' | 'circle';
+  color: string;
+  rotation: number; // degrees
+}
+
+export interface FloorPlan {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  sort_order: number;
+  placements?: FloorPlanPlacement[];
+  decorations?: FloorPlanDecoration[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SectionInput {
+  name: string;
+  label?: string;
+  table_count?: number;
+  custom_names?: string[];
+}
+
+export interface PlacementInput {
+  table_id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shape: 'square' | 'circle';
+  rotation: number; // degrees
+}
+
+// Sections
+export async function listSections(restaurantId: number): Promise<TableSection[]> {
+  const data = await apiFetch<{ sections: TableSection[] }>(
+    `/api/v1/restaurants/${restaurantId}/sections?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.sections ?? [];
+}
+
+export async function createSection(restaurantId: number, input: SectionInput): Promise<TableSection> {
+  const data = await apiFetch<{ section: TableSection }>(
+    `/api/v1/restaurants/${restaurantId}/sections?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.section;
+}
+
+export async function updateSection(restaurantId: number, sectionId: number, name: string): Promise<TableSection> {
+  const data = await apiFetch<{ section: TableSection }>(
+    `/api/v1/restaurants/${restaurantId}/sections/${sectionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ name }) }
+  );
+  return data.section;
+}
+
+export async function deleteSection(restaurantId: number, sectionId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/sections/${sectionId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+// Floor Plans
+export async function listFloorPlans(restaurantId: number): Promise<FloorPlan[]> {
+  const data = await apiFetch<{ floor_plans: FloorPlan[] }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.floor_plans ?? [];
+}
+
+export async function getFloorPlan(restaurantId: number, planId: number): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.floor_plan;
+}
+
+export async function createFloorPlan(restaurantId: number, name: string): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ name }) }
+  );
+  return data.floor_plan;
+}
+
+export async function updateFloorPlan(restaurantId: number, planId: number, name: string): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ name }) }
+  );
+  return data.floor_plan;
+}
+
+export async function deleteFloorPlan(restaurantId: number, planId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+export async function saveFloorPlanLayout(restaurantId: number, planId: number, placements: PlacementInput[], decorations: DecorationInput[] = []): Promise<FloorPlan> {
+  const data = await apiFetch<{ floor_plan: FloorPlan }>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/${planId}/layout?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ placements, decorations }) }
+  );
+  return data.floor_plan;
+}
+
+export async function reorderFloorPlans(restaurantId: number, ids: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/floor-plans/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ ids }) }
+  );
+}
+
+
+// ─── Rotation Schedule ────────────────────────────────────────────────────────
+
+export interface RotationSchedule {
+  id: number;
+  restaurant_id: number;
+  rotation_group: string;
+  menu_item_id: number;
+  week_start: string;
+  created_at: string;
+}
+
+export async function getRotationSchedules(restaurantId: number, weeks = 4): Promise<RotationSchedule[]> {
+  const data = await apiFetch<{ schedules: RotationSchedule[] }>(
+    `/api/v1/menus/rotation-schedules?weeks=${weeks}`, restaurantId
+  );
+  return data.schedules;
+}
+
+export async function setRotationSchedule(
+  restaurantId: number,
+  input: { rotation_group: string; menu_item_id: number; week_start: string }
+): Promise<RotationSchedule> {
+  const data = await apiFetch<{ schedule: RotationSchedule }>(
+    `/api/v1/menus/rotation-schedules`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.schedule;
+}
+
+export async function deleteRotationSchedule(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/menus/rotation-schedules/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function renameRotationGroup(restaurantId: number, old_name: string, new_name: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/menus/rotation-groups/rename`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ old_name, new_name }),
+  });
+}
+
+export async function deleteRotationGroup(restaurantId: number, name: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/menus/rotation-groups/${encodeURIComponent(name)}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
+// ─── Opening Hours ────────────────────────────────────────────────────────────
+
+export interface DayHours {
+  open: string;
+  close: string;
+  closed: boolean;
+}
+
+export type WeeklyHours = {
+  monday: DayHours;
+  tuesday: DayHours;
+  wednesday: DayHours;
+  thursday: DayHours;
+  friday: DayHours;
+  saturday: DayHours;
+  sunday: DayHours;
+};
+
+export interface OpeningHoursConfig {
+  dine_in?: WeeklyHours;
+  pickup?: WeeklyHours;
+  delivery?: WeeklyHours;
+}
+
+// ─── Recipe Steps (Cooking Instructions) ─────────────────────────────────────
+
+export interface RecipeStep {
+  id: number;
+  menu_item_id: number;
+  step_number: number;
+  instruction: string;
+  image_url: string;
+  duration_mins: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeStepInput {
+  step_number: number;
+  instruction: string;
+  image_url?: string;
+  duration_mins?: number;
+}
+
+export interface RecipeCardItem {
+  id: number;
+  name: string;
+  category_name: string;
+  image_url: string;
+  price: number;
+  prep_time_mins: number;
+  has_steps: boolean;
+  step_count: number;
+  has_ingredients: boolean;
+  ingredient_count: number;
+}
+
+export interface RecipeDetail {
+  item: MenuItem;
+  ingredients: MenuItemIngredient[];
+  steps: RecipeStep[];
+  category_name: string;
+}
+
+export async function listRecipeItems(restaurantId: number): Promise<RecipeCardItem[]> {
+  const res = await apiFetch<{ items: RecipeCardItem[] }>('/api/v1/recipes/items', restaurantId);
+  return res.items;
+}
+
+export async function getRecipeDetail(restaurantId: number, menuItemId: number): Promise<RecipeDetail> {
+  return apiFetch<RecipeDetail>(`/api/v1/recipes/items/${menuItemId}`, restaurantId);
+}
+
+export async function getRecipeSteps(restaurantId: number, menuItemId: number): Promise<RecipeStep[]> {
+  const res = await apiFetch<{ steps: RecipeStep[] }>(`/api/v1/recipes/items/${menuItemId}/steps`, restaurantId);
+  return res.steps;
+}
+
+export async function setRecipeSteps(restaurantId: number, menuItemId: number, steps: RecipeStepInput[]): Promise<RecipeStep[]> {
+  const res = await apiFetch<{ steps: RecipeStep[] }>(`/api/v1/recipes/items/${menuItemId}/steps`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ steps }),
+  });
+  return res.steps;
+}
+
+export async function updateRecipeMeta(restaurantId: number, menuItemId: number, meta: { prep_time_mins: number; recipe_notes: string }): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/recipes/items/${menuItemId}/meta`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(meta),
+  });
+}
+
+export async function uploadRecipeStepImage(restaurantId: number, menuItemId: number, stepId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/recipes/items/${menuItemId}/steps/${stepId}/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
+}
+
+// ─── Supplies (Grouped Receive History) ──────────────────────────────────────
+
+export interface SupplySummary {
+  batch_id: string;
+  supplier_name: string;
+  item_count: number;
+  total_cost: number;
+  created_at: string;
+  created_by_id: number;
+  document_url?: string;
+  document_type?: string;
+}
+
+export async function listSupplies(restaurantId: number, supplier?: string): Promise<SupplySummary[]> {
+  const params = new URLSearchParams();
+  if (supplier) params.set('supplier', supplier);
+  const qs = params.toString();
+  const res = await apiFetch<{ supplies: SupplySummary[] }>(`/api/v1/stock/supplies${qs ? '?' + qs : ''}`, restaurantId);
+  return res.supplies;
+}
+
+export async function getSupplyDetail(restaurantId: number, batchId: string): Promise<StockTransaction[]> {
+  const res = await apiFetch<{ transactions: StockTransaction[] }>(`/api/v1/stock/supplies/${encodeURIComponent(batchId)}`, restaurantId);
+  return res.transactions;
+}
+
+// ─── Daily Food Cost Reports ──────────────────────────────────────────────────
+
+export interface DailyFoodCostReport {
+  id: number;
+  restaurant_id: number;
+  report_date: string;
+  status: 'open' | 'closed' | 'reviewed';
+  sales_source: string;
+  total_theoretical_cost: number;
+  total_actual_cost: number;
+  total_sales_revenue: number;
+  total_waste_value: number;
+  total_variance_value: number;
+  food_cost_percent: number;
+  went_well: string;
+  went_wrong: string;
+  to_improve: string;
+  closed_by_id: number | null;
+  closed_at: string | null;
+  created_by_id: number;
+  created_at: string;
+  updated_at: string;
+  items?: DailyFoodCostItem[];
+  sales?: DailySalesEntry[];
+}
+
+export interface DailyFoodCostItem {
+  id: number;
+  report_id: number;
+  stock_item_id: number | null;
+  prep_item_id: number | null;
+  item_name: string;
+  unit: string;
+  cost_per_unit: number;
+  opening_stock: number;
+  closing_stock: number;
+  received_qty: number;
+  waste_qty: number;
+  actual_usage: number;
+  theoretical_usage: number;
+  variance: number;
+  variance_percent: number;
+  variance_cost: number;
+  stock_item?: StockItem;
+}
+
+export interface DailySalesEntry {
+  id: number;
+  report_id: number;
+  menu_item_id: number;
+  menu_item_name: string;
+  quantity: number;
+  source: 'manual' | 'pos';
+}
+
+export interface IngredientBreakdown {
+  stock_item_id: number;
+  item_name: string;
+  unit: string;
+  contributions: IngredientContribution[];
+}
+
+export interface IngredientContribution {
+  menu_item_id: number;
+  menu_item_name: string;
+  menu_item_price: number;
+  qty_sold: number;
+  recipe_qty: number;
+  recipe_unit: string;
+  total_usage: number;
+  total_usage_converted: number;
+}
+
+export interface FoodCostSummary {
+  period: string;
+  from: string;
+  to: string;
+  total_revenue: number;
+  total_actual_cost: number;
+  total_variance: number;
+  avg_food_cost_percent: number;
+  daily_breakdown: DailySummaryRow[];
+  top_variance_items: TopVarianceItem[];
+}
+
+export interface DailySummaryRow {
+  date: string;
+  revenue: number;
+  actual_cost: number;
+  theoretical_cost: number;
+  variance: number;
+  food_cost_percent: number;
+  status: string;
+}
+
+export interface TopVarianceItem {
+  stock_item_id: number;
+  item_name: string;
+  unit: string;
+  total_variance: number;
+  variance_cost: number;
+}
+
+export async function getTodayFoodCostReport(restaurantId: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>('/api/v1/stock/daily-reports/today', restaurantId);
+  return res.report;
+}
+
+export async function createFoodCostReport(restaurantId: number, reportDate: string, salesSource?: string): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>('/api/v1/stock/daily-reports', restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ report_date: reportDate, sales_source: salesSource || 'manual' }),
+  });
+  return res.report;
+}
+
+export async function listFoodCostReports(restaurantId: number, from?: string, to?: string): Promise<DailyFoodCostReport[]> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  const res = await apiFetch<{ reports: DailyFoodCostReport[] }>(`/api/v1/stock/daily-reports${qs ? '?' + qs : ''}`, restaurantId);
+  return res.reports;
+}
+
+export async function getFoodCostReport(restaurantId: number, id: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>(`/api/v1/stock/daily-reports/${id}`, restaurantId);
+  return res.report;
+}
+
+export async function upsertSalesEntries(restaurantId: number, reportId: number, entries: { menu_item_id: number; quantity: number }[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/sales`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ entries }),
+  });
+}
+
+export async function updateClosingStock(restaurantId: number, reportId: number, items: { stock_item_id?: number; prep_item_id?: number; quantity: number }[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/closing-stock`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ items }),
+  });
+}
+
+export async function computeFoodCostReport(restaurantId: number, reportId: number): Promise<DailyFoodCostReport> {
+  const res = await apiFetch<{ report: DailyFoodCostReport }>(`/api/v1/stock/daily-reports/${reportId}/compute`, restaurantId, {
+    method: 'POST',
+  });
+  return res.report;
+}
+
+export async function updateRetrospective(restaurantId: number, reportId: number, input: { went_well: string; went_wrong: string; to_improve: string }): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/retrospective`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function closeFoodCostReport(restaurantId: number, reportId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/close`, restaurantId, {
+    method: 'POST',
+  });
+}
+
+export async function getFoodCostBreakdown(restaurantId: number, reportId: number, stockItemId: number): Promise<IngredientBreakdown> {
+  const res = await apiFetch<{ breakdown: IngredientBreakdown }>(`/api/v1/stock/daily-reports/${reportId}/breakdown?stock_item_id=${stockItemId}`, restaurantId);
+  return res.breakdown;
+}
+
+export async function getFoodCostSummary(restaurantId: number, period: string = 'week'): Promise<FoodCostSummary> {
+  const res = await apiFetch<{ summary: FoodCostSummary }>(`/api/v1/stock/food-cost-summary?period=${period}`, restaurantId);
+  return res.summary;
+}
+
+export async function deleteSalesEntries(restaurantId: number, reportId: number, ids: number[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/sales`, restaurantId, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function deleteCostItems(restaurantId: number, reportId: number, ids: number[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/daily-reports/${reportId}/items`, restaurantId, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export async function deleteStockTransaction(restaurantId: number, txId: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/stock/transactions/${txId}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
+export async function deleteStockTransactions(restaurantId: number, ids: number[]): Promise<void> {
+  await apiFetch<{ ok: boolean }>('/api/v1/stock/transactions', restaurantId, {
+    method: 'DELETE',
+    body: JSON.stringify({ ids }),
   });
 }

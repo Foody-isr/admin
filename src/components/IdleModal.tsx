@@ -1,11 +1,15 @@
 'use client';
 
+import { useI18n } from '@/lib/i18n';
+
 interface IdleModalProps {
   countdown: number;
   onDismiss: () => void;
 }
 
 export default function IdleModal({ countdown, onDismiss }: IdleModalProps) {
+  const { t } = useI18n();
+
   return (
     <div
       data-idle-modal
@@ -14,9 +18,9 @@ export default function IdleModal({ countdown, onDismiss }: IdleModalProps) {
     >
       <div className="card p-8 max-w-sm w-full mx-4 text-center space-y-5">
         <div className="text-4xl">👋</div>
-        <h2 className="text-lg font-bold text-fg-primary">Are you still there?</h2>
+        <h2 className="text-lg font-bold text-fg-primary">{t('idleTitle')}</h2>
         <p className="text-sm text-fg-secondary">
-          Your session will pause in <span className="font-bold text-brand-500">{countdown}s</span> to save resources.
+          {t('idleDescription').replace('{countdown}', String(countdown))}
         </p>
         <div className="w-full bg-[var(--surface-subtle)] rounded-full h-2 overflow-hidden">
           <div
@@ -28,7 +32,7 @@ export default function IdleModal({ countdown, onDismiss }: IdleModalProps) {
           onClick={onDismiss}
           className="btn-primary w-full py-3 text-sm"
         >
-          I&apos;m here!
+          {t('idleDismiss')}
         </button>
       </div>
     </div>

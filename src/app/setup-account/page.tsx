@@ -3,18 +3,18 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { validateInviteToken, setupAccount, getPosDownloads, ValidateInviteResponse, POSDownloads } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 type PosPlatform = 'ipad' | 'macos' | 'both';
 
-const STEPS = ['Password', 'Your Info', 'Restaurant', 'POS'] as const;
-
 export default function SetupAccountPage() {
+  const { t } = useI18n();
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-fg-secondary">Loading…</p>
+          <p className="text-sm text-fg-secondary">{t('loading')}</p>
         </div>
       </div>
     }>
@@ -24,9 +24,12 @@ export default function SetupAccountPage() {
 }
 
 function SetupAccountContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
+
+  const STEPS = [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')] as const;
 
   const [inviteData, setInviteData] = useState<ValidateInviteResponse | null>(null);
   const [validating, setValidating] = useState(true);
@@ -59,7 +62,7 @@ function SetupAccountContent() {
   // Validate token on mount
   useEffect(() => {
     if (!token) {
-      setTokenError('No invitation token provided. Please use the link from your email.');
+      setTokenError(t('noInvitationToken'));
       setValidating(false);
       return;
     }
@@ -80,7 +83,7 @@ function SetupAccountContent() {
         }
       })
       .catch((err) => {
-        setTokenError(err instanceof Error ? err.message : 'Invalid or expired invitation link.');
+        setTokenError(err instanceof Error ? err.message : t('invalidOrExpiredInvitation'));
       })
       .finally(() => setValidating(false));
   }, [token]);
@@ -157,7 +160,7 @@ function SetupAccountContent() {
       <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-fg-secondary">Validating your invitation…</p>
+          <p className="text-sm text-fg-secondary">{t('validatingInvitation')}</p>
         </div>
       </div>
     );
@@ -186,10 +189,10 @@ function SetupAccountContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">Invalid Invitation</h2>
+            <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('invalidInvitation')}</h2>
             <p className="text-sm text-fg-secondary mb-6">{tokenError}</p>
             <a href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
-              Go to Login
+              {t('goToLogin')}
             </a>
           </div>
         </div>
@@ -209,7 +212,7 @@ function SetupAccountContent() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-                <p className="text-xs text-fg-secondary">Setup complete</p>
+                <p className="text-xs text-fg-secondary">{t('setupComplete')}</p>
               </div>
             </div>
           </div>
@@ -221,10 +224,9 @@ function SetupAccountContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">You&apos;re All Set!</h2>
+              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('youreAllSet')}</h2>
               <p className="text-sm text-fg-secondary">
-                Your account and <strong>{restaurantName}</strong> are ready.
-                Download FoodyPOS to start taking orders.
+                {t('yourAccountAnd')} <strong>{restaurantName}</strong> {t('areReady')}
               </p>
             </div>
 
@@ -242,7 +244,7 @@ function SetupAccountContent() {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">Download for iPad</p>
+                    <p className="text-sm font-semibold text-fg-primary">{t('downloadIPad')}</p>
                     <p className="text-xs text-fg-secondary">{posDownloads.ipad.name}</p>
                   </div>
                   <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +266,7 @@ function SetupAccountContent() {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">Download for macOS</p>
+                    <p className="text-sm font-semibold text-fg-primary">{t('downloadMacOS')}</p>
                     <p className="text-xs text-fg-secondary">
                       {posDownloads.macos.name}{posDownloads.macos.version ? ` v${posDownloads.macos.version}` : ''}
                     </p>
@@ -281,7 +283,7 @@ function SetupAccountContent() {
               onClick={() => router.push(dashboardUrl)}
               className="btn-primary w-full justify-center"
             >
-              Go to Dashboard
+              {t('goToDashboard')}
             </button>
           </div>
         </div>
@@ -301,7 +303,7 @@ function SetupAccountContent() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-fg-primary">Foody Admin</h1>
-              <p className="text-xs text-fg-secondary">Complete your setup</p>
+              <p className="text-xs text-fg-secondary">{t('completeYourSetup')}</p>
             </div>
           </div>
         </div>
@@ -347,37 +349,37 @@ function SetupAccountContent() {
           {/* Step 1: Password */}
           {currentStep === 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">Create Your Password</h2>
+              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('createYourPassword')}</h2>
               <p className="text-sm text-fg-secondary mb-6">
-                Welcome! Set a password for <strong>{inviteData?.user.email}</strong>
+                {t('welcomeSetPassword')} <strong>{inviteData?.user.email}</strong>
               </p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Password *</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('passwordRequired')}</label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="input"
-                    placeholder="Min 8 characters"
+                    placeholder={t('minCharsPlaceholder')}
                     required
                     minLength={8}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Confirm Password *</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('confirmPasswordRequired')}</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="input"
-                    placeholder="Re-enter your password"
+                    placeholder={t('reenterPassword')}
                     required
                     minLength={8}
                   />
                   {confirmPassword && password !== confirmPassword && (
-                    <p className="mt-1 text-xs text-red-400">Passwords do not match</p>
+                    <p className="mt-1 text-xs text-red-400">{t('passwordsMismatch')}</p>
                   )}
                 </div>
               </div>
@@ -387,28 +389,28 @@ function SetupAccountContent() {
           {/* Step 2: Your Info */}
           {currentStep === 1 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">Your Information</h2>
-              <p className="text-sm text-fg-secondary mb-6">Tell us a bit about yourself.</p>
+              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('yourInformation')}</h2>
+              <p className="text-sm text-fg-secondary mb-6">{t('tellUsAboutYourself')}</p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Full Name *</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('fullNameRequired')}</label>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="input"
-                    placeholder="Your full name"
+                    placeholder={t('yourFullName')}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('phone')}</label>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="input"
-                    placeholder="+972-..."
+                    placeholder={t('phonePlaceholder')}
                   />
                 </div>
               </div>
@@ -418,38 +420,38 @@ function SetupAccountContent() {
           {/* Step 3: Restaurant */}
           {currentStep === 2 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">Restaurant Details</h2>
-              <p className="text-sm text-fg-secondary mb-6">Set up your restaurant information.</p>
+              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('restaurantDetails')}</h2>
+              <p className="text-sm text-fg-secondary mb-6">{t('setupRestaurantInfo')}</p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Restaurant Name *</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('restaurantNameRequired')}</label>
                   <input
                     type="text"
                     value={restaurantName}
                     onChange={(e) => setRestaurantName(e.target.value)}
                     className="input"
-                    placeholder="Joe's Pizza"
+                    placeholder={t('restaurantNamePlaceholder')}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Address</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('address')}</label>
                   <input
                     type="text"
                     value={restaurantAddress}
                     onChange={(e) => setRestaurantAddress(e.target.value)}
                     className="input"
-                    placeholder="123 Main St, Tel Aviv"
+                    placeholder={t('addressPlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-fg-secondary mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('restaurantPhone')}</label>
                   <input
                     type="tel"
                     value={restaurantPhone}
                     onChange={(e) => setRestaurantPhone(e.target.value)}
                     className="input"
-                    placeholder="+972-..."
+                    placeholder={t('phonePlaceholder')}
                   />
                 </div>
               </div>
@@ -459,9 +461,9 @@ function SetupAccountContent() {
           {/* Step 4: POS Platform */}
           {currentStep === 3 && (
             <div>
-              <h2 className="text-lg font-semibold text-fg-primary mb-1">Choose Your POS</h2>
+              <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('chooseYourPOS')}</h2>
               <p className="text-sm text-fg-secondary mb-6">
-                Which device will you use to manage orders?
+                {t('whichDevice')}
               </p>
               <div className="space-y-3">
                 {/* iPad */}
@@ -480,8 +482,8 @@ function SetupAccountContent() {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">iPad</p>
-                    <p className="text-xs text-fg-secondary">iOS app from the App Store</p>
+                    <p className="text-sm font-semibold text-fg-primary">{t('ipad')}</p>
+                    <p className="text-xs text-fg-secondary">{t('iosApp')}</p>
                   </div>
                   {posPlatform === 'ipad' && (
                     <div className="w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center">
@@ -508,8 +510,8 @@ function SetupAccountContent() {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">macOS</p>
-                    <p className="text-xs text-fg-secondary">Desktop app (DMG download)</p>
+                    <p className="text-sm font-semibold text-fg-primary">{t('macos')}</p>
+                    <p className="text-xs text-fg-secondary">{t('desktopApp')}</p>
                   </div>
                   {posPlatform === 'macos' && (
                     <div className="w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center">
@@ -536,8 +538,8 @@ function SetupAccountContent() {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">Both</p>
-                    <p className="text-xs text-fg-secondary">iPad + macOS for multi-station setups</p>
+                    <p className="text-sm font-semibold text-fg-primary">{t('both')}</p>
+                    <p className="text-xs text-fg-secondary">{t('multiStation')}</p>
                   </div>
                   {posPlatform === 'both' && (
                     <div className="w-6 h-6 bg-brand-500 rounded-full flex items-center justify-center">
@@ -559,7 +561,7 @@ function SetupAccountContent() {
                 onClick={() => setCurrentStep(currentStep - 1)}
                 className="px-4 py-2 text-sm font-medium text-fg-secondary hover:text-fg-primary transition"
               >
-                Back
+                {t('back')}
               </button>
             ) : (
               <div />
@@ -571,10 +573,10 @@ function SetupAccountContent() {
               className="btn-primary disabled:opacity-50"
             >
               {loading
-                ? 'Setting up…'
+                ? t('settingUp')
                 : currentStep === STEPS.length - 1
-                ? 'Complete Setup'
-                : 'Continue'}
+                ? t('completeSetup')
+                : t('continue')}
             </button>
           </div>
         </div>

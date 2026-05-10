@@ -1,132 +1,704 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useTheme } from '@/lib/theme-context';
+import { usePermissions } from '@/lib/permissions-context';
 import { useWs } from '@/lib/ws-context';
+import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
+import { useTheme } from '@/lib/theme-context';
+import { getLowStockCount, getPrepLowStockCount } from '@/lib/api';
 import {
-  HomeIcon,
-  Bars3BottomLeftIcon,
-  ClipboardDocumentListIcon,
-  UsersIcon,
-  ChartBarIcon,
-  Cog6ToothIcon,
-  GlobeAltIcon,
-  CreditCardIcon,
-  ArrowRightOnRectangleIcon,
-  BuildingStorefrontIcon,
-  SunIcon,
-  MoonIcon,
-  BeakerIcon,
-} from '@heroicons/react/24/outline';
+  Home,
+  Menu as MenuIcon,
+  ClipboardList,
+  Users,
+  BarChart3,
+  Settings,
+  Globe,
+  UserCog,
+  Building2,
+  X,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  ArrowLeft,
+  ArrowRight,
+  User as UserIcon,
+  CalendarClock,
+  LogOut,
+  Flame,
+  Sun,
+  Moon,
+  Languages,
+  Tag,
+  Clock,
+  DollarSign,
+  Printer,
+  Bell,
+  type LucideIcon,
+} from 'lucide-react';
+import { useSidebar } from '@/lib/sidebar-context';
+
+interface SubItem {
+  href: string;
+  labelKey: string;
+  badge?: number;
+  /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
+  desktopOnly?: boolean;
+}
+
+interface SubItemGroup {
+  labelKey: string;
+  items: SubItem[];
+}
+
+interface NavItem {
+  href: string;
+  labelKey: string;
+  icon: LucideIcon;
+  perm?: string[];
+  subItems?: SubItem[];
+  subGroups?: SubItemGroup[];
+  /** Override the href used when clicking the main nav item (defaults to first sub-item). */
+  clickHref?: string;
+  /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
+  desktopOnly?: boolean;
+}
 
 interface SidebarProps {
   restaurantId: number;
-  restaurantName: string;
+  restaurantName?: string;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export default function Sidebar({ restaurantId, restaurantName }: SidebarProps) {
+const LOCALE_LABELS: Record<Locale, string> = { en: 'English', he: 'עברית', fr: 'Français' };
+
+export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout, restaurantIds } = useAuth();
+  const { user, restaurantIds, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { hasAnyPermission } = usePermissions();
   const { status: wsStatus } = useWs();
+  const { t, direction, locale, setLocale } = useI18n();
+  const { collapsed, toggleCollapsed } = useSidebar();
+
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [lowPrepCount, setLowPrepCount] = useState(0);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getLowStockCount(restaurantId).then(setLowStockCount).catch(() => {});
+    getPrepLowStockCount(restaurantId).then(setLowPrepCount).catch(() => {});
+  }, [restaurantId]);
 
   const base = `/${restaurantId}`;
-  const nav = [
-    { href: `${base}/dashboard`, label: 'Dashboard', icon: HomeIcon },
-    { href: `${base}/menu`, label: 'Menu', icon: Bars3BottomLeftIcon },
-    { href: `${base}/kitchen`, label: 'Kitchen', icon: BeakerIcon },
-    { href: `${base}/orders`, label: 'Orders', icon: ClipboardDocumentListIcon },
-    { href: `${base}/staff`, label: 'Staff', icon: UsersIcon },
-    { href: `${base}/analytics`, label: 'Analytics', icon: ChartBarIcon },
-    { href: `${base}/settings`, label: 'Settings', icon: Cog6ToothIcon },
-    { href: `${base}/website`, label: 'Website', icon: GlobeAltIcon },
-    { href: `${base}/billing`, label: 'Billing', icon: CreditCardIcon },
+  const isRtl = direction === 'rtl';
+  const BackArrow = isRtl ? ArrowRight : ArrowLeft;
+
+  function toggleKey(key: string) {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const allNav: NavItem[] = [
+    { href: `${base}/dashboard`, labelKey: 'dashboard', icon: Home },
+    {
+      href: `${base}/menu`,
+      labelKey: 'menu',
+      icon: MenuIcon,
+      perm: ['menu.view', 'menu.edit'],
+      clickHref: `${base}/menu/items`,
+      // Flattened — no "Articles" subtitle/group header in the sidebar.
+      // Rotation + AI Import routes removed (not in use).
+      subItems: [
+        { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
+        { href: `${base}/menu/menus`, labelKey: 'menus' },
+        { href: `${base}/menu/categories`, labelKey: 'categories' },
+        { href: `${base}/menu/modifier-sets`, labelKey: 'modifierSets' },
+        { href: `${base}/menu/options`, labelKey: 'options' },
+      ],
+    },
+    {
+      href: `${base}/kitchen`,
+      labelKey: 'kitchen',
+      icon: Flame,
+      perm: ['kitchen.view', 'kitchen.manage'],
+      subItems: [
+        { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
+        // { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
+        // Recipes page is hidden for now — per-item recipes are edited inside the menu item Recette tab.
+        { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
+        { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost', desktopOnly: true },
+        { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations', desktopOnly: true },
+        { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
+      ],
+    },
+    {
+      href: `${base}/orders/all`,
+      labelKey: 'orders',
+      icon: ClipboardList,
+      perm: ['orders.view', 'orders.manage'],
+      clickHref: `${base}/orders/all`,
+      subItems: [
+        { href: `${base}/orders/all`, labelKey: 'orders' },
+        { href: `${base}/orders/calendar`, labelKey: 'calendarTitle' },
+      ],
+    },
+    {
+      href: `${base}/website`,
+      labelKey: 'online',
+      icon: Globe,
+      perm: ['settings.edit'],
+      desktopOnly: true,
+      subItems: [{ href: `${base}/website`, labelKey: 'websiteBuilder' }],
+    },
+    {
+      href: `${base}/customers`,
+      labelKey: 'customers',
+      icon: Users,
+      perm: ['customers.view', 'customers.manage'],
+    },
+    {
+      href: `${base}/analytics`,
+      labelKey: 'reports',
+      icon: BarChart3,
+      perm: ['analytics.view'],
+      subItems: [
+        { href: `${base}/analytics/overview`, labelKey: 'overview' },
+        { href: `${base}/analytics/customers`, labelKey: 'salesByCustomer' },
+      ],
+    },
+    {
+      href: `${base}/staff`,
+      labelKey: 'staff',
+      icon: UserCog,
+      perm: ['staff.view', 'staff.manage', 'roles.manage'],
+      desktopOnly: true,
+      subItems: [
+        { href: `${base}/staff`, labelKey: 'staffMembers' },
+        { href: `${base}/roles`, labelKey: 'rolesPermissions' },
+      ],
+    },
+    {
+      href: `${base}/settings`,
+      labelKey: 'settings',
+      icon: Settings,
+      perm: ['settings.view', 'settings.edit', 'tables.manage'],
+    },
   ];
+  const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
+
+  function getSubHrefs(item: NavItem): string[] {
+    return [
+      ...(item.subItems?.map((s) => s.href) ?? []),
+      ...(item.subGroups?.flatMap((g) => g.items.map((s) => s.href)) ?? []),
+    ];
+  }
+
+  function isPathActive(href: string): boolean {
+    return pathname === href || pathname.startsWith(href + '/');
+  }
+
+  function isItemActive(item: NavItem): boolean {
+    if (isPathActive(item.href)) return true;
+    return getSubHrefs(item).some(isPathActive);
+  }
+
+  function getNavHref(item: NavItem): string {
+    if (item.clickHref) return item.clickHref;
+    if (item.subItems) return item.subItems[0].href;
+    if (item.subGroups) return item.subGroups[0].items[0].href;
+    return item.href;
+  }
+
+  function hasChildren(item: NavItem): boolean {
+    return !!(item.subItems?.length || item.subGroups?.length);
+  }
+
+  // Settings sub-nav — when on /settings/*, the main rail is replaced by these
+  // groups so the user sees a single sidebar instead of two stacked. Mirrors
+  // design-reference/screens/settings.jsx SettingsShell groups.
+  const isSettingsRoute =
+    pathname === `${base}/settings` || pathname.startsWith(`${base}/settings/`);
+  const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean }[] }[] = [
+    {
+      groupKey: 'settingsGroupAccount',
+      items: [
+        { id: 'general',       href: `${base}/settings`,                labelKey: 'general',       icon: Settings },
+        { id: 'branding',      href: `${base}/settings/branding`,        labelKey: 'branding',      icon: Tag },
+        { id: 'language',      href: `${base}/settings/language`,        labelKey: 'language',      icon: Languages },
+        { id: 'hours',         href: `${base}/settings/opening-hours`,   labelKey: 'openingHours',  icon: Clock },
+        { id: 'notifications', href: `${base}/settings/notifications`,   labelKey: 'notifications', icon: Bell },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupCommerce',
+      items: [
+        { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
+        { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
+        { id: 'scheduled', href: `${base}/settings/scheduled-orders`, labelKey: 'scheduledOrders', icon: CalendarClock },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupOrg',
+      items: [
+        { id: 'team', href: `${base}/settings/team`, labelKey: 'staffAndRoles', icon: Users, desktopOnly: true },
+      ],
+    },
+  ];
+  const isSettingsItemActive = (href: string): boolean => {
+    // /settings is the general page; only mark it active on exact match so
+    // it doesn't stay highlighted when visiting a sibling sub-page.
+    if (href === `${base}/settings`) return pathname === href;
+    return isPathActive(href);
+  };
+
+  const sidebarWidth = collapsed
+    ? 'w-[var(--sidebar-w-collapsed)]'
+    : 'w-[var(--sidebar-w)]';
+  const brandInitial = (restaurantName?.trim().charAt(0) || 'F').toUpperCase();
 
   return (
-    <aside className="w-64 min-h-screen flex flex-col" style={{ background: 'var(--sidebar-bg)' }}>
-      {/* Brand + restaurant name */}
-      <div className="px-5 py-6 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-brand-500 rounded-lg flex items-center justify-center">
-            <span className="text-lg font-black text-white">F</span>
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-sm font-bold text-white truncate">{restaurantName}</h1>
-            <p className="text-xs text-[var(--text-secondary)]">Admin Portal</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Switch restaurant (for multi-restaurant owners) */}
-      {restaurantIds.length > 1 && (
-        <div className="px-4 pt-3">
-          <Link
-            href="/select-restaurant"
-            className="flex items-center gap-2 text-xs text-[var(--text-secondary)] hover:text-white transition-colors"
-          >
-            <BuildingStorefrontIcon className="w-4 h-4" />
-            Switch restaurant
-          </Link>
-        </div>
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={onClose} />
       )}
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {nav.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`sidebar-link text-[var(--text-secondary)] ${isActive ? 'active' : ''}`}
+      <aside
+        className={`
+          fixed top-0 z-30 h-screen flex flex-col overflow-y-auto bg-[var(--sidebar-bg)]
+          ${sidebarWidth}
+          transition-[width,transform] duration-200 ease-in-out
+          lg:translate-x-0
+          ${isRtl ? 'right-0 border-l' : 'left-0 border-r'}
+          border-[var(--line)]
+          ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
+        `}
+      >
+        {/* Brand / restaurant header — height matches --topbar-h so it aligns
+            with the topbar across the column gutter. */}
+        <div className="h-[var(--topbar-h)] px-[var(--s-5)] border-b border-[var(--line)] flex items-center">
+          <button
+            onClick={() => setProfileOpen(true)}
+            className="w-full flex items-center gap-[var(--s-3)] text-left min-w-0"
+            aria-label={t('profile')}
+          >
+            <div
+              className="w-8 h-8 shrink-0 rounded-r-md flex items-center justify-center text-white font-bold text-fs-md"
+              style={{
+                background:
+                  'linear-gradient(135deg, var(--brand-400), var(--brand-600))',
+                boxShadow: '0 2px 8px rgba(249,115,22,.3)',
+              }}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {item.label}
-              {item.label === 'Orders' && (
-                <span
-                  className={`ml-auto w-2 h-2 rounded-full flex-shrink-0 ${
-                    wsStatus === 'connected' ? 'bg-green-400' :
-                    wsStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
-                    'bg-red-400'
-                  }`}
-                  title={`WebSocket: ${wsStatus}`}
-                />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+              {brandInitial}
+            </div>
+            {!collapsed && (
+              <span className="font-semibold text-fs-md text-[var(--fg)] truncate">
+                {restaurantName ?? 'Foody'}
+              </span>
+            )}
+          </button>
+        </div>
 
-      {/* Footer: theme toggle + user + logout */}
-      <div className="px-4 py-4 border-t border-white/10 space-y-3">
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="sidebar-link w-full text-[var(--text-secondary)]"
-        >
-          {theme === 'dark' ? (
-            <SunIcon className="w-5 h-5" />
+        {/* Mobile close button */}
+        <div className="flex items-center justify-between px-4 py-2 lg:hidden">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]">
+            {t('menu')}
+          </span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--sidebar-hover)]">
+            <X className="w-5 h-5 text-[var(--fg-muted)]" />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-[var(--s-3)] space-y-0.5 overflow-y-auto">
+          {isSettingsRoute ? (
+            <>
+              {/* Back-to-app link */}
+              <Link
+                href={`${base}/dashboard`}
+                onClick={onClose}
+                className="w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out mb-[var(--s-2)]"
+              >
+                <BackArrow className="w-[18px] h-[18px] shrink-0" />
+                {!collapsed && <span className="truncate">{t('backToApp') || 'Back to app'}</span>}
+              </Link>
+              <div className="border-t border-[var(--line)] -mx-[var(--s-3)] mb-[var(--s-2)]" />
+              {!collapsed && (
+                <div className="text-fs-xs font-semibold uppercase tracking-[.08em] text-[var(--fg-muted)] px-[var(--s-3)] pt-[var(--s-2)] pb-[var(--s-3)]">
+                  {t('settings')}
+                </div>
+              )}
+              {settingsSections.map((s) => {
+                const allDesktopOnly = s.items.every((it) => it.desktopOnly);
+                return (
+                <div
+                  key={s.groupKey}
+                  className={`mb-[var(--s-3)]${allDesktopOnly ? ' max-lg:hidden' : ''}`}
+                >
+                  {!collapsed && (
+                    <div className="text-[10px] font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] px-[var(--s-3)] py-[var(--s-2)]">
+                      {t(s.groupKey)}
+                    </div>
+                  )}
+                  {s.items.map((it) => {
+                    const active = isSettingsItemActive(it.href);
+                    const Icon = it.icon;
+                    return (
+                      <Link
+                        key={it.id}
+                        href={it.href}
+                        onClick={onClose}
+                        className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                          it.desktopOnly ? 'max-lg:hidden ' : ''
+                        }${
+                          active
+                            ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
+                            : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
+                        }`}
+                      >
+                        <Icon className="w-[18px] h-[18px] shrink-0" />
+                        {!collapsed && <span className="flex-1 truncate">{t(it.labelKey)}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
+                );
+              })}
+            </>
           ) : (
-            <MoonIcon className="w-5 h-5" />
+            nav.map((item) => {
+            const isActive = isItemActive(item);
+            const expanded = expandedKeys.has(item.labelKey) || isActive;
+            const children = hasChildren(item);
+            const totalBadge =
+              (item.subItems?.reduce((a, s) => a + (s.badge ?? 0), 0) ?? 0) +
+              (item.subGroups?.reduce(
+                (a, g) => a + g.items.reduce((ga, s) => ga + (s.badge ?? 0), 0),
+                0,
+              ) ?? 0);
+
+            return (
+              <div key={item.labelKey} className={item.desktopOnly ? 'max-lg:hidden' : undefined}>
+                {/* Top-level row */}
+                {children ? (
+                  // Parent groups never get the orange gradient — only text color
+                  // shifts when expanded. Active state lives on the leaf child.
+                  <button
+                    onClick={() => {
+                      if (collapsed) {
+                        // In collapsed mode, clicking top-level navigates instead of expanding.
+                        window.location.href = getNavHref(item);
+                      } else {
+                        toggleKey(item.labelKey);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                      expanded
+                        ? 'text-[var(--fg)]'
+                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-[var(--s-3)] min-w-0">
+                      <item.icon className="w-[18px] h-[18px] shrink-0" />
+                      {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
+                    </div>
+                    {!collapsed && (
+                      <div className="flex items-center gap-[var(--s-2)]">
+                        {totalBadge > 0 && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-r-full min-w-[18px] text-center bg-[var(--surface-2)] text-[var(--fg-muted)]">
+                            {totalBadge}
+                          </span>
+                        )}
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 shrink-0 transition-transform text-[var(--fg-subtle)] ${
+                            expanded ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </div>
+                    )}
+                  </button>
+                ) : (
+                  <Link
+                    href={getNavHref(item)}
+                    onClick={onClose}
+                    className={`relative w-full flex items-center gap-[var(--s-3)] py-2 px-[var(--s-3)] rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+                      isActive
+                        ? 'bg-[var(--sidebar-hover)] text-[var(--fg)] font-semibold before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:bg-[var(--brand-500)] before:rounded-e-[2px]'
+                        : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    <item.icon className="w-[18px] h-[18px] shrink-0" />
+                    {!collapsed && <span className="flex-1 truncate">{t(item.labelKey)}</span>}
+                    {item.labelKey === 'orders' && !collapsed && (
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          wsStatus === 'connected'
+                            ? 'bg-[var(--success-500)]'
+                            : wsStatus === 'connecting'
+                              ? 'bg-[var(--warning-500)] animate-pulse'
+                              : 'bg-[var(--danger-500)]'
+                        }`}
+                        title={`WebSocket: ${wsStatus}`}
+                      />
+                    )}
+                  </Link>
+                )}
+
+                {/* Expanded sub-items */}
+                {children && expanded && !collapsed && (
+                  <div className="mt-0.5 space-y-0.5 ps-[30px]">
+                    {item.subGroups?.map((group) => (
+                      <div key={group.labelKey} className="py-[var(--s-1)]">
+                        <p className="px-[var(--s-3)] pt-[var(--s-3)] pb-[var(--s-1)] text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)]">
+                          {t(group.labelKey)}
+                        </p>
+                        {group.items.map((sub) => {
+                          const active = isPathActive(sub.href);
+                          return (
+                            <SubLink
+                              key={sub.href}
+                              href={sub.href}
+                              label={t(sub.labelKey)}
+                              badge={sub.badge}
+                              active={active}
+                              desktopOnly={sub.desktopOnly}
+                              onClick={onClose}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                    {item.subItems?.map((sub) => {
+                      const active = isPathActive(sub.href);
+                      return (
+                        <SubLink
+                          key={sub.href}
+                          href={sub.href}
+                          label={t(sub.labelKey)}
+                          badge={sub.badge}
+                          active={active}
+                          desktopOnly={sub.desktopOnly}
+                          onClick={onClose}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+            })
           )}
-          {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-        </button>
+        </nav>
+
+        {/* Footer — theme + collapse. */}
+        <div className="border-t border-[var(--line)]">
+          <div className="flex">
+            <button
+              onClick={toggleTheme}
+              className={`flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out ${isRtl ? 'border-l' : 'border-r'} border-[var(--line)]`}
+              title={theme === 'dark' ? t('lightMode') : t('darkMode')}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              onClick={toggleCollapsed}
+              className="flex-1 h-9 flex items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)] transition-colors duration-fast ease-out"
+              title={collapsed ? t('expandSidebar') : t('collapseSidebar')}
+            >
+              {collapsed ? (
+                isRtl ? (
+                  <ChevronLeft className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )
+              ) : isRtl ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Profile drawer ── */}
+      {profileOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-50"
+          onClick={() => setProfileOpen(false)}
+        />
+      )}
+      <div
+        className={`
+          fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-[var(--sidebar-bg)]
+          transition-transform duration-200 ease-in-out border-[var(--line)]
+          ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
+          ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
+        `}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+          <button
+            onClick={() => setProfileOpen(false)}
+            className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)]"
+          >
+            <X className="w-5 h-5 text-[var(--fg)]" />
+          </button>
+        </div>
 
         {/* User info */}
-        <div className="text-xs text-[var(--text-secondary)] truncate">{user?.full_name}</div>
-        <div className="text-xs text-[var(--text-secondary)] opacity-70 truncate">{user?.email}</div>
+        <div className="px-5 py-5 border-b border-[var(--line)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-brand-500 text-white">
+              <span className="text-sm font-bold">
+                {(user?.full_name || user?.email || '?')[0].toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              {user?.full_name && (
+                <p className="text-sm font-semibold truncate text-[var(--fg)]">
+                  {user.full_name}
+                </p>
+              )}
+              {user?.email && (
+                <p className="text-xs truncate text-[var(--fg-muted)]">
+                  {user.email}
+                </p>
+              )}
+            </div>
+          </div>
+          {restaurantName && (
+            <p className="mt-3 text-xs font-medium text-[var(--fg-muted)]">
+              {restaurantName}
+            </p>
+          )}
+        </div>
 
-        <button
-          onClick={logout}
-          className="sidebar-link w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
-        >
-          <ArrowRightOnRectangleIcon className="w-5 h-5" />
-          Sign Out
-        </button>
+        {/* Drawer menu items */}
+        <nav className="flex-1 overflow-y-auto py-2">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {theme === 'dark' ? t('lightMode') : t('darkMode')}
+          </button>
+
+          <div className="px-5 py-3">
+            <div className="flex items-center gap-3 mb-2">
+              <Languages className="w-5 h-5 text-[var(--fg)]" />
+              <span className="text-sm text-[var(--fg)]">{t('language')}</span>
+            </div>
+            <div className="flex gap-2 ml-8">
+              {SUPPORTED_LOCALES.map((loc) => (
+                <button
+                  key={loc}
+                  onClick={() => setLocale(loc)}
+                  className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                    locale === loc
+                      ? 'border-brand-500 text-brand-500 font-semibold'
+                      : 'border-[var(--line)] text-[var(--fg-muted)] hover:border-[var(--text-secondary)]'
+                  }`}
+                >
+                  {LOCALE_LABELS[loc]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {restaurantIds.length > 1 && (
+            <Link
+              href="/select-restaurant"
+              onClick={() => setProfileOpen(false)}
+              className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
+            >
+              <Building2 className="w-5 h-5" />
+              {t('switchRestaurant')}
+            </Link>
+          )}
+
+          <Link
+            href={`/${restaurantId}/settings`}
+            onClick={() => setProfileOpen(false)}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors hover:bg-[var(--sidebar-hover)] text-[var(--fg)]"
+          >
+            <Settings className="w-5 h-5" />
+            {t('settings')}
+          </Link>
+        </nav>
+
+        <div className="border-t border-[var(--line)] px-5 py-4">
+          <button
+            onClick={() => {
+              setProfileOpen(false);
+              logout();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors hover:bg-red-500/10 text-red-500"
+          >
+            <LogOut className="w-5 h-5" />
+            {t('signOut')}
+          </button>
+        </div>
       </div>
-    </aside>
+    </>
   );
 }
+
+function SubLink({
+  href,
+  label,
+  badge,
+  active,
+  desktopOnly,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  badge?: number;
+  active: boolean;
+  desktopOnly?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`w-full flex items-center justify-between gap-[var(--s-2)] px-[var(--s-3)] py-2 rounded-r-md text-fs-md font-medium transition-colors duration-fast ease-out ${
+        desktopOnly ? 'max-lg:hidden ' : ''
+      }${
+        active
+          ? 'bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)]'
+          : 'text-[var(--fg-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--fg)]'
+      }`}
+    >
+      <span className="truncate">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span
+          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-r-full min-w-[18px] text-center ${
+            active
+              ? 'bg-[color-mix(in_oklab,var(--brand-500)_18%,transparent)] text-[var(--brand-500)]'
+              : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
+          }`}
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+

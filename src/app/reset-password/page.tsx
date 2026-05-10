@@ -3,14 +3,16 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { validateResetToken, resetPassword, ValidateInviteResponse } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-fg-secondary">Loading…</p>
+          <p className="text-sm text-fg-secondary">{t('loading')}</p>
         </div>
       </div>
     }>
@@ -20,6 +22,7 @@ export default function ResetPasswordPage() {
 }
 
 function ResetPasswordContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
@@ -38,7 +41,7 @@ function ResetPasswordContent() {
   // Validate the token on mount
   useEffect(() => {
     if (!token) {
-      setTokenError('No reset token provided. Please use the link from your email.');
+      setTokenError(t('noResetToken'));
       setValidating(false);
       return;
     }
@@ -48,7 +51,7 @@ function ResetPasswordContent() {
         setResetData(data);
       })
       .catch((err) => {
-        setTokenError(err instanceof Error ? err.message : 'Invalid or expired reset link.');
+        setTokenError(err instanceof Error ? err.message : t('invalidOrExpiredResetLink'));
       })
       .finally(() => setValidating(false));
   }, [token]);
@@ -58,11 +61,11 @@ function ResetPasswordContent() {
     setError('');
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('passwordMinChars'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('passwordsDoNotMatch'));
       return;
     }
 
@@ -95,7 +98,7 @@ function ResetPasswordContent() {
       <div className="min-h-screen flex items-center justify-center bg-page">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4" />
-          <p className="text-sm text-fg-secondary">Validating your reset link…</p>
+          <p className="text-sm text-fg-secondary">{t('validatingResetLink')}</p>
         </div>
       </div>
     );
@@ -124,10 +127,10 @@ function ResetPasswordContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">Invalid Reset Link</h2>
+            <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('invalidResetLink')}</h2>
             <p className="text-sm text-fg-secondary mb-6">{tokenError}</p>
             <a href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
-              Go to Login
+              {t('goToLogin')}
             </a>
           </div>
         </div>
@@ -146,8 +149,8 @@ function ResetPasswordContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-fg-primary mb-2">Password Updated!</h2>
-            <p className="text-sm text-fg-secondary">Your password has been reset. Redirecting to your dashboard…</p>
+            <h2 className="text-lg font-semibold text-fg-primary mb-2">{t('passwordUpdated')}</h2>
+            <p className="text-sm text-fg-secondary">{t('passwordResetSuccess')}</p>
           </div>
         </div>
       </div>
@@ -172,9 +175,9 @@ function ResetPasswordContent() {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-fg-primary mb-1">Reset Your Password</h2>
+          <h2 className="text-lg font-semibold text-fg-primary mb-1">{t('resetYourPassword')}</h2>
           <p className="text-sm text-fg-secondary mb-6">
-            Enter a new password for <strong>{resetData?.user.email}</strong>
+            {t('enterNewPasswordFor')} <strong>{resetData?.user.email}</strong>
           </p>
 
           {error && (
@@ -185,25 +188,25 @@ function ResetPasswordContent() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">New Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('newPassword')}</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input"
-                placeholder="At least 8 characters"
+                placeholder={t('atLeast8Chars')}
                 required
                 minLength={8}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">Confirm Password</label>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('confirmPassword')}</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="input"
-                placeholder="Repeat your password"
+                placeholder={t('repeatPassword')}
                 required
               />
             </div>
@@ -212,13 +215,13 @@ function ResetPasswordContent() {
               disabled={loading}
               className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50"
             >
-              {loading ? 'Resetting…' : 'Reset Password'}
+              {loading ? t('resetting') : t('resetPassword')}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <a href="/login" className="text-sm text-brand-500 hover:text-brand-600 font-medium">
-              Back to Login
+              {t('backToLogin')}
             </a>
           </div>
         </div>

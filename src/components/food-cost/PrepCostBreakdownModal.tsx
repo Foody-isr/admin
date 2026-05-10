@@ -1,0 +1,240 @@
+'use client';
+
+import { MenuItem, MenuItemIngredient } from '@/lib/api';
+import { convertQuantity, toBaseUnit } from '@/lib/units';
+import { costExVat, vatMultiplierForStock } from '@/lib/cost-utils';
+import { ImageIcon } from 'lucide-react';
+import { NumberInput } from '@/components/ui/NumberInput';
+
+// Shows the full math behind a prep ingredient's cost: raw ingredients →
+// batch cost → cost per unit → line cost at the current portion.
+// The "line cost" math here MUST mirror calcLineCost/calcVariantLineCost in
+// cost-utils so the modal and the Cost table never disagree.
+//
+// When `onEditStockCost` is provided (the simulator path), each sub-ingredient
+// row's unit cost becomes editable. Overrides are passed in via
+// `simStockCosts` (keyed by stock_item.id) and the modal recomputes batch
+// cost / cost per unit / line cost in real-time.
+export default function PrepCostBreakdownModal({
+  ing, item, showExVat, restaurantRate,
+  simStockCosts, onEditStockCost, onClose, t,
+}: {
+  ing: MenuItemIngredient;
+  item: MenuItem;
+  showExVat: boolean;
+  restaurantRate: number;
+  /** Display-basis overrides keyed by stock_item.id. */
+  simStockCosts?: Record<number, number>;
+  /** When set, sub-ingredient unit costs become editable. */
+  onEditStockCost?: (stockId: number, value: number) => void;
+  onClose: () => void;
+  t: (k: string) => string;
+}) {
+  const prep = ing.prep_item;
+  if (!prep) return null;
+
+  const editable = !!onEditStockCost;
+
+  const rows = (prep.ingredients ?? []).map((pi) => {
+    const s = pi.stock_item;
+    const ex = costExVat(s ?? null);
+    const baseUnitCost = showExVat ? ex : ex * vatMultiplierForStock(s ?? null, restaurantRate);
+    const stockId = s?.id ?? null;
+    const overridden = stockId != null && simStockCosts?.[stockId] != null;
+    const unitCost = overridden ? simStockCosts![stockId!] : baseUnitCost;
+    const lineCost = pi.quantity_needed * unitCost;
+    return {
+      id: pi.id,
+      stockId,
+      name: s?.name ?? '?',
+      imageUrl: s?.image_url ?? '',
+      qty: pi.quantity_needed,
+      stockUnit: s?.unit ?? '',
+      baseUnitCost,
+      unitCost,
+      lineCost,
+      overridden,
+    };
+  });
+  const batchCost = rows.reduce((s, r) => s + r.lineCost, 0);
+  const yieldQty = prep.yield_per_batch;
+  const yieldUnit = prep.unit;
+  const costPerUnit = yieldQty > 0 ? batchCost / yieldQty : 0;
+
+  // Mirror the Cost panel's math exactly so this modal and the ingredient
+  // table always agree. Precedence:
+  //   1) variant-scoped (option_id matches the selected variant): literal qty
+  //      from this row.
+  //   2) base qty.
+  const baseQty = ing.quantity_needed;
+  const baseUnit = ing.unit || yieldUnit;
+  const effectiveInYieldUnit = convertQuantity(baseQty, baseUnit, yieldUnit);
+  const lineCost = effectiveInYieldUnit * costPerUnit;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div
+        className="rounded-modal shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col"
+        style={{ background: 'var(--surface)' }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-3 border-b shrink-0"
+          style={{ borderColor: 'var(--divider)' }}
+        >
+          <div>
+            <h3 className="font-semibold text-fg-primary">{t('costBreakdownTitle').replace('{name}', prep.name)}</h3>
+            <p className="text-xs text-fg-secondary mt-0.5">
+              {showExVat ? t('excludingVat') : t('includingVat')}
+              {editable && (
+                <>
+                  {' · '}
+                  <span style={{ color: 'var(--brand-500)' }}>
+                    {t('simulatorEditableHint') || 'Click a price to override'}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors">
+            <span className="text-xl leading-none">&times;</span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          <section className="space-y-2">
+            <h4 className="text-xs uppercase tracking-wider text-fg-secondary font-semibold">
+              {t('breakdownBatchRecipe').replace('{yield}', `${yieldQty} ${yieldUnit}`)}
+            </h4>
+            {rows.length === 0 ? (
+              <p className="text-sm text-fg-secondary italic py-2">{t('noRecipeYet')}</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-fg-secondary uppercase tracking-wider" style={{ borderBottom: '1px solid var(--divider)' }}>
+                    <th className="py-2 font-medium">{t('ingredient')}</th>
+                    <th className="py-2 font-medium text-right">{t('qty')}</th>
+                    <th className="py-2 font-medium text-right">{t('unitCost')}</th>
+                    <th className="py-2 font-medium text-right">{t('lineCost')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const canEdit = editable && r.stockId != null;
+                    return (
+                      <tr key={r.id} style={{ borderBottom: '1px solid var(--divider)' }}>
+                        <td className="py-2 font-medium text-fg-primary">
+                          <div className="flex items-center gap-2.5">
+                            {r.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={r.imageUrl} alt="" className="w-7 h-7 rounded-md object-cover shrink-0" />
+                            ) : (
+                              <div className="w-7 h-7 rounded-md bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
+                                <ImageIcon className="w-4 h-4 text-fg-tertiary" />
+                              </div>
+                            )}
+                            <span className="truncate">{r.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-2 text-right font-mono text-fg-primary">
+                          {r.qty} <span className="text-fg-secondary text-xs">{r.stockUnit}</span>
+                        </td>
+                        <td className="py-2 text-right">
+                          {canEdit ? (
+                            <div
+                              className="inline-flex items-center gap-1 h-8 px-2 rounded-md font-mono"
+                              style={{
+                                border: `1px solid ${r.overridden ? 'var(--brand-500)' : 'var(--divider)'}`,
+                                background: 'var(--surface)',
+                              }}
+                            >
+                              <NumberInput
+                                min={0}
+                                value={r.unitCost}
+                                onChange={(v) => onEditStockCost!(r.stockId!, v)}
+                                className="w-24 bg-transparent border-0 outline-none text-sm text-right tabular-nums"
+                              />
+                              <span className="text-fg-secondary text-xs whitespace-nowrap">
+                                &#8362;/{r.stockUnit}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="font-mono text-fg-secondary">
+                              {r.unitCost.toFixed(4)} &#8362;/{r.stockUnit}
+                            </span>
+                          )}
+                          {r.overridden && (
+                            <div className="text-[10px] text-fg-tertiary mt-1 line-through tabular-nums">
+                              {r.baseUnitCost.toFixed(4)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 text-right font-mono text-fg-primary">
+                          {r.lineCost.toFixed(2)} &#8362;
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ background: 'var(--surface-subtle)' }}>
+                    <td colSpan={3} className="py-2 text-right font-semibold text-fg-primary">
+                      {t('breakdownBatchCost')}
+                    </td>
+                    <td className="py-2 text-right font-mono font-bold text-fg-primary">
+                      {batchCost.toFixed(2)} &#8362;
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="text-xs uppercase tracking-wider text-fg-secondary font-semibold">
+              {t('breakdownPerUnit')}
+            </h4>
+            <div className="px-3 py-3 rounded-lg space-y-1 font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
+              <div className="text-fg-secondary">
+                {batchCost.toFixed(2)} &#8362; &divide; {yieldQty} {yieldUnit}
+              </div>
+              <div className="text-fg-primary font-semibold">
+                = {costPerUnit.toFixed(4)} &#8362;/{yieldUnit}
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="text-xs uppercase tracking-wider text-fg-secondary font-semibold">
+              {t('breakdownLineCost')}
+            </h4>
+            <div className="px-3 py-3 rounded-lg space-y-1 font-mono text-sm" style={{ background: 'var(--surface-subtle)' }}>
+              <div className="text-fg-secondary">
+                {baseQty} {baseUnit}
+                {effectiveInYieldUnit !== baseQty && (
+                  <span> = {effectiveInYieldUnit.toFixed(4)} {yieldUnit}</span>
+                )}
+              </div>
+              <div className="text-fg-secondary">
+                &times; {costPerUnit.toFixed(4)} &#8362;/{yieldUnit}
+              </div>
+              <div className="text-fg-primary font-semibold">
+                = {lineCost.toFixed(2)} &#8362;
+              </div>
+            </div>
+          </section>
+
+          <p className="text-xs text-fg-tertiary italic">
+            {t('breakdownSanityHint')}
+          </p>
+        </div>
+
+        <div
+          className="px-5 py-3 border-t flex items-center justify-end shrink-0"
+          style={{ borderColor: 'var(--divider)' }}
+        >
+          <button onClick={onClose} className="btn-secondary text-sm">
+            {t('close')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
