@@ -280,22 +280,32 @@ export default function MenuItemTabOptions({
                   const ov = overrideFor(o.id);
                   const subtitle = formatValueSubtitle(ov?.sku || o.sku);
                   const displayPrice = ov?.price ?? o.price ?? 0;
+                  const isComboOnly = ov?.is_combo_only ?? o.is_combo_only ?? false;
                   return (
                     <div
                       key={o.id}
                       className="flex items-center justify-between p-[var(--s-3)] bg-[var(--surface-2)] rounded-r-md"
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex items-center gap-[var(--s-2)]">
                         <div className="text-fs-sm font-medium text-[var(--fg)]">{o.name}</div>
+                        {isComboOnly && (
+                          <Badge tone="neutral">{t('comboOnlyBadge') || 'Combo seul'}</Badge>
+                        )}
                         {subtitle && (
                           <div className="text-fs-xs text-[var(--fg-muted)] font-mono tabular-nums">
                             {subtitle}
                           </div>
                         )}
                       </div>
-                      <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
-                        ₪{displayPrice.toFixed(2)}
-                      </span>
+                      {isComboOnly ? (
+                        <span className="text-fs-xs italic text-[var(--fg-muted)]">
+                          {t('comboOnlyPriceLabel') || 'Tarif inclus dans le combo'}
+                        </span>
+                      ) : (
+                        <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                          ₪{displayPrice.toFixed(2)}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
