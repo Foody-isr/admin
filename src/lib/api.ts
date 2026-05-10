@@ -3890,3 +3890,50 @@ export async function deleteStockTransactions(restaurantId: number, ids: number[
     body: JSON.stringify({ ids }),
   });
 }
+
+// ─── Global Search ──────────────────────────────────────────────────────────
+
+export type SearchGroupType = 'item' | 'order' | 'customer' | 'stock';
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
+export interface SearchGroup {
+  type: SearchGroupType;
+  label: string;
+  items: SearchResult[];
+}
+
+export interface SearchResponse {
+  query: string;
+  groups: SearchGroup[];
+}
+
+/**
+ * Global search across Articles, Commandes, Clients, Stock for a restaurant.
+ * Server returns empty groups for queries shorter than 2 chars; clients should
+ * skip the call in that case to avoid round trips.
+ */
+export async function searchGlobal(
+  restaurantId: number,
+  q: string,
+  signal?: AbortSignal,
+): Promise<SearchResponse> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    'X-Restaurant-ID': String(restaurantId),
+  };
+  const url = `${API_URL}/api/v1/restaurants/${restaurantId}/search?q=${encodeURIComponent(q)}&limit=5`;
+  const res = await fetch(url, { headers, signal });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Search failed (${res.status})`);
+  }
+  return res.json();
+}
