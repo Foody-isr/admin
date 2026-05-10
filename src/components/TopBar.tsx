@@ -6,11 +6,11 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { useI18n } from '@/lib/i18n';
+import SearchTriggerButton from '@/components/search/SearchTriggerButton';
 import {
   ChevronRightIcon,
   ChevronDownIcon,
   BellIcon,
-  SearchIcon,
   SunIcon,
   MoonIcon,
   LogOutIcon,
@@ -82,20 +82,8 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
 
       <div className="flex-1" />
 
-      {/* Search input-group */}
-      <div
-        className="hidden md:flex items-center gap-[var(--s-2)] px-[var(--s-3)] h-9 w-80 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md transition-colors focus-within:border-[var(--brand-500)] focus-within:shadow-ring"
-      >
-        <SearchIcon className="w-4 h-4 shrink-0 text-[var(--fg-subtle)]" />
-        <input
-          type="search"
-          placeholder={t('searchCommands') || 'Rechercher, ou tapez une commande…'}
-          className="flex-1 h-full bg-transparent border-none outline-none text-fs-sm placeholder:text-[var(--fg-subtle)]"
-        />
-        <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded-r-xs bg-[var(--surface-2)] text-[var(--fg-muted)] border border-[var(--line)]">
-          ⌘K
-        </kbd>
-      </div>
+      {/* Search trigger */}
+      <SearchTriggerButton />
 
       {/* Bell */}
       <button
