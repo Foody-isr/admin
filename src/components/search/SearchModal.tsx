@@ -30,6 +30,22 @@ function FallbackIcon({ type }: { type: SearchGroupType }) {
   return <Icon className="w-4 h-4 text-[var(--fg-subtle)]" />;
 }
 
+function ResultThumbnail({ src, type }: { src?: string; type: SearchGroupType }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) {
+    return <FallbackIcon type={type} />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return (
+    <img
+      src={src}
+      alt=""
+      onError={() => setFailed(true)}
+      className="w-full h-full object-cover"
+    />
+  );
+}
+
 function highlight(title: string, q: string): React.ReactNode {
   if (!q) return title;
   const lowerTitle = title.toLowerCase();
@@ -38,7 +54,7 @@ function highlight(title: string, q: string): React.ReactNode {
   return (
     <>
       {title.slice(0, idx)}
-      <span className="bg-[var(--brand-500)]/30 text-[var(--fg)] rounded-sm px-0.5">
+      <span className="bg-[var(--brand-500)]/30 text-[var(--fg)] rounded-sm">
         {title.slice(idx, idx + q.length)}
       </span>
       {title.slice(idx + q.length)}
@@ -184,12 +200,7 @@ export default function SearchModal() {
                     }`}
                   >
                     <div className="w-8 h-8 shrink-0 rounded-md bg-[var(--surface-2)] border border-[var(--line)] overflow-hidden flex items-center justify-center">
-                      {r.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={r.image} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <FallbackIcon type={g.type} />
-                      )}
+                      <ResultThumbnail src={r.image} type={g.type} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-fs-sm text-[var(--fg)] truncate">{highlight(r.title, query.trim())}</div>
