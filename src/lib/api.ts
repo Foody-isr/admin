@@ -3505,6 +3505,26 @@ export async function reorderFloorPlans(restaurantId: number, ids: number[]): Pr
 }
 
 
+// ─── Table QR Codes ───────────────────────────────────────────────────────────
+
+export interface TableQrPayload {
+  url: string;
+  signature: string;
+  tableId: string;
+}
+
+export async function generateTableQr(
+  restaurantId: number,
+  tableCode: string,
+): Promise<TableQrPayload> {
+  return apiFetch<TableQrPayload>(
+    `/api/v1/restaurants/${restaurantId}/tables/${encodeURIComponent(tableCode)}/qr?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
+
 // ─── Rotation Schedule ────────────────────────────────────────────────────────
 
 export interface RotationSchedule {

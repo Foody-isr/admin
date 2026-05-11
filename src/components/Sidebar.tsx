@@ -40,6 +40,7 @@ import {
   LayoutGrid,
   Armchair,
   Route,
+  QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -234,6 +235,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     pathname.startsWith(`${base}/settings/`) ||
     pathname.startsWith(`${base}/restaurant/floor-plans`) ||
     pathname.startsWith(`${base}/restaurant/table-status`) ||
+    pathname.startsWith(`${base}/restaurant/table-qr`) ||
     pathname.startsWith(`${base}/restaurant/workflow`);
   const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean }[] }[] = [
     {
@@ -259,6 +261,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       items: [
         { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
         { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
+        { id: 'table-qr', href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes', icon: QrCode },
         { id: 'workflow', href: `${base}/restaurant/workflow`, labelKey: 'workflow', icon: Route },
       ],
     },
