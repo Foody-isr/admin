@@ -37,6 +37,9 @@ import {
   DollarSign,
   Printer,
   Bell,
+  LayoutGrid,
+  Armchair,
+  Route,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -227,7 +230,11 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   // groups so the user sees a single sidebar instead of two stacked. Mirrors
   // design-reference/screens/settings.jsx SettingsShell groups.
   const isSettingsRoute =
-    pathname === `${base}/settings` || pathname.startsWith(`${base}/settings/`);
+    pathname === `${base}/settings` ||
+    pathname.startsWith(`${base}/settings/`) ||
+    pathname.startsWith(`${base}/restaurant/floor-plans`) ||
+    pathname.startsWith(`${base}/restaurant/table-status`) ||
+    pathname.startsWith(`${base}/restaurant/workflow`);
   const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean }[] }[] = [
     {
       groupKey: 'settingsGroupAccount',
@@ -245,6 +252,14 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'scheduled', href: `${base}/settings/scheduled-orders`, labelKey: 'scheduledOrders', icon: CalendarClock },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupRestaurant',
+      items: [
+        { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
+        { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
+        { id: 'workflow', href: `${base}/restaurant/workflow`, labelKey: 'workflow', icon: Route },
       ],
     },
     {
