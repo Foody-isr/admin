@@ -42,9 +42,13 @@ interface Tab {
   active?: boolean;
 }
 
+// The "active" tab sends an explicit status set instead of `active=true`
+// because the server's `active=true` shortcut still includes `served` for
+// backward compatibility with older POS clients — which would otherwise
+// inflate the badge count while the table filters them out.
 const TABS: Tab[] = [
   { key: 'all', labelKey: 'all', active: undefined },
-  { key: 'active', labelKey: 'active', active: true },
+  { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
   { key: 'scheduled', labelKey: 'scheduled', statuses: 'scheduled' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
@@ -242,13 +246,7 @@ export default function OrdersPage() {
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
   const [page, setPage] = useState(0);
 
-  // Mirrors foodypos: on the "Active" tab, hide orders that have reached a
-  // terminal state (served / received / picked_up / delivered / cancelled / rejected).
-  // The server includes `served` in the default active filter for backward
-  // compatibility with other clients, so we filter here.
-  const orders = activeTab === 'active'
-    ? rawOrders.filter((o) => !['served', 'received', 'picked_up', 'delivered', 'cancelled', 'rejected'].includes(o.status))
-    : rawOrders;
+  const orders = rawOrders;
   const setOrders = setRawOrders;
 
   // Selected order for right panel
@@ -271,7 +269,7 @@ export default function OrdersPage() {
       sort_dir: 'desc',
     };
     if (tab.statuses) params.status = tab.statuses;
-    if (tab.active) params.active = true;
+    else if (tab.active) params.active = true;
     if (searchSubmitted) params.q = searchSubmitted;
     if (typeFilter) params.type = typeFilter;
     if (paymentFilter) params.payment_status = paymentFilter;
@@ -382,20 +380,17 @@ export default function OrdersPage() {
       });
   };
 
-  const handleCloseOrder = (orderId: number, orderType: string, status: string) => {
+  const handleCloseOrder = (orderId: number, orderType: string) => {
     if (!confirm(t('closeOrderConfirm'))) return;
-    const isTerminalStatus = ['served', 'received', 'picked_up', 'delivered'].includes(status);
-    if (!isTerminalStatus) {
-      runAction(orderId, async () => {
-        if (orderType === 'delivery') {
-          await markOrderDelivered(rid, orderId);
-        } else {
-          // mark-served works from in_kitchen and ready (server validation).
-          // mark-received only works from ready, so prefer mark-served here.
-          await markOrderServed(rid, orderId);
-        }
-      });
-    }
+    runAction(orderId, async () => {
+      if (orderType === 'delivery') {
+        await markOrderDelivered(rid, orderId);
+      } else {
+        // mark-served works from in_kitchen and ready (server validation).
+        // mark-received only works from ready, so prefer mark-served here.
+        await markOrderServed(rid, orderId);
+      }
+    });
     setSelectedId(null);
   };
 
@@ -723,7 +718,7 @@ export default function OrdersPage() {
         onOutForDelivery={() => selectedOrder && handleOutForDelivery(selectedOrder.id)}
         onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
-        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type, selectedOrder.status)}
+        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
       />
 
       {/* Take Payment dialog */}
@@ -868,7 +863,10 @@ function OrderDetailDrawer({
 
   const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
   const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
-  const canCloseOrder = !isCancelled && order.payment_status === 'paid';
+  // "Close order" transitions a paid in-progress order to served/delivered.
+  // Once already terminal there is nothing to do, so hide the button — clicking
+  // it was a no-op (the action early-exits) which read as a bug.
+  const canCloseOrder = !isCancelled && !isTerminal && order.payment_status === 'paid';
   const canCancelOrder = !isCancelled && !isTerminal;
 
   const toneVar: 'warning' | 'success' | 'danger' | 'info' =
