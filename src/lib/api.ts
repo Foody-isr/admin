@@ -3900,6 +3900,7 @@ export interface SearchResult {
   title: string;
   subtitle: string;
   url: string;
+  image?: string;
 }
 
 export interface SearchGroup {

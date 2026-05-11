@@ -2,15 +2,32 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { SearchIcon, XIcon } from 'lucide-react';
+import {
+  SearchIcon,
+  XIcon,
+  UtensilsCrossedIcon,
+  ReceiptIcon,
+  UserIcon,
+  PackageIcon,
+} from 'lucide-react';
 import { useGlobalSearch } from '@/lib/use-global-search';
 import { useSearchShortcut } from '@/lib/search-shortcut';
-import { SearchResult } from '@/lib/api';
+import { SearchResult, SearchGroupType } from '@/lib/api';
 
 interface FlatRow {
   groupIndex: number;
   itemIndex: number;
   result: SearchResult;
+}
+
+function FallbackIcon({ type }: { type: SearchGroupType }) {
+  const Icon = {
+    item: UtensilsCrossedIcon,
+    order: ReceiptIcon,
+    customer: UserIcon,
+    stock: PackageIcon,
+  }[type];
+  return <Icon className="w-4 h-4 text-[var(--fg-subtle)]" />;
 }
 
 function highlight(title: string, q: string): React.ReactNode {
@@ -119,7 +136,7 @@ export default function SearchModal() {
             onKeyDown={handleKey}
             placeholder="Tapez pour rechercher articles, commandes, clients, stock…"
             className="flex-1 bg-transparent border-none outline-none text-fs-md text-[var(--fg)] placeholder:text-[var(--fg-subtle)]"
-            type="search"
+            type="text"
             autoComplete="off"
           />
           <button
@@ -166,6 +183,14 @@ export default function SearchModal() {
                       isActive ? 'bg-[var(--brand-500)]/12' : ''
                     }`}
                   >
+                    <div className="w-8 h-8 shrink-0 rounded-md bg-[var(--surface-2)] border border-[var(--line)] overflow-hidden flex items-center justify-center">
+                      {r.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.image} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <FallbackIcon type={g.type} />
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-fs-sm text-[var(--fg)] truncate">{highlight(r.title, query.trim())}</div>
                       <div className="text-fs-xs text-[var(--fg-muted)] truncate">{r.subtitle}</div>
@@ -179,11 +204,20 @@ export default function SearchModal() {
         </div>
 
         {/* Footer hint */}
-        <div className="hidden sm:flex items-center gap-3 px-5 py-2 border-t border-[var(--line)] text-[10px] text-[var(--fg-subtle)]">
-          <span><kbd className="font-mono bg-[var(--surface-2)] border border-[var(--line)] rounded px-1">↑</kbd>{' '}
-            <kbd className="font-mono bg-[var(--surface-2)] border border-[var(--line)] rounded px-1">↓</kbd> naviguer</span>
-          <span><kbd className="font-mono bg-[var(--surface-2)] border border-[var(--line)] rounded px-1">↵</kbd> ouvrir</span>
-          <span><kbd className="font-mono bg-[var(--surface-2)] border border-[var(--line)] rounded px-1">esc</kbd> fermer</span>
+        <div className="hidden sm:flex items-center gap-4 px-5 py-2.5 border-t border-[var(--line)] text-fs-xs text-[var(--fg-muted)]">
+          <span className="flex items-center gap-1.5">
+            <kbd className="font-mono text-[11px] bg-[var(--surface-2)] border border-[var(--line)] rounded px-1.5 py-0.5">↑</kbd>
+            <kbd className="font-mono text-[11px] bg-[var(--surface-2)] border border-[var(--line)] rounded px-1.5 py-0.5">↓</kbd>
+            naviguer
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="font-mono text-[11px] bg-[var(--surface-2)] border border-[var(--line)] rounded px-1.5 py-0.5">↵</kbd>
+            ouvrir
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="font-mono text-[11px] bg-[var(--surface-2)] border border-[var(--line)] rounded px-1.5 py-0.5">esc</kbd>
+            fermer
+          </span>
         </div>
       </div>
     </div>
