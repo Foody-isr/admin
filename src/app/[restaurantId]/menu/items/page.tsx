@@ -19,6 +19,8 @@ import {
   Tag,
   Trash2,
   Sparkles,
+  Settings,
+  ListPlus,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -26,6 +28,7 @@ import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
+import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -139,6 +142,8 @@ export default function ItemLibraryPage() {
     mode: 'filter',
   });
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [optionsDrawerOpen, setOptionsDrawerOpen] = useState(false);
+  const [modifiersDrawerOpen, setModifiersDrawerOpen] = useState(false);
 
   // KPI collapse + info modal — Figma App.tsx:552, 570
   const [showKpis, setShowKpis] = useState(true);
@@ -449,6 +454,22 @@ export default function ItemLibraryPage() {
               >
                 <Tag size={16} />
                 {t('assignCategory') || 'Assigner une catégorie'}
+              </button>
+              <button
+                onClick={() => setOptionsDrawerOpen(true)}
+                disabled={bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
+              >
+                <ListPlus size={16} />
+                {t('assignOptions')}
+              </button>
+              <button
+                onClick={() => setModifiersDrawerOpen(true)}
+                disabled={bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
+              >
+                <Settings size={16} />
+                {t('assignModifiers')}
               </button>
               <button
                 onClick={handleBulkDelete}
@@ -951,6 +972,30 @@ export default function ItemLibraryPage() {
         onCreateCategory={handleCreateCategory}
         onEditCategory={handleEditCategory}
         processing={bulkProcessing}
+      />
+
+      <AssignSetDrawer
+        open={optionsDrawerOpen}
+        onClose={() => setOptionsDrawerOpen(false)}
+        mode="options"
+        restaurantId={rid}
+        selectedItems={paged.filter((i) => selected.has(i.id))}
+        onApplied={() => {
+          setSelected(new Set());
+          reload();
+        }}
+      />
+
+      <AssignSetDrawer
+        open={modifiersDrawerOpen}
+        onClose={() => setModifiersDrawerOpen(false)}
+        mode="modifiers"
+        restaurantId={rid}
+        selectedItems={paged.filter((i) => selected.has(i.id))}
+        onApplied={() => {
+          setSelected(new Set());
+          reload();
+        }}
       />
 
       {/* Filters Drawer (nested: index → category / status) */}
