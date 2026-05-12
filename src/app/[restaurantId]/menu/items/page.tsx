@@ -18,6 +18,7 @@ import {
   Eye,
   Tag,
   Trash2,
+  Sparkles,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -501,7 +502,16 @@ export default function ItemLibraryPage() {
             <ChevronDown className="w-4 h-4" />
           </button>
 
-          <ActionsDropdown actions={[{ label: t('refresh'), onClick: reload }]} />
+          <ActionsDropdown
+            actions={[
+              {
+                label: t('importMenuWithAI'),
+                icon: <Sparkles size={16} />,
+                onClick: () => router.push(`/${rid}/menu/import`),
+              },
+              { label: t('refresh'), onClick: reload },
+            ]}
+          />
         </div>
       </header>
 
