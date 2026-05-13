@@ -2617,6 +2617,95 @@ export async function importDelivery(restaurantId: number, file: File, lang?: st
   return data.extraction;
 }
 
+export interface DeliveryStreamMeta {
+  supplier_name?: string;
+  delivery_date?: string;
+}
+
+export interface DeliveryStreamLateFlags {
+  duplicate_row_indexes: number[];
+  deduped_indexes: number[];
+}
+
+export interface DeliveryStreamDone {
+  total: number;
+  raw_notes?: string;
+  late_flags?: DeliveryStreamLateFlags;
+  usage?: { input_tokens: number; output_tokens: number };
+}
+
+export interface DeliveryStreamHandlers {
+  onMeta: (m: DeliveryStreamMeta) => void;
+  onItem: (item: DeliveryExtraction['items'][number]) => void;
+  onProgress: (p: { count: number }) => void;
+  onDone: (d: DeliveryStreamDone) => void;
+  onError: (e: { message: string }) => void;
+}
+
+export async function importDeliveryStream(
+  restaurantId: number,
+  file: File,
+  opts: { lang?: string; supplierId?: number },
+  handlers: DeliveryStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (opts.lang) params.set('lang', opts.lang);
+  if (opts.supplierId) params.set('supplier_id', String(opts.supplierId));
+
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery/stream?${params}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Stream failed (${res.status})`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buf = '';
+  const dispatch = (event: string, data: string) => {
+    let payload: unknown;
+    try { payload = JSON.parse(data); } catch { return; }
+    switch (event) {
+      case 'meta':     handlers.onMeta(payload as DeliveryStreamMeta); break;
+      case 'item':     handlers.onItem(payload as DeliveryExtraction['items'][number]); break;
+      case 'progress': handlers.onProgress(payload as { count: number }); break;
+      case 'done':     handlers.onDone(payload as DeliveryStreamDone); break;
+      case 'error':    handlers.onError(payload as { message: string }); break;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+
+    let sep = buf.indexOf('\n\n');
+    while (sep >= 0) {
+      const frame = buf.slice(0, sep);
+      buf = buf.slice(sep + 2);
+      let event = '';
+      let data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event: ')) event = line.slice(7);
+        else if (line.startsWith('data: ')) data = data ? data + '\n' + line.slice(6) : line.slice(6);
+      }
+      if (event) dispatch(event, data);
+      sep = buf.indexOf('\n\n');
+    }
+  }
+}
+
 export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
   await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
