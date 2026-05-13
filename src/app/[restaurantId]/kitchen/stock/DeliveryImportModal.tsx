@@ -171,6 +171,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [savingDraft, setSavingDraft] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamError, setStreamError] = useState('');
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
@@ -239,6 +240,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setPreviewType(file.type);
     setStep('review');
     setStreaming(true);
+    setSummaryDismissed(false);
 
     const ac = new AbortController();
     abortRef.current = ac;
@@ -648,6 +650,22 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             onRetry={handleUpload}
             t={t}
           />
+          {!streaming && !streamError && (
+            <AiSummaryBubble
+              items={editedItems}
+              supplier={
+                (selectedSupplierId === -1
+                  ? newSupplierName
+                  : selectedSupplierId > 0
+                    ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+                    : extraction?.supplier_name) ?? ''
+              }
+              vatRate={vatRate}
+              dismissed={summaryDismissed}
+              onDismiss={() => setSummaryDismissed(true)}
+              t={t}
+            />
+          )}
           <ItemsList
             editedItems={editedItems}
             formStates={formStates}
@@ -676,6 +694,22 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               onRetry={handleUpload}
               t={t}
             />
+            {!streaming && !streamError && (
+              <AiSummaryBubble
+                items={editedItems}
+                supplier={
+                  (selectedSupplierId === -1
+                    ? newSupplierName
+                    : selectedSupplierId > 0
+                      ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+                      : extraction?.supplier_name) ?? ''
+                }
+                vatRate={vatRate}
+                dismissed={summaryDismissed}
+                onDismiss={() => setSummaryDismissed(true)}
+                t={t}
+              />
+            )}
             <ItemsList
               editedItems={editedItems}
               formStates={formStates}
@@ -775,6 +809,67 @@ function ItemSkeleton({ delay = 0 }: { delay?: number }) {
           <div className="h-9 rounded bg-fg-tertiary/15" />
         </div>
       </div>
+    </div>
+  );
+}
+
+// AiSummaryBubble is a one-shot, computed-locally trust-builder shown above
+// the items list once the stream completes. It re-reads from the items
+// themselves so it stays accurate as the user edits.
+function AiSummaryBubble({
+  items, supplier, vatRate, dismissed, onDismiss, t,
+}: {
+  items: ConfirmDeliveryItemInput[];
+  supplier: string;
+  vatRate: number;
+  dismissed: boolean;
+  onDismiss: () => void;
+  t: (key: string) => string;
+}) {
+  if (dismissed) return null;
+  const active = items.filter((i) => !i.skipped);
+  if (active.length === 0) return null;
+
+  const totalHt = active.reduce((s, i) => s + (i.total_price ?? 0), 0);
+  const totalTtc = active.reduce((s, i) => {
+    const rate = i.vat_rate_override ?? vatRate;
+    return s + (i.total_price ?? 0) * (1 + rate / 100);
+  }, 0);
+  const fmt = (n: number) => n.toFixed(2);
+
+  const top = [...active]
+    .sort((a, b) => (b.total_price ?? 0) - (a.total_price ?? 0))
+    .slice(0, 3)
+    .map((i) => `${i.name} (${fmt(i.total_price ?? 0)} ₪)`)
+    .join(', ');
+
+  const readKey = supplier ? 'aiSummaryRead' : 'aiSummaryReadNoSupplier';
+  const readMsg = t(readKey)
+    .replace('{n}', String(active.length))
+    .replace('{supplier}', supplier)
+    .replace('{totalTtc}', fmt(totalTtc))
+    .replace('{totalHt}', fmt(totalHt));
+
+  return (
+    <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-start gap-3">
+      <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0 space-y-1">
+        <p className="text-sm text-fg-primary">{readMsg}</p>
+        {active.length >= 2 && (
+          <p className="text-xs text-fg-secondary">
+            {t('aiSummaryTopItems').replace('{items}', top)}
+          </p>
+        )}
+        <p className="text-xs text-fg-tertiary">{t('aiSummaryCheckTotal')}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="dismiss"
+        className="shrink-0 text-fg-tertiary hover:text-fg-primary text-lg leading-none px-1"
+      >
+        &times;
+      </button>
     </div>
   );
 }
