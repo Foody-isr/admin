@@ -170,7 +170,6 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   const [savingDraft, setSavingDraft] = useState(false);
   const [streaming, setStreaming] = useState(false);
-  const [streamCount, setStreamCount] = useState(0);
   const [streamError, setStreamError] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
@@ -240,7 +239,6 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setPreviewType(file.type);
     setStep('review');
     setStreaming(true);
-    setStreamCount(0);
 
     const ac = new AbortController();
     abortRef.current = ac;
@@ -302,7 +300,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             ? { ...prev, supplier_name: m.supplier_name ?? prev.supplier_name, delivery_date: m.delivery_date ?? prev.delivery_date }
             : prev),
           onItem: appendItem,
-          onProgress: ({ count }) => setStreamCount(count),
+          onProgress: () => {},
           onDone: (done) => { applyLateFlags(done); setStreaming(false); },
           onError: ({ message }) => { setStreamError(message); setStreaming(false); },
         },
@@ -322,7 +320,6 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setStreaming(false);
     setEditedItems([]);
     setFormStates([]);
-    setStreamCount(0);
     setStep('upload');
   };
 
@@ -645,7 +642,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         <div className={`w-1/2 overflow-y-auto p-4 hidden lg:block`}>
           <StreamingHeader
             streaming={streaming}
-            count={streamCount}
+            count={editedItems.length}
             error={streamError}
             onCancel={cancelStream}
             onRetry={handleUpload}
@@ -672,7 +669,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           <div className="flex-1 overflow-y-auto p-4 lg:hidden">
             <StreamingHeader
               streaming={streaming}
-              count={streamCount}
+              count={editedItems.length}
               error={streamError}
               onCancel={cancelStream}
               onRetry={handleUpload}
@@ -750,12 +747,17 @@ function StreamingHeader({
 }) {
   if (streaming) {
     return (
-      <div className="sticky top-0 z-10 mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
-        <SparklesIcon className="w-4 h-4 text-brand-500 animate-pulse" />
-        <span className="text-sm text-fg-primary flex-1">
+      <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
+        <SparklesIcon className="w-4 h-4 text-brand-500 animate-pulse shrink-0" />
+        <span className="text-sm text-fg-primary flex-1 flex items-center gap-2">
           {t('scanInProgress').replace('{n}', String(count))}
+          <span className="inline-flex gap-1 items-end">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" style={{ animationDelay: '-300ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" style={{ animationDelay: '-150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" />
+          </span>
         </span>
-        <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)]">
+        <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)] shrink-0">
           {t('cancelScan')}
         </button>
       </div>
