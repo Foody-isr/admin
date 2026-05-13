@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  importDelivery, confirmDelivery, listSuppliers, getRestaurantSettings,
+  importDeliveryStream, confirmDelivery, listSuppliers, getRestaurantSettings,
   getImportDraft, createImportDraft, deleteImportDraft,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
+  DeliveryStreamDone,
 } from '@/lib/api';
 
 import { SparklesIcon, FileTextIcon } from 'lucide-react';
@@ -168,6 +169,10 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   }, []);
   const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [streamCount, setStreamCount] = useState(0);
+  const [streamError, setStreamError] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
   useEffect(() => {
@@ -226,46 +231,99 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
   const handleUpload = async () => {
     if (!file) return;
-    setLoading(true);
+    setStreamError('');
+    setEditedItems([]);
+    setFormStates([]);
+    setReviewedItems(new Set());
+    setExtraction({ supplier_name: '', delivery_date: '', items: [], raw_notes: '' });
+    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewType(file.type);
+    setStep('review');
+    setStreaming(true);
+    setStreamCount(0);
+
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    const appendItem = (it: DeliveryExtraction['items'][number]) => {
+      const matched = it.matched_item_id ? stockItems.find((s) => s.id === it.matched_item_id) : null;
+      const line: ConfirmDeliveryItemInput = {
+        stock_item_id: it.matched_item_id ?? undefined,
+        name: it.translated_name || it.original_name,
+        original_name: it.original_name,
+        sku: it.sku || '',
+        quantity: it.quantity,
+        unit: it.unit,
+        category: it.category,
+        cost_per_unit: it.estimated_cost,
+        pack_count: it.pack_count ?? 0,
+        units_per_pack: it.units_per_pack ?? 0,
+        price_per_pack: it.price_per_pack || 0,
+        total_price: it.total_price || (it.estimated_cost * it.quantity),
+        unit_size: it.unit_size || 0,
+        unit_size_unit: it.unit_size_unit || '',
+        container_type: it.container_type || '',
+        unit_type: it.unit_type || '',
+        vat_rate_override: matched?.vat_rate_override ?? null,
+        row_index: it.row_index,
+        needs_review: it.needs_review,
+        review_reason: it.review_reason,
+      };
+      setEditedItems((prev) => [...prev, line]);
+      setFormStates((prev) => [...prev, lineToStockInput(line)]);
+    };
+
+    const applyLateFlags = (done: DeliveryStreamDone) => {
+      const flags = done.late_flags;
+      if (flags) {
+        setEditedItems((prev) => prev.map((item, idx) => {
+          let next = item;
+          if (flags.duplicate_row_indexes?.includes(idx)) {
+            next = {
+              ...next,
+              needs_review: true,
+              review_reason: next.review_reason || 'duplicate_row',
+            };
+          }
+          if (flags.deduped_indexes?.includes(idx)) {
+            next = { ...next, skipped: true };
+          }
+          return next;
+        }));
+      }
+      setExtraction((prev) => prev ? { ...prev, raw_notes: done.raw_notes ?? prev.raw_notes } : prev);
+    };
+
     try {
-      const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId > 0 ? selectedSupplierId : undefined);
-      setExtraction(result);
-      const newItems: ConfirmDeliveryItemInput[] = result.items.map((i) => {
-        const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
-        return {
-          stock_item_id: i.matched_item_id ?? undefined,
-          name: i.translated_name || i.original_name,
-          original_name: i.original_name,
-          sku: i.sku || '',
-          quantity: i.quantity,
-          unit: i.unit,
-          category: i.category,
-          cost_per_unit: i.estimated_cost,
-          pack_count: i.pack_count ?? 0,
-          units_per_pack: i.units_per_pack ?? 0,
-          price_per_pack: i.price_per_pack || 0,
-          total_price: i.total_price || (i.estimated_cost * i.quantity),
-          unit_size: i.unit_size || 0,
-          unit_size_unit: i.unit_size_unit || '',
-          container_type: i.container_type || '',
-          unit_type: i.unit_type || '',
-          vat_rate_override: matched?.vat_rate_override ?? null,
-          row_index: i.row_index,
-          needs_review: i.needs_review,
-          review_reason: i.review_reason,
-        };
-      });
-      setEditedItems(newItems);
-      setFormStates(newItems.map(lineToStockInput));
-      setReviewedItems(new Set());
-      setPreviewUrl(URL.createObjectURL(file));
-      setPreviewType(file.type);
-      setStep('review');
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
+      await importDeliveryStream(rid, file,
+        { lang: locale, supplierId: selectedSupplierId > 0 ? selectedSupplierId : undefined },
+        {
+          onMeta: (m) => setExtraction((prev) => prev
+            ? { ...prev, supplier_name: m.supplier_name ?? prev.supplier_name, delivery_date: m.delivery_date ?? prev.delivery_date }
+            : prev),
+          onItem: appendItem,
+          onProgress: ({ count }) => setStreamCount(count),
+          onDone: (done) => { applyLateFlags(done); setStreaming(false); },
+          onError: ({ message }) => { setStreamError(message); setStreaming(false); },
+        },
+        ac.signal,
+      );
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setStreamError((err as Error).message);
+      }
+      setStreaming(false);
     }
+  };
+
+  const cancelStream = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStreaming(false);
+    setEditedItems([]);
+    setFormStates([]);
+    setStreamCount(0);
+    setStep('upload');
   };
 
   // Count of flagged rows that haven't been edited/acknowledged and aren't skipped.
@@ -503,14 +561,28 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               </div>
               {/* Desktop action group — buttons live in a sticky footer on mobile (see bottom of modal). */}
               <div className="hidden lg:flex items-center gap-2 shrink-0">
-                <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
-                <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-secondary text-sm">
+                <button
+                  onClick={() => { if (streaming) { cancelStream(); return; } setStep('upload'); }}
+                  className="btn-secondary text-sm"
+                >
+                  {t('back')}
+                </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={savingDraft || streaming}
+                  title={streaming ? t('waitingForScan') : undefined}
+                  className="btn-secondary text-sm"
+                >
                   {savingDraft ? t('saving') : t('saveDraft')}
                 </button>
                 <button
                   onClick={handleConfirm}
-                  disabled={loading || unreviewedFlaggedCount > 0}
-                  title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+                  disabled={loading || unreviewedFlaggedCount > 0 || streaming}
+                  title={
+                    streaming ? t('waitingForScan') :
+                    unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
+                    undefined
+                  }
                   className="btn-primary text-sm"
                 >
                   {loading ? t('confirming') : t('confirmImport')}
@@ -571,6 +643,14 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
         {/* ─ Items editor (right on LTR, left on RTL) ─ */}
         <div className={`w-1/2 overflow-y-auto p-4 hidden lg:block`}>
+          <StreamingHeader
+            streaming={streaming}
+            count={streamCount}
+            error={streamError}
+            onCancel={cancelStream}
+            onRetry={handleUpload}
+            t={t}
+          />
           <ItemsList
             editedItems={editedItems}
             formStates={formStates}
@@ -590,6 +670,14 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         {/* ─ Mobile items view ─ */}
         {reviewTab === 'items' && (
           <div className="flex-1 overflow-y-auto p-4 lg:hidden">
+            <StreamingHeader
+              streaming={streaming}
+              count={streamCount}
+              error={streamError}
+              onCancel={cancelStream}
+              onRetry={handleUpload}
+              t={t}
+            />
             <ItemsList
               editedItems={editedItems}
               formStates={formStates}
@@ -618,22 +706,27 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         style={{ background: 'var(--surface-subtle)' }}
       >
         <button
-          onClick={() => { setStep('upload'); }}
+          onClick={() => { if (streaming) { cancelStream(); return; } setStep('upload'); }}
           className="text-fg-secondary hover:text-fg-primary text-sm px-2 shrink-0"
         >
           {t('back')}
         </button>
         <button
           onClick={handleSaveDraft}
-          disabled={savingDraft}
+          disabled={savingDraft || streaming}
+          title={streaming ? t('waitingForScan') : undefined}
           className="btn-secondary text-sm flex-1 min-w-0"
         >
           {savingDraft ? t('saving') : t('saveDraft')}
         </button>
         <button
           onClick={handleConfirm}
-          disabled={loading || unreviewedFlaggedCount > 0}
-          title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+          disabled={loading || unreviewedFlaggedCount > 0 || streaming}
+          title={
+            streaming ? t('waitingForScan') :
+            unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
+            undefined
+          }
           className="btn-primary text-sm flex-1 min-w-0"
         >
           {loading ? t('confirming') : t('confirmImport')}
@@ -644,6 +737,44 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 }
 
 // ─── Items List (shared between desktop and mobile) ───────────────────────
+
+function StreamingHeader({
+  streaming, count, error, onCancel, onRetry, t,
+}: {
+  streaming: boolean;
+  count: number;
+  error: string;
+  onCancel: () => void;
+  onRetry: () => void;
+  t: (key: string) => string;
+}) {
+  if (streaming) {
+    return (
+      <div className="sticky top-0 z-10 mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
+        <SparklesIcon className="w-4 h-4 text-brand-500 animate-pulse" />
+        <span className="text-sm text-fg-primary flex-1">
+          {t('scanInProgress').replace('{n}', String(count))}
+        </span>
+        <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)]">
+          {t('cancelScan')}
+        </button>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex items-center gap-3">
+        <span className="text-sm text-amber-600 flex-1">
+          {t('scanInterrupted').replace('{n}', String(count))}
+        </span>
+        <button onClick={onRetry} className="text-xs px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-500/20 text-amber-600">
+          {t('retry')}
+        </button>
+      </div>
+    );
+  }
+  return null;
+}
 
 function ItemsList({
   editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed,
@@ -680,7 +811,7 @@ function ItemsList({
         return (
           <div
             key={idx}
-            className={`p-4 rounded-lg space-y-3 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
+            className={`p-4 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-1 duration-200 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
             style={{ background: 'var(--surface-subtle)', opacity: isSkipped ? 0.5 : 1 }}
           >
             {isFlagged && (
