@@ -887,8 +887,8 @@ function ItemsList({
                     {item.name || item.original_name || '—'}
                   </h4>
                   {item.original_name && item.original_name !== item.name && (
-                    <p className="text-sm text-fg-secondary truncate" dir="auto">
-                      {item.original_name}
+                    <p className="text-sm text-fg-secondary truncate">
+                      <bdi>{item.original_name}</bdi>
                     </p>
                   )}
                 </div>
