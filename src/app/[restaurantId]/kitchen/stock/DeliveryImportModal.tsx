@@ -2,16 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  importDeliveryStream, confirmDelivery, listSuppliers, getRestaurantSettings,
+  importDeliveryStream, importDeliveryVoice, confirmDelivery, listSuppliers, getRestaurantSettings,
   getImportDraft, createImportDraft, deleteImportDraft, chatDeliveryEdit,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
   DeliveryStreamDone, ChatItemSnapshot, ChatTurn, ChatPatch,
 } from '@/lib/api';
 
-import { SparklesIcon, FileTextIcon, SendHorizonalIcon } from 'lucide-react';
+import { SparklesIcon, FileTextIcon, SendHorizonalIcon, MicIcon, ScanIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import { FoodySpinner } from '@/components/FoodySpinner';
+import VoiceRecorder from '@/components/VoiceRecorder';
 import StockQuantityForm, {
   StockInput, BaseUnit, PackagingUnit, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
@@ -192,6 +193,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   }, []);
   const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [importMode, setImportMode] = useState<'scan' | 'voice'>('scan');
   const [streaming, setStreaming] = useState(false);
   const [streamError, setStreamError] = useState('');
   const [summaryDismissed, setSummaryDismissed] = useState(false);
@@ -343,6 +345,67 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
       if (!(err instanceof DOMException && err.name === 'AbortError')) {
         setStreamError((err as Error).message);
       }
+      setStreaming(false);
+    }
+  };
+
+  // ── Voice import: record → transcribe → review ────────────────────────
+  // Reuses the same streaming-UI state as the bill-scan path: while the
+  // backend transcribes + parses we flip `streaming=true` so the user sees
+  // the FoodySpinner banner with cycling verbs. When the extraction arrives,
+  // we batch-insert every item just like a list arriving at the end.
+  const handleVoiceSubmit = async (audioBlob: Blob, mediaType: string) => {
+    setStreamError('');
+    setEditedItems([]);
+    setFormStates([]);
+    setReviewedItems(new Set());
+    setExtraction({ supplier_name: '', delivery_date: '', items: [], raw_notes: '' });
+    setPreviewUrl(null);
+    setPreviewType('');
+    setReviewTab('items');
+    setStep('review');
+    setStreaming(true);
+    setSummaryDismissed(false);
+
+    try {
+      const result = await importDeliveryVoice(
+        rid,
+        audioBlob,
+        mediaType,
+        locale,
+        selectedSupplierId > 0 ? selectedSupplierId : undefined,
+      );
+      setExtraction(result);
+      const newItems: ConfirmDeliveryItemInput[] = result.items.map((i) => {
+        const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
+        return {
+          stock_item_id: i.matched_item_id ?? undefined,
+          name: i.translated_name || i.original_name,
+          original_name: i.original_name,
+          sku: i.sku || '',
+          quantity: i.quantity,
+          unit: i.unit,
+          category: localizeAiCategory(i.category, t),
+          cost_per_unit: i.estimated_cost,
+          pack_count: i.pack_count ?? 0,
+          units_per_pack: i.units_per_pack ?? 0,
+          price_per_pack: i.price_per_pack || 0,
+          total_price: i.total_price || (i.estimated_cost * i.quantity),
+          unit_size: i.unit_size || 0,
+          unit_size_unit: i.unit_size_unit || '',
+          container_type: i.container_type || '',
+          unit_type: i.unit_type || '',
+          vat_rate_override: matched?.vat_rate_override ?? null,
+          row_index: i.row_index,
+          needs_review: i.needs_review,
+          review_reason: i.review_reason,
+        };
+      });
+      setEditedItems(newItems);
+      setFormStates(newItems.map(lineToStockInput));
+    } catch (err) {
+      setStreamError((err as Error).message);
+    } finally {
       setStreaming(false);
     }
   };
@@ -562,9 +625,32 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           </div>
 
           <div className="space-y-4">
-            <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
+            {/* Mode picker — Scan vs Voice. Voice is faster for hands-busy
+                kitchens; scan is more accurate when a printed bill is on hand. */}
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+              <button
+                type="button"
+                onClick={() => setImportMode('scan')}
+                className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'scan' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
+              >
+                <ScanIcon className="w-4 h-4" />
+                {t('importModeScan')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportMode('voice')}
+                className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'voice' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
+              >
+                <MicIcon className="w-4 h-4" />
+                {t('importModeVoice')}
+              </button>
+            </div>
 
-            {/* Supplier selector */}
+            {importMode === 'scan' && (
+              <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
+            )}
+
+            {/* Supplier selector — shared across modes */}
             <div>
               <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')} *</label>
               <SearchableSelect
@@ -594,36 +680,49 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 />
               )}
             </div>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="input w-full py-2 text-sm"
-            />
-            {/* File thumbnail preview */}
-            {file && file.type.startsWith('image/') && (
-              <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-              </div>
+
+            {importMode === 'scan' && (
+              <>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="input w-full py-2 text-sm"
+                />
+                {/* File thumbnail preview */}
+                {file && file.type.startsWith('image/') && (
+                  <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
+                  </div>
+                )}
+                {file && file.type === 'application/pdf' && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
+                    <FileTextIcon className="w-5 h-5" />
+                    {file.name}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+                  <button
+                    onClick={handleUpload}
+                    disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
+                    className="btn-primary text-sm inline-flex items-center gap-2"
+                  >
+                    {loading && <FoodySpinner size={14} className="opacity-90" />}
+                    {loading ? t('analyzing') : t('uploadAndAnalyze')}
+                  </button>
+                </div>
+              </>
             )}
-            {file && file.type === 'application/pdf' && (
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
-                <FileTextIcon className="w-5 h-5" />
-                {file.name}
-              </div>
+
+            {importMode === 'voice' && (
+              <VoiceRecorder
+                t={t}
+                disabled={!selectedSupplierId && !newSupplierName.trim()}
+                onSubmit={handleVoiceSubmit}
+              />
             )}
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button
-                onClick={handleUpload}
-                disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
-                className="btn-primary text-sm inline-flex items-center gap-2"
-              >
-                {loading && <FoodySpinner size={14} className="opacity-90" />}
-                {loading ? t('analyzing') : t('uploadAndAnalyze')}
-              </button>
-            </div>
           </div>
         </div>
       </div>

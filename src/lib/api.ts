@@ -2836,6 +2836,46 @@ export async function chatDeliveryEdit(restaurantId: number, body: ChatDeliveryR
   );
 }
 
+// importDeliveryVoice uploads a voice recording of the owner describing a
+// delivery and returns the same DeliveryExtraction shape as importDelivery.
+// Reuses the entire review flow downstream.
+export async function importDeliveryVoice(
+  restaurantId: number,
+  audioBlob: Blob,
+  mediaType: string,
+  lang?: string,
+  supplierId?: number,
+): Promise<DeliveryExtraction> {
+  const token = getToken();
+  const formData = new FormData();
+  // The backend matches Content-Type by prefix; the filename extension is
+  // only cosmetic for server logs.
+  const ext = mediaType.includes('webm') ? 'webm'
+    : mediaType.includes('mp4')  ? 'mp4'
+    : mediaType.includes('mpeg') || mediaType.includes('mp3') ? 'mp3'
+    : mediaType.includes('ogg')  ? 'ogg'
+    : mediaType.includes('wav')  ? 'wav'
+    : 'audio';
+  formData.append('file', new File([audioBlob], `voice.${ext}`, { type: mediaType }));
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  if (supplierId) params.set('supplier_id', String(supplierId));
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery/voice?${params}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Voice import failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.extraction;
+}
+
 export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
   await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
