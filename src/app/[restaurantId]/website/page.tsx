@@ -18,6 +18,7 @@ import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
+import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
@@ -131,6 +132,21 @@ export default function WebsitePage() {
   // so we don't ping-pong with the server.
   const suppressAutosaveRef = useRef(true);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─── Selection overlay state ─────────────────────────────────────
+  // Bounds reported by the foodyweb iframe and the iframe's current viewport
+  // rect together let SelectionOverlay draw outlines + the floating toolbar
+  // directly over the live preview.
+  const [sectionBounds, setSectionBounds] = useState<SectionBounds[]>([]);
+  const [iframeRect, setIframeRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [iframeScrollY, setIframeScrollY] = useState(0);
+  const handleBoundsUpdate = useCallback((bounds: SectionBounds[], scrollY: number) => {
+    if (bounds.length > 0) setSectionBounds(bounds);
+    setIframeScrollY(scrollY);
+  }, []);
+  const handleIframeRectUpdate = useCallback((rect: { top: number; left: number; width: number; height: number } | null) => {
+    setIframeRect(rect);
+  }, []);
 
   // Resizable left sidebar (persisted to localStorage, bounded 220–520 px).
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -804,9 +820,56 @@ export default function WebsitePage() {
               mode={previewMode}
               slug={restaurant?.slug}
               draftPayload={buildDraftPayload()}
+              onSectionClick={(id) => {
+                // The iframe reports its section ids — for existing rows these
+                // are the real DB ids (positive). For staged-new sections, the
+                // iframe sees the synthetic negative id we stamped on save.
+                if (typeof id === 'number') setSelectedSectionId(id);
+                else {
+                  // tmp_id string from a brand-new section the iframe knows about.
+                  // Find the synthetic local id pointing at it.
+                  let local: number | null = null;
+                  newSectionTmpIds.current.forEach((tmp, sid) => { if (tmp === id) local = sid; });
+                  if (local !== null) setSelectedSectionId(local);
+                }
+              }}
+              onBoundsUpdate={handleBoundsUpdate}
+              onIframeRectUpdate={handleIframeRectUpdate}
             />
           )}
         </div>
+
+        {/* Direct-selection overlay drawn ABOVE the home preview iframe.
+            For the menu page (existing MenuPreviewIframe) the bounds protocol
+            isn't wired yet — overlay stays hidden there. */}
+        {activePage === 'home' && (
+          <SelectionOverlay
+            iframeRect={iframeRect}
+            scale={1}
+            selectedId={selectedSectionId}
+            bounds={sectionBounds}
+            iframeScrollY={iframeScrollY}
+            onSelect={(id) => {
+              if (typeof id === 'number') setSelectedSectionId(id);
+            }}
+            onMoveUp={(id) => typeof id === 'number' && handleMoveSection(id, 'up')}
+            onMoveDown={(id) => typeof id === 'number' && handleMoveSection(id, 'down')}
+            onToggleVisibility={(id) => {
+              if (typeof id !== 'number') return;
+              const sec = sections.find((s) => s.id === id);
+              if (sec) handleUpdateSection(id, { is_visible: !sec.is_visible });
+            }}
+            onDelete={(id) => typeof id === 'number' && handleDeleteSection(id)}
+            isDeletable={(id) => {
+              if (typeof id !== 'number') return false;
+              const sec = sections.find((s) => s.id === id);
+              // Footer auto-creates if missing, so deleting it is pointless and
+              // confusing — keep it locked. action_buttons is also auto-created
+              // but the user might genuinely want to remove it.
+              return sec ? sec.section_type !== 'footer' : false;
+            }}
+          />
+        )}
 
         {/* Right slide-in settings panel */}
         {showSettingsPanel && (selectedSection || activeTab === 'styles') && (
@@ -901,39 +964,82 @@ export default function WebsitePage() {
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
-function LiveHomePreviewIframe({ mode, slug, draftPayload }: {
+function LiveHomePreviewIframe({ mode, slug, draftPayload, onSectionClick, onBoundsUpdate, onIframeRectUpdate }: {
   mode: 'mobile' | 'desktop';
   slug: string | undefined;
   draftPayload: DraftStatePayload;
+  onSectionClick: (id: number | string) => void;
+  onBoundsUpdate: (bounds: SectionBounds[], scrollY: number) => void;
+  onIframeRectUpdate: (rect: { top: number; left: number; width: number; height: number } | null) => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const readyRef = useRef(false);
   const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
 
-  // Listen for foody-editor-ready from the iframe and post the current state.
+  // Listen for messages from the iframe.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
+      // Only trust messages from our iframe.
+      if (e.source !== iframeRef.current?.contentWindow) return;
+
       if (e.data?.type === 'foody-editor-ready') {
         readyRef.current = true;
         iframeRef.current?.contentWindow?.postMessage(
           { type: 'foody-draft-state', state: draftPayload }, '*'
         );
+      } else if (e.data?.type === 'foody-section-bounds' && Array.isArray(e.data.bounds)) {
+        onBoundsUpdate(e.data.bounds, e.data.scrollY ?? 0);
+      } else if (e.data?.type === 'foody-section-click' && e.data.id !== undefined) {
+        onSectionClick(e.data.id);
+      } else if (e.data?.type === 'foody-select-section' && e.data.sectionId !== undefined) {
+        // Legacy message kept for compatibility with older foodyweb deploys.
+        onSectionClick(e.data.sectionId);
+      } else if (e.data?.type === 'foody-scroll' && typeof e.data.scrollY === 'number') {
+        // Forward scrollY as part of the next bounds update — overlay needs it
+        // to translate iframe-document coords to viewport coords.
+        onBoundsUpdate([], e.data.scrollY);
       }
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-    // Intentionally not depending on draftPayload — the ready handshake fires
-    // once per iframe load; subsequent draft updates go through the effect below.
+    // draftPayload intentionally NOT in deps — the ready handshake fires once;
+    // post-mount updates go through the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onBoundsUpdate, onSectionClick]);
 
-  // Post the draft state whenever it changes (debounced via React batching).
+  // Post the draft state whenever it changes.
   useEffect(() => {
     if (!readyRef.current) return;
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'foody-draft-state', state: draftPayload }, '*'
     );
   }, [draftPayload]);
+
+  // Publish iframe's viewport rect so the overlay knows where to position itself.
+  // Recomputed on resize and on a 250ms interval to catch scroll changes in the
+  // editor's outer scroll container.
+  useEffect(() => {
+    function publishRect() {
+      const el = wrapperRef.current;
+      if (!el) {
+        onIframeRectUpdate(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      onIframeRectUpdate({ top: r.top, left: r.left, width: r.width, height: r.height });
+    }
+    publishRect();
+    window.addEventListener('resize', publishRect);
+    window.addEventListener('scroll', publishRect, true);
+    const id = window.setInterval(publishRect, 250);
+    return () => {
+      window.removeEventListener('resize', publishRect);
+      window.removeEventListener('scroll', publishRect, true);
+      window.clearInterval(id);
+      onIframeRectUpdate(null);
+    };
+  }, [onIframeRectUpdate, mode]);
 
   if (!slug) {
     return <div className="text-sm text-fg-secondary p-8">Slug du restaurant requis pour la prévisualisation</div>;
@@ -943,6 +1049,7 @@ function LiveHomePreviewIframe({ mode, slug, draftPayload }: {
   const height = mode === 'mobile' ? 844 : '100%';
   return (
     <div
+      ref={wrapperRef}
       className="my-6 shadow-xl overflow-hidden bg-white"
       style={{
         width,
