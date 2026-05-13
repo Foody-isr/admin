@@ -31,17 +31,17 @@ interface GroupState {
   rows: VariantRow[];
 }
 
-function newRow(): VariantRow {
+function newRow(defaultPrice = 0): VariantRow {
   return {
     key: crypto.randomUUID(),
-    name: '', price: 0,
+    name: '', price: defaultPrice,
     isActive: true,
     isComboOnly: false,
   };
 }
 
-function newGroup(): GroupState {
-  return { key: crypto.randomUUID(), title: '', rows: [newRow()] };
+function newGroup(defaultPrice = 0): GroupState {
+  return { key: crypto.randomUUID(), title: '', rows: [newRow(defaultPrice)] };
 }
 
 /* ── Page ─────────────────────────────────────────────────────────── */
@@ -57,6 +57,12 @@ export default function VariantsEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  // Base price of the item being edited. Used as the default price for newly
+  // added variant rows so operators don't accidentally create 0-priced
+  // variants for "no extra cost" options. A variant priced at 0 is later
+  // interpreted (in display + ordering) as "same as base", but defaulting
+  // to the explicit number is clearer and survives base-price changes.
+  const [itemBasePrice, setItemBasePrice] = useState(0);
 
   // Existing option sets for the dropdown
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
@@ -64,12 +70,14 @@ export default function VariantsEditorPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [optSets, overrides] = await Promise.all([
+      const [optSets, overrides, allItems] = await Promise.all([
         listOptionSets(rid),
         getItemOptionPrices(rid, iid),
         listAllItems(rid),
       ]);
       setAllOptionSets(optSets ?? []);
+      const thisItem = (allItems ?? []).find((it) => it.id === iid);
+      if (thisItem) setItemBasePrice(thisItem.price ?? 0);
 
       // Build override lookup
       const overrideMap = new Map<number, ItemOptionOverride>();
@@ -173,7 +181,7 @@ export default function VariantsEditorPage() {
   const addRow = (groupKey: string) => {
     setDirty(true);
     setGroups((prev) => prev.map((g) =>
-      g.key === groupKey ? { ...g, rows: [...g.rows, newRow()] } : g
+      g.key === groupKey ? { ...g, rows: [...g.rows, newRow(itemBasePrice)] } : g
     ));
   };
 
@@ -211,7 +219,7 @@ export default function VariantsEditorPage() {
 
   const addGroup = () => {
     setDirty(true);
-    setGroups((prev) => [...prev, newGroup()]);
+    setGroups((prev) => [...prev, newGroup(itemBasePrice)]);
   };
 
   /** Apply an existing option set from the dropdown */
@@ -331,7 +339,21 @@ export default function VariantsEditorPage() {
               >
                 <span />
                 <span>{t('variantName')}</span>
-                <span className="text-right">{t('price')}</span>
+                <span
+                  className="text-right"
+                  title={
+                    itemBasePrice > 0
+                      ? `Laisser à 0 pour utiliser le prix de base de l'article (₪${itemBasePrice.toFixed(2)}).`
+                      : undefined
+                  }
+                >
+                  {t('price')}
+                  {itemBasePrice > 0 && (
+                    <span className="ml-1 normal-case text-neutral-400 dark:text-neutral-500 lowercase font-normal">
+                      (0 = base)
+                    </span>
+                  )}
+                </span>
                 <span>{t('status')}</span>
                 <span title="Variantes destinées uniquement aux combos (ex : Pour Table 8). Cachées de la fiche article côté client.">
                   Combo seulement

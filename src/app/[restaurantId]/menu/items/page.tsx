@@ -722,14 +722,23 @@ export default function ItemLibraryPage() {
                 const hasVariants = variants.length > 0;
                 const isExpanded = expandedItemIds.has(item.id);
 
-                const variantPrices = variants.map((v) => v.price ?? 0);
+                // A variant priced at 0 is interpreted as "same as the item
+                // base price" — operators use that to express choices (e.g.
+                // a sauce on a pasta) that don't change the price. So the
+                // displayed range coerces 0 to the item base before
+                // computing min/max.
+                const itemBase = item.price ?? 0;
+                const variantPrices = variants.map((v) => {
+                  const raw = v.price ?? 0;
+                  return raw > 0 ? raw : itemBase;
+                });
                 const minVariantPrice = hasVariants ? Math.min(...variantPrices) : 0;
                 const maxVariantPrice = hasVariants ? Math.max(...variantPrices) : 0;
                 const priceLabel = hasVariants
                   ? minVariantPrice === maxVariantPrice
                     ? `₪${minVariantPrice.toFixed(2)}`
                     : `₪${minVariantPrice.toFixed(2)} – ₪${maxVariantPrice.toFixed(2)}`
-                  : `₪${(item.price ?? 0).toFixed(2)}`;
+                  : `₪${itemBase.toFixed(2)}`;
 
                 return (
                   <React.Fragment key={item.id}>
@@ -858,38 +867,47 @@ export default function ItemLibraryPage() {
 
                     {hasVariants &&
                       isExpanded &&
-                      variants.map((v) => (
-                        <tr
-                          key={`${item.id}-v-${v.id}`}
-                          className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
-                          onClick={() => router.push(`/${rid}/menu/items/${item.id}/variants`)}
-                        >
-                          <td className="p-3" />
-                          <td className="p-3 pl-16">
-                            <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                              {v.name}
-                            </span>
-                          </td>
-                          <td className="p-3" />
-                          <td className="p-3">
-                            <span
-                              className={`text-xs font-medium ${
-                                v.is_active
-                                  ? 'text-green-600 dark:text-green-400'
-                                  : 'text-neutral-500 dark:text-neutral-400'
-                              }`}
-                            >
-                              {v.is_active ? t('available') : t('unavailable')}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right text-sm text-neutral-600 dark:text-neutral-400">
-                            ₪{(v.price ?? 0).toFixed(2)}
-                          </td>
-                          <td className="p-3">
-                            <MoreVertical className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
-                          </td>
-                        </tr>
-                      ))}
+                      variants.map((v) => {
+                        const raw = v.price ?? 0;
+                        const effective = raw > 0 ? raw : itemBase;
+                        return (
+                          <tr
+                            key={`${item.id}-v-${v.id}`}
+                            className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
+                            onClick={() => router.push(`/${rid}/menu/items/${item.id}/variants`)}
+                          >
+                            <td className="p-3" />
+                            <td className="p-3 pl-16">
+                              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                                {v.name}
+                              </span>
+                            </td>
+                            <td className="p-3" />
+                            <td className="p-3">
+                              <span
+                                className={`text-xs font-medium ${
+                                  v.is_active
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : 'text-neutral-500 dark:text-neutral-400'
+                                }`}
+                              >
+                                {v.is_active ? t('available') : t('unavailable')}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right text-sm text-neutral-600 dark:text-neutral-400">
+                              ₪{effective.toFixed(2)}
+                              {raw === 0 && itemBase > 0 && (
+                                <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
+                                  ({t('inherited') || 'inherited'})
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <MoreVertical className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </React.Fragment>
                 );
               })}
