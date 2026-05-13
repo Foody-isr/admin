@@ -50,6 +50,11 @@ function coercePackagingUnit(value: string | undefined, fallback: PackagingUnit)
 }
 
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
+// Weight/volume base units only — used to defensively prefer item.unit_size_unit
+// over item.unit when the extracted item gives a real weight/volume for the
+// inner content (e.g. "240 g") but the top-level unit field was emitted as
+// "unit" — a common AI mistake the prompt cannot fully prevent.
+const WEIGHT_VOLUME_UNITS: Set<string> = new Set(['g', 'kg', 'ml', 'l']);
 
 /** Map the AI-extracted delivery line into our union.
  *  Strategy: if pack/units-per-pack/unit-size suggest multi-level packaging,
@@ -59,7 +64,14 @@ function lineToStockInput(item: ConfirmDeliveryItemInput): StockInput {
   const packs = item.pack_count ?? 0;
   const upp = item.units_per_pack ?? 0;
   const us = item.unit_size ?? 0;
-  const unit = (item.unit || 'kg') as StockUnit;
+  // Effective base unit for the CONTENT. Prefer item.unit_size_unit when it
+  // declares a real weight/volume — that field describes the size of the
+  // inner unit directly and is more reliable than item.unit, which the AI
+  // sometimes defaults to "unit" even when a weight ("240 grammes") was
+  // clearly given. Falls back to item.unit otherwise.
+  const usu = (item.unit_size_unit ?? '').toLowerCase();
+  const rawUnit = (item.unit ?? '').toLowerCase();
+  const unit = (WEIGHT_VOLUME_UNITS.has(usu) ? usu : (rawUnit || 'kg')) as StockUnit;
   const isBase = BASE_SET.has(unit);
 
   // Nested: outer × inner × content
