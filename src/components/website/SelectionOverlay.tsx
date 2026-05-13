@@ -90,27 +90,13 @@ export function SelectionOverlay({
         const vp = toViewport(b);
         const isSelected = selectedId === b.id;
         const isHovered = hoveredId === b.id && !isSelected;
-        if (!isSelected && !isHovered) {
-          // Invisible hitbox for hover tracking. Toolbar/outline are only
-          // rendered for hovered or selected sections.
-          return (
-            <div
-              key={b.id}
-              onMouseEnter={() => setHoveredId(b.id)}
-              onMouseLeave={() => setHoveredId((cur) => (cur === b.id ? null : cur))}
-              onClick={() => onSelect(b.id)}
-              style={{
-                position: "absolute",
-                top: vp.top,
-                left: vp.left,
-                width: vp.width,
-                height: vp.height,
-                pointerEvents: "auto",
-                cursor: "pointer",
-              }}
-            />
-          );
-        }
+        // Three visual states — ALL sections show a subtle outline by default
+        // so the user can tell the preview is interactive without hovering.
+        const border = isSelected
+          ? "2px solid #EB5204"
+          : isHovered
+          ? "2px dashed #EB5204"
+          : "1px dashed rgba(235, 82, 4, 0.45)";
         return (
           <div
             key={b.id}
@@ -125,10 +111,11 @@ export function SelectionOverlay({
               height: vp.height,
               pointerEvents: "auto",
               cursor: "pointer",
-              border: isSelected ? "2px solid #EB5204" : "2px dashed #EB5204",
+              border,
               borderRadius: 4,
               boxSizing: "border-box",
-              background: "transparent",
+              background: isHovered && !isSelected ? "rgba(235, 82, 4, 0.04)" : "transparent",
+              transition: "background 120ms ease, border-color 120ms ease",
             }}
           >
             {isSelected && (

@@ -128,9 +128,12 @@ export default function WebsitePage() {
   // Sections deleted in the editor but originally persisted — tracked so we
   // can send them in `deleted_section_ids` on save.
   const [deletedIds, setDeletedIds] = useState<number[]>([]);
-  // Suppress autosave during initial load + during publish/discard refresh
-  // so we don't ping-pong with the server.
+  // Suppress autosave during initial load + during publish/discard refresh.
+  // Also a content-based skip: lastSavedPayloadRef holds the most recent
+  // server-confirmed shape; autosave compares against it and noops when
+  // the current shape is identical (prevents phantom saves from hydration).
   const suppressAutosaveRef = useRef(true);
+  const lastSavedPayloadRef = useRef<string>('');
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Selection overlay state ─────────────────────────────────────
@@ -244,25 +247,19 @@ export default function WebsitePage() {
   }, []);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
+    // Local-state-only — the global autosave effect persists to the draft.
+    // (Previously this called updateWebsiteConfig directly, which bypassed
+    // the draft model and wrote straight to live config — defeating the
+    // "Publier is a real action" promise.)
     setConfig((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
-      // Mirror to local form state for branding fields the parent also tracks.
       if (patch.logo_size !== undefined) setLogoSize(patch.logo_size);
       if (patch.hide_navbar_name !== undefined) setHideNavbarName(patch.hide_navbar_name);
       postMenuPreview(next);
       return next;
     });
-    if (menuSaveTimerRef.current) clearTimeout(menuSaveTimerRef.current);
-    menuSaveTimerRef.current = setTimeout(async () => {
-      try {
-        const updated = await updateWebsiteConfig(restaurantId, patch);
-        setConfig(updated);
-      } catch (e) {
-        setError((e as Error).message || 'Save failed');
-      }
-    }, 500);
-  }, [restaurantId, postMenuPreview]);
+  }, [postMenuPreview]);
 
   // When a section is selected, show section settings (not site styles)
   useEffect(() => {
@@ -353,8 +350,55 @@ export default function WebsitePage() {
     newSectionTmpIds.current = tmpIdMap;
     setSections(sections);
     setDeletedIds([]);
-    // Re-enable autosave after a tick — initial state population shouldn't trigger a save.
-    setTimeout(() => { suppressAutosaveRef.current = false; }, 50);
+    // Seed the autosave snapshot so the next render's buildDraftPayload()
+    // matches and the global autosave effect noops until the user actually
+    // edits something. We rebuild the snapshot in the same shape as
+    // buildDraftPayload to guarantee an exact byte match.
+    setTimeout(() => {
+      lastSavedPayloadRef.current = JSON.stringify({
+        config: {
+          theme_id: stateConfig.theme_id || 'editorial-dark',
+          pairing_id: stateConfig.pairing_id || 'modern-sans',
+          brand_color: stateConfig.brand_color ?? null,
+          layout_default: stateConfig.layout_default || 'magazine',
+          hero_layout: stateConfig.hero_layout || 'standard',
+          welcome_text: stateConfig.welcome_text || '',
+          tagline: stateConfig.tagline || '',
+          social_links: stateConfig.social_links || {},
+          show_address: stateConfig.show_address ?? true,
+          show_phone: stateConfig.show_phone ?? true,
+          show_hours: stateConfig.show_hours ?? true,
+          favicon_url: stateConfig.favicon_url || '',
+          hero_cta_text: stateConfig.hero_cta_text || 'Start Your Order',
+          mid_cta_enabled: stateConfig.mid_cta_enabled ?? true,
+          mid_cta_title: stateConfig.mid_cta_title || '',
+          mid_cta_body: stateConfig.mid_cta_body || '',
+          mid_cta_btn_text: stateConfig.mid_cta_btn_text || '',
+          footer_text: stateConfig.footer_text || '',
+          navbar_style: stateConfig.navbar_style || 'solid',
+          navbar_color: stateConfig.navbar_color || '',
+          logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
+          hide_navbar_name: stateConfig.hide_navbar_name || false,
+          hero_name_font: stateConfig.hero_name_font || '',
+          category_banner_style: stateConfig.category_banner_style || 'image-overlay',
+        },
+        sections: sections.map((s) => {
+          const tmp = tmpIdMap.get(s.id);
+          return {
+            ...(tmp ? { tmp_id: tmp } : { id: s.id }),
+            section_type: s.section_type,
+            page: s.page || 'home',
+            sort_order: s.sort_order ?? 0,
+            is_visible: s.is_visible,
+            layout: s.layout || 'default',
+            content: s.content || {},
+            settings: s.settings || {},
+          };
+        }),
+        deleted_section_ids: [],
+      });
+      suppressAutosaveRef.current = false;
+    }, 50);
   }, [restaurantId, config]);
 
   useEffect(() => {
@@ -453,11 +497,17 @@ export default function WebsitePage() {
 
   useEffect(() => {
     if (loading || suppressAutosaveRef.current) return;
+    // Content-based skip — if the current payload matches what we last saved,
+    // nothing has actually changed (e.g. transient re-render after hydration).
+    const serialized = JSON.stringify(buildDraftPayload());
+    if (serialized === lastSavedPayloadRef.current) return;
+
     if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
     draftSaveTimerRef.current = setTimeout(async () => {
       try {
         const payload = buildDraftPayload();
         const resp = await saveWebsiteDraft(restaurantId, payload);
+        lastSavedPayloadRef.current = JSON.stringify(payload);
         setDraftDirty(resp.draft_dirty);
         setDraftSavedAt(resp.draft_saved_at || null);
       } catch (err: any) {
