@@ -1101,12 +1101,32 @@ function StreamingHeader({
   onRetry: () => void;
   t: (key: string) => string;
 }) {
+  // Cycle a list of status verbs while streaming so the banner doesn't
+  // feel frozen. Verbs come from the locale's aiStatusVerbs key (CSV).
+  const verbs = t('aiStatusVerbs').split(',').map((s) => s.trim()).filter(Boolean);
+  const [verbIndex, setVerbIndex] = useState(0);
+  useEffect(() => {
+    if (!streaming) return;
+    setVerbIndex(0);
+    const id = setInterval(() => {
+      setVerbIndex((i) => (i + 1) % verbs.length);
+    }, 1400);
+    return () => clearInterval(id);
+  }, [streaming, verbs.length]);
+
   if (streaming) {
+    const verb = verbs[verbIndex] || '';
+    const msg = t('scanInProgress')
+      .replace('{verb}', verb)
+      .replace('{n}', String(count));
     return (
       <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
         <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
-        <span className="text-sm text-fg-primary flex-1">
-          {t('scanInProgress').replace('{n}', String(count))}
+        <span
+          key={verbIndex}
+          className="text-sm text-fg-primary flex-1 animate-in fade-in slide-in-from-bottom-0.5 duration-300"
+        >
+          {msg}
         </span>
         <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)] shrink-0">
           {t('cancelScan')}
