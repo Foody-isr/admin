@@ -196,6 +196,9 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [importMode, setImportMode] = useState<'scan' | 'voice'>('scan');
   const [streaming, setStreaming] = useState(false);
   const [streamError, setStreamError] = useState('');
+  // Last submitted blob — kept so the Retry button on the error banner can
+  // re-send the same audio without forcing the user to re-record.
+  const lastVoiceRef = useRef<{ blob: Blob; mediaType: string } | null>(null);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -355,6 +358,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   // the FoodySpinner banner with cycling verbs. When the extraction arrives,
   // we batch-insert every item just like a list arriving at the end.
   const handleVoiceSubmit = async (audioBlob: Blob, mediaType: string) => {
+    lastVoiceRef.current = { blob: audioBlob, mediaType };
     setStreamError('');
     setEditedItems([]);
     setFormStates([]);
@@ -413,6 +417,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const cancelStream = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    lastVoiceRef.current = null;
     setStreaming(false);
     setEditedItems([]);
     setFormStates([]);
@@ -875,8 +880,15 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             streaming={streaming}
             count={editedItems.length}
             error={streamError}
+            errorDetail={streamError}
             onCancel={cancelStream}
-            onRetry={handleUpload}
+            onRetry={() => {
+              if (lastVoiceRef.current) {
+                handleVoiceSubmit(lastVoiceRef.current.blob, lastVoiceRef.current.mediaType);
+              } else {
+                handleUpload();
+              }
+            }}
             t={t}
           />
           {/* AI summary bubble — temporarily hidden, may revisit.
@@ -937,8 +949,15 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               streaming={streaming}
               count={editedItems.length}
               error={streamError}
+              errorDetail={streamError}
               onCancel={cancelStream}
-              onRetry={handleUpload}
+              onRetry={() => {
+                if (lastVoiceRef.current) {
+                  handleVoiceSubmit(lastVoiceRef.current.blob, lastVoiceRef.current.mediaType);
+                } else {
+                  handleUpload();
+                }
+              }}
               t={t}
             />
             {/* AI summary bubble — temporarily hidden, may revisit.
@@ -1231,11 +1250,13 @@ function ChatPanel({
 }
 
 function StreamingHeader({
-  streaming, count, error, onCancel, onRetry, t,
+  streaming, count, error, errorDetail, onCancel, onRetry, t,
 }: {
   streaming: boolean;
   count: number;
   error: string;
+  /** Verbatim upstream error message for the user to copy/screenshot. */
+  errorDetail?: string;
   onCancel: () => void;
   onRetry: () => void;
   t: (key: string) => string;
@@ -1275,11 +1296,18 @@ function StreamingHeader({
   }
   if (error) {
     return (
-      <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex items-center gap-3">
-        <span className="text-sm text-amber-600 flex-1">
-          {t('scanInterrupted').replace('{n}', String(count))}
-        </span>
-        <button onClick={onRetry} className="text-xs px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-500/20 text-amber-600">
+      <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-3">
+        <div className="flex-1 min-w-0 space-y-1">
+          <p className="text-sm text-amber-600">
+            {t('scanInterrupted').replace('{n}', String(count))}
+          </p>
+          {errorDetail && (
+            <p className="text-xs text-amber-600/80 break-words font-mono">
+              {errorDetail}
+            </p>
+          )}
+        </div>
+        <button onClick={onRetry} className="shrink-0 text-xs px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-500/20 text-amber-600">
           {t('retry')}
         </button>
       </div>
