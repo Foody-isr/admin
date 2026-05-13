@@ -15,6 +15,28 @@ import StockQuantityForm, {
   StockInput, BaseUnit, PackagingUnit, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
 
+// Maps the AI's canonical English category labels (from the extraction prompt)
+// to i18n keys, so we can render and persist them in the user's locale rather
+// than forcing English category names into a French/Hebrew admin.
+const AI_CATEGORY_KEYS: Record<string, string> = {
+  'meat':       'catMeat',
+  'dairy':      'catDairy',
+  'produce':    'catProduce',
+  'dry goods':  'catDryGoods',
+  'beverages':  'catBeverages',
+  'frozen':     'catFrozen',
+  'oils':       'catOils',
+  'spices':     'catSpices',
+  'cleaning':   'catCleaning',
+  'other':      'catOther',
+};
+
+function localizeAiCategory(raw: string, t: (key: string) => string): string {
+  if (!raw) return '';
+  const key = AI_CATEGORY_KEYS[raw.trim().toLowerCase()];
+  return key ? t(key) : raw;
+}
+
 const PACKAGING_UNITS: Set<string> = new Set([
   'carton', 'pack', 'box', 'bag', 'bottle',
   'can', 'jar', 'sachet', 'tub', 'brick', 'packet',
@@ -258,7 +280,11 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         sku: it.sku || '',
         quantity: it.quantity,
         unit: it.unit,
-        category: it.category,
+        // The AI emits a fixed English enum for category (Meat / Dairy / …).
+        // Translate to the active locale before storing so the admin doesn't
+        // show English labels in a French/Hebrew UI, and so the value matches
+        // what the user would type if they created a category manually.
+        category: localizeAiCategory(it.category, t),
         cost_per_unit: it.estimated_cost,
         pack_count: it.pack_count ?? 0,
         units_per_pack: it.units_per_pack ?? 0,
@@ -748,6 +774,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             onRetry={handleUpload}
             t={t}
           />
+          {/* AI summary bubble — temporarily hidden, may revisit.
           {!streaming && !streamError && (
             <AiSummaryBubble
               items={editedItems}
@@ -764,6 +791,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               t={t}
             />
           )}
+          */}
           <ItemsList
             editedItems={editedItems}
             formStates={formStates}
@@ -779,6 +807,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             markReviewed={markReviewed}
             streaming={streaming}
           />
+          {/* AI chat panel — temporarily hidden, may revisit.
           {!streaming && !streamError && editedItems.length > 0 && (
             <div className="mt-4">
               <ChatPanel
@@ -793,6 +822,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               />
             </div>
           )}
+          */}
         </div>
 
         {/* ─ Mobile items view ─ */}
@@ -806,6 +836,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               onRetry={handleUpload}
               t={t}
             />
+            {/* AI summary bubble — temporarily hidden, may revisit.
             {!streaming && !streamError && (
               <AiSummaryBubble
                 items={editedItems}
@@ -822,6 +853,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 t={t}
               />
             )}
+            */}
             <ItemsList
               editedItems={editedItems}
               formStates={formStates}
@@ -837,6 +869,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               markReviewed={markReviewed}
               streaming={streaming}
             />
+            {/* AI chat panel — temporarily hidden, may revisit.
             {!streaming && !streamError && editedItems.length > 0 && (
               <div className="mt-4">
                 <ChatPanel
@@ -851,6 +884,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 />
               </div>
             )}
+            */}
           </div>
         )}
       </div>
