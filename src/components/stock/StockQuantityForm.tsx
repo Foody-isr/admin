@@ -13,7 +13,8 @@ export type BaseUnit = 'g' | 'kg' | 'ml' | 'l' | 'unit';
 export type PackagingUnit =
   | 'carton' | 'pack' | 'box' | 'bag' | 'bottle'
   | 'can' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
-  | 'crate' | 'sack' | 'case' | 'pot' | 'jug';
+  | 'crate' | 'sack' | 'case' | 'pot' | 'jug'
+  | 'plaquette' | 'tray';
 
 export type StockInput =
   | {
@@ -67,6 +68,7 @@ export const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
   pot: 'ut_pot', jug: 'ut_jug',
+  plaquette: 'ct_plaquette', tray: 'ct_tray',
 };
 export const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
 
@@ -102,6 +104,7 @@ const PACKAGING_CONTENT_DEFAULT: Partial<Record<PackagingUnit, BaseUnit>> = {
   can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g', pot: 'g',
   bag: 'kg', sack: 'kg',
   carton: 'g', crate: 'kg', case: 'g', pack: 'g',
+  plaquette: 'unit', tray: 'unit',
 };
 
 // ─── Defaults / constructors ──────────────────────────────────────────────
