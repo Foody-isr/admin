@@ -9,6 +9,8 @@ import {
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
   uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
   getAllCategories, getThemeCatalog,
+  getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
+  DraftStatePayload, DraftSectionPayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
   ThemeCatalog,
 } from '@/lib/api';
@@ -84,6 +86,17 @@ const BUTTON_STYLES = [
   { value: 'outline', labelKey: 'outline' },
 ];
 
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (diffSec < 5) return "à l'instant";
+  if (diffSec < 60) return `il y a ${diffSec}s`;
+  if (diffSec < 3600) return `il y a ${Math.floor(diffSec / 60)} min`;
+  if (diffSec < 86400) return `il y a ${Math.floor(diffSec / 3600)} h`;
+  return `il y a ${Math.floor(diffSec / 86400)} j`;
+}
+
 // ─── Main Component ─────────────────────────────────────────────────
 
 type Tab = 'styles' | 'sections';
@@ -100,6 +113,24 @@ export default function WebsitePage() {
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('sections');
   const [previewMode, setPreviewMode] = useState<'mobile' | 'desktop'>('mobile');
+
+  // ─── Draft / publish state ────────────────────────────────────────
+  // The editor edits a draft snapshot stored on the server; customers see
+  // the live columns unchanged until Publier promotes the draft.
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Sections inserted in the editor but not yet persisted carry a stable tmp_id
+  // (uuid) and have id === 0. Server returns them under tmp_id until publish.
+  const newSectionTmpIds = useRef<Map<number, string>>(new Map());
+  // Sections deleted in the editor but originally persisted — tracked so we
+  // can send them in `deleted_section_ids` on save.
+  const [deletedIds, setDeletedIds] = useState<number[]>([]);
+  // Suppress autosave during initial load + during publish/discard refresh
+  // so we don't ping-pong with the server.
+  const suppressAutosaveRef = useRef(true);
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Resizable left sidebar (persisted to localStorage, bounded 220–520 px).
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -254,56 +285,96 @@ export default function WebsitePage() {
 
   // ─── Load Data ──────────────────────────────────────────────────
 
+  // Helper: hydrate component state from a fresh draft response.
+  const hydrateFromDraft = useCallback((draft: { state: DraftStatePayload; draft_dirty: boolean; draft_saved_at?: string | null; published_at?: string | null }) => {
+    suppressAutosaveRef.current = true;
+    setDraftDirty(draft.draft_dirty);
+    setDraftSavedAt(draft.draft_saved_at || null);
+    setPublishedAt(draft.published_at || null);
+
+    const stateConfig = draft.state.config || {};
+    setConfig({
+      ...(config || {}),
+      ...stateConfig,
+      restaurant_id: restaurantId,
+    } as WebsiteConfig);
+    setTagline(stateConfig.tagline || '');
+    setShowAddress(stateConfig.show_address ?? true);
+    setShowPhone(stateConfig.show_phone ?? true);
+    setShowHours(stateConfig.show_hours ?? true);
+    setNavbarStyle(stateConfig.navbar_style || 'solid');
+    setNavbarColor(stateConfig.navbar_color || '');
+    setLogoSize(stateConfig.logo_size > 0 ? stateConfig.logo_size : 40);
+    setHideNavbarName(stateConfig.hide_navbar_name || false);
+    setHeroNameFont(stateConfig.hero_name_font || '');
+    setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
+
+    // Sections: assign synthetic negative ids to tmp_id-only sections so
+    // existing UI keeps working with a numeric `id` field. The tmp_id is
+    // preserved in newSectionTmpIds for use when saving back to the server.
+    const tmpIdMap = new Map<number, string>();
+    let nextSynthId = -1;
+    const sections = (draft.state.sections || []).map((s) => {
+      let id = s.id || 0;
+      if (!id && s.tmp_id) {
+        id = nextSynthId--;
+        tmpIdMap.set(id, s.tmp_id);
+      }
+      return {
+        id,
+        restaurant_id: restaurantId,
+        section_type: s.section_type,
+        page: s.page || 'home',
+        sort_order: s.sort_order ?? 0,
+        is_visible: s.is_visible ?? true,
+        layout: s.layout || 'default',
+        content: s.content || {},
+        settings: s.settings || {},
+        created_at: '',
+        updated_at: '',
+      } as WebsiteSection;
+    });
+    newSectionTmpIds.current = tmpIdMap;
+    setSections(sections);
+    setDeletedIds([]);
+    // Re-enable autosave after a tick — initial state population shouldn't trigger a save.
+    setTimeout(() => { suppressAutosaveRef.current = false; }, 50);
+  }, [restaurantId, config]);
+
   useEffect(() => {
     async function load() {
       try {
-        const [cfg, rest, sects, styles] = await Promise.all([
-          getWebsiteConfig(restaurantId),
+        const [draft, rest, styles] = await Promise.all([
+          getWebsiteDraft(restaurantId),
           getRestaurant(restaurantId),
-          listWebsiteSections(restaurantId),
           listSiteStyles(),
         ]);
-        setConfig(cfg);
         setRestaurant(rest);
         setSiteStyles(styles);
 
-        // Auto-create default sections if restaurant has none
-        if (sects.length === 0) {
-          const defaults = [
-            { section_type: 'hero_banner', page: 'home', is_visible: true, layout: 'centered', sort_order: 0, content: getDefaultContent('hero_banner'), settings: { color_style: 'brand', text_alignment: 'center', padding: 'normal' } },
-            { section_type: 'action_buttons', page: 'home', is_visible: true, layout: 'default', sort_order: 1, content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } },
-            { section_type: 'footer', page: 'home', is_visible: true, layout: 'columns', sort_order: 99, content: getDefaultContent('footer'), settings: { color_style: 'dark' } },
-          ];
-          const created = await Promise.all(defaults.map(d => createWebsiteSection(restaurantId, d)));
-          setSections(created);
-        } else {
-          // Auto-create missing essential sections for existing restaurants
-          const existingTypes = new Set(sects.map(s => s.section_type));
-          const missing: { section_type: string; sort_order: number; layout: string; content: Record<string, any>; settings: Record<string, any> }[] = [];
-          if (!existingTypes.has('footer')) {
-            missing.push({ section_type: 'footer', sort_order: 99, layout: 'columns', content: getDefaultContent('footer'), settings: { color_style: 'dark' } });
-          }
-          if (!existingTypes.has('action_buttons')) {
-            missing.push({ section_type: 'action_buttons', sort_order: sects.length, layout: 'default', content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } });
-          }
-          if (missing.length > 0) {
-            const created = await Promise.all(missing.map(d => createWebsiteSection(restaurantId, { ...d, page: 'home', is_visible: true })));
-            setSections([...sects, ...created]);
-          } else {
-            setSections(sects);
-          }
+        // Auto-create essential sections (footer, action_buttons) if missing.
+        // Done locally so it lands in the draft without touching live state.
+        const existingTypes = new Set((draft.state.sections || []).map((s) => s.section_type));
+        const missing: DraftSectionPayload[] = [];
+        if (!existingTypes.has('footer')) {
+          missing.push({
+            tmp_id: `tmp_${Date.now()}_footer`, section_type: 'footer', page: 'home',
+            is_visible: true, layout: 'columns', sort_order: 99,
+            content: getDefaultContent('footer'), settings: { color_style: 'dark' },
+          });
         }
-
-        setTagline(cfg.tagline || '');
-        setShowAddress(cfg.show_address ?? true);
-        setShowPhone(cfg.show_phone ?? true);
-        setShowHours(cfg.show_hours ?? true);
-        setNavbarStyle(cfg.navbar_style || 'solid');
-        setNavbarColor(cfg.navbar_color || '');
-        setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
-        setHideNavbarName(cfg.hide_navbar_name || false);
-        setHeroNameFont(cfg.hero_name_font || '');
-        setCategoryBannerStyle((cfg.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
+        if (!existingTypes.has('action_buttons')) {
+          missing.push({
+            tmp_id: `tmp_${Date.now()}_action`, section_type: 'action_buttons', page: 'home',
+            is_visible: true, layout: 'default', sort_order: (draft.state.sections?.length || 0),
+            content: getDefaultContent('action_buttons'),
+            settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+          });
+        }
+        if (missing.length > 0) {
+          draft.state.sections = [...(draft.state.sections || []), ...missing];
+        }
+        hydrateFromDraft(draft);
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -311,116 +382,180 @@ export default function WebsitePage() {
       }
     }
     load();
+    // hydrateFromDraft intentionally NOT in deps — first-load only effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId]);
 
-  // ─── Save Config ────────────────────────────────────────────────
+  // ─── Build the current draft payload from local state ──────────────
 
-  const handleSaveConfig = useCallback(async () => {
-    // Flush any pending debounced section save
-    if (sectionSaveTimerRef.current) {
-      clearTimeout(sectionSaveTimerRef.current);
-      sectionSaveTimerRef.current = null;
-    }
-
-    setSaving(true); setSaved(false); setError('');
-    try {
-      // Save any unsaved section changes first
-      const savePromises = sections.map(s =>
-        updateWebsiteSection(restaurantId, s.id, {
-          content: s.content,
-          settings: s.settings,
-          layout: s.layout,
-          is_visible: s.is_visible,
-        }).catch(() => {}) // ignore individual failures
-      );
-      await Promise.all(savePromises);
-
-      const updated = await updateWebsiteConfig(restaurantId, {
+  const buildDraftPayload = useCallback((): DraftStatePayload => {
+    return {
+      config: {
+        theme_id: config?.theme_id || 'editorial-dark',
+        pairing_id: config?.pairing_id || 'modern-sans',
+        brand_color: config?.brand_color ?? null,
+        layout_default: config?.layout_default || 'magazine',
+        hero_layout: config?.hero_layout || 'standard',
+        welcome_text: config?.welcome_text || '',
         tagline,
+        social_links: config?.social_links || {},
         show_address: showAddress,
         show_phone: showPhone,
         show_hours: showHours,
+        favicon_url: config?.favicon_url || '',
+        hero_cta_text: config?.hero_cta_text || 'Start Your Order',
+        mid_cta_enabled: config?.mid_cta_enabled ?? true,
+        mid_cta_title: config?.mid_cta_title || '',
+        mid_cta_body: config?.mid_cta_body || '',
+        mid_cta_btn_text: config?.mid_cta_btn_text || '',
+        footer_text: config?.footer_text || '',
         navbar_style: navbarStyle,
         navbar_color: navbarColor,
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
-      });
-      setConfig(updated);
-      setSaved(true);
+      },
+      sections: sections.map((s) => {
+        const tmpId = newSectionTmpIds.current.get(s.id);
+        return {
+          ...(tmpId ? { tmp_id: tmpId } : { id: s.id }),
+          section_type: s.section_type,
+          page: s.page || 'home',
+          sort_order: s.sort_order ?? 0,
+          is_visible: s.is_visible,
+          layout: s.layout || 'default',
+          content: s.content || {},
+          settings: s.settings || {},
+        } as DraftSectionPayload;
+      }),
+      deleted_section_ids: deletedIds,
+    };
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, sections, deletedIds]);
 
-      setTimeout(() => setSaved(false), 3000);
+  // ─── Autosave: persist the entire draft on any local change ──────
+
+  useEffect(() => {
+    if (loading || suppressAutosaveRef.current) return;
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const payload = buildDraftPayload();
+        const resp = await saveWebsiteDraft(restaurantId, payload);
+        setDraftDirty(resp.draft_dirty);
+        setDraftSavedAt(resp.draft_saved_at || null);
+      } catch (err: any) {
+        setError(err.message || 'Autosave failed');
+      }
+    }, 400);
+    return () => {
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    };
+  }, [loading, restaurantId, buildDraftPayload]);
+
+  // ─── Publish ───────────────────────────────────────────────────
+
+  const handlePublish = useCallback(async () => {
+    // Flush any pending autosave first so the freshest state is published.
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+      try {
+        await saveWebsiteDraft(restaurantId, buildDraftPayload());
+      } catch {}
+    }
+    setSaving(true); setSaved(false); setError('');
+    try {
+      const resp = await publishWebsiteDraft(restaurantId);
+      hydrateFromDraft(resp);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to save');
+      setError(err.message || 'Failed to publish');
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, sections]);
+  }, [restaurantId, buildDraftPayload, hydrateFromDraft]);
 
+  // ─── Discard ───────────────────────────────────────────────────
+
+  const handleDiscard = useCallback(async () => {
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    setShowDiscardConfirm(false);
+    setError('');
+    try {
+      const resp = await discardWebsiteDraft(restaurantId);
+      hydrateFromDraft(resp);
+      setSelectedSectionId(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to discard');
+    }
+  }, [restaurantId, hydrateFromDraft]);
+
+  // Legacy "reset to defaults" — kept for the gear-icon "Reset" button in
+  // the style panel. Discard is now the primary "undo" affordance.
   const handleResetConfig = useCallback(async () => {
     try {
       const data = await resetWebsiteConfig(restaurantId);
-      const cfg = data.website_config;
-      setConfig(cfg);
-      setTagline(cfg.tagline || '');
-      setShowAddress(cfg.show_address ?? true);
-      setShowPhone(cfg.show_phone ?? true);
-      setShowHours(cfg.show_hours ?? true);
-      setNavbarStyle(cfg.navbar_style || 'solid');
-      setNavbarColor(cfg.navbar_color || '');
-      setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
-      setHideNavbarName(cfg.hide_navbar_name || false);
-      setHeroNameFont(cfg.hero_name_font || '');
-      setCategoryBannerStyle((cfg.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
-      // Also refresh sections from reset response
-      if (data.sections) {
-        setSections(data.sections);
-        setSelectedSectionId(null);
-      }
+      // After resetting the published state, re-hydrate from the draft endpoint
+      // so we're back in sync with the server's view of the world.
+      const draft = await getWebsiteDraft(restaurantId);
+      hydrateFromDraft(draft);
     } catch (err: any) {
       setError(err.message || 'Failed to reset');
     }
-  }, [restaurantId]);
+  }, [restaurantId, hydrateFromDraft]);
 
   // ─── Section CRUD ───────────────────────────────────────────────
 
-  async function handleAddSection(sectionType: string) {
+  // All section mutations now write to LOCAL state only. The autosave effect
+  // persists the entire draft to the server on a 400ms debounce. The "Publier"
+  // button promotes draft → live.
+
+  function handleAddSection(sectionType: string) {
     setShowAddModal(false);
-    try {
-      const section = await createWebsiteSection(restaurantId, {
-        section_type: sectionType,
-        page: activePage,
-        is_visible: true,
-        layout: 'default',
-        content: getDefaultContent(sectionType),
-        settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
-      });
-      setSections(prev => [...prev, section]);
-      setSelectedSectionId(section.id);
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to add section');
-    }
+    // Assign a stable tmp_id (used to address the row on the server side
+    // until publish replaces it with a real DB id) plus a synthetic negative
+    // local id so the existing UI keeps treating sections as { id: number }.
+    const tmpId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    let syntheticId = -1;
+    newSectionTmpIds.current.forEach((_, k) => { if (k <= syntheticId) syntheticId = k - 1; });
+    newSectionTmpIds.current.set(syntheticId, tmpId);
+    const newSection: WebsiteSection = {
+      id: syntheticId,
+      restaurant_id: restaurantId,
+      section_type: sectionType,
+      page: activePage,
+      sort_order: sections.length,
+      is_visible: true,
+      layout: 'default',
+      content: getDefaultContent(sectionType),
+      settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+      created_at: '',
+      updated_at: '',
+    };
+    setSections((prev) => [...prev, newSection]);
+    setSelectedSectionId(syntheticId);
   }
 
-  async function handleDeleteSection(sectionId: number) {
-    try {
-      await deleteWebsiteSection(restaurantId, sectionId);
-      setSections(prev => prev.filter(s => s.id !== sectionId));
-      if (selectedSectionId === sectionId) setSelectedSectionId(null);
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete section');
+  function handleDeleteSection(sectionId: number) {
+    // If it's a previously persisted section (positive id), record its id
+    // for inclusion in deleted_section_ids on the next autosave / publish.
+    if (sectionId > 0) {
+      setDeletedIds((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
+    } else {
+      // Synthetic id (never persisted) — just forget the tmp_id mapping.
+      newSectionTmpIds.current.delete(sectionId);
     }
+    setSections((prev) => prev.filter((s) => s.id !== sectionId));
+    if (selectedSectionId === sectionId) setSelectedSectionId(null);
   }
-
-  // Debounced API save for section updates
-  const sectionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleUpdateSection(sectionId: number, updates: Partial<WebsiteSection>) {
-    // Optimistic local update — immediate, so iframe gets it right away
-    setSections(prev => prev.map(s => {
+    setSections((prev) => prev.map((s) => {
       if (s.id !== sectionId) return s;
       return {
         ...s,
@@ -429,45 +564,23 @@ export default function WebsitePage() {
         settings: updates.settings ? { ...s.settings, ...updates.settings } : s.settings,
       };
     }));
-
-    // Debounce the actual API save (500ms)
-    if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
-    sectionSaveTimerRef.current = setTimeout(async () => {
-      try {
-        await updateWebsiteSection(restaurantId, sectionId, updates);
-      } catch (err: any) {
-        setError(err.message || 'Failed to update section');
-      }
-    }, 500);
   }
 
-  async function handleMoveSection(sectionId: number, direction: 'up' | 'down') {
+  function handleMoveSection(sectionId: number, direction: 'up' | 'down') {
     const pageSections = filteredSections;
-    const idx = pageSections.findIndex(s => s.id === sectionId);
+    const idx = pageSections.findIndex((s) => s.id === sectionId);
     if (idx < 0) return;
     const newIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= pageSections.length) return;
 
     const reordered = [...pageSections];
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
-    const order = reordered.map((s, i) => ({ id: s.id, sort_order: i }));
+    const orderMap = new Map(reordered.map((s, i) => [s.id, i]));
 
-    // Update full sections array
-    const newSections = sections.map(s => {
-      const updated = order.find(o => o.id === s.id);
-      return updated ? { ...s, sort_order: updated.sort_order } : s;
-    });
-    setSections(newSections);
-
-    try {
-      const updated = await reorderWebsiteSections(restaurantId, order);
-      setSections(prev => {
-        const updatedMap = new Map(updated.map(u => [u.id, u]));
-        return prev.map(s => updatedMap.get(s.id) || s);
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to reorder');
-    }
+    setSections((prev) => prev.map((s) => {
+      const newOrder = orderMap.get(s.id);
+      return newOrder !== undefined ? { ...s, sort_order: newOrder } : s;
+    }));
   }
 
   // ─── Render ─────────────────────────────────────────────────────
@@ -513,8 +626,24 @@ export default function WebsitePage() {
           </div>
         </div>
 
-        {/* Right: Preview Live + Publish */}
+        {/* Right: Draft badge + Preview Live + Annuler + Publier */}
         <div className="flex items-center gap-3">
+          {/* Draft / Published status badge */}
+          <div className="flex items-center gap-2 text-xs">
+            {draftDirty ? (
+              <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-500/10 text-orange-500 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                Brouillon
+              </span>
+            ) : publishedAt ? (
+              <span className="text-fg-secondary">
+                Publié {formatRelativeTime(publishedAt)}
+              </span>
+            ) : (
+              <span className="text-fg-secondary">Aucune modification</span>
+            )}
+          </div>
+
           {restaurant?.slug && (
             <a
               href={`${process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'}/r/${restaurant.slug}`}
@@ -525,12 +654,20 @@ export default function WebsitePage() {
               Preview
             </a>
           )}
+          {draftDirty && (
+            <button
+              onClick={() => setShowDiscardConfirm(true)}
+              className="text-sm text-fg-secondary hover:text-fg-primary font-medium px-3 py-2 rounded-lg hover:bg-surface-subtle transition"
+            >
+              Annuler
+            </button>
+          )}
           <button
-            onClick={handleSaveConfig}
-            disabled={saving}
+            onClick={handlePublish}
+            disabled={saving || !draftDirty}
             className="btn-primary px-5 py-2 rounded-lg disabled:opacity-50 text-sm font-semibold"
           >
-            {saving ? t('saving') : saved ? 'Saved!' : t('publish')}
+            {saving ? t('saving') : saved ? 'Publié ✓' : t('publish')}
           </button>
         </div>
       </div>
@@ -663,22 +800,10 @@ export default function WebsitePage() {
               postMessage={postMenuPreview}
             />
           ) : (
-            <PreviewPanel
+            <LiveHomePreviewIframe
               mode={previewMode}
-              activePage={activePage}
-              restaurant={restaurant}
-              primaryColor={config?.brand_color || '#EB5204'}
-              secondaryColor={'#C94400'}
-              fontFamily={'Switzer'}
-              themeMode={'light'}
-              menuLayout={config?.layout_default || 'magazine'}
-              cartStyle={'bar-bottom'}
-              navbarStyle={navbarStyle}
-              navbarColor={navbarColor}
-              logoSize={logoSize}
-              hideNavbarName={hideNavbarName}
-              sections={sections}
-              selectedSectionId={selectedSectionId}
+              slug={restaurant?.slug}
+              draftPayload={buildDraftPayload()}
             />
           )}
         </div>
@@ -744,11 +869,99 @@ export default function WebsitePage() {
           onClose={() => setShowAddModal(false)}
         />
       )}
+
+      {/* Discard confirm modal */}
+      {showDiscardConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDiscardConfirm(false)}>
+          <div className="bg-[var(--surface)] rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-fg-primary mb-2">Annuler les modifications ?</h3>
+            <p className="text-sm text-fg-secondary mb-6">
+              Toutes les modifications non publiées seront perdues. La version actuellement en ligne ne sera pas affectée.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDiscardConfirm(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-fg-primary hover:bg-surface-subtle transition"
+              >
+                Garder mes modifications
+              </button>
+              <button
+                onClick={handleDiscard}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition"
+              >
+                Tout annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────
+
+function LiveHomePreviewIframe({ mode, slug, draftPayload }: {
+  mode: 'mobile' | 'desktop';
+  slug: string | undefined;
+  draftPayload: DraftStatePayload;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const readyRef = useRef(false);
+  const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+
+  // Listen for foody-editor-ready from the iframe and post the current state.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === 'foody-editor-ready') {
+        readyRef.current = true;
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'foody-draft-state', state: draftPayload }, '*'
+        );
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+    // Intentionally not depending on draftPayload — the ready handshake fires
+    // once per iframe load; subsequent draft updates go through the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Post the draft state whenever it changes (debounced via React batching).
+  useEffect(() => {
+    if (!readyRef.current) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'foody-draft-state', state: draftPayload }, '*'
+    );
+  }, [draftPayload]);
+
+  if (!slug) {
+    return <div className="text-sm text-fg-secondary p-8">Slug du restaurant requis pour la prévisualisation</div>;
+  }
+
+  const width = mode === 'mobile' ? 390 : '100%';
+  const height = mode === 'mobile' ? 844 : '100%';
+  return (
+    <div
+      className="my-6 shadow-xl overflow-hidden bg-white"
+      style={{
+        width,
+        height,
+        maxWidth: '100%',
+        borderRadius: mode === 'mobile' ? 32 : 8,
+        border: mode === 'mobile' ? '6px solid #1a1a1a' : '1px solid var(--divider)',
+      }}
+    >
+      <iframe
+        ref={iframeRef}
+        src={`${WEB_URL}/r/${slug}?preview=1`}
+        title="Live preview"
+        className="w-full h-full"
+        style={{ border: 'none' }}
+      />
+    </div>
+  );
+}
 
 const MenuPreviewIframe = forwardRef<HTMLIFrameElement, {
   mode: 'mobile' | 'desktop';

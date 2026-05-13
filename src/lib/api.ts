@@ -405,12 +405,22 @@ export interface WebsiteConfig {
   show_phone: boolean;
   show_hours: boolean;
   favicon_url: string;
+  hero_cta_text: string;
+  mid_cta_enabled: boolean;
+  mid_cta_title: string;
+  mid_cta_body: string;
+  mid_cta_btn_text: string;
+  footer_text: string;
   navbar_style: string;
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  // Draft / publish workflow (added in v2)
+  draft_dirty?: boolean;
+  draft_saved_at?: string | null;
+  published_at?: string | null;
 }
 
 export interface ThemeCatalogEntry {
@@ -2443,6 +2453,62 @@ export async function listSiteStyles(): Promise<SiteStylePreset[]> {
   if (!res.ok) return [];
   const data = await res.json();
   return data.styles || [];
+}
+
+// ─── Website Editor v2 — Draft / Publish ─────────────────────────────────────
+
+export type DraftSectionPayload = {
+  id?: number;
+  tmp_id?: string;
+  section_type: string;
+  page: string;
+  sort_order: number;
+  is_visible: boolean;
+  layout: string;
+  content: Record<string, any>;
+  settings: Record<string, any>;
+};
+
+export type DraftStatePayload = {
+  config: Record<string, any>;
+  sections: DraftSectionPayload[];
+  deleted_section_ids: number[];
+};
+
+export type DraftResponse = {
+  state: DraftStatePayload;
+  draft_dirty: boolean;
+  draft_saved_at?: string | null;
+  published_at?: string | null;
+};
+
+export async function getWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId
+  );
+}
+
+export async function saveWebsiteDraft(
+  restaurantId: number, payload: DraftStatePayload
+): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
+}
+
+export async function publishWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-publish`, restaurantId,
+    { method: 'POST' }
+  );
+}
+
+export async function discardWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-discard`, restaurantId,
+    { method: 'POST' }
+  );
 }
 
 // ─── Stock Management ────────────────────────────────────────────────────────
