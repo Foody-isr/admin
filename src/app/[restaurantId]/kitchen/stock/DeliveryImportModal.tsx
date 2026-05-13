@@ -737,26 +737,43 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
-// ItemSkeleton mirrors the shape of an item card. The `delay` staggers the
-// pulse animation across multiple placeholders so they don't all flash in
-// lock-step, which reads as a more natural "AI is thinking" feel.
+// ItemSkeleton mirrors the shape of an item card (title + subtitle, metadata
+// line, ARTICLE section, quantity grid). The `delay` staggers the pulse
+// animation across multiple placeholders so they don't all flash in lock-step,
+// which reads as a more natural "AI is thinking" feel.
 function ItemSkeleton({ delay = 0 }: { delay?: number }) {
   return (
     <div
-      className="p-4 rounded-lg space-y-3 animate-pulse"
+      className="p-4 rounded-lg space-y-4 animate-pulse"
       style={{ background: 'var(--surface-subtle)', animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-center gap-2">
-        <div className="h-9 flex-1 rounded bg-fg-tertiary/15" />
-        <div className="h-5 w-14 rounded-full bg-fg-tertiary/15 shrink-0" />
-        <div className="h-5 w-12 rounded-full bg-fg-tertiary/15 shrink-0" />
+      {/* Header: title + subtitle + status chip */}
+      <div className="space-y-1.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 space-y-1.5">
+            <div className="h-5 w-3/4 rounded bg-fg-tertiary/15" />
+            <div className="h-3.5 w-1/2 rounded bg-fg-tertiary/15" />
+          </div>
+          <div className="h-5 w-14 rounded-full bg-fg-tertiary/15 shrink-0" />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-3 w-14 rounded bg-fg-tertiary/15" />
+          <div className="h-3 flex-1 rounded bg-fg-tertiary/15" />
+          <div className="h-5 w-14 rounded-full bg-fg-tertiary/15" />
+        </div>
       </div>
-      <div className="h-3 w-2/3 rounded bg-fg-tertiary/15" />
-      <div className="h-7 w-full rounded bg-fg-tertiary/15" />
-      <div className="grid grid-cols-3 gap-2">
-        <div className="h-9 rounded bg-fg-tertiary/15" />
-        <div className="h-9 rounded bg-fg-tertiary/15" />
-        <div className="h-9 rounded bg-fg-tertiary/15" />
+      {/* Article section */}
+      <div className="space-y-3 border-t border-[var(--divider)] pt-3">
+        <div className="h-2.5 w-12 rounded bg-fg-tertiary/15" />
+        <div className="h-9 w-full rounded bg-fg-tertiary/15" />
+      </div>
+      {/* Quantity section */}
+      <div className="border-t border-[var(--divider)] pt-3">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="h-9 rounded bg-fg-tertiary/15" />
+          <div className="h-9 rounded bg-fg-tertiary/15" />
+          <div className="h-9 rounded bg-fg-tertiary/15" />
+        </div>
       </div>
     </div>
   );
@@ -833,10 +850,15 @@ function ItemsList({
             default:                    return 'reviewNeededBanner';
           }
         })();
+        const statusChip = isSkipped
+          ? { label: t('skipped'), cls: 'bg-fg-tertiary/10 text-fg-secondary' }
+          : isExisting
+            ? { label: t('existing'), cls: 'bg-green-500/10 text-green-500' }
+            : { label: t('new'), cls: 'bg-amber-500/10 text-amber-500' };
         return (
           <div
             key={idx}
-            className={`p-4 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-1 duration-200 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
+            className={`p-4 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-1 duration-200 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
             style={{ background: 'var(--surface-subtle)', opacity: isSkipped ? 0.5 : 1 }}
           >
             {isFlagged && (
@@ -852,91 +874,114 @@ function ItemsList({
                 </button>
               </div>
             )}
-            {/* Row 1: Stock item match */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0" style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('matchToStockItem')}</label>
-                <SearchableSelect
-                  value={item.stock_item_id ? String(item.stock_item_id) : ''}
-                  onChange={(val) => {
-                    if (val) {
-                      const si = stockItems.find((s) => s.id === +val);
-                      if (si) updateItem(idx, { stock_item_id: si.id, name: si.name, unit: si.unit, category: si.category });
-                    } else {
-                      updateItem(idx, { stock_item_id: undefined });
-                    }
-                  }}
-                  options={stockOptions}
-                  placeholder={t('matchToStockItem')}
-                />
+
+            {/* ── Header: identity + status ───────────────────────────── */}
+            <div className="space-y-1.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h4
+                    className="text-base font-semibold text-fg-primary truncate"
+                    dir="auto"
+                    style={{ textDecoration: isSkipped ? 'line-through' : undefined }}
+                  >
+                    {item.name || item.original_name || '—'}
+                  </h4>
+                  {item.original_name && item.original_name !== item.name && (
+                    <p className="text-sm text-fg-secondary truncate" dir="auto">
+                      {item.original_name}
+                    </p>
+                  )}
+                </div>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${statusChip.cls}`}>
+                  {statusChip.label}
+                </span>
               </div>
-              {isSkipped ? (
-                <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 bg-fg-tertiary/10 text-fg-secondary">
-                  {t('skipped')}
-                </span>
-              ) : (
-                <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 ${isExisting ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                  {isExisting ? t('existing') : t('new')}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => updateItem(idx, { skipped: !isSkipped })}
-                className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary"
-                style={{ opacity: 1 }}
-              >
-                {isSkipped ? t('unskip') : t('skip')}
-              </button>
+
+              {/* Metadata line: line number + editable SKU + skip toggle */}
+              <div className="flex items-center gap-3 text-xs text-fg-tertiary">
+                {item.row_index && item.row_index > 0 ? (
+                  <span className="shrink-0">{t('rowNumber').replace('{n}', String(item.row_index))}</span>
+                ) : null}
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="shrink-0">{t('sku')}</span>
+                  <input
+                    className="bg-transparent border-b border-[var(--divider)]/40 hover:border-[var(--divider)] focus:border-brand-500 outline-none text-xs flex-1 min-w-0 px-0.5 py-0.5 text-fg-secondary transition-colors"
+                    value={item.sku ?? ''}
+                    disabled={isSkipped}
+                    onChange={(e) => updateItem(idx, { sku: e.target.value })}
+                    placeholder={t('skuHelp')}
+                    dir="ltr"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateItem(idx, { skipped: !isSkipped })}
+                  className="ml-auto text-xs px-2 py-0.5 rounded-full whitespace-nowrap border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary shrink-0"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  {isSkipped ? t('unskip') : t('skip')}
+                </button>
+              </div>
             </div>
 
-            {/* Original name (supplier language) */}
-            {item.original_name && item.original_name !== item.name && (
-              <p className="text-xs text-fg-secondary" dir="auto" style={{ textDecoration: isSkipped ? 'line-through' : undefined }}>
-                <span className="text-fg-tertiary">{t('originalName')}:</span> {item.original_name}
-              </p>
-            )}
-
-            {/* SKU / supplier code (editable so the user can correct AI mis-reads) */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-fg-tertiary shrink-0">{t('sku')}:</label>
-              <input
-                className="input flex-1 py-1 text-xs"
-                value={item.sku ?? ''}
-                disabled={isSkipped}
-                onChange={(e) => updateItem(idx, { sku: e.target.value })}
-                placeholder={t('skuHelp')}
-                dir="ltr"
+            {/* ── Article section: match + name/category ──────────────── */}
+            <div
+              className="space-y-3 border-t border-[var(--divider)] pt-3"
+              style={{ pointerEvents: isSkipped ? 'none' : undefined }}
+              aria-disabled={isSkipped}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-fg-tertiary font-semibold">
+                {t('articleSection')}
+              </div>
+              <SearchableSelect
+                value={item.stock_item_id ? String(item.stock_item_id) : ''}
+                onChange={(val) => {
+                  if (val) {
+                    const si = stockItems.find((s) => s.id === +val);
+                    if (si) updateItem(idx, { stock_item_id: si.id, name: si.name, unit: si.unit, category: si.category });
+                  } else {
+                    updateItem(idx, { stock_item_id: undefined });
+                  }
+                }}
+                options={stockOptions}
+                placeholder={t('matchToStockItem')}
               />
+              {!isExisting && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
+                    <input
+                      className="input w-full py-1.5 text-sm"
+                      value={item.name}
+                      disabled={isSkipped}
+                      onChange={(e) => updateItem(idx, { name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
+                    <select
+                      className="input w-full py-1.5 text-sm"
+                      value={item.category}
+                      disabled={isSkipped}
+                      onChange={(e) => updateItem(idx, { category: e.target.value })}
+                    >
+                      <option value="">{t('category')}</option>
+                      {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {item.category && !existingCategories.includes(item.category) && (
+                        <option value={item.category}>{item.category}</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Row 2: Name + Category (new items only) */}
-            {!isExisting && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
-                  <input className="input w-full py-1.5 text-sm" value={item.name}
-                    disabled={isSkipped}
-                    onChange={(e) => updateItem(idx, { name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
-                  <select className="input w-full py-1.5 text-sm" value={item.category}
-                    disabled={isSkipped}
-                    onChange={(e) => updateItem(idx, { category: e.target.value })}>
-                    <option value="">{t('category')}</option>
-                    {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-                    {item.category && !existingCategories.includes(item.category) && (
-                      <option value={item.category}>{item.category}</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Shared quantity / packaging / price form.
-                Reads from persisted per-line formStates so mode + packaging
-                fields stick across renders (e.g. empty Advanced mode). */}
-            <div style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>
+            {/* ── Quantity / packaging / price ────────────────────────── */}
+            <div
+              className="border-t border-[var(--divider)] pt-3"
+              style={{ pointerEvents: isSkipped ? 'none' : undefined }}
+              aria-disabled={isSkipped}
+            >
               <StockQuantityForm
                 value={formStates[idx] ?? lineToStockInput(item)}
                 onChange={(v) => updateFormState(idx, v)}
