@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * SelectionOverlay — direct-selection layer drawn ABOVE the live preview
@@ -67,17 +67,15 @@ export function SelectionOverlay({
 
   if (!iframeRect) return null;
 
-  /** Translate iframe-document coordinates into viewport (overlay) coordinates. */
-  const toViewport = useCallback(
-    (b: SectionBounds) => {
-      const top = iframeRect.top + (b.top - iframeScrollY) * scale;
-      const left = iframeRect.left + b.left * scale;
-      const width = b.width * scale;
-      const height = b.height * scale;
-      return { top, left, width, height };
-    },
-    [iframeRect, scale, iframeScrollY]
-  );
+  // Translate iframe-document coordinates into viewport (overlay) coordinates.
+  // Inline so it sits AFTER any conditional return without breaking hook order.
+  const toViewport = (b: SectionBounds) => {
+    const top = iframeRect.top + (b.top - iframeScrollY) * scale;
+    const left = iframeRect.left + b.left * scale;
+    const width = b.width * scale;
+    const height = b.height * scale;
+    return { top, left, width, height };
+  };
 
   return (
     <div
