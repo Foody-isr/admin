@@ -661,6 +661,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             t={t}
             reviewedItems={reviewedItems}
             markReviewed={markReviewed}
+            streaming={streaming}
           />
         </div>
 
@@ -688,6 +689,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               t={t}
               reviewedItems={reviewedItems}
               markReviewed={markReviewed}
+              streaming={streaming}
             />
           </div>
         )}
@@ -735,6 +737,31 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
+// ItemSkeleton mirrors the shape of an item card. The `delay` staggers the
+// pulse animation across multiple placeholders so they don't all flash in
+// lock-step, which reads as a more natural "AI is thinking" feel.
+function ItemSkeleton({ delay = 0 }: { delay?: number }) {
+  return (
+    <div
+      className="p-4 rounded-lg space-y-3 animate-pulse"
+      style={{ background: 'var(--surface-subtle)', animationDelay: `${delay}ms` }}
+    >
+      <div className="flex items-center gap-2">
+        <div className="h-9 flex-1 rounded bg-fg-tertiary/15" />
+        <div className="h-5 w-14 rounded-full bg-fg-tertiary/15 shrink-0" />
+        <div className="h-5 w-12 rounded-full bg-fg-tertiary/15 shrink-0" />
+      </div>
+      <div className="h-3 w-2/3 rounded bg-fg-tertiary/15" />
+      <div className="h-7 w-full rounded bg-fg-tertiary/15" />
+      <div className="grid grid-cols-3 gap-2">
+        <div className="h-9 rounded bg-fg-tertiary/15" />
+        <div className="h-9 rounded bg-fg-tertiary/15" />
+        <div className="h-9 rounded bg-fg-tertiary/15" />
+      </div>
+    </div>
+  );
+}
+
 function StreamingHeader({
   streaming, count, error, onCancel, onRetry, t,
 }: {
@@ -748,14 +775,9 @@ function StreamingHeader({
   if (streaming) {
     return (
       <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
-        <SparklesIcon className="w-4 h-4 text-brand-500 animate-pulse shrink-0" />
-        <span className="text-sm text-fg-primary flex-1 flex items-center gap-2">
+        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
+        <span className="text-sm text-fg-primary flex-1">
           {t('scanInProgress').replace('{n}', String(count))}
-          <span className="inline-flex gap-1 items-end">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" style={{ animationDelay: '-300ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" style={{ animationDelay: '-150ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-bounce" />
-          </span>
         </span>
         <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)] shrink-0">
           {t('cancelScan')}
@@ -779,7 +801,7 @@ function StreamingHeader({
 }
 
 function ItemsList({
-  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed,
+  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed, streaming,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
   formStates: StockInput[];
@@ -793,6 +815,7 @@ function ItemsList({
   t: (key: string) => string;
   reviewedItems: Set<number>;
   markReviewed: (idx: number) => void;
+  streaming: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -927,6 +950,13 @@ function ItemsList({
           </div>
         );
       })}
+      {streaming && (
+        <>
+          <ItemSkeleton delay={0} />
+          <ItemSkeleton delay={200} />
+          <ItemSkeleton delay={400} />
+        </>
+      )}
     </div>
   );
 }
