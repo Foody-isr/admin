@@ -11,6 +11,7 @@ import {
 import { SparklesIcon, FileTextIcon, SendHorizonalIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
+import { FoodySpinner } from '@/components/FoodySpinner';
 import StockQuantityForm, {
   StockInput, BaseUnit, PackagingUnit, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
@@ -614,7 +615,12 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             )}
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button onClick={handleUpload} disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())} className="btn-primary text-sm">
+              <button
+                onClick={handleUpload}
+                disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
+                className="btn-primary text-sm inline-flex items-center gap-2"
+              >
+                {loading && <FoodySpinner size={14} className="opacity-90" />}
                 {loading ? t('analyzing') : t('uploadAndAnalyze')}
               </button>
             </div>
@@ -1155,7 +1161,7 @@ function StreamingHeader({
       .replace('{n}', String(count));
     return (
       <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
-        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
+        <FoodySpinner size={20} className="shrink-0" />
         <span
           key={verbIndex}
           className="text-sm text-fg-primary flex-1 animate-in fade-in slide-in-from-bottom-0.5 duration-300"
