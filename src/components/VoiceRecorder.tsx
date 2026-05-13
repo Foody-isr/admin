@@ -155,7 +155,15 @@ export default function VoiceRecorder({ onSubmit, disabled, t }: Props) {
   };
 
   const send = () => {
-    if (blob) onSubmit(blob, mediaType);
+    if (!blob) return;
+    // Below ~1.5s the recording is almost certainly a misclick — too short
+    // for any useful delivery description. Reject locally instead of burning
+    // a Whisper round-trip on a hallucinated transcript.
+    if (elapsedMs < 1500) {
+      setError(t('voiceTooShort'));
+      return;
+    }
+    onSubmit(blob, mediaType);
   };
 
   const seconds = Math.floor(elapsedMs / 1000);
