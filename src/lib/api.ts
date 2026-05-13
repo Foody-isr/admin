@@ -2706,6 +2706,70 @@ export async function importDeliveryStream(
   }
 }
 
+// ─── AI Chat: targeted delivery edits ─────────────────────────────────
+//
+// The chat endpoint runs one Anthropic tool-use round on the current
+// item list and returns either a clarifying question or a set of
+// patches the client applies to editedItems.
+
+export interface ChatItemSnapshot {
+  index: number;
+  name: string;
+  original_name?: string;
+  category?: string;
+  unit: string;
+  quantity: number;
+  cost_per_unit: number;
+  total_price: number;
+  pack_count?: number;
+  units_per_pack?: number;
+  unit_size?: number;
+  unit_size_unit?: string;
+  container_type?: string;
+  unit_type?: string;
+  vat_rate_override?: number | null;
+  skipped?: boolean;
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatPatch {
+  item_index: number;
+  name?: string;
+  category?: string;
+  quantity?: number;
+  total_price?: number;
+  cost_per_unit?: number;
+  vat_rate_override?: number | null;
+  skipped?: boolean;
+}
+
+export interface ChatDeliveryRequest {
+  items: ChatItemSnapshot[];
+  history: ChatTurn[];
+  message: string;
+  vat_display_mode: 'ex' | 'inc';
+  default_vat_rate: number;
+  lang?: string;
+}
+
+export interface ChatDeliveryResponse {
+  assistant_message: string;
+  patches: ChatPatch[];
+  clarification_needed: boolean;
+}
+
+export async function chatDeliveryEdit(restaurantId: number, body: ChatDeliveryRequest): Promise<ChatDeliveryResponse> {
+  return apiFetch<ChatDeliveryResponse>(
+    `/api/v1/stock/import/delivery/chat?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
 export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
   await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),

@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   importDeliveryStream, confirmDelivery, listSuppliers, getRestaurantSettings,
-  getImportDraft, createImportDraft, deleteImportDraft,
+  getImportDraft, createImportDraft, deleteImportDraft, chatDeliveryEdit,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
-  DeliveryStreamDone,
+  DeliveryStreamDone, ChatItemSnapshot, ChatTurn, ChatPatch,
 } from '@/lib/api';
 
-import { SparklesIcon, FileTextIcon } from 'lucide-react';
+import { SparklesIcon, FileTextIcon, SendHorizonalIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
 import StockQuantityForm, {
@@ -173,6 +173,10 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   const [streamError, setStreamError] = useState('');
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
   useEffect(() => {
@@ -323,6 +327,100 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setEditedItems([]);
     setFormStates([]);
     setStep('upload');
+  };
+
+  // ── Chat: targeted AI edits over the current items ─────────────────────
+  // Builds a slim snapshot of the current items, sends the user's message
+  // + history to the chat endpoint, and applies the returned patches to
+  // editedItems/formStates in place.
+  const applyChatPatches = (patches: ChatPatch[]) => {
+    if (patches.length === 0) return;
+    setEditedItems((prev) => {
+      const next = prev.slice();
+      const formNext = formStates.slice();
+      for (const p of patches) {
+        if (p.item_index < 0 || p.item_index >= next.length) continue;
+        const cur = next[p.item_index];
+        const patched: ConfirmDeliveryItemInput = {
+          ...cur,
+          ...(p.name !== undefined ? { name: p.name } : {}),
+          ...(p.category !== undefined ? { category: p.category } : {}),
+          ...(p.quantity !== undefined ? { quantity: p.quantity } : {}),
+          ...(p.total_price !== undefined ? { total_price: p.total_price } : {}),
+          ...(p.cost_per_unit !== undefined ? { cost_per_unit: p.cost_per_unit } : {}),
+          ...(p.vat_rate_override !== undefined ? { vat_rate_override: p.vat_rate_override } : {}),
+          ...(p.skipped !== undefined ? { skipped: p.skipped } : {}),
+        };
+        // If price or quantity changed, total_price stays as patched (server
+        // already converted units / VAT). Recompute cost_per_unit if the
+        // model didn't give us one but moved the total or quantity.
+        if (p.cost_per_unit === undefined && (p.total_price !== undefined || p.quantity !== undefined)) {
+          const q = patched.quantity || cur.quantity;
+          patched.cost_per_unit = q > 0 ? (patched.total_price ?? 0) / q : 0;
+        }
+        next[p.item_index] = patched;
+        formNext[p.item_index] = lineToStockInput(patched);
+      }
+      setFormStates(formNext);
+      return next;
+    });
+    // Treat AI edits as acknowledged for any flagged rows we touched.
+    setReviewedItems((prev) => {
+      const next = new Set(prev);
+      patches.forEach((p) => next.add(p.item_index));
+      return next;
+    });
+  };
+
+  const sendChat = async () => {
+    const message = chatInput.trim();
+    if (!message || chatLoading) return;
+    setChatLoading(true);
+    const nextHistory: ChatTurn[] = [...chatHistory, { role: 'user', content: message }];
+    setChatHistory(nextHistory);
+    setChatInput('');
+
+    const snapshot: ChatItemSnapshot[] = editedItems.map((i, index) => ({
+      index,
+      name: i.name,
+      original_name: i.original_name,
+      category: i.category,
+      unit: i.unit,
+      quantity: i.quantity,
+      cost_per_unit: i.cost_per_unit,
+      total_price: i.total_price ?? 0,
+      pack_count: i.pack_count,
+      units_per_pack: i.units_per_pack,
+      unit_size: i.unit_size,
+      unit_size_unit: i.unit_size_unit,
+      container_type: i.container_type,
+      unit_type: i.unit_type,
+      vat_rate_override: i.vat_rate_override,
+      skipped: i.skipped,
+    }));
+
+    try {
+      const res = await chatDeliveryEdit(rid, {
+        items: snapshot,
+        history: chatHistory,
+        message,
+        vat_display_mode: vatDisplayMode,
+        default_vat_rate: vatRate,
+        lang: locale,
+      });
+      applyChatPatches(res.patches);
+      setChatHistory([
+        ...nextHistory,
+        { role: 'assistant', content: res.assistant_message || (res.patches.length > 0 ? t('aiPatchApplied') : t('aiNoChange')) },
+      ]);
+    } catch (err) {
+      setChatHistory([
+        ...nextHistory,
+        { role: 'assistant', content: t('aiErrorGeneric') + ' (' + (err as Error).message + ')' },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   // Count of flagged rows that haven't been edited/acknowledged and aren't skipped.
@@ -681,6 +779,20 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             markReviewed={markReviewed}
             streaming={streaming}
           />
+          {!streaming && !streamError && editedItems.length > 0 && (
+            <div className="mt-4">
+              <ChatPanel
+                open={chatOpen}
+                onToggle={() => setChatOpen((o) => !o)}
+                history={chatHistory}
+                input={chatInput}
+                loading={chatLoading}
+                onInput={setChatInput}
+                onSend={sendChat}
+                t={t}
+              />
+            </div>
+          )}
         </div>
 
         {/* ─ Mobile items view ─ */}
@@ -725,6 +837,20 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               markReviewed={markReviewed}
               streaming={streaming}
             />
+            {!streaming && !streamError && editedItems.length > 0 && (
+              <div className="mt-4">
+                <ChatPanel
+                  open={chatOpen}
+                  onToggle={() => setChatOpen((o) => !o)}
+                  history={chatHistory}
+                  input={chatInput}
+                  loading={chatLoading}
+                  onInput={setChatInput}
+                  onSend={sendChat}
+                  t={t}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -870,6 +996,97 @@ function AiSummaryBubble({
       >
         &times;
       </button>
+    </div>
+  );
+}
+
+// ChatPanel is the interactive natural-language editor docked below the
+// items list. Collapsed by default to a single trigger line; expands into
+// a transcript + input. Stateless across re-renders — its conversation
+// history lives on the parent component.
+function ChatPanel({
+  open, onToggle, history, input, loading, onInput, onSend, t,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  history: ChatTurn[];
+  input: string;
+  loading: boolean;
+  onInput: (v: string) => void;
+  onSend: () => void;
+  t: (key: string) => string;
+}) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] bg-[var(--surface-subtle)] hover:bg-[var(--surface)] transition-colors text-left"
+      >
+        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
+        <span className="text-sm text-fg-secondary flex-1 truncate">{t('askAi')}</span>
+        <span className="text-xs text-fg-tertiary shrink-0">▴</span>
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden flex flex-col" style={{ maxHeight: '40vh' }}>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--divider)]">
+        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
+        <span className="text-sm font-medium text-fg-primary flex-1">{t('aiAssistant')}</span>
+        <button onClick={onToggle} className="text-xs text-fg-tertiary hover:text-fg-primary px-1">▾</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[8rem]">
+        {history.length === 0 && (
+          <p className="text-xs text-fg-tertiary italic">{t('askAiPlaceholder')}</p>
+        )}
+        {history.map((turn, i) => (
+          <div
+            key={i}
+            className={`text-sm leading-snug ${turn.role === 'user' ? 'text-fg-primary' : 'text-fg-secondary'}`}
+          >
+            <span className={`text-[10px] uppercase tracking-wider mr-2 ${turn.role === 'user' ? 'text-fg-tertiary' : 'text-brand-500'}`}>
+              {turn.role === 'user' ? '·' : '✨'}
+            </span>
+            {turn.content}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-sm text-fg-tertiary italic flex items-center gap-2">
+            <span className="text-brand-500">✨</span>
+            {t('aiThinking')}
+            <span className="inline-flex gap-1 items-end">
+              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" style={{ animationDelay: '-300ms' }} />
+              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" style={{ animationDelay: '-150ms' }} />
+              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" />
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 p-2 border-t border-[var(--divider)]">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => onInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          placeholder={t('askAiPlaceholder')}
+          disabled={loading}
+          className="flex-1 bg-transparent text-sm px-2 py-1.5 outline-none focus:ring-1 focus:ring-brand-500 rounded"
+        />
+        <button
+          onClick={onSend}
+          disabled={loading || !input.trim()}
+          aria-label={t('aiSend')}
+          className="shrink-0 p-1.5 rounded-md text-brand-500 hover:bg-brand-500/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+        >
+          <SendHorizonalIcon className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
