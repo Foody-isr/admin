@@ -200,6 +200,10 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   // re-send the same audio without forcing the user to re-record.
   const lastVoiceRef = useRef<{ blob: Blob; mediaType: string } | null>(null);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
+  // Whisper transcript from the most recent voice import — rendered in the
+  // left pane so the user can see exactly what the AI heard before reviewing
+  // the extracted items. Cleared between scans.
+  const [voiceTranscript, setVoiceTranscript] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
@@ -273,6 +277,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setStep('review');
     setStreaming(true);
     setSummaryDismissed(false);
+    setVoiceTranscript('');
 
     const ac = new AbortController();
     abortRef.current = ac;
@@ -370,15 +375,17 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
     setStep('review');
     setStreaming(true);
     setSummaryDismissed(false);
+    setVoiceTranscript('');
 
     try {
-      const result = await importDeliveryVoice(
+      const { extraction: result, transcript } = await importDeliveryVoice(
         rid,
         audioBlob,
         mediaType,
         locale,
         selectedSupplierId > 0 ? selectedSupplierId : undefined,
       );
+      setVoiceTranscript(transcript);
       setExtraction(result);
       const newItems: ConfirmDeliveryItemInput[] = result.items.map((i) => {
         const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
@@ -833,7 +840,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${reviewTab === 'document' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-fg-secondary'}`}
           onClick={() => setReviewTab('document')}
         >
-          {t('originalDocument')}
+          {importMode === 'voice' ? t('voiceTranscript') : t('originalDocument')}
         </button>
         <button
           className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${reviewTab === 'items' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-fg-secondary'}`}
@@ -845,30 +852,63 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
       {/* ─ Main content ─ */}
       <div className={`flex flex-1 min-h-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-        {/* ─ Document preview (left on LTR, right on RTL) ─ */}
+        {/* ─ Document / Transcript pane (left on LTR, right on RTL) ─
+            Same slot serves both modes: bill scan shows the original
+            image/PDF; voice import shows the Whisper transcript so the
+            user can verify what the AI heard. */}
         <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 hidden lg:flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
-          <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalDocument')}</h4>
+          <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">
+            {importMode === 'voice' ? t('voiceTranscript') : t('originalDocument')}
+          </h4>
           <div className="flex-1 rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-            {previewUrl && previewType.startsWith('image/') && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
-            )}
-            {previewUrl && previewType === 'application/pdf' && (
-              <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+            {importMode === 'voice' ? (
+              voiceTranscript ? (
+                <p className="p-4 text-sm text-fg-primary whitespace-pre-wrap leading-relaxed" dir="auto">
+                  {voiceTranscript}
+                </p>
+              ) : (
+                <p className="p-4 text-sm text-fg-tertiary italic">
+                  {t('voiceTranscriptPending')}
+                </p>
+              )
+            ) : (
+              <>
+                {previewUrl && previewType.startsWith('image/') && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
+                )}
+                {previewUrl && previewType === 'application/pdf' && (
+                  <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* ─ Mobile document view ─ */}
+        {/* ─ Mobile document / transcript view ─ */}
         {reviewTab === 'document' && (
           <div className="flex-1 overflow-auto p-4 lg:hidden">
             <div className="rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-              {previewUrl && previewType.startsWith('image/') && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
-              )}
-              {previewUrl && previewType === 'application/pdf' && (
-                <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+              {importMode === 'voice' ? (
+                voiceTranscript ? (
+                  <p className="p-4 text-sm text-fg-primary whitespace-pre-wrap leading-relaxed" dir="auto">
+                    {voiceTranscript}
+                  </p>
+                ) : (
+                  <p className="p-4 text-sm text-fg-tertiary italic">
+                    {t('voiceTranscriptPending')}
+                  </p>
+                )
+              ) : (
+                <>
+                  {previewUrl && previewType.startsWith('image/') && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
+                  )}
+                  {previewUrl && previewType === 'application/pdf' && (
+                    <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+                  )}
+                </>
               )}
             </div>
           </div>

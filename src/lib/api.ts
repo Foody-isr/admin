@@ -2839,13 +2839,18 @@ export async function chatDeliveryEdit(restaurantId: number, body: ChatDeliveryR
 // importDeliveryVoice uploads a voice recording of the owner describing a
 // delivery and returns the same DeliveryExtraction shape as importDelivery.
 // Reuses the entire review flow downstream.
+export interface VoiceImportResult {
+  extraction: DeliveryExtraction;
+  transcript: string;
+}
+
 export async function importDeliveryVoice(
   restaurantId: number,
   audioBlob: Blob,
   mediaType: string,
   lang?: string,
   supplierId?: number,
-): Promise<DeliveryExtraction> {
+): Promise<VoiceImportResult> {
   const token = getToken();
   const formData = new FormData();
   // The backend matches Content-Type by prefix; the filename extension is
@@ -2873,7 +2878,7 @@ export async function importDeliveryVoice(
     throw new Error(body.error || body.message || `Voice import failed (${res.status})`);
   }
   const data = await res.json();
-  return data.extraction;
+  return { extraction: data.extraction, transcript: data.transcript ?? '' };
 }
 
 export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
