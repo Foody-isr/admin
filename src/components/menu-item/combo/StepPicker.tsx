@@ -8,19 +8,26 @@
 // Left column = catalog (search + filter + grouped item list with inline
 // variant chips). Right column = selected panel + step rules.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, X, Check, Plus } from 'lucide-react';
-import type { MenuCategory, MenuItem } from '@/lib/api';
+import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { Button, Chip, InputGroup, Kbd, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft, ComboStepDraftItem, ComboOptionView } from './types';
 import { buildOptions, getSourceVariants, toDraftItems, promoteDefaultOption } from './types';
 import StepRulesPanel from './StepRulesPanel';
 
+const MENU_FILTER_STORAGE_KEY = 'foody.combo.menuFilter';
+
 interface Props {
   step: ComboStepDraft;
   categories: MenuCategory[];
   itemsById: Map<number, MenuItem>;
+  /** Available cartes for scoping the catalog. The picker exposes a Carte
+   *  selector so the operator can restrict the catalog to items belonging to
+   *  a specific menu — e.g. only the 10 salads currently in the "Lunch" carte
+   *  rather than all 30 salads in the library. */
+  menus: Menu[];
   onCommit: (next: ComboStepDraft) => void;
   onCancel: () => void;
   /** Optional callout — non-null when the step's host card wants to show the
@@ -28,7 +35,7 @@ interface Props {
   stepNumber?: number;
 }
 
-export default function StepPicker({ step, categories, itemsById, onCommit, onCancel, stepNumber }: Props) {
+export default function StepPicker({ step, categories, itemsById, menus, onCommit, onCancel, stepNumber }: Props) {
   const { t } = useI18n();
   const [draftItems, setDraftItems] = useState<ComboStepDraftItem[]>(step.items);
   const [name, setName] = useState(step.name);
@@ -42,10 +49,77 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
   // together, which is wrong: selecting "Tout" with a category in the
   // dropdown silently kept the dropdown's filter on.)
   const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
+  // Carte scope. `null` = all library items (the legacy behavior); a number
+  // = only items belonging to that menu's groups (or legacy categories).
+  // Initialised from the last-used value persisted in localStorage so the
+  // operator doesn't re-pick on every step. Falls back to the first menu if
+  // any menus are available (so the picker doesn't default to "30 salads"
+  // when only 10 are in the current carte).
+  const [menuFilter, setMenuFilter] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return menus[0]?.id ?? null;
+    try {
+      const raw = localStorage.getItem(MENU_FILTER_STORAGE_KEY);
+      if (raw === '') return null;
+      const id = raw != null ? Number(raw) : NaN;
+      if (Number.isFinite(id) && menus.some((m) => m.id === id)) return id;
+    } catch {
+      /* ignore — storage may be disabled */
+    }
+    return menus[0]?.id ?? null;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      // Empty string encodes "All cartes" (distinct from "no preference"),
+      // so we don't fall back to a first-menu default after the operator
+      // explicitly opted out of menu scoping.
+      localStorage.setItem(MENU_FILTER_STORAGE_KEY, menuFilter == null ? '' : String(menuFilter));
+    } catch {
+      /* ignore */
+    }
+  }, [menuFilter]);
+
+  // Set of menu-item IDs reachable through the selected carte. `null` =
+  // no scoping (show the full library). We union the new groups model
+  // and the legacy categories field — both can carry items during the
+  // groups/categories transition.
+  const allowedItemIds = useMemo<Set<number> | null>(() => {
+    if (menuFilter == null) return null;
+    const menu = menus.find((m) => m.id === menuFilter);
+    if (!menu) return null;
+    const ids = new Set<number>();
+    for (const g of menu.groups ?? []) {
+      for (const it of g.items ?? []) ids.add(it.id);
+    }
+    for (const c of menu.categories ?? []) {
+      for (const it of c.items ?? []) ids.add(it.id);
+    }
+    return ids;
+  }, [menuFilter, menus]);
+
+  // Item categories filtered down to ones with items in the selected carte.
+  // Used for the category chips, dropdown, and bulk-add — so the operator
+  // doesn't see categories that are empty under the current scope.
+  const visibleCategories = useMemo<MenuCategory[]>(() => {
+    if (allowedItemIds == null) return categories;
+    return categories
+      .map((c) => ({ ...c, items: (c.items ?? []).filter((i) => allowedItemIds.has(i.id)) }))
+      .filter((c) => (c.items?.length ?? 0) > 0);
+  }, [categories, allowedItemIds]);
+
+  // If the active category chip is no longer present under the new scope,
+  // drop it so the catalog doesn't render empty.
+  useEffect(() => {
+    if (categoryFilter == null) return;
+    if (!visibleCategories.some((c) => c.id === categoryFilter)) {
+      setCategoryFilter(null);
+    }
+  }, [visibleCategories, categoryFilter]);
 
   const allItems = useMemo(
-    () => categories.flatMap((c) => (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))),
-    [categories],
+    () => visibleCategories.flatMap((c) => (c.items ?? []).map((i) => ({ ...i, category_name: c.name, category_id: c.id }))),
+    [visibleCategories],
   );
 
   const filteredItems = useMemo(() => {
@@ -174,7 +248,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
    *  Variant-less items are added unconditionally when no filter is set, and
    *  skipped when one is (since they can't satisfy the filter). */
   const addAllInCategory = (catId: number, variantNameFilter?: string) => {
-    const sourceItems = (categories.find((c) => c.id === catId)?.items ?? []) as MenuItem[];
+    const sourceItems = (visibleCategories.find((c) => c.id === catId)?.items ?? []) as MenuItem[];
     const additions: ComboStepDraftItem[] = [];
     const includedVariantsCache = includedVariantsByItem;
     for (const src of sourceItems) {
@@ -214,7 +288,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
    *  appearance (preserves the operator's intended order — "Normal" before
    *  "Grand", not alphabetical). Used to render quick-add chips. */
   const variantNamesIn = (catId: number): string[] => {
-    const cat = categories.find((c) => c.id === catId);
+    const cat = visibleCategories.find((c) => c.id === catId);
     if (!cat) return [];
     const seen = new Set<string>();
     const ordered: string[] = [];
@@ -320,6 +394,27 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
       <div className="grid grid-cols-1 md:grid-cols-[1fr_320px]">
         {/* Left — catalog */}
         <div className="p-[var(--s-4)] border-b md:border-b-0 md:border-e border-[var(--line)] min-w-0">
+          {/* Carte scope — restricts the catalog to items that belong to the
+              selected menu's groups. Hidden when the restaurant has no menus
+              yet (nothing to scope against). */}
+          {menus.length > 0 && (
+            <div className="flex items-center gap-[var(--s-2)] mb-[var(--s-3)]">
+              <label className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)] shrink-0">
+                {t('pickerMenuFilter')}
+              </label>
+              <Select
+                value={menuFilter ?? ''}
+                onChange={(e) => setMenuFilter(e.target.value ? Number(e.target.value) : null)}
+                className="flex-1 min-w-0"
+              >
+                <option value="">{t('pickerAllMenus')}</option>
+                {menus.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-[var(--s-2)] mb-[var(--s-3)]">
             <InputGroup
               className="flex-1"
@@ -337,7 +432,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
               className="sm:w-52 shrink-0"
             >
               <option value="">{t('pickerAllCategories')}</option>
-              {categories.map((c) => (
+              {visibleCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
@@ -352,7 +447,7 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
             >
               {t('pickerFilterAll')}
             </Chip>
-            {categories.slice(0, 4).map((c) => (
+            {visibleCategories.slice(0, 4).map((c) => (
               <Chip
                 key={c.id}
                 active={categoryFilter === c.id}
@@ -363,10 +458,14 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
             ))}
           </div>
 
-          {/* Grouped catalog list */}
+          {/* Grouped catalog list — distinguish "no results for search/filter"
+              from "this carte has no items yet" so the operator knows to add
+              items to the menu rather than reword their search. */}
           {grouped.length === 0 && (
             <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-6)] text-center">
-              {t('pickerNoResults')}
+              {menuFilter != null && allowedItemIds && allowedItemIds.size === 0
+                ? t('pickerMenuEmpty')
+                : t('pickerNoResults')}
             </div>
           )}
           <div className="flex flex-col gap-[var(--s-3)]">

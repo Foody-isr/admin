@@ -527,6 +527,7 @@ export default function EditItemPage() {
                 steps={comboSteps}
                 onStepsChange={setComboSteps}
                 categories={categories}
+                menus={menus}
                 onShowSavingsDetail={() => setSavingsModalOpen(true)}
               />
             )}

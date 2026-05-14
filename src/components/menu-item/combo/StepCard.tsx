@@ -9,7 +9,7 @@
 
 import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { MenuCategory, MenuItem } from '@/lib/api';
+import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
@@ -25,11 +25,12 @@ interface Props {
   basePrice: number;
   categories: MenuCategory[];
   itemsById: Map<number, MenuItem>;
+  menus: Menu[];
   onChange: (next: ComboStepDraft) => void;
   onRemove: () => void;
 }
 
-export default function StepCard({ step, index, basePrice, categories, itemsById, onChange, onRemove }: Props) {
+export default function StepCard({ step, index, basePrice, categories, itemsById, menus, onChange, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -97,6 +98,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
         step={step}
         categories={categories}
         itemsById={itemsById}
+        menus={menus}
         stepNumber={index + 1}
         onCancel={() => setPicking(false)}
         onCommit={(nextDraft) => {

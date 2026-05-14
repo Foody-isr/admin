@@ -1050,6 +1050,9 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── Inline picker (replaces modal-on-modal) ──
     pickerSearch: 'Search an item or category…',
     pickerAllCategories: 'All categories',
+    pickerMenuFilter: 'Menu',
+    pickerAllMenus: 'All menus',
+    pickerMenuEmpty: 'This menu has no items yet — add items to one of its groups first.',
     pickerFilterAll: 'All',
     pickerFilterSuggested: 'Suggested',
     pickerCategoryAddAll: 'Add all',
@@ -3207,6 +3210,9 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── Inline picker (replaces modal-on-modal) ──
     pickerSearch: 'חפש פריט או קטגוריה…',
     pickerAllCategories: 'כל הקטגוריות',
+    pickerMenuFilter: 'תפריט',
+    pickerAllMenus: 'כל התפריטים',
+    pickerMenuEmpty: 'אין פריטים בתפריט זה — הוסף תחילה פריטים לאחת מקבוצותיו.',
     pickerFilterAll: 'הכל',
     pickerFilterSuggested: 'מומלצים',
     pickerCategoryAddAll: 'הוסף הכל',
@@ -5344,6 +5350,9 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── Inline picker (replaces modal-on-modal) ──
     pickerSearch: 'Rechercher un article ou une catégorie…',
     pickerAllCategories: 'Toutes les catégories',
+    pickerMenuFilter: 'Carte',
+    pickerAllMenus: 'Toutes les cartes',
+    pickerMenuEmpty: 'Cette carte ne contient aucun article — ajoutez d\'abord des articles à l\'un de ses groupes.',
     pickerFilterAll: 'Tout',
     pickerFilterSuggested: 'Suggérés',
     pickerCategoryAddAll: 'Tout ajouter',

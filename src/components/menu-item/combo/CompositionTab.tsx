@@ -12,7 +12,7 @@
 
 import { Plus, AlertCircle } from 'lucide-react';
 import { useMemo } from 'react';
-import type { MenuCategory, MenuItem } from '@/lib/api';
+import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft } from './types';
 import StepCard from './StepCard';
@@ -28,6 +28,9 @@ interface Props {
   steps: ComboStepDraft[];
   onStepsChange: (next: ComboStepDraft[]) => void;
   categories: MenuCategory[];
+  /** Available cartes — forwarded into the step picker so the operator can
+   *  scope the catalog to a single menu while composing the combo. */
+  menus: Menu[];
   pricingMode?: PricingMode;
   onPricingModeChange?: (next: PricingMode) => void;
   /** Forwarded to the PricingCard's savings cell — host opens the breakdown
@@ -39,6 +42,7 @@ export default function CompositionTab({
   comboName, basePrice, onBasePriceChange,
   steps, onStepsChange,
   categories,
+  menus,
   pricingMode = 'fixed', onPricingModeChange,
   onShowSavingsDetail,
 }: Props) {
@@ -117,6 +121,7 @@ export default function CompositionTab({
             basePrice={basePrice}
             categories={categories}
             itemsById={itemsById}
+            menus={menus}
             onChange={(next) => updateStep(step.key, next)}
             onRemove={() => removeStep(step.key)}
           />
