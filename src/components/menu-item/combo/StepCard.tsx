@@ -191,39 +191,127 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
       {/* Body */}
       {!collapsed && (
         <div className="px-[var(--s-4)] py-[var(--s-3)] flex flex-col gap-[var(--s-2)]">
-          {options.length === 0 ? (
-            <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-3)]">
-              {t('composeStepEmpty')}
-            </div>
-          ) : (
-            options.map((opt) => (
-              opt.hasVariants ? (
-                <OptionRowWithVariants
-                  key={opt.key}
-                  option={opt}
-                  basePrice={basePrice}
-                  onChange={(variants) => handleVariantsChange(opt.menuItemId, variants)}
-                  onRemove={() => handleRemoveOption(opt.menuItemId)}
-                />
-              ) : (
-                <OptionRow
-                  key={opt.key}
-                  option={opt}
-                  onUpchargeChange={(next) => handleOptionUpchargeChange(opt.menuItemId, next)}
-                  onRemove={() => handleRemoveOption(opt.menuItemId)}
-                  onSetDefault={() => handleSetDefaultOption(opt.menuItemId)}
-                />
-              )
-            ))
-          )}
+          {/* Mode toggle */}
+          <div className="flex items-center gap-3 text-fs-xs text-[var(--fg-muted)] pb-1">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name={`step-mode-${step.key}`}
+                checked={step.source_type !== 'category'}
+                onChange={() =>
+                  onChange({ ...step, source_type: 'explicit', source_category_id: undefined })
+                }
+              />
+              <span>{t('composeStepModeExplicit')}</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name={`step-mode-${step.key}`}
+                checked={step.source_type === 'category'}
+                onChange={() => {
+                  if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
+                  onChange({ ...step, source_type: 'category', items: [] });
+                }}
+              />
+              <span>{t('composeStepModeCategory')}</span>
+            </label>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setPicking(true)}
-            className="self-start inline-flex items-center gap-1 h-8 px-2 rounded-r-sm text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-          >
-            <Plus className="w-3.5 h-3.5" /> {t('composeAddOption')}
-          </button>
+          {step.source_type === 'category' ? (
+            <CategoryModePanel
+              step={step}
+              categories={categories}
+              itemsById={itemsById}
+              onChange={onChange}
+            />
+          ) : (
+            <>
+              {options.length === 0 ? (
+                <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-3)]">
+                  {t('composeStepEmpty')}
+                </div>
+              ) : (
+                options.map((opt) => (
+                  opt.hasVariants ? (
+                    <OptionRowWithVariants
+                      key={opt.key}
+                      option={opt}
+                      basePrice={basePrice}
+                      onChange={(variants) => handleVariantsChange(opt.menuItemId, variants)}
+                      onRemove={() => handleRemoveOption(opt.menuItemId)}
+                    />
+                  ) : (
+                    <OptionRow
+                      key={opt.key}
+                      option={opt}
+                      onUpchargeChange={(next) => handleOptionUpchargeChange(opt.menuItemId, next)}
+                      onRemove={() => handleRemoveOption(opt.menuItemId)}
+                      onSetDefault={() => handleSetDefaultOption(opt.menuItemId)}
+                    />
+                  )
+                ))
+              )}
+
+              <button
+                type="button"
+                onClick={() => setPicking(true)}
+                className="self-start inline-flex items-center gap-1 h-8 px-2 rounded-r-sm text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+              >
+                <Plus className="w-3.5 h-3.5" /> {t('composeAddOption')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryModePanel({
+  step,
+  categories,
+  itemsById,
+  onChange,
+}: {
+  step: ComboStepDraft;
+  categories: MenuCategory[];
+  itemsById: Map<number, MenuItem>;
+  onChange: (next: ComboStepDraft) => void;
+}) {
+  const { t } = useI18n();
+  const selectedId = step.source_category_id ?? 0;
+  const previewItems = useMemo(() => {
+    if (!selectedId) return [] as string[];
+    const out: string[] = [];
+    for (const it of Array.from(itemsById.values())) {
+      if (it.category_id === selectedId && it.is_active) out.push(it.name);
+    }
+    return out;
+  }, [selectedId, itemsById]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <select
+        value={selectedId}
+        onChange={(e) =>
+          onChange({
+            ...step,
+            source_category_id: Number(e.target.value) || undefined,
+          })
+        }
+        className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+      >
+        <option value={0}>{t('composeStepCategoryPlaceholder')}</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+      {selectedId > 0 && (
+        <div className="text-fs-xs text-[var(--fg-muted)]">
+          {previewItems.length === 0
+            ? t('composeStepCategoryEmpty')
+            : t('composeStepCategoryPreview').replace('{items}', previewItems.join(', '))}
         </div>
       )}
     </div>

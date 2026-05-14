@@ -255,6 +255,8 @@ export default function StepPicker({ step, categories, itemsById, onCommit, onCa
       min_picks: minPicks,
       max_picks: maxPicks,
       items: toDraftItems(opts),
+      source_type: step.source_type,
+      source_category_id: step.source_category_id,
     });
   };
 

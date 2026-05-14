@@ -150,6 +150,7 @@ function CategoryEditModal({ restaurantId, editing, onClose, onSaved }: {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
+  const [isWeeklyRotating, setIsWeeklyRotating] = useState(editing?.is_weekly_rotating ?? false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,9 +162,9 @@ function CategoryEditModal({ restaurantId, editing, onClose, onSaved }: {
     setSaving(true);
     try {
       if (editing) {
-        await updateCategory(restaurantId, editing.id, { name });
+        await updateCategory(restaurantId, editing.id, { name, is_weekly_rotating: isWeeklyRotating });
       } else {
-        await createCategory(restaurantId, { name });
+        await createCategory(restaurantId, { name, is_weekly_rotating: isWeeklyRotating });
       }
       onSaved();
     } finally {
@@ -267,6 +268,19 @@ function CategoryEditModal({ restaurantId, editing, onClose, onSaved }: {
             onKeyDown={(e) => e.key === 'Enter' && handleSave()}
           />
         </div>
+
+        <label className="flex items-start gap-2 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isWeeklyRotating}
+            onChange={(e) => setIsWeeklyRotating(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="font-medium text-fg-secondary">{t('categoryWeeklyRotating')}</span>
+            <span className="block text-xs text-fg-tertiary">{t('categoryWeeklyRotatingHint')}</span>
+          </span>
+        </label>
 
         <div className="flex justify-end gap-2 mt-4">
           <button className="btn-secondary" onClick={onClose}>{t('cancel')}</button>

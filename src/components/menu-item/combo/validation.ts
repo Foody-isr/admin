@@ -17,6 +17,7 @@ interface I18nFns {
   stepNoOptions: (stepName: string) => string;
   stepRange: (stepName: string) => string;
   stepNoVariants: (stepName: string, itemName: string) => string;
+  stepNoCategory: (stepName: string) => string;
 }
 
 export function validateCombo(
@@ -33,6 +34,16 @@ export function validateCombo(
 
   for (const step of steps) {
     const stepName = step.name || '?';
+
+    if (step.source_type === 'category') {
+      if (!step.source_category_id) {
+        errors.push({ stepKey: step.key, message: i18n.stepNoCategory(stepName) });
+      }
+      if (step.max_picks > 0 && step.max_picks < step.min_picks) {
+        errors.push({ stepKey: step.key, message: i18n.stepRange(stepName) });
+      }
+      continue; // category mode bypasses explicit-item checks
+    }
 
     if (step.items.length === 0) {
       errors.push({ stepKey: step.key, message: i18n.stepNoOptions(stepName) });

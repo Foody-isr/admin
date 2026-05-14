@@ -132,7 +132,11 @@ export default function NewItemPage() {
           min_picks: s.min_picks,
           max_picks: s.max_picks,
           sort_order: i,
-          items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
+          source_type: s.source_type,
+          source_category_id: s.source_type === 'category' ? s.source_category_id : undefined,
+          items: s.source_type === 'category'
+            ? []
+            : s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
         }));
       }
       const item = await createMenuItem(rid, createPayload);
