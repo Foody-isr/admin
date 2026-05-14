@@ -115,6 +115,18 @@ export default function WebsitePage() {
   const [activeTab, setActiveTab] = useState<Tab>('sections');
   const [previewMode, setPreviewMode] = useState<'mobile' | 'desktop'>('mobile');
 
+  // ─── Editor mode (new 3-way IA) ─────────────────────────────────
+  // Pages: edit the section content of Landing + Order pages.
+  // Thème: global colors, typography, logo, favicon — applies to BOTH pages.
+  // Paramètres: slug, contact display toggles, social links, SEO.
+  // The old "Site Settings"/"Section Settings" duality is gone.
+  type EditorMode = 'pages' | 'theme' | 'settings';
+  type ThemeSubMode = 'colors' | 'typography' | 'logo';
+  type SettingsSubMode = 'general' | 'contact' | 'social' | 'seo';
+  const [editorMode, setEditorMode] = useState<EditorMode>('pages');
+  const [themeSubMode, setThemeSubMode] = useState<ThemeSubMode>('colors');
+  const [settingsSubMode, setSettingsSubMode] = useState<SettingsSubMode>('general');
+
   // ─── Draft / publish state ────────────────────────────────────────
   // The editor edits a draft snapshot stored on the server; customers see
   // the live columns unchanged until Publier promotes the draft.
@@ -659,52 +671,75 @@ export default function WebsitePage() {
     );
   }
 
+  const sectionLabel = (s: WebsiteSection | null) =>
+    s ? (SECTION_TYPE_META[s.section_type] ? t(SECTION_TYPE_META[s.section_type].labelKey) : s.section_type) : '';
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Top Bar — Wix-style */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-divider" style={{ background: 'var(--surface)' }}>
-        {/* Left: back + title */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/${restaurantId}/dashboard`)} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition" title={t('backToDashboard')}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+    <div className="h-screen flex flex-col" style={{ background: 'var(--bg-page)' }}>
+      {/* ─── Top Bar ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-divider" style={{ background: 'var(--surface)' }}>
+        {/* Left: back + project name */}
+        <div className="flex items-center gap-3 min-w-[240px]">
+          <button
+            onClick={() => router.push(`/${restaurantId}/dashboard`)}
+            className="w-8 h-8 rounded-lg border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition"
+            title={t('backToDashboard')}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-subtle">
-            <svg className="w-4 h-4 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-            <span className="text-sm font-semibold text-fg-primary">{t('siteDesign')}</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">Site web</span>
+            <span className="text-[13px] font-semibold text-fg-primary truncate max-w-[180px]">
+              {restaurant?.name ?? 'Sans titre'}
+            </span>
           </div>
         </div>
 
-        {/* Center: device toggle + undo/redo */}
-        <div className="flex items-center gap-2">
-          {/* Device dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-divider hover:bg-surface-subtle transition text-fg-secondary"
-            >
-              {previewMode === 'desktop' ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-              )}
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-          </div>
+        {/* Center: mode tabs (Pages / Thème / Paramètres) */}
+        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
+          {(['pages', 'theme', 'settings'] as EditorMode[]).map((m) => {
+            const label = m === 'pages' ? 'Pages' : m === 'theme' ? 'Thème' : 'Paramètres';
+            const active = editorMode === m;
+            return (
+              <button
+                key={m}
+                onClick={() => { setEditorMode(m); if (m !== 'pages') setSelectedSectionId(null); }}
+                className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition ${
+                  active ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+                }`}
+                style={active ? { background: 'var(--surface)' } : undefined}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Right: Draft badge + Preview Live + Annuler + Publier */}
-        <div className="flex items-center gap-3">
-          {/* Draft / Published status badge */}
-          <div className="flex items-center gap-2 text-xs">
+        {/* Right: device, status, preview link, annuler, publier */}
+        <div className="flex items-center gap-3 min-w-[240px] justify-end">
+          <button
+            onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')}
+            className="w-8 h-8 rounded-lg border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition"
+            title={previewMode === 'mobile' ? 'Aperçu desktop' : 'Aperçu mobile'}
+          >
+            {previewMode === 'desktop' ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+            )}
+          </button>
+
+          {/* Status badge */}
+          <div className="text-xs">
             {draftDirty ? (
-              <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-500/10 text-orange-500 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium" style={{ background: 'rgba(235, 82, 4, 0.12)', color: '#EB5204' }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#EB5204' }} />
                 Brouillon
               </span>
             ) : publishedAt ? (
-              <span className="text-fg-secondary">
-                Publié {formatRelativeTime(publishedAt)}
-              </span>
+              <span className="text-fg-secondary">Publié {formatRelativeTime(publishedAt)}</span>
             ) : (
               <span className="text-fg-secondary">Aucune modification</span>
             )}
@@ -715,149 +750,101 @@ export default function WebsitePage() {
               href={`${process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'}/r/${restaurant.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+              className="text-[13px] text-brand-500 hover:text-brand-600 font-medium"
             >
-              Preview
+              Voir le site
             </a>
           )}
+
           {draftDirty && (
             <button
               onClick={() => setShowDiscardConfirm(true)}
-              className="text-sm text-fg-secondary hover:text-fg-primary font-medium px-3 py-2 rounded-lg hover:bg-surface-subtle transition"
+              className="text-[13px] text-fg-secondary hover:text-fg-primary font-medium px-3 py-1.5 rounded-lg hover:bg-surface-subtle transition"
             >
               Annuler
             </button>
           )}
+
           <button
             onClick={handlePublish}
             disabled={saving || !draftDirty}
-            className="btn-primary px-5 py-2 rounded-lg disabled:opacity-50 text-sm font-semibold"
+            className="btn-primary px-5 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-semibold"
           >
-            {saving ? t('saving') : saved ? 'Publié ✓' : t('publish')}
+            {saving ? 'Publication…' : saved ? 'Publié ✓' : 'Publier'}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm shadow-lg">
           {error}
-          <button onClick={() => setError('')} className="ml-2 text-red-500 font-bold">&times;</button>
+          <button onClick={() => setError('')} className="ml-3 text-red-500 font-bold">&times;</button>
         </div>
       )}
 
-      {/* Main Layout: Left sidebar + Full preview */}
+      {/* ─── Main: Left rail + Canvas + Right panel ──────────────── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (resizable) */}
-        <div
-          className="border-r border-divider overflow-y-auto flex-shrink-0 flex flex-col relative"
-          style={{ width: `${sidebarWidth}px`, background: 'var(--surface)' }}
-        >
-          {/* Resize handle — drag the right edge */}
-          <div
-            onMouseDown={startSidebarResize}
-            className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-500/40 active:bg-brand-500/60 transition-colors z-10"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            title="Drag to resize"
-          />
-          {/* Page tabs + gear + add */}
-          <div className="px-3 pt-3 pb-2 space-y-2">
-            <div className="flex rounded-lg border border-divider overflow-hidden">
-              {pages.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setActivePage(p)}
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                    activePage === p
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-[var(--surface)] text-fg-secondary hover:bg-surface-subtle'
-                  }`}
-                >
-                  {p === 'home' ? t('home') : p === 'menu' ? t('viewMenu') : p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (activeTab === 'styles' && showSettingsPanel) {
-                    setActiveTab('sections');
-                    setShowSettingsPanel(false);
-                  } else {
-                    setActiveTab('styles');
-                    setSelectedSectionId(null);
-                    setShowSettingsPanel(true);
-                  }
-                }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' && showSettingsPanel ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
-                title="Site settings"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-              {activePage === 'home' && (
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
-                  title="Add section"
-                >
-                  +
-                </button>
-              )}
-              <span className="text-xs text-fg-secondary ml-auto">
-                {activePage === 'home' ? t('editSections') : t('menuSettings')}
-              </span>
-            </div>
-          </div>
-
-          {/* Section list */}
-          <div className="flex-1 overflow-y-auto px-2 pb-3">
-            {activePage === 'home' ? (
-              <SectionListPanel
-                sections={filteredSections}
-                selectedId={selectedSectionId}
-                onSelect={setSelectedSectionId}
-                onMove={handleMoveSection}
-                onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
-              />
-            ) : (
-              <div className="px-3 py-3 flex flex-col gap-3">
-                {/* Inner pill tabs */}
-                <div className="flex rounded-lg border border-divider overflow-hidden">
-                  {(['themes', 'typography', 'branding'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setMenuSubTab(tab)}
-                      className={`flex-1 px-2 py-1.5 text-xs font-medium transition ${
-                        menuSubTab === tab
-                          ? 'bg-brand-500 text-white'
-                          : 'bg-[var(--surface)] text-fg-secondary hover:bg-surface-subtle'
-                      }`}
-                    >
-                      {t(`menuTab_${tab}`)}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Active panel */}
-                {!themeCatalog || !config ? (
-                  <p className="text-xs text-fg-secondary py-2">{t('loading')}…</p>
-                ) : menuSubTab === 'themes' ? (
-                  <ThemesPanel config={config} catalog={themeCatalog} onUpdate={handleMenuConfigUpdate} />
-                ) : menuSubTab === 'typography' ? (
-                  <TypographyPanel config={config} catalog={themeCatalog} onUpdate={handleMenuConfigUpdate} />
-                ) : (
-                  <BrandingPanel config={config} onUpdate={handleMenuConfigUpdate} />
-                )}
-              </div>
-            )}
-          </div>
+        {/* Left Rail (content depends on mode) */}
+        <div className="border-r border-divider flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 320, background: 'var(--surface)' }}>
+          {editorMode === 'pages' && (
+            <PagesLeftRail
+              activePage={activePage}
+              onActivePageChange={setActivePage}
+              sections={filteredSections}
+              selectedId={selectedSectionId}
+              onSelect={setSelectedSectionId}
+              onMove={handleMoveSection}
+              onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
+              onAddSection={() => setShowAddModal(true)}
+            />
+          )}
+          {editorMode === 'theme' && (
+            <ThemeLeftRail
+              subMode={themeSubMode}
+              onSubModeChange={setThemeSubMode}
+              config={config}
+              themeCatalog={themeCatalog}
+              onConfigUpdate={handleMenuConfigUpdate}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              logoSize={logoSize}
+              hideNavbarName={hideNavbarName}
+              heroNameFont={heroNameFont}
+              onLogoSizeChange={setLogoSize}
+              onHideNavbarNameChange={setHideNavbarName}
+              onHeroNameFontChange={setHeroNameFont}
+              onRestaurantUpdate={setRestaurant}
+            />
+          )}
+          {editorMode === 'settings' && (
+            <SettingsLeftRail
+              subMode={settingsSubMode}
+              onSubModeChange={setSettingsSubMode}
+              restaurant={restaurant}
+              tagline={tagline}
+              navbarStyle={navbarStyle}
+              navbarColor={navbarColor}
+              showAddress={showAddress}
+              showPhone={showPhone}
+              showHours={showHours}
+              socialLinks={(config?.social_links as Record<string, string>) ?? {}}
+              onTaglineChange={setTagline}
+              onNavbarStyleChange={setNavbarStyle}
+              onNavbarColorChange={setNavbarColor}
+              onShowAddressChange={setShowAddress}
+              onShowPhoneChange={setShowPhone}
+              onShowHoursChange={setShowHours}
+              onSocialLinksChange={(links) => setConfig((c) => (c ? ({ ...c, social_links: links } as WebsiteConfig) : c))}
+            />
+          )}
         </div>
 
-        {/* Main Preview Area */}
-        <div className="flex-1 overflow-auto flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
-          {activePage === 'menu' ? (
+        {/* Center: live preview iframe */}
+        <div
+          className="flex-1 overflow-auto flex items-start justify-center py-6"
+          style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : 'var(--bg-page)' }}
+        >
+          {editorMode === 'pages' && activePage === 'menu' ? (
             <MenuPreviewIframe
               ref={menuIframeRef}
               mode={previewMode}
@@ -871,13 +858,9 @@ export default function WebsitePage() {
               slug={restaurant?.slug}
               draftPayload={buildDraftPayload()}
               onSectionClick={(id) => {
-                // The iframe reports its section ids — for existing rows these
-                // are the real DB ids (positive). For staged-new sections, the
-                // iframe sees the synthetic negative id we stamped on save.
+                if (editorMode !== 'pages') return;
                 if (typeof id === 'number') setSelectedSectionId(id);
                 else {
-                  // tmp_id string from a brand-new section the iframe knows about.
-                  // Find the synthetic local id pointing at it.
                   let local: number | null = null;
                   newSectionTmpIds.current.forEach((tmp, sid) => { if (tmp === id) local = sid; });
                   if (local !== null) setSelectedSectionId(local);
@@ -889,98 +872,66 @@ export default function WebsitePage() {
           )}
         </div>
 
-        {/* Direct-selection overlay drawn ABOVE the home preview iframe.
-            For the menu page (existing MenuPreviewIframe) the bounds protocol
-            isn't wired yet — overlay stays hidden there. */}
-        {activePage === 'home' && (
-          <SelectionOverlay
-            iframeRect={iframeRect}
-            scale={1}
-            selectedId={selectedSectionId}
-            bounds={sectionBounds}
-            iframeScrollY={iframeScrollY}
-            onSelect={(id) => {
-              if (typeof id === 'number') setSelectedSectionId(id);
-            }}
-            onMoveUp={(id) => typeof id === 'number' && handleMoveSection(id, 'up')}
-            onMoveDown={(id) => typeof id === 'number' && handleMoveSection(id, 'down')}
-            onToggleVisibility={(id) => {
-              if (typeof id !== 'number') return;
-              const sec = sections.find((s) => s.id === id);
-              if (sec) handleUpdateSection(id, { is_visible: !sec.is_visible });
-            }}
-            onDelete={(id) => typeof id === 'number' && handleDeleteSection(id)}
-            isDeletable={(id) => {
-              if (typeof id !== 'number') return false;
-              const sec = sections.find((s) => s.id === id);
-              // Footer auto-creates if missing, so deleting it is pointless and
-              // confusing — keep it locked. action_buttons is also auto-created
-              // but the user might genuinely want to remove it.
-              return sec ? sec.section_type !== 'footer' : false;
-            }}
-          />
-        )}
-
-        {/* Right slide-in settings panel */}
-        {showSettingsPanel && (selectedSection || activeTab === 'styles') && (
-          <div className="w-80 border-l border-divider overflow-y-auto flex-shrink-0 animate-in slide-in-from-right" style={{ background: 'var(--surface)' }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-divider">
-              <h3 className="text-sm font-semibold text-fg-primary">
-                {activeTab === 'styles' ? 'Site Settings' : 'Section Settings'}
-              </h3>
-              <button onClick={closeSettings} className="w-6 h-6 rounded-full hover:bg-surface-subtle flex items-center justify-center text-fg-secondary">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        {/* Right panel — section settings (Pages mode, home page, section selected) */}
+        {editorMode === 'pages' && activePage === 'home' && selectedSection && (
+          <div className="border-l border-divider flex-shrink-0 flex flex-col overflow-y-auto" style={{ width: 340, background: 'var(--surface)' }}>
+            <div className="flex items-start justify-between px-4 py-3 border-b border-divider sticky top-0 z-10" style={{ background: 'var(--surface)' }}>
+              <div className="flex flex-col leading-tight">
+                <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">
+                  Pages › {activePage === 'home' ? 'Landing' : 'Order'}
+                </span>
+                <span className="text-sm font-semibold text-fg-primary">{sectionLabel(selectedSection)}</span>
+              </div>
+              <button
+                onClick={() => setSelectedSectionId(null)}
+                className="w-7 h-7 rounded-lg hover:bg-surface-subtle flex items-center justify-center text-fg-secondary"
+                title="Fermer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
             <div className="p-4">
-              {activeTab === 'styles' ? (
-                <StyleSettingsPanel
-                  restaurantId={restaurantId}
-                  restaurant={restaurant}
-                  tagline={tagline}
-                  themeMode={'light'}
-                  showAddress={showAddress}
-                  showPhone={showPhone}
-                  showHours={showHours}
-                  navbarStyle={navbarStyle}
-                  navbarColor={navbarColor}
-                  logoSize={logoSize}
-                  hideNavbarName={hideNavbarName}
-                  heroNameFont={heroNameFont}
-                  categoryBannerStyle={categoryBannerStyle}
-                  onTaglineChange={setTagline}
-                  onThemeModeChange={() => {}}
-                  onShowAddressChange={setShowAddress}
-                  onShowPhoneChange={setShowPhone}
-                  onShowHoursChange={setShowHours}
-                  onNavbarStyleChange={setNavbarStyle}
-                  onNavbarColorChange={setNavbarColor}
-                  onLogoSizeChange={setLogoSize}
-                  onHideNavbarNameChange={setHideNavbarName}
-                  onHeroNameFontChange={setHeroNameFont}
-                  onCategoryBannerStyleChange={setCategoryBannerStyle}
-                  onRestaurantUpdate={setRestaurant}
-                  onReset={handleResetConfig}
-                />
-              ) : selectedSection ? (
-                <SectionSettingsPanel
-                  section={selectedSection}
-                  restaurantId={restaurantId}
-                  onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
-                  onDelete={() => { handleDeleteSection(selectedSection.id); closeSettings(); }}
-                />
-              ) : null}
+              <SectionSettingsPanel
+                section={selectedSection}
+                restaurantId={restaurantId}
+                onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
+                onDelete={() => { handleDeleteSection(selectedSection.id); setSelectedSectionId(null); }}
+              />
             </div>
           </div>
         )}
       </div>
 
+      {/* Direct-selection overlay (Pages mode, home page only) */}
+      {editorMode === 'pages' && activePage === 'home' && (
+        <SelectionOverlay
+          iframeRect={iframeRect}
+          scale={1}
+          selectedId={selectedSectionId}
+          bounds={sectionBounds}
+          iframeScrollY={iframeScrollY}
+          onSelect={(id) => { if (typeof id === 'number') setSelectedSectionId(id); }}
+          onMoveUp={(id) => typeof id === 'number' && handleMoveSection(id, 'up')}
+          onMoveDown={(id) => typeof id === 'number' && handleMoveSection(id, 'down')}
+          onToggleVisibility={(id) => {
+            if (typeof id !== 'number') return;
+            const sec = sections.find((s) => s.id === id);
+            if (sec) handleUpdateSection(id, { is_visible: !sec.is_visible });
+          }}
+          onDelete={(id) => typeof id === 'number' && handleDeleteSection(id)}
+          isDeletable={(id) => {
+            if (typeof id !== 'number') return false;
+            const sec = sections.find((s) => s.id === id);
+            return sec ? sec.section_type !== 'footer' : false;
+          }}
+        />
+      )}
+
       {/* Add Section Modal */}
       {showAddModal && (
-        <AddSectionModal
-          onAdd={handleAddSection}
-          onClose={() => setShowAddModal(false)}
-        />
+        <AddSectionModal onAdd={handleAddSection} onClose={() => setShowAddModal(false)} />
       )}
 
       {/* Discard confirm modal */}
@@ -1011,6 +962,301 @@ export default function WebsitePage() {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// New left-rail components for the three editor modes.
+// Each owns its own internal layout; the parent just hands them state.
+// ═══════════════════════════════════════════════════════════════════
+
+function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection }: {
+  activePage: string;
+  onActivePageChange: (p: string) => void;
+  sections: WebsiteSection[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+  onMove: (id: number, dir: 'up' | 'down') => void;
+  onToggleVisibility: (id: number, visible: boolean) => void;
+  onAddSection: () => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Page switcher */}
+      <div className="px-4 pt-4 pb-3 border-b border-divider">
+        <label className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-1.5">Page</label>
+        <select
+          value={activePage}
+          onChange={(e) => onActivePageChange(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+        >
+          <option value="home">Landing</option>
+          <option value="menu">Page de commande</option>
+        </select>
+      </div>
+
+      {/* Section list */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">Sections</span>
+        {activePage === 'home' && (
+          <button
+            onClick={onAddSection}
+            className="text-[11px] font-medium text-brand-500 hover:text-brand-600 flex items-center gap-1"
+          >
+            + Ajouter
+          </button>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto px-2 pb-4">
+        {activePage === 'home' ? (
+          <SectionListPanel
+            sections={sections}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onMove={onMove}
+            onToggleVisibility={onToggleVisibility}
+          />
+        ) : (
+          <div className="px-3 py-6 text-xs text-fg-secondary">
+            La page de commande utilise le catalogue de menu existant. Les ajustements de mise en page se font via le mode <strong>Thème</strong>.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, restaurantId, restaurant, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, onRestaurantUpdate }: {
+  subMode: 'colors' | 'typography' | 'logo';
+  onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
+  config: WebsiteConfig | null;
+  themeCatalog: ThemeCatalog | null;
+  onConfigUpdate: (patch: Partial<WebsiteConfig>) => void;
+  restaurantId: number;
+  restaurant: Restaurant | null;
+  logoSize: number;
+  hideNavbarName: boolean;
+  heroNameFont: string;
+  onLogoSizeChange: (n: number) => void;
+  onHideNavbarNameChange: (v: boolean) => void;
+  onHeroNameFontChange: (f: string) => void;
+  onRestaurantUpdate: (r: Restaurant) => void;
+}) {
+  const tabs: { id: typeof subMode; label: string }[] = [
+    { id: 'colors', label: 'Couleurs' },
+    { id: 'typography', label: 'Typographie' },
+    { id: 'logo', label: 'Logo & favicon' },
+  ];
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 pt-4 pb-2 border-b border-divider">
+        <div className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Apparence</div>
+        <p className="text-[11px] text-fg-secondary leading-relaxed mb-3">
+          Ces paramètres s&apos;appliquent à <strong>toutes</strong> les pages de votre site (landing + commande).
+        </p>
+        <div className="flex flex-col gap-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onSubModeChange(t.id)}
+              className={`text-left px-3 py-2 rounded-lg text-sm transition ${
+                subMode === t.id ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary hover:bg-surface-subtle'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        {!themeCatalog || !config ? (
+          <p className="text-xs text-fg-secondary">Chargement…</p>
+        ) : subMode === 'colors' ? (
+          <ThemesPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
+        ) : subMode === 'typography' ? (
+          <div className="space-y-4">
+            <TypographyPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
+            <div className="border-t border-divider pt-4">
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Police du nom du restaurant (hero)</label>
+              <select
+                value={heroNameFont}
+                onChange={(e) => onHeroNameFontChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                <option value="">Par défaut (typographie du thème)</option>
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <BrandingPanel config={config} onUpdate={onConfigUpdate} />
+            <div className="border-t border-divider pt-4 space-y-3">
+              <div>
+                <label className="flex items-center justify-between text-xs font-medium text-fg-primary mb-1.5">
+                  <span>Taille du logo (navbar)</span>
+                  <span className="text-fg-secondary">{logoSize}px</span>
+                </label>
+                <input
+                  type="range" min={24} max={80}
+                  value={logoSize}
+                  onChange={(e) => onLogoSizeChange(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hideNavbarName}
+                  onChange={(e) => onHideNavbarNameChange(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span>Masquer le nom du restaurant dans la navbar</span>
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onSocialLinksChange }: {
+  subMode: 'general' | 'contact' | 'social' | 'seo';
+  onSubModeChange: (m: 'general' | 'contact' | 'social' | 'seo') => void;
+  restaurant: Restaurant | null;
+  tagline: string;
+  navbarStyle: string;
+  navbarColor: string;
+  showAddress: boolean;
+  showPhone: boolean;
+  showHours: boolean;
+  socialLinks: Record<string, string>;
+  onTaglineChange: (v: string) => void;
+  onNavbarStyleChange: (v: string) => void;
+  onNavbarColorChange: (v: string) => void;
+  onShowAddressChange: (v: boolean) => void;
+  onShowPhoneChange: (v: boolean) => void;
+  onShowHoursChange: (v: boolean) => void;
+  onSocialLinksChange: (links: Record<string, string>) => void;
+}) {
+  const tabs: { id: typeof subMode; label: string }[] = [
+    { id: 'general', label: 'Général' },
+    { id: 'contact', label: 'Contact' },
+    { id: 'social', label: 'Réseaux sociaux' },
+    { id: 'seo', label: 'SEO' },
+  ];
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 pt-4 pb-2 border-b border-divider">
+        <div className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Paramètres du site</div>
+        <div className="flex flex-col gap-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onSubModeChange(t.id)}
+              className={`text-left px-3 py-2 rounded-lg text-sm transition ${
+                subMode === t.id ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary hover:bg-surface-subtle'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {subMode === 'general' && (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Slogan</label>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(e) => onTaglineChange(e.target.value)}
+                placeholder="Une phrase courte qui décrit votre restaurant"
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Style de la barre de navigation</label>
+              <select
+                value={navbarStyle}
+                onChange={(e) => onNavbarStyleChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                <option value="solid">Plein</option>
+                <option value="transparent">Transparent</option>
+                <option value="hidden">Masqué</option>
+                <option value="custom">Sur mesure</option>
+              </select>
+            </div>
+            {navbarStyle === 'custom' && (
+              <div>
+                <label className="block text-xs font-medium text-fg-primary mb-1.5">Couleur de la navbar</label>
+                <input
+                  type="color"
+                  value={navbarColor || '#000000'}
+                  onChange={(e) => onNavbarColorChange(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-divider cursor-pointer"
+                />
+              </div>
+            )}
+            <div className="text-[11px] text-fg-secondary pt-2 border-t border-divider">
+              Slug: <code className="text-fg-primary">{restaurant?.slug || '—'}</code>
+              <span className="block mt-1 opacity-70">(modifiable via les paramètres du restaurant)</span>
+            </div>
+          </>
+        )}
+        {subMode === 'contact' && (
+          <>
+            <p className="text-[11px] text-fg-secondary leading-relaxed">
+              Choisissez quelles informations afficher publiquement sur votre site. Les coordonnées proviennent du profil du restaurant.
+            </p>
+            <label className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-subtle cursor-pointer">
+              <input type="checkbox" checked={showAddress} onChange={(e) => onShowAddressChange(e.target.checked)} className="w-4 h-4" />
+              <span className="flex-1 text-sm text-fg-primary">Afficher l&apos;adresse</span>
+              <span className="text-[11px] text-fg-secondary truncate max-w-[140px]">{restaurant?.address || '—'}</span>
+            </label>
+            <label className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-subtle cursor-pointer">
+              <input type="checkbox" checked={showPhone} onChange={(e) => onShowPhoneChange(e.target.checked)} className="w-4 h-4" />
+              <span className="flex-1 text-sm text-fg-primary">Afficher le téléphone</span>
+              <span className="text-[11px] text-fg-secondary">{restaurant?.phone || '—'}</span>
+            </label>
+            <label className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-subtle cursor-pointer">
+              <input type="checkbox" checked={showHours} onChange={(e) => onShowHoursChange(e.target.checked)} className="w-4 h-4" />
+              <span className="flex-1 text-sm text-fg-primary">Afficher les horaires d&apos;ouverture</span>
+            </label>
+          </>
+        )}
+        {subMode === 'social' && (
+          <>
+            <p className="text-[11px] text-fg-secondary leading-relaxed">
+              Liens vers vos réseaux sociaux, affichés dans le pied de page.
+            </p>
+            {(['instagram', 'facebook', 'tiktok', 'twitter', 'youtube'] as const).map((key) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-fg-primary mb-1.5 capitalize">{key}</label>
+                <input
+                  type="url"
+                  value={socialLinks[key] || ''}
+                  onChange={(e) => onSocialLinksChange({ ...socialLinks, [key]: e.target.value })}
+                  placeholder={`https://${key}.com/votre-compte`}
+                  className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                />
+              </div>
+            ))}
+          </>
+        )}
+        {subMode === 'seo' && (
+          <p className="text-[12px] text-fg-secondary leading-relaxed">
+            Les paramètres SEO avancés (titre de page, description, image Open Graph) seront ajoutés bientôt. Pour l&apos;instant, ils sont générés automatiquement à partir du nom et de la description du restaurant.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
