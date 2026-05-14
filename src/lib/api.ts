@@ -1322,6 +1322,13 @@ export async function reorderGroups(restaurantId: number, menuId: number, groupI
   );
 }
 
+export async function reorderGroupItems(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${groupId}/items/reorder?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }
+  );
+}
+
 export interface GroupItemScope {
   /** ISO date "YYYY-MM-DD" — inclusive lower bound. Omit for "from forever". */
   effective_from?: string;

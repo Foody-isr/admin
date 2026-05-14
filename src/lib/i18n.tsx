@@ -1899,6 +1899,9 @@ const translations: Record<Locale, Record<string, string>> = {
     deleteGroup: 'Delete group',
     deleteGroupConfirm: 'Delete rotation group',
     removeFromGroupConfirm: 'Remove from group',
+    removeSelectedFromGroupConfirm: 'Remove {n} selected items from this group?',
+    nSelected: '{n} selected',
+    noGroupsInMenu: 'No groups in this menu yet',
     noUngroupedItems: 'No ungrouped items available',
     clear: 'Clear',
 
@@ -4039,6 +4042,9 @@ const translations: Record<Locale, Record<string, string>> = {
     deleteGroup: 'מחק קבוצה',
     deleteGroupConfirm: 'מחק קבוצת רוטציה',
     removeFromGroupConfirm: 'הסר מקבוצה',
+    removeSelectedFromGroupConfirm: 'להסיר {n} פריטים נבחרים מהקבוצה?',
+    nSelected: '{n} נבחרו',
+    noGroupsInMenu: 'אין עדיין קבוצות בתפריט הזה',
     noUngroupedItems: 'אין פריטים ללא קבוצה',
     clear: 'נקה',
 
@@ -6192,6 +6198,9 @@ const translations: Record<Locale, Record<string, string>> = {
     deleteGroup: 'Supprimer le groupe',
     deleteGroupConfirm: 'Supprimer le groupe de rotation',
     removeFromGroupConfirm: 'Retirer du groupe',
+    removeSelectedFromGroupConfirm: 'Retirer les {n} articles sélectionnés de ce groupe ?',
+    nSelected: '{n} sélectionnés',
+    noGroupsInMenu: 'Aucun groupe dans cette carte pour le moment',
     noUngroupedItems: 'Aucun article sans groupe disponible',
     clear: 'Effacer',
 

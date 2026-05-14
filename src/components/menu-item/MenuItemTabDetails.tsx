@@ -4,7 +4,7 @@ import { ChevronDown, Boxes, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
-import SearchableListField from '@/components/SearchableListField';
+import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import TypePickerCards from './combo/TypePickerCards';
@@ -33,8 +33,9 @@ interface Props {
   categories: MenuCategory[];
   // Foody-specific: menu attachment (kept below the reference fields).
   menus: Menu[];
-  selectedMenuIds: Set<number>;
-  setSelectedMenuIds: (s: Set<number>) => void;
+  /** menu_group IDs this item should be a member of. */
+  selectedGroupIds: Set<number>;
+  setSelectedGroupIds: (s: Set<number>) => void;
   itemType: ItemType;
   /** Request a type change. The parent decides whether to confirm or apply
    *  immediately (it owns the variant/recipe/modifier/step state that may
@@ -67,8 +68,8 @@ export default function MenuItemTabDetails({
   vatRate,
   categories,
   menus,
-  selectedMenuIds,
-  setSelectedMenuIds,
+  selectedGroupIds,
+  setSelectedGroupIds,
   itemType,
   onTypeChange,
   comboStepsCount = 0,
@@ -310,15 +311,17 @@ export default function MenuItemTabDetails({
           )}
         </Field>
 
-        {/* Menus / Cartes — foody-specific; below reference fields. */}
+        {/* Menus / Cartes — foody-specific; below reference fields. The picker
+            lets the owner choose exact groups (not just menus) so that items
+            don't silently land in whichever group happens to be first. */}
         <Field label={t('menus') || 'Cartes'} hint={t('cartesDescription') || "Cartes où cet article apparaît"}>
-          <SearchableListField
-            mode="multi"
+          <MenuGroupPicker
+            menus={menus}
+            selectedGroupIds={selectedGroupIds}
+            onChange={setSelectedGroupIds}
             placeholder={t('addToMenus') || 'Ajouter à des cartes'}
             emptyLabel={t('noMenusAvailable') || 'Aucune carte disponible'}
-            options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
-            values={Array.from(selectedMenuIds).map(String)}
-            onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
+            noGroupsHint={t('noGroupsInMenu') || 'Aucun groupe dans cette carte'}
           />
         </Field>
 

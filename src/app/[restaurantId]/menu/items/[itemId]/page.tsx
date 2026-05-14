@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem,
-  listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
+  listMenus, addItemsToGroup, removeItemFromGroup,
   listModifierSets, attachModifierSetToItems,
   listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
   listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
@@ -108,11 +108,12 @@ export default function EditItemPage() {
   const [attachedOptionSets, setAttachedOptionSets] = useState<OptionSet[]>([]);
   const [itemOptionOverrides, setItemOptionOverrides] = useState<ItemOptionOverride[]>([]);
 
-  // Menus / Cartes state
+  // Menus / Cartes state — selection is at the *group* level so the operator
+  // can pick the exact group inside each carte. The previous menu-only model
+  // dropped items into whichever group happened to be first on save.
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
-  const [initialMenuIds, setInitialMenuIds] = useState<Set<number>>(new Set());
-  const [menuGroupMap, setMenuGroupMap] = useState<Map<number, number>>(new Map());
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [initialGroupIds, setInitialGroupIds] = useState<Set<number>>(new Set());
 
   // Food cost / ingredients state
   const [ingredients, setIngredients] = useState<MenuItemIngredient[]>([]);
@@ -182,20 +183,16 @@ export default function EditItemPage() {
           break;
         }
       }
-      const mIds = new Set<number>();
-      const gMap = new Map<number, number>();
+      const gIds = new Set<number>();
       for (const menu of allMenus) {
         for (const group of menu.groups ?? []) {
           if ((group.items ?? []).some((i) => i.id === iid)) {
-            mIds.add(menu.id);
-            gMap.set(menu.id, group.id);
-            break;
+            gIds.add(group.id);
           }
         }
       }
-      setSelectedMenuIds(mIds);
-      setInitialMenuIds(new Set(mIds));
-      setMenuGroupMap(gMap);
+      setSelectedGroupIds(gIds);
+      setInitialGroupIds(new Set(gIds));
     } finally {
       setLoading(false);
     }
@@ -302,23 +299,13 @@ export default function EditItemPage() {
       if (recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
       }
-      const added = Array.from(selectedMenuIds).filter((id) => !initialMenuIds.has(id));
-      const removed = Array.from(initialMenuIds).filter((id) => !selectedMenuIds.has(id));
-      for (const menuId of added) {
-        const menu = menus.find((m) => m.id === menuId);
-        const groups = menu?.groups ?? [];
-        let groupId: number;
-        if (groups.length > 0) {
-          groupId = groups[0].id;
-        } else {
-          const newGroup = await createGroup(rid, { menu_id: menuId, name: menu?.name ?? 'Default' });
-          groupId = newGroup.id;
-        }
+      const addedGroups = Array.from(selectedGroupIds).filter((id) => !initialGroupIds.has(id));
+      const removedGroups = Array.from(initialGroupIds).filter((id) => !selectedGroupIds.has(id));
+      for (const groupId of addedGroups) {
         await addItemsToGroup(rid, groupId, [iid]);
       }
-      for (const menuId of removed) {
-        const groupId = menuGroupMap.get(menuId);
-        if (groupId) await removeItemFromGroup(rid, groupId, iid);
+      for (const groupId of removedGroups) {
+        await removeItemFromGroup(rid, groupId, iid);
       }
       router.push(`/${rid}/menu/items`);
     } catch (err) {
@@ -506,8 +493,8 @@ export default function EditItemPage() {
                 vatRate={vatRate}
                 categories={categories}
                 menus={menus}
-                selectedMenuIds={selectedMenuIds}
-                setSelectedMenuIds={setSelectedMenuIds}
+                selectedGroupIds={selectedGroupIds}
+                setSelectedGroupIds={setSelectedGroupIds}
                 itemType={itemType}
                 sourceLocale={sourceLocale}
                 translations={translations}

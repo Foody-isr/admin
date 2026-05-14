@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, createMenuItem, uploadMenuItemImage, updateMenuItem,
-  listMenus, addItemsToGroup, createGroup,
+  listMenus, addItemsToGroup,
   listModifierSets, attachModifierSetToItems,
   listOptionSets, attachOptionSetToItems,
   createVariantGroup,
@@ -83,7 +83,9 @@ export default function NewItemPage() {
   const [comboSteps, setComboSteps] = useState<ComboStepDraft[]>([]);
 
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
+  // Selected menu_group IDs the new item should be added to. (Previously the
+  // picker only tracked menu IDs and silently used groups[0] on save.)
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
 
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [selectedModifierSetIds, setSelectedModifierSetIds] = useState<Set<number>>(new Set());
@@ -144,16 +146,7 @@ export default function NewItemPage() {
         const url = await uploadMenuItemImage(rid, item.id, pendingImage);
         await updateMenuItem(rid, item.id, { image_url: url });
       }
-      for (const menuId of Array.from(selectedMenuIds)) {
-        const menu = menus.find((m) => m.id === menuId);
-        const groups = menu?.groups ?? [];
-        let groupId: number;
-        if (groups.length > 0) {
-          groupId = groups[0].id;
-        } else {
-          const g = await createGroup(rid, { menu_id: menuId, name: menu?.name ?? 'Default' });
-          groupId = g.id;
-        }
+      for (const groupId of Array.from(selectedGroupIds)) {
         await addItemsToGroup(rid, groupId, [item.id]);
       }
       for (const setId of Array.from(selectedModifierSetIds)) {
@@ -383,8 +376,8 @@ export default function NewItemPage() {
                 vatRate={vatRate}
                 categories={categories}
                 menus={menus}
-                selectedMenuIds={selectedMenuIds}
-                setSelectedMenuIds={setSelectedMenuIds}
+                selectedGroupIds={selectedGroupIds}
+                setSelectedGroupIds={setSelectedGroupIds}
                 itemType={itemType}
                 onTypeChange={requestTypeChange}
                 comboStepsCount={comboSteps.length}
