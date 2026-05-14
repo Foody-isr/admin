@@ -28,6 +28,10 @@ interface Props {
   onAddOptionSet: () => void;
   onEditOptionSet: (id: number) => void;
   onDetachOptionSet: (id: number) => void;
+  /** When true, suppress the Variants section. Callers rendering an inline
+   *  VariantsEditor handle variants themselves and only want this tab to
+   *  show modifiers. */
+  hideVariantsSection?: boolean;
 }
 
 export default function MenuItemTabOptions({
@@ -44,6 +48,7 @@ export default function MenuItemTabOptions({
   onAddOptionSet,
   onEditOptionSet,
   onDetachOptionSet,
+  hideVariantsSection = false,
 }: Props) {
   const { t } = useI18n();
   const modifiers = item.modifiers ?? [];
@@ -164,6 +169,7 @@ export default function MenuItemTabOptions({
       </div>
 
       {/* Variantes */}
+      {!hideVariantsSection && (
       <div>
         <div className="flex items-center justify-between mb-[var(--s-3)]">
           <div>
@@ -325,6 +331,7 @@ export default function MenuItemTabOptions({
           )}
         </div>
       </div>
+      )}
       </section>
     </div>
   );

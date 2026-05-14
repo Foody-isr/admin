@@ -7,7 +7,8 @@ import {
   detachModifierSetFromItem,
   listMenus, addItemsToGroup, removeItemFromGroup,
   listModifierSets, attachModifierSetToItems,
-  listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
+  listOptionSets, getItemOptionPrices,
+  syncItemVariants,
   listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
   getRestaurant,
   MenuCategory, MenuItem, ModifierSet, Menu,
@@ -22,6 +23,11 @@ import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
+import VariantsEditor, {
+  VariantGroupState,
+  variantGroupsFromOptionSets,
+  toVariantSyncPayload,
+} from '@/components/menu-item/VariantsEditor';
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
@@ -104,9 +110,18 @@ export default function EditItemPage() {
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
 
-  // Option sets (attached to this item)
+  // Option sets (attached to this item) + the full restaurant list (used by
+  // the inline VariantsEditor's autocomplete to suggest re-using an existing
+  // option set when the operator types a matching title).
   const [attachedOptionSets, setAttachedOptionSets] = useState<OptionSet[]>([]);
+  const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
   const [itemOptionOverrides, setItemOptionOverrides] = useState<ItemOptionOverride[]>([]);
+
+  // Inline-editable variant groups. Seeded from attachedOptionSets +
+  // overrides on each loadData() run; user edits flow through onChange and
+  // get persisted via syncItemVariants() when the main Save button fires.
+  const [variantGroups, setVariantGroups] = useState<VariantGroupState[]>([]);
+  const [variantsDirty, setVariantsDirty] = useState(false);
 
   // Menus / Cartes state — selection is at the *group* level so the operator
   // can pick the exact group inside each carte. The previous menu-only model
@@ -147,9 +162,13 @@ export default function EditItemPage() {
       setStockItems(stock ?? []);
       setPrepItems(prep ?? []);
       setIngredients(ings ?? []);
-      setAttachedOptionSets((optSets ?? []).filter((os) =>
+      const attached = (optSets ?? []).filter((os) =>
         (os.menu_items ?? []).some((mi) => mi.id === iid)
-      ));
+      );
+      setAllOptionSets(optSets ?? []);
+      setAttachedOptionSets(attached);
+      setVariantGroups(variantGroupsFromOptionSets(attached, optOverrides ?? [], iid));
+      setVariantsDirty(false);
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
         if (found) {
@@ -213,15 +232,16 @@ export default function EditItemPage() {
   // them up via their respective UIs after switching.
   const variantsCountFromItem = useMemo(() => {
     if (!item) return 0;
-    const fromGroups = (item.variant_groups ?? []).reduce(
+    const fromLegacyGroups = (item.variant_groups ?? []).reduce(
       (sum, g) => sum + (g.variants ?? []).length,
       0,
     );
-    return fromGroups + attachedOptionSets.reduce(
-      (sum, os) => sum + (os.options ?? []).length,
+    const fromEditor = variantGroups.reduce(
+      (sum, g) => sum + g.rows.filter((r) => r.name.trim()).length,
       0,
     );
-  }, [item, attachedOptionSets]);
+    return fromLegacyGroups + fromEditor;
+  }, [item, variantGroups]);
 
   const lossSummary: TypeSwitchLossSummary = useMemo(() => ({
     recipeCount: ingredients.length,
@@ -298,6 +318,11 @@ export default function EditItemPage() {
       setItem((prev) => prev ? { ...prev, ...updated } : prev);
       if (recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
+      }
+      if (variantsDirty && itemType !== 'combo') {
+        await syncItemVariants(rid, iid, {
+          groups: toVariantSyncPayload(variantGroups),
+        });
       }
       const addedGroups = Array.from(selectedGroupIds).filter((id) => !initialGroupIds.has(id));
       const removedGroups = Array.from(initialGroupIds).filter((id) => !selectedGroupIds.has(id));
@@ -521,7 +546,7 @@ export default function EditItemPage() {
 
             {/* ── Tab: Modificateurs & Variantes — articles only ─── */}
             {activeTab === 'modifiers' && itemType !== 'combo' && (
-              <>
+              <div className="space-y-[var(--s-6)]">
                 <MenuItemTabOptions
                   item={item}
                   attachedModifierSets={item.modifier_sets ?? []}
@@ -534,18 +559,37 @@ export default function EditItemPage() {
                     loadData();
                   }}
                   onDeleteModifier={handleDeleteModifier}
-                  onAddVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onEditVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onDeleteVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onAddOptionSet={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onEditOptionSet={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onDetachOptionSet={async (id) => {
-                    if (!confirm(t('remove') + '?')) return;
-                    await detachOptionSetFromItem(rid, id, iid);
-                    loadData();
-                  }}
+                  // Variants are rendered inline via <VariantsEditor> below,
+                  // so these handlers are no-ops kept only to satisfy the
+                  // prop contract.
+                  onAddVariantGroup={() => {}}
+                  onEditVariantGroup={() => {}}
+                  onDeleteVariantGroup={() => {}}
+                  onAddOptionSet={() => {}}
+                  onEditOptionSet={() => {}}
+                  onDetachOptionSet={() => {}}
+                  hideVariantsSection
                 />
-              </>
+
+                <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+                  <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
+                    <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+                    <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
+                      {t('variants') || 'Variantes'}
+                    </h3>
+                  </div>
+                  <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-4)]">
+                    {t('variantsDesc') ||
+                      'Tailles ou options liées (Normal, Grand…). Le prix du variant remplace le prix de base.'}
+                  </p>
+                  <VariantsEditor
+                    groups={variantGroups}
+                    onChange={(g) => { setVariantGroups(g); setVariantsDirty(true); }}
+                    allOptionSets={allOptionSets}
+                    itemBasePrice={price}
+                  />
+                </section>
+              </div>
             )}
 
             {/* ── Tab: Recette — Figma:323 ─────────────────────── */}
