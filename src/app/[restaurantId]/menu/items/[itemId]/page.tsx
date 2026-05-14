@@ -168,6 +168,8 @@ export default function EditItemPage() {
               description: s.description ?? '',
               min_picks: s.min_picks,
               max_picks: s.max_picks,
+              source_type: s.source_type ?? 'explicit',
+              source_category_id: s.source_category_id ?? undefined,
               items: s.items.map((si) => ({
                 menu_item_id: si.menu_item_id,
                 price_delta: si.price_delta,

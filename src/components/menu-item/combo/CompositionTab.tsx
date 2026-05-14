@@ -82,6 +82,7 @@ export default function CompositionTab({
       min_picks: 1,
       max_picks: 1,
       items: [],
+      source_type: 'explicit',
     };
     onStepsChange([...steps, fresh]);
   };

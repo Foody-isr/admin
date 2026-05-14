@@ -24,13 +24,27 @@ import {
 import { useI18n } from '@/lib/i18n';
 import {
   fetchKitchenPlanDetails,
+  fetchKitchenPlanIngredients,
   type KitchenPlanDetailsResponse,
   type KitchenPlanOrderDetail,
+  type KitchenPlanIngredient,
 } from '@/lib/api';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-type Grouping = 'product' | 'customer';
+type Grouping = 'product' | 'customer' | 'ingredient';
+type IngredientSort = 'qty' | 'name';
+
+// Format an ingredient quantity in its native unit: g→kg ≥ 1000, ml→L ≥ 1000,
+// keep arbitrary units (conserve, unit, …) as-is.
+function formatIngredientQty(qty: number, unit: string): string {
+  const u = unit.toLowerCase();
+  if (u === 'g' && qty >= 1000) return `${(qty / 1000).toFixed(2).replace(/\.?0+$/, '')} kg`;
+  if (u === 'ml' && qty >= 1000) return `${(qty / 1000).toFixed(2).replace(/\.?0+$/, '')} L`;
+  // Pretty-trim trailing zeros for decimals.
+  const trimmed = Number.isInteger(qty) ? String(qty) : qty.toFixed(2).replace(/\.?0+$/, '');
+  return unit ? `${trimmed} ${unit}` : trimmed;
+}
 
 function isoToDate(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number);
@@ -48,35 +62,6 @@ function todayIso(): string {
   return dateToIso(new Date());
 }
 
-// ─── Portion parsing ───────────────────────────────────────────────────────
-
-// Parse a variant name into grams. Accepts patterns like:
-//   "250g", "250 g", "250gr", "250 gr", "250 grammes", "250 grams"
-//   "1kg", "1 kg", "1.5kg", "1,5 kg", "0.5 kilo"
-//   Hebrew-ish: "250 גרם", "1 ק"ג", "1.5 קילו"
-// Returns the value in grams, or null if no portion is found.
-function parsePortionGrams(name: string): number | null {
-  if (!name) return null;
-  const s = name.toLowerCase().replace(',', '.');
-  // kg patterns first so "1.5kg" doesn't match "1.5 g" by accident
-  const kg = s.match(/(\d+(?:\.\d+)?)\s*(kg|kilo|kilos|kilogram|ק"ג|קילו)\b/);
-  if (kg) return Math.round(parseFloat(kg[1]) * 1000);
-  const g = s.match(/(\d+(?:\.\d+)?)\s*(g|gr|grm|gram|grams|gramme|grammes|גרם)\b/);
-  if (g) return Math.round(parseFloat(g[1]));
-  return null;
-}
-
-// Format grams for display: kg with up to 2 decimals when >= 1000, else g.
-function formatMass(grams: number): string {
-  if (grams >= 1000) {
-    const kg = grams / 1000;
-    // Trim trailing zeros (e.g. 1.5kg, not 1.50kg)
-    const txt = kg.toFixed(2).replace(/\.?0+$/, '');
-    return `${txt}kg`;
-  }
-  return `${grams}g`;
-}
-
 // ─── Aggregation ───────────────────────────────────────────────────────────
 
 interface ProductLine {
@@ -86,20 +71,13 @@ interface ProductLine {
   quantity: number;
 }
 
-interface VariantBreakdown {
-  label: string; // variant name as shown (e.g. "250 grammes")
-  qty: number; // total count ordered
-  portionGrams: number | null; // parsed portion, null if unparseable
-}
-
 interface ProductGroup {
   key: string;
   menuItemId: number;
   name: string;
-  totalQty: number; // count of articles across all variants
-  totalMassGrams: number; // sum of parsed portion × qty (0 if none parseable)
-  unparseableQty: number; // articles whose variant has no parseable portion
-  variantBreakdown: VariantBreakdown[];
+  variant: string;
+  variantPortion: string;
+  totalQty: number;
   lines: ProductLine[];
   modifierBreakdown: Array<{ label: string; qty: number }>;
 }
@@ -108,48 +86,32 @@ function groupByProduct(
   data: KitchenPlanDetailsResponse,
   walkInLabel: string,
 ): ProductGroup[] {
-  // Group by menu_item_id only — different variants of the same item collapse
-  // into one prep card with total mass (sum of variant_portion × qty).
-  const groups = new Map<number, ProductGroup>();
-  // Track per-variant counts so we can show the breakdown ("250g ×3 + 500g ×1")
-  const variantAccum = new Map<number, Map<string, { qty: number; portionGrams: number | null }>>();
-
+  // Group by (menu_item_id, variant_name, variant_portion) so different variants
+  // (and different portion sizes within the same variant label) of the same item
+  // are reported as distinct prep cards.
+  const groups = new Map<string, ProductGroup>();
   for (const order of data.orders) {
     const customer = order.customer_name?.trim() || `#${order.order_id}`;
     const window = order.pickup_window || walkInLabel;
     for (const item of order.items) {
-      const variantLabel = item.selected_variant_name ?? '';
-      let g = groups.get(item.menu_item_id);
+      const variant = item.selected_variant_name ?? '';
+      const portion = item.variant_portion ?? '';
+      const key = `${item.menu_item_id}|${variant}|${portion}`;
+      let g = groups.get(key);
       if (!g) {
         g = {
-          key: String(item.menu_item_id),
+          key,
           menuItemId: item.menu_item_id,
           name: item.name,
+          variant,
+          variantPortion: portion,
           totalQty: 0,
-          totalMassGrams: 0,
-          unparseableQty: 0,
-          variantBreakdown: [],
           lines: [],
           modifierBreakdown: [],
         };
-        groups.set(item.menu_item_id, g);
-        variantAccum.set(item.menu_item_id, new Map());
+        groups.set(key, g);
       }
-      const portionGrams = parsePortionGrams(variantLabel);
       g.totalQty += item.quantity;
-      if (portionGrams != null) {
-        g.totalMassGrams += portionGrams * item.quantity;
-      } else {
-        g.unparseableQty += item.quantity;
-      }
-      const va = variantAccum.get(item.menu_item_id)!;
-      const vKey = variantLabel || '__base__';
-      const prev = va.get(vKey);
-      if (prev) {
-        prev.qty += item.quantity;
-      } else {
-        va.set(vKey, { qty: item.quantity, portionGrams });
-      }
       g.lines.push({
         customerLabel: customer,
         pickupWindow: window,
@@ -158,8 +120,7 @@ function groupByProduct(
       });
     }
   }
-
-  // Build modifier + variant breakdowns
+  // Build modifier breakdown per group
   const list: ProductGroup[] = [];
   groups.forEach((g) => {
     const mb = new Map<string, number>();
@@ -167,42 +128,18 @@ function groupByProduct(
       if (!l.modifierLabel) return;
       mb.set(l.modifierLabel, (mb.get(l.modifierLabel) ?? 0) + l.quantity);
     });
-    g.modifierBreakdown = [];
-    mb.forEach((qty, label) => g.modifierBreakdown.push({ label, qty }));
-    g.modifierBreakdown.sort((a, b) => b.qty - a.qty);
+    const breakdown: Array<{ label: string; qty: number }> = [];
+    mb.forEach((qty, label) => breakdown.push({ label, qty }));
+    breakdown.sort((a, b) => b.qty - a.qty);
+    g.modifierBreakdown = breakdown;
     g.lines.sort((a, b) => a.pickupWindow.localeCompare(b.pickupWindow));
-
-    const va = variantAccum.get(g.menuItemId) ?? new Map();
-    const variants: VariantBreakdown[] = [];
-    va.forEach((v, key) => {
-      variants.push({
-        label: key === '__base__' ? '' : key,
-        qty: v.qty,
-        portionGrams: v.portionGrams,
-      });
-    });
-    // Sort: parseable portions first (ascending by grams), then unparseable by label.
-    variants.sort((a, b) => {
-      if (a.portionGrams != null && b.portionGrams != null) {
-        return a.portionGrams - b.portionGrams;
-      }
-      if (a.portionGrams != null) return -1;
-      if (b.portionGrams != null) return 1;
-      return a.label.localeCompare(b.label);
-    });
-    g.variantBreakdown = variants;
     list.push(g);
   });
-
   return list.sort((a, b) => {
-    // Items with a mass total come first (sorted by mass desc), then count-only items.
-    if (a.totalMassGrams > 0 && b.totalMassGrams > 0) {
-      return b.totalMassGrams - a.totalMassGrams;
-    }
-    if (a.totalMassGrams > 0) return -1;
-    if (b.totalMassGrams > 0) return 1;
     if (b.totalQty !== a.totalQty) return b.totalQty - a.totalQty;
-    return a.name.localeCompare(b.name);
+    const byName = a.name.localeCompare(b.name);
+    if (byName !== 0) return byName;
+    return a.variant.localeCompare(b.variant);
   });
 }
 
@@ -242,18 +179,23 @@ export default function PreparationPlanPage() {
   const isRtl = direction === 'rtl';
 
   const [grouping, setGrouping] = useState<Grouping>('product');
+  const [ingredientSort, setIngredientSort] = useState<IngredientSort>('qty');
   const [data, setData] = useState<KitchenPlanDetailsResponse | null>(null);
+  const [ingredients, setIngredients] = useState<KitchenPlanIngredient[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchKitchenPlanDetails(rid, date)
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {
-        if (!cancelled) setData(null);
+    // Fetch details + ingredients in parallel so tab switches never re-fetch.
+    Promise.all([
+      fetchKitchenPlanDetails(rid, date).catch(() => null),
+      fetchKitchenPlanIngredients(rid, date).catch(() => null),
+    ])
+      .then(([details, ingr]) => {
+        if (cancelled) return;
+        setData(details);
+        setIngredients(ingr?.ingredients ?? null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -310,10 +252,26 @@ export default function PreparationPlanPage() {
     };
   }, [data]);
 
+  const sortedIngredients = useMemo(() => {
+    if (!ingredients) return [];
+    const copy = [...ingredients];
+    if (ingredientSort === 'name') {
+      copy.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // qty desc — server already sorts by qty, but resort defensively so a
+      // mixed-unit list stays grouped by raw qty value (unit-aware comparison
+      // isn't meaningful across different units, so keep the simple desc).
+      copy.sort((a, b) => b.total_qty - a.total_qty);
+    }
+    return copy;
+  }, [ingredients, ingredientSort]);
+
   const subtitle =
     grouping === 'product'
       ? t('prepPlanSubtitleProduct')
-      : t('prepPlanSubtitleCustomer');
+      : grouping === 'ingredient'
+        ? t('prepPlanSubtitleIngredient')
+        : t('prepPlanSubtitleCustomer');
 
   const isEmpty = !loading && (data?.orders.length ?? 0) === 0;
   const BackIcon = isRtl ? ArrowRightIcon : ArrowLeftIcon;
@@ -381,19 +339,38 @@ export default function PreparationPlanPage() {
             )}
           </div>
 
-          <Tabs
-            value={grouping}
-            onValueChange={(v) => setGrouping(v as Grouping)}
-            variant="segmented"
-            className="!flex-row !gap-0"
-          >
-            <TabsList>
-              <Tab value="product">{t('prepPlanByProduct')}</Tab>
-              <Tab value="customer">{t('prepPlanByCustomer')}</Tab>
-            </TabsList>
-            <TabsContent value="product" className="hidden" />
-            <TabsContent value="customer" className="hidden" />
-          </Tabs>
+          <div className="flex items-center gap-[var(--s-2)] flex-wrap">
+            {grouping === 'ingredient' && (
+              <Tabs
+                value={ingredientSort}
+                onValueChange={(v) => setIngredientSort(v as IngredientSort)}
+                variant="segmented"
+                className="!flex-row !gap-0"
+              >
+                <TabsList>
+                  <Tab value="qty">{t('prepPlanSortByQty')}</Tab>
+                  <Tab value="name">{t('prepPlanSortByName')}</Tab>
+                </TabsList>
+                <TabsContent value="qty" className="hidden" />
+                <TabsContent value="name" className="hidden" />
+              </Tabs>
+            )}
+            <Tabs
+              value={grouping}
+              onValueChange={(v) => setGrouping(v as Grouping)}
+              variant="segmented"
+              className="!flex-row !gap-0"
+            >
+              <TabsList>
+                <Tab value="product">{t('prepPlanByProduct')}</Tab>
+                <Tab value="ingredient">{t('prepPlanByIngredient')}</Tab>
+                <Tab value="customer">{t('prepPlanByCustomer')}</Tab>
+              </TabsList>
+              <TabsContent value="product" className="hidden" />
+              <TabsContent value="ingredient" className="hidden" />
+              <TabsContent value="customer" className="hidden" />
+            </Tabs>
+          </div>
         </div>
 
         {/* KPIs */}
@@ -411,6 +388,8 @@ export default function PreparationPlanPage() {
         <EmptyState message={t('prepPlanNoData')} />
       ) : grouping === 'product' ? (
         <ProductList groups={productGroups} />
+      ) : grouping === 'ingredient' ? (
+        <IngredientList ingredients={sortedIngredients} />
       ) : (
         <CustomerList
           groups={customerGroups}
@@ -462,96 +441,92 @@ function ProductList({ groups }: { groups: ProductGroup[] }) {
   const { t } = useI18n();
   return (
     <div className="grid gap-[var(--s-4)] grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-      {groups.map((g) => {
-        const hasMass = g.totalMassGrams > 0;
-        // Headline shown in the big brand-coloured cell.
-        const headline = hasMass ? formatMass(g.totalMassGrams) : `×${g.totalQty}`;
-        // Width hint: a long mass label like "1.25kg" needs more room than "×3".
-        const headlineWide = hasMass && headline.length >= 5;
-
-        // Variant breakdown: parseable variants render as "250g ×3", unparseable
-        // (e.g. "Normal") as "Normal ×1". A variant with no label at all (base
-        // item, no variant selected) renders as just "×N".
-        const breakdownParts = g.variantBreakdown.map((v) => {
-          const left =
-            v.portionGrams != null
-              ? formatMass(v.portionGrams)
-              : v.label || null;
-          return left ? `${left} ×${v.qty}` : `×${v.qty}`;
-        });
-        // Only show the breakdown when it adds information beyond the headline:
-        // i.e. more than one variant, OR a single variant whose label differs
-        // from the headline (so headline mass without a single-variant restate).
-        const showBreakdown = hasMass && g.variantBreakdown.length > 1;
-
-        return (
-          <Card key={g.key} className="p-0 overflow-hidden">
-            {/* Header: huge total + product name */}
-            <div className="flex items-stretch border-b border-[var(--line)]">
-              <div
-                className="flex items-center justify-center px-[var(--s-4)] border-e border-[var(--line)]"
-                style={{
-                  background:
-                    'color-mix(in oklab, var(--brand-500) 6%, transparent)',
-                  minWidth: headlineWide ? 120 : 88,
-                }}
-              >
-                <span
-                  className={`font-bold text-[var(--brand-500)] tabular leading-none ${
-                    headlineWide ? 'text-fs-3xl' : 'text-fs-4xl'
-                  }`}
-                >
-                  {headline}
-                </span>
-              </div>
-              <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
+      {groups.map((g) => (
+        <Card key={g.key} className="p-0 overflow-hidden">
+          {/* Header: huge qty + product name (+ variant pill) */}
+          <div className="flex items-stretch border-b border-[var(--line)]">
+            <div
+              className="flex items-center justify-center px-[var(--s-4)] min-w-[88px] border-e border-[var(--line)]"
+              style={{
+                background:
+                  'color-mix(in oklab, var(--brand-500) 6%, transparent)',
+              }}
+            >
+              <span className="text-fs-4xl font-bold text-[var(--brand-500)] tabular leading-none">
+                {g.totalQty}
+              </span>
+            </div>
+            <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
+              <div className="flex items-center gap-[var(--s-2)] min-w-0">
                 <p
-                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
-                  title={g.name}
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate flex-1"
+                  title={[g.name, g.variant, g.variantPortion].filter(Boolean).join(' — ')}
                 >
                   {g.name || '—'}
                 </p>
-                <div className="flex items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] mt-0.5 min-w-0">
-                  <span className="shrink-0">
-                    {g.totalQty === 1
-                      ? t('prepPlanItemsOne')
-                      : t('prepPlanItemsCount').replace('{count}', String(g.totalQty))}
+                {g.variantPortion && (
+                  <span
+                    className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-r-full text-fs-xs font-bold tabular"
+                    style={{
+                      background: 'var(--brand-500)',
+                      color: 'white',
+                    }}
+                    title={g.variant || undefined}
+                  >
+                    {g.variantPortion}
                   </span>
-                  {showBreakdown && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span className="truncate tabular" title={breakdownParts.join(' + ')}>
-                        {breakdownParts.join(' + ')}
-                      </span>
-                    </>
-                  )}
-                </div>
+                )}
+                {!g.variantPortion && g.variant && (
+                  <span
+                    className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-semibold"
+                    style={{
+                      background:
+                        'color-mix(in oklab, var(--brand-500) 14%, transparent)',
+                      color: 'var(--brand-500)',
+                    }}
+                  >
+                    {g.variant}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                <span>
+                  {g.lines.length === 1
+                    ? t('prepPlanItemsOne')
+                    : t('prepPlanItemsCount').replace('{count}', String(g.lines.length))}
+                </span>
+                {g.variantPortion && g.variant && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="truncate">{g.variant}</span>
+                  </>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* Modifier breakdown */}
-            {g.modifierBreakdown.length > 0 ? (
-              <ul className="divide-y divide-[var(--line)]">
-                {g.modifierBreakdown.map((m) => (
-                  <li
-                    key={m.label}
-                    className="px-[var(--s-4)] py-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]"
-                  >
-                    <span className="text-fs-sm text-[var(--fg-muted)] truncate">{m.label}</span>
-                    <span className="text-fs-sm font-semibold text-[var(--fg)] tabular">
-                      ×{m.qty}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)] italic">
-                {t('prepPlanNoModifiers')}
-              </p>
-            )}
-          </Card>
-        );
-      })}
+          {/* Modifier breakdown */}
+          {g.modifierBreakdown.length > 0 ? (
+            <ul className="divide-y divide-[var(--line)]">
+              {g.modifierBreakdown.map((m) => (
+                <li
+                  key={m.label}
+                  className="px-[var(--s-4)] py-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]"
+                >
+                  <span className="text-fs-sm text-[var(--fg-muted)] truncate">{m.label}</span>
+                  <span className="text-fs-sm font-semibold text-[var(--fg)] tabular">
+                    ×{m.qty}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)] italic">
+              {t('prepPlanNoModifiers')}
+            </p>
+          )}
+        </Card>
+      ))}
     </div>
   );
 }
@@ -654,6 +629,88 @@ function CustomerList({
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+// ─── By Ingredient (mise-en-place) ────────────────────────────────────────
+
+function IngredientList({ ingredients }: { ingredients: KitchenPlanIngredient[] }) {
+  const { t } = useI18n();
+
+  if (ingredients.length === 0) {
+    return <EmptyState message={t('prepPlanNoIngredients')} />;
+  }
+
+  // Width hint: long total labels (e.g. "2.5 kg") need a wider headline cell.
+  return (
+    <div className="grid gap-[var(--s-4)] grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      {ingredients.map((ing) => {
+        const headline = formatIngredientQty(ing.total_qty, ing.unit);
+        const headlineWide = headline.length >= 8;
+        return (
+          <Card key={`${ing.stock_item_id}-${ing.unit}`} className="p-0 overflow-hidden">
+            <div className="flex items-stretch border-b border-[var(--line)]">
+              <div
+                className="flex items-center justify-center px-[var(--s-4)] border-e border-[var(--line)]"
+                style={{
+                  background:
+                    'color-mix(in oklab, var(--brand-500) 6%, transparent)',
+                  minWidth: headlineWide ? 130 : 96,
+                }}
+              >
+                <span
+                  className={`font-bold text-[var(--brand-500)] tabular leading-none ${
+                    headlineWide ? 'text-fs-2xl' : 'text-fs-3xl'
+                  }`}
+                >
+                  {headline}
+                </span>
+              </div>
+              <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
+                <p
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
+                  title={ing.name}
+                >
+                  {ing.name || '—'}
+                </p>
+                {ing.category && (
+                  <p className="text-fs-xs text-[var(--fg-subtle)] truncate mt-0.5">
+                    {ing.category}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Contributors (which dishes need this ingredient and how much) */}
+            <div className="px-[var(--s-4)] py-[var(--s-2)]">
+              <p className="text-fs-xs uppercase tracking-[0.06em] font-semibold text-[var(--fg-muted)] mb-[var(--s-1)]">
+                {t('prepPlanForLabel')}
+              </p>
+              <ul className="space-y-1">
+                {ing.contributors.map((c, idx) => {
+                  const label = c.variant_name
+                    ? `${c.menu_item_name} · ${c.variant_name}`
+                    : c.menu_item_name;
+                  return (
+                    <li
+                      key={`${c.menu_item_id}-${c.variant_name ?? ''}-${idx}`}
+                      className="flex items-baseline justify-between gap-[var(--s-3)] text-fs-sm"
+                    >
+                      <span className="text-[var(--fg-muted)] truncate" title={label}>
+                        {label} <span className="text-[var(--fg-subtle)] tabular">×{c.dish_qty}</span>
+                      </span>
+                      <span className="text-[var(--fg)] font-semibold tabular shrink-0">
+                        {formatIngredientQty(c.ingredient_qty, c.unit)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }

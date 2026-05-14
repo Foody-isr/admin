@@ -169,6 +169,7 @@ export interface MenuCategory {
   web_enabled: boolean;
   follows_menu_hours: boolean;
   is_hidden: boolean;
+  is_weekly_rotating?: boolean;
   availability_hours?: CategoryAvailabilityHour[];
   items?: MenuItem[];
 }
@@ -242,6 +243,8 @@ export interface ComboStepItem {
   menu_item?: MenuItem;
 }
 
+export type ComboStepSourceType = 'explicit' | 'category';
+
 export interface ComboStep {
   id?: number;
   menu_item_id?: number;
@@ -252,6 +255,8 @@ export interface ComboStep {
   max_picks: number;
   sort_order: number;
   fixed_modifier_name?: string;
+  source_type?: ComboStepSourceType;
+  source_category_id?: number | null;
   items: ComboStepItem[];
 }
 
@@ -262,6 +267,8 @@ export interface ComboStepInput {
   max_picks: number;
   sort_order: number;
   fixed_modifier_name?: string;
+  source_type?: ComboStepSourceType;
+  source_category_id?: number | null;
   items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
 }
 
@@ -2133,6 +2140,47 @@ export async function fetchKitchenPlanDetails(
     date: data.date,
     products: data.products ?? [],
     orders: data.orders ?? [],
+  };
+}
+
+export interface KitchenPlanIngredientContributor {
+  menu_item_id: number;
+  menu_item_name: string;
+  variant_name?: string;
+  dish_qty: number;
+  ingredient_qty: number;
+  unit: string;
+}
+
+export interface KitchenPlanIngredient {
+  stock_item_id: number;
+  name: string;
+  category?: string;
+  total_qty: number;
+  unit: string;
+  contributors: KitchenPlanIngredientContributor[];
+}
+
+export interface KitchenPlanIngredientsResponse {
+  date: string;
+  ingredients: KitchenPlanIngredient[];
+}
+
+export async function fetchKitchenPlanIngredients(
+  restaurantId: number,
+  date: string,
+): Promise<KitchenPlanIngredientsResponse> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    date,
+  });
+  const data = await apiFetch<KitchenPlanIngredientsResponse>(
+    `/api/v1/orders/kitchen-plan/ingredients?${qs.toString()}`,
+    restaurantId,
+  );
+  return {
+    date: data.date,
+    ingredients: data.ingredients ?? [],
   };
 }
 

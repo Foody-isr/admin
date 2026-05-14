@@ -39,6 +39,12 @@ export interface ComboStepDraft {
   min_picks: number;
   max_picks: number;
   items: ComboStepDraftItem[];
+  /** "explicit" (default) — items[] is the source of truth, listed manually.
+   *  "category"            — items[] is ignored; the server auto-includes all
+   *  active items from `source_category_id` at read time. */
+  source_type: 'explicit' | 'category';
+  /** Required when source_type === 'category'. */
+  source_category_id?: number;
 }
 
 // ── View-models ──────────────────────────────────────────────────────────
