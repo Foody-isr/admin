@@ -48,6 +48,35 @@ function todayIso(): string {
   return dateToIso(new Date());
 }
 
+// ─── Portion parsing ───────────────────────────────────────────────────────
+
+// Parse a variant name into grams. Accepts patterns like:
+//   "250g", "250 g", "250gr", "250 gr", "250 grammes", "250 grams"
+//   "1kg", "1 kg", "1.5kg", "1,5 kg", "0.5 kilo"
+//   Hebrew-ish: "250 גרם", "1 ק"ג", "1.5 קילו"
+// Returns the value in grams, or null if no portion is found.
+function parsePortionGrams(name: string): number | null {
+  if (!name) return null;
+  const s = name.toLowerCase().replace(',', '.');
+  // kg patterns first so "1.5kg" doesn't match "1.5 g" by accident
+  const kg = s.match(/(\d+(?:\.\d+)?)\s*(kg|kilo|kilos|kilogram|ק"ג|קילו)\b/);
+  if (kg) return Math.round(parseFloat(kg[1]) * 1000);
+  const g = s.match(/(\d+(?:\.\d+)?)\s*(g|gr|grm|gram|grams|gramme|grammes|גרם)\b/);
+  if (g) return Math.round(parseFloat(g[1]));
+  return null;
+}
+
+// Format grams for display: kg with up to 2 decimals when >= 1000, else g.
+function formatMass(grams: number): string {
+  if (grams >= 1000) {
+    const kg = grams / 1000;
+    // Trim trailing zeros (e.g. 1.5kg, not 1.50kg)
+    const txt = kg.toFixed(2).replace(/\.?0+$/, '');
+    return `${txt}kg`;
+  }
+  return `${grams}g`;
+}
+
 // ─── Aggregation ───────────────────────────────────────────────────────────
 
 interface ProductLine {
@@ -57,13 +86,20 @@ interface ProductLine {
   quantity: number;
 }
 
+interface VariantBreakdown {
+  label: string; // variant name as shown (e.g. "250 grammes")
+  qty: number; // total count ordered
+  portionGrams: number | null; // parsed portion, null if unparseable
+}
+
 interface ProductGroup {
   key: string;
   menuItemId: number;
   name: string;
-  variant: string;
-  variantPortion: string;
-  totalQty: number;
+  totalQty: number; // count of articles across all variants
+  totalMassGrams: number; // sum of parsed portion × qty (0 if none parseable)
+  unparseableQty: number; // articles whose variant has no parseable portion
+  variantBreakdown: VariantBreakdown[];
   lines: ProductLine[];
   modifierBreakdown: Array<{ label: string; qty: number }>;
 }
@@ -72,32 +108,48 @@ function groupByProduct(
   data: KitchenPlanDetailsResponse,
   walkInLabel: string,
 ): ProductGroup[] {
-  // Group by (menu_item_id, variant_name, variant_portion) so different variants
-  // (and different portion sizes within the same variant label) of the same item
-  // are reported as distinct prep cards.
-  const groups = new Map<string, ProductGroup>();
+  // Group by menu_item_id only — different variants of the same item collapse
+  // into one prep card with total mass (sum of variant_portion × qty).
+  const groups = new Map<number, ProductGroup>();
+  // Track per-variant counts so we can show the breakdown ("250g ×3 + 500g ×1")
+  const variantAccum = new Map<number, Map<string, { qty: number; portionGrams: number | null }>>();
+
   for (const order of data.orders) {
     const customer = order.customer_name?.trim() || `#${order.order_id}`;
     const window = order.pickup_window || walkInLabel;
     for (const item of order.items) {
-      const variant = item.selected_variant_name ?? '';
-      const portion = item.variant_portion ?? '';
-      const key = `${item.menu_item_id}|${variant}|${portion}`;
-      let g = groups.get(key);
+      const variantLabel = item.selected_variant_name ?? '';
+      let g = groups.get(item.menu_item_id);
       if (!g) {
         g = {
-          key,
+          key: String(item.menu_item_id),
           menuItemId: item.menu_item_id,
           name: item.name,
-          variant,
-          variantPortion: portion,
           totalQty: 0,
+          totalMassGrams: 0,
+          unparseableQty: 0,
+          variantBreakdown: [],
           lines: [],
           modifierBreakdown: [],
         };
-        groups.set(key, g);
+        groups.set(item.menu_item_id, g);
+        variantAccum.set(item.menu_item_id, new Map());
       }
+      const portionGrams = parsePortionGrams(variantLabel);
       g.totalQty += item.quantity;
+      if (portionGrams != null) {
+        g.totalMassGrams += portionGrams * item.quantity;
+      } else {
+        g.unparseableQty += item.quantity;
+      }
+      const va = variantAccum.get(item.menu_item_id)!;
+      const vKey = variantLabel || '__base__';
+      const prev = va.get(vKey);
+      if (prev) {
+        prev.qty += item.quantity;
+      } else {
+        va.set(vKey, { qty: item.quantity, portionGrams });
+      }
       g.lines.push({
         customerLabel: customer,
         pickupWindow: window,
@@ -106,7 +158,8 @@ function groupByProduct(
       });
     }
   }
-  // Build modifier breakdown per group
+
+  // Build modifier + variant breakdowns
   const list: ProductGroup[] = [];
   groups.forEach((g) => {
     const mb = new Map<string, number>();
@@ -114,18 +167,42 @@ function groupByProduct(
       if (!l.modifierLabel) return;
       mb.set(l.modifierLabel, (mb.get(l.modifierLabel) ?? 0) + l.quantity);
     });
-    const breakdown: Array<{ label: string; qty: number }> = [];
-    mb.forEach((qty, label) => breakdown.push({ label, qty }));
-    breakdown.sort((a, b) => b.qty - a.qty);
-    g.modifierBreakdown = breakdown;
+    g.modifierBreakdown = [];
+    mb.forEach((qty, label) => g.modifierBreakdown.push({ label, qty }));
+    g.modifierBreakdown.sort((a, b) => b.qty - a.qty);
     g.lines.sort((a, b) => a.pickupWindow.localeCompare(b.pickupWindow));
+
+    const va = variantAccum.get(g.menuItemId) ?? new Map();
+    const variants: VariantBreakdown[] = [];
+    va.forEach((v, key) => {
+      variants.push({
+        label: key === '__base__' ? '' : key,
+        qty: v.qty,
+        portionGrams: v.portionGrams,
+      });
+    });
+    // Sort: parseable portions first (ascending by grams), then unparseable by label.
+    variants.sort((a, b) => {
+      if (a.portionGrams != null && b.portionGrams != null) {
+        return a.portionGrams - b.portionGrams;
+      }
+      if (a.portionGrams != null) return -1;
+      if (b.portionGrams != null) return 1;
+      return a.label.localeCompare(b.label);
+    });
+    g.variantBreakdown = variants;
     list.push(g);
   });
+
   return list.sort((a, b) => {
+    // Items with a mass total come first (sorted by mass desc), then count-only items.
+    if (a.totalMassGrams > 0 && b.totalMassGrams > 0) {
+      return b.totalMassGrams - a.totalMassGrams;
+    }
+    if (a.totalMassGrams > 0) return -1;
+    if (b.totalMassGrams > 0) return 1;
     if (b.totalQty !== a.totalQty) return b.totalQty - a.totalQty;
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) return byName;
-    return a.variant.localeCompare(b.variant);
+    return a.name.localeCompare(b.name);
   });
 }
 
@@ -385,92 +462,96 @@ function ProductList({ groups }: { groups: ProductGroup[] }) {
   const { t } = useI18n();
   return (
     <div className="grid gap-[var(--s-4)] grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-      {groups.map((g) => (
-        <Card key={g.key} className="p-0 overflow-hidden">
-          {/* Header: huge qty + product name (+ variant pill) */}
-          <div className="flex items-stretch border-b border-[var(--line)]">
-            <div
-              className="flex items-center justify-center px-[var(--s-4)] min-w-[88px] border-e border-[var(--line)]"
-              style={{
-                background:
-                  'color-mix(in oklab, var(--brand-500) 6%, transparent)',
-              }}
-            >
-              <span className="text-fs-4xl font-bold text-[var(--brand-500)] tabular leading-none">
-                {g.totalQty}
-              </span>
-            </div>
-            <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
-              <div className="flex items-center gap-[var(--s-2)] min-w-0">
+      {groups.map((g) => {
+        const hasMass = g.totalMassGrams > 0;
+        // Headline shown in the big brand-coloured cell.
+        const headline = hasMass ? formatMass(g.totalMassGrams) : `×${g.totalQty}`;
+        // Width hint: a long mass label like "1.25kg" needs more room than "×3".
+        const headlineWide = hasMass && headline.length >= 5;
+
+        // Variant breakdown: parseable variants render as "250g ×3", unparseable
+        // (e.g. "Normal") as "Normal ×1". A variant with no label at all (base
+        // item, no variant selected) renders as just "×N".
+        const breakdownParts = g.variantBreakdown.map((v) => {
+          const left =
+            v.portionGrams != null
+              ? formatMass(v.portionGrams)
+              : v.label || null;
+          return left ? `${left} ×${v.qty}` : `×${v.qty}`;
+        });
+        // Only show the breakdown when it adds information beyond the headline:
+        // i.e. more than one variant, OR a single variant whose label differs
+        // from the headline (so headline mass without a single-variant restate).
+        const showBreakdown = hasMass && g.variantBreakdown.length > 1;
+
+        return (
+          <Card key={g.key} className="p-0 overflow-hidden">
+            {/* Header: huge total + product name */}
+            <div className="flex items-stretch border-b border-[var(--line)]">
+              <div
+                className="flex items-center justify-center px-[var(--s-4)] border-e border-[var(--line)]"
+                style={{
+                  background:
+                    'color-mix(in oklab, var(--brand-500) 6%, transparent)',
+                  minWidth: headlineWide ? 120 : 88,
+                }}
+              >
+                <span
+                  className={`font-bold text-[var(--brand-500)] tabular leading-none ${
+                    headlineWide ? 'text-fs-3xl' : 'text-fs-4xl'
+                  }`}
+                >
+                  {headline}
+                </span>
+              </div>
+              <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
                 <p
-                  className="text-fs-md font-semibold text-[var(--fg)] truncate flex-1"
-                  title={[g.name, g.variant, g.variantPortion].filter(Boolean).join(' — ')}
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
+                  title={g.name}
                 >
                   {g.name || '—'}
                 </p>
-                {g.variantPortion && (
-                  <span
-                    className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-r-full text-fs-xs font-bold tabular"
-                    style={{
-                      background: 'var(--brand-500)',
-                      color: 'white',
-                    }}
-                    title={g.variant || undefined}
-                  >
-                    {g.variantPortion}
+                <div className="flex items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] mt-0.5 min-w-0">
+                  <span className="shrink-0">
+                    {g.totalQty === 1
+                      ? t('prepPlanItemsOne')
+                      : t('prepPlanItemsCount').replace('{count}', String(g.totalQty))}
                   </span>
-                )}
-                {!g.variantPortion && g.variant && (
-                  <span
-                    className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-semibold"
-                    style={{
-                      background:
-                        'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                      color: 'var(--brand-500)',
-                    }}
-                  >
-                    {g.variant}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                <span>
-                  {g.lines.length === 1
-                    ? t('prepPlanItemsOne')
-                    : t('prepPlanItemsCount').replace('{count}', String(g.lines.length))}
-                </span>
-                {g.variantPortion && g.variant && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span className="truncate">{g.variant}</span>
-                  </>
-                )}
+                  {showBreakdown && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span className="truncate tabular" title={breakdownParts.join(' + ')}>
+                        {breakdownParts.join(' + ')}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Modifier breakdown */}
-          {g.modifierBreakdown.length > 0 ? (
-            <ul className="divide-y divide-[var(--line)]">
-              {g.modifierBreakdown.map((m) => (
-                <li
-                  key={m.label}
-                  className="px-[var(--s-4)] py-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]"
-                >
-                  <span className="text-fs-sm text-[var(--fg-muted)] truncate">{m.label}</span>
-                  <span className="text-fs-sm font-semibold text-[var(--fg)] tabular">
-                    ×{m.qty}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)] italic">
-              {t('prepPlanNoModifiers')}
-            </p>
-          )}
-        </Card>
-      ))}
+            {/* Modifier breakdown */}
+            {g.modifierBreakdown.length > 0 ? (
+              <ul className="divide-y divide-[var(--line)]">
+                {g.modifierBreakdown.map((m) => (
+                  <li
+                    key={m.label}
+                    className="px-[var(--s-4)] py-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]"
+                  >
+                    <span className="text-fs-sm text-[var(--fg-muted)] truncate">{m.label}</span>
+                    <span className="text-fs-sm font-semibold text-[var(--fg)] tabular">
+                      ×{m.qty}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)] italic">
+                {t('prepPlanNoModifiers')}
+              </p>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
