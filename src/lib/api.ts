@@ -1322,18 +1322,66 @@ export async function reorderGroups(restaurantId: number, menuId: number, groupI
   );
 }
 
-export async function addItemsToGroup(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
+export interface GroupItemScope {
+  /** ISO date "YYYY-MM-DD" — inclusive lower bound. Omit for "from forever". */
+  effective_from?: string;
+  /** ISO date "YYYY-MM-DD" — inclusive upper bound. Omit for "until forever". */
+  effective_until?: string;
+}
+
+export async function addItemsToGroup(
+  restaurantId: number,
+  groupId: number,
+  itemIds: number[],
+  scope: GroupItemScope = {},
+): Promise<void> {
   await apiFetch<void>(
     `/api/v1/menu/groups/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        item_ids: itemIds,
+        effective_from: scope.effective_from,
+        effective_until: scope.effective_until,
+      }),
+    }
   );
 }
 
-export async function removeItemFromGroup(restaurantId: number, groupId: number, itemId: number): Promise<void> {
+export async function removeItemFromGroup(
+  restaurantId: number,
+  groupId: number,
+  itemId: number,
+  /** When set, soft-retire by setting effective_until = that ISO date instead
+   *  of hard-deleting the membership. */
+  effectiveUntil?: string,
+): Promise<void> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (effectiveUntil) qs.set('effective_until', effectiveUntil);
   await apiFetch<void>(
-    `/api/v1/menu/groups/${groupId}/items/${itemId}?restaurant_id=${restaurantId}`, restaurantId,
+    `/api/v1/menu/groups/${groupId}/items/${itemId}?${qs.toString()}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+export interface MenuGroupMembership {
+  id: number;
+  menu_group_id: number;
+  menu_item_id: number;
+  sort_order: number;
+  effective_from?: string;
+  effective_until?: string;
+  item?: MenuItem;
+}
+
+export async function listGroupMemberships(
+  restaurantId: number,
+  groupId: number,
+): Promise<MenuGroupMembership[]> {
+  const data = await apiFetch<{ memberships: MenuGroupMembership[] }>(
+    `/api/v1/menu/groups/${groupId}/memberships?restaurant_id=${restaurantId}`, restaurantId,
+  );
+  return data.memberships ?? [];
 }
 
 export async function getGroupHours(restaurantId: number, groupId: number): Promise<GroupAvailabilityHour[]> {

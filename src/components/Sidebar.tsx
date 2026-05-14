@@ -123,7 +123,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       // Flattened — no "Articles" subtitle/group header in the sidebar.
       // Rotation + AI Import routes removed (not in use).
       subItems: [
-        { href: `${base}/menu/this-week`, labelKey: 'navThisWeek' },
         { href: `${base}/menu/items`, labelKey: 'itemLibrary' },
         { href: `${base}/menu/menus`, labelKey: 'menus' },
         { href: `${base}/menu/categories`, labelKey: 'categories' },

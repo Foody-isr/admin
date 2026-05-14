@@ -4,9 +4,12 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getAllCategories, createGroup, updateGroup,
-  getGroupHours, setGroupHours, addItemsToGroup, uploadGroupImage,
+  getGroupHours, setGroupHours, addItemsToGroup, removeItemFromGroup,
+  uploadGroupImage,
+  listGroupMemberships,
   getRestaurant,
   Menu, MenuGroup, MenuCategory, MenuItem, GroupAvailabilityHour,
+  MenuGroupMembership,
   TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -16,6 +19,47 @@ import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// ─── Week helpers (weekly rotation editor) ───────────────────────────────────
+
+/** Monday-of-week for a given date. Always returns a fresh Date at 00:00. */
+function getMonday(d: Date): Date {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = out.getDay(); // 0 = Sun, 1 = Mon, …
+  const diff = day === 0 ? -6 : 1 - day; // Sunday rolls back to Monday before
+  out.setDate(out.getDate() + diff);
+  return out;
+}
+
+/** ISO YYYY-MM-DD for a date. Uses local timezone — date-only, no time. */
+function isoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Sunday-of-week (inclusive end of the week starting at the given Monday). */
+function getSunday(monday: Date): Date {
+  const out = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
+  out.setDate(out.getDate() + 6);
+  return out;
+}
+
+/** Add N days to a date (returns a fresh Date). */
+function addDays(d: Date, days: number): Date {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  out.setDate(out.getDate() + days);
+  return out;
+}
+
+/** True when the membership window covers `day` (both bounds inclusive,
+ *  null/undefined = open-ended). */
+function isMembershipActiveOn(m: MenuGroupMembership, day: string): boolean {
+  if (m.effective_from && m.effective_from > day) return false;
+  if (m.effective_until && m.effective_until < day) return false;
+  return true;
+}
 
 // ─── Modal types ────────────────────────────────────────────────────────────
 
@@ -67,6 +111,14 @@ export default function GroupPage() {
   // Pending items to assign on save (for new groups)
   const [pendingItemIds, setPendingItemIds] = useState<Set<number>>(new Set());
 
+  // Weekly rotation: full list of memberships with date bounds. The page
+  // filters this list against the selected week so the operator can edit
+  // past, current, or future week states from one view.
+  const [memberships, setMemberships] = useState<MenuGroupMembership[]>([]);
+  // `selectedWeekStart` is the Monday (YYYY-MM-DD) of the week being edited.
+  // Defaults to the current ISO week.
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => isoDate(getMonday(new Date())));
+
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([listMenus(rid), getAllCategories(rid), getRestaurant(rid)]).then(async ([menus, fullCats, restaurant]) => {
@@ -97,6 +149,8 @@ export default function GroupPage() {
             setHours(h);
           }
         }
+        const ms = await listGroupMemberships(rid, gid).catch(() => []);
+        setMemberships(ms);
       }
     }).finally(() => setLoading(false));
   }, [rid, mid, isNew, gid]);
@@ -201,10 +255,20 @@ export default function GroupPage() {
     return items;
   }, [allCats]);
 
-  // Items belonging to this group (saved + pending)
-  const savedGroupItems: MenuItem[] = (!isNew && gid)
-    ? (groups.find((g: MenuGroup) => g.id === gid)?.items ?? [])
-    : [];
+  // Items belonging to this group for the selected week. Memberships with
+  // both bounds null are always-on; bounded memberships only count when the
+  // selected week's Monday falls inside their window.
+  const savedGroupItems: MenuItem[] = useMemo(() => {
+    if (isNew || !gid) return [];
+    const out: MenuItem[] = [];
+    for (const m of memberships) {
+      if (!isMembershipActiveOn(m, selectedWeekStart)) continue;
+      if (m.item) {
+        out.push(m.item);
+      }
+    }
+    return out;
+  }, [memberships, selectedWeekStart, isNew, gid]);
 
   const pendingItems = useMemo(() => {
     if (pendingItemIds.size === 0) return [];
@@ -216,6 +280,12 @@ export default function GroupPage() {
     return [...savedGroupItems, ...pendingItems.filter((i) => !savedIds.has(i.id))];
   }, [savedGroupItems, pendingItems]);
 
+  // Selected-week metadata for UI labels and date calculations.
+  const selectedWeekMonday = useMemo(() => new Date(selectedWeekStart + 'T00:00:00'), [selectedWeekStart]);
+  const selectedWeekSundayIso = useMemo(() => isoDate(getSunday(selectedWeekMonday)), [selectedWeekMonday]);
+  const todayMondayIso = useMemo(() => isoDate(getMonday(new Date())), []);
+  const isCurrentWeek = selectedWeekStart === todayMondayIso;
+
   // All categories (for category picker), excluding current group
   const allCategories = useMemo(() => {
     return allCats
@@ -226,22 +296,39 @@ export default function GroupPage() {
   const groupItemIds = useMemo(() => new Set<number>(groupItems.map((i) => i.id)), [groupItems]);
 
   const handleRemoveItem = async (item: MenuItem) => {
-    if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
-    // Remove pending item (not yet saved) or do nothing for saved items
-    // (saved items can be moved via the item editor's category selector)
     if (pendingItemIds.has(item.id)) {
       setPendingItemIds((prev) => { const next = new Set(prev); next.delete(item.id); return next; });
+      return;
     }
+    if (!gid) return;
+    // Two scopes: remove just this week onward (soft, preserves history) or
+    // remove the membership entirely (hard delete).
+    const promptMsg = t('groupRemoveScopePrompt').replace('{name}', item.name);
+    const onlyThisWeek = confirm(promptMsg);
+    if (onlyThisWeek) {
+      // Soft retire: effective_until = day before selected week's Monday.
+      const cutoff = isoDate(addDays(selectedWeekMonday, -1));
+      await removeItemFromGroup(rid, gid, item.id, cutoff);
+    } else {
+      if (!confirm(t('removeFromGroupConfirm') + ` "${item.name}"?`)) return;
+      await removeItemFromGroup(rid, gid, item.id);
+    }
+    load();
   };
 
-  // Add selected items to this group
+  // Add selected items to this group, scoped to the selected week unless the
+  // operator is editing the current week (then default to always-on, matching
+  // the legacy behavior).
   const handleAssignItems = async (itemIds: number[]) => {
     if (itemIds.length === 0) return;
     if (isNew) {
       setPendingItemIds((prev) => { const next = new Set(prev); itemIds.forEach((id) => next.add(id)); return next; });
       setModalView(null);
     } else if (gid) {
-      await addItemsToGroup(rid, gid, itemIds);
+      const scope = isCurrentWeek
+        ? {} // always-on for the current week — preserves legacy semantics
+        : { effective_from: selectedWeekStart, effective_until: selectedWeekSundayIso };
+      await addItemsToGroup(rid, gid, itemIds, scope);
       setModalView(null);
       load();
     }
@@ -263,7 +350,10 @@ export default function GroupPage() {
       setPendingItemIds((prev) => { const next = new Set(prev); itemsToImport.forEach((id) => next.add(id)); return next; });
       setModalView(null);
     } else if (gid) {
-      await addItemsToGroup(rid, gid, itemsToImport);
+      const scope = isCurrentWeek
+        ? {}
+        : { effective_from: selectedWeekStart, effective_until: selectedWeekSundayIso };
+      await addItemsToGroup(rid, gid, itemsToImport, scope);
       setModalView(null);
       load();
     }
@@ -484,7 +574,23 @@ export default function GroupPage() {
 
         {/* Articles */}
         <div className="py-8">
-          <h3 className="text-xl font-bold text-fg-primary mb-5">{t('articlesGroup')}</h3>
+          <div className="flex items-baseline justify-between mb-5 gap-4 flex-wrap">
+            <h3 className="text-xl font-bold text-fg-primary">{t('articlesGroup')}</h3>
+            {!isNew && (
+              <WeekPicker
+                value={selectedWeekStart}
+                onChange={setSelectedWeekStart}
+                todayMondayIso={todayMondayIso}
+              />
+            )}
+          </div>
+          {!isNew && !isCurrentWeek && (
+            <div className="mb-4 px-3 py-2 rounded-lg bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] text-sm text-fg-secondary">
+              {t('groupWeekScopeHint')
+                .replace('{from}', selectedWeekStart)
+                .replace('{to}', selectedWeekSundayIso)}
+            </div>
+          )}
           {groupItems.length > 0 ? (
             <div className="space-y-0 rounded-xl border border-[var(--divider)] overflow-hidden">
               {groupItems.map((item) => (
@@ -1145,6 +1251,83 @@ function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Week picker (rotation editor) ─────────────────────────────────────────
+
+function WeekPicker({
+  value,
+  onChange,
+  todayMondayIso,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  todayMondayIso: string;
+}) {
+  const { t } = useI18n();
+  const monday = useMemo(() => new Date(value + 'T00:00:00'), [value]);
+  const labelFor = (iso: string): string => {
+    if (iso === todayMondayIso) return t('weekThis');
+    const todayMon = new Date(todayMondayIso + 'T00:00:00');
+    const diff = Math.round(
+      (new Date(iso + 'T00:00:00').getTime() - todayMon.getTime()) / 86400000 / 7,
+    );
+    if (diff === -1) return t('weekLast');
+    if (diff === 1) return t('weekNext');
+    return iso; // fallback to ISO date
+  };
+  // Build the 6-option list: last week, this week, next 4 weeks.
+  const options = useMemo(() => {
+    const todayMon = new Date(todayMondayIso + 'T00:00:00');
+    return [-1, 0, 1, 2, 3, 4].map((offset) => {
+      const d = new Date(todayMon);
+      d.setDate(d.getDate() + offset * 7);
+      const iso = isoDate(d);
+      return { iso, label: labelFor(iso) };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayMondayIso]);
+  const shift = (weeks: number) => {
+    const next = new Date(monday);
+    next.setDate(next.getDate() + weeks * 7);
+    onChange(isoDate(next));
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => shift(-1)}
+        className="w-8 h-8 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary"
+        aria-label={t('weekPrev')}
+      >
+        ‹
+      </button>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input-sm text-sm min-w-[12rem]"
+      >
+        {options.map((o) => (
+          <option key={o.iso} value={o.iso}>
+            {o.label === o.iso ? o.iso : `${o.label} (${o.iso})`}
+          </option>
+        ))}
+        {/* When the operator navigates with arrows past the static window,
+            the current value may not be in the list — include it explicitly. */}
+        {!options.some((o) => o.iso === value) && (
+          <option value={value}>{value}</option>
+        )}
+      </select>
+      <button
+        type="button"
+        onClick={() => shift(1)}
+        className="w-8 h-8 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] flex items-center justify-center text-fg-secondary"
+        aria-label={t('weekNext')}
+      >
+        ›
+      </button>
     </div>
   );
 }
