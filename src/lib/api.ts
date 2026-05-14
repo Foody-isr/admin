@@ -417,6 +417,7 @@ export interface WebsiteConfig {
   hide_navbar_name: boolean;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  landing_enabled: boolean;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;

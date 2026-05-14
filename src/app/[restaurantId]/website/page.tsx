@@ -224,6 +224,7 @@ export default function WebsitePage() {
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
+  const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -333,6 +334,11 @@ export default function WebsitePage() {
     setHideNavbarName(stateConfig.hide_navbar_name || false);
     setHeroNameFont(stateConfig.hero_name_font || '');
     setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
+    const landingOn = stateConfig.landing_enabled ?? true;
+    setLandingEnabled(landingOn);
+    // If landing is disabled, the page switcher hides "Landing"; make sure the
+    // editor isn't sitting on a page that's no longer reachable.
+    if (!landingOn) setActivePage('menu');
 
     // Sections: assign synthetic negative ids to tmp_id-only sections so
     // existing UI keeps working with a numeric `id` field. The tmp_id is
@@ -393,6 +399,7 @@ export default function WebsitePage() {
           hide_navbar_name: stateConfig.hide_navbar_name || false,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
+          landing_enabled: stateConfig.landing_enabled ?? true,
         },
         sections: sections.map((s) => {
           const tmp = tmpIdMap.get(s.id);
@@ -487,6 +494,7 @@ export default function WebsitePage() {
         hide_navbar_name: hideNavbarName,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
+        landing_enabled: landingEnabled,
       },
       sections: sections.map((s) => {
         const tmpId = newSectionTmpIds.current.get(s.id);
@@ -790,6 +798,7 @@ export default function WebsitePage() {
             <PagesLeftRail
               activePage={activePage}
               onActivePageChange={setActivePage}
+              landingEnabled={landingEnabled}
               sections={filteredSections}
               selectedId={selectedSectionId}
               onSelect={setSelectedSectionId}
@@ -831,6 +840,7 @@ export default function WebsitePage() {
               showAddress={showAddress}
               showPhone={showPhone}
               showHours={showHours}
+              landingEnabled={landingEnabled}
               socialLinks={(config?.social_links as Record<string, string>) ?? {}}
               onTaglineChange={setTagline}
               onNavbarStyleChange={setNavbarStyle}
@@ -838,6 +848,13 @@ export default function WebsitePage() {
               onShowAddressChange={setShowAddress}
               onShowPhoneChange={setShowPhone}
               onShowHoursChange={setShowHours}
+              onLandingEnabledChange={(v) => {
+                setLandingEnabled(v);
+                // If the user turns off Landing while they were editing it,
+                // snap to the menu page so the editor doesn't keep showing a
+                // page that's about to be redirected away.
+                if (!v && activePage === 'home') setActivePage('menu');
+              }}
               onSocialLinksChange={(links) => setConfig((c) => (c ? ({ ...c, social_links: links } as WebsiteConfig) : c))}
             />
           )}
@@ -972,9 +989,10 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
+  landingEnabled: boolean;
   sections: WebsiteSection[];
   selectedId: number | null;
   onSelect: (id: number) => void;
@@ -988,17 +1006,27 @@ function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, o
 }) {
   return (
     <div className="flex flex-col h-full">
-      {/* Page switcher */}
+      {/* Page switcher. If landing is disabled, only the menu page is offered;
+          the user can re-enable landing in Paramètres → Général. */}
       <div className="px-4 pt-4 pb-3 border-b border-divider">
         <label className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-1.5">Page</label>
-        <select
-          value={activePage}
-          onChange={(e) => onActivePageChange(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-        >
-          <option value="home">Landing</option>
-          <option value="menu">Page de commande</option>
-        </select>
+        {landingEnabled ? (
+          <select
+            value={activePage}
+            onChange={(e) => onActivePageChange(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          >
+            <option value="home">Landing</option>
+            <option value="menu">Page de commande</option>
+          </select>
+        ) : (
+          <div className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary">
+            Page de commande
+            <div className="text-[10px] text-fg-secondary mt-0.5">
+              La page d&apos;accueil est désactivée. Activez-la dans Paramètres → Général.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Menu-page-specific options: layout + category banner style. Only shown
@@ -1178,7 +1206,7 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onSocialLinksChange }: {
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange }: {
   subMode: 'general' | 'contact' | 'social' | 'seo';
   onSubModeChange: (m: 'general' | 'contact' | 'social' | 'seo') => void;
   restaurant: Restaurant | null;
@@ -1188,6 +1216,7 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
+  landingEnabled: boolean;
   socialLinks: Record<string, string>;
   onTaglineChange: (v: string) => void;
   onNavbarStyleChange: (v: string) => void;
@@ -1195,6 +1224,7 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
   onShowAddressChange: (v: boolean) => void;
   onShowPhoneChange: (v: boolean) => void;
   onShowHoursChange: (v: boolean) => void;
+  onLandingEnabledChange: (v: boolean) => void;
   onSocialLinksChange: (links: Record<string, string>) => void;
 }) {
   const tabs: { id: typeof subMode; label: string }[] = [
@@ -1224,6 +1254,28 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {subMode === 'general' && (
           <>
+            {/* Landing page toggle — controls whether /r/<slug> shows the
+                marketing landing or redirects straight to the order page.
+                Sections are not deleted when this is off; they're hidden. */}
+            <div className="rounded-xl border border-divider p-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={landingEnabled}
+                  onChange={(e) => onLandingEnabledChange(e.target.checked)}
+                  className="w-4 h-4 mt-0.5"
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-medium text-fg-primary">Page d&apos;accueil (landing)</span>
+                  <span className="block text-[11px] text-fg-secondary leading-relaxed mt-0.5">
+                    {landingEnabled
+                      ? "Vos visiteurs arrivent sur la page d'accueil avec votre bannière et vos sections."
+                      : "Vos visiteurs sont redirigés directement vers la page de commande. Vos sections de landing sont conservées mais masquées."}
+                  </span>
+                </span>
+              </label>
+            </div>
+
             <div>
               <label className="block text-xs font-medium text-fg-primary mb-1.5">Slogan</label>
               <input
