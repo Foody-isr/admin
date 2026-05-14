@@ -796,6 +796,10 @@ export default function WebsitePage() {
               onMove={handleMoveSection}
               onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
               onAddSection={() => setShowAddModal(true)}
+              menuLayout={config?.layout_default || 'magazine'}
+              categoryBannerStyle={categoryBannerStyle}
+              onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
+              onCategoryBannerStyleChange={setCategoryBannerStyle}
             />
           )}
           {editorMode === 'theme' && (
@@ -968,7 +972,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection }: {
+function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   sections: WebsiteSection[];
@@ -977,6 +981,10 @@ function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, o
   onMove: (id: number, dir: 'up' | 'down') => void;
   onToggleVisibility: (id: number, visible: boolean) => void;
   onAddSection: () => void;
+  menuLayout: string;
+  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  onMenuLayoutChange: (v: string) => void;
+  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -993,20 +1001,67 @@ function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, o
         </select>
       </div>
 
-      {/* Section list */}
+      {/* Menu-page-specific options: layout + category banner style. Only shown
+          on the Page de commande because they only affect the menu rendering. */}
+      {activePage === 'menu' && (
+        <div className="px-4 py-4 border-b border-divider space-y-4">
+          <div>
+            <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Mise en page du menu</span>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { v: 'magazine', label: 'Magazine', hint: 'Grandes vignettes' },
+                { v: 'compact', label: 'Compact', hint: 'Liste dense' },
+              ] as const).map((opt) => {
+                const active = menuLayout === opt.v;
+                return (
+                  <button
+                    key={opt.v}
+                    onClick={() => onMenuLayoutChange(opt.v)}
+                    className={`text-left px-3 py-2 rounded-lg border text-sm transition ${
+                      active
+                        ? 'border-brand-500 bg-brand-500/5 text-fg-primary'
+                        : 'border-divider text-fg-secondary hover:border-fg-secondary'
+                    }`}
+                  >
+                    <div className="font-medium text-[13px]">{opt.label}</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">{opt.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Bannière de catégorie</span>
+            <select
+              value={categoryBannerStyle || 'image-overlay'}
+              onChange={(e) => onCategoryBannerStyleChange(e.target.value as typeof categoryBannerStyle)}
+              className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            >
+              <option value="image-overlay">Image avec titre superposé</option>
+              <option value="text-block">Bloc de texte uniquement</option>
+              <option value="striped-rule">Ligne rayée minimale</option>
+              <option value="none">Sans bannière</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Section list — sections scoped to the active page. The order page can
+          have its own banners/promos around the auto-rendered menu grid. */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">Sections</span>
-        {activePage === 'home' && (
-          <button
-            onClick={onAddSection}
-            className="text-[11px] font-medium text-brand-500 hover:text-brand-600 flex items-center gap-1"
-          >
-            + Ajouter
-          </button>
-        )}
+        <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">
+          {activePage === 'home' ? 'Sections' : 'Sections (autour du menu)'}
+        </span>
+        <button
+          onClick={onAddSection}
+          className="text-[11px] font-medium text-brand-500 hover:text-brand-600 flex items-center gap-1"
+        >
+          + Ajouter
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-4">
-        {activePage === 'home' ? (
+        {sections.length > 0 ? (
           <SectionListPanel
             sections={sections}
             selectedId={selectedId}
@@ -1015,8 +1070,10 @@ function PagesLeftRail({ activePage, onActivePageChange, sections, selectedId, o
             onToggleVisibility={onToggleVisibility}
           />
         ) : (
-          <div className="px-3 py-6 text-xs text-fg-secondary">
-            La page de commande utilise le catalogue de menu existant. Les ajustements de mise en page se font via le mode <strong>Thème</strong>.
+          <div className="px-3 py-4 text-[11px] text-fg-secondary leading-relaxed">
+            {activePage === 'home'
+              ? 'Aucune section. Cliquez sur + Ajouter pour commencer.'
+              : 'Aucune section additionnelle. Vous pouvez ajouter une bannière promotionnelle, un bandeau de texte ou un pied de page propre à la page de commande.'}
           </div>
         )}
       </div>
