@@ -67,6 +67,7 @@ export default function MenuDetailPage() {
   const { t } = useI18n();
 
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -86,12 +87,17 @@ export default function MenuDetailPage() {
   const [draggingItem, setDraggingItem] = useState<{ groupId: number; itemId: number } | null>(null);
   // Multi-select state per group for bulk actions (e.g. "Remove from group").
   const [selectedItemsByGroup, setSelectedItemsByGroup] = useState<Map<number, Set<number>>>(new Map());
+  // Open state for the "Move selected items to another group" picker. Tracks
+  // the source group so we know which selection to move and which group to
+  // exclude from the target list.
+  const [moveModalSourceGroupId, setMoveModalSourceGroupId] = useState<number | null>(null);
 
   const reload = useCallback(() => {
     setLoading(true);
     Promise.all([listMenus(rid), listAllItems(rid)]).then(([menus, items]) => {
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
+      setAllMenus(menus);
       setAllItems(items);
       setOrderedGroupIds(null);
       setItemOrderByGroup(new Map());
@@ -262,6 +268,23 @@ export default function MenuDetailPage() {
       await removeItemFromGroup(rid, groupId, itemId);
     }
     clearGroupSelection(groupId);
+    reload();
+  };
+
+  // Move all currently-selected items from sourceGroupId into targetGroupId.
+  // Server has no atomic move endpoint, so we add to the new group (batch) and
+  // then remove from the old group one-by-one. Items already present in the
+  // target group simply update their existing membership row (idempotent).
+  const bulkMoveToGroup = async (sourceGroupId: number, targetGroupId: number) => {
+    if (sourceGroupId === targetGroupId) return;
+    const ids = Array.from(selectedInGroup(sourceGroupId));
+    if (ids.length === 0) return;
+    await addItemsToGroup(rid, targetGroupId, ids);
+    for (const itemId of ids) {
+      await removeItemFromGroup(rid, sourceGroupId, itemId);
+    }
+    clearGroupSelection(sourceGroupId);
+    setMoveModalSourceGroupId(null);
     reload();
   };
 
@@ -496,6 +519,12 @@ export default function MenuDetailPage() {
                         {t('cancel')}
                       </button>
                       <button
+                        onClick={() => setMoveModalSourceGroupId(group.id)}
+                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {t('moveToGroup')}
+                      </button>
+                      <button
                         onClick={() => bulkRemoveFromGroup(group.id)}
                         className="text-sm font-medium text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
                       >
@@ -591,6 +620,18 @@ export default function MenuDetailPage() {
           onClose={() => setItemPickerGroupId(null)}
           onDone={() => { setItemPickerGroupId(null); reload(); }}
           onCreateNew={() => { setItemPickerGroupId(null); router.push(`/${rid}/menu/items/new`); }}
+        />
+      )}
+
+      {/* ── Bulk Move-to-Group Modal ── */}
+      {moveModalSourceGroupId !== null && (
+        <MoveToGroupModal
+          t={t}
+          menus={allMenus}
+          sourceGroupId={moveModalSourceGroupId}
+          itemCount={selectedInGroup(moveModalSourceGroupId).size}
+          onClose={() => setMoveModalSourceGroupId(null)}
+          onPick={(targetGroupId) => bulkMoveToGroup(moveModalSourceGroupId, targetGroupId)}
         />
       )}
     </div>
@@ -738,6 +779,104 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
 
           {filtered.length === 0 && (
             <p className="text-sm text-[var(--text-muted)] text-center py-8">{t('noResults')}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Move-to-Group Modal ────────────────────────────────────────────────────
+
+function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick }: {
+  t: TFn;
+  menus: Menu[];
+  sourceGroupId: number;
+  itemCount: number;
+  onClose: () => void;
+  onPick: (targetGroupId: number) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [picked, setPicked] = useState<number | null>(null);
+
+  const visibleMenus = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const out: { menu: Menu; groups: MenuGroup[] }[] = [];
+    for (const m of menus) {
+      const menuMatches = !q || m.name.toLowerCase().includes(q);
+      const groups = (m.groups ?? []).filter((g) => {
+        if (g.id === sourceGroupId) return false;
+        if (!q) return true;
+        return menuMatches || g.name.toLowerCase().includes(q);
+      });
+      if (groups.length === 0) continue;
+      out.push({ menu: m, groups });
+    }
+    return out;
+  }, [menus, search, sourceGroupId]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[8vh] bg-black/50" onClick={onClose}>
+      <div
+        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col border border-[var(--divider)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => picked !== null && onPick(picked)}
+              disabled={picked === null}
+              className="btn-secondary rounded-full disabled:opacity-40"
+            >
+              {t('move')}
+            </button>
+          </div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">{t('moveToGroup')}</h2>
+          <p className="text-sm text-[var(--text-secondary)] mb-4">
+            {t('moveToGroupDesc').replace('{n}', String(itemCount))}
+          </p>
+          <div className="relative">
+            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              className="input w-full pl-12 rounded-full"
+              placeholder={t('search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          {visibleMenus.length === 0 ? (
+            <p className="text-sm text-[var(--text-muted)] text-center py-8">{t('noResults')}</p>
+          ) : (
+            visibleMenus.map(({ menu: m, groups }) => (
+              <div key={m.id} className="mb-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-2">
+                  {m.name}
+                </div>
+                {groups.map((g) => (
+                  <label
+                    key={g.id}
+                    className="flex items-center gap-3 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                    onClick={() => setPicked(g.id)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-medium text-[var(--text-primary)] truncate">{g.name}</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${picked === g.id ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
+                      {picked === g.id && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ))
           )}
         </div>
       </div>
