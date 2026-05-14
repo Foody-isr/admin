@@ -32,7 +32,8 @@ import {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-type Grouping = 'product' | 'customer';
+type Grouping = 'product' | 'ingredient' | 'customer';
+type IngredientSort = 'qty' | 'name';
 
 // Format an ingredient quantity in its native unit: g→kg ≥ 1000, ml→L ≥ 1000,
 // keep arbitrary units (conserve, unit, …) as-is.
@@ -43,6 +44,47 @@ function formatIngredientQty(qty: number, unit: string): string {
   // Pretty-trim trailing zeros for decimals.
   const trimmed = Number.isInteger(qty) ? String(qty) : qty.toFixed(2).replace(/\.?0+$/, '');
   return unit ? `${trimmed} ${unit}` : trimmed;
+}
+
+// Comparison value in a stable base unit so "1 kg" sorts above "500 g" instead
+// of below it. Anything outside the g/ml families compares with its raw qty.
+function ingredientSortValue(qty: number, unit: string): number {
+  const u = unit.toLowerCase();
+  if (u === 'kg' || u === 'l') return qty * 1000;
+  return qty;
+}
+
+// One row on the "Par ingrédient" mise-en-place view.
+interface IngredientTotal {
+  key: string;
+  stockItemId: number;
+  name: string;
+  totalQty: number;
+  unit: string;
+}
+
+// Pivot the per-item breakdown into a flat raw-ingredient list. Direct stock
+// lines are summed alongside the raw breakdown of every prep line (prep items
+// are fully expanded — the chef sees the shopping list).
+function aggregateIngredients(items: KitchenPlanItemBreakdown[]): IngredientTotal[] {
+  const acc = new Map<string, IngredientTotal>();
+  const add = (id: number, name: string, qty: number, unit: string) => {
+    if (qty <= 0) return;
+    const key = `${id}|${unit}`;
+    const prev = acc.get(key);
+    if (prev) {
+      prev.totalQty += qty;
+    } else {
+      acc.set(key, { key, stockItemId: id, name, totalQty: qty, unit });
+    }
+  };
+  for (const it of items) {
+    for (const s of it.stock_lines) add(s.stock_item_id, s.name, s.total_qty, s.unit);
+    for (const p of it.prep_lines) {
+      for (const b of p.breakdown) add(b.stock_item_id, b.name, b.qty, b.unit);
+    }
+  }
+  return Array.from(acc.values());
 }
 
 function isoToDate(iso: string): Date {
@@ -99,6 +141,7 @@ export default function PreparationPlanPage() {
   const isRtl = direction === 'rtl';
 
   const [grouping, setGrouping] = useState<Grouping>('product');
+  const [ingredientSort, setIngredientSort] = useState<IngredientSort>('qty');
   const [data, setData] = useState<KitchenPlanDetailsResponse | null>(null);
   const [items, setItems] = useState<KitchenPlanItemBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,10 +212,27 @@ export default function PreparationPlanPage() {
     };
   }, [data]);
 
+  const sortedIngredients = useMemo(() => {
+    const list = aggregateIngredients(items);
+    if (ingredientSort === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      list.sort((a, b) => {
+        const av = ingredientSortValue(a.totalQty, a.unit);
+        const bv = ingredientSortValue(b.totalQty, b.unit);
+        if (av !== bv) return bv - av;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    return list;
+  }, [items, ingredientSort]);
+
   const subtitle =
     grouping === 'product'
       ? t('prepPlanSubtitleProduct')
-      : t('prepPlanSubtitleCustomer');
+      : grouping === 'ingredient'
+        ? t('prepPlanSubtitleIngredient')
+        : t('prepPlanSubtitleCustomer');
 
   const isEmpty = !loading && (data?.orders.length ?? 0) === 0;
   const BackIcon = isRtl ? ArrowRightIcon : ArrowLeftIcon;
@@ -240,19 +300,38 @@ export default function PreparationPlanPage() {
             )}
           </div>
 
-          <Tabs
-            value={grouping}
-            onValueChange={(v) => setGrouping(v as Grouping)}
-            variant="segmented"
-            className="!flex-row !gap-0"
-          >
-            <TabsList>
-              <Tab value="product">{t('prepPlanByProduct')}</Tab>
-              <Tab value="customer">{t('prepPlanByCustomer')}</Tab>
-            </TabsList>
-            <TabsContent value="product" className="hidden" />
-            <TabsContent value="customer" className="hidden" />
-          </Tabs>
+          <div className="flex items-center gap-[var(--s-2)] flex-wrap">
+            {grouping === 'ingredient' && (
+              <Tabs
+                value={ingredientSort}
+                onValueChange={(v) => setIngredientSort(v as IngredientSort)}
+                variant="segmented"
+                className="!flex-row !gap-0"
+              >
+                <TabsList>
+                  <Tab value="qty">{t('prepPlanSortByQty')}</Tab>
+                  <Tab value="name">{t('prepPlanSortByName')}</Tab>
+                </TabsList>
+                <TabsContent value="qty" className="hidden" />
+                <TabsContent value="name" className="hidden" />
+              </Tabs>
+            )}
+            <Tabs
+              value={grouping}
+              onValueChange={(v) => setGrouping(v as Grouping)}
+              variant="segmented"
+              className="!flex-row !gap-0"
+            >
+              <TabsList>
+                <Tab value="product">{t('prepPlanByProduct')}</Tab>
+                <Tab value="ingredient">{t('prepPlanByIngredient')}</Tab>
+                <Tab value="customer">{t('prepPlanByCustomer')}</Tab>
+              </TabsList>
+              <TabsContent value="product" className="hidden" />
+              <TabsContent value="ingredient" className="hidden" />
+              <TabsContent value="customer" className="hidden" />
+            </Tabs>
+          </div>
         </div>
 
         {/* KPIs */}
@@ -270,6 +349,8 @@ export default function PreparationPlanPage() {
         <EmptyState message={t('prepPlanNoData')} />
       ) : grouping === 'product' ? (
         <ProductList items={items} />
+      ) : grouping === 'ingredient' ? (
+        <IngredientList ingredients={sortedIngredients} />
       ) : (
         <CustomerList
           groups={customerGroups}
@@ -546,6 +627,55 @@ function CustomerList({
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+// ─── By Ingredient (mise-en-place / shopping list) ───────────────────────
+
+function IngredientList({ ingredients }: { ingredients: IngredientTotal[] }) {
+  const { t } = useI18n();
+
+  if (ingredients.length === 0) {
+    return <EmptyState message={t('prepPlanNoIngredients')} />;
+  }
+
+  return (
+    <div className="grid gap-[var(--s-4)] grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+      {ingredients.map((ing) => {
+        const headline = formatIngredientQty(ing.totalQty, ing.unit);
+        const headlineWide = headline.length >= 8;
+        return (
+          <Card key={ing.key} className="p-0 overflow-hidden">
+            <div className="flex items-stretch">
+              <div
+                className="flex items-center justify-center px-[var(--s-4)] border-e border-[var(--line)]"
+                style={{
+                  background:
+                    'color-mix(in oklab, var(--brand-500) 6%, transparent)',
+                  minWidth: headlineWide ? 130 : 96,
+                }}
+              >
+                <span
+                  className={`font-bold text-[var(--brand-500)] tabular leading-none ${
+                    headlineWide ? 'text-fs-2xl' : 'text-fs-3xl'
+                  }`}
+                >
+                  {headline}
+                </span>
+              </div>
+              <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
+                <p
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
+                  title={ing.name}
+                >
+                  {ing.name || '—'}
+                </p>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
