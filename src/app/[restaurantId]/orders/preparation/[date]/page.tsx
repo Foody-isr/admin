@@ -27,7 +27,7 @@ import {
   fetchKitchenPlanIngredients,
   type KitchenPlanDetailsResponse,
   type KitchenPlanOrderDetail,
-  type KitchenPlanIngredient,
+  type KitchenPlanItemBreakdown,
 } from '@/lib/api';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -43,58 +43,6 @@ function formatIngredientQty(qty: number, unit: string): string {
   // Pretty-trim trailing zeros for decimals.
   const trimmed = Number.isInteger(qty) ? String(qty) : qty.toFixed(2).replace(/\.?0+$/, '');
   return unit ? `${trimmed} ${unit}` : trimmed;
-}
-
-// One ingredient line on a product card.
-interface ProductIngredient {
-  name: string;
-  qty: number;
-  unit: string;
-}
-
-// Pivot the global ingredients aggregation into a per-product map. Two
-// contributors of the same stock item (one from base recipe + one from a
-// prep-item recipe, for instance) are summed within the same product so the
-// chef sees a single line per ingredient on each card.
-function buildProductIngredients(
-  ingredients: KitchenPlanIngredient[],
-): Map<string, ProductIngredient[]> {
-  // Inner map: "stockItemId|unit" → accumulated qty + display name
-  const productAcc = new Map<
-    string,
-    Map<string, { name: string; qty: number; unit: string }>
-  >();
-  for (const ing of ingredients) {
-    for (const c of ing.contributors) {
-      // Match the ProductGroup key shape: "menuItemId|variant|portion".
-      // portion is unused (server doesn't expose it), so always empty.
-      const productKey = `${c.menu_item_id}|${c.variant_name ?? ''}|`;
-      const lineKey = `${ing.stock_item_id}|${c.unit}`;
-      let inner = productAcc.get(productKey);
-      if (!inner) {
-        inner = new Map();
-        productAcc.set(productKey, inner);
-      }
-      const prev = inner.get(lineKey);
-      if (prev) {
-        prev.qty += c.ingredient_qty;
-      } else {
-        inner.set(lineKey, { name: ing.name, qty: c.ingredient_qty, unit: c.unit });
-      }
-    }
-  }
-  const out = new Map<string, ProductIngredient[]>();
-  productAcc.forEach((inner, productKey) => {
-    const list: ProductIngredient[] = [];
-    inner.forEach((v) => list.push(v));
-    // Sort by qty desc, then name — the biggest prep items first.
-    list.sort((a, b) => {
-      if (b.qty !== a.qty) return b.qty - a.qty;
-      return a.name.localeCompare(b.name);
-    });
-    out.set(productKey, list);
-  });
-  return out;
 }
 
 function isoToDate(iso: string): Date {
@@ -114,85 +62,6 @@ function todayIso(): string {
 }
 
 // ─── Aggregation ───────────────────────────────────────────────────────────
-
-interface ProductLine {
-  customerLabel: string;
-  pickupWindow: string;
-  modifierLabel: string;
-  quantity: number;
-}
-
-interface ProductGroup {
-  key: string;
-  menuItemId: number;
-  name: string;
-  variant: string;
-  variantPortion: string;
-  totalQty: number;
-  lines: ProductLine[];
-  modifierBreakdown: Array<{ label: string; qty: number }>;
-}
-
-function groupByProduct(
-  data: KitchenPlanDetailsResponse,
-  walkInLabel: string,
-): ProductGroup[] {
-  // Group by (menu_item_id, variant_name, variant_portion) so different variants
-  // (and different portion sizes within the same variant label) of the same item
-  // are reported as distinct prep cards.
-  const groups = new Map<string, ProductGroup>();
-  for (const order of data.orders) {
-    const customer = order.customer_name?.trim() || `#${order.order_id}`;
-    const window = order.pickup_window || walkInLabel;
-    for (const item of order.items) {
-      const variant = item.selected_variant_name ?? '';
-      const portion = item.variant_portion ?? '';
-      const key = `${item.menu_item_id}|${variant}|${portion}`;
-      let g = groups.get(key);
-      if (!g) {
-        g = {
-          key,
-          menuItemId: item.menu_item_id,
-          name: item.name,
-          variant,
-          variantPortion: portion,
-          totalQty: 0,
-          lines: [],
-          modifierBreakdown: [],
-        };
-        groups.set(key, g);
-      }
-      g.totalQty += item.quantity;
-      g.lines.push({
-        customerLabel: customer,
-        pickupWindow: window,
-        modifierLabel: item.modifier_label,
-        quantity: item.quantity,
-      });
-    }
-  }
-  // Build modifier breakdown per group
-  const list: ProductGroup[] = [];
-  groups.forEach((g) => {
-    const mb = new Map<string, number>();
-    g.lines.forEach((l) => {
-      if (!l.modifierLabel) return;
-      mb.set(l.modifierLabel, (mb.get(l.modifierLabel) ?? 0) + l.quantity);
-    });
-    const breakdown: Array<{ label: string; qty: number }> = [];
-    mb.forEach((qty, label) => breakdown.push({ label, qty }));
-    breakdown.sort((a, b) => b.qty - a.qty);
-    g.modifierBreakdown = breakdown;
-    g.lines.sort((a, b) => a.pickupWindow.localeCompare(b.pickupWindow));
-    list.push(g);
-  });
-  return list.sort((a, b) => {
-    if (b.totalQty !== a.totalQty) return b.totalQty - a.totalQty;
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) return byName;
-    return a.variant.localeCompare(b.variant);
-  });
-}
 
 interface CustomerGroup {
   windowKey: string; // pickup_window or "" for all-day
@@ -231,21 +100,23 @@ export default function PreparationPlanPage() {
 
   const [grouping, setGrouping] = useState<Grouping>('product');
   const [data, setData] = useState<KitchenPlanDetailsResponse | null>(null);
-  const [ingredients, setIngredients] = useState<KitchenPlanIngredient[] | null>(null);
+  const [items, setItems] = useState<KitchenPlanItemBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    // Fetch details + ingredients in parallel so tab switches never re-fetch.
+    // Fetch the customer-detail (used by KPI strip + "Par client") and the
+    // per-item breakdown (used by "Par produit") in parallel so toggling
+    // between tabs never re-fetches.
     Promise.all([
       fetchKitchenPlanDetails(rid, date).catch(() => null),
       fetchKitchenPlanIngredients(rid, date).catch(() => null),
     ])
-      .then(([details, ingr]) => {
+      .then(([details, breakdown]) => {
         if (cancelled) return;
         setData(details);
-        setIngredients(ingr?.ingredients ?? null);
+        setItems(breakdown?.items ?? []);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -276,10 +147,6 @@ export default function PreparationPlanPage() {
 
   // Aggregated views
   const walkInLabel = t('prepPlanCustomerNoName');
-  const productGroups = useMemo(
-    () => (data ? groupByProduct(data, walkInLabel) : []),
-    [data, walkInLabel],
-  );
   const customerGroups = useMemo(
     () => (data ? groupByCustomer(data) : []),
     [data],
@@ -287,7 +154,7 @@ export default function PreparationPlanPage() {
 
   const kpis = useMemo(() => {
     if (!data) return { orders: 0, items: 0, products: 0, windows: 0 };
-    const items = data.orders.reduce(
+    const itemsCount = data.orders.reduce(
       (s, o) => s + o.items.reduce((si, i) => si + i.quantity, 0),
       0,
     );
@@ -296,16 +163,11 @@ export default function PreparationPlanPage() {
     ).size;
     return {
       orders: data.orders.length,
-      items,
+      items: itemsCount,
       products: data.products.length,
       windows,
     };
   }, [data]);
-
-  const productIngredients = useMemo(
-    () => (ingredients ? buildProductIngredients(ingredients) : new Map()),
-    [ingredients],
-  );
 
   const subtitle =
     grouping === 'product'
@@ -407,7 +269,7 @@ export default function PreparationPlanPage() {
       {isEmpty ? (
         <EmptyState message={t('prepPlanNoData')} />
       ) : grouping === 'product' ? (
-        <ProductList groups={productGroups} productIngredients={productIngredients} />
+        <ProductList items={items} />
       ) : (
         <CustomerList
           groups={customerGroups}
@@ -455,21 +317,26 @@ function KpiStrip({
 
 // ─── By Product ───────────────────────────────────────────────────────────
 
-function ProductList({
-  groups,
-  productIngredients,
-}: {
-  groups: ProductGroup[];
-  productIngredients: Map<string, ProductIngredient[]>;
-}) {
+function ProductList({ items }: { items: KitchenPlanItemBreakdown[] }) {
   const { t } = useI18n();
+
+  if (items.length === 0) {
+    return <EmptyState message={t('prepPlanNoData')} />;
+  }
+
   return (
     <div className="grid gap-[var(--s-4)] grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-      {groups.map((g) => {
-        const ingredients = productIngredients.get(g.key) ?? [];
+      {items.map((it) => {
+        // Header chips: "3 NORMAL · 3 GRAND · 1.25 kg".
+        // Variant pills only show when the item has variants at all.
+        const variantBits = it.variants
+          .filter((v) => v.name)
+          .map((v) => `${v.qty} ${v.name}`);
+        const hasPrepMass = it.total_prep_mass > 0;
+
         return (
-          <Card key={g.key} className="p-0 overflow-hidden">
-            {/* Header: huge qty + product name (+ variant pill) */}
+          <Card key={it.menu_item_id} className="p-0 overflow-hidden">
+            {/* Header: big total count + name + variant/mass chips */}
             <div className="flex items-stretch border-b border-[var(--line)]">
               <div
                 className="flex items-center justify-center px-[var(--s-4)] min-w-[88px] border-e border-[var(--line)]"
@@ -479,113 +346,100 @@ function ProductList({
                 }}
               >
                 <span className="text-fs-4xl font-bold text-[var(--brand-500)] tabular leading-none">
-                  {g.totalQty}
+                  ×{it.total_count}
                 </span>
               </div>
               <div className="flex-1 px-[var(--s-4)] py-[var(--s-3)] min-w-0">
-                <div className="flex items-center gap-[var(--s-2)] min-w-0">
-                  <p
-                    className="text-fs-md font-semibold text-[var(--fg)] truncate flex-1"
-                    title={[g.name, g.variant, g.variantPortion].filter(Boolean).join(' — ')}
-                  >
-                    {g.name || '—'}
-                  </p>
-                  {g.variantPortion && (
-                    <span
-                      className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-r-full text-fs-xs font-bold tabular"
-                      style={{
-                        background: 'var(--brand-500)',
-                        color: 'white',
-                      }}
-                      title={g.variant || undefined}
-                    >
-                      {g.variantPortion}
-                    </span>
-                  )}
-                  {!g.variantPortion && g.variant && (
-                    <span
-                      className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-r-full text-[10px] font-semibold"
-                      style={{
-                        background:
-                          'color-mix(in oklab, var(--brand-500) 14%, transparent)',
-                        color: 'var(--brand-500)',
-                      }}
-                    >
-                      {g.variant}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                  <span>
-                    {g.lines.length === 1
-                      ? t('prepPlanItemsOne')
-                      : t('prepPlanItemsCount').replace('{count}', String(g.lines.length))}
-                  </span>
-                  {g.variantPortion && g.variant && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span className="truncate">{g.variant}</span>
-                    </>
-                  )}
-                </div>
+                <p
+                  className="text-fs-md font-semibold text-[var(--fg)] truncate"
+                  title={it.name}
+                >
+                  {it.name || '—'}
+                </p>
+                {(variantBits.length > 0 || hasPrepMass) && (
+                  <div className="flex items-center flex-wrap gap-x-[var(--s-2)] gap-y-0.5 text-fs-xs text-[var(--fg-subtle)] mt-0.5 tabular">
+                    {variantBits.map((v, i) => (
+                      <span key={i} className="whitespace-nowrap">
+                        {v}
+                      </span>
+                    ))}
+                    {variantBits.length > 0 && hasPrepMass && <span aria-hidden>·</span>}
+                    {hasPrepMass && (
+                      <span className="whitespace-nowrap font-semibold text-[var(--brand-500)]">
+                        {formatIngredientQty(it.total_prep_mass, 'g')}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Modifier breakdown */}
-            {g.modifierBreakdown.length > 0 ? (
+            {/* Direct stock-item lines (packaging, single-stock ingredients) */}
+            {(it.stock_lines.length > 0 || it.prep_lines.length > 0) ? (
               <ul className="divide-y divide-[var(--line)]">
-                {g.modifierBreakdown.map((m) => (
+                {it.stock_lines.map((s) => (
                   <li
-                    key={m.label}
-                    className="px-[var(--s-4)] py-[var(--s-2)] flex items-center justify-between gap-[var(--s-3)]"
+                    key={`stock-${s.stock_item_id}-${s.unit}`}
+                    className="px-[var(--s-4)] py-[var(--s-2)] flex items-baseline justify-between gap-[var(--s-3)]"
                   >
-                    <span className="text-fs-sm text-[var(--fg-muted)] truncate">{m.label}</span>
-                    <span className="text-fs-sm font-semibold text-[var(--fg)] tabular">
-                      ×{m.qty}
+                    <span className="text-fs-sm text-[var(--fg-muted)] truncate">
+                      {s.name}
                     </span>
+                    <span className="text-fs-sm font-semibold text-[var(--fg)] tabular shrink-0">
+                      {formatIngredientQty(s.total_qty, s.unit)}
+                    </span>
+                  </li>
+                ))}
+                {/* Prep-item lines — each expandable to raw-stock breakdown */}
+                {it.prep_lines.map((p) => (
+                  <li
+                    key={`prep-${p.prep_item_id}-${p.unit}`}
+                    className="p-0"
+                  >
+                    <details className="group">
+                      <summary className="flex items-baseline justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-2)] cursor-pointer select-none list-none hover:bg-[var(--surface-2)] transition-colors [&::-webkit-details-marker]:hidden">
+                        <span className="flex items-baseline gap-[var(--s-2)] min-w-0">
+                          <ChevronRightIcon
+                            className="w-3.5 h-3.5 text-[var(--fg-muted)] transition-transform group-open:rotate-90 rtl:rotate-180 rtl:group-open:rotate-90 shrink-0 self-center"
+                            strokeWidth={2.5}
+                          />
+                          <span className="text-fs-sm text-[var(--fg-muted)] truncate">
+                            {p.name}
+                          </span>
+                        </span>
+                        <span className="text-fs-sm font-semibold text-[var(--fg)] tabular shrink-0">
+                          {formatIngredientQty(p.total_qty, p.unit)}
+                        </span>
+                      </summary>
+                      {p.breakdown.length > 0 ? (
+                        <ul className="bg-[var(--surface-2)] border-t border-[var(--line)] divide-y divide-[var(--line)]">
+                          {p.breakdown.map((b, idx) => (
+                            <li
+                              key={`prep-${p.prep_item_id}-bd-${idx}`}
+                              className="ps-[var(--s-8)] pe-[var(--s-4)] py-[var(--s-2)] flex items-baseline justify-between gap-[var(--s-3)]"
+                            >
+                              <span className="text-fs-sm text-[var(--fg-muted)] truncate">
+                                {b.name}
+                              </span>
+                              <span className="text-fs-sm font-semibold text-[var(--fg)] tabular shrink-0">
+                                {formatIngredientQty(b.qty, b.unit)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="bg-[var(--surface-2)] border-t border-[var(--line)] ps-[var(--s-8)] pe-[var(--s-4)] py-[var(--s-2)] text-fs-xs text-[var(--fg-subtle)] italic">
+                          {t('prepPlanNoBreakdown')}
+                        </p>
+                      )}
+                    </details>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)] italic">
-                {t('prepPlanNoModifiers')}
+                {t('prepPlanNoRecipe')}
               </p>
-            )}
-
-            {/* Recipe ingredients — collapsed by default. The chevron uses the
-                native <details> open marker so we don't need extra state. */}
-            {ingredients.length > 0 && (
-              <details className="group border-t border-[var(--line)]">
-                <summary
-                  className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] cursor-pointer select-none list-none hover:bg-[var(--surface-2)] transition-colors [&::-webkit-details-marker]:hidden"
-                >
-                  <span className="flex items-center gap-[var(--s-2)] text-fs-sm font-semibold text-[var(--fg)]">
-                    <ChevronRightIcon
-                      className="w-4 h-4 text-[var(--fg-muted)] transition-transform group-open:rotate-90 rtl:rotate-180 rtl:group-open:rotate-90"
-                      strokeWidth={2.5}
-                    />
-                    {t('prepPlanIngredientsLabel')}
-                  </span>
-                  <span className="text-fs-xs text-[var(--fg-subtle)] tabular">
-                    {ingredients.length}
-                  </span>
-                </summary>
-                <ul className="divide-y divide-[var(--line)]">
-                  {ingredients.map((ing, idx) => (
-                    <li
-                      key={`${g.key}-ing-${idx}-${ing.name}`}
-                      className="px-[var(--s-4)] py-[var(--s-2)] flex items-baseline justify-between gap-[var(--s-3)]"
-                    >
-                      <span className="text-fs-sm text-[var(--fg-muted)] truncate">
-                        {ing.name}
-                      </span>
-                      <span className="text-fs-sm font-semibold text-[var(--fg)] tabular shrink-0">
-                        {formatIngredientQty(ing.qty, ing.unit)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
             )}
           </Card>
         );

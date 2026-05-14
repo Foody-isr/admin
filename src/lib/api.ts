@@ -2143,44 +2143,63 @@ export async function fetchKitchenPlanDetails(
   };
 }
 
-export interface KitchenPlanIngredientContributor {
-  menu_item_id: number;
-  menu_item_name: string;
-  variant_name?: string;
-  dish_qty: number;
-  ingredient_qty: number;
-  unit: string;
+export interface KitchenPlanVariantCount {
+  name: string;
+  qty: number;
 }
 
-export interface KitchenPlanIngredient {
+export interface KitchenPlanStockLine {
   stock_item_id: number;
   name: string;
-  category?: string;
   total_qty: number;
   unit: string;
-  contributors: KitchenPlanIngredientContributor[];
 }
 
-export interface KitchenPlanIngredientsResponse {
+export interface KitchenPlanPrepBreakdownLine {
+  stock_item_id: number;
+  name: string;
+  qty: number;
+  unit: string;
+}
+
+export interface KitchenPlanPrepLine {
+  prep_item_id: number;
+  name: string;
+  total_qty: number;
+  unit: string;
+  breakdown: KitchenPlanPrepBreakdownLine[];
+}
+
+export interface KitchenPlanItemBreakdown {
+  menu_item_id: number;
+  name: string;
+  total_count: number;
+  variants: KitchenPlanVariantCount[];
+  total_prep_mass: number; // total grams across all prep lines, 0 when none
+  stock_lines: KitchenPlanStockLine[];
+  prep_lines: KitchenPlanPrepLine[];
+}
+
+export interface KitchenPlanItemBreakdownResponse {
   date: string;
-  ingredients: KitchenPlanIngredient[];
+  items: KitchenPlanItemBreakdown[];
 }
 
 export async function fetchKitchenPlanIngredients(
   restaurantId: number,
   date: string,
-): Promise<KitchenPlanIngredientsResponse> {
+): Promise<KitchenPlanItemBreakdownResponse> {
   const qs = new URLSearchParams({
     restaurant_id: String(restaurantId),
     date,
   });
-  const data = await apiFetch<KitchenPlanIngredientsResponse>(
+  const data = await apiFetch<KitchenPlanItemBreakdownResponse>(
     `/api/v1/orders/kitchen-plan/ingredients?${qs.toString()}`,
     restaurantId,
   );
   return {
     date: data.date,
-    ingredients: data.ingredients ?? [],
+    items: data.items ?? [],
   };
 }
 
