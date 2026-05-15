@@ -13,6 +13,13 @@ import {
   ItemType, ComboStepInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import {
+  loadItemDraft,
+  saveItemDraft,
+  clearItemDraft,
+  isMeaningfulDraft,
+  type ItemDraft,
+} from '@/lib/itemDraft';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
@@ -29,7 +36,7 @@ import VariantsEditor, {
   toVariantSyncPayload,
   hasMeaningfulVariants,
 } from '@/components/menu-item/VariantsEditor';
-import { Boxes } from 'lucide-react';
+import { Boxes, History } from 'lucide-react';
 import { XIcon, PlusIcon } from 'lucide-react';
 
 export default function NewItemPage() {
@@ -37,7 +44,7 @@ export default function NewItemPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const defaultCatId = searchParams.get('category') ? Number(searchParams.get('category')) : 0;
 
@@ -73,6 +80,77 @@ export default function NewItemPage() {
   const [variantGroups, setVariantGroups] = useState<VariantGroupState[]>([]);
 
   const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
+
+  // Draft recovery: load any in-progress item from a previous session.
+  // Autosave stays off until the user engages (resume / discard / type)
+  // so an unanswered banner doesn't wipe the persisted draft on first paint.
+  const [bannerDraft, setBannerDraft] = useState<ItemDraft | null>(null);
+  const [autosaveEnabled, setAutosaveEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!Number.isFinite(rid) || rid <= 0) return;
+    const d = loadItemDraft(rid);
+    if (d && isMeaningfulDraft(d)) {
+      setBannerDraft(d);
+    } else {
+      setAutosaveEnabled(true);
+    }
+  }, [rid]);
+
+  // Snapshot of all draftable form fields. Pulled into a memo so the autosave
+  // effect depends on a single value, and the engagement effect can reuse it.
+  const draftSnapshot = useMemo(() => ({
+    name,
+    price,
+    description,
+    categoryId,
+    isActive,
+    itemType,
+    comboSteps,
+    selectedGroupIds: Array.from(selectedGroupIds),
+    selectedModifierSetIds: Array.from(selectedModifierSetIds),
+    variantGroups,
+    activeTab,
+  }), [name, price, description, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, activeTab]);
+
+  // First meaningful edit while the banner is up = "starting fresh."
+  // Auto-dismiss the banner and turn autosave on so the new typing is captured.
+  useEffect(() => {
+    if (autosaveEnabled) return;
+    if (isMeaningfulDraft(draftSnapshot)) {
+      setBannerDraft(null);
+      setAutosaveEnabled(true);
+    }
+  }, [autosaveEnabled, draftSnapshot]);
+
+  useEffect(() => {
+    if (!autosaveEnabled) return;
+    if (!Number.isFinite(rid) || rid <= 0) return;
+    saveItemDraft(rid, draftSnapshot);
+  }, [autosaveEnabled, rid, draftSnapshot]);
+
+  const handleResumeDraft = () => {
+    if (!bannerDraft) return;
+    setName(bannerDraft.name);
+    setPrice(bannerDraft.price);
+    setDescription(bannerDraft.description);
+    setCategoryId(bannerDraft.categoryId);
+    setIsActive(bannerDraft.isActive);
+    setItemType(bannerDraft.itemType);
+    setComboSteps(bannerDraft.comboSteps);
+    setSelectedGroupIds(new Set(bannerDraft.selectedGroupIds));
+    setSelectedModifierSetIds(new Set(bannerDraft.selectedModifierSetIds));
+    setVariantGroups(bannerDraft.variantGroups);
+    setActiveTab(bannerDraft.activeTab);
+    setBannerDraft(null);
+    setAutosaveEnabled(true);
+  };
+
+  const handleDiscardDraft = () => {
+    clearItemDraft(rid);
+    setBannerDraft(null);
+    setAutosaveEnabled(true);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -134,7 +212,21 @@ export default function NewItemPage() {
           groups: toVariantSyncPayload(variantGroups),
         });
       }
-      router.push(`/${rid}/menu/items`);
+      clearItemDraft(rid);
+      // Redirect into the edit page rather than back to the list. The edit
+      // page has the inline VariantsEditor and re-hydrates option sets from
+      // the server, so the variants the user just typed remain visible
+      // (previously they had to reopen the item manually to confirm).
+      // Stashing the freshly-created item in sessionStorage mirrors
+      // `openEditor` on the list and avoids the initial loading flash.
+      // The active tab is preserved so a user who saved from "modifiers"
+      // lands back on modifiers.
+      try {
+        sessionStorage.setItem(`foody.menuItem.${item.id}`, JSON.stringify(item));
+      } catch {
+        /* quota or SSR — fall through */
+      }
+      router.replace(`/${rid}/menu/items/${item.id}?tab=${activeTab}`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
     } finally {
@@ -219,6 +311,18 @@ export default function NewItemPage() {
     ? computeComboSavings(price, comboSteps, itemsByIdForSummary)
     : null;
 
+  const draftSavedAgo = useMemo(() => {
+    if (!bannerDraft) return '';
+    const diff = bannerDraft.savedAt - Date.now();
+    const minutes = Math.round(diff / 60_000);
+    const hours = Math.round(diff / 3_600_000);
+    const days = Math.round(diff / 86_400_000);
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+    if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+    if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
+    return rtf.format(days, 'day');
+  }, [bannerDraft, locale]);
+
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] flex items-center justify-center">
@@ -286,6 +390,40 @@ export default function NewItemPage() {
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden">
+          {bannerDraft && (
+            <div className="px-8 py-3 bg-orange-50 dark:bg-orange-500/10 border-b border-orange-200 dark:border-orange-500/30 shrink-0 flex items-center gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center shrink-0">
+                  <History className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
+                    {t('draftBannerTitle')}
+                  </div>
+                  <div className="text-xs text-neutral-600 dark:text-neutral-400 truncate">
+                    {bannerDraft.name.trim()
+                      ? `${bannerDraft.name.trim()} · ${draftSavedAgo}`
+                      : `${t('draftBannerUnnamed')} · ${draftSavedAgo}`}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleDiscardDraft}
+                  className="px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                >
+                  {t('discard')}
+                </button>
+                <button
+                  onClick={handleResumeDraft}
+                  className="px-4 py-1.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
+                >
+                  {t('resumeDraft')}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Tab bar banner — matches edit page */}
           <div className="px-8 py-4 bg-neutral-100 dark:bg-[#111111] border-b border-neutral-200 dark:border-neutral-800 shrink-0">
             <MenuItemTabBar
