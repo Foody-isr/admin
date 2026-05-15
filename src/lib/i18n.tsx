@@ -1076,6 +1076,8 @@ const translations: Record<Locale, Record<string, string>> = {
     comboSavingsPanelTitle: 'Customer savings',
     comboSurchargeLabel: 'Combo surcharge',
     reduction: 'Discount',
+    comboSavingsIncomparable: 'Savings can\'t be calculated: some options are only sold inside this combo (sharing plates, per-person items have no standalone price).',
+    comboSavingsIncomparableShort: 'Not comparable',
     // ── Combo savings breakdown modal ──
     savingsBreakdownTitle: 'How the savings is calculated',
     savingsBreakdownIntro: 'We compare what the customer would pay buying each item separately at its solo price against the fixed combo price. For each step, the cheapest options the customer can pick are summed.',
@@ -3243,6 +3245,8 @@ const translations: Record<Locale, Record<string, string>> = {
     comboSavingsPanelTitle: 'חיסכון ללקוח',
     comboSurchargeLabel: 'תוספת קומבו',
     reduction: 'הנחה',
+    comboSavingsIncomparable: 'לא ניתן לחשב חיסכון: חלק מהאפשרויות נמכרות רק בתוך הקומבו (מנות לשיתוף, פריטים לפי איש — אין להן מחיר עצמאי).',
+    comboSavingsIncomparableShort: 'לא ניתן להשוואה',
     // ── Validation messages ──
     comboValidNoSteps: 'קומבו חייב להכיל לפחות שלב אחד.',
     comboValidStepNoOptions: 'בשלב "{name}" אין אפשרויות.',
@@ -5390,6 +5394,8 @@ const translations: Record<Locale, Record<string, string>> = {
     comboSavingsPanelTitle: 'Économies pour le client',
     comboSurchargeLabel: 'Surcoût combo',
     reduction: 'Réduction',
+    comboSavingsIncomparable: 'Comparaison indisponible : certaines options sont vendues uniquement dans ce combo (plats à partager, prix par personne).',
+    comboSavingsIncomparableShort: 'Non comparable',
     // ── Combo savings breakdown modal ──
     savingsBreakdownTitle: 'Comment l\'économie est calculée',
     savingsBreakdownIntro: 'On compare ce que le client paierait en achetant chaque article séparément (à son prix solo) avec le prix fixe du combo. Pour chaque étape, on additionne les options les moins chères que le client peut choisir.',

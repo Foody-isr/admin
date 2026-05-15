@@ -20,8 +20,13 @@ interface Props {
 export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClose }: Props) {
   const { t } = useI18n();
 
-  const state: 'saves' | 'surcharge' | 'even' =
-    breakdown.savings > 0 ? 'saves'
+  // `incomparable` short-circuits saves/surcharge framing entirely — the
+  // soloTotal is built against missing prices, so any "+₪X surcoût" or
+  // "−₪Y économie" would be fiction. We replace the summary row with a
+  // short explanation in that case.
+  const state: 'saves' | 'surcharge' | 'even' | 'incomparable' =
+    !breakdown.comparable ? 'incomparable'
+    : breakdown.savings > 0 ? 'saves'
     : breakdown.savings < 0 ? 'surcharge'
     : 'even';
 
@@ -116,41 +121,53 @@ export default function ComboSavingsBreakdownModal({ comboName, breakdown, onClo
             <h4 className="text-fs-xs uppercase tracking-[.06em] font-semibold text-[var(--fg-subtle)]">
               {breakdown.steps.length + 1}. {t('savingsBreakdownSavingsLabel')}
             </h4>
-            <div
-              className="rounded-r-md p-[var(--s-3)] font-mono text-fs-sm space-y-1"
-              style={{ background: 'var(--surface-2)' }}
-            >
-              <div className="flex justify-between text-[var(--fg)]">
-                <span>{t('savingsBreakdownSoloTotalLabel')}</span>
-                <span className="tabular-nums">₪{breakdown.soloTotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-[var(--fg)]">
-                <span>− {t('savingsBreakdownComboPriceLabel')}</span>
-                <span className="tabular-nums">₪{breakdown.basePrice.toFixed(2)}</span>
-              </div>
+            {state === 'incomparable' ? (
               <div
-                className="flex justify-between pt-1.5 mt-1.5 border-t font-semibold tabular-nums items-center"
-                style={{
-                  borderColor: 'var(--line)',
-                  color:
-                    state === 'saves' ? 'var(--success-500)'
-                    : state === 'surcharge' ? 'var(--warning-500)'
-                    : 'var(--fg)',
-                }}
+                className="rounded-r-md p-[var(--s-3)] text-fs-sm flex items-start gap-2"
+                style={{ background: 'var(--surface-2)' }}
               >
-                <span className="font-sans text-fs-xs uppercase tracking-[.06em] flex items-center gap-1">
-                  {state === 'surcharge' && <AlertTriangle className="w-3.5 h-3.5" />}
-                  {state === 'saves' ? t('savingsBreakdownSavingsLabel')
-                    : state === 'surcharge' ? t('savingsBreakdownSurchargeLabel')
-                    : t('savingsBreakdownEvenLabel')}
-                </span>
-                <span>
-                  {state === 'saves' && <>−₪{absSavings.toFixed(2)} · {absPct}%</>}
-                  {state === 'surcharge' && <>+₪{absSavings.toFixed(2)} · {absPct}%</>}
-                  {state === 'even' && <>±₪0</>}
-                </span>
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-[var(--warning-500)]" />
+                <p className="text-[var(--fg-muted)] leading-relaxed">
+                  {t('comboSavingsIncomparable') || 'Comparaison indisponible : certaines options sont vendues uniquement dans ce combo (plats à partager, prix par personne).'}
+                </p>
               </div>
-            </div>
+            ) : (
+              <div
+                className="rounded-r-md p-[var(--s-3)] font-mono text-fs-sm space-y-1"
+                style={{ background: 'var(--surface-2)' }}
+              >
+                <div className="flex justify-between text-[var(--fg)]">
+                  <span>{t('savingsBreakdownSoloTotalLabel')}</span>
+                  <span className="tabular-nums">₪{breakdown.soloTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[var(--fg)]">
+                  <span>− {t('savingsBreakdownComboPriceLabel')}</span>
+                  <span className="tabular-nums">₪{breakdown.basePrice.toFixed(2)}</span>
+                </div>
+                <div
+                  className="flex justify-between pt-1.5 mt-1.5 border-t font-semibold tabular-nums items-center"
+                  style={{
+                    borderColor: 'var(--line)',
+                    color:
+                      state === 'saves' ? 'var(--success-500)'
+                      : state === 'surcharge' ? 'var(--warning-500)'
+                      : 'var(--fg)',
+                  }}
+                >
+                  <span className="font-sans text-fs-xs uppercase tracking-[.06em] flex items-center gap-1">
+                    {state === 'surcharge' && <AlertTriangle className="w-3.5 h-3.5" />}
+                    {state === 'saves' ? t('savingsBreakdownSavingsLabel')
+                      : state === 'surcharge' ? t('savingsBreakdownSurchargeLabel')
+                      : t('savingsBreakdownEvenLabel')}
+                  </span>
+                  <span>
+                    {state === 'saves' && <>−₪{absSavings.toFixed(2)} · {absPct}%</>}
+                    {state === 'surcharge' && <>+₪{absSavings.toFixed(2)} · {absPct}%</>}
+                    {state === 'even' && <>±₪0</>}
+                  </span>
+                </div>
+              </div>
+            )}
           </section>
         </div>
 

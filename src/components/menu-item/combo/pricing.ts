@@ -65,13 +65,19 @@ function maxUpchargeInStep(step: ComboStepDraft): number {
  *  range we assume they pick the cheapest items (best case for the customer
  *  buying separately); for "max" the most expensive.
  *
- *  Items with no known solo price (source not in `itemsById`) are skipped. */
+ *  Items with no known solo price (source not in `itemsById`) are skipped.
+ *
+ *  `comparable` is false when a required step has zero priced options, or
+ *  when fewer priced options exist than `picks` — the customer is forced to
+ *  pick at least one item with no standalone retail price (share plates,
+ *  per-person items), so the "if bought separately" baseline is fictional. */
 export function computeSoldSeparately(
   steps: ComboStepDraft[],
   itemsById: Map<number, MenuItem>,
-): { min: number; max: number } {
+): { min: number; max: number; comparable: boolean } {
   let min = 0;
   let max = 0;
+  let comparable = true;
   for (const step of steps) {
     const picks = picksPerStep(step);
     if (picks === 0) continue;
@@ -84,6 +90,12 @@ export function computeSoldSeparately(
       .map((opt) => ({ opt, solo: soloPriceForOption(opt, itemsById) }))
       .filter(({ solo }) => solo.max > 0)
       .sort((a, b) => a.solo.min - b.solo.min);
+    if (priced.length < picks) {
+      // Required slots can't be filled with priced options — the comparison
+      // would silently treat the missing picks as ₪0 and overstate savings
+      // (or, more often, fabricate a surcharge that isn't real).
+      comparable = false;
+    }
     if (priced.length === 0) continue;
 
     const n = Math.min(picks, priced.length);
@@ -92,7 +104,7 @@ export function computeSoldSeparately(
     // Most expensive n options for the max.
     for (let i = priced.length - n; i < priced.length; i++) max += priced[i].solo.max;
   }
-  return { min, max };
+  return { min, max, comparable };
 }
 
 function soloPriceForOption(
@@ -188,6 +200,10 @@ export interface ComboSavingsBreakdown {
   soloTotal: number;
   savings: number;     // positive = customer saves; negative = combo overpriced
   savingsPct: number;  // signed
+  /** False when at least one required step has zero-priced contributors —
+   *  the soloTotal is built against a fictional baseline. The modal should
+   *  swap the surcharge/savings summary for an explanatory note. */
+  comparable: boolean;
 }
 
 /** Builds a step-by-step breakdown of the savings calculation. The numbers
@@ -199,6 +215,7 @@ export function computeComboSavingsBreakdown(
 ): ComboSavingsBreakdown {
   const result: ComboSavingsBreakdownStep[] = [];
   let soloTotal = 0;
+  let comparable = true;
 
   for (const step of steps) {
     const picks = picksPerStep(step);
@@ -233,6 +250,12 @@ export function computeComboSavingsBreakdown(
       optInfos.push({ itemName: opt.itemName, variantName: cheapest.name, soloPrice: cheapest.price });
     }
 
+    // Required picks that we'd need to fill from non-priced options (or no
+    // options at all) make the savings comparison fictional. Mirror the
+    // logic in `computeSoldSeparately` so both views stay consistent.
+    const pricedCount = optInfos.filter((o) => o.soloPrice > 0).length;
+    if (pricedCount < picks) comparable = false;
+
     optInfos.sort((a, b) => a.soloPrice - b.soloPrice);
     const chosen = optInfos.slice(0, Math.min(picks, optInfos.length));
     const stepTotal = chosen.reduce((s, c) => s + c.soloPrice, 0);
@@ -242,7 +265,7 @@ export function computeComboSavingsBreakdown(
 
   const savings = soloTotal - basePrice;
   const savingsPct = soloTotal > 0 ? (savings / soloTotal) * 100 : 0;
-  return { basePrice, steps: result, soloTotal, savings, savingsPct };
+  return { basePrice, steps: result, soloTotal, savings, savingsPct, comparable };
 }
 
 /** Bundle of figures the operator sees: combo price range, solo equivalent
@@ -263,6 +286,11 @@ export interface ComboSavingsSummary {
   /** True when no solo prices were resolvable (items not loaded yet). The UI
    *  can show "—" instead of a misleading "₪0". */
   unknown: boolean;
+  /** False when at least one required step is missing priced options — share
+   *  plates, per-person dishes, or any item whose price only exists in the
+   *  combo context. The savings math runs against a fictional baseline in
+   *  that case, so callers should suppress the saves/surcharge framing. */
+  comparable: boolean;
 }
 
 export function computeComboSavings(
@@ -285,6 +313,7 @@ export function computeComboSavings(
     savingsMax,
     savingsPct,
     unknown,
+    comparable: solo.comparable,
   };
 }
 

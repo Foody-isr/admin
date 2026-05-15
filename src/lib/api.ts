@@ -2672,6 +2672,38 @@ export async function deleteStockItem(restaurantId: number, id: number): Promise
   await apiFetch(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
+// ─── Ingredient Icon Library (read-only picker) ─────────────────────────────
+// The library is curated by superadmins from the backoffice. Restaurant admins
+// can only list and pick.
+
+export interface IngredientIcon {
+  id: number;
+  name: string;
+  slug: string;
+  image_url: string;
+  category: string;
+  aliases: string[];
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listIngredientIcons(
+  restaurantId: number,
+  params?: { q?: string; category?: string; limit?: number },
+): Promise<IngredientIcon[]> {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set('q', params.q);
+  if (params?.category) qs.set('category', params.category);
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const query = qs.toString() ? `?${qs.toString()}` : '';
+  const data = await apiFetch<{ icons: IngredientIcon[] }>(
+    `/api/v1/ingredient-icons${query}`,
+    restaurantId,
+  );
+  return data.icons || [];
+}
+
 export async function uploadStockItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
   const form = new FormData();
   form.append('image', file);

@@ -35,16 +35,20 @@ export default function PricingCard({
   const { t } = useI18n();
   const summary = computeComboSavings(basePrice, steps, itemsById);
 
-  // Three states for the savings cell:
-  //   • unknown: items haven't loaded — no comparison possible. Render "—".
-  //   • saves:   savingsMax > 0 — combo cheaper than solo in at least the
-  //     pricier scenarios. We key off savingsMax (not savingsMin) so a combo
-  //     that breaks even at the cheapest pick but saves money elsewhere still
-  //     surfaces the upside.
-  //   • costs more: savingsMin < 0 — combo MORE expensive than solo in at
+  // Four states for the savings cell:
+  //   • unknown:      items haven't loaded — no comparison possible.
+  //   • incomparable: at least one required step has options with no
+  //     standalone retail price (share plates, per-person items priced at ₪0
+  //     solo). Surfacing a savings or surcharge number would mislead — we
+  //     render "—" and the modal explains why.
+  //   • saves:        savingsMax > 0 — combo cheaper than solo in at least
+  //     the pricier scenarios. Keyed off savingsMax (not savingsMin) so a
+  //     combo that breaks even at the cheapest pick still surfaces upside.
+  //   • costs more:   savingsMin < 0 — combo MORE expensive than solo in at
   //     least one scenario (operator misconfiguration warning).
-  const savingsState: 'unknown' | 'saves' | 'costs-more' | 'even' =
+  const savingsState: 'unknown' | 'incomparable' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
+    : !summary.comparable ? 'incomparable'
     : summary.savingsMax > 0 ? 'saves'
     : summary.savingsMin < 0 ? 'costs-more'
     : 'even';
@@ -146,6 +150,14 @@ export default function PricingCard({
             const inner = (
               <>
                 {savingsState === 'unknown' && <>—</>}
+                {savingsState === 'incomparable' && (
+                  <span
+                    className="truncate"
+                    title={t('comboSavingsIncomparable') || 'Comparaison indisponible : certaines options sont vendues uniquement dans ce combo.'}
+                  >
+                    {t('comboSavingsIncomparableShort') || 'Non comparable'}
+                  </span>
+                )}
                 {savingsState === 'even' && <>±₪0 · 0%</>}
                 {savingsState === 'saves' && (
                   absSaveMin === absSaveMax

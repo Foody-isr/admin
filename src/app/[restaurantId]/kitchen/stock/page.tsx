@@ -29,7 +29,8 @@ import FormField from '@/components/FormField';
 import StatusPill from '@/components/StatusPill';
 import SearchableListField from '@/components/SearchableListField';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
-import { Image as LucideImageIcon, Camera } from 'lucide-react';
+import { Image as LucideImageIcon, Camera, Sparkles } from 'lucide-react';
+import IngredientIconPicker from '@/components/stock/IngredientIconPicker';
 import {
   SearchIcon, PlusIcon, DownloadIcon,
   AlertTriangleIcon, TrashIcon, PencilIcon,
@@ -958,7 +959,24 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleIconPick = async (iconUrl: string) => {
+    setIconPickerOpen(false);
+    // Picked from library = no file to upload, just point at the existing URL.
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview('');
+    setImageUrl(iconUrl);
+    if (editing) {
+      try {
+        await updateStockItem(rid, editing.id, { image_url: iconUrl });
+      } catch (err: any) {
+        alert(err.message || 'Save failed');
+      }
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -1073,15 +1091,28 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             e.target.value = '';
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="absolute bottom-2 end-2 w-8 h-8 rounded-r-sm grid place-items-center text-white"
-          style={{ background: 'rgba(0,0,0,.6)' }}
-          aria-label={t('editImage') || 'Modifier'}
-        >
-          <Camera className="w-3.5 h-3.5" />
-        </button>
+        <div className="absolute bottom-2 end-2 flex gap-1">
+          <button
+            type="button"
+            onClick={() => setIconPickerOpen(true)}
+            className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
+            style={{ background: 'rgba(0,0,0,.6)' }}
+            aria-label={t('pickFromLibrary') || 'Pick from icon library'}
+            title={t('pickFromLibrary') || 'Pick from icon library'}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
+            style={{ background: 'rgba(0,0,0,.6)' }}
+            aria-label={t('editImage') || 'Upload photo'}
+            title={t('editImage') || 'Upload photo'}
+          >
+            <Camera className="w-3.5 h-3.5" />
+          </button>
+        </div>
         <div className="absolute top-2 start-2">
           <Badge tone={isActive ? 'success' : 'neutral'} dot>
             {isActive ? t('active') : t('inactive')}
@@ -1331,6 +1362,14 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           </div>
         </div>
       </div>
+      {iconPickerOpen && (
+        <IngredientIconPicker
+          restaurantId={rid}
+          initialQuery={name}
+          onPick={(icon) => handleIconPick(icon.image_url)}
+          onClose={() => setIconPickerOpen(false)}
+        />
+      )}
     </FullScreenEditor>
   );
 }

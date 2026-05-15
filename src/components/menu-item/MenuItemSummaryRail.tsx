@@ -22,6 +22,7 @@ export interface RailComboSummary {
   savingsMax: number;
   savingsPct: number;
   unknown: boolean;
+  comparable: boolean;
 }
 
 interface Props {
@@ -204,8 +205,12 @@ function ComboSavingsPanel({
   // State is driven by the OUTER bound of the savings range so a combo whose
   // cheapest scenario breaks even but whose pricier scenarios save money still
   // shows up as "saves" instead of falling silently into 'even'.
-  const state: 'unknown' | 'saves' | 'costs-more' | 'even' =
+  // `incomparable` short-circuits all the others — when the comparison would
+  // run against a fictional baseline (share plates, per-person items priced
+  // at ₪0 solo), we replace the saves/surcharge framing with a help note.
+  const state: 'unknown' | 'incomparable' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
+    : !summary.comparable ? 'incomparable'
     : summary.savingsMax > 0 ? 'saves'
     : summary.savingsMin < 0 ? 'costs-more'
     : 'even';
@@ -234,6 +239,42 @@ function ComboSavingsPanel({
   const comboLabel = summary.comboMin === summary.comboMax
     ? `${summary.comboMin.toFixed(2)} ${currency}`
     : `${summary.comboMin.toFixed(2)} – ${summary.comboMax.toFixed(2)} ${currency}`;
+
+  // Incomparable combos skip the solo/surcharge math entirely — showing
+  // "490 ₪" with a strike-through next to a ₪1600 combo is just noise when
+  // the operator never intended those items to sell solo. The drilldown
+  // stays reachable so the operator can still see which options are
+  // missing a standalone retail price.
+  if (state === 'incomparable') {
+    const help = (
+      <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+        {t('comboSavingsIncomparable') || 'Comparaison indisponible : certaines options sont vendues uniquement dans ce combo (plats à partager, prix par personne).'}
+      </p>
+    );
+    return (
+      <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
+        <h4 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-4">
+          {t('comboSavingsPanelTitle') || 'Économies pour le client'}
+        </h4>
+        <div className="space-y-3">
+          <Row label={t('composeBasePriceLabel')}>
+            <span className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
+              {comboLabel}
+            </span>
+          </Row>
+          {onShowDetail ? (
+            <button
+              type="button"
+              onClick={onShowDetail}
+              className="text-start hover:underline focus:outline-none focus-visible:underline"
+            >
+              {help}
+            </button>
+          ) : help}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
