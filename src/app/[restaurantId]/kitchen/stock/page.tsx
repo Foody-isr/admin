@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
+import CsvImportModal from '@/components/import/CsvImportModal';
 import StockQuantityForm, {
   StockInput,
   defaultStockInput,
@@ -151,6 +152,7 @@ export default function StockPage() {
   const [historyItem, setHistoryItem] = useState<StockItem | null>(null);
   const [importModal, setImportModal] = useState(false);
   const [importDraftId, setImportDraftId] = useState<number | undefined>(undefined);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [vatRate, setVatRate] = useState(18);
   // HT/TTC display preference. Drives both the table price cells and the
   // create/edit form's price entry mode. Persists in localStorage per user.
@@ -536,6 +538,11 @@ export default function StockPage() {
                 icon: <SparklesIcon className="w-4 h-4" />,
               },
               {
+                label: t('importCsv'),
+                onClick: () => setCsvImportOpen(true),
+                icon: <UploadIcon className="w-4 h-4" />,
+              },
+              {
                 label: t('refresh'),
                 onClick: reload,
                 icon: <RefreshCwIcon className="w-4 h-4" />,
@@ -855,6 +862,18 @@ export default function StockPage() {
           draftId={importDraftId}
           onClose={() => { setImportModal(false); setImportDraftId(undefined); }}
           onImported={reload}
+        />
+      )}
+
+      {/* CSV Import Modal */}
+      {csvImportOpen && (
+        <CsvImportModal
+          mode="stock"
+          restaurantId={rid}
+          onClose={() => setCsvImportOpen(false)}
+          onImported={reload}
+          existingCategories={categories.map((c) => c.name)}
+          existingItemKeys={new Set(items.map((it) => `${(it.category ?? '').toLowerCase()}::${it.name.toLowerCase()}`))}
         />
       )}
 

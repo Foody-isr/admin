@@ -29,6 +29,7 @@ import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersD
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
+import CsvImportModal from '@/components/import/CsvImportModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -198,6 +199,7 @@ export default function ItemLibraryPage() {
   const [qcPrice, setQcPrice] = useState(0);
   const [qcCategoryId, setQcCategoryId] = useState(0);
   const [qcSaving, setQcSaving] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // ─── Data loading ─────────────────────────────────────────────────
 
@@ -529,6 +531,11 @@ export default function ItemLibraryPage() {
                 label: t('importMenuWithAI'),
                 icon: <Sparkles size={16} />,
                 onClick: () => router.push(`/${rid}/menu/import`),
+              },
+              {
+                label: t('importCsv'),
+                icon: <ListPlus size={16} />,
+                onClick: () => setCsvImportOpen(true),
               },
               { label: t('refresh'), onClick: reload },
             ]}
@@ -1036,6 +1043,21 @@ export default function ItemLibraryPage() {
         selectedStatuses={selectedStatuses}
         onStatusChange={setSelectedStatuses}
       />
+
+      {csvImportOpen && (
+        <CsvImportModal
+          mode="library"
+          restaurantId={rid}
+          onClose={() => setCsvImportOpen(false)}
+          onImported={reload}
+          existingCategories={categories.map((c) => c.name)}
+          existingItemKeys={new Set(
+            categories.flatMap((c) =>
+              (c.items ?? []).map((it) => `${c.name.toLowerCase()}::${it.name.toLowerCase()}`)
+            )
+          )}
+        />
+      )}
     </div>
   );
 }

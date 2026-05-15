@@ -4377,3 +4377,71 @@ export async function searchGlobal(
   }
   return res.json();
 }
+
+// ─── CSV Import (stock + library items) ──────────────────────────────────────
+
+export type CsvImportCategoryInput = {
+  name: string;
+  items: string[];
+};
+
+export type CsvImportStockInput = {
+  default_unit?: StockUnit;
+  categories: CsvImportCategoryInput[];
+};
+
+export type CsvImportLibraryInput = {
+  categories: CsvImportCategoryInput[];
+};
+
+export type CsvImportSkipped = {
+  name: string;
+  category: string;
+  reason: string;
+};
+
+export type CsvImportStockCreated = {
+  id: number;
+  name: string;
+  category: string;
+};
+
+export type CsvImportStockResult = {
+  created: CsvImportStockCreated[];
+  skipped: CsvImportSkipped[];
+};
+
+export type CsvImportLibraryCreated = {
+  id: number;
+  name: string;
+  category_id: number;
+};
+
+export type CsvImportLibraryCategory = {
+  id: number;
+  name: string;
+};
+
+export type CsvImportLibraryResult = {
+  created: CsvImportLibraryCreated[];
+  skipped: CsvImportSkipped[];
+  categories_created: CsvImportLibraryCategory[];
+};
+
+export async function importStockCsv(
+  restaurantId: number, payload: CsvImportStockInput
+): Promise<CsvImportStockResult> {
+  return apiFetch<CsvImportStockResult>(
+    `/api/v1/stock/import/csv?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+export async function importMenuItemsCsv(
+  restaurantId: number, payload: CsvImportLibraryInput
+): Promise<CsvImportLibraryResult> {
+  return apiFetch<CsvImportLibraryResult>(
+    `/api/v1/menu/import/csv?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
