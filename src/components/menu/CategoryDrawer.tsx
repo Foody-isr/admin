@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CheckCircle, Loader2, Pencil, Plus, Search, X } from 'lucide-react';
+import { CheckCircle, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
 /** Minimal shape the drawer needs. Callers can project their own domain
@@ -39,6 +39,10 @@ interface Props {
   /** Optional handler for renaming an existing category.
    *  When provided, each row shows an inline Edit affordance. */
   onEditCategory?: (oldName: string, patch: EditCategoryPatch) => Promise<void> | void;
+  /** Optional handler for deleting a category. When provided, the inline edit
+   *  panel exposes a Delete button. The caller is responsible for confirming
+   *  the destructive action is acceptable (e.g. checking item counts). */
+  onDeleteCategory?: (name: string) => Promise<void> | void;
   /** Loading/processing flag for bulk operations. */
   processing?: boolean;
 }
@@ -53,6 +57,7 @@ export default function CategoryDrawer({
   selectionCount,
   onCreateCategory,
   onEditCategory,
+  onDeleteCategory,
   processing,
 }: Props) {
   const { t } = useI18n();
@@ -140,6 +145,14 @@ export default function CategoryDrawer({
                       await onEditCategory(category.name, patch);
                       setEditingName(null);
                     }}
+                    onDelete={
+                      onDeleteCategory
+                        ? async () => {
+                            await onDeleteCategory(category.name);
+                            setEditingName(null);
+                          }
+                        : undefined
+                    }
                     onCancel={() => setEditingName(null)}
                   />
                 );
@@ -326,23 +339,40 @@ function CategoryCreatePanel({
 function CategoryEditPanel({
   entry,
   onSave,
+  onDelete,
   onCancel,
 }: {
   entry: CategoryDrawerEntry;
   onSave: (patch: EditCategoryPatch) => Promise<void>;
+  onDelete?: () => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(entry.name);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const busy = saving || deleting;
 
   const submit = async () => {
-    if (!name.trim() || saving) return;
+    if (!name.trim() || busy) return;
     setSaving(true);
     try {
       await onSave({ name: name.trim() });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!onDelete || busy) return;
+    const label = t('delete') || 'Delete';
+    if (!confirm(`${label} "${entry.name}"?`)) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -363,7 +393,7 @@ function CategoryEditPanel({
       <div className="flex gap-2">
         <button
           onClick={submit}
-          disabled={saving || !name.trim()}
+          disabled={busy || !name.trim()}
           className="flex-1 px-3 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all font-medium text-sm shadow-lg shadow-orange-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
@@ -371,11 +401,22 @@ function CategoryEditPanel({
         </button>
         <button
           onClick={onCancel}
-          className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors font-medium text-sm text-neutral-700 dark:text-neutral-300"
+          disabled={busy}
+          className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors font-medium text-sm text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
         >
           {t('cancel') || 'Annuler'}
         </button>
       </div>
+      {onDelete && (
+        <button
+          onClick={remove}
+          disabled={busy}
+          className="w-full px-3 py-2 border border-red-300 dark:border-red-900/60 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          {t('delete') || 'Supprimer'}
+        </button>
+      )}
     </div>
   );
 }

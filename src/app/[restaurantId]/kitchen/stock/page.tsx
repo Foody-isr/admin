@@ -7,7 +7,7 @@ import {
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
-  createStockCategory, updateStockCategory,
+  createStockCategory, updateStockCategory, deleteStockCategory,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
   Supplier,
 } from '@/lib/api';
@@ -913,6 +913,23 @@ export default function StockPage() {
           ]);
           setCategories(fresh);
           setItems(items2);
+        }}
+        onDeleteCategory={async (name) => {
+          const cat = categories.find((c) => c.name === name);
+          if (!cat || cat.id <= 0) return;
+          await deleteStockCategory(rid, cat.id);
+          const [fresh, items2] = await Promise.all([
+            getStockCategories(rid),
+            listStockItems(rid),
+          ]);
+          setCategories(fresh);
+          setItems(items2);
+          setSelectedCategories((prev) => {
+            if (!prev.has(name)) return prev;
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
         }}
         processing={bulkProcessing}
       />
