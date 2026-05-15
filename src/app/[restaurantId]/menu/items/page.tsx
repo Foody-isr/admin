@@ -776,16 +776,19 @@ export default function ItemLibraryPage() {
                         </div>
                       </DataTableCell>
                       <DataTableCell mobilePrimary>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
                           {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt=""
-                              className="size-12 rounded-xl object-cover shrink-0"
-                            />
+                            <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.image_url}
+                                alt=""
+                                className="size-full object-contain drop-shadow-sm"
+                              />
+                            </div>
                           ) : (
-                            <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
-                              <ImageIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
+                            <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center">
+                              <ImageIcon className="w-7 h-7 text-neutral-400 dark:text-white/30" />
                             </div>
                           )}
                           <div>

@@ -660,16 +660,16 @@ export default function StockPage() {
                         className="flex items-center gap-4 text-left hover:text-orange-500 transition-colors"
                       >
                         {item.image_url ? (
-                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 flex items-center justify-center overflow-hidden">
+                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={item.image_url}
                               alt=""
-                              className="size-full object-contain"
+                              className="size-full object-contain drop-shadow-sm"
                             />
                           </div>
                         ) : (
-                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 flex items-center justify-center">
+                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center">
                             <ImageIcon className="w-7 h-7 text-neutral-400 dark:text-white/30" />
                           </div>
                         )}
