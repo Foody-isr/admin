@@ -1,6 +1,14 @@
 // Foody Admin API client — restaurant owner/manager portal
 // Calls foodyserver at /api/v1/* using JWT auth.
 
+import type {
+  Draft,
+  DraftPayload,
+  ChatPatch as LabChatPatch,
+  DraftStatus,
+  CommitResult,
+} from '@/app/[restaurantId]/kitchen/lab/types';
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
@@ -4443,5 +4451,107 @@ export async function importMenuItemsCsv(
   return apiFetch<CsvImportLibraryResult>(
     `/api/v1/menu/import/csv?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+// ─── Recipe Lab ───────────────────────────────────────────────────────────────
+
+/** Generate one or more recipe drafts by dish name or existing menu item IDs. */
+export async function labGenerateDrafts(
+  restaurantId: number,
+  body: { dish_names?: string[]; menu_item_ids?: string[] }
+): Promise<{ drafts: Draft[] }> {
+  return apiFetch<{ drafts: Draft[] }>(
+    `/api/v1/lab/drafts/generate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(body) }
+  );
+}
+
+/** List recipe drafts, optionally filtered by status. */
+export async function labListDrafts(
+  restaurantId: number,
+  params?: { status?: DraftStatus[] }
+): Promise<Draft[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.status?.length) {
+    qs.set('status', params.status.join(','));
+  }
+  return apiFetch<Draft[]>(`/api/v1/lab/drafts?${qs.toString()}`, restaurantId);
+}
+
+/** Fetch a single recipe draft by ID. */
+export async function labGetDraft(
+  restaurantId: number,
+  id: number
+): Promise<Draft> {
+  return apiFetch<Draft>(
+    `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId
+  );
+}
+
+/** Replace the payload of a draft without changing its status. Returns 204. */
+export async function labPatchDraft(
+  restaurantId: number,
+  id: number,
+  payload: DraftPayload
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PATCH', body: JSON.stringify(payload) }
+  );
+}
+
+/** Send a chat message to refine a draft; returns the assistant reply and diff patches. */
+export async function labRefineDraft(
+  restaurantId: number,
+  id: number,
+  userMessage: string
+): Promise<{ assistant_message: string; patches: LabChatPatch[] }> {
+  return apiFetch<{ assistant_message: string; patches: LabChatPatch[] }>(
+    `/api/v1/lab/drafts/${id}/refine?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ user_message: userMessage }) }
+  );
+}
+
+/** Commit a draft: create/link stock & prep items and create the menu item. */
+export async function labCommitDraft(
+  restaurantId: number,
+  id: number,
+  payload: DraftPayload
+): Promise<CommitResult> {
+  return apiFetch<CommitResult>(
+    `/api/v1/lab/drafts/${id}/commit?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+/** Discard a draft. Returns 204. */
+export async function labDiscardDraft(
+  restaurantId: number,
+  id: number
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+/** Get the restaurant's food cost target percentage (0–100). */
+export async function getFoodCostTarget(
+  restaurantId: number
+): Promise<{ food_cost_target_pct: number }> {
+  return apiFetch<{ food_cost_target_pct: number }>(
+    `/api/v1/restaurants/settings/food-cost-target?restaurant_id=${restaurantId}`, restaurantId
+  );
+}
+
+/** Set the restaurant's food cost target percentage (0–100). */
+export async function setFoodCostTarget(
+  restaurantId: number,
+  pct: number
+): Promise<{ food_cost_target_pct: number }> {
+  return apiFetch<{ food_cost_target_pct: number }>(
+    `/api/v1/restaurants/settings/food-cost-target?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ food_cost_target_pct: pct }) }
   );
 }
