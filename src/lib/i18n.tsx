@@ -789,6 +789,12 @@ const translations: Record<Locale, Record<string, string>> = {
     labForBatch: 'For {qty} {unit} batch:',
     labTargetLeq: 'target ≤',
     labRemoveIngredient: 'Remove',
+    labEmptyState: 'Generate or select a draft to review.',
+    labDiscard: 'Discard',
+    labSaveRecipe: 'Save recipe',
+    labSaving: 'Saving…',
+    labReplaceConfirm: 'This will replace the existing recipe for "{name}". Continue?',
+    labSaveFailed: 'Failed to save recipe. Please try again.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
@@ -3004,6 +3010,12 @@ const translations: Record<Locale, Record<string, string>> = {
     labForBatch: 'עבור {qty} {unit} אצווה:',
     labTargetLeq: 'יעד ≤',
     labRemoveIngredient: 'הסר',
+    labEmptyState: 'צור או בחר טיוטה לסקירה.',
+    labDiscard: 'מחק',
+    labSaveRecipe: 'שמור מתכון',
+    labSaving: 'שומר…',
+    labReplaceConfirm: 'פעולה זו תחליף את המתכון הקיים עבור "{name}". להמשיך?',
+    labSaveFailed: 'שמירת המתכון נכשלה. נסה שוב.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
@@ -5199,6 +5211,12 @@ const translations: Record<Locale, Record<string, string>> = {
     labForBatch: 'Pour {qty} {unit} de prépa :',
     labTargetLeq: 'cible ≤',
     labRemoveIngredient: 'Supprimer',
+    labEmptyState: 'Générez ou sélectionnez un brouillon à examiner.',
+    labDiscard: 'Supprimer',
+    labSaveRecipe: 'Enregistrer la recette',
+    labSaving: 'Enregistrement…',
+    labReplaceConfirm: 'Cette action remplacera la recette existante pour « {name} ». Continuer ?',
+    labSaveFailed: 'Échec de l\'enregistrement. Veuillez réessayer.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',
