@@ -11,6 +11,7 @@ import { DraftQueue } from './components/DraftQueue';
 import { CostSummaryHeader } from './components/CostSummaryHeader';
 import { RecipeTree } from './components/RecipeTree';
 import { RefineDrawer } from './components/RefineDrawer';
+import { FoodCostTargetSetting } from './components/FoodCostTargetSetting';
 import type { DraftPayload, Draft } from './types';
 
 /**
@@ -139,7 +140,7 @@ export default function RecipeLabPage() {
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
         <h1 className="text-xl font-semibold text-[var(--fg)]">Recipe Lab</h1>
-        {/* FoodCostTargetSetting goes here in Task 9 */}
+        <FoodCostTargetSetting restaurantId={restaurantId} />
       </header>
 
       <div className="flex flex-1 overflow-hidden">

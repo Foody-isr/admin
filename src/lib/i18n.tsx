@@ -802,6 +802,7 @@ const translations: Record<Locale, Record<string, string>> = {
     labRefineExamples: 'Examples: "swap mozzarella for halloumi", "halve the sauce qty", "make it vegan".',
     labRefinePlaceholder: 'Tell me how to refine this…',
     labRefineError: 'Error: refinement failed.',
+    labTargetSetting: 'Target food cost',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
@@ -3030,6 +3031,7 @@ const translations: Record<Locale, Record<string, string>> = {
     labRefineExamples: 'דוגמאות: "החלף מוצרלה בחלומי", "חצי את כמות הרוטב", "הפוך לטבעוני".',
     labRefinePlaceholder: 'ספר לי איך לשכלל את זה…',
     labRefineError: 'שגיאה: השכלול נכשל.',
+    labTargetSetting: 'עלות מזון יעד',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
@@ -5238,6 +5240,7 @@ const translations: Record<Locale, Record<string, string>> = {
     labRefineExamples: 'Exemples : "remplacer la mozzarella par de l\'halloumi", "réduire la sauce de moitié", "rendre végane".',
     labRefinePlaceholder: 'Dites-moi comment améliorer ceci…',
     labRefineError: 'Erreur : l\'affinage a échoué.',
+    labTargetSetting: 'Coût alimentaire cible',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',
