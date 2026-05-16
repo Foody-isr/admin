@@ -776,6 +776,15 @@ const translations: Record<Locale, Record<string, string>> = {
     labPickItems: 'Pick menu items',
     labConfirm: 'Confirm',
     labPickerEmpty: 'No items found.',
+    labSellAt: 'Sell at',
+    labEstFoodCost: 'Est. food cost',
+    labFoodCostPct: 'Food cost %',
+    labTargetLabel: 'Target',
+    labOnTarget: '✓ On target',
+    labOverBudget: '⚠ Over budget',
+    labLossMaking: '🚫 Loss-making',
+    labSetSellingPrice: 'Set a selling price',
+    labSuggestedMinPrice: 'Suggested sell price ≥',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
@@ -2978,6 +2987,15 @@ const translations: Record<Locale, Record<string, string>> = {
     labPickItems: 'בחר פריטים מהתפריט',
     labConfirm: 'אישור',
     labPickerEmpty: 'לא נמצאו פריטים.',
+    labSellAt: 'מחיר מכירה',
+    labEstFoodCost: 'עלות מוערכת',
+    labFoodCostPct: '% עלות מזון',
+    labTargetLabel: 'יעד',
+    labOnTarget: '✓ ביעד',
+    labOverBudget: '⚠ חריגה מהתקציב',
+    labLossMaking: '🚫 הפסדי',
+    labSetSellingPrice: 'הגדר מחיר מכירה',
+    labSuggestedMinPrice: 'מחיר מינימום מומלץ ≥',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
@@ -5160,6 +5178,15 @@ const translations: Record<Locale, Record<string, string>> = {
     labPickItems: 'Choisir des articles',
     labConfirm: 'Confirmer',
     labPickerEmpty: 'Aucun article trouvé.',
+    labSellAt: 'Vendre à',
+    labEstFoodCost: 'Coût food estimé',
+    labFoodCostPct: '% coût food',
+    labTargetLabel: 'Cible',
+    labOnTarget: '✓ Dans la cible',
+    labOverBudget: '⚠ Hors budget',
+    labLossMaking: '🚫 À perte',
+    labSetSellingPrice: 'Définir un prix de vente',
+    labSuggestedMinPrice: 'Prix min suggéré ≥',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',
