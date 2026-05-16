@@ -785,6 +785,10 @@ const translations: Record<Locale, Record<string, string>> = {
     labLossMaking: '🚫 Loss-making',
     labSetSellingPrice: 'Set a selling price',
     labSuggestedMinPrice: 'Suggested sell price ≥',
+    labPrep: 'prep',
+    labForBatch: 'For {qty} {unit} batch:',
+    labTargetLeq: 'target ≤',
+    labRemoveIngredient: 'Remove',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
@@ -2996,6 +3000,10 @@ const translations: Record<Locale, Record<string, string>> = {
     labLossMaking: '🚫 הפסדי',
     labSetSellingPrice: 'הגדר מחיר מכירה',
     labSuggestedMinPrice: 'מחיר מינימום מומלץ ≥',
+    labPrep: 'הכנה',
+    labForBatch: 'עבור {qty} {unit} אצווה:',
+    labTargetLeq: 'יעד ≤',
+    labRemoveIngredient: 'הסר',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
@@ -5187,6 +5195,10 @@ const translations: Record<Locale, Record<string, string>> = {
     labLossMaking: '🚫 À perte',
     labSetSellingPrice: 'Définir un prix de vente',
     labSuggestedMinPrice: 'Prix min suggéré ≥',
+    labPrep: 'prépa',
+    labForBatch: 'Pour {qty} {unit} de prépa :',
+    labTargetLeq: 'cible ≤',
+    labRemoveIngredient: 'Supprimer',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',
