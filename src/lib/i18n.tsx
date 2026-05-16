@@ -795,6 +795,13 @@ const translations: Record<Locale, Record<string, string>> = {
     labSaving: 'Saving…',
     labReplaceConfirm: 'This will replace the existing recipe for "{name}". Continue?',
     labSaveFailed: 'Failed to save recipe. Please try again.',
+    labRefineTitle: '✨ Refine with AI',
+    labRefineClose: 'Close',
+    labRefineSend: 'Send',
+    labRefineThinking: 'Thinking…',
+    labRefineExamples: 'Examples: "swap mozzarella for halloumi", "halve the sauce qty", "make it vegan".',
+    labRefinePlaceholder: 'Tell me how to refine this…',
+    labRefineError: 'Error: refinement failed.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
@@ -3016,6 +3023,13 @@ const translations: Record<Locale, Record<string, string>> = {
     labSaving: 'שומר…',
     labReplaceConfirm: 'פעולה זו תחליף את המתכון הקיים עבור "{name}". להמשיך?',
     labSaveFailed: 'שמירת המתכון נכשלה. נסה שוב.',
+    labRefineTitle: '✨ שכלל עם AI',
+    labRefineClose: 'סגור',
+    labRefineSend: 'שלח',
+    labRefineThinking: 'חושב…',
+    labRefineExamples: 'דוגמאות: "החלף מוצרלה בחלומי", "חצי את כמות הרוטב", "הפוך לטבעוני".',
+    labRefinePlaceholder: 'ספר לי איך לשכלל את זה…',
+    labRefineError: 'שגיאה: השכלול נכשל.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
@@ -5217,6 +5231,13 @@ const translations: Record<Locale, Record<string, string>> = {
     labSaving: 'Enregistrement…',
     labReplaceConfirm: 'Cette action remplacera la recette existante pour « {name} ». Continuer ?',
     labSaveFailed: 'Échec de l\'enregistrement. Veuillez réessayer.',
+    labRefineTitle: '✨ Affiner avec l\'IA',
+    labRefineClose: 'Fermer',
+    labRefineSend: 'Envoyer',
+    labRefineThinking: 'Réflexion…',
+    labRefineExamples: 'Exemples : "remplacer la mozzarella par de l\'halloumi", "réduire la sauce de moitié", "rendre végane".',
+    labRefinePlaceholder: 'Dites-moi comment améliorer ceci…',
+    labRefineError: 'Erreur : l\'affinage a échoué.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',

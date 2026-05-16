@@ -5,10 +5,12 @@ import { useParams } from 'next/navigation';
 import { labGetDraft, labCommitDraft, labDiscardDraft } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { useDraftQueue } from './hooks/useDraftQueue';
+import { applyPatches } from './hooks/useDraftPatches';
 import { DraftInputRail } from './components/DraftInputRail';
 import { DraftQueue } from './components/DraftQueue';
 import { CostSummaryHeader } from './components/CostSummaryHeader';
 import { RecipeTree } from './components/RecipeTree';
+import { RefineDrawer } from './components/RefineDrawer';
 import type { DraftPayload, Draft } from './types';
 
 /**
@@ -40,6 +42,7 @@ export default function RecipeLabPage() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [refineOpen, setRefineOpen] = useState(false);
 
   // ── Fetch the active draft whenever the selection changes ──────────────
 
@@ -229,7 +232,21 @@ export default function RecipeLabPage() {
                   alignItems: 'center',
                 }}
               >
-                {/* Refine button — wired in Task 8 */}
+                <button
+                  onClick={() => setRefineOpen(true)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: '1px solid var(--line)',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    color: 'var(--fg)',
+                  }}
+                >
+                  {t('labRefineTitle')}
+                </button>
+
                 <div style={{ flex: 1 }} />
 
                 <button
@@ -271,6 +288,16 @@ export default function RecipeLabPage() {
           )}
         </main>
       </div>
+
+      <RefineDrawer
+        restaurantId={restaurantId}
+        draftId={activeDraftId}
+        open={refineOpen}
+        onClose={() => setRefineOpen(false)}
+        onPatches={(patches) => {
+          if (payload) setPayload(applyPatches(payload, patches));
+        }}
+      />
     </div>
   );
 }
