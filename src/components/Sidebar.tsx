@@ -41,6 +41,7 @@ import {
   Armchair,
   Route,
   QrCode,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -136,6 +137,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       icon: Flame,
       perm: ['kitchen.view', 'kitchen.manage'],
       subItems: [
+        { href: `${base}/kitchen/lab`, labelKey: 'recipeLab' },
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
         // { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
         // Recipes page is hidden for now — per-item recipes are edited inside the menu item Recette tab.
