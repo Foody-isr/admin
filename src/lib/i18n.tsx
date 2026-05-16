@@ -766,6 +766,17 @@ const translations: Record<Locale, Record<string, string>> = {
     recipePageYield: 'Yield',
     recipeCost: 'Cost',
 
+    // ── Recipe Lab ──
+    labAddDishes: 'Add dishes',
+    labGenerate: 'Generate',
+    labFromLibrary: 'From library',
+    labDishNamesPlaceholder: 'One dish per line…\ne.g. Shakshuka\nCaesar salad',
+    labNoDraftsYet: 'No drafts yet.',
+    labLoading: 'Loading…',
+    labPickItems: 'Pick menu items',
+    labConfirm: 'Confirm',
+    labPickerEmpty: 'No items found.',
+
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
     editSupplier: 'Edit Supplier',
@@ -2957,6 +2968,17 @@ const translations: Record<Locale, Record<string, string>> = {
     recipePageYield: 'תפוקה',
     recipeCost: 'עלות',
 
+    // ── Recipe Lab ──
+    labAddDishes: 'הוסף מנות',
+    labGenerate: 'צור טיוטה',
+    labFromLibrary: 'מהספרייה',
+    labDishNamesPlaceholder: 'מנה אחת לשורה…\nלדוגמה: שקשוקה\nסלט קיסר',
+    labNoDraftsYet: 'אין טיוטות עדיין.',
+    labLoading: 'טוען…',
+    labPickItems: 'בחר פריטים מהתפריט',
+    labConfirm: 'אישור',
+    labPickerEmpty: 'לא נמצאו פריטים.',
+
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
     editSupplier: 'ערוך ספק',
@@ -5127,6 +5149,17 @@ const translations: Record<Locale, Record<string, string>> = {
     saveRecipePage: 'Enregistrer la recette',
     recipePageYield: 'Rendement',
     recipeCost: 'Coût',
+
+    // ── Recipe Lab ──
+    labAddDishes: 'Ajouter des plats',
+    labGenerate: 'Générer',
+    labFromLibrary: 'Depuis la carte',
+    labDishNamesPlaceholder: 'Un plat par ligne…\nEx: Shakshuka\nSalade César',
+    labNoDraftsYet: 'Aucun brouillon pour l\'instant.',
+    labLoading: 'Chargement…',
+    labPickItems: 'Choisir des articles',
+    labConfirm: 'Confirmer',
+    labPickerEmpty: 'Aucun article trouvé.',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',
