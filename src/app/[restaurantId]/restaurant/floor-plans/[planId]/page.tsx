@@ -71,6 +71,64 @@ interface ItemBox {
 
 const MIN_ITEM_SIZE = 3; // percent
 const MAX_ITEM_SIZE = 60; // percent
+const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers snap together
+
+interface SnapBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface SnapResult {
+  x: number;
+  y: number;
+  /** Vertical guide lines (x positions in % of canvas) shown during drag */
+  vGuides: number[];
+  /** Horizontal guide lines (y positions in % of canvas) shown during drag */
+  hGuides: number[];
+}
+
+/**
+ * Snaps a moving bbox to nearby static items and canvas centerlines.
+ * Snap targets: each other item's left / center / right (X) and top / middle
+ * / bottom (Y), plus the canvas edges and center. Within `SNAP_THRESHOLD` the
+ * bbox is shifted to align exactly, and the matching target line is returned
+ * for the renderer to draw.
+ */
+function computeSnap(bbox: SnapBox, others: SnapBox[]): SnapResult {
+  const xAnchors = [bbox.x, bbox.x + bbox.width / 2, bbox.x + bbox.width];
+  const yAnchors = [bbox.y, bbox.y + bbox.height / 2, bbox.y + bbox.height];
+
+  const xTargets = [0, 50, 100, ...others.flatMap((o) => [o.x, o.x + o.width / 2, o.x + o.width])];
+  const yTargets = [0, 50, 100, ...others.flatMap((o) => [o.y, o.y + o.height / 2, o.y + o.height])];
+
+  let bestX: { target: number; delta: number } | null = null;
+  for (const a of xAnchors) {
+    for (const t of xTargets) {
+      const diff = t - a;
+      if (Math.abs(diff) <= SNAP_THRESHOLD && (bestX === null || Math.abs(diff) < Math.abs(bestX.delta))) {
+        bestX = { target: t, delta: diff };
+      }
+    }
+  }
+  let bestY: { target: number; delta: number } | null = null;
+  for (const a of yAnchors) {
+    for (const t of yTargets) {
+      const diff = t - a;
+      if (Math.abs(diff) <= SNAP_THRESHOLD && (bestY === null || Math.abs(diff) < Math.abs(bestY.delta))) {
+        bestY = { target: t, delta: diff };
+      }
+    }
+  }
+
+  return {
+    x: bestX ? bbox.x + bestX.delta : bbox.x,
+    y: bestY ? bbox.y + bestY.delta : bbox.y,
+    vGuides: bestX ? [bestX.target] : [],
+    hGuides: bestY ? [bestY.target] : [],
+  };
+}
 
 const DECORATION_PRESETS = [
   { label: 'Cuisine',  shape: 'rectangle' as const, color: '#d1c4a8' },
@@ -450,6 +508,9 @@ export default function FloorPlanEditorPage() {
   // every item the box covers becomes selected on mouse-up.
   const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
   const rubberBandStart = useRef<{ x: number; y: number } | null>(null);
+  // Smart guides shown during a drag: orange dashed lines through the snap
+  // targets the dragged item's edges/center are aligning to.
+  const [snapGuides, setSnapGuides] = useState<{ vertical: number[]; horizontal: number[] }>({ vertical: [], horizontal: [] });
 
   const loadData = useCallback(async () => {
     try {
@@ -720,13 +781,50 @@ export default function FloorPlanEditorPage() {
           clampedDy = Math.max(-init.y, Math.min(100 - init.y - h, clampedDy));
         }
 
+        // Smart guides: only meaningful for a single-item drag. For
+        // multi-drag the snap target is ambiguous — keep guides off so the
+        // group moves freely.
+        let snappedDx = clampedDx;
+        let snappedDy = clampedDy;
+        if (initial.length === 1) {
+          const init = initial[0];
+          const item = init.type === 'table'
+            ? placements.find((p) => p.tableId === init.id)
+            : decorations.find((d) => d.id === init.id);
+          if (item) {
+            const proposed: SnapBox = {
+              x: init.x + clampedDx,
+              y: init.y + clampedDy,
+              width: item.width,
+              height: item.height,
+            };
+            const others: SnapBox[] = [];
+            for (const p of placements) {
+              if (!(init.type === 'table' && p.tableId === init.id)) {
+                others.push({ x: p.x, y: p.y, width: p.width, height: p.height });
+              }
+            }
+            for (const d of decorations) {
+              if (!(init.type === 'decoration' && d.id === init.id)) {
+                others.push({ x: d.x, y: d.y, width: d.width, height: d.height });
+              }
+            }
+            const snap = computeSnap(proposed, others);
+            snappedDx = snap.x - init.x;
+            snappedDy = snap.y - init.y;
+            setSnapGuides({ vertical: snap.vGuides, horizontal: snap.hGuides });
+          }
+        } else {
+          setSnapGuides({ vertical: [], horizontal: [] });
+        }
+
         setPlacements((prev) => prev.map((p) => {
           const init = initial.find((i) => i.type === 'table' && i.id === p.tableId);
-          return init ? { ...p, x: init.x + clampedDx, y: init.y + clampedDy } : p;
+          return init ? { ...p, x: init.x + snappedDx, y: init.y + snappedDy } : p;
         }));
         setDecorations((prev) => prev.map((d) => {
           const init = initial.find((i) => i.type === 'decoration' && i.id === d.id);
-          return init ? { ...d, x: init.x + clampedDx, y: init.y + clampedDy } : d;
+          return init ? { ...d, x: init.x + snappedDx, y: init.y + snappedDy } : d;
         }));
         return;
       }
@@ -774,6 +872,7 @@ export default function FloorPlanEditorPage() {
       resizeState.current = null;
       rubberBandStart.current = null;
       setRubberBand(null);
+      setSnapGuides({ vertical: [], horizontal: [] });
     };
 
     window.addEventListener('mousemove', onMouseMove);
@@ -1268,6 +1367,39 @@ export default function FloorPlanEditorPage() {
                   </div>
                 );
               })}
+
+              {/* Smart guides — dashed orange lines that appear during drag
+                  when an item's edge or center aligns with another item. */}
+              {snapGuides.vertical.map((x, i) => (
+                <div
+                  key={`vg-${i}-${x}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${x}%`,
+                    top: 0,
+                    width: 0,
+                    height: '100%',
+                    borderLeft: '1px dashed #F18A47',
+                    pointerEvents: 'none',
+                    zIndex: 49,
+                  }}
+                />
+              ))}
+              {snapGuides.horizontal.map((y, i) => (
+                <div
+                  key={`hg-${i}-${y}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${y}%`,
+                    left: 0,
+                    height: 0,
+                    width: '100%',
+                    borderTop: '1px dashed #F18A47',
+                    pointerEvents: 'none',
+                    zIndex: 49,
+                  }}
+                />
+              ))}
 
               {/* Rubber-band selection box */}
               {rubberBand && (() => {
