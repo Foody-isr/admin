@@ -345,7 +345,7 @@ function QrDrawer({
     URL.revokeObjectURL(url);
   }, [table.code]);
 
-  const tableLabel = sectionName ? `${sectionName} · ${table.name}` : table.name;
+  const tableLabel = table.name;
 
   return (
     <Drawer

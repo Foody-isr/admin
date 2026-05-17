@@ -169,9 +169,7 @@ export default function PrintQrCardsPage() {
                 <QrCard
                   config={config}
                   url={it.url}
-                  tableLabel={
-                    it.sectionName ? `${it.sectionName} · ${it.table.name}` : it.table.name
-                  }
+                  tableLabel={it.table.name}
                   logoUrl={logoUrl}
                   locale={(it.table.language as 'en' | 'he' | 'fr' | '' | undefined) || ''}
                   restaurantDefaultLocale={restaurantLocale}

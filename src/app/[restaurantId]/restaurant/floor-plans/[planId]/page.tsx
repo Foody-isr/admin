@@ -8,9 +8,8 @@ import {
   FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XIcon, TrashIcon, Plus } from 'lucide-react';
+import { XIcon, TrashIcon } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
-import { TableEditorModal } from '@/components/tables/TableEditorModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -199,11 +198,6 @@ export default function FloorPlanEditorPage() {
 
   const [selected, setSelected] = useState<SelectedItem>(null);
   const [showSectionModal, setShowSectionModal] = useState(false);
-  const [addTableTarget, setAddTableTarget] = useState<{
-    sectionId: number;
-    sectionName: string;
-    nextIndex: number;
-  } | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{
@@ -741,12 +735,13 @@ export default function FloorPlanEditorPage() {
 
             {/* Sections */}
             {sections.map((section) => {
-              const unplaced = section.tables.filter((t) => !placedIds.has(t.id));
-              const placed = section.tables.filter((t) => placedIds.has(t.id));
+              const tables = section.tables ?? [];
+              const unplaced = tables.filter((t) => !placedIds.has(t.id));
+              const placed = tables.filter((t) => placedIds.has(t.id));
               return (
                 <div key={section.id}>
                   <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">{section.name}</p>
-                  {section.tables.length === 0 && (
+                  {tables.length === 0 && (
                     <p className="text-xs text-fg-secondary">{t('noTablesInSection')}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
@@ -782,22 +777,6 @@ export default function FloorPlanEditorPage() {
                         {tbl.name}
                       </div>
                     ))}
-                    {/* + Add table */}
-                    <button
-                      onClick={() =>
-                        setAddTableTarget({
-                          sectionId: section.id,
-                          sectionName: section.name,
-                          nextIndex: (section.tables?.length ?? 0) + 1,
-                        })
-                      }
-                      className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
-                      style={{ border: '1px dashed var(--divider)' }}
-                      title={t('addTable')}
-                    >
-                      <Plus className="w-3 h-3" />
-                      {t('addTable')}
-                    </button>
                   </div>
                 </div>
               );
@@ -840,18 +819,6 @@ export default function FloorPlanEditorPage() {
         />
       )}
 
-      {/* Table creation modal (per-section) */}
-      {addTableTarget && (
-        <TableEditorModal
-          restaurantId={rid}
-          sectionId={addTableTarget.sectionId}
-          sectionName={addTableTarget.sectionName}
-          nextIndex={addTableTarget.nextIndex}
-          onSaved={() => { setAddTableTarget(null); loadData(); }}
-          onDeleted={() => { setAddTableTarget(null); loadData(); }}
-          onClose={() => setAddTableTarget(null)}
-        />
-      )}
     </>
   );
 }

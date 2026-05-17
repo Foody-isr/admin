@@ -382,7 +382,7 @@ export default function CustomizeQrCardPage() {
           <QrCard
             config={draft}
             url={SAMPLE_URL}
-            tableLabel={`${t('previewSection')} · ${t('previewTable')}`}
+            tableLabel={t('previewTable')}
             logoUrl={logoUrl}
             locale={activeLocale}
             restaurantDefaultLocale={restaurantLocale}
