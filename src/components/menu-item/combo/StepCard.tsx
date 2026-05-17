@@ -7,7 +7,8 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus } from 'lucide-react';
+import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus, Minus, Image as ImageIcon, Pencil } from 'lucide-react';
+import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -18,6 +19,8 @@ import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
 import StepRulesPanel from './StepRulesPanel';
+
+const FIXED_QTY_MAX = 99;
 
 interface Props {
   step: ComboStepDraft;
@@ -102,10 +105,125 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
         stepNumber={index + 1}
         onCancel={() => setPicking(false)}
         onCommit={(nextDraft) => {
-          onChange(nextDraft);
+          // Fixed-item steps only ever hold ONE item — if the operator
+          // multi-selected in the picker, keep just the first.
+          const committed = step.kind === 'fixed'
+            ? { ...nextDraft, items: nextDraft.items.slice(0, 1) }
+            : nextDraft;
+          onChange(committed);
           setPicking(false);
         }}
       />
+    );
+  }
+
+  // ── Fixed-item mode ────────────────────────────────────────────────────
+  // Renders a stripped-down card with a single item slot + quantity stepper.
+  // No rules popover, no required badge, no mode toggle, no "add option"
+  // button — fixed items have nothing for the customer to pick.
+
+  if (step.kind === 'fixed') {
+    const firstItem = step.items[0];
+    const sourceItem = firstItem ? itemsById.get(firstItem.menu_item_id) : null;
+    const displayName = sourceItem?.name ?? firstItem?.item_name ?? '';
+    const imageUrl = sourceItem?.image_url ?? '';
+    const qty = Math.max(1, step.min_picks || 1);
+
+    const setQty = (next: number) => {
+      const clamped = Math.max(1, Math.min(FIXED_QTY_MAX, next));
+      onChange({ ...step, min_picks: clamped, max_picks: clamped });
+    };
+
+    return (
+      <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden">
+        <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)]">
+          <span className="text-[var(--fg-subtle)] cursor-grab" aria-hidden>
+            <GripVertical className="w-3.5 h-3.5" />
+          </span>
+          <div
+            className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-fs-sm shrink-0"
+            style={{ background: 'var(--brand-500)' }}
+          >
+            {index + 1}
+          </div>
+
+          {firstItem ? (
+            <button
+              type="button"
+              onClick={() => setPicking(true)}
+              className="flex-1 min-w-0 flex items-center gap-[var(--s-3)] text-start hover:bg-[var(--surface-2)] rounded-r-md px-1 py-1 -mx-1 -my-1 transition-colors group"
+              title={t('composeFixedItemChange')}
+            >
+              {imageUrl ? (
+                <span className="w-9 h-9 rounded-r-sm overflow-hidden relative shrink-0">
+                  <Image
+                    src={imageUrl}
+                    alt={displayName}
+                    fill
+                    className="object-cover"
+                    sizes="36px"
+                  />
+                </span>
+              ) : (
+                <span className="w-9 h-9 rounded-r-sm shrink-0 grid place-items-center bg-[var(--surface-2)] text-[var(--fg-subtle)]">
+                  <ImageIcon className="w-4 h-4" />
+                </span>
+              )}
+              <span className="flex-1 min-w-0">
+                <span className="block truncate text-fs-md font-semibold text-[var(--fg)]">
+                  {displayName || t('composeFixedItemMissing')}
+                </span>
+                <span className="block text-fs-xs text-[var(--fg-muted)]">
+                  {t('composeFixedItemIncluded')}
+                </span>
+              </span>
+              <Pencil className="w-3.5 h-3.5 text-[var(--fg-subtle)] group-hover:text-[var(--brand-500)] shrink-0" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPicking(true)}
+              className="flex-1 inline-flex items-center justify-start gap-1.5 h-9 px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> {t('composeFixedItemChoose')}
+            </button>
+          )}
+
+          {/* Quantity stepper — sets both min_picks and max_picks. */}
+          <div className="inline-flex items-center gap-1 h-9 rounded-r-sm border border-[var(--line)] bg-[var(--surface-2)] px-1">
+            <button
+              type="button"
+              onClick={() => setQty(qty - 1)}
+              disabled={qty <= 1}
+              aria-label={t('composeFixedItemQtyDecrease')}
+              className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Minus className="w-3 h-3" />
+            </button>
+            <span className="min-w-[1.5rem] text-center text-fs-sm font-semibold text-[var(--fg)] tabular-nums">
+              ×{qty}
+            </span>
+            <button
+              type="button"
+              onClick={() => setQty(qty + 1)}
+              disabled={qty >= FIXED_QTY_MAX}
+              aria-label={t('composeFixedItemQtyIncrease')}
+              className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={onRemove}
+            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
+            aria-label="Delete fixed item"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
     );
   }
 

@@ -36,6 +36,7 @@ import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
+import { deriveStepKind } from '@/components/menu-item/combo/types';
 import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
@@ -182,22 +183,26 @@ export default function EditItemPage() {
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
           if (found.item_type === 'combo' && found.combo_steps) {
-            setComboSteps(found.combo_steps.map((s) => ({
-              key: crypto.randomUUID(),
-              name: s.name,
-              description: s.description ?? '',
-              min_picks: s.min_picks,
-              max_picks: s.max_picks,
-              source_type: s.source_type ?? 'explicit',
-              source_category_id: s.source_category_id ?? undefined,
-              items: s.items.map((si) => ({
-                menu_item_id: si.menu_item_id,
-                price_delta: si.price_delta,
-                item_name: si.menu_item?.name,
-                variant_id: si.option_id ?? undefined,
-                pick_key: si.option_id ? `variant:${si.menu_item_id}:${si.option_id}` : `item:${si.menu_item_id}`,
-              })),
-            })));
+            setComboSteps(found.combo_steps.map((s) => {
+              const draft: ComboStepDraft = {
+                key: crypto.randomUUID(),
+                name: s.name,
+                description: s.description ?? '',
+                min_picks: s.min_picks,
+                max_picks: s.max_picks,
+                source_type: s.source_type ?? 'explicit',
+                source_category_id: s.source_category_id ?? undefined,
+                items: s.items.map((si) => ({
+                  menu_item_id: si.menu_item_id,
+                  price_delta: si.price_delta,
+                  item_name: si.menu_item?.name,
+                  variant_id: si.option_id ?? undefined,
+                  pick_key: si.option_id ? `variant:${si.menu_item_id}:${si.option_id}` : `item:${si.menu_item_id}`,
+                })),
+              };
+              draft.kind = deriveStepKind(draft);
+              return draft;
+            }));
           }
           break;
         }

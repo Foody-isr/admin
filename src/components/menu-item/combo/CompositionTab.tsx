@@ -80,14 +80,16 @@ export default function CompositionTab({
   };
 
   const addStep = () => {
+    const choiceCount = steps.filter((s) => s.kind !== 'fixed').length;
     const fresh: ComboStepDraft = {
       key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}`,
-      name: t('composeStepDefaultName').replace('{n}', String(steps.length + 1)),
+      name: t('composeStepDefaultName').replace('{n}', String(choiceCount + 1)),
       description: '',
       min_picks: 1,
       max_picks: 1,
       items: [],
       source_type: 'explicit',
+      kind: 'choice',
     };
     onStepsChange([...steps, fresh]);
   };
@@ -97,9 +99,7 @@ export default function CompositionTab({
   // foodyweb modal auto-detects when every step matches this shape and renders
   // a "What's included" preview instead of the stepper.
   const addFixedItem = () => {
-    const fixedCount = steps.filter(
-      (s) => s.items.length <= 1 && s.min_picks === s.max_picks
-    ).length;
+    const fixedCount = steps.filter((s) => s.kind === 'fixed').length;
     const fresh: ComboStepDraft = {
       key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `fixed-${Date.now()}`,
       name: t('composeFixedItemDefaultName').replace('{n}', String(fixedCount + 1)),
@@ -108,6 +108,7 @@ export default function CompositionTab({
       max_picks: 1,
       items: [],
       source_type: 'explicit',
+      kind: 'fixed',
     };
     onStepsChange([...steps, fresh]);
   };

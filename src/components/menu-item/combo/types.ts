@@ -45,6 +45,27 @@ export interface ComboStepDraft {
   source_type: 'explicit' | 'category';
   /** Required when source_type === 'category'. */
   source_category_id?: number;
+  /** UI-only intent flag. Not sent to the server.
+   *
+   *  - "choice" — operator wants the customer to pick from multiple options.
+   *               Renders with name, rules popover, required badge, etc.
+   *  - "fixed"  — operator wants a single predefined item with a quantity.
+   *               Renders a stripped-down card: one item slot + qty stepper.
+   *
+   *  On reload from the server we infer this from the data shape (1 item
+   *  with min_picks === max_picks → fixed). See `deriveStepKind` below. */
+  kind?: 'fixed' | 'choice';
+}
+
+/** Infer a step's UI kind from its persisted shape. Steps that look like a
+ *  single fixed item (one explicit option, min_picks === max_picks > 0) render
+ *  as fixed; everything else renders as a choice step. */
+export function deriveStepKind(s: Pick<ComboStepDraft, 'source_type' | 'items' | 'min_picks' | 'max_picks'>): 'fixed' | 'choice' {
+  if (s.source_type === 'category') return 'choice';
+  if (s.items.length !== 1) return 'choice';
+  if (s.min_picks <= 0) return 'choice';
+  if (s.min_picks !== s.max_picks) return 'choice';
+  return 'fixed';
 }
 
 // ── View-models ──────────────────────────────────────────────────────────
