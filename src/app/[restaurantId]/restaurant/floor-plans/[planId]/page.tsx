@@ -57,7 +57,7 @@ const PALETTE_COLORS = ['#e5e7eb', '#d1c4a8', '#b3cde0', '#c8e6c9', '#e1bee7', '
 
 function SectionModal({ restaurantId, onCreated, onClose }: {
   restaurantId: number;
-  onCreated: () => void;
+  onCreated: (sectionId: number) => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -82,8 +82,8 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
       } else {
         input.custom_names = customText.split('\n').map((l) => l.trim()).filter(Boolean);
       }
-      await createSection(restaurantId, input);
-      onCreated();
+      const created = await createSection(restaurantId, input);
+      onCreated(created.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed');
       setSaving(false);
@@ -177,6 +177,59 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
   );
 }
 
+// ─── Picker: bring an existing section into the current plan's sidebar ────────
+
+function AddExistingSectionPicker({
+  sections,
+  onPick,
+  onClose,
+}: {
+  sections: TableSection[];
+  onPick: (sectionId: number) => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-md p-6 space-y-4 max-h-[80vh] overflow-y-auto"
+        style={{ background: 'var(--bg)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-fg-primary">{t('useExistingSection')}</h2>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
+            <XIcon className="w-5 h-5 text-fg-secondary" />
+          </button>
+        </div>
+        <p className="text-xs text-fg-secondary">{t('useExistingSectionHint')}</p>
+        {sections.length === 0 ? (
+          <p className="text-sm text-fg-secondary py-4 text-center">{t('noOtherSections')}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {sections.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onPick(s.id)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-[var(--divider)] hover:border-[var(--brand-500)] hover:bg-[var(--surface-subtle)] transition-colors text-left"
+              >
+                <span className="font-medium text-fg-primary">{s.name}</span>
+                <span className="text-xs text-fg-secondary">
+                  {(s.tables ?? []).length} {t('tablesCount')}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Editor ──────────────────────────────────────────────────────────────
 
 export default function FloorPlanEditorPage() {
@@ -199,6 +252,12 @@ export default function FloorPlanEditorPage() {
 
   const [selected, setSelected] = useState<SelectedItem>(null);
   const [showSectionModal, setShowSectionModal] = useState(false);
+  const [showAddSectionPicker, setShowAddSectionPicker] = useState(false);
+  // Sections the user has explicitly brought into this plan's sidebar during
+  // the current session. Combined with sections that already have placements,
+  // this determines what's visible in the right panel. New plans start with
+  // an empty sidebar so they aren't polluted by every restaurant-wide section.
+  const [sessionAddedSectionIds, setSessionAddedSectionIds] = useState<Set<number>>(new Set());
   const [addTableTarget, setAddTableTarget] = useState<{
     sectionId: number;
     sectionName: string;
@@ -258,6 +317,17 @@ export default function FloorPlanEditorPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const placedIds = new Set(placements.map((p) => p.tableId));
+
+  // Sections visible in the right sidebar: sections that have at least one
+  // table placed on this plan, plus any the user has explicitly added to this
+  // plan during the current edit session.
+  const visibleSections = sections.filter((s) => {
+    if (sessionAddedSectionIds.has(s.id)) return true;
+    return (s.tables ?? []).some((t) => placedIds.has(t.id));
+  });
+  const hiddenSections = sections.filter(
+    (s) => !visibleSections.some((v) => v.id === s.id),
+  );
 
   // ─── Canvas drag (move tables and decorations) ────────────────────────────
 
@@ -739,8 +809,15 @@ export default function FloorPlanEditorPage() {
               </div>
             )}
 
-            {/* Sections */}
-            {sections.map((section) => {
+            {/* Empty-state hint when no sections are active in this plan */}
+            {visibleSections.length === 0 && (
+              <p className="text-xs text-fg-secondary">
+                {t('noSectionsInPlanHint')}
+              </p>
+            )}
+
+            {/* Sections — filtered to only those active in this plan */}
+            {visibleSections.map((section) => {
               const tables = section.tables ?? [];
               const unplaced = tables.filter((t) => !placedIds.has(t.id));
               const placed = tables.filter((t) => placedIds.has(t.id));
@@ -821,7 +898,17 @@ export default function FloorPlanEditorPage() {
               </div>
             </div>
 
-            {/* Add section */}
+            {/* Use an existing section on this plan */}
+            {hiddenSections.length > 0 && (
+              <button
+                onClick={() => setShowAddSectionPicker(true)}
+                className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
+              >
+                + {t('useExistingSection')}
+              </button>
+            )}
+
+            {/* Create a brand-new section */}
             <button
               onClick={() => setShowSectionModal(true)}
               className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
@@ -836,8 +923,34 @@ export default function FloorPlanEditorPage() {
       {showSectionModal && (
         <SectionModal
           restaurantId={rid}
-          onCreated={() => { setShowSectionModal(false); loadData(); }}
+          onCreated={(newId) => {
+            setShowSectionModal(false);
+            // Newly created sections start visible in this plan's sidebar so
+            // the user can immediately drop their tables onto the canvas.
+            setSessionAddedSectionIds((prev) => {
+              const next = new Set(prev);
+              next.add(newId);
+              return next;
+            });
+            loadData();
+          }}
           onClose={() => setShowSectionModal(false)}
+        />
+      )}
+
+      {/* Picker — bring an existing section into this plan's sidebar */}
+      {showAddSectionPicker && (
+        <AddExistingSectionPicker
+          sections={hiddenSections}
+          onPick={(sectionId) => {
+            setSessionAddedSectionIds((prev) => {
+              const next = new Set(prev);
+              next.add(sectionId);
+              return next;
+            });
+            setShowAddSectionPicker(false);
+          }}
+          onClose={() => setShowAddSectionPicker(false)}
         />
       )}
 
