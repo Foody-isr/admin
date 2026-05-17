@@ -1,18 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { QRCodeCanvas } from 'qrcode.react';
-import { Copy, Download, Printer, QrCode, Check } from 'lucide-react';
+import { Copy, Download, Printer, QrCode, Check, Palette, Printer as PrinterIcon } from 'lucide-react';
 import {
   listSections,
   generateTableQr,
+  getQrCardConfig,
+  getRestaurant,
   type TableSection,
   type RestaurantTableRef,
   type TableQrPayload,
+  type QrCardConfig,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button, Drawer, PageHead } from '@/components/ds';
+import { QrCard } from '@/components/qr/QrCard';
 
 interface SelectedTable {
   table: RestaurantTableRef;
@@ -27,10 +31,20 @@ export default function TableQrPage() {
   const [sections, setSections] = useState<TableSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SelectedTable | null>(null);
+  const [cardConfig, setCardConfig] = useState<QrCardConfig | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    listSections(rid)
-      .then(setSections)
+    Promise.all([
+      listSections(rid),
+      getQrCardConfig(rid),
+      getRestaurant(rid).catch(() => null),
+    ])
+      .then(([secs, cfg, rest]) => {
+        setSections(secs);
+        setCardConfig(cfg);
+        if (rest?.logo_url) setLogoUrl(rest.logo_url);
+      })
       .finally(() => setLoading(false));
   }, [rid]);
 
@@ -46,7 +60,28 @@ export default function TableQrPage() {
 
   return (
     <div className="space-y-[var(--s-5)]">
-      <PageHead title={t('tableQrCodes')} desc={t('tableQrCodesDesc')} />
+      <PageHead
+        title={t('tableQrCodes')}
+        desc={t('tableQrCodesDesc')}
+        actions={
+          <>
+            <Link href={`/${rid}/restaurant/table-qr/customize`}>
+              <Button variant="secondary" size="md">
+                <Palette />
+                {t('customizeTemplate')}
+              </Button>
+            </Link>
+            {totalTables > 0 && (
+              <Link href={`/${rid}/restaurant/table-qr/print`} target="_blank">
+                <Button variant="primary" size="md">
+                  <PrinterIcon />
+                  {t('printAllQrCards')}
+                </Button>
+              </Link>
+            )}
+          </>
+        }
+      />
 
       {totalTables === 0 ? (
         <div className="card flex flex-col items-center py-16 space-y-4">
@@ -70,11 +105,13 @@ export default function TableQrPage() {
         </div>
       )}
 
-      {selected && (
+      {selected && cardConfig && (
         <QrDrawer
           restaurantId={rid}
           table={selected.table}
           sectionName={selected.sectionName}
+          cardConfig={cardConfig}
+          logoUrl={logoUrl}
           onClose={() => setSelected(null)}
         />
       )}
@@ -127,18 +164,22 @@ function QrDrawer({
   restaurantId,
   table,
   sectionName,
+  cardConfig,
+  logoUrl,
   onClose,
 }: {
   restaurantId: number;
   table: RestaurantTableRef;
   sectionName: string;
+  cardConfig: QrCardConfig;
+  logoUrl?: string;
   onClose: () => void;
 }) {
   const { t } = useI18n();
   const [payload, setPayload] = useState<TableQrPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const cardWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,7 +204,6 @@ function QrDrawer({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Older browsers — fallback to selection
       const ta = document.createElement('textarea');
       ta.value = payload.url;
       document.body.appendChild(ta);
@@ -176,44 +216,21 @@ function QrDrawer({
   }, [payload]);
 
   const handleDownload = useCallback(() => {
-    const canvas = canvasWrapRef.current?.querySelector('canvas');
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
+    const svg = cardWrapRef.current?.querySelector('.qr-card svg');
+    if (!svg) return;
+    const serialized = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `table-${table.code}-qr.png`;
+    a.href = url;
+    a.download = `table-${table.code}-qr.svg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }, [table.code]);
 
-  const handlePrint = useCallback(() => {
-    const canvas = canvasWrapRef.current?.querySelector('canvas');
-    if (!canvas || !payload) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    const win = window.open('', '_blank', 'width=600,height=800');
-    if (!win) return;
-    win.document.write(`<!doctype html><html><head><title>Table ${table.name}</title>
-<style>
-  @page { size: A6; margin: 12mm; }
-  html, body { margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { text-align: center; padding: 24px; }
-  .label { font-size: 14px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-  .name { font-size: 28px; font-weight: 700; margin-bottom: 20px; }
-  img { width: 320px; height: 320px; }
-  .hint { font-size: 12px; color: #777; margin-top: 18px; }
-</style></head><body>
-<div class="card">
-  <div class="label">${escapeHtml(sectionName)}</div>
-  <div class="name">${escapeHtml(table.name)}</div>
-  <img src="${dataUrl}" alt="QR" />
-  <div class="hint">Scan to order</div>
-</div>
-<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 100); });</script>
-</body></html>`);
-    win.document.close();
-  }, [payload, table.code, table.name, sectionName]);
+  const tableLabel = sectionName ? `${sectionName} · ${table.name}` : table.name;
 
   return (
     <Drawer
@@ -240,17 +257,14 @@ function QrDrawer({
 
         {payload && (
           <>
-            <div
-              ref={canvasWrapRef}
-              className="bg-white rounded-lg p-[var(--s-5)] shadow border border-[var(--line)]"
-            >
-              <QRCodeCanvas
-                value={payload.url}
-                size={260}
-                level="H"
-                marginSize={2}
-                bgColor="#ffffff"
-                fgColor="#111111"
+            <div ref={cardWrapRef}>
+              <QrCard
+                config={cardConfig}
+                url={payload.url}
+                tableLabel={tableLabel}
+                logoUrl={logoUrl}
+                labels={{ poweredBy: t('poweredByFoody') }}
+                width={300}
               />
             </div>
 
@@ -261,18 +275,14 @@ function QrDrawer({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--s-2)] w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-2)] w-full">
               <Button variant="secondary" size="md" onClick={handleCopy}>
                 {copied ? <Check /> : <Copy />}
                 {copied ? t('linkCopied') : t('copyLink')}
               </Button>
               <Button variant="secondary" size="md" onClick={handleDownload}>
                 <Download />
-                {t('downloadPng')}
-              </Button>
-              <Button variant="primary" size="md" onClick={handlePrint}>
-                <Printer />
-                {t('printQr')}
+                {t('downloadSvg')}
               </Button>
             </div>
           </>
@@ -280,13 +290,4 @@ function QrDrawer({
       </div>
     </Drawer>
   );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }

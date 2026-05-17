@@ -3951,6 +3951,45 @@ export async function generateTableQr(
   );
 }
 
+// ─── QR Card Customization ────────────────────────────────────────────────────
+
+export type QrCardTemplate = 'minimal' | 'bold' | 'elegant';
+export type QrCardBrandMode = 'text' | 'logo';
+
+export interface QrCardConfig {
+  id: number;
+  restaurant_id: number;
+  template: QrCardTemplate;
+  background_color: string;
+  text_color: string;
+  brand_mode: QrCardBrandMode;
+  brand_text: string;
+  title: string;
+  subtitle: string;
+  step1: string;
+  step2: string;
+  step3: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getQrCardConfig(restaurantId: number): Promise<QrCardConfig> {
+  const data = await apiFetch<{ qr_card_config: QrCardConfig }>(
+    `/api/v1/restaurants/${restaurantId}/qr-card-config`, restaurantId
+  );
+  return data.qr_card_config;
+}
+
+export async function updateQrCardConfig(
+  restaurantId: number, input: Partial<QrCardConfig>
+): Promise<QrCardConfig> {
+  const data = await apiFetch<{ qr_card_config: QrCardConfig }>(
+    `/api/v1/restaurants/${restaurantId}/qr-card-config`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.qr_card_config;
+}
+
 
 // ─── Rotation Schedule ────────────────────────────────────────────────────────
 
