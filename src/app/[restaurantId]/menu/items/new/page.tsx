@@ -213,20 +213,7 @@ export default function NewItemPage() {
         });
       }
       clearItemDraft(rid);
-      // Redirect into the edit page rather than back to the list. The edit
-      // page has the inline VariantsEditor and re-hydrates option sets from
-      // the server, so the variants the user just typed remain visible
-      // (previously they had to reopen the item manually to confirm).
-      // Stashing the freshly-created item in sessionStorage mirrors
-      // `openEditor` on the list and avoids the initial loading flash.
-      // The active tab is preserved so a user who saved from "modifiers"
-      // lands back on modifiers.
-      try {
-        sessionStorage.setItem(`foody.menuItem.${item.id}`, JSON.stringify(item));
-      } catch {
-        /* quota or SSR — fall through */
-      }
-      router.replace(`/${rid}/menu/items/${item.id}?tab=${activeTab}`);
+      router.push(`/${rid}/menu/items`);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
     } finally {
