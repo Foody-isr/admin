@@ -37,7 +37,6 @@ interface SelectedTable {
 }
 
 type TableEditState =
-  | { mode: 'create'; sectionId: number; sectionName: string; nextIndex: number }
   | { mode: 'edit'; table: RestaurantTableRef }
   | null;
 
@@ -112,7 +111,7 @@ export default function TableQrPage() {
         <div className="card flex flex-col items-center py-16 space-y-4">
           <QrCode className="w-10 h-10 text-fg-secondary" />
           <p className="text-fg-secondary text-center max-w-md">{t('noTablesYet')}</p>
-          <Link href={`/${rid}/restaurant/floor-plans`}>
+          <Link href={`/${rid}/restaurant/sections`}>
             <Button variant="primary" size="md">
               <Plus />
               {t('createSection')}
@@ -127,21 +126,12 @@ export default function TableQrPage() {
               section={section}
               restaurantId={rid}
               onSelect={(table) => setSelected({ table, sectionName: section.name })}
-              onAddTable={() =>
-                setEditState({
-                  mode: 'create',
-                  sectionId: section.id,
-                  sectionName: section.name,
-                  nextIndex: (section.tables?.length ?? 0) + 1,
-                })
-              }
               onEditTable={(table) => setEditState({ mode: 'edit', table })}
               onSectionChanged={reloadSections}
               labels={{
                 seats: t('seatsLabel'),
                 inactive: t('tableInactive'),
                 viewQr: t('viewQr'),
-                addTable: t('addTable'),
                 edit: t('edit'),
                 renameSection: t('renameSection'),
                 deleteSection: t('deleteSection'),
@@ -149,6 +139,8 @@ export default function TableQrPage() {
                 deleteSectionConfirm: t('deleteSectionConfirm'),
                 deleteSectionConfirmCascade: t('deleteSectionConfirmCascade'),
                 tablesCount: t('tablesCount'),
+                noTablesInSection: t('noTablesInSection'),
+                addTablesFromFloorPlan: t('addTablesFromFloorPlan'),
               }}
             />
           ))}
@@ -170,10 +162,7 @@ export default function TableQrPage() {
       {editState && (
         <TableEditorModal
           restaurantId={rid}
-          sectionId={editState.mode === 'create' ? editState.sectionId : undefined}
-          sectionName={editState.mode === 'create' ? editState.sectionName : undefined}
-          nextIndex={editState.mode === 'create' ? editState.nextIndex : undefined}
-          table={editState.mode === 'edit' ? editState.table : undefined}
+          table={editState.table}
           onSaved={() => {
             setEditState(null);
             reloadSections();
@@ -200,7 +189,6 @@ function SectionBlock({
   section,
   restaurantId,
   onSelect,
-  onAddTable,
   onEditTable,
   onSectionChanged,
   labels,
@@ -208,14 +196,12 @@ function SectionBlock({
   section: TableSection;
   restaurantId: number;
   onSelect: (table: RestaurantTableRef) => void;
-  onAddTable: () => void;
   onEditTable: (table: RestaurantTableRef) => void;
   onSectionChanged: () => void;
   labels: {
     seats: string;
     inactive: string;
     viewQr: string;
-    addTable: string;
     edit: string;
     renameSection: string;
     deleteSection: string;
@@ -223,6 +209,8 @@ function SectionBlock({
     deleteSectionConfirm: string;
     deleteSectionConfirmCascade: string;
     tablesCount: string;
+    noTablesInSection: string;
+    addTablesFromFloorPlan: string;
   };
 }) {
   const tableCount = section.tables?.length ?? 0;
@@ -278,13 +266,6 @@ function SectionBlock({
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-        <button
-          onClick={onAddTable}
-          className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline flex items-center gap-1 shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {labels.addTable}
-        </button>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[var(--s-3)]">
         {(section.tables ?? []).map((table) => (
@@ -328,13 +309,11 @@ function SectionBlock({
           </div>
         ))}
         {(section.tables ?? []).length === 0 && (
-          <button
-            onClick={onAddTable}
-            className="card text-center p-[var(--s-4)] border-dashed text-fg-secondary hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-fs-sm">{labels.addTable}</span>
-          </button>
+          <div className="card text-center p-[var(--s-4)] border-dashed text-fg-secondary flex items-center justify-center gap-2 col-span-2 sm:col-span-3 md:col-span-4 lg:col-span-5">
+            <span className="text-fs-sm">
+              {labels.noTablesInSection} · {labels.addTablesFromFloorPlan}
+            </span>
+          </div>
         )}
       </div>
     </div>
