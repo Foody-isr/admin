@@ -14,7 +14,7 @@ import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
-import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant } from './types';
+import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, effectiveStepKind } from './types';
 import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
@@ -95,6 +95,8 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
 
   // ── Picker mode ────────────────────────────────────────────────────────
 
+  const renderKind = effectiveStepKind(step);
+
   if (picking) {
     return (
       <StepPicker
@@ -110,7 +112,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
           // re-derive the count from items.length. Single-item steps keep
           // whatever min/max was set via the quantity stepper.
           let committed = nextDraft;
-          if (step.kind === 'fixed') {
+          if (renderKind === 'fixed') {
             const n = nextDraft.items.length;
             if (n === 0) {
               committed = { ...nextDraft, min_picks: 1, max_picks: 1 };
@@ -134,7 +136,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
   //   • single item × N (quantity stepper visible)
   //   • bundle of N items × 1 each (no stepper; min/max == items.length)
 
-  if (step.kind === 'fixed') {
+  if (renderKind === 'fixed') {
     const isBundle = step.items.length > 1;
     const qty = Math.max(1, step.min_picks || 1);
 
@@ -345,6 +347,22 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
               }
             />
+            {/* One-click conversion to fixed bundle: forces min=max=items.length
+              * so the customer auto-gets every option. Useful when an operator
+              * realises a "1 of N" step is actually "all N included". After
+              * conversion the card re-renders without a rules popover. */}
+            {step.items.length >= 1 && step.source_type !== 'category' && (
+              <button
+                type="button"
+                onClick={() => {
+                  const n = step.items.length;
+                  onChange({ ...step, min_picks: n, max_picks: n, kind: 'fixed' });
+                }}
+                className="mt-[var(--s-3)] w-full h-8 rounded-r-sm border border-dashed border-[var(--line-strong)] text-fs-xs font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors"
+              >
+                {t('composeIncludeAll')}
+              </button>
+            )}
           </PopoverContent>
         </Popover>
         <button

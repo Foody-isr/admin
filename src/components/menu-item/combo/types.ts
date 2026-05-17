@@ -75,6 +75,20 @@ export function deriveStepKind(s: Pick<ComboStepDraft, 'source_type' | 'items' |
   return 'fixed';
 }
 
+/** Resolve which UI variant a step should render as.
+ *
+ *  - Non-empty: pure data-shape check via `deriveStepKind`. So if the
+ *    operator manually sets min=max=items.length on a "choice" step, the
+ *    card auto-flips to fixed (the customer can't tell the difference and
+ *    fixed has the cleaner UI).
+ *  - Empty: the persisted `kind` flag wins (so a freshly-added "fixed"
+ *    step renders its empty-state UI immediately, before any item is
+ *    picked). */
+export function effectiveStepKind(s: ComboStepDraft): 'fixed' | 'choice' {
+  if (s.items.length === 0) return s.kind === 'fixed' ? 'fixed' : 'choice';
+  return deriveStepKind(s);
+}
+
 // ── View-models ──────────────────────────────────────────────────────────
 
 /** One source-item-grouping in a step. Items sharing the same `menu_item_id`
