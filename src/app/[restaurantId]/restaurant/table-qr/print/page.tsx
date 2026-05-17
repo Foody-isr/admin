@@ -26,6 +26,7 @@ export default function PrintQrCardsPage() {
 
   const [config, setConfig] = useState<QrCardConfig | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [restaurantLocale, setRestaurantLocale] = useState<string | undefined>(undefined);
   const [items, setItems] = useState<PrintableTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export default function PrintQrCardsPage() {
         if (cancelled) return;
         setConfig(cfg);
         if (rest?.logo_url) setLogoUrl(rest.logo_url);
+        if (rest?.default_locale) setRestaurantLocale(rest.default_locale);
 
         const flat: { table: RestaurantTableRef; sectionName: string }[] = [];
         for (const s of sections) {
@@ -171,6 +173,8 @@ export default function PrintQrCardsPage() {
                     it.sectionName ? `${it.sectionName} · ${it.table.name}` : it.table.name
                   }
                   logoUrl={logoUrl}
+                  locale={(it.table.language as 'en' | 'he' | 'fr' | '' | undefined) || ''}
+                  restaurantDefaultLocale={restaurantLocale}
                   labels={{ poweredBy: t('poweredByFoody') }}
                   width={screenCardWidth}
                 />

@@ -1,10 +1,17 @@
 'use client';
 
 import { QRCodeSVG } from 'qrcode.react';
-import type { QrCardConfig, QrCardTemplate } from '@/lib/api';
+import type {
+  QrCardConfig,
+  QrCardLocale,
+  QrCardTemplate,
+  QrCardTexts,
+} from '@/lib/api';
 
 export interface QrCardLabels {
   poweredBy: string;
+  /** Fallback defaults applied when no locale has the field set. */
+  defaults?: QrCardTexts;
 }
 
 interface QrCardProps {
@@ -13,8 +20,48 @@ interface QrCardProps {
   tableLabel: string;
   logoUrl?: string;
   labels: QrCardLabels;
+  /** Locale to render in. Falls back through restaurantDefaultLocale → 'en'. */
+  locale?: QrCardLocale | '';
+  /** Restaurant's default_locale (used when `locale` is empty). */
+  restaurantDefaultLocale?: QrCardLocale | string;
   /** Width in pixels for screen rendering. Height follows the template's aspect ratio. */
   width?: number;
+}
+
+/**
+ * Resolves the effective texts to render: for each field, pick from the
+ * requested locale → restaurant default → 'en' → fallback defaults.
+ */
+export function resolveTexts(
+  config: QrCardConfig,
+  locale: QrCardLocale | '' | undefined,
+  restaurantDefaultLocale: QrCardLocale | string | undefined,
+  fallback?: QrCardTexts,
+): Required<QrCardTexts> {
+  const order: (QrCardLocale | string)[] = [];
+  if (locale) order.push(locale);
+  if (restaurantDefaultLocale && !order.includes(restaurantDefaultLocale)) {
+    order.push(restaurantDefaultLocale);
+  }
+  if (!order.includes('en')) order.push('en');
+
+  const pick = (field: keyof QrCardTexts): string => {
+    for (const l of order) {
+      const t = config.texts?.[l as QrCardLocale];
+      const v = t?.[field];
+      if (v && v.trim()) return v;
+    }
+    return fallback?.[field] ?? '';
+  };
+
+  return {
+    brand_text: pick('brand_text'),
+    title: pick('title'),
+    subtitle: pick('subtitle'),
+    step1: pick('step1'),
+    step2: pick('step2'),
+    step3: pick('step3'),
+  };
 }
 
 /**
@@ -46,27 +93,33 @@ export const PRINT_LAYOUT: Record<
 };
 
 export function QrCard(props: QrCardProps) {
+  const resolved = resolveTexts(props.config, props.locale, props.restaurantDefaultLocale, props.labels.defaults);
+  const isRtl = (props.locale || props.restaurantDefaultLocale) === 'he';
   const tpl = props.config.template;
-  if (tpl === 'wide') return <WideCard {...props} />;
-  if (tpl === 'tall') return <TallCard {...props} />;
-  return <CompactCard {...props} />;
+  const sharedProps = { ...props, resolved, isRtl };
+  if (tpl === 'wide') return <WideCard {...sharedProps} />;
+  if (tpl === 'tall') return <TallCard {...sharedProps} />;
+  return <CompactCard {...sharedProps} />;
 }
 
 // ── Shared visual atoms ──────────────────────────────────────────────────────
 
+type RenderProps = QrCardProps & { resolved: Required<QrCardTexts>; isRtl: boolean };
+
 interface AtomProps {
   config: QrCardConfig;
+  texts: Required<QrCardTexts>;
   logoUrl?: string;
   size: number; // font scale anchor (use card width)
 }
 
-function BrandBlock({ config, logoUrl, size }: AtomProps) {
+function BrandBlock({ config, texts, logoUrl, size }: AtomProps) {
   const showLogo = config.brand_mode === 'logo' && !!logoUrl;
   if (showLogo) {
     return (
       <img
         src={logoUrl}
-        alt={config.brand_text || 'logo'}
+        alt={texts.brand_text || 'logo'}
         style={{
           maxWidth: size * 0.5,
           maxHeight: size * 0.16,
@@ -77,7 +130,7 @@ function BrandBlock({ config, logoUrl, size }: AtomProps) {
       />
     );
   }
-  if (!config.brand_text) return null;
+  if (!texts.brand_text) return null;
   return (
     <div
       style={{
@@ -88,13 +141,13 @@ function BrandBlock({ config, logoUrl, size }: AtomProps) {
         fontWeight: 600,
       }}
     >
-      {config.brand_text}
+      {texts.brand_text}
     </div>
   );
 }
 
-function StepsList({ config, size, align = 'center' }: AtomProps & { align?: 'left' | 'center' }) {
-  if (!config.step1 && !config.step2 && !config.step3) return null;
+function StepsList({ texts, size, align = 'center' }: { texts: Required<QrCardTexts>; size: number; align?: 'left' | 'center' | 'right' }) {
+  if (!texts.step1 && !texts.step2 && !texts.step3) return null;
   return (
     <div
       style={{
@@ -104,9 +157,9 @@ function StepsList({ config, size, align = 'center' }: AtomProps & { align?: 'le
         textAlign: align,
       }}
     >
-      {config.step1 && <div>1. {config.step1}</div>}
-      {config.step2 && <div>2. {config.step2}</div>}
-      {config.step3 && <div>3. {config.step3}</div>}
+      {texts.step1 && <div>1. {texts.step1}</div>}
+      {texts.step2 && <div>2. {texts.step2}</div>}
+      {texts.step3 && <div>3. {texts.step3}</div>}
     </div>
   );
 }
@@ -169,8 +222,8 @@ function baseCardStyle(props: QrCardProps, w: number, h: number): React.CSSPrope
 
 // ── Template 1: Compact portrait (4.25 × 5.5) ────────────────────────────────
 
-function CompactCard(props: QrCardProps) {
-  const { config, url, tableLabel, logoUrl, labels, width = 260 } = props;
+function CompactCard(props: RenderProps) {
+  const { config, url, tableLabel, logoUrl, labels, resolved, isRtl, width = 260 } = props;
   const { wMm, hMm } = TEMPLATE_SIZES.compact;
   const height = (width * hMm) / wMm;
   const pad = width * 0.07;
@@ -178,6 +231,7 @@ function CompactCard(props: QrCardProps) {
   return (
     <div
       className="qr-card"
+      dir={isRtl ? 'rtl' : undefined}
       style={{
         ...baseCardStyle(props, width, height),
         padding: pad,
@@ -188,9 +242,9 @@ function CompactCard(props: QrCardProps) {
         textAlign: 'center',
       }}
     >
-      <BrandBlock config={config} logoUrl={logoUrl} size={width} />
+      <BrandBlock config={config} texts={resolved} logoUrl={logoUrl} size={width} />
 
-      {config.title && (
+      {resolved.title && (
         <div
           style={{
             fontSize: width * 0.085,
@@ -199,7 +253,7 @@ function CompactCard(props: QrCardProps) {
             marginTop: -pad * 0.3,
           }}
         >
-          {config.title}
+          {resolved.title}
         </div>
       )}
 
@@ -207,7 +261,7 @@ function CompactCard(props: QrCardProps) {
 
       <div style={{ fontSize: width * 0.05, fontWeight: 600 }}>{tableLabel}</div>
 
-      <StepsList config={config} size={width} />
+      <StepsList texts={resolved} size={width} />
 
       <Foot label={labels.poweredBy} size={width} />
     </div>
@@ -216,8 +270,8 @@ function CompactCard(props: QrCardProps) {
 
 // ── Template 2: Wide landscape (7 × 5) ───────────────────────────────────────
 
-function WideCard(props: QrCardProps) {
-  const { config, url, tableLabel, logoUrl, labels, width = 420 } = props;
+function WideCard(props: RenderProps) {
+  const { config, url, tableLabel, logoUrl, labels, resolved, isRtl, width = 420 } = props;
   const { wMm, hMm } = TEMPLATE_SIZES.wide;
   const height = (width * hMm) / wMm;
   const pad = width * 0.05;
@@ -225,6 +279,7 @@ function WideCard(props: QrCardProps) {
   return (
     <div
       className="qr-card"
+      dir={isRtl ? 'rtl' : undefined}
       style={{
         ...baseCardStyle(props, width, height),
         padding: pad,
@@ -234,9 +289,9 @@ function WideCard(props: QrCardProps) {
         textAlign: 'center',
       }}
     >
-      <BrandBlock config={config} logoUrl={logoUrl} size={width * 0.6} />
+      <BrandBlock config={config} texts={resolved} logoUrl={logoUrl} size={width * 0.6} />
 
-      {config.title && (
+      {resolved.title && (
         <div
           style={{
             fontSize: width * 0.06,
@@ -245,7 +300,7 @@ function WideCard(props: QrCardProps) {
             marginTop: pad * 0.3,
           }}
         >
-          {config.title}
+          {resolved.title}
         </div>
       )}
 
@@ -264,13 +319,13 @@ function WideCard(props: QrCardProps) {
           <QrSquare url={url} size={width * 0.28} />
           <div style={{ fontSize: width * 0.034, fontWeight: 600 }}>{tableLabel}</div>
         </div>
-        <div style={{ textAlign: 'left' }}>
-          {config.subtitle && (
+        <div style={{ textAlign: isRtl ? 'right' : 'left' }}>
+          {resolved.subtitle && (
             <div style={{ fontSize: width * 0.032, opacity: 0.8, marginBottom: pad * 0.3 }}>
-              {config.subtitle}
+              {resolved.subtitle}
             </div>
           )}
-          <StepsList config={config} size={width * 0.85} align="left" />
+          <StepsList texts={resolved} size={width * 0.85} align={isRtl ? 'right' : 'left'} />
         </div>
       </div>
 
@@ -281,8 +336,8 @@ function WideCard(props: QrCardProps) {
 
 // ── Template 3: Tall portrait with hero panel (5 × 7) ────────────────────────
 
-function TallCard(props: QrCardProps) {
-  const { config, url, tableLabel, logoUrl, labels, width = 260 } = props;
+function TallCard(props: RenderProps) {
+  const { config, url, tableLabel, logoUrl, labels, resolved, isRtl, width = 260 } = props;
   const { wMm, hMm } = TEMPLATE_SIZES.tall;
   const height = (width * hMm) / wMm;
   const pad = width * 0.06;
@@ -293,6 +348,7 @@ function TallCard(props: QrCardProps) {
   return (
     <div
       className="qr-card"
+      dir={isRtl ? 'rtl' : undefined}
       style={{
         ...baseCardStyle(props, width, height),
         padding: pad,
@@ -302,7 +358,7 @@ function TallCard(props: QrCardProps) {
       }}
     >
       <div style={{ width: '100%', textAlign: 'center', paddingTop: pad * 0.2 }}>
-        <BrandBlock config={config} logoUrl={logoUrl} size={width} />
+        <BrandBlock config={config} texts={resolved} logoUrl={logoUrl} size={width} />
       </div>
 
       <div
@@ -319,9 +375,9 @@ function TallCard(props: QrCardProps) {
           justifyContent: 'space-between',
         }}
       >
-        {config.title && (
+        {resolved.title && (
           <div style={{ fontSize: width * 0.085, fontWeight: 800, lineHeight: 1.15 }}>
-            {config.title}
+            {resolved.title}
           </div>
         )}
 
@@ -338,9 +394,9 @@ function TallCard(props: QrCardProps) {
 
         <div style={{ display: 'flex', gap: pad * 0.5, alignItems: 'flex-end' }}>
           <div style={{ flex: 1, fontSize: width * 0.04, opacity: 0.85, lineHeight: 1.6 }}>
-            {config.step1 && <div>{config.step1}</div>}
-            {config.step2 && <div>{config.step2}</div>}
-            {config.step3 && <div>{config.step3}</div>}
+            {resolved.step1 && <div>{resolved.step1}</div>}
+            {resolved.step2 && <div>{resolved.step2}</div>}
+            {resolved.step3 && <div>{resolved.step3}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <QrSquare url={url} size={width * 0.3} />
@@ -349,7 +405,7 @@ function TallCard(props: QrCardProps) {
         </div>
       </div>
 
-      {config.subtitle && (
+      {resolved.subtitle && (
         <div
           style={{
             fontSize: width * 0.04,
@@ -359,7 +415,7 @@ function TallCard(props: QrCardProps) {
             marginBottom: pad * 0.4,
           }}
         >
-          {config.subtitle}
+          {resolved.subtitle}
         </div>
       )}
 

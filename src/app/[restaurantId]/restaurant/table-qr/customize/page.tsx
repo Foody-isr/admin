@@ -8,9 +8,12 @@ import {
   getQrCardConfig,
   updateQrCardConfig,
   getRestaurant,
+  QR_CARD_LOCALES,
   type QrCardConfig,
+  type QrCardLocale,
   type QrCardTemplate,
   type QrCardBrandMode,
+  type QrCardTexts,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button, Input, PageHead, Field } from '@/components/ds';
@@ -26,6 +29,12 @@ const TEMPLATE_OPTIONS: {
   { id: 'tall', labelKey: 'qrTplTall', sizeKey: 'qrSizeTall' },
 ];
 
+const LOCALE_LABELS: Record<QrCardLocale, string> = {
+  en: 'English',
+  he: 'עברית',
+  fr: 'Français',
+};
+
 const SAMPLE_URL = 'https://app.foody-pos.co.il/r/example/table/A1?sessionId=preview';
 
 export default function CustomizeQrCardPage() {
@@ -35,21 +44,41 @@ export default function CustomizeQrCardPage() {
 
   const [draft, setDraft] = useState<QrCardConfig | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [restaurantLocale, setRestaurantLocale] = useState<string | undefined>(undefined);
+  const [activeLocale, setActiveLocale] = useState<QrCardLocale>('en');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
-  // i18n-aware defaults for empty text fields, applied once on load.
-  const defaults = useMemo(
+  // Per-locale i18n defaults for empty fields, applied at first load if missing.
+  const defaultsByLocale = useMemo<Record<QrCardLocale, QrCardTexts>>(
     () => ({
-      brand_text: t('qrDefaultBrand'),
-      title: t('qrDefaultTitle'),
-      subtitle: t('qrDefaultSubtitle'),
-      step1: t('qrDefaultStep1'),
-      step2: t('qrDefaultStep2'),
-      step3: t('qrDefaultStep3'),
+      en: {
+        brand_text: 'My restaurant',
+        title: 'Order from your phone',
+        subtitle: 'No app required',
+        step1: 'Open phone camera',
+        step2: 'Scan QR code to see menu',
+        step3: 'Order & pay',
+      },
+      he: {
+        brand_text: 'המסעדה שלי',
+        title: 'הזמינו מהטלפון',
+        subtitle: 'ללא צורך באפליקציה',
+        step1: 'פתחו את מצלמת הטלפון',
+        step2: 'סרקו את קוד ה-QR לתפריט',
+        step3: 'הזמינו ושלמו',
+      },
+      fr: {
+        brand_text: 'Mon restaurant',
+        title: 'Commandez depuis votre téléphone',
+        subtitle: 'Aucune application requise',
+        step1: 'Ouvrez l’appareil photo',
+        step2: 'Scannez le code QR pour voir le menu',
+        step3: 'Commandez et payez',
+      },
     }),
-    [t],
+    [],
   );
 
   useEffect(() => {
@@ -58,17 +87,29 @@ export default function CustomizeQrCardPage() {
     Promise.all([getQrCardConfig(rid), getRestaurant(rid).catch(() => null)])
       .then(([cfg, rest]) => {
         if (cancelled) return;
-        const filled: QrCardConfig = {
-          ...cfg,
-          brand_text: cfg.brand_text || defaults.brand_text,
-          title: cfg.title || defaults.title,
-          subtitle: cfg.subtitle || defaults.subtitle,
-          step1: cfg.step1 || defaults.step1,
-          step2: cfg.step2 || defaults.step2,
-          step3: cfg.step3 || defaults.step3,
-        };
-        setDraft(filled);
+        // Backfill empty locales with defaults so the editor never shows a blank form.
+        const filledTexts: QrCardConfig['texts'] = { ...cfg.texts };
+        for (const loc of QR_CARD_LOCALES) {
+          const cur = filledTexts[loc] ?? {};
+          const def = defaultsByLocale[loc];
+          filledTexts[loc] = {
+            brand_text: cur.brand_text || def.brand_text,
+            title: cur.title || def.title,
+            subtitle: cur.subtitle || def.subtitle,
+            step1: cur.step1 || def.step1,
+            step2: cur.step2 || def.step2,
+            step3: cur.step3 || def.step3,
+          };
+        }
+        setDraft({ ...cfg, texts: filledTexts });
         if (rest?.logo_url) setLogoUrl(rest.logo_url);
+        const restLoc = rest?.default_locale;
+        if (restLoc) {
+          setRestaurantLocale(restLoc);
+          if (restLoc === 'en' || restLoc === 'he' || restLoc === 'fr') {
+            setActiveLocale(restLoc);
+          }
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -76,10 +117,24 @@ export default function CustomizeQrCardPage() {
     return () => {
       cancelled = true;
     };
-  }, [rid, defaults]);
+  }, [rid, defaultsByLocale]);
 
-  const setField = <K extends keyof QrCardConfig>(key: K, value: QrCardConfig[K]) => {
+  const setVisual = <K extends keyof QrCardConfig>(key: K, value: QrCardConfig[K]) => {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const setText = (field: keyof QrCardTexts, value: string) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const cur = prev.texts[activeLocale] ?? {};
+      return {
+        ...prev,
+        texts: {
+          ...prev.texts,
+          [activeLocale]: { ...cur, [field]: value },
+        },
+      };
+    });
   };
 
   const handleSave = async () => {
@@ -91,22 +146,24 @@ export default function CustomizeQrCardPage() {
         background_color: draft.background_color,
         text_color: draft.text_color,
         brand_mode: draft.brand_mode,
-        brand_text: draft.brand_text,
-        title: draft.title,
-        subtitle: draft.subtitle,
-        step1: draft.step1,
-        step2: draft.step2,
-        step3: draft.step3,
+        texts: draft.texts,
       });
-      setDraft({
-        ...saved,
-        brand_text: saved.brand_text || defaults.brand_text,
-        title: saved.title || defaults.title,
-        subtitle: saved.subtitle || defaults.subtitle,
-        step1: saved.step1 || defaults.step1,
-        step2: saved.step2 || defaults.step2,
-        step3: saved.step3 || defaults.step3,
-      });
+      // Merge with existing filled defaults so the editor doesn't show blanks
+      // if the server stripped omitted fields.
+      const merged: QrCardConfig['texts'] = { ...saved.texts };
+      for (const loc of QR_CARD_LOCALES) {
+        const cur = merged[loc] ?? {};
+        const def = defaultsByLocale[loc];
+        merged[loc] = {
+          brand_text: cur.brand_text || def.brand_text,
+          title: cur.title || def.title,
+          subtitle: cur.subtitle || def.subtitle,
+          step1: cur.step1 || def.step1,
+          step2: cur.step2 || def.step2,
+          step3: cur.step3 || def.step3,
+        };
+      }
+      setDraft({ ...saved, texts: merged });
       setSavedAt(Date.now());
     } finally {
       setSaving(false);
@@ -121,12 +178,11 @@ export default function CustomizeQrCardPage() {
       background_color: '#ffffff',
       text_color: '#1a1a1a',
       brand_mode: 'text',
-      brand_text: defaults.brand_text,
-      title: defaults.title,
-      subtitle: defaults.subtitle,
-      step1: defaults.step1,
-      step2: defaults.step2,
-      step3: defaults.step3,
+      texts: {
+        en: { ...defaultsByLocale.en },
+        he: { ...defaultsByLocale.he },
+        fr: { ...defaultsByLocale.fr },
+      },
     });
   };
 
@@ -140,6 +196,7 @@ export default function CustomizeQrCardPage() {
 
   const ratio = contrastRatio(draft.background_color, draft.text_color);
   const lowContrast = ratio < 4.5;
+  const localeTexts = draft.texts[activeLocale] ?? {};
 
   return (
     <div className="space-y-[var(--s-5)]">
@@ -175,7 +232,7 @@ export default function CustomizeQrCardPage() {
                 return (
                   <button
                     key={opt.id}
-                    onClick={() => setField('template', opt.id)}
+                    onClick={() => setVisual('template', opt.id)}
                     className={
                       'px-2 py-2 rounded-md border text-fs-xs font-medium transition-colors flex flex-col items-center gap-0.5 ' +
                       (active
@@ -196,12 +253,12 @@ export default function CustomizeQrCardPage() {
               <ColorRow
                 label={t('background')}
                 value={draft.background_color}
-                onChange={(v) => setField('background_color', v)}
+                onChange={(v) => setVisual('background_color', v)}
               />
               <ColorRow
                 label={t('textAccent')}
                 value={draft.text_color}
-                onChange={(v) => setField('text_color', v)}
+                onChange={(v) => setVisual('text_color', v)}
               />
             </div>
             {lowContrast && (
@@ -219,7 +276,7 @@ export default function CustomizeQrCardPage() {
                 return (
                   <button
                     key={m}
-                    onClick={() => setField('brand_mode', m)}
+                    onClick={() => setVisual('brand_mode', m)}
                     disabled={m === 'logo' && !logoUrl}
                     className={
                       'flex-1 px-2 py-1.5 rounded text-fs-xs font-medium transition-colors ' +
@@ -233,55 +290,102 @@ export default function CustomizeQrCardPage() {
                 );
               })}
             </div>
-            {draft.brand_mode === 'text' ? (
-              <Input
-                value={draft.brand_text}
-                onChange={(e) => setField('brand_text', e.target.value)}
-                placeholder={defaults.brand_text}
-              />
-            ) : logoUrl ? (
-              <div className="p-2 border rounded text-center bg-white">
-                <img src={logoUrl} alt="logo" className="max-h-12 mx-auto object-contain" />
-              </div>
-            ) : (
-              <p className="text-fs-xs text-fg-secondary">{t('noLogoUploadedHint')}</p>
-            )}
           </Field>
+
+          {/* Language tabs */}
+          <div>
+            <div className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-2">
+              {t('language')}
+            </div>
+            <div className="flex gap-1 p-0.5 bg-[var(--bg-subtle)] rounded-md">
+              {QR_CARD_LOCALES.map((loc) => {
+                const active = activeLocale === loc;
+                return (
+                  <button
+                    key={loc}
+                    onClick={() => setActiveLocale(loc)}
+                    className={
+                      'flex-1 px-2 py-1.5 rounded text-fs-xs font-medium transition-colors ' +
+                      (active
+                        ? 'bg-[var(--bg)] shadow text-fg-primary'
+                        : 'text-fg-secondary')
+                    }
+                    dir={loc === 'he' ? 'rtl' : 'ltr'}
+                  >
+                    {LOCALE_LABELS[loc]}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">
+              {t('qrEditLanguageHint')}
+            </p>
+          </div>
+
+          {draft.brand_mode === 'text' && (
+            <Field label={t('qrBrandTextLabel')}>
+              <Input
+                value={localeTexts.brand_text ?? ''}
+                onChange={(e) => setText('brand_text', e.target.value)}
+                placeholder={defaultsByLocale[activeLocale].brand_text}
+                dir={activeLocale === 'he' ? 'rtl' : 'ltr'}
+              />
+            </Field>
+          )}
 
           <Field label={t('title')}>
             <Input
-              value={draft.title}
-              onChange={(e) => setField('title', e.target.value)}
-              placeholder={defaults.title}
+              value={localeTexts.title ?? ''}
+              onChange={(e) => setText('title', e.target.value)}
+              placeholder={defaultsByLocale[activeLocale].title}
+              dir={activeLocale === 'he' ? 'rtl' : 'ltr'}
             />
           </Field>
 
           <Field label={t('subtitle')}>
             <Input
-              value={draft.subtitle}
-              onChange={(e) => setField('subtitle', e.target.value)}
-              placeholder={defaults.subtitle}
+              value={localeTexts.subtitle ?? ''}
+              onChange={(e) => setText('subtitle', e.target.value)}
+              placeholder={defaultsByLocale[activeLocale].subtitle}
+              dir={activeLocale === 'he' ? 'rtl' : 'ltr'}
             />
           </Field>
 
           <Field label={t('qrSteps')}>
             <div className="space-y-2">
-              <Input value={draft.step1} onChange={(e) => setField('step1', e.target.value)} placeholder={defaults.step1} />
-              <Input value={draft.step2} onChange={(e) => setField('step2', e.target.value)} placeholder={defaults.step2} />
-              <Input value={draft.step3} onChange={(e) => setField('step3', e.target.value)} placeholder={defaults.step3} />
+              <Input
+                value={localeTexts.step1 ?? ''}
+                onChange={(e) => setText('step1', e.target.value)}
+                placeholder={defaultsByLocale[activeLocale].step1}
+                dir={activeLocale === 'he' ? 'rtl' : 'ltr'}
+              />
+              <Input
+                value={localeTexts.step2 ?? ''}
+                onChange={(e) => setText('step2', e.target.value)}
+                placeholder={defaultsByLocale[activeLocale].step2}
+                dir={activeLocale === 'he' ? 'rtl' : 'ltr'}
+              />
+              <Input
+                value={localeTexts.step3 ?? ''}
+                onChange={(e) => setText('step3', e.target.value)}
+                placeholder={defaultsByLocale[activeLocale].step3}
+                dir={activeLocale === 'he' ? 'rtl' : 'ltr'}
+              />
             </div>
           </Field>
         </div>
 
         <div className="card p-[var(--s-5)] flex flex-col items-center gap-[var(--s-4)] bg-[var(--bg-subtle)]">
           <div className="text-fs-xs uppercase tracking-wide text-fg-secondary font-semibold">
-            {t('livePreview')}
+            {t('livePreview')} · {LOCALE_LABELS[activeLocale]}
           </div>
           <QrCard
             config={draft}
             url={SAMPLE_URL}
             tableLabel={`${t('previewSection')} · ${t('previewTable')}`}
             logoUrl={logoUrl}
+            locale={activeLocale}
+            restaurantDefaultLocale={restaurantLocale}
             labels={{ poweredBy: t('poweredByFoody') }}
             width={draft.template === 'wide' ? 440 : 300}
           />

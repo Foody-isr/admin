@@ -199,7 +199,11 @@ export default function FloorPlanEditorPage() {
 
   const [selected, setSelected] = useState<SelectedItem>(null);
   const [showSectionModal, setShowSectionModal] = useState(false);
-  const [addTableSectionId, setAddTableSectionId] = useState<number | null>(null);
+  const [addTableTarget, setAddTableTarget] = useState<{
+    sectionId: number;
+    sectionName: string;
+    nextIndex: number;
+  } | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{
@@ -780,7 +784,13 @@ export default function FloorPlanEditorPage() {
                     ))}
                     {/* + Add table */}
                     <button
-                      onClick={() => setAddTableSectionId(section.id)}
+                      onClick={() =>
+                        setAddTableTarget({
+                          sectionId: section.id,
+                          sectionName: section.name,
+                          nextIndex: (section.tables?.length ?? 0) + 1,
+                        })
+                      }
                       className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
                       style={{ border: '1px dashed var(--divider)' }}
                       title={t('addTable')}
@@ -831,13 +841,15 @@ export default function FloorPlanEditorPage() {
       )}
 
       {/* Table creation modal (per-section) */}
-      {addTableSectionId !== null && (
+      {addTableTarget && (
         <TableEditorModal
           restaurantId={rid}
-          sectionId={addTableSectionId}
-          onSaved={() => { setAddTableSectionId(null); loadData(); }}
-          onDeleted={() => { setAddTableSectionId(null); loadData(); }}
-          onClose={() => setAddTableSectionId(null)}
+          sectionId={addTableTarget.sectionId}
+          sectionName={addTableTarget.sectionName}
+          nextIndex={addTableTarget.nextIndex}
+          onSaved={() => { setAddTableTarget(null); loadData(); }}
+          onDeleted={() => { setAddTableTarget(null); loadData(); }}
+          onClose={() => setAddTableTarget(null)}
         />
       )}
     </>

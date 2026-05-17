@@ -3780,6 +3780,8 @@ export interface RestaurantTableRef {
   seats: number;
   active: boolean;
   section_id: number | null;
+  /** Locale code (en/he/fr) used when rendering this table's QR card. Empty = inherit restaurant default. */
+  language?: string;
 }
 
 export interface FloorPlanPlacement {
@@ -3941,6 +3943,8 @@ export interface TableInput {
   is_open?: boolean;
   /** Optional. Pass 0 to clear an existing section assignment on update. */
   section_id?: number;
+  /** Optional locale code (en/he/fr). Empty string clears the override. */
+  language?: string;
 }
 
 export async function listTables(restaurantId: number): Promise<RestaurantTableRef[]> {
@@ -4000,6 +4004,19 @@ export async function generateTableQr(
 
 export type QrCardTemplate = 'compact' | 'wide' | 'tall';
 export type QrCardBrandMode = 'text' | 'logo';
+export type QrCardLocale = 'en' | 'he' | 'fr';
+
+export const QR_CARD_LOCALES: QrCardLocale[] = ['en', 'he', 'fr'];
+
+/** Per-language text content on a QR card. All fields optional; empty falls back to other locales then defaults. */
+export interface QrCardTexts {
+  brand_text?: string;
+  title?: string;
+  subtitle?: string;
+  step1?: string;
+  step2?: string;
+  step3?: string;
+}
 
 export interface QrCardConfig {
   id: number;
@@ -4008,12 +4025,8 @@ export interface QrCardConfig {
   background_color: string;
   text_color: string;
   brand_mode: QrCardBrandMode;
-  brand_text: string;
-  title: string;
-  subtitle: string;
-  step1: string;
-  step2: string;
-  step3: string;
+  /** Locale code (en/he/fr) → text content. */
+  texts: Partial<Record<QrCardLocale, QrCardTexts>>;
   created_at?: string;
   updated_at?: string;
 }

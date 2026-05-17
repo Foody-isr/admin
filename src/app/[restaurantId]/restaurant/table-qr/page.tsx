@@ -34,7 +34,7 @@ interface SelectedTable {
 }
 
 type TableEditState =
-  | { mode: 'create'; sectionId: number }
+  | { mode: 'create'; sectionId: number; sectionName: string; nextIndex: number }
   | { mode: 'edit'; table: RestaurantTableRef }
   | null;
 
@@ -48,6 +48,7 @@ export default function TableQrPage() {
   const [selected, setSelected] = useState<SelectedTable | null>(null);
   const [cardConfig, setCardConfig] = useState<QrCardConfig | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [restaurantLocale, setRestaurantLocale] = useState<string | undefined>(undefined);
   const [editState, setEditState] = useState<TableEditState>(null);
 
   const reloadSections = useCallback(() => {
@@ -64,6 +65,7 @@ export default function TableQrPage() {
         setSections(secs);
         setCardConfig(cfg);
         if (rest?.logo_url) setLogoUrl(rest.logo_url);
+        if (rest?.default_locale) setRestaurantLocale(rest.default_locale);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -121,7 +123,14 @@ export default function TableQrPage() {
               key={section.id}
               section={section}
               onSelect={(table) => setSelected({ table, sectionName: section.name })}
-              onAddTable={() => setEditState({ mode: 'create', sectionId: section.id })}
+              onAddTable={() =>
+                setEditState({
+                  mode: 'create',
+                  sectionId: section.id,
+                  sectionName: section.name,
+                  nextIndex: (section.tables?.length ?? 0) + 1,
+                })
+              }
               onEditTable={(table) => setEditState({ mode: 'edit', table })}
               labels={{
                 seats: t('seatsLabel'),
@@ -142,6 +151,7 @@ export default function TableQrPage() {
           sectionName={selected.sectionName}
           cardConfig={cardConfig}
           logoUrl={logoUrl}
+          restaurantLocale={restaurantLocale}
           onClose={() => setSelected(null)}
         />
       )}
@@ -150,6 +160,8 @@ export default function TableQrPage() {
         <TableEditorModal
           restaurantId={rid}
           sectionId={editState.mode === 'create' ? editState.sectionId : undefined}
+          sectionName={editState.mode === 'create' ? editState.sectionName : undefined}
+          nextIndex={editState.mode === 'create' ? editState.nextIndex : undefined}
           table={editState.mode === 'edit' ? editState.table : undefined}
           onSaved={() => {
             setEditState(null);
@@ -164,6 +176,13 @@ export default function TableQrPage() {
       )}
     </div>
   );
+}
+
+function localeBadge(lang?: string): string {
+  if (lang === 'en') return 'EN';
+  if (lang === 'he') return 'עב';
+  if (lang === 'fr') return 'FR';
+  return '';
 }
 
 function SectionBlock({
@@ -223,9 +242,16 @@ function SectionBlock({
                 <span className="font-semibold text-fg-primary">{table.name}</span>
                 <QrCode className="w-4 h-4 text-fg-secondary shrink-0" />
               </div>
-              <div className="text-fs-xs text-fg-secondary">
-                {table.seats} {labels.seats}
-                {!table.active && <span className="ms-2">· {labels.inactive}</span>}
+              <div className="text-fs-xs text-fg-secondary flex items-center gap-1.5">
+                <span>
+                  {table.seats} {labels.seats}
+                </span>
+                {table.language && (
+                  <span className="px-1.5 py-0.5 rounded bg-[var(--bg-subtle)] text-[10px] font-semibold uppercase tracking-wide">
+                    {localeBadge(table.language)}
+                  </span>
+                )}
+                {!table.active && <span>· {labels.inactive}</span>}
               </div>
               <span className="text-fs-xs text-[var(--brand-500)] font-medium mt-1">
                 {labels.viewQr}
@@ -253,6 +279,7 @@ function QrDrawer({
   sectionName,
   cardConfig,
   logoUrl,
+  restaurantLocale,
   onClose,
 }: {
   restaurantId: number;
@@ -260,6 +287,7 @@ function QrDrawer({
   sectionName: string;
   cardConfig: QrCardConfig;
   logoUrl?: string;
+  restaurantLocale?: string;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -350,6 +378,8 @@ function QrDrawer({
                 url={payload.url}
                 tableLabel={tableLabel}
                 logoUrl={logoUrl}
+                locale={(table.language as 'en' | 'he' | 'fr' | '' | undefined) || ''}
+                restaurantDefaultLocale={restaurantLocale}
                 labels={{ poweredBy: t('poweredByFoody') }}
                 width={300}
               />
