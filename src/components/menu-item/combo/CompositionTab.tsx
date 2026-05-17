@@ -92,6 +92,26 @@ export default function CompositionTab({
     onStepsChange([...steps, fresh]);
   };
 
+  // Fixed item = a step whose contents are pre-defined and the customer makes
+  // no choice. Encoded as a single-item step with min_picks === max_picks. The
+  // foodyweb modal auto-detects when every step matches this shape and renders
+  // a "What's included" preview instead of the stepper.
+  const addFixedItem = () => {
+    const fixedCount = steps.filter(
+      (s) => s.items.length <= 1 && s.min_picks === s.max_picks
+    ).length;
+    const fresh: ComboStepDraft = {
+      key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `fixed-${Date.now()}`,
+      name: t('composeFixedItemDefaultName').replace('{n}', String(fixedCount + 1)),
+      description: '',
+      min_picks: 1,
+      max_picks: 1,
+      items: [],
+      source_type: 'explicit',
+    };
+    onStepsChange([...steps, fresh]);
+  };
+
   return (
     <div className="max-w-5xl flex flex-col gap-[var(--s-5)]">
       {/* Section head with brand accent */}
@@ -127,14 +147,24 @@ export default function CompositionTab({
           />
         ))}
 
-        {/* Add step CTA */}
-        <button
-          type="button"
-          onClick={addStep}
-          className="w-full py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
-        >
-          <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
-        </button>
+        {/* Add CTAs — "New step" for choices, "Fixed item" for pre-defined contents. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-3)]">
+          <button
+            type="button"
+            onClick={addStep}
+            className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
+          </button>
+          <button
+            type="button"
+            onClick={addFixedItem}
+            title={t('composeAddFixedItemHint')}
+            className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" /> {t('composeAddFixedItem')}
+          </button>
+        </div>
       </div>
 
       {/* Validation errors — surfaced inline at the bottom of the tab */}
