@@ -57,14 +57,21 @@ export interface ComboStepDraft {
   kind?: 'fixed' | 'choice';
 }
 
-/** Infer a step's UI kind from its persisted shape. Steps that look like a
- *  single fixed item (one explicit option, min_picks === max_picks > 0) render
- *  as fixed; everything else renders as a choice step. */
+/** Infer a step's UI kind from its persisted shape.
+ *
+ *  A step is "fixed" when the customer makes no real choice. Two valid
+ *  shapes:
+ *    • single item × N quantity: items.length === 1, min_picks === max_picks
+ *    • bundle of N items × 1 each: items.length === min_picks === max_picks
+ *
+ *  Anything else (multi-option with a smaller pick count, optional steps,
+ *  category mode) is a choice step. */
 export function deriveStepKind(s: Pick<ComboStepDraft, 'source_type' | 'items' | 'min_picks' | 'max_picks'>): 'fixed' | 'choice' {
   if (s.source_type === 'category') return 'choice';
-  if (s.items.length !== 1) return 'choice';
+  if (s.items.length === 0) return 'choice';
   if (s.min_picks <= 0) return 'choice';
   if (s.min_picks !== s.max_picks) return 'choice';
+  if (s.items.length !== 1 && s.items.length !== s.min_picks) return 'choice';
   return 'fixed';
 }
 
