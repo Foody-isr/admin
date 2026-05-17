@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Copy, Download, Printer, QrCode, Check, Palette, Printer as PrinterIcon } from 'lucide-react';
+import {
+  Copy,
+  Download,
+  QrCode,
+  Check,
+  Palette,
+  Printer as PrinterIcon,
+  Plus,
+  Pencil,
+} from 'lucide-react';
 import {
   listSections,
   generateTableQr,
@@ -17,11 +26,17 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { Button, Drawer, PageHead } from '@/components/ds';
 import { QrCard } from '@/components/qr/QrCard';
+import { TableEditorModal } from '@/components/tables/TableEditorModal';
 
 interface SelectedTable {
   table: RestaurantTableRef;
   sectionName: string;
 }
+
+type TableEditState =
+  | { mode: 'create'; sectionId: number }
+  | { mode: 'edit'; table: RestaurantTableRef }
+  | null;
 
 export default function TableQrPage() {
   const { restaurantId } = useParams();
@@ -33,6 +48,11 @@ export default function TableQrPage() {
   const [selected, setSelected] = useState<SelectedTable | null>(null);
   const [cardConfig, setCardConfig] = useState<QrCardConfig | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  const [editState, setEditState] = useState<TableEditState>(null);
+
+  const reloadSections = useCallback(() => {
+    return listSections(rid).then(setSections);
+  }, [rid]);
 
   useEffect(() => {
     Promise.all([
@@ -83,10 +103,16 @@ export default function TableQrPage() {
         }
       />
 
-      {totalTables === 0 ? (
+      {sections.length === 0 ? (
         <div className="card flex flex-col items-center py-16 space-y-4">
           <QrCode className="w-10 h-10 text-fg-secondary" />
           <p className="text-fg-secondary text-center max-w-md">{t('noTablesYet')}</p>
+          <Link href={`/${rid}/restaurant/floor-plans`}>
+            <Button variant="primary" size="md">
+              <Plus />
+              {t('createSection')}
+            </Button>
+          </Link>
         </div>
       ) : (
         <div className="space-y-[var(--s-5)]">
@@ -95,10 +121,14 @@ export default function TableQrPage() {
               key={section.id}
               section={section}
               onSelect={(table) => setSelected({ table, sectionName: section.name })}
+              onAddTable={() => setEditState({ mode: 'create', sectionId: section.id })}
+              onEditTable={(table) => setEditState({ mode: 'edit', table })}
               labels={{
                 seats: t('seatsLabel'),
                 inactive: t('tableInactive'),
                 viewQr: t('viewQr'),
+                addTable: t('addTable'),
+                edit: t('edit'),
               }}
             />
           ))}
@@ -115,6 +145,23 @@ export default function TableQrPage() {
           onClose={() => setSelected(null)}
         />
       )}
+
+      {editState && (
+        <TableEditorModal
+          restaurantId={rid}
+          sectionId={editState.mode === 'create' ? editState.sectionId : undefined}
+          table={editState.mode === 'edit' ? editState.table : undefined}
+          onSaved={() => {
+            setEditState(null);
+            reloadSections();
+          }}
+          onDeleted={() => {
+            setEditState(null);
+            reloadSections();
+          }}
+          onClose={() => setEditState(null)}
+        />
+      )}
     </div>
   );
 }
@@ -122,39 +169,79 @@ export default function TableQrPage() {
 function SectionBlock({
   section,
   onSelect,
+  onAddTable,
+  onEditTable,
   labels,
 }: {
   section: TableSection;
   onSelect: (table: RestaurantTableRef) => void;
-  labels: { seats: string; inactive: string; viewQr: string };
+  onAddTable: () => void;
+  onEditTable: (table: RestaurantTableRef) => void;
+  labels: {
+    seats: string;
+    inactive: string;
+    viewQr: string;
+    addTable: string;
+    edit: string;
+  };
 }) {
-  if (!section.tables || section.tables.length === 0) return null;
-
   return (
     <div className="space-y-[var(--s-3)]">
-      <h3 className="text-fs-sm font-semibold text-fg-secondary uppercase tracking-wide">
-        {section.name}
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-fs-sm font-semibold text-fg-secondary uppercase tracking-wide">
+          {section.name}
+        </h3>
+        <button
+          onClick={onAddTable}
+          className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline flex items-center gap-1"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          {labels.addTable}
+        </button>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[var(--s-3)]">
-        {section.tables.map((table) => (
-          <button
+        {(section.tables ?? []).map((table) => (
+          <div
             key={table.id}
-            onClick={() => onSelect(table)}
-            className="card text-left p-[var(--s-4)] hover:border-[var(--brand-500)] hover:shadow transition-all flex flex-col gap-[var(--s-2)]"
+            className="card text-left p-[var(--s-4)] hover:border-[var(--brand-500)] hover:shadow transition-all flex flex-col gap-[var(--s-2)] relative group"
           >
-            <div className="flex items-start justify-between gap-2">
-              <span className="font-semibold text-fg-primary">{table.name}</span>
-              <QrCode className="w-4 h-4 text-fg-secondary shrink-0" />
-            </div>
-            <div className="text-fs-xs text-fg-secondary">
-              {table.seats} {labels.seats}
-              {!table.active && <span className="ms-2">· {labels.inactive}</span>}
-            </div>
-            <span className="text-fs-xs text-[var(--brand-500)] font-medium mt-1">
-              {labels.viewQr}
-            </span>
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditTable(table);
+              }}
+              className="absolute top-2 end-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--surface-subtle)] transition-opacity"
+              title={labels.edit}
+            >
+              <Pencil className="w-3.5 h-3.5 text-fg-secondary" />
+            </button>
+            <button
+              onClick={() => onSelect(table)}
+              className="text-left flex flex-col gap-[var(--s-2)]"
+            >
+              <div className="flex items-start justify-between gap-2 pe-6">
+                <span className="font-semibold text-fg-primary">{table.name}</span>
+                <QrCode className="w-4 h-4 text-fg-secondary shrink-0" />
+              </div>
+              <div className="text-fs-xs text-fg-secondary">
+                {table.seats} {labels.seats}
+                {!table.active && <span className="ms-2">· {labels.inactive}</span>}
+              </div>
+              <span className="text-fs-xs text-[var(--brand-500)] font-medium mt-1">
+                {labels.viewQr}
+              </span>
+            </button>
+          </div>
         ))}
+        {(section.tables ?? []).length === 0 && (
+          <button
+            onClick={onAddTable}
+            className="card text-center p-[var(--s-4)] border-dashed text-fg-secondary hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-fs-sm">{labels.addTable}</span>
+          </button>
+        )}
       </div>
     </div>
   );

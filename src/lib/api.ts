@@ -3932,6 +3932,51 @@ export async function reorderFloorPlans(restaurantId: number, ids: number[]): Pr
 }
 
 
+// ─── Tables CRUD ──────────────────────────────────────────────────────────────
+
+export interface TableInput {
+  code: string;
+  name?: string;
+  seats?: number;
+  is_open?: boolean;
+  /** Optional. Pass 0 to clear an existing section assignment on update. */
+  section_id?: number;
+}
+
+export async function listTables(restaurantId: number): Promise<RestaurantTableRef[]> {
+  const data = await apiFetch<{ tables: RestaurantTableRef[] }>(
+    `/api/v1/restaurants/${restaurantId}/tables?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.tables ?? [];
+}
+
+export async function createTable(restaurantId: number, input: TableInput): Promise<RestaurantTableRef> {
+  const data = await apiFetch<{ table: RestaurantTableRef }>(
+    `/api/v1/restaurants/${restaurantId}/tables?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.table;
+}
+
+export async function updateTable(
+  restaurantId: number,
+  tableCode: string,
+  input: Omit<TableInput, 'code'>,
+): Promise<RestaurantTableRef> {
+  const data = await apiFetch<{ table: RestaurantTableRef }>(
+    `/api/v1/restaurants/${restaurantId}/tables/${encodeURIComponent(tableCode)}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ code: tableCode, ...input }) }
+  );
+  return data.table;
+}
+
+export async function deleteTable(restaurantId: number, tableCode: string): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/tables/${encodeURIComponent(tableCode)}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
 // ─── Table QR Codes ───────────────────────────────────────────────────────────
 
 export interface TableQrPayload {

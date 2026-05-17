@@ -8,8 +8,9 @@ import {
   FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XIcon, TrashIcon } from 'lucide-react';
+import { XIcon, TrashIcon, Plus } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { TableEditorModal } from '@/components/tables/TableEditorModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -198,6 +199,7 @@ export default function FloorPlanEditorPage() {
 
   const [selected, setSelected] = useState<SelectedItem>(null);
   const [showSectionModal, setShowSectionModal] = useState(false);
+  const [addTableSectionId, setAddTableSectionId] = useState<number | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{
@@ -776,6 +778,16 @@ export default function FloorPlanEditorPage() {
                         {tbl.name}
                       </div>
                     ))}
+                    {/* + Add table */}
+                    <button
+                      onClick={() => setAddTableSectionId(section.id)}
+                      className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
+                      style={{ border: '1px dashed var(--divider)' }}
+                      title={t('addTable')}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {t('addTable')}
+                    </button>
                   </div>
                 </div>
               );
@@ -815,6 +827,17 @@ export default function FloorPlanEditorPage() {
           restaurantId={rid}
           onCreated={() => { setShowSectionModal(false); loadData(); }}
           onClose={() => setShowSectionModal(false)}
+        />
+      )}
+
+      {/* Table creation modal (per-section) */}
+      {addTableSectionId !== null && (
+        <TableEditorModal
+          restaurantId={rid}
+          sectionId={addTableSectionId}
+          onSaved={() => { setAddTableSectionId(null); loadData(); }}
+          onDeleted={() => { setAddTableSectionId(null); loadData(); }}
+          onClose={() => setAddTableSectionId(null)}
         />
       )}
     </>
