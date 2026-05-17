@@ -11,7 +11,7 @@ import {
   type RestaurantTableRef,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { QrCard } from '@/components/qr/QrCard';
+import { QrCard, TEMPLATE_SIZES, PRINT_LAYOUT } from '@/components/qr/QrCard';
 
 interface PrintableTable {
   table: RestaurantTableRef;
@@ -78,30 +78,44 @@ export default function PrintQrCardsPage() {
 
   if (loading || !config) {
     return (
-      <div style={{ padding: 32, fontFamily: 'sans-serif' }}>
-        {t('preparingPrint')}
-      </div>
+      <div style={{ padding: 32, fontFamily: 'sans-serif' }}>{t('preparingPrint')}</div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: 32, color: '#c33', fontFamily: 'sans-serif' }}>
-        {error}
-      </div>
+      <div style={{ padding: 32, color: '#c33', fontFamily: 'sans-serif' }}>{error}</div>
     );
   }
 
-  // Group cards into pages of 4 (2×2 grid per A4).
+  const size = TEMPLATE_SIZES[config.template];
+  const layout = PRINT_LAYOUT[config.template];
   const pages: PrintableTable[][] = [];
-  for (let i = 0; i < items.length; i += 4) {
-    pages.push(items.slice(i, i + 4));
+  for (let i = 0; i < items.length; i += layout.perPage) {
+    pages.push(items.slice(i, i + layout.perPage));
   }
+
+  // Print sizes scaled to fit A4 portrait (190mm × 277mm usable after 10mm margins).
+  // Aspect ratio is always preserved — only width is scaled where needed to
+  // fit per-page layouts.
+  const printSize = (() => {
+    if (config.template === 'compact') {
+      // 2 cols × 2 rows. Spec is 108×140mm but 2-up doesn't fit A4 width;
+      // scale to 91mm wide → 117.7mm tall.
+      const wMm = 91;
+      return { wMm, hMm: (wMm * size.hMm) / size.wMm };
+    }
+    // Wide and tall fit at spec size.
+    return { wMm: size.wMm, hMm: size.hMm };
+  })();
+
+  // Pixel width for screen rendering (the actual print uses CSS mm units).
+  const screenCardWidth = config.template === 'wide' ? 600 : 360;
 
   return (
     <>
       <style>{`
-        @page { size: A4; margin: 12mm; }
+        @page { size: A4; margin: 10mm; }
         html, body { margin: 0; padding: 0; background: #f3f3f3; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .print-toolbar { position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 8px; }
@@ -110,22 +124,31 @@ export default function PrintQrCardsPage() {
           width: 210mm;
           min-height: 297mm;
           margin: 12px auto;
-          padding: 12mm;
+          padding: 10mm;
           box-sizing: border-box;
           background: #fff;
           box-shadow: 0 2px 12px rgba(0,0,0,0.08);
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: 1fr 1fr;
-          gap: 12mm;
+          grid-template-columns: repeat(${layout.cols}, 1fr);
+          grid-template-rows: repeat(${layout.rows}, 1fr);
+          gap: 8mm;
           page-break-after: always;
+          align-items: center;
+          justify-items: center;
         }
         .print-page:last-child { page-break-after: auto; }
         .print-cell { display: flex; align-items: center; justify-content: center; }
+        /* Force each rendered card to its real physical size on paper. */
         @media print {
           body { background: #fff; }
           .print-toolbar { display: none !important; }
           .print-page { box-shadow: none; margin: 0; }
+          .qr-card {
+            width: ${printSize.wMm}mm !important;
+            height: ${printSize.hMm}mm !important;
+            box-shadow: none !important;
+            border: 1px dashed #ccc;
+          }
         }
       `}</style>
 
@@ -149,13 +172,12 @@ export default function PrintQrCardsPage() {
                   }
                   logoUrl={logoUrl}
                   labels={{ poweredBy: t('poweredByFoody') }}
-                  width={280}
+                  width={screenCardWidth}
                 />
               </div>
             ))}
-            {/* Fill empty cells so the grid keeps 2×2 even on the last page */}
-            {page.length < 4 &&
-              Array.from({ length: 4 - page.length }).map((_, i) => (
+            {page.length < layout.perPage &&
+              Array.from({ length: layout.perPage - page.length }).map((_, i) => (
                 <div key={`empty-${i}`} className="print-cell" />
               ))}
           </div>

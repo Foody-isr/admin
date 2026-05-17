@@ -3953,7 +3953,7 @@ export async function generateTableQr(
 
 // ─── QR Card Customization ────────────────────────────────────────────────────
 
-export type QrCardTemplate = 'minimal' | 'bold' | 'elegant';
+export type QrCardTemplate = 'compact' | 'wide' | 'tall';
 export type QrCardBrandMode = 'text' | 'logo';
 
 export interface QrCardConfig {

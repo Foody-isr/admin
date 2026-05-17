@@ -14,12 +14,16 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button, Input, PageHead, Field } from '@/components/ds';
-import { QrCard, contrastRatio } from '@/components/qr/QrCard';
+import { QrCard, contrastRatio, TEMPLATE_SIZES } from '@/components/qr/QrCard';
 
-const TEMPLATE_OPTIONS: { id: QrCardTemplate; labelKey: 'qrTplMinimal' | 'qrTplBold' | 'qrTplElegant' }[] = [
-  { id: 'minimal', labelKey: 'qrTplMinimal' },
-  { id: 'bold', labelKey: 'qrTplBold' },
-  { id: 'elegant', labelKey: 'qrTplElegant' },
+const TEMPLATE_OPTIONS: {
+  id: QrCardTemplate;
+  labelKey: 'qrTplCompact' | 'qrTplWide' | 'qrTplTall';
+  sizeKey: 'qrSizeCompact' | 'qrSizeWide' | 'qrSizeTall';
+}[] = [
+  { id: 'compact', labelKey: 'qrTplCompact', sizeKey: 'qrSizeCompact' },
+  { id: 'wide', labelKey: 'qrTplWide', sizeKey: 'qrSizeWide' },
+  { id: 'tall', labelKey: 'qrTplTall', sizeKey: 'qrSizeTall' },
 ];
 
 const SAMPLE_URL = 'https://app.foody-pos.co.il/r/example/table/A1?sessionId=preview';
@@ -113,9 +117,9 @@ export default function CustomizeQrCardPage() {
     if (!draft) return;
     setDraft({
       ...draft,
-      template: 'minimal',
-      background_color: '#fafaf7',
-      text_color: '#2a2a2a',
+      template: 'compact',
+      background_color: '#ffffff',
+      text_color: '#1a1a1a',
       brand_mode: 'text',
       brand_text: defaults.brand_text,
       title: defaults.title,
@@ -173,13 +177,14 @@ export default function CustomizeQrCardPage() {
                     key={opt.id}
                     onClick={() => setField('template', opt.id)}
                     className={
-                      'px-2 py-2 rounded-md border text-fs-xs font-medium transition-colors ' +
+                      'px-2 py-2 rounded-md border text-fs-xs font-medium transition-colors flex flex-col items-center gap-0.5 ' +
                       (active
                         ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--brand-700)]'
                         : 'border-[var(--line)] hover:border-[var(--brand-500)]')
                     }
                   >
-                    {t(opt.labelKey)}
+                    <span>{t(opt.labelKey)}</span>
+                    <span className="text-[10px] opacity-60 font-normal">{t(opt.sizeKey)}</span>
                   </button>
                 );
               })}
@@ -278,8 +283,11 @@ export default function CustomizeQrCardPage() {
             tableLabel={`${t('previewSection')} · ${t('previewTable')}`}
             logoUrl={logoUrl}
             labels={{ poweredBy: t('poweredByFoody') }}
-            width={320}
+            width={draft.template === 'wide' ? 440 : 300}
           />
+          <div className="text-fs-xs text-fg-secondary">
+            {TEMPLATE_SIZES[draft.template].wMm} × {TEMPLATE_SIZES[draft.template].hMm} mm
+          </div>
         </div>
       </div>
     </div>
