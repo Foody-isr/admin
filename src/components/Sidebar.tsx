@@ -42,6 +42,7 @@ import {
   Route,
   QrCode,
   Sparkles,
+  Boxes,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -236,6 +237,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
     pathname === `${base}/settings` ||
     pathname.startsWith(`${base}/settings/`) ||
     pathname.startsWith(`${base}/restaurant/floor-plans`) ||
+    pathname.startsWith(`${base}/restaurant/sections`) ||
     pathname.startsWith(`${base}/restaurant/table-status`) ||
     pathname.startsWith(`${base}/restaurant/table-qr`) ||
     pathname.startsWith(`${base}/restaurant/workflow`);
@@ -262,6 +264,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       groupKey: 'settingsGroupRestaurant',
       items: [
         { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
+        { id: 'sections', href: `${base}/restaurant/sections`, labelKey: 'sections', icon: Boxes },
         { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
         { id: 'table-qr', href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes', icon: QrCode },
         { id: 'workflow', href: `${base}/restaurant/workflow`, labelKey: 'workflow', icon: Route },

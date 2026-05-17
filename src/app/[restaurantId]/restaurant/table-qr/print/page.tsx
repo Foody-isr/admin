@@ -97,34 +97,34 @@ export default function PrintQrCardsPage() {
     pages.push(items.slice(i, i + layout.perPage));
   }
 
-  // Print sizes scaled to fit A4 portrait (190mm × 277mm usable after 10mm margins).
-  // Aspect ratio is always preserved — only width is scaled where needed to
-  // fit per-page layouts.
+  // Card dimensions in mm. Compact is scaled to 92mm so two cards plus a 6mm
+  // gutter still leave ~10mm of breathing room on the A4 page after a 10mm
+  // internal padding (210 - 20 - 6 - 92*2 = 0mm — tight, but cleanly fits).
   const printSize = (() => {
     if (config.template === 'compact') {
-      // 2 cols × 2 rows. Spec is 108×140mm but 2-up doesn't fit A4 width;
-      // scale to 91mm wide → 117.7mm tall.
-      const wMm = 91;
+      const wMm = 92;
       return { wMm, hMm: (wMm * size.hMm) / size.wMm };
     }
-    // Wide and tall fit at spec size.
     return { wMm: size.wMm, hMm: size.hMm };
   })();
 
-  // Pixel width for screen rendering (the actual print uses CSS mm units).
-  const screenCardWidth = config.template === 'wide' ? 600 : 360;
+  // Render the card at its physical print size in pixels (1mm ≈ 3.7795px at
+  // 96dpi) so the layout we see on screen matches what gets printed. Avoids
+  // having to override sizes again via `!important` inside `@media print`.
+  const screenCardWidth = Math.round(printSize.wMm * 3.7795);
 
   return (
     <>
       <style>{`
-        @page { size: A4; margin: 10mm; }
+        /* margin:0 means .print-page IS the printable area, no surprise overflow. */
+        @page { size: A4; margin: 0; }
         html, body { margin: 0; padding: 0; background: #f3f3f3; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         .print-toolbar { position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 8px; }
         .print-toolbar button { padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-size: 13px; }
         .print-page {
           width: 210mm;
-          min-height: 297mm;
+          height: 297mm;
           margin: 12px auto;
           padding: 10mm;
           box-sizing: border-box;
@@ -133,24 +133,19 @@ export default function PrintQrCardsPage() {
           display: grid;
           grid-template-columns: repeat(${layout.cols}, 1fr);
           grid-template-rows: repeat(${layout.rows}, 1fr);
-          gap: 8mm;
+          gap: 6mm;
           page-break-after: always;
           align-items: center;
           justify-items: center;
+          overflow: hidden;
         }
         .print-page:last-child { page-break-after: auto; }
         .print-cell { display: flex; align-items: center; justify-content: center; }
-        /* Force each rendered card to its real physical size on paper. */
         @media print {
           body { background: #fff; }
           .print-toolbar { display: none !important; }
           .print-page { box-shadow: none; margin: 0; }
-          .qr-card {
-            width: ${printSize.wMm}mm !important;
-            height: ${printSize.hMm}mm !important;
-            box-shadow: none !important;
-            border: 1px dashed #ccc;
-          }
+          .qr-card { box-shadow: none !important; }
         }
       `}</style>
 

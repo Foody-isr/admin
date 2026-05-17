@@ -12,12 +12,15 @@ import {
   Printer as PrinterIcon,
   Plus,
   Pencil,
+  Trash2,
 } from 'lucide-react';
 import {
   listSections,
   generateTableQr,
   getQrCardConfig,
   getRestaurant,
+  updateSection,
+  deleteSection,
   type TableSection,
   type RestaurantTableRef,
   type TableQrPayload,
@@ -122,6 +125,7 @@ export default function TableQrPage() {
             <SectionBlock
               key={section.id}
               section={section}
+              restaurantId={rid}
               onSelect={(table) => setSelected({ table, sectionName: section.name })}
               onAddTable={() =>
                 setEditState({
@@ -132,12 +136,19 @@ export default function TableQrPage() {
                 })
               }
               onEditTable={(table) => setEditState({ mode: 'edit', table })}
+              onSectionChanged={reloadSections}
               labels={{
                 seats: t('seatsLabel'),
                 inactive: t('tableInactive'),
                 viewQr: t('viewQr'),
                 addTable: t('addTable'),
                 edit: t('edit'),
+                renameSection: t('renameSection'),
+                deleteSection: t('deleteSection'),
+                renameSectionPrompt: t('renameSectionPrompt'),
+                deleteSectionConfirm: t('deleteSectionConfirm'),
+                deleteSectionConfirmCascade: t('deleteSectionConfirmCascade'),
+                tablesCount: t('tablesCount'),
               }}
             />
           ))}
@@ -187,32 +198,89 @@ function localeBadge(lang?: string): string {
 
 function SectionBlock({
   section,
+  restaurantId,
   onSelect,
   onAddTable,
   onEditTable,
+  onSectionChanged,
   labels,
 }: {
   section: TableSection;
+  restaurantId: number;
   onSelect: (table: RestaurantTableRef) => void;
   onAddTable: () => void;
   onEditTable: (table: RestaurantTableRef) => void;
+  onSectionChanged: () => void;
   labels: {
     seats: string;
     inactive: string;
     viewQr: string;
     addTable: string;
     edit: string;
+    renameSection: string;
+    deleteSection: string;
+    renameSectionPrompt: string;
+    deleteSectionConfirm: string;
+    deleteSectionConfirmCascade: string;
+    tablesCount: string;
   };
 }) {
+  const tableCount = section.tables?.length ?? 0;
+
+  const handleRename = async () => {
+    const next = prompt(labels.renameSectionPrompt, section.name);
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === section.name) return;
+    try {
+      await updateSection(restaurantId, section.id, trimmed);
+      onSectionChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleDelete = async () => {
+    const msg = tableCount > 0
+      ? labels.deleteSectionConfirmCascade.replace('{count}', String(tableCount))
+      : labels.deleteSectionConfirm;
+    if (!confirm(msg)) return;
+    try {
+      await deleteSection(restaurantId, section.id);
+      onSectionChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <div className="space-y-[var(--s-3)]">
-      <div className="flex items-center justify-between">
-        <h3 className="text-fs-sm font-semibold text-fg-secondary uppercase tracking-wide">
-          {section.name}
-        </h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-fs-sm font-semibold text-fg-secondary uppercase tracking-wide truncate">
+            {section.name}
+          </h3>
+          <span className="text-fs-xs text-fg-secondary">
+            · {tableCount} {labels.tablesCount}
+          </span>
+          <button
+            onClick={handleRename}
+            title={labels.renameSection}
+            className="p-1 rounded text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleDelete}
+            title={labels.deleteSection}
+            className="p-1 rounded text-fg-secondary hover:text-red-500 hover:bg-[var(--surface-subtle)] transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
         <button
           onClick={onAddTable}
-          className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline flex items-center gap-1"
+          className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline flex items-center gap-1 shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           {labels.addTable}
