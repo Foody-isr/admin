@@ -139,7 +139,7 @@ export default function RecipeLabPage() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
-        <h1 className="text-xl font-semibold text-[var(--fg)]">Recipe Lab</h1>
+        <h1 className="text-xl font-semibold text-[var(--fg)]">✨ {t('labTitle')}</h1>
         <FoodCostTargetSetting restaurantId={restaurantId} />
       </header>
 

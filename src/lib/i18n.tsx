@@ -803,6 +803,8 @@ const translations: Record<Locale, Record<string, string>> = {
     labRefinePlaceholder: 'Tell me how to refine this…',
     labRefineError: 'Error: refinement failed.',
     labTargetSetting: 'Target food cost',
+    labAskSellingPrice: 'How much will you sell this for?',
+    labTitle: 'Recipe Lab',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Add Supplier',
@@ -1071,6 +1073,9 @@ const translations: Record<Locale, Record<string, string>> = {
     composeIntro: 'Define the steps your customer will follow when ordering. Each step can be required or optional, with one or more choices.',
     composeStepsHeader: 'Composition of the combo',
     composeNewStep: 'New step',
+    composeAddFixedItem: 'Add fixed item',
+    composeAddFixedItemHint: 'For combos where the contents are pre-defined and the customer has no choice to make.',
+    composeFixedItemDefaultName: 'Item {n}',
     composeAddOption: 'Add an item or category to this step',
     composeAddOptionShort: 'Add',
     composeStepDefaultName: 'Step {n}',
@@ -3032,6 +3037,8 @@ const translations: Record<Locale, Record<string, string>> = {
     labRefinePlaceholder: 'ספר לי איך לשכלל את זה…',
     labRefineError: 'שגיאה: השכלול נכשל.',
     labTargetSetting: 'עלות מזון יעד',
+    labAskSellingPrice: 'באיזה מחיר תמכרו את המנה?',
+    labTitle: 'מעבדת מתכונים',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'הוסף ספק',
@@ -3300,6 +3307,9 @@ const translations: Record<Locale, Record<string, string>> = {
     composeIntro: 'הגדר את השלבים שהלקוח שלך יבצע בעת ההזמנה. כל שלב יכול להיות חובה או רשות, עם בחירה אחת או יותר.',
     composeStepsHeader: 'הרכב הקומבו',
     composeNewStep: 'שלב חדש',
+    composeAddFixedItem: 'הוסף פריט קבוע',
+    composeAddFixedItemHint: 'עבור קומבו שתוכנו מוגדר מראש והלקוח לא צריך לבחור.',
+    composeFixedItemDefaultName: 'פריט {n}',
     composeAddOption: 'הוסף פריט או קטגוריה לשלב זה',
     composeAddOptionShort: 'הוסף',
     composeStepDefaultName: 'שלב {n}',
@@ -5241,6 +5251,8 @@ const translations: Record<Locale, Record<string, string>> = {
     labRefinePlaceholder: 'Dites-moi comment améliorer ceci…',
     labRefineError: 'Erreur : l\'affinage a échoué.',
     labTargetSetting: 'Coût alimentaire cible',
+    labAskSellingPrice: 'À quel prix le vendrez-vous ?',
+    labTitle: 'Labo Recettes',
 
     // ── Kitchen Suppliers ──
     addSupplier: 'Ajouter un fournisseur',
@@ -5509,6 +5521,9 @@ const translations: Record<Locale, Record<string, string>> = {
     composeIntro: 'Définissez les étapes que votre client suivra à la commande. Chaque étape peut être obligatoire ou facultative, avec un ou plusieurs choix.',
     composeStepsHeader: 'Composition du combo',
     composeNewStep: 'Nouvelle étape',
+    composeAddFixedItem: 'Ajouter un article fixe',
+    composeAddFixedItemHint: 'Pour les combos dont le contenu est prédéfini et où le client n\'a aucun choix à faire.',
+    composeFixedItemDefaultName: 'Article {n}',
     composeAddOption: 'Ajouter un article ou une catégorie à cette étape',
     composeAddOptionShort: 'Ajouter',
     composeStepDefaultName: 'Étape {n}',

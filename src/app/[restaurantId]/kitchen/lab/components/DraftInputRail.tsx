@@ -27,7 +27,7 @@ export function DraftInputRail({
   restaurantId: number;
   onAfterGenerate?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -45,7 +45,7 @@ export function DraftInputRail({
     if (dishNames.length === 0) return;
     setSubmitting(true);
     try {
-      await labGenerateDrafts(restaurantId, { dish_names: dishNames });
+      await labGenerateDrafts(restaurantId, { dish_names: dishNames, locale });
       setText('');
       onAfterGenerate?.();
     } finally {
@@ -59,6 +59,7 @@ export function DraftInputRail({
     try {
       await labGenerateDrafts(restaurantId, {
         menu_item_ids: ids.map(String),
+        locale,
       });
       onAfterGenerate?.();
     } finally {

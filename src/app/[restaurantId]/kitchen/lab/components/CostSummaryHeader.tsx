@@ -9,6 +9,11 @@ import type { DraftPayload, CostSummary } from '../types';
  *
  * Fully controlled: caller owns `payload.cost_summary.selling_price` and
  * propagates edits up via `onSellingPriceChange`.
+ *
+ * Layout:
+ * 1. Dish name (h2)
+ * 2. Selling price — prominent dashed callout when not set; compact inline when set
+ * 3. Cost stats row (food cost, %, target, verdict badge, suggested min when not ok)
  */
 export function CostSummaryHeader({
   payload,
@@ -19,7 +24,8 @@ export function CostSummaryHeader({
 }) {
   const { t } = useI18n();
   const s = payload.cost_summary;
-  const verdict = verdictMeta(s.verdict, t);
+  const hasSellPrice = s.selling_price != null && s.selling_price > 0;
+  const verdict = hasSellPrice ? verdictMeta(s.verdict, t) : null;
 
   return (
     <header
@@ -28,29 +34,44 @@ export function CostSummaryHeader({
         paddingBottom: 16,
         display: 'flex',
         flexDirection: 'column',
-        gap: 8,
+        gap: 12,
       }}
     >
-      {/* Row 1: dish name + selling price */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-        }}
-      >
-        <h2 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>
-          {payload.menu_item.name_en || payload.menu_item.name_he}
-        </h2>
-        <SellingPriceField
-          label={t('labSellAt')}
-          value={s.selling_price}
-          onChange={onSellingPriceChange}
-        />
-      </div>
+      {/* Dish name */}
+      <h2 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>
+        {payload.menu_item.name_en || payload.menu_item.name_he}
+      </h2>
 
-      {/* Row 2: cost stats + verdict */}
+      {/* Selling price — prominent when missing, compact when set */}
+      {!hasSellPrice ? (
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            background: 'var(--bg-subtle, var(--surface-2))',
+            border: '1px dashed var(--accent-orange, rgb(249,115,22))',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <strong style={{ fontSize: 14 }}>{t('labAskSellingPrice')}</strong>
+          <SellingPriceField value={undefined} onChange={onSellingPriceChange} large />
+          {s.suggested_min_price != null && (
+            <span style={{ color: 'var(--fg-muted)', fontSize: 13 }}>
+              {t('labSuggestedMinPrice')} ₪{s.suggested_min_price.toFixed(0)}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 14, color: 'var(--fg-muted)' }}>{t('labSellAt')}</span>
+          <SellingPriceField value={s.selling_price} onChange={onSellingPriceChange} large />
+        </div>
+      )}
+
+      {/* Cost stats row (only the verdict badge + suggested min here, no redundant "set price" badge) */}
       <div
         style={{
           display: 'flex',
@@ -80,22 +101,24 @@ export function CostSummaryHeader({
           />
         )}
 
-        {/* Verdict badge */}
-        <span
-          style={{
-            borderRadius: 9999,
-            padding: '2px 10px',
-            fontSize: 12,
-            fontWeight: 500,
-            background: verdict.bg,
-            color: verdict.fg,
-          }}
-        >
-          {verdict.label}
-        </span>
+        {/* Verdict badge — only shown when we have a sell price and a real verdict */}
+        {verdict != null && (
+          <span
+            style={{
+              borderRadius: 9999,
+              padding: '2px 10px',
+              fontSize: 12,
+              fontWeight: 500,
+              background: verdict.bg,
+              color: verdict.fg,
+            }}
+          >
+            {verdict.label}
+          </span>
+        )}
 
-        {/* Suggested minimum sell price (only shown when not already on target) */}
-        {s.suggested_min_price != null && s.verdict !== 'ok' && (
+        {/* Suggested min price — shown inline when price is set and not on target */}
+        {s.suggested_min_price != null && s.verdict !== 'ok' && hasSellPrice && (
           <span style={{ color: 'var(--fg-muted)' }}>
             {t('labSuggestedMinPrice')} ₪{s.suggested_min_price.toFixed(0)}
           </span>
@@ -126,7 +149,7 @@ function Stat({
 }
 
 /**
- * Returns a Tailwind-compatible color string for the food cost percentage.
+ * Returns a color string for the food cost percentage.
  * Green  → at or below target
  * Yellow → up to 15 pp above target
  * Red    → beyond that threshold
@@ -162,32 +185,35 @@ function verdictMeta(
         fg: 'rgb(153,27,27)',
       };
     case 'no_price':
-      return {
-        label: t('labSetSellingPrice'),
-        bg: 'var(--bg-subtle,#f3f4f6)',
-        fg: 'var(--fg-muted,#6b7280)',
-      };
+      // no_price verdict is now handled via the prominent sell-price callout above;
+      // suppress the redundant badge here.
+      return { label: '', bg: 'transparent', fg: 'transparent' };
   }
 }
 
 /**
  * SellingPriceField — inline ₪ number input for the sell price.
  * Emits `undefined` when the field is cleared.
+ * Pass `large` for the prominent entry point (bigger font + wider input).
  */
 function SellingPriceField({
-  label,
   value,
   onChange,
+  large,
 }: {
-  label: string;
   value?: number;
   onChange: (v: number | undefined) => void;
+  large?: boolean;
 }) {
   return (
-    <label
-      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: large ? 18 : 14,
+      }}
     >
-      <span style={{ color: 'var(--fg-muted)' }}>{label}</span>
       <span>₪</span>
       <input
         type="number"
@@ -205,15 +231,16 @@ function SellingPriceField({
         }}
         placeholder="—"
         style={{
-          width: 80,
-          padding: '4px 8px',
+          width: large ? 120 : 80,
+          padding: large ? '6px 10px' : '4px 8px',
           borderRadius: 6,
           border: '1px solid var(--line)',
-          fontSize: 14,
-          background: 'var(--surface-2,#fff)',
-          color: 'var(--fg)',
+          fontSize: large ? 18 : 14,
+          fontWeight: large ? 600 : 400,
+          background: 'var(--surface-2, transparent)',
+          color: 'var(--fg, inherit)',
         }}
       />
-    </label>
+    </span>
   );
 }

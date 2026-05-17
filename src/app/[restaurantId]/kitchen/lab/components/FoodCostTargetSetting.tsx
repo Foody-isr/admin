@@ -50,7 +50,8 @@ export function FoodCostTargetSetting({ restaurantId }: { restaurantId: number }
         style={{
           padding: '4px 8px', borderRadius: 6,
           border: '1px solid var(--line)', fontSize: 14,
-          background: 'var(--surface-1, white)',
+          background: 'var(--surface-2, #1f2937)',
+          color: 'var(--fg, inherit)',
         }}
       >
         <option value={0.25}>{'<='} 25%</option>

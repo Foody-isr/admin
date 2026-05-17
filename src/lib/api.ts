@@ -4459,7 +4459,7 @@ export async function importMenuItemsCsv(
 /** Generate one or more recipe drafts by dish name or existing menu item IDs. */
 export async function labGenerateDrafts(
   restaurantId: number,
-  body: { dish_names?: string[]; menu_item_ids?: string[] }
+  body: { dish_names?: string[]; menu_item_ids?: string[]; locale?: string }
 ): Promise<{ drafts: Draft[] }> {
   return apiFetch<{ drafts: Draft[] }>(
     `/api/v1/lab/drafts/generate?restaurant_id=${restaurantId}`, restaurantId,
