@@ -45,8 +45,10 @@ export function TableEditorModal({
 
   const suggestedName = (() => {
     if (table?.name) return table.name;
-    const base = sectionName?.trim() || 'Table';
-    return nextIndex != null ? `${base} ${nextIndex}` : '';
+    // Table names stay neutral ("Table 6") — the section is shown alongside
+    // the table on the printed QR card, so duplicating it in the name only
+    // adds clutter ("Interior · Interior 6").
+    return nextIndex != null ? `Table ${nextIndex}` : '';
   })();
 
   const [name, setName] = useState(suggestedName);
