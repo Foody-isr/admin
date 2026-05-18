@@ -48,6 +48,9 @@ export default function PaymentsSettingsPage() {
   const [tipsEnabled, setTipsEnabled] = useState(true);
   const [rounding, setRounding] = useState<'none' | '10ag' | 'whole'>('none');
   const [tipSuggestions, setTipSuggestions] = useState<[number, number, number]>([10, 12, 15]);
+  // Minimum cart total required to place a delivery order. 0 = no minimum.
+  // Surfaces as the "Min ₪X" pill on the foodyweb hero (delivery mode only).
+  const [minimumOrderDelivery, setMinimumOrderDelivery] = useState<number>(0);
 
   useEffect(() => {
     getRestaurantSettings(rid)
@@ -55,6 +58,7 @@ export default function PaymentsSettingsPage() {
         setSettings(s);
         setVatRate(s.vat_rate ?? 18);
         setTipsEnabled(s.tips_enabled ?? true);
+        setMinimumOrderDelivery(s.minimum_order_delivery ?? 0);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -65,6 +69,7 @@ export default function PaymentsSettingsPage() {
       await updateRestaurantSettings(rid, {
         vat_rate: vatRate,
         tips_enabled: tipsEnabled,
+        minimum_order_delivery: minimumOrderDelivery,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -277,6 +282,29 @@ export default function PaymentsSettingsPage() {
             </div>
           </div>
         </label>
+      </Section>
+
+      {/* Delivery — minimum order amount that gates "delivery" mode orders */}
+      <Section title={t('delivery') || 'Livraison'}>
+        <Field
+          grow
+          label={t('minimumOrderDelivery') || 'Commande minimum (livraison)'}
+          hint={
+            t('minimumOrderDeliveryHelp') ||
+            'Affiché comme « Min ₪X » sur la page de commande client. 0 = pas de minimum.'
+          }
+        >
+          <div className="flex items-center gap-[var(--s-2)]">
+            <span className="text-fs-sm text-[var(--fg-subtle)]">₪</span>
+            <NumberField
+              min={0}
+              value={minimumOrderDelivery}
+              onChange={setMinimumOrderDelivery}
+              className="font-mono tabular-nums text-right"
+              style={{ width: 100 }}
+            />
+          </div>
+        </Field>
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)]">

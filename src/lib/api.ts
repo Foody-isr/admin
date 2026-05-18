@@ -87,6 +87,9 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Delivery — minimum cart total to allow a delivery order (0 = no minimum).
+  // Drives the "Min ₪X" pill on the foodyweb hero in delivery mode.
+  minimum_order_delivery?: number;
   // Batch fulfillment — pre-orders that all ship on a fixed weekly day.
   // Mutually exclusive with `scheduling_enabled` (slot-based).
   batch_fulfillment_enabled?: boolean;
