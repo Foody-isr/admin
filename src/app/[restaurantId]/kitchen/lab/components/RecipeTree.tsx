@@ -43,7 +43,7 @@ export function RecipeTree({
           c.tmp_id ??
           c.prep_item_id ??
           c.stock_item_id ??
-          `${idx}-${c.name_en ?? c.name_he}`;
+          `${idx}-${c.name_primary ?? c.name_he}`;
 
         return isPrep ? (
           <PrepNode

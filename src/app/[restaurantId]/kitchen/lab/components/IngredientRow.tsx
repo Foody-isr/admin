@@ -54,7 +54,7 @@ export function IngredientRow({
           fontSize: 13,
         }}
       >
-        {c.name_en || c.name_he || '—'}
+        {c.name_primary || c.name_he || '—'}
       </span>
 
       {/* Quantity input */}

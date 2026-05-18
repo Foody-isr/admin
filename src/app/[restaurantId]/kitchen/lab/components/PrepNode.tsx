@@ -60,7 +60,7 @@ export function PrepNode({
 
         {/* Prep name + "(prep)" label */}
         <span style={{ flex: 1, fontWeight: 500, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {c.name_en || c.name_he}{' '}
+          {c.name_primary || c.name_he}{' '}
           <span style={{ fontWeight: 400, color: 'var(--fg-muted)' }}>
             ({t('labPrep')})
           </span>
@@ -163,7 +163,7 @@ export function PrepNode({
                 key={
                   ing.tmp_id ??
                   ing.stock_item_id ??
-                  `${idx}-${ing.name_en ?? ing.name_he}`
+                  `${idx}-${ing.name_primary ?? ing.name_he}`
                 }
                 c={ing}
                 onChange={(next) => {

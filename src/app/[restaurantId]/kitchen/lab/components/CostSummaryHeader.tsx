@@ -39,7 +39,7 @@ export function CostSummaryHeader({
     >
       {/* Dish name */}
       <h2 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>
-        {payload.menu_item.name_en || payload.menu_item.name_he}
+        {payload.menu_item.name_primary || payload.menu_item.name_he}
       </h2>
 
       {/* Selling price — prominent when missing, compact when set */}

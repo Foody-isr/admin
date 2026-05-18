@@ -7,7 +7,7 @@ export interface Component {
   stock_item_id?: string;
   prep_item_id?: string;
   name_he?: string;
-  name_en?: string;
+  name_primary?: string;
   category?: string;
   yield_per_batch?: number;
   yield_unit?: string;
@@ -35,12 +35,12 @@ export interface CostSummary {
 export interface RecipeStep {
   order: number;
   instruction_he: string;
-  instruction_en: string;
+  instruction_primary: string;
 }
 
 export interface MenuItemHeader {
   name_he: string;
-  name_en: string;
+  name_primary: string;
 }
 
 export interface DraftPayload {
