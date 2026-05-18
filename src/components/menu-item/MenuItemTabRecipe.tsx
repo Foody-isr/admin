@@ -1,7 +1,7 @@
 'use client';
 
 import { useImperativeHandle, forwardRef, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   getRecipeSteps,
@@ -21,6 +21,7 @@ import CreateStockSheet from './CreateStockSheet';
 import CreatePrepSheet from './CreatePrepSheet';
 import { NumberInput } from '@/components/ui/NumberInput';
 import RecipeTable, { type VariantColumn } from './RecipeTable';
+import RecipeImportModal from '@/app/[restaurantId]/kitchen/RecipeImportModal';
 
 export interface VariantRef {
   option_id: number;
@@ -67,12 +68,15 @@ interface Props {
    *  via a sub-sheet. Optional — composer falls back to the freshly created
    *  item directly even if the lists aren't refreshed. */
   onRefreshLists?: () => Promise<void> | void;
+  /** Re-fetch the full item + ingredients after the AI import flow attaches
+   *  new ingredients server-side. Triggers a full reload on the parent. */
+  onImported?: () => Promise<void> | void;
 }
 
 const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function MenuItemTabRecipe(
   {
     rid, item, ingredients, stockItems, prepItems, variants,
-    onAddIngredient, onDeleteIngredient, onUpdateIngredient, onRefreshLists,
+    onAddIngredient, onDeleteIngredient, onUpdateIngredient, onRefreshLists, onImported,
   }: Props,
   ref,
 ) {
@@ -105,6 +109,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
   const [prepTime, setPrepTime] = useState<number>(item.prep_time_mins ?? 0);
   const [notes, setNotes] = useState<string>(item.recipe_notes ?? '');
   const [dirty, setDirty] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -169,10 +174,20 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
   return (
     <div className="max-w-4xl">
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
-      {/* Section head with 3px brand accent */}
-      <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
-        <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
-        <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
+      {/* Section head with 3px brand accent + AI import shortcut */}
+      <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
+        <div className="flex items-center gap-[var(--s-3)]">
+          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+          <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabRecipe') || 'Recette'}</h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowImportModal(true)}
+          className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
+        >
+          <Sparkles className="w-4 h-4" />
+          {t('importRecipe') || 'Importer une recette'}
+        </button>
       </div>
 
       {/* Ingrédients — table editor (one row per ingredient × one column per variant).
@@ -289,6 +304,19 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         </div>
       </div>
       </section>
+
+      {showImportModal && (
+        <RecipeImportModal
+          rid={rid}
+          mode={{ kind: 'menu-item', menuItem: item }}
+          stockItems={stockItems}
+          onClose={() => setShowImportModal(false)}
+          onImported={async () => {
+            setShowImportModal(false);
+            await onImported?.();
+          }}
+        />
+      )}
     </div>
   );
 });

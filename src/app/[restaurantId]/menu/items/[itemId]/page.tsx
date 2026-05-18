@@ -671,6 +671,7 @@ export default function EditItemPage() {
                   setStockItems(stock ?? []);
                   setPrepItems(prep ?? []);
                 }}
+                onImported={loadData}
               />
             )}
 
