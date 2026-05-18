@@ -810,6 +810,9 @@ export default function WebsitePage() {
               categoryBannerStyle={categoryBannerStyle}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              onRestaurantUpdate={setRestaurant}
             />
           )}
           {editorMode === 'theme' && (
@@ -819,15 +822,12 @@ export default function WebsitePage() {
               config={config}
               themeCatalog={themeCatalog}
               onConfigUpdate={handleMenuConfigUpdate}
-              restaurantId={restaurantId}
-              restaurant={restaurant}
               logoSize={logoSize}
               hideNavbarName={hideNavbarName}
               heroNameFont={heroNameFont}
               onLogoSizeChange={setLogoSize}
               onHideNavbarNameChange={setHideNavbarName}
               onHeroNameFontChange={setHeroNameFont}
-              onRestaurantUpdate={setRestaurant}
             />
           )}
           {editorMode === 'settings' && (
@@ -990,7 +990,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1004,6 +1004,9 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   onMenuLayoutChange: (v: string) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
+  restaurantId: number;
+  restaurant: Restaurant | null;
+  onRestaurantUpdate: (r: Restaurant) => void;
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -1030,11 +1033,17 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
         )}
       </div>
 
-      {/* Menu-page-specific options: layout + category banner style. Only shown
-          on the Page de commande because they only affect the menu rendering. */}
+      {/* Menu-page-specific options: cover image, layout, category banner style.
+          Only shown on the Page de commande because they only affect the menu
+          rendering. */}
       {activePage === 'menu' && (
         <div className="px-4 py-4 border-b border-divider space-y-4">
-          <div>
+          <CoverBackgroundEditor
+            restaurantId={restaurantId}
+            restaurant={restaurant}
+            onRestaurantUpdate={onRestaurantUpdate}
+          />
+          <div className="pt-2 border-t border-divider">
             <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Mise en page du menu</span>
             <div className="grid grid-cols-2 gap-2">
               {([
@@ -1110,21 +1119,18 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
   );
 }
 
-function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, restaurantId, restaurant, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, onRestaurantUpdate }: {
+function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange }: {
   subMode: 'colors' | 'typography' | 'logo';
   onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
   config: WebsiteConfig | null;
   themeCatalog: ThemeCatalog | null;
   onConfigUpdate: (patch: Partial<WebsiteConfig>) => void;
-  restaurantId: number;
-  restaurant: Restaurant | null;
   logoSize: number;
   hideNavbarName: boolean;
   heroNameFont: string;
   onLogoSizeChange: (n: number) => void;
   onHideNavbarNameChange: (v: boolean) => void;
   onHeroNameFontChange: (f: string) => void;
-  onRestaurantUpdate: (r: Restaurant) => void;
 }) {
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'colors', label: 'Couleurs' },
@@ -1199,13 +1205,6 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
                 />
                 <span>Masquer le nom du restaurant dans la navbar</span>
               </label>
-            </div>
-            <div className="border-t border-divider pt-4">
-              <CoverBackgroundEditor
-                restaurantId={restaurantId}
-                restaurant={restaurant}
-                onRestaurantUpdate={onRestaurantUpdate}
-              />
             </div>
           </div>
         )}
