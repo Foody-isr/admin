@@ -17,6 +17,7 @@ import {
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
+import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 
@@ -1198,6 +1199,13 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
                 />
                 <span>Masquer le nom du restaurant dans la navbar</span>
               </label>
+            </div>
+            <div className="border-t border-divider pt-4">
+              <CoverBackgroundEditor
+                restaurantId={restaurantId}
+                restaurant={restaurant}
+                onRestaurantUpdate={onRestaurantUpdate}
+              />
             </div>
           </div>
         )}
