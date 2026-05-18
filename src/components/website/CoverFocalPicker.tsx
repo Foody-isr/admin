@@ -76,9 +76,7 @@ export function CoverFocalPicker({ src, focalX, focalY, onChange }: Props) {
         </div>
       </div>
 
-      <div className="flex items-end gap-3">
-        <PreviewTile label="Desktop" ratio="21 / 9" widthClass="w-44" src={src} style={positionStyle} />
-        <PreviewTile label="Mobile" ratio="4 / 5" widthClass="w-20" src={src} style={positionStyle} />
+      <div className="flex">
         <button
           type="button"
           onClick={() => onChange(50, 50)}
@@ -86,33 +84,6 @@ export function CoverFocalPicker({ src, focalX, focalY, onChange }: Props) {
         >
           Reset to center
         </button>
-      </div>
-    </div>
-  );
-}
-
-function PreviewTile({
-  label,
-  ratio,
-  widthClass,
-  src,
-  style,
-}: {
-  label: string;
-  ratio: string;
-  widthClass: string;
-  src: string;
-  style: React.CSSProperties;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</div>
-      <div
-        className={`${widthClass} rounded-md overflow-hidden border border-[var(--divider)]`}
-        style={{ aspectRatio: ratio }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={`${label} preview`} className="w-full h-full object-cover" style={style} />
       </div>
     </div>
   );

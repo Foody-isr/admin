@@ -10,12 +10,6 @@ type Props = {
   onRestaurantUpdate: (r: Restaurant) => void;
 };
 
-const DISPLAY_MODES: { value: 'cover' | 'contain' | 'repeat'; label: string }[] = [
-  { value: 'cover', label: 'Fill' },
-  { value: 'contain', label: 'Fit' },
-  { value: 'repeat', label: 'Repeat' },
-];
-
 const PRESET_COLORS = [
   '#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
   '#2196F3', '#03A9F4', '#009688', '#4CAF50', '#8BC34A',
@@ -27,7 +21,6 @@ export function CoverBackgroundEditor({ restaurantId, restaurant, onRestaurantUp
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [pickerColor, setPickerColor] = useState(restaurant?.background_color || '#EB5204');
 
-  const coverMode = restaurant?.cover_display_mode || 'cover';
   const focalSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function patch(fields: Partial<Restaurant>) {
@@ -46,7 +39,7 @@ export function CoverBackgroundEditor({ restaurantId, restaurant, onRestaurantUp
     setUploading(true);
     try {
       const imageUrl = await uploadRestaurantBackground(restaurantId, file);
-      await patch({ cover_url: imageUrl });
+      await patch({ cover_url: imageUrl, cover_display_mode: 'cover' });
     } finally {
       setUploading(false);
     }
@@ -54,10 +47,6 @@ export function CoverBackgroundEditor({ restaurantId, restaurant, onRestaurantUp
 
   async function handleRemove() {
     await patch({ cover_url: '', background_color: '' });
-  }
-
-  async function handleSetDisplayMode(mode: string) {
-    await patch({ cover_display_mode: mode });
   }
 
   async function handleSetColor(hex: string) {
@@ -77,62 +66,7 @@ export function CoverBackgroundEditor({ restaurantId, restaurant, onRestaurantUp
     <div>
       <label className="block text-sm font-medium text-fg-primary mb-2">Arrière-plan</label>
 
-      <div className="relative rounded-lg overflow-hidden border border-[var(--divider)] mb-3" style={{ height: 180 }}>
-        {restaurant?.cover_url ? (
-          coverMode === 'repeat' ? (
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${restaurant.cover_url})`,
-                backgroundRepeat: 'repeat',
-                backgroundSize: 'auto 50%',
-                backgroundPosition: 'left top',
-              }}
-            />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={restaurant.cover_url}
-              alt="Cover"
-              className={`w-full h-full ${coverMode === 'contain' ? 'object-contain' : 'object-cover'}`}
-            />
-          )
-        ) : restaurant?.background_color ? (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ backgroundColor: restaurant.background_color }}
-          >
-            <span className="text-xs font-medium text-white/80">{restaurant.background_color}</span>
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-hover)]">
-            <span className="text-xs text-fg-secondary">Aucun arrière-plan</span>
-          </div>
-        )}
-      </div>
-
-      {restaurant?.cover_url && (
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-fg-secondary mb-2">Mode d&apos;affichage</label>
-          <div className="flex gap-2">
-            {DISPLAY_MODES.map((m) => (
-              <button
-                key={m.value}
-                onClick={() => handleSetDisplayMode(m.value)}
-                className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition ${
-                  coverMode === m.value
-                    ? 'border-brand-500 bg-brand-500/10 text-brand-600'
-                    : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/40'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {restaurant?.cover_url && coverMode === 'cover' && (
+      {restaurant?.cover_url ? (
         <div className="mb-3">
           <CoverFocalPicker
             src={restaurant.cover_url}
@@ -140,6 +74,20 @@ export function CoverBackgroundEditor({ restaurantId, restaurant, onRestaurantUp
             focalY={typeof restaurant.cover_focal_y === 'number' ? restaurant.cover_focal_y : 50}
             onChange={handleFocalChange}
           />
+        </div>
+      ) : restaurant?.background_color ? (
+        <div
+          className="relative rounded-lg overflow-hidden border border-[var(--divider)] mb-3 flex items-center justify-center"
+          style={{ height: 140, backgroundColor: restaurant.background_color }}
+        >
+          <span className="text-xs font-medium text-white/80">{restaurant.background_color}</span>
+        </div>
+      ) : (
+        <div
+          className="relative rounded-lg overflow-hidden border border-[var(--divider)] mb-3 flex items-center justify-center bg-[var(--surface-hover)]"
+          style={{ height: 140 }}
+        >
+          <span className="text-xs text-fg-secondary">Aucun arrière-plan</span>
         </div>
       )}
 
