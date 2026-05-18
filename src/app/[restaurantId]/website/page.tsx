@@ -1366,6 +1366,51 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
                 className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               />
             </div>
+
+            {/* WiFi — surfaces as the "📶 WiFi · <SSID>" pill on the
+                foodyweb hero (dine-in only). Tapping the pill opens a sheet
+                with the password + a join-network QR code. */}
+            <div className="mt-2 pt-3 border-t border-divider">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-fg-secondary mb-2">
+                WiFi
+              </p>
+              <p className="text-[11px] text-fg-secondary leading-relaxed mb-3">
+                Visible uniquement en mode « Sur place » sur la page de commande.
+                Le client peut récupérer le mot de passe en tapant sur le badge.
+              </p>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="block text-xs font-medium text-fg-primary mb-1.5">
+                    Nom du réseau (SSID)
+                  </label>
+                  <input
+                    type="text"
+                    value={socialLinks.wifi_ssid || ''}
+                    onChange={(e) =>
+                      onSocialLinksChange({ ...socialLinks, wifi_ssid: e.target.value })
+                    }
+                    placeholder="BellaItalia-Guest"
+                    className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fg-primary mb-1.5">
+                    Mot de passe
+                  </label>
+                  <input
+                    type="text"
+                    value={socialLinks.wifi_password || ''}
+                    onChange={(e) =>
+                      onSocialLinksChange({ ...socialLinks, wifi_password: e.target.value })
+                    }
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </div>
           </>
         )}
         {subMode === 'seo' && (
