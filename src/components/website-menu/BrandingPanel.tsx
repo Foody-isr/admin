@@ -2,23 +2,101 @@
 
 import { useEffect, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { WebsiteConfig } from '@/lib/api';
+import {
+  updateRestaurant,
+  uploadRestaurantLogo,
+  type Restaurant,
+  type WebsiteConfig,
+} from '@/lib/api';
 
 type Props = {
   config: WebsiteConfig;
   onUpdate: (patch: Partial<WebsiteConfig>) => void;
+  restaurantId: number;
+  restaurant: Restaurant | null;
+  onRestaurantUpdate: (r: Restaurant) => void;
 };
 
-export function BrandingPanel({ config, onUpdate }: Props) {
+export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRestaurantUpdate }: Props) {
   const { t } = useI18n();
   const [faviconDraft, setFaviconDraft] = useState(config.favicon_url ?? '');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     setFaviconDraft(config.favicon_url ?? '');
   }, [config.favicon_url]);
 
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const imageUrl = await uploadRestaurantLogo(restaurantId, file);
+      const updated = await updateRestaurant(restaurantId, {
+        name: restaurant?.name,
+        logo_url: imageUrl,
+      } as Partial<Restaurant>);
+      onRestaurantUpdate(updated);
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleRemoveLogo() {
+    const updated = await updateRestaurant(restaurantId, {
+      name: restaurant?.name,
+      logo_url: '',
+    } as Partial<Restaurant>);
+    onRestaurantUpdate(updated);
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Logo */}
+      <section className="rounded-lg border border-[var(--divider)] p-3">
+        <div className="mb-2">
+          <h3 className="text-xs font-semibold mb-0.5">{t('logo')}</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          {restaurant?.logo_url ? (
+            <img
+              src={restaurant.logo_url}
+              alt=""
+              className="w-14 h-14 rounded-full object-cover border border-[var(--divider)] shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full border border-dashed border-[var(--divider)] flex items-center justify-center text-[10px] text-fg-secondary shrink-0">
+              {t('logo')}
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <label
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--divider)] text-[11px] font-medium capitalize cursor-pointer hover:bg-[var(--surface-hover)] transition ${
+                uploadingLogo ? 'opacity-50 pointer-events-none' : 'text-fg-primary'
+              }`}
+            >
+              {uploadingLogo ? '…' : restaurant?.logo_url ? t('change') : t('uploadAction')}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+            </label>
+            {restaurant?.logo_url && (
+              <button
+                type="button"
+                onClick={handleRemoveLogo}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-300 text-[11px] font-medium text-red-600 hover:bg-red-50 transition"
+              >
+                {t('remove')}
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* Default layout */}
       <section className="rounded-lg border border-[var(--divider)] p-3">
         <div className="mb-2">

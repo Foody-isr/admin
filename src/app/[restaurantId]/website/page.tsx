@@ -828,6 +828,9 @@ export default function WebsitePage() {
               onLogoSizeChange={setLogoSize}
               onHideNavbarNameChange={setHideNavbarName}
               onHeroNameFontChange={setHeroNameFont}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              onRestaurantUpdate={setRestaurant}
             />
           )}
           {editorMode === 'settings' && (
@@ -1119,7 +1122,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
   );
 }
 
-function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange }: {
+function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, restaurantId, restaurant, onRestaurantUpdate }: {
   subMode: 'colors' | 'typography' | 'logo';
   onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
   config: WebsiteConfig | null;
@@ -1131,6 +1134,9 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   onLogoSizeChange: (n: number) => void;
   onHideNavbarNameChange: (v: boolean) => void;
   onHeroNameFontChange: (f: string) => void;
+  restaurantId: number;
+  restaurant: Restaurant | null;
+  onRestaurantUpdate: (r: Restaurant) => void;
 }) {
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'colors', label: 'Couleurs' },
@@ -1182,7 +1188,13 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
           </div>
         ) : (
           <div className="space-y-5">
-            <BrandingPanel config={config} onUpdate={onConfigUpdate} />
+            <BrandingPanel
+              config={config}
+              onUpdate={onConfigUpdate}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              onRestaurantUpdate={onRestaurantUpdate}
+            />
             <div className="border-t border-divider pt-4 space-y-3">
               <div>
                 <label className="flex items-center justify-between text-xs font-medium text-fg-primary mb-1.5">
