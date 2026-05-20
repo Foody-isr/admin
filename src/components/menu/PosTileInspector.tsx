@@ -206,7 +206,7 @@ export function PosTileInspector({
             className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--danger-500)] hover:bg-[color-mix(in_oklab,var(--danger-500)_10%,transparent)] transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            Supprimer du groupe de cartes
+            Retirer de la présentation
           </button>
         </div>
       </section>

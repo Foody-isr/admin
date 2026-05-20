@@ -146,12 +146,9 @@ export default function PosDisplayEditorPage() {
 
   const onReorder = (from: number, to: number) => {
     setCurrentTiles(arrayMove(currentTiles, from, to));
-    // Keep the selection following the moved tile when it was the dragged one.
-    setSelectedIndex((prev) => {
-      if (prev === null) return prev;
-      if (prev === from) return to;
-      return prev;
-    });
+    // Clear selection after reorder to avoid stale-index mismatches when a
+    // bystander tile is dragged past the currently selected one.
+    setSelectedIndex(null);
   };
 
   const updateSelectedTile = (patch: Partial<PosDisplayTile>) => {
@@ -164,8 +161,18 @@ export default function PosDisplayEditorPage() {
 
   const removeSelectedTile = () => {
     if (selectedIndex == null) return;
+    const removed = currentTiles[selectedIndex] ?? null;
     setCurrentTiles(currentTiles.filter((_, i) => i !== selectedIndex));
     setSelectedIndex(null);
+    // Drop the inner-tile bucket so orphaned group tiles don't accumulate in
+    // the saved payload.
+    if (removed?.tile_type === 'group' && removed.ref_group_id != null) {
+      setGroupTiles((prev) => {
+        const next = { ...prev };
+        delete next[String(removed.ref_group_id)];
+        return next;
+      });
+    }
   };
 
   const onAddTiles = (newTiles: PosDisplayTile[]) => {
