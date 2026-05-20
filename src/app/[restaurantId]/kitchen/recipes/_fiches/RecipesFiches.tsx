@@ -63,6 +63,11 @@ const fallbackTint = (n: string) => (n ? `var(--cat-${catColor(n)})` : 'var(--fg
 const TintCtx = createContext<(name: string) => string>(fallbackTint);
 const useTint = () => useContext(TintCtx);
 
+// Effective category for display/color/filter: the recipe category if assigned,
+// otherwise the fiche's existing menu/prep category — so cards are colorful out
+// of the box (prototype look) and a recipe category overrides once set.
+const effCat = (f: { recipeCategory?: string; category?: string }) => f.recipeCategory || f.category || '';
+
 // ─── inline recipe-category picker (chef assigns / creates on a fiche) ─────────
 const catDot = (color: string): React.CSSProperties => ({ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0, display: 'inline-block' });
 const catChipStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 12, fontWeight: 500 };
@@ -452,7 +457,7 @@ function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen,
   // orphan names still on fiches, each with a live count across BOTH types.
   const catEntries = useMemo(() => {
     const counts = new Map<string, number>();
-    [...articles, ...preps].forEach((f) => { if (f.recipeCategory) counts.set(f.recipeCategory, (counts.get(f.recipeCategory) ?? 0) + 1); });
+    [...articles, ...preps].forEach((f) => { const c = effCat(f); if (c) counts.set(c, (counts.get(c) ?? 0) + 1); });
     const seen = new Set<string>();
     const entries: { name: string; count: number; color?: string }[] = [];
     recipeCats.forEach((c) => { entries.push({ name: c.name, count: counts.get(c.name) ?? 0, color: c.color || undefined }); seen.add(c.name); });
@@ -460,8 +465,8 @@ function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen,
     return entries.sort((a, b) => a.name.localeCompare(b.name));
   }, [articles, preps, recipeCats]);
 
-  const matchArt = (a: FicheArticle) => (catFilter === 'all' || a.recipeCategory === catFilter) && (!debounced || a.name.toLowerCase().includes(debounced) || a.recipeCategory.toLowerCase().includes(debounced));
-  const matchPrep = (p: FichePrep) => (catFilter === 'all' || p.recipeCategory === catFilter) && (!debounced || p.name.toLowerCase().includes(debounced) || p.recipeCategory.toLowerCase().includes(debounced));
+  const matchArt = (a: FicheArticle) => (catFilter === 'all' || effCat(a) === catFilter) && (!debounced || a.name.toLowerCase().includes(debounced) || effCat(a).toLowerCase().includes(debounced));
+  const matchPrep = (p: FichePrep) => (catFilter === 'all' || effCat(p) === catFilter) && (!debounced || p.name.toLowerCase().includes(debounced) || effCat(p).toLowerCase().includes(debounced));
   const arts = articles.filter(matchArt);
   const prps = preps.filter(matchPrep);
   const shown = (typeFilter !== 'prep' ? arts.length : 0) + (typeFilter !== 'article' ? prps.length : 0);
@@ -587,7 +592,7 @@ function SectionHead({ icon, title, sub, count }: { icon: React.ReactNode; title
 function FicheCard({ fiche, onOpen }: { fiche: FicheArticle | FichePrep; onOpen: () => void }) {
   const isArt = fiche.kind === 'article';
   const tint = useTint();
-  const col = tint(fiche.recipeCategory);
+  const col = tint(effCat(fiche));
   return (
     <div className="rlf-card" onClick={onOpen}>
       <div style={{ position: 'relative', height: 120, background: `linear-gradient(135deg, color-mix(in oklab, ${col} 30%, var(--surface-2)), var(--surface-2))`, overflow: 'hidden' }}>
@@ -601,7 +606,7 @@ function FicheCard({ fiche, onOpen }: { fiche: FicheArticle | FichePrep; onOpen:
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 500 }}>{fiche.recipeCategory || 'Sans catégorie'}</span>
+          <span style={{ fontSize: 12, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 500 }}>{effCat(fiche) || 'Sans catégorie'}</span>
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)', lineHeight: 1.2 }}>{fiche.name}</div>
         {isArt
@@ -645,12 +650,12 @@ function ListRows({ fiches, onOpen }: { fiches: (FicheArticle | FichePrep)[]; on
     <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', overflow: 'hidden', marginBottom: 24, background: 'var(--surface)' }}>
       {fiches.map((f, i) => (
         <div key={f.kind + f.id} className="rlf-row" onClick={() => onOpen(f.id)} style={{ borderTop: i ? '1px solid var(--line)' : 'none' }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: `linear-gradient(135deg, color-mix(in oklab, ${tint(f.recipeCategory)} 40%, var(--surface-2)), var(--surface-2))`, display: 'grid', placeItems: 'center', color: 'var(--fg-muted)' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: `linear-gradient(135deg, color-mix(in oklab, ${tint(effCat(f))} 40%, var(--surface-2)), var(--surface-2))`, display: 'grid', placeItems: 'center', color: 'var(--fg-muted)' }}>
             {f.kind === 'article' ? <ListIcon size={14} /> : <ChefHatIcon size={14} />}
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>{f.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{f.recipeCategory || 'Sans catégorie'}</div>
+            <div style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{effCat(f) || 'Sans catégorie'}</div>
           </div>
           <span className="num" style={{ fontSize: 13, color: 'var(--fg-muted)' }}>{f.kind === 'article' ? `₪${(f as FicheArticle).price}` : (f as FichePrep).yieldLabel}</span>
           <ChevronRightIcon size={14} style={{ color: 'var(--fg-subtle)' }} />
@@ -767,10 +772,10 @@ function ListRail({ all, activeKey, onSelect, reduced }: { all: (FicheArticle | 
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [ind, setInd] = useState({ top: 0, height: 0, show: false });
 
-  const filtered = all.filter((f) => (typeFilter === 'all' || f.kind === typeFilter) && (!debounced || f.name.toLowerCase().includes(debounced) || f.recipeCategory.toLowerCase().includes(debounced)));
+  const filtered = all.filter((f) => (typeFilter === 'all' || f.kind === typeFilter) && (!debounced || f.name.toLowerCase().includes(debounced) || effCat(f).toLowerCase().includes(debounced)));
   const groups = useMemo(() => {
     const m = new Map<string, (FicheArticle | FichePrep)[]>();
-    filtered.forEach((f) => { const k = f.recipeCategory || 'Sans catégorie'; if (!m.has(k)) m.set(k, []); m.get(k)!.push(f); });
+    filtered.forEach((f) => { const k = effCat(f) || 'Sans catégorie'; if (!m.has(k)) m.set(k, []); m.get(k)!.push(f); });
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered]);
   const filterKey = filtered.map((f) => f.kind + f.id).join(',');
@@ -809,7 +814,7 @@ function ListRail({ all, activeKey, onSelect, reduced }: { all: (FicheArticle | 
               const k = keyOf(f.kind, f.id);
               return (
                 <div key={k} ref={(el) => { rowRefs.current[k] = el; }} className={`rlf-row ${k === activeKey ? 'active' : ''}`} onClick={() => onSelect(k)}>
-                  <div style={{ width: 34, height: 34, borderRadius: 8, background: `linear-gradient(135deg, color-mix(in oklab, ${tint(f.recipeCategory)} 40%, var(--surface-2)), var(--surface-2))`, display: 'grid', placeItems: 'center', color: 'var(--fg-muted)', flexShrink: 0 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, background: `linear-gradient(135deg, color-mix(in oklab, ${tint(effCat(f))} 40%, var(--surface-2)), var(--surface-2))`, display: 'grid', placeItems: 'center', color: 'var(--fg-muted)', flexShrink: 0 }}>
                     {f.kind === 'article' ? <ListIcon size={14} /> : <ChefHatIcon size={14} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -874,7 +879,7 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
   catNames: string[]; onAssignCategory: (name: string) => void | Promise<void>; onCreateCategory: (name: string) => Promise<string | null>;
 }) {
   const tint = useTint();
-  const col = tint(a.recipeCategory);
+  const col = tint(effCat(a));
   const [tab, setTab] = useState<'compo' | 'method' | 'cost'>('compo');
   const [editorOpen, setEditorOpen] = useState(false);
   const comps = a.comps ?? [];
@@ -892,7 +897,7 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <TypePill kind="article" />
-            <InlineCategoryPicker value={a.recipeCategory} catNames={catNames} canEdit={canEdit} editor={editor} onAssign={onAssignCategory} onCreate={onCreateCategory} />
+            <InlineCategoryPicker value={effCat(a)} catNames={catNames} canEdit={canEdit} editor={editor} onAssign={onAssignCategory} onCreate={onCreateCategory} />
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 600, color: 'var(--fg)', margin: 0, lineHeight: 1.15 }}>{a.name}</h2>
           <div style={{ fontSize: 13, color: 'var(--fg-subtle)', marginTop: 4 }}>Recette d'assemblage{a.timeMins ? ` · ${a.timeMins} min` : ''}</div>
@@ -1085,7 +1090,7 @@ function PrepDetail({ p, canEdit, editor, fromName, fromKey, onBack, onOpenArtic
   catNames: string[]; onAssignCategory: (name: string) => void | Promise<void>; onCreateCategory: (name: string) => Promise<string | null>;
 }) {
   const tint = useTint();
-  const col = tint(p.recipeCategory);
+  const col = tint(effCat(p));
   const ingredients = p.ingredients ?? [];
   const usedCount = usedBy.length || p.usedByCount;
   return (
@@ -1104,7 +1109,7 @@ function PrepDetail({ p, canEdit, editor, fromName, fromKey, onBack, onOpenArtic
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
             <TypePill kind="prep" />
-            <InlineCategoryPicker value={p.recipeCategory} catNames={catNames} canEdit={canEdit} editor={editor} onAssign={onAssignCategory} onCreate={onCreateCategory} />
+            <InlineCategoryPicker value={effCat(p)} catNames={catNames} canEdit={canEdit} editor={editor} onAssign={onAssignCategory} onCreate={onCreateCategory} />
             {p.critical && <Badge tone="warning"><TriangleAlertIcon size={10} /> Critique · {usedCount} articles</Badge>}
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 600, color: 'var(--fg)', margin: 0, lineHeight: 1.15 }}>{p.name}</h2>
