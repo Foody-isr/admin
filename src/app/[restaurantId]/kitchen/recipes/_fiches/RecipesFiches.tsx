@@ -340,14 +340,51 @@ export default function RecipesFiches() {
 
   // ── lazy fetch: article steps, prep ingredients ──
   const ensureArticleDetail = useCallback(async (a: FicheArticle) => {
-    if (stepCache.current.has(a.id)) return;
+    // Method (recipe steps)
+    if (!stepCache.current.has(a.id)) {
+      try {
+        const steps = await getRecipeSteps(rid, a.id);
+        const method = methodFromSteps(steps);
+        stepCache.current.set(a.id, method);
+        setArticles((prev) => prev.map((x) => x.id === a.id ? { ...x, method } : x));
+      } catch { stepCache.current.set(a.id, []); }
+    }
+    // Cost inputs for the Coûts tab (MenuItemTabCost) — fetch on open if the
+    // background enrichment hasn't reached this article yet, so the food-cost
+    // section always renders (never the fallback).
+    if (!a.costItem) {
+      const raw = rawItems.current.get(a.id);
+      if (raw) {
+        try {
+          const [ings, overrides] = await Promise.all([
+            getMenuItemIngredients(rid, a.id),
+            getItemOptionPrices(rid, a.id).catch(() => [] as ItemOptionOverride[]),
+          ]);
+          const summary = computeItemCostSummary({ item: raw, ingredients: ings, overrides, vatRate, showCostsExVat: true });
+          setArticles((prev) => prev.map((x) => x.id === a.id
+            ? { ...enrichArticle(x, summary, stepCache.current.get(a.id) ?? x.method ?? []), costItem: raw, costIngredients: ings, costOverrides: overrides }
+            : x));
+        } catch { /* keep base */ }
+      }
+    }
+  }, [rid, vatRate]);
+
+  // Forced re-fetch of one article's cost inputs (after the What-If simulator
+  // persists changes), so the food-cost cards/breakdown reflect the new state.
+  const refreshArticleCost = useCallback(async (id: number) => {
+    const raw = rawItems.current.get(id);
+    if (!raw) return;
     try {
-      const steps = await getRecipeSteps(rid, a.id);
-      const method = methodFromSteps(steps);
-      stepCache.current.set(a.id, method);
-      setArticles((prev) => prev.map((x) => x.id === a.id ? { ...x, method } : x));
-    } catch { stepCache.current.set(a.id, []); }
-  }, [rid]);
+      const [ings, overrides] = await Promise.all([
+        getMenuItemIngredients(rid, id),
+        getItemOptionPrices(rid, id).catch(() => [] as ItemOptionOverride[]),
+      ]);
+      const summary = computeItemCostSummary({ item: raw, ingredients: ings, overrides, vatRate, showCostsExVat: true });
+      setArticles((prev) => prev.map((x) => x.id === id
+        ? { ...enrichArticle(x, summary, stepCache.current.get(id) ?? x.method ?? []), costItem: raw, costIngredients: ings, costOverrides: overrides }
+        : x));
+    } catch { /* keep */ }
+  }, [rid, vatRate]);
 
   const prepIngCache = useRef<Set<number>>(new Set());
   const ensurePrepDetail = useCallback(async (p: FichePrep) => {
@@ -377,7 +414,8 @@ export default function RecipesFiches() {
           ? <GridView articles={articles} preps={preps} loading={loading} canEdit={canEdit} editor={editor} roleName={roleName} onOpen={(k) => navTo(k)} onRefresh={reload}
               recipeCats={recipeCats} onCreateCat={catCreate} onEditCat={catEdit} onDeleteCat={catDelete} />
           : <SplitView articles={articles} preps={preps} openKey={openKey!} fromKey={fromKey} canEdit={canEdit} editor={editor} roleName={roleName} reduced={reduced}
-              byKey={byKey} onOpen={(k, from) => navTo(k, from)} onBackGrid={() => navTo(null)} whereUsed={whereUsed} rid={rid} vatRate={vatRate} onRefresh={reload}
+              byKey={byKey} onOpen={(k, from) => navTo(k, from)} onBackGrid={() => navTo(null)} whereUsed={whereUsed} rid={rid} vatRate={vatRate}
+              onRefresh={() => { const p = parseKey(openKey); if (p && p.kind === 'article') return refreshArticleCost(p.id); }}
               catNames={catNames} onAssignCategory={assignCategory} onCreateCategory={createCategory}
               onSaveSteps={async (id, method) => {
                 const input: RecipeStepInput[] = method.map((instruction, i) => ({ step_number: i + 1, instruction }));
@@ -878,29 +916,36 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {tab === 'compo' && <CompositionTable comps={comps} total={total} flashPrep={flashPrep} onJump={(prepId) => onJump(prepId, a.id)} />}
-          {(tab === 'compo' || tab === 'method') && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>Méthode d'assemblage <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--fg-subtle)', marginLeft: 6 }}>{method.length} étape(s)</span></div>
-                {canEdit && <Button variant="ghost" size="sm" onClick={() => setEditorOpen(true)}><PencilIcon size={12} /> Éditer</Button>}
-              </div>
-              {method.length === 0
-                ? <div style={{ border: '1px dashed var(--line-strong)', borderRadius: 'var(--r-lg)', padding: 20, color: 'var(--fg-subtle)', fontSize: 13 }}>Aucune étape. {canEdit ? 'Cliquez sur Éditer pour en ajouter.' : ''}</div>
-                : <MethodList steps={method} canEdit={canEdit} editor={editor} onSaveStep={(i, v) => onSaveSteps(a.id, method.map((s, si) => si === i ? v : s))} />}
-            </div>
-          )}
-          {tab === 'compo' && a.note && <NoteCard text={a.note} />}
-          {tab === 'cost' && (a.costItem && a.costIngredients
+      {tab === 'cost' ? (
+        // Full-width — identical to the Food Cost page's detail (cards +
+        // per-ingredient breakdown + "Et si?" simulator all live in MenuItemTabCost).
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          {a.costItem && a.costIngredients
             ? <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} />
-            : <CostTab comps={comps} total={total} />)}
+            : <CostTab comps={comps} total={total} />}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <LinkedPrepsPanel a={a} onJump={(id) => onJump(id, a.id)} />
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {tab === 'compo' && <CompositionTable comps={comps} total={total} flashPrep={flashPrep} onJump={(prepId) => onJump(prepId, a.id)} />}
+            {(tab === 'compo' || tab === 'method') && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fg)' }}>Méthode d'assemblage <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--fg-subtle)', marginLeft: 6 }}>{method.length} étape(s)</span></div>
+                  {canEdit && <Button variant="ghost" size="sm" onClick={() => setEditorOpen(true)}><PencilIcon size={12} /> Éditer</Button>}
+                </div>
+                {method.length === 0
+                  ? <div style={{ border: '1px dashed var(--line-strong)', borderRadius: 'var(--r-lg)', padding: 20, color: 'var(--fg-subtle)', fontSize: 13 }}>Aucune étape. {canEdit ? 'Cliquez sur Éditer pour en ajouter.' : ''}</div>
+                  : <MethodList steps={method} canEdit={canEdit} editor={editor} onSaveStep={(i, v) => onSaveSteps(a.id, method.map((s, si) => si === i ? v : s))} />}
+              </div>
+            )}
+            {tab === 'compo' && a.note && <NoteCard text={a.note} />}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <LinkedPrepsPanel a={a} onJump={(id) => onJump(id, a.id)} />
+          </div>
         </div>
-      </div>
+      )}
 
       {canEdit && (
         <StepsEditor open={editorOpen} onOpenChange={setEditorOpen} name={a.name} method={method} onSave={(m) => onSaveSteps(a.id, m)} />
