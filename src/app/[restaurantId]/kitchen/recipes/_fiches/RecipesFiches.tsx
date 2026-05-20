@@ -945,17 +945,20 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Composition breakdown (left) + Préparation source banner (right). */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' }}>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
             {/* Composition === the Food Cost ingredient breakdown (reused, not
                 re-built). Overview KPIs are hidden — the header KPI row above
-                already shows cost/marge/% — and the "Et si?" simulator is
-                collapsed by default. Forced ex-VAT to match the header KPIs,
-                which enrichment computes ex-VAT. Falls back to the lightweight
-                box-composition table until cost data has loaded. */}
+                already shows cost/marge/% — and forced ex-VAT to match those
+                KPIs (enrichment computes ex-VAT). The "Et si?" simulator is
+                rendered full-width below, not here: its two-column layout needs
+                more room than this column. Falls back to the box-composition
+                table until cost data has loaded. */}
             {tab === 'compo' && (
               a.costItem && a.costIngredients
-                ? <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} hideOverview forceVatDisplay="ex" collapsibleSimulator />
+                ? <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} hideOverview hideSimulator forceVatDisplay="ex" />
                 : <CompositionTable comps={comps} total={total} flashPrep={flashPrep} onJump={(prepId) => onJump(prepId, a.id)} />
             )}
             {(tab === 'compo' || tab === 'method') && (
@@ -974,6 +977,13 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <LinkedPrepsPanel a={a} onJump={(id) => onJump(id, a.id)} />
           </div>
+        </div>
+        {/* "Et si?" simulator — full-width, collapsed by default. Rendered as a
+            second MenuItemTabCost slice (breakdown hidden) so it gets the room
+            its side-by-side levers/result layout needs. */}
+        {tab === 'compo' && a.costItem && a.costIngredients && (
+          <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} hideOverview hideBreakdown collapsibleSimulator forceVatDisplay="ex" />
+        )}
       </div>
 
       {canEdit && (

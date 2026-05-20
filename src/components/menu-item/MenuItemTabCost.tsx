@@ -54,6 +54,12 @@ interface Props {
   /** Render the "Et si…?" simulator collapsed behind a disclosure. Default
    *  false (always expanded), preserving the food-cost page / editor behavior. */
   collapsibleSimulator?: boolean;
+  /** Skip the ingredient breakdown table — used when the caller lays out the
+   *  breakdown and the simulator in separate regions (the recipe fiche keeps
+   *  the breakdown in a narrow column but the simulator full-width). Default false. */
+  hideBreakdown?: boolean;
+  /** Skip the "Et si…?" simulator entirely. Default false. */
+  hideSimulator?: boolean;
 }
 
 const CURRENCY = '\u20AA';
@@ -70,6 +76,8 @@ export default function MenuItemTabCost({
   hideOverview = false,
   forceVatDisplay,
   collapsibleSimulator = false,
+  hideBreakdown = false,
+  hideSimulator = false,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -294,6 +302,7 @@ export default function MenuItemTabCost({
       )}
 
       {/* Ingredient breakdown — own card, tokenized */}
+      {!hideBreakdown && (
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
         <h4 className="text-fs-md font-semibold text-[var(--fg)] mb-[var(--s-4)]">
           {t('costDetailsByIngredient') || 'Détail des coûts par ingrédient'} · {summary.lines.length}{' '}
@@ -367,12 +376,14 @@ export default function MenuItemTabCost({
           )}
         </div>
       </section>
+      )}
 
       {/* "Et si… ?" simulator — sandbox the same KPIs by playing with portion,
           sell price, and per-ingredient cost. Nothing persists.
           Hidden on mobile: the sliders + side-by-side comparison cards are
           desktop-oriented; the static cost overview above already covers the
           mobile read-only use case. */}
+      {!hideSimulator && (
       <div className="hidden md:block">
         {collapsibleSimulator && !simOpen && (
           <button
@@ -420,6 +431,7 @@ export default function MenuItemTabCost({
           </>
         )}
       </div>
+      )}
 
       {/* Modals */}
       <KPIInfoModal
