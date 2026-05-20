@@ -538,6 +538,16 @@ function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen,
         onDeleteCategory={canEdit ? onDeleteCat : undefined}
       />
 
+      {/* Colored category chip row — quick filter (matches the design). */}
+      {catEntries.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          <CatChip active={catFilter === 'all'} label="Tous" count={articles.length + preps.length} onClick={() => setCatFilter('all')} />
+          {catEntries.map((c) => (
+            <CatChip key={c.name} active={catFilter === c.name} label={c.name} count={c.count} color={tint(c.name)} onClick={() => setCatFilter(catFilter === c.name ? 'all' : c.name)} />
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           {Array.from({ length: 8 }).map((_, i) => <div key={i} className="rlf-sk" style={{ height: 232, borderRadius: 'var(--r-lg)' }} />)}
@@ -574,6 +584,20 @@ const segBtn = (on: boolean): React.CSSProperties => ({
   boxShadow: on ? 'var(--shadow-1)' : 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
 });
 const cardGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 };
+
+function CatChip({ active, label, count, color, onClick }: { active: boolean; label: string; count: number; color?: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 999,
+      border: '1px solid ' + (active ? 'var(--brand-500)' : 'var(--line)'),
+      background: active ? 'var(--brand-500)' : 'var(--surface)', color: active ? '#fff' : 'var(--fg-muted)',
+      fontSize: 13, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+    }}>
+      {color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? '#fff' : color, flexShrink: 0 }} />}
+      {label} <span style={{ opacity: .6 }}>{count}</span>
+    </button>
+  );
+}
 
 function SectionHead({ icon, title, sub, count }: { icon: React.ReactNode; title: string; sub: string; count: number }) {
   return (
