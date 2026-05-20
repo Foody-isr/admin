@@ -724,8 +724,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // ── Kitchen Tabs ──
     stock: 'Stock',
-    recipes: 'Recipes',
-    recipeLab: 'Recipe Lab',
+    recipes: 'Recipe Sheets',
+    recipeLab: 'Lab',
     preparations: 'Preparations',
     foodCost: 'Food Cost',
     suppliers: 'Suppliers',
@@ -3040,8 +3040,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // ── Kitchen Tabs ──
     stock: 'מלאי',
-    recipes: 'מתכונים',
-    recipeLab: 'מעבדת מתכונים',
+    recipes: 'כרטיסי מתכון',
+    recipeLab: 'מעבדה',
     preparations: 'הכנות',
     foodCost: 'עלות מזון',
     suppliers: 'ספקים',
@@ -5336,8 +5336,8 @@ const translations: Record<Locale, Record<string, string>> = {
 
     // ── Kitchen Tabs ──
     stock: 'Stock',
-    recipes: 'Recettes',
-    recipeLab: 'Labo Recettes',
+    recipes: 'Fiches recettes',
+    recipeLab: 'Lab',
     preparations: 'Préparations',
     foodCost: 'Coût alimentaire',
     suppliers: 'Fournisseurs',

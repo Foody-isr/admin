@@ -138,14 +138,13 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       icon: Flame,
       perm: ['kitchen.view', 'kitchen.manage'],
       subItems: [
-        { href: `${base}/kitchen/lab`, labelKey: 'recipeLab' },
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
-        // { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
-        // Recipes page is hidden for now — per-item recipes are edited inside the menu item Recette tab.
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
+        { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
         { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost', desktopOnly: true },
         { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations', desktopOnly: true },
         { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
+        { href: `${base}/kitchen/lab`, labelKey: 'recipeLab' },
       ],
     },
     {
