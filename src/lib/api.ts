@@ -309,6 +309,7 @@ export interface MenuItem {
   combo_steps?: ComboStep[];
   prep_time_mins?: number;
   recipe_notes?: string;
+  recipe_category?: string;
   recipe_steps?: RecipeStep[];
   /** Per-locale name/description overrides. Source-locale is never stored here. */
   translations?: TranslationMap;
@@ -4153,6 +4154,7 @@ export interface RecipeCardItem {
   step_count: number;
   has_ingredients: boolean;
   ingredient_count: number;
+  recipe_category: string;
 }
 
 export interface RecipeDetail {

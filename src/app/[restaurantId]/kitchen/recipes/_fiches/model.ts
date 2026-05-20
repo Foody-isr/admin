@@ -49,7 +49,8 @@ export interface FicheArticle {
   kind: 'article';
   id: number;
   name: string;
-  category: string;
+  category: string;       // menu category (selling)
+  recipeCategory: string; // recipe category (kitchen, spans articles + preps)
   price: number;
   timeMins: number;
   image: string;
@@ -72,6 +73,7 @@ export function mapArticleBase(item: ApiMenuItem): FicheArticle {
     id: item.id,
     name: item.name,
     category: item.category_name || '',
+    recipeCategory: item.recipe_category || '',
     price: item.price ?? 0,
     timeMins: item.prep_time_mins ?? 0,
     image: item.image_url || '',
@@ -135,7 +137,8 @@ export interface FichePrep {
   kind: 'prep';
   id: number;
   name: string;
-  category: string;
+  category: string;       // prep's category == its recipe category
+  recipeCategory: string; // alias of category, for a uniform field across fiches
   unit: string;
   yieldQty: number;
   yieldLabel: string;
@@ -157,7 +160,8 @@ export function mapPrepBase(prep: PrepItem, costPerUnit: number | null): FichePr
     kind: 'prep',
     id: prep.id,
     name: prep.name,
-    category: prep.category || 'Préparations',
+    category: prep.category || '',
+    recipeCategory: prep.category || '',
     unit: prep.unit,
     yieldQty: prep.yield_per_batch ?? 0,
     yieldLabel: fmtQty(prep.yield_per_batch ?? 0, prep.unit),
