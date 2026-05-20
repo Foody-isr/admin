@@ -14,15 +14,6 @@
               transform var(--dur-base, 200ms) var(--ease-out, ease);
 }
 .rlf-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); transform: translateY(-2px); }
-.rlf-open-chip {
-  position: absolute; bottom: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px;
-  height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
-  background: color-mix(in oklab, var(--brand-500) 88%, transparent); color: #fff;
-  opacity: 0; transform: translateY(4px);
-  transition: opacity var(--dur-base, 200ms) var(--ease-out, ease), transform var(--dur-base, 200ms) var(--ease-out, ease);
-  pointer-events: none;
-}
-.rlf-card:hover .rlf-open-chip { opacity: 1; transform: none; }
 
 /* ── List rows (split rail) ────────────────────────────────────────────── */
 .rlf-row {

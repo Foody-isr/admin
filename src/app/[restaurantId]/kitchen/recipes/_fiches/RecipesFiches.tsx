@@ -481,9 +481,6 @@ function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen,
         desc={`Bibliothèque centrale · ${articles.length} articles · ${preps.length} préparations`}
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {canEdit
-              ? <Badge tone="neutral" style={{ height: 28, padding: '0 10px' }}><PencilIcon size={12} /> {roleName || 'Chef'} · peut modifier</Badge>
-              : <Badge tone="neutral" style={{ height: 28, padding: '0 10px' }}><EyeIcon size={12} /> Lecture seule · {editor} peut modifier</Badge>}
             <Button variant="secondary" onClick={onRefresh}><RefreshCwIcon size={14} /> Recalculer</Button>
             {canEdit && <Button variant="primary"><PlusIcon size={14} /> Nouvelle fiche</Button>}
           </div>
@@ -625,7 +622,6 @@ function FicheCard({ fiche, onOpen }: { fiche: FicheArticle | FichePrep; onOpen:
           ? <img src={(fiche as FicheArticle).image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'var(--fg-subtle)' }}><ImageIcon size={22} /></div>}
         {!isArt && (fiche as FichePrep).critical && <div style={{ position: 'absolute', top: 10, left: 10 }}><Badge tone="warning"><TriangleAlertIcon size={10} /> Critique</Badge></div>}
-        <span className="rlf-open-chip">Ouvrir <ChevronRightIcon size={12} /></span>
       </div>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -751,24 +747,26 @@ function SplitView({ articles, preps, openKey, fromKey, canEdit, editor, roleNam
   const paneCls = phase === 'exit' ? 'rlf-exit' : phase === 'enter' ? 'rlf-enter' : phase === 'jexit' ? 'rlf-jexit' : phase === 'jenter' ? 'rlf-jenter' : '';
 
   return (
-    <>
-      <div style={{ marginBottom: 12 }}>
+    // Fill the viewport below the topbar so the rail and the detail pane each
+    // scroll on their own instead of growing the whole page. Offset = --topbar-h
+    // (56px) + the layout content wrapper's vertical padding (py-6 → 24px ×2).
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--topbar-h) - 48px)', minHeight: 520 }}>
+      <div style={{ marginBottom: 12, flexShrink: 0 }}>
         <Button variant="ghost" size="sm" onClick={onBackGrid}><ChevronLeftIcon size={14} /> Retour à la grille</Button>
       </div>
-      <PageHead
-        title="Fiches recettes"
-        desc={`${articles.length} articles · ${preps.length} préparations`}
-        actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {canEdit
-              ? <Badge tone="neutral" style={{ height: 28, padding: '0 10px' }}><PencilIcon size={12} /> {roleName || 'Chef'} · peut modifier</Badge>
-              : <Badge tone="neutral" style={{ height: 28, padding: '0 10px' }}><EyeIcon size={12} /> Lecture seule · {editor} peut modifier</Badge>}
-          </div>
-        }
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', overflow: 'hidden', minHeight: 760, background: 'var(--surface)' }}>
+      <div style={{ flexShrink: 0 }}>
+        <PageHead
+          title="Fiches recettes"
+          desc={`${articles.length} articles · ${preps.length} préparations`}
+          actions={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            </div>
+          }
+        />
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '320px 1fr', gridTemplateRows: 'minmax(0, 1fr)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', overflow: 'hidden', background: 'var(--surface)' }}>
         <ListRail all={all} activeKey={openKey} onSelect={select} reduced={reduced} />
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg)', overflow: 'hidden' }}>
+        <div style={{ minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg)', overflow: 'hidden' }}>
           {phase === 'skeleton' || !paneFiche
             ? <PaneSkeleton />
             : <div className={`rlf-pane ${paneCls}`} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -781,7 +779,7 @@ function SplitView({ articles, preps, openKey, fromKey, canEdit, editor, roleNam
               </div>}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -811,8 +809,8 @@ function ListRail({ all, activeKey, onSelect, reduced }: { all: (FicheArticle | 
   }, [activeKey, filterKey]);
 
   return (
-    <div style={{ borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', minWidth: 0, background: 'var(--surface)' }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, background: 'var(--surface)' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', background: 'var(--surface)', border: '1px solid var(--line-strong)', borderRadius: 'var(--r-md)' }}>
           <SearchIcon size={14} style={{ color: 'var(--fg-subtle)' }} />
           <input placeholder="Rechercher…" value={query} onChange={(e) => setQuery(e.target.value)} style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: 'var(--fg)', font: 'inherit', fontSize: 13 }} />
@@ -904,12 +902,14 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
 }) {
   const tint = useTint();
   const col = tint(effCat(a));
-  const [tab, setTab] = useState<'compo' | 'method' | 'cost'>('compo');
+  const [tab, setTab] = useState<'compo' | 'method'>('compo');
   const [editorOpen, setEditorOpen] = useState(false);
   const comps = a.comps ?? [];
   const method = a.method ?? [];
   const total = a.cost ?? comps.reduce((s, x) => s + x.cost, 0);
-  const costPct = a.costPct != null ? Math.round(a.costPct * 100) : null;
+  // 0..100, shown to one decimal — matches MenuItemTabCost's `(costPct*100).toFixed(1)`
+  // so the header % never disagrees with the breakdown (was Math.round → 8 vs 7.9).
+  const costPct = a.costPct != null ? a.costPct * 100 : null;
 
   return (
     <>
@@ -933,30 +933,31 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
         <DetailKpi label="Prix de vente" value={money(a.price)} />
         <DetailKpi label="Coût matière" value={a.enriched ? money(total) : '…'} />
         <DetailKpi label="Marge brute" value={a.enriched ? money(a.price - total) : '…'} tone="success" />
-        <DetailKpi label="% Coût" value={costPct != null ? `${costPct} %` : '…'} tone={costPct != null && costPct > 35 ? 'warn' : 'success'} />
+        <DetailKpi label="% Coût" value={costPct != null ? `${costPct.toFixed(1)} %` : '…'} tone={costPct != null && costPct > 35 ? 'warn' : 'success'} />
         <DetailKpi label="Préparations" value={a.linkedPreps ? a.linkedPreps.length : '…'} />
       </div>
 
       <div style={{ padding: '16px 24px 0' }}>
         <div style={{ display: 'flex', gap: 20, borderBottom: '1px solid var(--line)' }}>
-          {([['compo', 'Composition'], ['method', 'Méthode'], ['cost', 'Coûts']] as const).map(([k, l]) => (
+          {([['compo', 'Composition'], ['method', 'Méthode']] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={underlineTab(tab === k)}>{l}</button>
           ))}
         </div>
       </div>
 
-      {tab === 'cost' ? (
-        // Full-width — identical to the Food Cost page's detail (cards +
-        // per-ingredient breakdown + "Et si?" simulator all live in MenuItemTabCost).
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-          {a.costItem && a.costIngredients
-            ? <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} />
-            : <CostTab comps={comps} total={total} />}
-        </div>
-      ) : (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {tab === 'compo' && <CompositionTable comps={comps} total={total} flashPrep={flashPrep} onJump={(prepId) => onJump(prepId, a.id)} />}
+            {/* Composition === the Food Cost ingredient breakdown (reused, not
+                re-built). Overview KPIs are hidden — the header KPI row above
+                already shows cost/marge/% — and the "Et si?" simulator is
+                collapsed by default. Forced ex-VAT to match the header KPIs,
+                which enrichment computes ex-VAT. Falls back to the lightweight
+                box-composition table until cost data has loaded. */}
+            {tab === 'compo' && (
+              a.costItem && a.costIngredients
+                ? <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} hideOverview forceVatDisplay="ex" collapsibleSimulator />
+                : <CompositionTable comps={comps} total={total} flashPrep={flashPrep} onJump={(prepId) => onJump(prepId, a.id)} />
+            )}
             {(tab === 'compo' || tab === 'method') && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -973,8 +974,7 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <LinkedPrepsPanel a={a} onJump={(id) => onJump(id, a.id)} />
           </div>
-        </div>
-      )}
+      </div>
 
       {canEdit && (
         <StepsEditor open={editorOpen} onOpenChange={setEditorOpen} name={a.name} method={method} onSave={(m) => onSaveSteps(a.id, m)} />
@@ -1056,30 +1056,6 @@ function NoteCard({ text }: { text: string }) {
       <div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning-500)', marginBottom: 2 }}>Note du chef</div>
         <div style={{ fontSize: 13, color: 'var(--fg)', lineHeight: 1.5 }}>{text}</div>
-      </div>
-    </div>
-  );
-}
-
-function CostTab({ comps, total }: { comps: CompRow[]; total: number }) {
-  return (
-    <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', background: 'var(--surface)', padding: '16px 20px' }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Décomposition du coût</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {comps.map((c, i) => {
-          const pct = total > 0 ? Math.round((c.cost / total) * 100) : 0;
-          return (
-            <div key={i}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 13 }}>{c.name}</span>
-                <span className="num" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{money(c.cost)} · {pct} %</span>
-              </div>
-              <div style={{ height: 4, background: 'var(--surface-2)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: c.kind === 'prep' ? 'var(--cat-8)' : 'var(--brand-500)' }} />
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
