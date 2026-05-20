@@ -1216,8 +1216,6 @@ const translations: Record<Locale, Record<string, string>> = {
     historicalComingSoon: 'Historical data coming soon',
     // ── "Et si… ?" simulator card (WhatIfSimulator.tsx)
     simulatorTitle: 'What if…?',
-    simulatorCollapsedHint: 'Simulate a price or cost change',
-    hide: 'Hide',
     simulatorBadge: 'SIMULATOR',
     simulatorChangesInProgress: '{n} pending changes',
     simulatorReset: 'Reset',
@@ -3520,8 +3518,6 @@ const translations: Record<Locale, Record<string, string>> = {
     historicalComingSoon: 'נתונים היסטוריים בקרוב',
     // ── סימולטור «מה אם?»
     simulatorTitle: 'מה אם…?',
-    simulatorCollapsedHint: 'סימולציה של שינוי מחיר או עלות',
-    hide: 'הסתר',
     simulatorBadge: 'סימולטור',
     simulatorChangesInProgress: '{n} שינויים פעילים',
     simulatorReset: 'איפוס',
@@ -5832,8 +5828,6 @@ const translations: Record<Locale, Record<string, string>> = {
     historicalComingSoon: 'Données historiques bientôt disponibles',
     // ── Carte « Et si… ? » (WhatIfSimulator.tsx)
     simulatorTitle: 'Et si ?',
-    simulatorCollapsedHint: 'Simuler un changement de prix ou de coût',
-    hide: 'Masquer',
     simulatorBadge: 'SIMULATEUR',
     simulatorChangesInProgress: '{n} changements en cours',
     simulatorReset: 'Réinitialiser',

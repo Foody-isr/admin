@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ChevronDown, ChevronUp, FlaskConical, Package } from 'lucide-react';
+import { AlertCircle, FlaskConical, Package } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
@@ -42,24 +42,6 @@ interface Props {
   /** Called after the simulator's Apply persists changes — caller refetches
    *  ingredients / item state. */
   onChangesApplied?: () => void | Promise<void>;
-  /** Hide the cost-overview card (HT/TTC toggle + portion pills + 3 KPI cards).
-   *  Callers that already surface those numbers elsewhere — e.g. the recipe
-   *  fiche's header KPI row — drop the redundant block and keep only the
-   *  ingredient breakdown + simulator. Default false. */
-  hideOverview?: boolean;
-  /** Lock the VAT display basis and remove the toggle. Use with `hideOverview`
-   *  so the breakdown matches an external KPI row computed on a fixed basis
-   *  (the recipe fiche computes its header KPIs ex-VAT). */
-  forceVatDisplay?: 'ex' | 'inc';
-  /** Render the "Et si…?" simulator collapsed behind a disclosure. Default
-   *  false (always expanded), preserving the food-cost page / editor behavior. */
-  collapsibleSimulator?: boolean;
-  /** Skip the ingredient breakdown table — used when the caller lays out the
-   *  breakdown and the simulator in separate regions (the recipe fiche keeps
-   *  the breakdown in a narrow column but the simulator full-width). Default false. */
-  hideBreakdown?: boolean;
-  /** Skip the "Et si…?" simulator entirely. Default false. */
-  hideSimulator?: boolean;
 }
 
 const CURRENCY = '\u20AA';
@@ -73,11 +55,6 @@ export default function MenuItemTabCost({
   price,
   headerIndentClass = '',
   onChangesApplied,
-  hideOverview = false,
-  forceVatDisplay,
-  collapsibleSimulator = false,
-  hideBreakdown = false,
-  hideSimulator = false,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -85,7 +62,6 @@ export default function MenuItemTabCost({
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
   const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
   const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
-  const [simOpen, setSimOpen] = useState(false);
 
   // Variant pills — lets the user switch the "portion" the cost math uses.
   const variants = useMemo(
@@ -106,16 +82,14 @@ export default function MenuItemTabCost({
 
   // HT/TTC (ex-VAT / inc-VAT) display toggle — mirrors the stock page pattern
   // so the user has one mental model across cost tooling. Persisted per-user.
-  const [vatDisplayMode, setVatDisplayMode] = useState<'ex' | 'inc'>(forceVatDisplay ?? 'ex');
+  const [vatDisplayMode, setVatDisplayMode] = useState<'ex' | 'inc'>('ex');
   useEffect(() => {
-    if (forceVatDisplay) { setVatDisplayMode(forceVatDisplay); return; }
     try {
       const v = localStorage.getItem('foody.cost.vatDisplay');
       if (v === 'ex' || v === 'inc') setVatDisplayMode(v);
     } catch { /* ignore */ }
-  }, [forceVatDisplay]);
+  }, []);
   const toggleVatDisplay = () => {
-    if (forceVatDisplay) return;
     setVatDisplayMode((prev) => {
       const next = prev === 'ex' ? 'inc' : 'ex';
       try { localStorage.setItem('foody.cost.vatDisplay', next); } catch { /* ignore */ }
@@ -141,9 +115,7 @@ export default function MenuItemTabCost({
 
   return (
     <div className="max-w-5xl space-y-[var(--s-5)]">
-      {/* Cost overview card — mirrors the food-cost page's "Coût" section.
-          Hidden when the caller already surfaces these KPIs (recipe fiche). */}
-      {!hideOverview && (
+      {/* Cost overview card — mirrors the food-cost page's "Coût" section */}
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
       {/* Section head with 3px brand accent + HT/TTC toggle. Caller may
           pass `headerIndentClass` (e.g. `ms-[37px]`) to align with an
@@ -299,10 +271,8 @@ export default function MenuItemTabCost({
       </div>
 
       </section>
-      )}
 
       {/* Ingredient breakdown — own card, tokenized */}
-      {!hideBreakdown && (
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
         <h4 className="text-fs-md font-semibold text-[var(--fg)] mb-[var(--s-4)]">
           {t('costDetailsByIngredient') || 'Détail des coûts par ingrédient'} · {summary.lines.length}{' '}
@@ -376,62 +346,27 @@ export default function MenuItemTabCost({
           )}
         </div>
       </section>
-      )}
 
       {/* "Et si… ?" simulator — sandbox the same KPIs by playing with portion,
           sell price, and per-ingredient cost. Nothing persists.
           Hidden on mobile: the sliders + side-by-side comparison cards are
           desktop-oriented; the static cost overview above already covers the
           mobile read-only use case. */}
-      {!hideSimulator && (
       <div className="hidden md:block">
-        {collapsibleSimulator && !simOpen && (
-          <button
-            type="button"
-            onClick={() => setSimOpen(true)}
-            aria-expanded={false}
-            className="w-full flex items-center justify-between gap-3 bg-[var(--surface)] border border-[var(--line)] rounded-r-lg px-[var(--s-5)] py-[var(--s-4)] hover:border-[var(--line-strong)] transition-colors"
-          >
-            <span className="flex items-center gap-[var(--s-2)] text-fs-md font-semibold text-[var(--fg)]">
-              <FlaskConical size={15} className="text-[var(--brand-500)]" />
-              {t('simulatorTitle') || 'Et si… ?'}
-              <span className="text-fs-xs font-normal text-[var(--fg-subtle)]">
-                {t('simulatorCollapsedHint') || 'Simuler un changement de prix ou de coût'}
-              </span>
-            </span>
-            <ChevronDown className="w-4 h-4 text-[var(--fg-muted)]" />
-          </button>
-        )}
-        {(!collapsibleSimulator || simOpen) && (
-          <>
-            {collapsibleSimulator && (
-              <div className="flex justify-end mb-[var(--s-2)]">
-                <button
-                  type="button"
-                  onClick={() => setSimOpen(false)}
-                  className="inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] transition-colors"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" /> {t('hide') || 'Masquer'}
-                </button>
-              </div>
-            )}
-            <WhatIfSimulator
-              rid={rid}
-              item={item}
-              summary={summary}
-              activeVariant={activeVariant}
-              effectivePrice={summary.displayPrice}
-              thresholdPct={COST_THRESHOLD * 100}
-              vatRate={vatRate}
-              showCostsExVat={showCostsExVat}
-              resetKey={`${variantId}|${vatDisplayMode}`}
-              onApplied={onChangesApplied}
-              t={t}
-            />
-          </>
-        )}
+        <WhatIfSimulator
+          rid={rid}
+          item={item}
+          summary={summary}
+          activeVariant={activeVariant}
+          effectivePrice={summary.displayPrice}
+          thresholdPct={COST_THRESHOLD * 100}
+          vatRate={vatRate}
+          showCostsExVat={showCostsExVat}
+          resetKey={`${variantId}|${vatDisplayMode}`}
+          onApplied={onChangesApplied}
+          t={t}
+        />
       </div>
-      )}
 
       {/* Modals */}
       <KPIInfoModal

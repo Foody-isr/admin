@@ -140,7 +140,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
-        { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
         { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost', desktopOnly: true },
         { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations', desktopOnly: true },
         { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },

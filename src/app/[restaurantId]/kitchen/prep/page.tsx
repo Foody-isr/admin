@@ -6,8 +6,8 @@ import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
   getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
-  getRecipeCategories, createRecipeCategory, updateRecipeCategory,
-  PrepItem, PrepItemInput, PrepIngredientInput, RecipeCategory,
+  getPrepCategories, createPrepCategory, updatePrepCategory,
+  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory,
   StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
@@ -98,11 +98,11 @@ export default function PrepPage() {
     setCategoryDrawer({ open: false, mode: 'filter' });
   };
   // Prep category metadata (id, color, image_url, sort_order). Fetched
-  // alongside items via the dedicated /recipes/categories endpoint. Enables
+  // alongside items via the dedicated /prep/categories endpoint. Enables
   // image upload + rename from the drawer without touching the items list.
-  const [categoryMeta, setCategoryMeta] = useState<RecipeCategory[]>([]);
+  const [categoryMeta, setCategoryMeta] = useState<PrepCategory[]>([]);
   const reloadCategoryMeta = useCallback(async () => {
-    const cats = await getRecipeCategories(rid);
+    const cats = await getPrepCategories(rid);
     setCategoryMeta(cats);
   }, [rid]);
 
@@ -118,7 +118,7 @@ export default function PrepPage() {
       const [prepItems, rawItems, cats] = await Promise.all([
         listPrepItems(rid),
         listStockItems(rid),
-        getRecipeCategories(rid),
+        getPrepCategories(rid),
       ]);
       setItems(prepItems);
       setStockItems(rawItems);
@@ -580,14 +580,14 @@ export default function PrepPage() {
         }
         onSelect={handleCategorySelect}
         onCreateCategory={async ({ name }) => {
-          await createRecipeCategory(rid, { name });
+          await createPrepCategory(rid, { name });
           await reload();
         }}
         onEditCategory={async (oldName, patch) => {
           const existing = categoryMeta.find((c) => c.name === oldName);
-          const ensured = existing ?? (await createRecipeCategory(rid, { name: oldName }));
+          const ensured = existing ?? (await createPrepCategory(rid, { name: oldName }));
           if (patch.name && patch.name !== oldName) {
-            await updateRecipeCategory(rid, ensured.id, { name: patch.name });
+            await updatePrepCategory(rid, ensured.id, { name: patch.name });
           }
           await reload();
         }}
