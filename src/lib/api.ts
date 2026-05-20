@@ -8,6 +8,7 @@ import type {
   DraftStatus,
   CommitResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
+import type { PosDisplayLayout } from './posDisplay';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
@@ -139,6 +140,7 @@ export interface Menu {
   groups?: MenuGroup[];
   categories?: MenuCategory[]; // Deprecated: use groups
   locations?: Location[];
+  pos_display?: PosDisplayLayout;
 }
 
 export interface GroupAvailabilityHour {
@@ -1262,6 +1264,21 @@ export async function setMenuHours(restaurantId: number, menuId: number, hours: 
     { method: 'PUT', body: JSON.stringify(hours) }
   );
   return data.hours ?? [];
+}
+
+export async function getPosDisplay(restaurantId: number, menuId: number): Promise<PosDisplayLayout> {
+  return apiFetch<PosDisplayLayout>(
+    `/api/v1/menu/menus/${menuId}/pos-display?restaurant_id=${restaurantId}`, restaurantId
+  );
+}
+
+export async function savePosDisplay(
+  restaurantId: number, menuId: number, payload: PosDisplayLayout
+): Promise<PosDisplayLayout> {
+  return apiFetch<PosDisplayLayout>(
+    `/api/v1/menu/menus/${menuId}/pos-display?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
 }
 
 export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string; pos_enabled?: boolean; web_enabled?: boolean; follows_menu_hours?: boolean; is_hidden?: boolean; is_weekly_rotating?: boolean }): Promise<MenuCategory> {
