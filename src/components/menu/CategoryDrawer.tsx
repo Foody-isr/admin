@@ -10,16 +10,35 @@ export interface CategoryDrawerEntry {
   name: string;
   /** Item count shown next to the name. Omit or pass 0 to hide. */
   count?: number;
+  /** Optional category color (hex). Shown as a swatch when `withColor` is set. */
+  color?: string;
 }
 
 /** Input passed to `onCreateCategory`. */
 export interface CreateCategoryInput {
   name: string;
+  color?: string;
 }
 
 /** Input passed to `onEditCategory`. */
 export interface EditCategoryPatch {
   name: string;
+  color?: string;
+}
+
+/** Palette offered by the color picker (matches the --cat-N light hues). */
+export const CATEGORY_COLORS = ['#f97316', '#eab308', '#16a34a', '#0ea5e9', '#7c3aed', '#e11d48', '#0d9488', '#a16207'];
+
+function ColorSwatches({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {CATEGORY_COLORS.map((c) => (
+        <button key={c} type="button" onClick={() => onChange(c)} aria-label={c}
+          className={`w-7 h-7 rounded-full transition-transform ${value === c ? 'ring-2 ring-offset-2 ring-offset-[var(--surface)] ring-[var(--fg)] scale-110' : 'hover:scale-110'}`}
+          style={{ background: c }} />
+      ))}
+    </div>
+  );
 }
 
 interface Props {
@@ -45,6 +64,8 @@ interface Props {
   onDeleteCategory?: (name: string) => Promise<void> | void;
   /** Loading/processing flag for bulk operations. */
   processing?: boolean;
+  /** When true, rows show a color swatch and create/edit expose a color picker. */
+  withColor?: boolean;
 }
 
 export default function CategoryDrawer({
@@ -59,6 +80,7 @@ export default function CategoryDrawer({
   onEditCategory,
   onDeleteCategory,
   processing,
+  withColor,
 }: Props) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
@@ -141,6 +163,7 @@ export default function CategoryDrawer({
                   <CategoryEditPanel
                     key={category.name}
                     entry={category}
+                    withColor={withColor}
                     onSave={async (patch) => {
                       await onEditCategory(category.name, patch);
                       setEditingName(null);
@@ -163,6 +186,8 @@ export default function CategoryDrawer({
                   name={category.name}
                   count={count}
                   active={active}
+                  color={category.color}
+                  withColor={withColor}
                   onClick={() => onSelect(category.name)}
                   onEdit={onEditCategory ? () => setEditingName(category.name) : undefined}
                   disabled={processing}
@@ -191,6 +216,7 @@ export default function CategoryDrawer({
           )}
           {onCreateCategory && showCreate && (
             <CategoryCreatePanel
+              withColor={withColor}
               onSubmit={async (input) => {
                 await onCreateCategory(input);
                 setShowCreate(false);
@@ -231,6 +257,8 @@ function CategoryRow({
   onClick,
   onEdit,
   disabled,
+  color,
+  withColor,
 }: {
   name: string;
   count: number;
@@ -238,6 +266,8 @@ function CategoryRow({
   onClick: () => void;
   onEdit?: () => void;
   disabled?: boolean;
+  color?: string;
+  withColor?: boolean;
 }) {
   return (
     <div
@@ -251,8 +281,9 @@ function CategoryRow({
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="flex-1 min-w-0 flex items-center text-left disabled:cursor-not-allowed"
+        className="flex-1 min-w-0 flex items-center gap-3 text-left disabled:cursor-not-allowed"
       >
+        {withColor && <span className="shrink-0 w-3.5 h-3.5 rounded-full" style={{ background: color || 'var(--fg-subtle)' }} />}
         <div className="flex-1 text-left min-w-0">
           <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{name}</h3>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -282,19 +313,22 @@ function CategoryRow({
 function CategoryCreatePanel({
   onSubmit,
   onCancel,
+  withColor,
 }: {
   onSubmit: (input: CreateCategoryInput) => Promise<void>;
   onCancel: () => void;
+  withColor?: boolean;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState('');
+  const [color, setColor] = useState(CATEGORY_COLORS[0]);
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
-      await onSubmit({ name: name.trim() });
+      await onSubmit({ name: name.trim(), color: withColor ? color : undefined });
     } finally {
       setSaving(false);
     }
@@ -314,6 +348,7 @@ function CategoryCreatePanel({
           if (e.key === 'Escape') onCancel();
         }}
       />
+      {withColor && <ColorSwatches value={color} onChange={setColor} />}
       <div className="flex gap-2">
         <button
           onClick={submit}
@@ -341,14 +376,17 @@ function CategoryEditPanel({
   onSave,
   onDelete,
   onCancel,
+  withColor,
 }: {
   entry: CategoryDrawerEntry;
   onSave: (patch: EditCategoryPatch) => Promise<void>;
   onDelete?: () => Promise<void>;
   onCancel: () => void;
+  withColor?: boolean;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(entry.name);
+  const [color, setColor] = useState(entry.color || CATEGORY_COLORS[0]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -358,7 +396,7 @@ function CategoryEditPanel({
     if (!name.trim() || busy) return;
     setSaving(true);
     try {
-      await onSave({ name: name.trim() });
+      await onSave({ name: name.trim(), color: withColor ? color : undefined });
     } finally {
       setSaving(false);
     }
@@ -390,6 +428,7 @@ function CategoryEditPanel({
           if (e.key === 'Escape') onCancel();
         }}
       />
+      {withColor && <ColorSwatches value={color} onChange={setColor} />}
       <div className="flex gap-2">
         <button
           onClick={submit}

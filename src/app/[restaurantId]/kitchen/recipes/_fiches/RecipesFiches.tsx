@@ -16,9 +16,11 @@ import {
 import {
   getAllCategories, listPrepItems, getRestaurantSettings, getMenuItemIngredients,
   getItemOptionPrices, getRecipeSteps, setRecipeSteps, getPrepIngredients,
-  getPrepCategories, createPrepCategory, updateMenuItem, updatePrepItem,
+  getPrepCategories, createPrepCategory, updatePrepCategory, deletePrepCategory, updateMenuItem, updatePrepItem,
   type ItemOptionOverride, type RecipeStepInput, type PrepCategory,
 } from '@/lib/api';
+import CategoryDrawer from '@/components/menu/CategoryDrawer';
+import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 import { computeItemCostSummary, computePrepUnitCostExVat } from '@/lib/cost-utils';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
@@ -246,6 +248,33 @@ export default function RecipesFiches() {
     } catch { return null; }
   }, [rid, recipeCats]);
 
+  // ── category management (drawer: create / edit+color / delete) ──
+  const refreshCats = useCallback(async () => { try { setRecipeCats(await getPrepCategories(rid)); } catch { /* keep */ } }, [rid]);
+  const catCreate = useCallback(async (input: { name: string; color?: string }) => {
+    try { await createPrepCategory(rid, { name: input.name.trim(), color: input.color }); } catch { /* surfaced on refresh */ }
+    await refreshCats();
+  }, [rid, refreshCats]);
+  const catEdit = useCallback(async (oldName: string, patch: { name: string; color?: string }) => {
+    const c = recipeCats.find((x) => x.name === oldName);
+    try {
+      if (c) await updatePrepCategory(rid, c.id, { name: patch.name, color: patch.color });
+      else await createPrepCategory(rid, { name: patch.name, color: patch.color });
+    } catch { /* surfaced on refresh */ }
+    // Rename cascade — fiches reference the category by name, so re-point them.
+    if (patch.name && patch.name !== oldName) {
+      setArticles((prev) => prev.map((a) => (a.recipeCategory === oldName ? { ...a, recipeCategory: patch.name } : a)));
+      setPreps((prev) => prev.map((p) => (p.recipeCategory === oldName ? { ...p, recipeCategory: patch.name, category: patch.name } : p)));
+      articles.filter((a) => a.recipeCategory === oldName).forEach((a) => { updateMenuItem(rid, a.id, { recipe_category: patch.name }).catch(() => {}); });
+      preps.filter((p) => p.recipeCategory === oldName).forEach((p) => { updatePrepItem(rid, p.id, { category: patch.name }).catch(() => {}); });
+    }
+    await refreshCats();
+  }, [rid, recipeCats, articles, preps, refreshCats]);
+  const catDelete = useCallback(async (name: string) => {
+    const c = recipeCats.find((x) => x.name === name);
+    if (c) { try { await deletePrepCategory(rid, c.id); } catch { /* surfaced on refresh */ } }
+    await refreshCats();
+  }, [rid, recipeCats, refreshCats]);
+
   // ── background enrichment: cost + composition + cross-links for every article ──
   const enrichRanFor = useRef<string>('');
   useEffect(() => {
@@ -265,7 +294,7 @@ export default function RecipesFiches() {
           const raw = rawItems.current.get(a.id);
           if (!raw) return a;
           const summary = computeItemCostSummary({ item: raw, ingredients: ings, overrides, vatRate, showCostsExVat: true });
-          const next = enrichArticle(a, summary, a.method ?? []);
+          const next = { ...enrichArticle(a, summary, a.method ?? []), costItem: raw, costIngredients: ings, costOverrides: overrides };
           // accumulate where-used (prep → articles)
           summary.lines.filter((l) => l.isPrep && l.ingredient.prep_item_id != null).forEach((l) => {
             const pid = l.ingredient.prep_item_id as number;
@@ -345,9 +374,10 @@ export default function RecipesFiches() {
     <TintCtx.Provider value={catColorOf}>
       <div className="rlf-root">
         {view === 'grid'
-          ? <GridView articles={articles} preps={preps} loading={loading} canEdit={canEdit} editor={editor} roleName={roleName} onOpen={(k) => navTo(k)} onRefresh={reload} />
+          ? <GridView articles={articles} preps={preps} loading={loading} canEdit={canEdit} editor={editor} roleName={roleName} onOpen={(k) => navTo(k)} onRefresh={reload}
+              recipeCats={recipeCats} onCreateCat={catCreate} onEditCat={catEdit} onDeleteCat={catDelete} />
           : <SplitView articles={articles} preps={preps} openKey={openKey!} fromKey={fromKey} canEdit={canEdit} editor={editor} roleName={roleName} reduced={reduced}
-              byKey={byKey} onOpen={(k, from) => navTo(k, from)} onBackGrid={() => navTo(null)} whereUsed={whereUsed} rid={rid}
+              byKey={byKey} onOpen={(k, from) => navTo(k, from)} onBackGrid={() => navTo(null)} whereUsed={whereUsed} rid={rid} vatRate={vatRate} onRefresh={reload}
               catNames={catNames} onAssignCategory={assignCategory} onCreateCategory={createCategory}
               onSaveSteps={async (id, method) => {
                 const input: RecipeStepInput[] = method.map((instruction, i) => ({ step_number: i + 1, instruction }));
@@ -363,24 +393,34 @@ export default function RecipesFiches() {
 // ════════════════════════════════════════════════════════════════════════════
 // GRID
 // ════════════════════════════════════════════════════════════════════════════
-function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen, onRefresh }: {
+function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen, onRefresh, recipeCats, onCreateCat, onEditCat, onDeleteCat }: {
   articles: FicheArticle[]; preps: FichePrep[]; loading: boolean; canEdit: boolean; editor: string; roleName: string;
   onOpen: (k: FKey) => void; onRefresh: () => void;
+  recipeCats: PrepCategory[];
+  onCreateCat: (input: { name: string; color?: string }) => Promise<void>;
+  onEditCat: (oldName: string, patch: { name: string; color?: string }) => Promise<void>;
+  onDeleteCat: (name: string) => Promise<void>;
 }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'article' | 'prep'>('all');
   const [mode, setMode] = useState<'grid' | 'list'>('grid');
   const [catFilter, setCatFilter] = useState<string>('all');
+  const [catDrawer, setCatDrawer] = useState(false);
   const tint = useTint();
   useEffect(() => { const t = setTimeout(() => setDebounced(query.trim().toLowerCase()), 200); return () => clearTimeout(t); }, [query]);
 
-  // Recipe categories actually present across BOTH articles + preps (unified axis).
-  const cats = useMemo(() => {
-    const m = new Map<string, number>();
-    [...articles, ...preps].forEach((f) => m.set(f.recipeCategory, (m.get(f.recipeCategory) ?? 0) + 1));
-    return Array.from(m.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [articles, preps]);
+  // Recipe-category entries for the drawer: managed list (with color) + any
+  // orphan names still on fiches, each with a live count across BOTH types.
+  const catEntries = useMemo(() => {
+    const counts = new Map<string, number>();
+    [...articles, ...preps].forEach((f) => { if (f.recipeCategory) counts.set(f.recipeCategory, (counts.get(f.recipeCategory) ?? 0) + 1); });
+    const seen = new Set<string>();
+    const entries: { name: string; count: number; color?: string }[] = [];
+    recipeCats.forEach((c) => { entries.push({ name: c.name, count: counts.get(c.name) ?? 0, color: c.color || undefined }); seen.add(c.name); });
+    Array.from(counts.keys()).filter((n) => !seen.has(n)).forEach((n) => entries.push({ name: n, count: counts.get(n) ?? 0 }));
+    return entries.sort((a, b) => a.name.localeCompare(b.name));
+  }, [articles, preps, recipeCats]);
 
   const matchArt = (a: FicheArticle) => (catFilter === 'all' || a.recipeCategory === catFilter) && (!debounced || a.name.toLowerCase().includes(debounced) || a.recipeCategory.toLowerCase().includes(debounced));
   const matchPrep = (p: FichePrep) => (catFilter === 'all' || p.recipeCategory === catFilter) && (!debounced || p.name.toLowerCase().includes(debounced) || p.recipeCategory.toLowerCase().includes(debounced));
@@ -409,7 +449,7 @@ function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen,
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
-        <Kpi label="Total fiches" value={articles.length + preps.length} sub={`${cats.length} catégories`} />
+        <Kpi label="Total fiches" value={articles.length + preps.length} sub={`${catEntries.length} catégories`} />
         <Kpi label="Articles (carte)" value={articles.length} sub="recettes d'assemblage" />
         <Kpi label="Préparations (cuisine)" value={preps.length} sub={`${preps.filter((p) => p.critical).length} critique(s)`} />
         <Kpi label="Prix moyen" value={money(avgPrice)} sub="par article" />
@@ -429,22 +469,31 @@ function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen,
             </button>
           ))}
         </div>
-        <div style={{ display: 'inline-flex', gap: 2, background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--r-md)' }}>
+        {/* Recipe-category filter — opens the right drawer (filter + manage) */}
+        <button onClick={() => setCatDrawer(true)} title="Catégorie recette"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', background: 'var(--surface)', border: '1px solid ' + (catFilter !== 'all' ? 'var(--brand-500)' : 'var(--line-strong)'), borderRadius: 'var(--r-md)', color: 'var(--fg)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+          {catFilter !== 'all' && <span style={{ width: 8, height: 8, borderRadius: '50%', background: tint(catFilter), flexShrink: 0 }} />}
+          Catégorie · {catFilter === 'all' ? 'Toutes' : catFilter}
+          <ChevronDownIcon size={14} style={{ color: 'var(--fg-subtle)' }} />
+        </button>
+        <div style={{ display: 'inline-flex', gap: 2, background: 'var(--surface-2)', padding: 4, borderRadius: 'var(--r-md)', marginLeft: 'auto' }}>
           <button onClick={() => setMode('grid')} style={{ ...segBtn(mode === 'grid'), width: 30, padding: 0 }} title="Grille"><LayoutGridIcon size={13} /></button>
           <button onClick={() => setMode('list')} style={{ ...segBtn(mode === 'list'), width: 30, padding: 0 }} title="Liste"><ListIcon size={13} /></button>
         </div>
       </div>
 
-      {/* Recipe-category filter — one axis spanning articles + preparations */}
-      {cats.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          <CatChip active={catFilter === 'all'} label="Toutes" count={articles.length + preps.length} onClick={() => setCatFilter('all')} />
-          {cats.map((c) => (
-            <CatChip key={c.name || '∅'} active={catFilter === c.name} label={c.name || 'Sans catégorie'} count={c.count} color={tint(c.name)}
-              onClick={() => setCatFilter(catFilter === c.name ? 'all' : c.name)} />
-          ))}
-        </div>
-      )}
+      <CategoryDrawer
+        open={catDrawer}
+        mode="filter"
+        withColor
+        onClose={() => setCatDrawer(false)}
+        categories={catEntries}
+        currentCategory={catFilter === 'all' ? '' : catFilter}
+        onSelect={(name) => { setCatFilter(name || 'all'); setCatDrawer(false); }}
+        onCreateCategory={canEdit ? onCreateCat : undefined}
+        onEditCategory={canEdit ? onEditCat : undefined}
+        onDeleteCategory={canEdit ? onDeleteCat : undefined}
+      />
 
       {loading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -482,20 +531,6 @@ const segBtn = (on: boolean): React.CSSProperties => ({
   boxShadow: on ? 'var(--shadow-1)' : 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
 });
 const cardGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 };
-
-function CatChip({ active, label, count, color, onClick }: { active: boolean; label: string; count: number; color?: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 999,
-      border: '1px solid ' + (active ? 'var(--brand-500)' : 'var(--line)'),
-      background: active ? 'var(--brand-500)' : 'var(--surface)', color: active ? '#fff' : 'var(--fg-muted)',
-      fontSize: 13, fontWeight: 500, cursor: 'pointer',
-    }}>
-      {color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? '#fff' : color, flexShrink: 0 }} />}
-      {label} <span style={{ opacity: .6 }}>{count}</span>
-    </button>
-  );
-}
 
 function SectionHead({ icon, title, sub, count }: { icon: React.ReactNode; title: string; sub: string; count: number }) {
   return (
@@ -601,9 +636,9 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 // ════════════════════════════════════════════════════════════════════════════
 // SPLIT
 // ════════════════════════════════════════════════════════════════════════════
-function SplitView({ articles, preps, openKey, fromKey, canEdit, editor, roleName, reduced, byKey, onOpen, onBackGrid, whereUsed, onSaveSteps, catNames, onAssignCategory, onCreateCategory }: {
+function SplitView({ articles, preps, openKey, fromKey, canEdit, editor, roleName, reduced, rid, vatRate, onRefresh, byKey, onOpen, onBackGrid, whereUsed, onSaveSteps, catNames, onAssignCategory, onCreateCategory }: {
   articles: FicheArticle[]; preps: FichePrep[]; openKey: string; fromKey: string | null;
-  canEdit: boolean; editor: string; roleName: string; reduced: boolean; rid: number;
+  canEdit: boolean; editor: string; roleName: string; reduced: boolean; rid: number; vatRate: number; onRefresh: () => void | Promise<void>;
   byKey: (k: string | null | undefined) => FicheArticle | FichePrep | undefined;
   onOpen: (k: FKey, from?: FKey | null) => void; onBackGrid: () => void;
   whereUsed: Map<number, UsedByEntry[]>;
@@ -672,6 +707,7 @@ function SplitView({ articles, preps, openKey, fromKey, canEdit, editor, roleNam
             : <div className={`rlf-pane ${paneCls}`} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                 {paneFiche.kind === 'article'
                   ? <ArticleDetail a={paneFiche as FicheArticle} canEdit={canEdit} editor={editor} flashPrep={flashPrep} onJump={jump} onSaveSteps={onSaveSteps}
+                      rid={rid} vatRate={vatRate} onRefresh={onRefresh}
                       catNames={catNames} onAssignCategory={(name) => onAssignCategory('article', (paneFiche as FicheArticle).id, name)} onCreateCategory={onCreateCategory} />
                   : <PrepDetail p={paneFiche as FichePrep} canEdit={canEdit} editor={editor} fromName={fromFiche?.name ?? null} fromKey={fromKey} onBack={() => fromKey && select(fromKey)} onOpenArticle={(id) => select(keyOf('article', id))} usedBy={whereUsed.get((paneFiche as FichePrep).id) ?? (paneFiche as FichePrep).usedBy ?? []}
                       catNames={catNames} onAssignCategory={(name) => onAssignCategory('prep', (paneFiche as FichePrep).id, name)} onCreateCategory={onCreateCategory} />}
@@ -794,8 +830,8 @@ function DetailHeaderActions({ canEdit, editor, onEdit, showEdit = true }: { can
 }
 
 // ─── ARTICLE detail ──
-function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, catNames, onAssignCategory, onCreateCategory }: {
-  a: FicheArticle; canEdit: boolean; editor: string; flashPrep: number | null;
+function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, rid, vatRate, onRefresh, catNames, onAssignCategory, onCreateCategory }: {
+  a: FicheArticle; canEdit: boolean; editor: string; flashPrep: number | null; rid: number; vatRate: number; onRefresh: () => void | Promise<void>;
   onJump: (prepId: number, fromArticleId: number) => void; onSaveSteps: (id: number, method: string[]) => void | Promise<void>;
   catNames: string[]; onAssignCategory: (name: string) => void | Promise<void>; onCreateCategory: (name: string) => Promise<string | null>;
 }) {
@@ -857,7 +893,9 @@ function ArticleDetail({ a, canEdit, editor, flashPrep, onJump, onSaveSteps, cat
             </div>
           )}
           {tab === 'compo' && a.note && <NoteCard text={a.note} />}
-          {tab === 'cost' && <CostTab comps={comps} total={total} />}
+          {tab === 'cost' && (a.costItem && a.costIngredients
+            ? <MenuItemTabCost rid={rid} item={a.costItem} ingredients={a.costIngredients} itemOptionOverrides={a.costOverrides ?? []} vatRate={vatRate} price={a.price} onChangesApplied={onRefresh} />
+            : <CostTab comps={comps} total={total} />)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <LinkedPrepsPanel a={a} onJump={(id) => onJump(id, a.id)} />

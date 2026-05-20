@@ -2,7 +2,7 @@
 // Bridges the real API shapes (MenuItem / PrepItem / cost-utils) to the
 // article/prep "fiche" view models the UI renders. Pure functions only.
 
-import type { MenuItem, PrepItem, RecipeStep } from '@/lib/api';
+import type { MenuItem, MenuItemIngredient, PrepItem, RecipeStep, ItemOptionOverride } from '@/lib/api';
 import type { ItemCostSummary } from '@/lib/cost-utils';
 
 export type FicheKind = 'article' | 'prep';
@@ -63,6 +63,10 @@ export interface FicheArticle {
   comps?: CompRow[];
   method?: string[];
   linkedPreps?: LinkedPrepRef[];
+  // raw inputs so the article's Coûts tab can reuse the real Food Cost section
+  costItem?: MenuItem;
+  costIngredients?: MenuItemIngredient[];
+  costOverrides?: ItemOptionOverride[];
 }
 
 export type ApiMenuItem = MenuItem & { category_name?: string };
