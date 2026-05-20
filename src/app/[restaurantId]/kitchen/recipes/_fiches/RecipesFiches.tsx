@@ -16,8 +16,8 @@ import {
 import {
   getAllCategories, listPrepItems, getRestaurantSettings, getMenuItemIngredients,
   getItemOptionPrices, getRecipeSteps, setRecipeSteps, getPrepIngredients,
-  getPrepCategories, createPrepCategory, updatePrepCategory, deletePrepCategory, updateMenuItem, updatePrepItem,
-  type ItemOptionOverride, type RecipeStepInput, type PrepCategory,
+  getRecipeCategories, createRecipeCategory, updateRecipeCategory, deleteRecipeCategory, updateMenuItem, updatePrepItem,
+  type ItemOptionOverride, type RecipeStepInput, type RecipeCategory,
 } from '@/lib/api';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
@@ -193,7 +193,7 @@ export default function RecipesFiches() {
   const [whereUsed, setWhereUsed] = useState<Map<number, UsedByEntry[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [vatRate, setVatRate] = useState(18);
-  const [recipeCats, setRecipeCats] = useState<PrepCategory[]>([]);
+  const [recipeCats, setRecipeCats] = useState<RecipeCategory[]>([]);
   const stepCache = useRef<Map<number, string[]>>(new Map());
   const rawItems = useRef<Map<number, ApiMenuItem>>(new Map());
 
@@ -205,7 +205,7 @@ export default function RecipesFiches() {
         getAllCategories(rid, { withRecipeOnly: true }),
         listPrepItems(rid),
         getRestaurantSettings(rid).catch(() => null),
-        getPrepCategories(rid).catch(() => [] as PrepCategory[]),
+        getRecipeCategories(rid).catch(() => [] as RecipeCategory[]),
       ]);
       const vr = settings?.vat_rate ?? 18;
       setVatRate(vr);
@@ -242,23 +242,23 @@ export default function RecipesFiches() {
     if (!trimmed) return null;
     if (recipeCats.some((c) => c.name === trimmed)) return trimmed;
     try {
-      const c = await createPrepCategory(rid, { name: trimmed });
+      const c = await createRecipeCategory(rid, { name: trimmed });
       setRecipeCats((prev) => [...prev, c]);
       return c.name;
     } catch { return null; }
   }, [rid, recipeCats]);
 
   // ── category management (drawer: create / edit+color / delete) ──
-  const refreshCats = useCallback(async () => { try { setRecipeCats(await getPrepCategories(rid)); } catch { /* keep */ } }, [rid]);
+  const refreshCats = useCallback(async () => { try { setRecipeCats(await getRecipeCategories(rid)); } catch { /* keep */ } }, [rid]);
   const catCreate = useCallback(async (input: { name: string; color?: string }) => {
-    try { await createPrepCategory(rid, { name: input.name.trim(), color: input.color }); } catch { /* surfaced on refresh */ }
+    try { await createRecipeCategory(rid, { name: input.name.trim(), color: input.color }); } catch { /* surfaced on refresh */ }
     await refreshCats();
   }, [rid, refreshCats]);
   const catEdit = useCallback(async (oldName: string, patch: { name: string; color?: string }) => {
     const c = recipeCats.find((x) => x.name === oldName);
     try {
-      if (c) await updatePrepCategory(rid, c.id, { name: patch.name, color: patch.color });
-      else await createPrepCategory(rid, { name: patch.name, color: patch.color });
+      if (c) await updateRecipeCategory(rid, c.id, { name: patch.name, color: patch.color });
+      else await createRecipeCategory(rid, { name: patch.name, color: patch.color });
     } catch { /* surfaced on refresh */ }
     // Rename cascade — fiches reference the category by name, so re-point them.
     if (patch.name && patch.name !== oldName) {
@@ -271,7 +271,7 @@ export default function RecipesFiches() {
   }, [rid, recipeCats, articles, preps, refreshCats]);
   const catDelete = useCallback(async (name: string) => {
     const c = recipeCats.find((x) => x.name === name);
-    if (c) { try { await deletePrepCategory(rid, c.id); } catch { /* surfaced on refresh */ } }
+    if (c) { try { await deleteRecipeCategory(rid, c.id); } catch { /* surfaced on refresh */ } }
     await refreshCats();
   }, [rid, recipeCats, refreshCats]);
 
@@ -396,7 +396,7 @@ export default function RecipesFiches() {
 function GridView({ articles, preps, loading, canEdit, editor, roleName, onOpen, onRefresh, recipeCats, onCreateCat, onEditCat, onDeleteCat }: {
   articles: FicheArticle[]; preps: FichePrep[]; loading: boolean; canEdit: boolean; editor: string; roleName: string;
   onOpen: (k: FKey) => void; onRefresh: () => void;
-  recipeCats: PrepCategory[];
+  recipeCats: RecipeCategory[];
   onCreateCat: (input: { name: string; color?: string }) => Promise<void>;
   onEditCat: (oldName: string, patch: { name: string; color?: string }) => Promise<void>;
   onDeleteCat: (name: string) => Promise<void>;

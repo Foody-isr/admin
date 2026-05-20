@@ -654,7 +654,7 @@ export interface StockCategoryInput {
   is_active?: boolean;
 }
 
-export interface PrepCategory {
+export interface RecipeCategory {
   id: number;
   name: string;
   color: string;
@@ -663,7 +663,7 @@ export interface PrepCategory {
   is_active: boolean;
 }
 
-export type PrepCategoryInput = StockCategoryInput;
+export type RecipeCategoryInput = StockCategoryInput;
 
 export interface StockTransaction {
   id: number;
@@ -3326,27 +3326,27 @@ export async function createPrepTransaction(restaurantId: number, input: PrepTra
   return data.transaction;
 }
 
-export async function getPrepCategories(restaurantId: number): Promise<PrepCategory[]> {
-  const data = await apiFetch<{ categories: PrepCategory[] }>(`/api/v1/prep/categories?restaurant_id=${restaurantId}`, restaurantId);
+export async function getRecipeCategories(restaurantId: number): Promise<RecipeCategory[]> {
+  const data = await apiFetch<{ categories: RecipeCategory[] }>(`/api/v1/recipes/categories?restaurant_id=${restaurantId}`, restaurantId);
   return data.categories ?? [];
 }
 
-export async function createPrepCategory(restaurantId: number, input: PrepCategoryInput): Promise<PrepCategory> {
-  const data = await apiFetch<{ category: PrepCategory }>(`/api/v1/prep/categories?restaurant_id=${restaurantId}`, restaurantId, {
+export async function createRecipeCategory(restaurantId: number, input: RecipeCategoryInput): Promise<RecipeCategory> {
+  const data = await apiFetch<{ category: RecipeCategory }>(`/api/v1/recipes/categories?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
   });
   return data.category;
 }
 
-export async function updatePrepCategory(restaurantId: number, id: number, input: PrepCategoryInput): Promise<PrepCategory> {
-  const data = await apiFetch<{ category: PrepCategory }>(`/api/v1/prep/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, {
+export async function updateRecipeCategory(restaurantId: number, id: number, input: RecipeCategoryInput): Promise<RecipeCategory> {
+  const data = await apiFetch<{ category: RecipeCategory }>(`/api/v1/recipes/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT', body: JSON.stringify(input),
   });
   return data.category;
 }
 
-export async function deletePrepCategory(restaurantId: number, id: number): Promise<void> {
-  await apiFetch(`/api/v1/prep/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+export async function deleteRecipeCategory(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/recipes/categories/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
 }
 
 export async function getPrepLowStockCount(restaurantId: number): Promise<number> {
