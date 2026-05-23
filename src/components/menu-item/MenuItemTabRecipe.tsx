@@ -1,7 +1,7 @@
 'use client';
 
 import { useImperativeHandle, forwardRef, useEffect, useState } from 'react';
-import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import {
   getRecipeSteps,
@@ -19,25 +19,17 @@ import {
 import { RecipeComposer } from './RecipeComposer';
 import CreateStockSheet from './CreateStockSheet';
 import CreatePrepSheet from './CreatePrepSheet';
-import { NumberInput } from '@/components/ui/NumberInput';
 import RecipeTable, { type VariantColumn } from './RecipeTable';
 import RecipeImportModal from '@/app/[restaurantId]/kitchen/RecipeImportModal';
+import RecipeStepsEditor, {
+  splitInstruction,
+  joinInstruction,
+  type StepView,
+} from '@/components/recipe/RecipeStepsEditor';
 
 export interface VariantRef {
   option_id: number;
   name: string;
-}
-
-// Backend stores a single `instruction` string per step. Figma shows a
-// title + description. We split on the first newline: line 1 is the title,
-// remainder is the description.
-function splitInstruction(src: string): { title: string; description: string } {
-  const [first, ...rest] = (src ?? '').split('\n');
-  return { title: first ?? '', description: rest.join('\n') };
-}
-function joinInstruction(title: string, description: string): string {
-  if (!description) return title;
-  return `${title}\n${description}`;
 }
 
 // Figma MenuItemDetails.tsx:323-642 — Recette tab.
@@ -99,12 +91,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
   };
 
   // Recipe steps state — loaded from API, mutated locally, saved on main form save.
-  // Local view shape: split `instruction` into title + description for the Figma card.
-  interface StepView {
-    title: string;
-    description: string;
-    duration_mins: number;
-  }
+  // Local view shape (StepView) splits `instruction` into title + description.
   const [steps, setSteps] = useState<StepView[]>([]);
   const [prepTime, setPrepTime] = useState<number>(item.prep_time_mins ?? 0);
   const [notes, setNotes] = useState<string>(item.recipe_notes ?? '');
@@ -156,18 +143,8 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
     [dirty, rid, item.id, steps, prepTime, notes],
   );
 
-  const addStep = () => {
-    setSteps((s) => [...s, { title: '', description: '', duration_mins: 0 }]);
-    setDirty(true);
-  };
-
-  const updateStep = (idx: number, patch: Partial<StepView>) => {
-    setSteps((s) => s.map((step, i) => (i === idx ? { ...step, ...patch } : step)));
-    setDirty(true);
-  };
-
-  const removeStep = (idx: number) => {
-    setSteps((s) => s.filter((_, i) => i !== idx));
+  const handleStepsChange = (next: StepView[]) => {
+    setSteps(next);
     setDirty(true);
   };
 
@@ -220,89 +197,21 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
           />
       </div>
 
-      {/* Instructions de préparation */}
-      <div>
-        <div className="flex items-center justify-between mb-[var(--s-3)]">
-          <div>
-            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
-              {t('recipeInstructions') || 'Instructions'}
-              <span className="text-[var(--fg-muted)] font-normal ms-1.5">
-                · {steps.length} {steps.length === 1 ? 'étape' : 'étapes'}
-              </span>
-            </h4>
-            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-              {t('recipeInstructionsSubtitle') || 'Étapes détaillées pour préparer ce plat'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={addStep}
-            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('addStep') || 'Ajouter une étape'}
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-[var(--s-3)]">
-          {steps.map((step, idx) => (
-            <InstructionItem
-              key={idx}
-              number={idx + 1}
-              title={step.title ?? ''}
-              durationMins={step.duration_mins ?? 0}
-              description={step.description ?? ''}
-              onTitleChange={(v) => updateStep(idx, { title: v })}
-              onTimeChange={(n) => updateStep(idx, { duration_mins: n })}
-              onDescriptionChange={(v) => updateStep(idx, { description: v })}
-              onDelete={() => removeStep(idx)}
-            />
-          ))}
-          {steps.length === 0 && (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
-              {t('noInstructions') || 'Aucune étape définie.'}
-            </p>
-          )}
-        </div>
-
-        {/* Prep time + notes — foody-specific, minimal UI */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('prepTime') || 'Temps de préparation'}
-            </label>
-            <div className="relative">
-              <NumberInput
-                min={0}
-                integer
-                value={prepTime}
-                onChange={(n) => {
-                  setPrepTime(n);
-                  setDirty(true);
-                }}
-                className="w-full px-4 py-2.5 pr-14 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 text-sm pointer-events-none">
-                min
-              </span>
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              {t('recipeNotes') || 'Notes'}
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => {
-                setNotes(e.target.value);
-                setDirty(true);
-              }}
-              rows={2}
-              className="w-full px-[var(--s-3)] py-[var(--s-3)] bg-[var(--surface-2)] border border-[var(--line-strong)] rounded-r-md text-[var(--fg)] text-fs-sm focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors resize-none"
-            />
-          </div>
-        </div>
-      </div>
+      {/* Instructions de préparation — shared with the prep recipe tab */}
+      <RecipeStepsEditor
+        steps={steps}
+        prepTime={prepTime}
+        notes={notes}
+        onStepsChange={handleStepsChange}
+        onPrepTimeChange={(n) => {
+          setPrepTime(n);
+          setDirty(true);
+        }}
+        onNotesChange={(v) => {
+          setNotes(v);
+          setDirty(true);
+        }}
+      />
       </section>
 
       {showImportModal && (
@@ -429,72 +338,3 @@ function SimpleIngredientPicker({
   );
 }
 
-// ─── Numbered instruction item — Figma:627-642 ─────────────────
-
-function InstructionItem({
-  number,
-  title,
-  durationMins,
-  description,
-  onTitleChange,
-  onTimeChange,
-  onDescriptionChange,
-  onDelete,
-}: {
-  number: number;
-  title: string;
-  durationMins: number;
-  description: string;
-  onTitleChange: (v: string) => void;
-  onTimeChange: (n: number) => void;
-  onDescriptionChange: (v: string) => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] shadow-1 p-[var(--s-4)] flex gap-[var(--s-4)]">
-      <div
-        className="shrink-0 w-8 h-8 rounded-full grid place-items-center text-white font-bold text-fs-sm"
-        style={{ background: 'var(--brand-500)' }}
-      >
-        {number}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-2)]">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => onTitleChange(e.target.value)}
-            placeholder={`Étape ${number}`}
-            className="flex-1 bg-transparent text-fs-md font-medium text-[var(--fg)] focus:outline-none placeholder:text-[var(--fg-subtle)]"
-          />
-          <div className="flex items-center gap-1 text-fs-sm text-[var(--fg-muted)] shrink-0">
-            <NumberInput
-              min={0}
-              integer
-              value={durationMins}
-              onChange={onTimeChange}
-              placeholder="0"
-              className="w-12 bg-transparent text-right font-mono tabular-nums text-[var(--fg)] focus:outline-none placeholder:text-[var(--fg-subtle)]"
-            />
-            <span>min</span>
-            <button
-              type="button"
-              onClick={onDelete}
-              className="ms-[var(--s-2)] p-1 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-              aria-label="Delete step"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        </div>
-        <textarea
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Description de l'étape…"
-          rows={2}
-          className="w-full bg-transparent text-fs-sm text-[var(--fg-muted)] leading-relaxed resize-none focus:outline-none placeholder:text-[var(--fg-subtle)]"
-        />
-      </div>
-    </div>
-  );
-}

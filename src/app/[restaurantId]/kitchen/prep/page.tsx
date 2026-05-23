@@ -7,7 +7,8 @@ import {
   getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
   getPrepCategories, createPrepCategory, updatePrepCategory,
-  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory,
+  getPrepRecipeSteps, setPrepRecipeSteps, updatePrepRecipeMeta,
+  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory, PrepRecipeStepInput,
   StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
@@ -48,6 +49,9 @@ import RecipeImportModal from '../RecipeImportModal';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { Layers as LayersIcon } from 'lucide-react';
+import RecipeStepsEditor, {
+  splitInstruction, joinInstruction, type StepView,
+} from '@/components/recipe/RecipeStepsEditor';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -653,6 +657,13 @@ function PrepItemModal({
   const [loadingIngs, setLoadingIngs] = useState(!!editing);
   const [saving, setSaving] = useState(false);
 
+  // Cooking instructions (Recette tab). Steps are loaded for an existing prep;
+  // a new prep starts empty and is saved after the item is created.
+  const [tab, setTab] = useState<'details' | 'recipe'>('details');
+  const [steps, setSteps] = useState<StepView[]>([]);
+  const [prepTime, setPrepTime] = useState<number>(editing?.prep_time_mins ?? 0);
+  const [loadingSteps, setLoadingSteps] = useState(!!editing);
+
   useEffect(() => {
     if (!editing) return;
     getPrepIngredients(rid, editing.id)
@@ -661,6 +672,17 @@ function PrepItemModal({
         quantity_needed: Math.round(i.quantity_needed * 10000) / 10000,
       }))))
       .finally(() => setLoadingIngs(false));
+  }, [rid, editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    getPrepRecipeSteps(rid, editing.id)
+      .then((data) => setSteps((data ?? []).map((s) => {
+        const parts = splitInstruction(s.instruction);
+        return { title: parts.title, description: parts.description, duration_mins: s.duration_mins ?? 0 };
+      })))
+      .catch(() => {})
+      .finally(() => setLoadingSteps(false));
   }, [rid, editing]);
 
   const removeIngredient = (idx: number) => setIngredients(ingredients.filter((_, i) => i !== idx));
@@ -712,6 +734,16 @@ function PrepItemModal({
       if (ingredients.length > 0) {
         await setPrepIngredients(rid, itemId, ingredients);
       }
+      // Persist cooking instructions + prep time. setPrepRecipeSteps replaces
+      // the full set (an empty array clears removed steps); recipe-meta carries
+      // the prep time (notes is kept in sync via the rail field).
+      const stepsPayload: PrepRecipeStepInput[] = steps.map((s, i) => ({
+        step_number: i + 1,
+        instruction: joinInstruction(s.title, s.description),
+        duration_mins: s.duration_mins,
+      }));
+      await setPrepRecipeSteps(rid, itemId, stepsPayload);
+      await updatePrepRecipeMeta(rid, itemId, { prep_time_mins: prepTime, notes });
       onSaved();
       onClose();
     } catch (err: any) {
@@ -846,6 +878,17 @@ function PrepItemModal({
                   if (ingredients.length > 0) {
                     await setPrepIngredients(rid, created.id, ingredients);
                   }
+                  // Carry the recipe (cooking steps + prep time) onto the copy.
+                  if (steps.length > 0) {
+                    await setPrepRecipeSteps(rid, created.id, steps.map((s, i) => ({
+                      step_number: i + 1,
+                      instruction: joinInstruction(s.title, s.description),
+                      duration_mins: s.duration_mins,
+                    })));
+                  }
+                  if (prepTime > 0) {
+                    await updatePrepRecipeMeta(rid, created.id, { prep_time_mins: prepTime, notes });
+                  }
                   onSaved();
                   onClose();
                 } catch (err: any) {
@@ -893,6 +936,25 @@ function PrepItemModal({
       cancelLabel={t('cancel')}
       rail={rail}
     >
+      {/* Tabs: Détails | Recette */}
+      <div className="max-w-3xl mb-[var(--s-5)] flex gap-[var(--s-1)] border-b border-[var(--line)]">
+        {(['details', 'recipe'] as const).map((tk) => (
+          <button
+            key={tk}
+            type="button"
+            onClick={() => setTab(tk)}
+            className={`px-[var(--s-4)] py-[var(--s-2)] text-fs-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === tk
+                ? 'border-[var(--brand-500)] text-[var(--fg)]'
+                : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'
+            }`}
+          >
+            {tk === 'details' ? (t('tabDetails') || 'Détails') : (t('tabRecipe') || 'Recette')}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'details' && (
       <div className="max-w-3xl">
         <EditorSectionHead title={t('identityAndYield') || 'Identité & rendement'} />
 
@@ -1055,6 +1117,29 @@ function PrepItemModal({
           </div>
         )}
       </div>
+      )}
+
+      {tab === 'recipe' && (
+        <div className="max-w-3xl">
+          <EditorSectionHead
+            title={t('tabRecipe') || 'Recette'}
+            desc={t('prepRecipeInstructionsDesc') || 'Étapes de préparation de cette recette'}
+          />
+          {loadingSteps ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <RecipeStepsEditor
+              steps={steps}
+              prepTime={prepTime}
+              showNotes={false}
+              onStepsChange={setSteps}
+              onPrepTimeChange={setPrepTime}
+            />
+          )}
+        </div>
+      )}
 
       {pickerOpen && (
         <StockItemPickerModal

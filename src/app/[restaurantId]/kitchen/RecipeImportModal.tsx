@@ -18,6 +18,7 @@ import StockQuantityForm, {
   StockInput, BaseUnit, defaultStockInput, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
 import { classifyUnits, convertUnit, formatConverted } from '@/lib/stock/unit-compat';
+import RecipeStepsEditor, { joinInstruction, type StepView } from '@/components/recipe/RecipeStepsEditor';
 
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
 function coerceBaseUnit(u: string): BaseUnit {
@@ -64,6 +65,9 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
     /** Captured packaging/pricing form state for new items (UI-only, not persisted). */
     stockForm?: StockInput;
   }>>([]);
+  // Extracted cooking instructions (prep mode only). Reviewed/edited before confirm.
+  const [editedSteps, setEditedSteps] = useState<StepView[]>([]);
+  const [editedPrepTime, setEditedPrepTime] = useState(0);
   const [vatRate, setVatRate] = useState(18);
 
   // Load VAT rate
@@ -115,6 +119,12 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
               : undefined,
           };
         }));
+        setEditedSteps((recipe.steps ?? []).map((s) => ({
+          title: s.title || '',
+          description: s.description || '',
+          duration_mins: s.duration_mins ?? 0,
+        })));
+        setEditedPrepTime(0);
       }
       if (file) setPreviewUrl(URL.createObjectURL(file));
       setStep('review');
@@ -155,7 +165,12 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           name: editedName.trim(),
           yield: editedYield,
           yield_unit: editedYieldUnit,
+          prep_time_mins: editedPrepTime,
           ingredients,
+          steps: editedSteps.map((s) => ({
+            instruction: joinInstruction(s.title, s.description),
+            duration_mins: s.duration_mins,
+          })),
         };
         await confirmPrepRecipe(rid, input);
       }
@@ -548,6 +563,25 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
               );
             })}
           </div>
+
+          {/* Cooking instructions extracted by the AI — review before confirm (prep only) */}
+          {mode.kind === 'prep' && (
+            <div className="mt-6 pt-6 border-t border-[var(--divider)]">
+              <h4 className="text-sm font-semibold text-fg-primary mb-1">
+                {t('recipeInstructions') || 'Instructions'}
+              </h4>
+              <p className="text-xs text-fg-secondary mb-4">
+                {t('importStepsReviewHint') || 'Vérifiez les étapes extraites avant de confirmer.'}
+              </p>
+              <RecipeStepsEditor
+                steps={editedSteps}
+                prepTime={editedPrepTime}
+                showNotes={false}
+                onStepsChange={setEditedSteps}
+                onPrepTimeChange={setEditedPrepTime}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
