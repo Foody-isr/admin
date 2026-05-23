@@ -185,6 +185,8 @@ export interface MenuCategory {
   is_weekly_rotating?: boolean;
   availability_hours?: CategoryAvailabilityHour[];
   items?: MenuItem[];
+  /** Default availability rule for items in this category (null = inherit default). */
+  availability_rule_id?: number | null;
 }
 
 export interface MenuItemModifier {
@@ -314,6 +316,14 @@ export interface MenuItem {
   recipe_steps?: RecipeStep[];
   /** Per-locale name/description overrides. Source-locale is never stored here. */
   translations?: TranslationMap;
+  /** Recipe-aware availability rule assignment (null = inherit category/default). */
+  availability_rule_id?: number | null;
+  /** Staff "86" switch: 'auto' | 'force_available' | 'force_sold_out'. */
+  availability_override?: AvailabilityOverride;
+  /** Computed (read-only) availability stamped onto staff menu responses. */
+  availability_state?: AvailabilityState;
+  buildable_count?: number | null;
+  availability_bottleneck?: string;
 }
 
 export interface OrderItemModifier {
@@ -733,11 +743,13 @@ export interface PrepItem {
   shelf_life_hours: number;
   category: string;
   notes: string;
+  prep_time_mins?: number;
   is_active: boolean;
   cost_per_unit: number;
   created_at: string;
   updated_at: string;
   ingredients?: PrepItemIngredient[];
+  recipe_steps?: PrepRecipeStep[];
 }
 
 export interface PrepItemInput {
@@ -3150,6 +3162,12 @@ export interface ExtractedIngredient {
   is_new: boolean;
 }
 
+export interface ExtractedRecipeStep {
+  title: string;
+  description: string;
+  duration_mins: number;
+}
+
 export interface ExtractedRecipe {
   dish_name: string;
   dish_description: string;
@@ -3157,6 +3175,7 @@ export interface ExtractedRecipe {
   total_yield: number;
   total_yield_unit: string;
   ingredients: ExtractedIngredient[];
+  steps?: ExtractedRecipeStep[];
   matched_menu_item_id?: number | null;
   matched_menu_item_name: string;
   confidence: number;
@@ -3224,13 +3243,21 @@ export async function confirmRecipes(restaurantId: number, input: ConfirmRecipeI
   });
 }
 
+export interface ConfirmPrepRecipeStepInput {
+  instruction: string;
+  duration_mins?: number;
+  image_url?: string;
+}
+
 export interface ConfirmPrepRecipeInput {
   name: string;
   category?: string;
   notes?: string;
   yield: number;
   yield_unit: string;
+  prep_time_mins?: number;
   ingredients: ConfirmRecipeIngredientInput[];
+  steps?: ConfirmPrepRecipeStepInput[];
 }
 
 export async function confirmPrepRecipe(restaurantId: number, input: ConfirmPrepRecipeInput): Promise<PrepItem> {
@@ -4228,6 +4255,67 @@ export async function uploadRecipeStepImage(restaurantId: number, menuItemId: nu
   return data.image_url;
 }
 
+// ─── Prep Recipe Steps (Cooking Instructions for Préparations) ────────────────
+// Mirrors the menu-item recipe step API, scoped under /prep/items/:id.
+
+export interface PrepRecipeStep {
+  id: number;
+  prep_item_id: number;
+  step_number: number;
+  instruction: string;
+  image_url: string;
+  duration_mins: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrepRecipeStepInput {
+  step_number: number;
+  instruction: string;
+  image_url?: string;
+  duration_mins?: number;
+}
+
+export async function getPrepRecipeSteps(restaurantId: number, prepItemId: number): Promise<PrepRecipeStep[]> {
+  const res = await apiFetch<{ steps: PrepRecipeStep[] }>(`/api/v1/prep/items/${prepItemId}/steps`, restaurantId);
+  return res.steps;
+}
+
+export async function setPrepRecipeSteps(restaurantId: number, prepItemId: number, steps: PrepRecipeStepInput[]): Promise<PrepRecipeStep[]> {
+  const res = await apiFetch<{ steps: PrepRecipeStep[] }>(`/api/v1/prep/items/${prepItemId}/steps`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ steps }),
+  });
+  return res.steps;
+}
+
+export async function updatePrepRecipeMeta(restaurantId: number, prepItemId: number, meta: { prep_time_mins: number; notes: string }): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/prep/items/${prepItemId}/recipe-meta`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(meta),
+  });
+}
+
+export async function uploadPrepStepImage(restaurantId: number, prepItemId: number, stepId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/prep/items/${prepItemId}/steps/${stepId}/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
+}
+
 // ─── Supplies (Grouped Receive History) ──────────────────────────────────────
 
 export interface SupplySummary {
@@ -4671,4 +4759,63 @@ export async function setFoodCostTarget(
     `/api/v1/restaurants/settings/food-cost-target?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'PUT', body: JSON.stringify({ food_cost_target_pct: pct }) }
   );
+}
+
+// ─── Recipe-aware Availability ──────────────────────────────────────────────
+
+export type AvailabilityOverride = 'auto' | 'force_available' | 'force_sold_out';
+export type AvailabilityState = 'available' | 'low' | 'sold_out' | 'hidden';
+export type OutOfStockBehavior = 'sold_out' | 'hide';
+
+/** A reusable availability rule in the restaurant's rule library. */
+export interface AvailabilityRule {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  track: boolean;
+  low_stock_threshold: number;
+  out_of_stock_behavior: OutOfStockBehavior;
+  show_count: boolean;
+  is_default: boolean;
+  sort_order: number;
+}
+
+export type AvailabilityRuleInput = Omit<AvailabilityRule, 'id' | 'restaurant_id'>;
+
+/** Live availability of one dish, for the per-dish editor panel. */
+export interface AvailabilityPreview {
+  buildable: number;
+  unlimited: boolean;
+  bottleneck: string;
+  state: AvailabilityState;
+  count: number | null;
+}
+
+/** List the rule library (seeds starter rules on first access). */
+export async function listAvailabilityRules(restaurantId: number): Promise<AvailabilityRule[]> {
+  const data = await apiFetch<{ rules: AvailabilityRule[] }>(`/api/v1/availability/rules`, restaurantId);
+  return data.rules ?? [];
+}
+
+export async function createAvailabilityRule(restaurantId: number, input: AvailabilityRuleInput): Promise<AvailabilityRule> {
+  const data = await apiFetch<{ rule: AvailabilityRule }>(`/api/v1/availability/rules`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.rule;
+}
+
+export async function updateAvailabilityRule(restaurantId: number, id: number, input: AvailabilityRuleInput): Promise<AvailabilityRule> {
+  const data = await apiFetch<{ rule: AvailabilityRule }>(`/api/v1/availability/rules/${id}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.rule;
+}
+
+export async function deleteAvailabilityRule(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/availability/rules/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** Live buildable count + bottleneck + resolved state for a single dish. */
+export async function previewItemAvailability(restaurantId: number, itemId: number): Promise<AvailabilityPreview> {
+  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview`, restaurantId);
 }

@@ -30,6 +30,7 @@ import VariantsEditor, {
 } from '@/components/menu-item/VariantsEditor';
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
+import ItemAvailabilityPanel from '@/components/menu-item/ItemAvailabilityPanel';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
@@ -673,6 +674,12 @@ export default function EditItemPage() {
                 }}
                 onImported={loadData}
               />
+            )}
+
+            {activeTab === 'recipe' && item && (
+              <div className="mt-4">
+                <ItemAvailabilityPanel rid={rid} itemId={iid} item={item} onSaved={loadData} />
+              </div>
             )}
 
             {/* ── Tab: Coût — Figma MenuItemDetails.tsx:644 ─────── */}
