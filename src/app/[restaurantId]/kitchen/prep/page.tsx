@@ -1035,96 +1035,130 @@ function PrepItemModal({
           </div>
         </div>
 
-        {/* Ingredients — 3px brand accent matches reference */}
-        <EditorSectionHead
-          title={t('prepRecipeSection') || 'Ingrédients'}
-          desc={
-            (yieldPerBatch ?? 0) > 0
-              ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
-              : undefined
-          }
-          aside={
-            <button
-              type="button"
-              onClick={openAddPicker}
-              className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-            >
-              <PlusIcon className="w-3.5 h-3.5" />
-              {t('addIngredient')}
-            </button>
-          }
-        />
-        {(yieldPerBatch ?? 0) > 0 && (
-          <p className="text-fs-xs text-[var(--fg-muted)] -mt-[var(--s-3)] mb-[var(--s-3)]">
-            {/* absorbed into EditorSectionHead desc above */}
-          </p>
-        )}
-        {loadingIngs ? (
-          <div className="flex justify-center py-4">
-            <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {ingredients.map((ing, idx) => {
-              const si = stockItems.find((s) => s.id === ing.stock_item_id);
-              return (
-                <div key={idx} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openSwapPicker(idx)}
-                    className="flex-1 min-w-0 flex items-center gap-3 px-2 py-1.5 rounded-lg border border-[var(--divider)] hover:border-brand-500 hover:bg-brand-500/5 transition-colors text-left"
-                  >
-                    {si?.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={si.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                        <ImageIcon className="w-5 h-5 text-fg-tertiary" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-fg-primary truncate">
-                        {si?.name || '—'}
-                      </div>
-                      <div className="text-xs text-fg-secondary truncate">
-                        {si ? `${si.category || '—'} · ${si.unit}` : ''}
-                      </div>
-                    </div>
-                  </button>
-                  <div className="relative w-32 shrink-0">
-                    <NumberInput
-                      min={0}
-                      className="input w-full text-sm text-right pr-9"
-                      value={ing.quantity_needed}
-                      onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
-                      placeholder={t('qty')}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-fg-secondary pointer-events-none">
-                      {si?.unit || ''}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeIngredient(idx)}
-                    className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
-                    aria-label={t('delete')}
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
       )}
 
       {tab === 'recipe' && (
         <div className="max-w-3xl">
-          <EditorSectionHead
-            title={t('tabRecipe') || 'Recette'}
-            desc={t('prepRecipeInstructionsDesc') || 'Étapes de préparation de cette recette'}
-          />
+          {/* Ingredients — same layout as the article recipe tab (RecipeTable),
+              adapted to preps (stock-only ingredients, no variants). */}
+          <div className="mb-[var(--s-6)]">
+            <div className="flex items-center justify-between mb-[var(--s-3)]">
+              <div>
+                <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+                  {t('ingredients') || 'Ingrédients'}
+                  <span className="text-[var(--fg-muted)] font-normal ms-1.5">
+                    · {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
+                  </span>
+                </h4>
+                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+                  {(yieldPerBatch ?? 0) > 0
+                    ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
+                    : (t('prepIngredientsSubtitle') || 'Saisissez la quantité de chaque ingrédient pour 1 batch.')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openAddPicker}
+                className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('addIngredient') || 'Ajouter un ingrédient'}
+              </button>
+            </div>
+
+            {loadingIngs ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
+              </div>
+            ) : ingredients.length === 0 ? (
+              <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
+                {t('noIngredients') || 'Aucun ingrédient ajouté.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
+                <table className="w-full text-fs-sm" role="table">
+                  <thead className="bg-[var(--surface-2)]">
+                    <tr>
+                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
+                        Ingrédient
+                      </th>
+                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider w-[110px]">
+                        Unité
+                      </th>
+                      <th className="text-end px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
+                        Quantité
+                      </th>
+                      <th className="w-10" aria-hidden />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ingredients.map((ing, idx) => {
+                      const si = stockItems.find((s) => s.id === ing.stock_item_id);
+                      return (
+                        <tr key={idx} className="border-t border-[var(--line)] hover:bg-[var(--surface-2)]/50 transition-colors">
+                          <td className="px-[var(--s-3)] py-[var(--s-2)]">
+                            <button
+                              type="button"
+                              onClick={() => openSwapPicker(idx)}
+                              className="flex items-center gap-[var(--s-2)] min-w-0 text-start"
+                            >
+                              {si?.image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={si.image_url} alt="" className="w-7 h-7 rounded-r-sm object-cover shrink-0" />
+                              ) : (
+                                <div className="shrink-0 w-7 h-7 rounded-full grid place-items-center text-white" style={{ background: 'var(--brand-700)' }} aria-hidden>
+                                  <ImageIcon className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+                              <span className="text-fs-sm font-medium text-[var(--fg)] truncate hover:underline">
+                                {si?.name || '—'}
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-[var(--s-3)] py-[var(--s-2)] text-[var(--fg-muted)]">
+                            {si?.unit || '—'}
+                          </td>
+                          <td className="px-[var(--s-3)] py-[var(--s-2)] text-end">
+                            <NumberInput
+                              min={0}
+                              value={ing.quantity_needed}
+                              onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
+                              placeholder="0"
+                              className="w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
+                            />
+                          </td>
+                          <td className="px-[var(--s-2)] py-[var(--s-2)] text-end">
+                            <button
+                              type="button"
+                              onClick={() => removeIngredient(idx)}
+                              className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                              aria-label={t('delete')}
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-[var(--surface-2)]">
+                    <tr className="border-t-2 border-[var(--line-strong)]">
+                      <td className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]" colSpan={2}>
+                        Coût matière (HT)
+                      </td>
+                      <td className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                        {costTotal > 0 ? `${costTotal.toFixed(2)} ₪` : '—'}
+                      </td>
+                      <td aria-hidden />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Instructions — shared with the article recipe tab */}
           {loadingSteps ? (
             <div className="flex justify-center py-4">
               <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
