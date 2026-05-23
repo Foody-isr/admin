@@ -12,6 +12,8 @@ import {
   MenuItem,
 } from '@/lib/api';
 import { Badge, Button, Field, Section, Select } from '@/components/ds';
+import { Switch } from '@/components/ui/switch';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   rid: number;
@@ -28,26 +30,27 @@ const STATE_TONE: Record<AvailabilityState, 'success' | 'warning' | 'danger' | '
   hidden: 'neutral',
 };
 
-const STATE_LABEL: Record<AvailabilityState, string> = {
-  available: 'Available',
-  low: 'Low stock',
-  sold_out: 'Sold out',
-  hidden: 'Hidden',
-};
-
-const OVERRIDES: { value: AvailabilityOverride; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'force_available', label: 'Always available' },
-  { value: 'force_sold_out', label: 'Force sold out' },
-];
-
 export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Props) {
+  const { t } = useI18n();
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [ruleId, setRuleId] = useState<number>(item.availability_rule_id ?? 0); // 0 = inherit
   const [override, setOverride] = useState<AvailabilityOverride>(item.availability_override ?? 'auto');
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const stateLabel: Record<AvailabilityState, string> = {
+    available: t('availabilityStateAvailable'),
+    low: t('availabilityStateLow'),
+    sold_out: t('availabilityStateSoldOut'),
+    hidden: t('availabilityStateHidden'),
+  };
+
+  const overrides: { value: AvailabilityOverride; label: string }[] = [
+    { value: 'auto', label: t('availabilityOverrideAuto') },
+    { value: 'force_available', label: t('availabilityOverrideForceAvailable') },
+    { value: 'force_sold_out', label: t('availabilityOverrideForceSoldOut') },
+  ];
 
   const loadPreview = useCallback(async () => {
     try {
@@ -75,37 +78,41 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
         await loadPreview();
         onSaved?.();
       } catch (e: any) {
-        setError(e?.message || 'Could not save');
+        setError(e?.message || t('availabilityCouldNotSave'));
       } finally {
         setBusy(false);
       }
     },
-    [rid, itemId, ruleId, override, loadPreview, onSaved],
+    [rid, itemId, ruleId, override, loadPreview, onSaved, t],
   );
 
   return (
-    <Section title="Availability">
+    <Section title={t('availability')}>
       <div className="flex flex-col gap-4 max-w-xl">
         {/* Live preview */}
         <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-fs-sm">
           {preview == null ? (
-            <span className="text-[var(--fg-muted)]">Computing…</span>
+            <span className="text-[var(--fg-muted)]">{t('availabilityComputing')}</span>
           ) : preview.unlimited ? (
-            <span className="text-[var(--fg-muted)]">No tracked recipe — always available.</span>
+            <span className="text-[var(--fg-muted)]">{t('availabilityNoTrackedRecipe')}</span>
           ) : (
             <span className="text-[var(--fg)]">
-              Buildable now: <strong>{preview.buildable}</strong> portion{preview.buildable === 1 ? '' : 's'}
-              {preview.bottleneck && <> — limited by <strong>{preview.bottleneck}</strong></>}
+              {t('availabilityBuildableNow')} <strong>{preview.buildable}</strong> {t('availabilityPortions')}
+              {preview.bottleneck && (
+                <>
+                  , {t('availabilityLimitedBy')} <strong>{preview.bottleneck}</strong>
+                </>
+              )}
             </span>
           )}
           {preview && (
             <Badge tone={STATE_TONE[preview.state]} className="ml-2">
-              {STATE_LABEL[preview.state]}
+              {stateLabel[preview.state]}
             </Badge>
           )}
         </div>
 
-        <Field label="Availability rule">
+        <Field label={t('availabilityRuleField')}>
           <Select
             value={String(ruleId)}
             disabled={busy}
@@ -115,11 +122,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
               save({ ruleId: v });
             }}
           >
-            <option value="0">Inherit (category / default)</option>
+            <option value="0">{t('availabilityInherit')}</option>
             {rules.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
-                {r.is_default ? ' (default)' : ''}
+                {r.is_default ? ` ${t('availabilityDefaultParen')}` : ''}
               </option>
             ))}
           </Select>
@@ -127,10 +134,10 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
 
         <div>
           <span className="block text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1.5">
-            Override (beats the computed result)
+            {t('availabilityOverrideLabel')}
           </span>
           <div className="flex gap-2">
-            {OVERRIDES.map((o) => (
+            {overrides.map((o) => (
               <Button
                 key={o.value}
                 size="sm"

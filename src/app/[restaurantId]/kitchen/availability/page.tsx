@@ -14,6 +14,7 @@ import {
 } from '@/lib/api';
 import { Badge, Button, Drawer, Field, Input, NumberField, PageHead, Section, Select } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
+import { useI18n } from '@/lib/i18n';
 
 const BLANK: AvailabilityRuleInput = {
   name: '',
@@ -28,6 +29,7 @@ const BLANK: AvailabilityRuleInput = {
 export default function AvailabilityRulesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { t } = useI18n();
 
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,11 +46,11 @@ export default function AvailabilityRulesPage() {
       setRules(await listAvailabilityRules(rid));
       setError(null);
     } catch (e: any) {
-      setError(e?.message || 'Failed to load rules');
+      setError(e?.message || t('availabilityFailedToLoad'));
     } finally {
       setLoading(false);
     }
-  }, [rid]);
+  }, [rid, t]);
 
   useEffect(() => {
     refresh();
@@ -76,7 +78,7 @@ export default function AvailabilityRulesPage() {
 
   async function save() {
     if (!draft.name.trim()) {
-      setError('Give the rule a name');
+      setError(t('availabilityNeedName'));
       return;
     }
     setSaving(true);
@@ -89,31 +91,31 @@ export default function AvailabilityRulesPage() {
       setDrawerOpen(false);
       await refresh();
     } catch (e: any) {
-      setError(e?.message || 'Could not save rule');
+      setError(e?.message || t('availabilityCouldNotSave'));
     } finally {
       setSaving(false);
     }
   }
 
   async function remove(rule: AvailabilityRule) {
-    if (!confirm(`Delete the "${rule.name}" rule? Items using it fall back to the default.`)) return;
+    if (!confirm(t('availabilityDeleteConfirm'))) return;
     try {
       await deleteAvailabilityRule(rid, rule.id);
       await refresh();
     } catch (e: any) {
       // Server returns 409 with a clear message when the rule is in use or default.
-      alert(e?.message || 'Could not delete rule');
+      alert(e?.message || t('availabilityCouldNotDelete'));
     }
   }
 
   return (
     <div className="p-4 md:p-6">
       <PageHead
-        title="Availability rules"
-        desc="Reusable rules that decide when a dish shows as low stock or sold out, based on its recipe and current stock."
+        title={t('availabilityRulesTitle')}
+        desc={t('availabilityRulesDesc')}
         actions={
           <Button onClick={openNew}>
-            <PlusIcon className="size-4" /> New rule
+            <PlusIcon className="size-4" /> {t('availabilityNewRule')}
           </Button>
         }
       />
@@ -126,9 +128,9 @@ export default function AvailabilityRulesPage() {
 
       <Section>
         {loading ? (
-          <p className="text-fs-sm text-[var(--fg-muted)]">Loading…</p>
+          <p className="text-fs-sm text-[var(--fg-muted)]">{t('loading')}</p>
         ) : rules.length === 0 ? (
-          <p className="text-fs-sm text-[var(--fg-muted)]">No rules yet.</p>
+          <p className="text-fs-sm text-[var(--fg-muted)]">{t('availabilityNoRules')}</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {rules.map((rule) => (
@@ -138,29 +140,33 @@ export default function AvailabilityRulesPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-semibold text-[var(--fg)]">{rule.name}</span>
-                  {rule.is_default && <Badge tone="info">Default</Badge>}
+                  {rule.is_default && <Badge tone="info">{t('availabilityDefaultTag')}</Badge>}
                 </div>
                 <div className="text-fs-xs text-[var(--fg-muted)] leading-relaxed">
                   {rule.track ? (
                     <>
-                      Tracks stock
-                      {rule.low_stock_threshold > 0 && <> · Warn ≤ {rule.low_stock_threshold}</>}
+                      {t('availabilityTracksStock')}
+                      {rule.low_stock_threshold > 0 && (
+                        <> · {t('availabilityWarnAtMost')} {rule.low_stock_threshold}</>
+                      )}
                       {' · '}
-                      {rule.out_of_stock_behavior === 'hide' ? 'Hide when out' : 'Sold-out badge'}
+                      {rule.out_of_stock_behavior === 'hide'
+                        ? t('availabilityHideWhenOut')
+                        : t('availabilitySoldOutBadge')}
                       {' · '}
-                      {rule.show_count ? 'Shows count' : 'Generic badge'}
+                      {rule.show_count ? t('availabilityShowsCount') : t('availabilityGenericBadge')}
                     </>
                   ) : (
-                    <>Always available (does not track stock)</>
+                    <>{t('availabilityAlwaysAvailableDesc')}</>
                   )}
                 </div>
                 <div className="mt-auto flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(rule)}>
-                    <PencilIcon className="size-3.5" /> Edit
+                    <PencilIcon className="size-3.5" /> {t('edit')}
                   </Button>
                   {!rule.is_default && (
                     <Button size="sm" variant="ghost" onClick={() => remove(rule)}>
-                      <TrashIcon className="size-3.5" /> Delete
+                      <TrashIcon className="size-3.5" /> {t('delete')}
                     </Button>
                   )}
                 </div>
@@ -173,23 +179,23 @@ export default function AvailabilityRulesPage() {
       <Drawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        title={editingId == null ? 'New rule' : 'Edit rule'}
+        title={editingId == null ? t('availabilityNewRule') : t('availabilityEditRule')}
         width={460}
         onSave={save}
-        saveLabel={saving ? 'Saving…' : 'Save'}
+        saveLabel={t('save')}
         saveDisabled={saving}
       >
         <div className="flex flex-col gap-5 p-1">
-          <Field label="Rule name">
+          <Field label={t('availabilityRuleName')}>
             <Input
               value={draft.name}
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="e.g. Made fresh daily"
+              placeholder={t('availabilityRuleNamePlaceholder')}
             />
           </Field>
 
           <label className="flex items-center justify-between gap-3">
-            <span className="text-fs-sm text-[var(--fg)]">Track recipe stock</span>
+            <span className="text-fs-sm text-[var(--fg)]">{t('availabilityTrackRecipeStock')}</span>
             <Switch
               checked={draft.track}
               onCheckedChange={(v) => setDraft({ ...draft, track: v })}
@@ -198,7 +204,7 @@ export default function AvailabilityRulesPage() {
 
           {draft.track && (
             <>
-              <Field label="Low-stock warning at ≤ (portions, 0 = off)">
+              <Field label={t('availabilityLowStockField')}>
                 <NumberField
                   value={draft.low_stock_threshold}
                   min={0}
@@ -207,20 +213,20 @@ export default function AvailabilityRulesPage() {
                 />
               </Field>
 
-              <Field label="When out of stock">
+              <Field label={t('availabilityWhenOutOfStock')}>
                 <Select
                   value={draft.out_of_stock_behavior}
                   onChange={(e) =>
                     setDraft({ ...draft, out_of_stock_behavior: e.target.value as OutOfStockBehavior })
                   }
                 >
-                  <option value="sold_out">Show “Sold out” badge</option>
-                  <option value="hide">Hide from the menu</option>
+                  <option value="sold_out">{t('availabilityShowSoldOutBadge')}</option>
+                  <option value="hide">{t('availabilityHideFromMenu')}</option>
                 </Select>
               </Field>
 
               <label className="flex items-center justify-between gap-3">
-                <span className="text-fs-sm text-[var(--fg)]">Show remaining count to guests</span>
+                <span className="text-fs-sm text-[var(--fg)]">{t('availabilityShowRemainingCount')}</span>
                 <Switch
                   checked={draft.show_count}
                   onCheckedChange={(v) => setDraft({ ...draft, show_count: v })}
@@ -230,7 +236,7 @@ export default function AvailabilityRulesPage() {
           )}
 
           <label className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-4">
-            <span className="text-fs-sm text-[var(--fg)]">Use as the default rule</span>
+            <span className="text-fs-sm text-[var(--fg)]">{t('availabilityUseAsDefault')}</span>
             <Switch
               checked={draft.is_default}
               onCheckedChange={(v) => setDraft({ ...draft, is_default: v })}
