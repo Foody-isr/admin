@@ -11,12 +11,14 @@ interface Props {
   /** …or pass an explicit topic+slug for one-off links. */
   topic?: string;
   slug?: string;
+  /** Optional custom link text (defaults to a generic "Learn more"). */
+  label?: string;
   className?: string;
 }
 
 /** A "Learn more" link that deep-links to the matching foodylanding Help
  *  article in the reader's language, opening in a new tab. */
-export function LearnMore({ feature, topic, slug, className }: Props) {
+export function LearnMore({ feature, topic, slug, label, className }: Props) {
   const { t, locale } = useI18n();
   const f = feature ? FEATURE_HELP[feature] : undefined;
   const tp = topic ?? f?.landingTopic;
@@ -32,7 +34,7 @@ export function LearnMore({ feature, topic, slug, className }: Props) {
         className,
       )}
     >
-      {t('helpLearnMore')}
+      {label ?? t('helpLearnMore')}
       <ExternalLink className="size-3.5" />
     </a>
   );

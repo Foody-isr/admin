@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
 import {
   listAvailabilityRules,
   previewItemAvailability,
@@ -11,10 +12,11 @@ import {
   AvailabilityState,
   MenuItem,
 } from '@/lib/api';
-import { Badge, Button, Field, Section, Select } from '@/components/ds';
-import { Switch } from '@/components/ui/switch';
+import { Button, Section, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import { LearnMore } from '@/components/help/LearnMore';
+import { InfoTip } from '@/components/help/InfoTip';
 
 interface Props {
   rid: number;
@@ -24,13 +26,6 @@ interface Props {
   onSaved?: () => void;
 }
 
-const STATE_TONE: Record<AvailabilityState, 'success' | 'warning' | 'danger' | 'neutral'> = {
-  available: 'success',
-  low: 'warning',
-  sold_out: 'danger',
-  hidden: 'neutral',
-};
-
 export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Props) {
   const { t } = useI18n();
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
@@ -39,13 +34,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const stateLabel: Record<AvailabilityState, string> = {
-    available: t('availabilityStateAvailable'),
-    low: t('availabilityStateLow'),
-    sold_out: t('availabilityStateSoldOut'),
-    hidden: t('availabilityStateHidden'),
-  };
 
   const overrides: { value: AvailabilityOverride; label: string }[] = [
     { value: 'auto', label: t('availabilityOverrideAuto') },
@@ -66,7 +54,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     loadPreview();
   }, [rid, loadPreview]);
 
-  // Persist a change to rule/override, then refresh the live preview.
   const save = useCallback(
     async (next: { ruleId?: number; override?: AvailabilityOverride }) => {
       setBusy(true);
@@ -87,33 +74,81 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     [rid, itemId, ruleId, override, loadPreview, onSaved, t],
   );
 
+  // Plain-language summary of the currently selected rule, shown under the picker.
+  function ruleSummary(rule: AvailabilityRule | undefined): string {
+    if (!rule) return '';
+    if (!rule.track) return t('availabilityAlwaysAvailableDesc');
+    const parts = [t('availabilityTracksStock')];
+    if (rule.low_stock_threshold > 0) parts.push(`${t('availabilityWarnAtMost')} ${rule.low_stock_threshold}`);
+    parts.push(rule.out_of_stock_behavior === 'hide' ? t('availabilityHideWhenOut') : t('availabilitySoldOutBadge'));
+    parts.push(rule.show_count ? t('availabilityShowsCount') : t('availabilityGenericBadge'));
+    return parts.join(' · ');
+  }
+
+  const selectedRule = rules.find((r) => r.id === ruleId);
+  const state: AvailabilityState | 'loading' = preview == null ? 'loading' : preview.unlimited ? 'available' : preview.state;
+
+  const StatusIcon =
+    state === 'available' ? CheckCircle2 : state === 'low' ? AlertTriangle : state === 'sold_out' ? XCircle : Info;
+  const iconColor =
+    state === 'available'
+      ? 'text-emerald-500'
+      : state === 'low'
+        ? 'text-amber-500'
+        : state === 'sold_out'
+          ? 'text-red-400'
+          : 'text-[var(--fg-muted)]';
+
   return (
     <Section title={t('availability')}>
-      <div className="flex flex-col gap-4 max-w-xl">
-        {/* Live preview */}
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-fs-sm">
-          {preview == null ? (
-            <span className="text-[var(--fg-muted)]">{t('availabilityComputing')}</span>
-          ) : preview.unlimited ? (
-            <span className="text-[var(--fg-muted)]">{t('availabilityNoTrackedRecipe')}</span>
-          ) : (
-            <span className="text-[var(--fg)]">
-              {t('availabilityBuildableNow')} <strong>{preview.buildable}</strong> {t('availabilityPortions')}
-              {preview.bottleneck && (
-                <>
-                  , {t('availabilityLimitedBy')} <strong>{preview.bottleneck}</strong>
-                </>
-              )}
-            </span>
-          )}
-          {preview && (
-            <Badge tone={STATE_TONE[preview.state]} className="ml-2">
-              {stateLabel[preview.state]}
-            </Badge>
-          )}
+      <div className="flex max-w-xl flex-col gap-4">
+        <p className="-mt-1 text-fs-sm text-[var(--fg-muted)]">{t('availabilityPanelIntro')}</p>
+
+        {/* Live status */}
+        <div className="flex items-start gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+          <StatusIcon className={cn('mt-0.5 size-4 shrink-0', iconColor)} />
+          <div className="min-w-0 text-fs-sm">
+            {preview == null ? (
+              <span className="text-[var(--fg-muted)]">{t('availabilityComputing')}</span>
+            ) : preview.unlimited ? (
+              <>
+                <div className="font-medium text-[var(--fg)]">{t('availabilityStateAvailable')}</div>
+                <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">{t('availabilityNoRecipeHint')}</div>
+              </>
+            ) : (
+              <>
+                <div className="font-medium text-[var(--fg)]">
+                  {t(
+                    preview.state === 'low'
+                      ? 'availabilityStateLow'
+                      : preview.state === 'sold_out'
+                        ? 'availabilityStateSoldOut'
+                        : preview.state === 'hidden'
+                          ? 'availabilityStateHidden'
+                          : 'availabilityStateAvailable',
+                  )}
+                </div>
+                <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+                  {t('availabilityBuildableNow')} {preview.buildable} {t('availabilityPortions')}
+                  {preview.bottleneck && (
+                    <>
+                      , {t('availabilityLimitedBy')} {preview.bottleneck}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <Field label={t('availabilityRuleField')}>
+        {/* Rule picker */}
+        <div>
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+              {t('availabilityRuleField')}
+            </span>
+            <InfoTip text={t('availabilityRuleHelp')} />
+          </div>
           <Select
             value={String(ruleId)}
             disabled={busy}
@@ -131,13 +166,20 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
               </option>
             ))}
           </Select>
-        </Field>
+          <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">
+            {ruleId === 0 ? t('availabilityInheritHint') : ruleSummary(selectedRule)}
+          </p>
+        </div>
 
+        {/* Override */}
         <div>
-          <span className="block text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-1.5">
-            {t('availabilityOverrideLabel')}
-          </span>
-          <div className="flex gap-2">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+              {t('availabilityOverrideLabel')}
+            </span>
+            <InfoTip text={t('availabilityOverrideHelp')} />
+          </div>
+          <div className="flex flex-wrap gap-2">
             {overrides.map((o) => (
               <Button
                 key={o.value}
@@ -153,11 +195,12 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
               </Button>
             ))}
           </div>
+          <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">{t('availabilityOverrideHint')}</p>
         </div>
 
         {error && <span className="text-fs-sm text-red-400">{error}</span>}
 
-        <LearnMore feature="availability" className="mt-1" />
+        <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} className="mt-1" />
       </div>
     </Section>
   );
