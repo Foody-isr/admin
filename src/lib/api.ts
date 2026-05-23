@@ -3250,6 +3250,8 @@ export interface ConfirmPrepRecipeStepInput {
 }
 
 export interface ConfirmPrepRecipeInput {
+  /** nil = create a new prep; set = replace the recipe of this existing prep. */
+  prep_item_id?: number | null;
   name: string;
   category?: string;
   notes?: string;

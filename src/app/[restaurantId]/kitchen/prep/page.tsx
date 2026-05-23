@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
-  getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
+  getPrepItem, getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
   getPrepCategories, createPrepCategory, updatePrepCategory,
   getPrepRecipeSteps, setPrepRecipeSteps, updatePrepRecipeMeta,
@@ -663,27 +663,34 @@ function PrepItemModal({
   const [steps, setSteps] = useState<StepView[]>([]);
   const [prepTime, setPrepTime] = useState<number>(editing?.prep_time_mins ?? 0);
   const [loadingSteps, setLoadingSteps] = useState(!!editing);
+  const [importOpen, setImportOpen] = useState(false);
 
-  useEffect(() => {
+  // Load (and reload, e.g. after an AI import) the existing prep's recipe:
+  // prep time, ingredients and cooking steps.
+  const reloadRecipe = useCallback(async () => {
     if (!editing) return;
-    getPrepIngredients(rid, editing.id)
-      .then((ings) => setIngredients(ings.map((i) => ({
+    try {
+      const [item, ings, stepData] = await Promise.all([
+        getPrepItem(rid, editing.id).catch(() => null),
+        getPrepIngredients(rid, editing.id),
+        getPrepRecipeSteps(rid, editing.id).catch(() => [] as Awaited<ReturnType<typeof getPrepRecipeSteps>>),
+      ]);
+      if (item) setPrepTime(item.prep_time_mins ?? 0);
+      setIngredients(ings.map((i) => ({
         stock_item_id: i.stock_item_id,
         quantity_needed: Math.round(i.quantity_needed * 10000) / 10000,
-      }))))
-      .finally(() => setLoadingIngs(false));
-  }, [rid, editing]);
-
-  useEffect(() => {
-    if (!editing) return;
-    getPrepRecipeSteps(rid, editing.id)
-      .then((data) => setSteps((data ?? []).map((s) => {
+      })));
+      setSteps((stepData ?? []).map((s) => {
         const parts = splitInstruction(s.instruction);
         return { title: parts.title, description: parts.description, duration_mins: s.duration_mins ?? 0 };
-      })))
-      .catch(() => {})
-      .finally(() => setLoadingSteps(false));
+      }));
+    } finally {
+      setLoadingIngs(false);
+      setLoadingSteps(false);
+    }
   }, [rid, editing]);
+
+  useEffect(() => { void reloadRecipe(); }, [reloadRecipe]);
 
   const removeIngredient = (idx: number) => setIngredients(ingredients.filter((_, i) => i !== idx));
   const updateIngredient = (idx: number, patch: Partial<PrepIngredientInput>) => {
@@ -1040,6 +1047,22 @@ function PrepItemModal({
 
       {tab === 'recipe' && (
         <div className="max-w-3xl">
+          {/* AI import shortcut — like the article recipe tab. Only for an
+              existing prep (it replaces this prep's recipe; creating a new prep
+              from a recipe is done from the page's Actions menu). */}
+          {editing && (
+            <div className="flex justify-end mb-[var(--s-4)]">
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
+              >
+                <SparklesIcon className="w-4 h-4" />
+                {t('importRecipe') || 'Importer une recette'}
+              </button>
+            </div>
+          )}
+
           {/* Ingredients — same layout as the article recipe tab (RecipeTable),
               adapted to preps (stock-only ingredients, no variants). */}
           <div className="mb-[var(--s-6)]">
@@ -1191,6 +1214,20 @@ function PrepItemModal({
           }
           onConfirm={onPickerConfirm}
           onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {importOpen && editing && (
+        <RecipeImportModal
+          rid={rid}
+          stockItems={stockItems}
+          mode={{ kind: 'prep', prepItem: editing }}
+          onClose={() => setImportOpen(false)}
+          onImported={async () => {
+            setImportOpen(false);
+            await reloadRecipe();
+            onSaved();
+          }}
         />
       )}
     </FullScreenEditor>
