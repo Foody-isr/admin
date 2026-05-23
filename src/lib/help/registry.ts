@@ -59,6 +59,20 @@ export const FEATURE_HELP: Record<string, FeatureHelp> = {
     titleKey: 'helpOrdersTitle',
     blurbKey: 'helpOrdersBlurb',
   },
+  foodCost: {
+    key: 'foodCost',
+    landingTopic: 'kitchen',
+    landingSlug: 'food-cost',
+    titleKey: 'helpFoodCostTitle',
+    blurbKey: 'helpFoodCostBlurb',
+  },
+  menus: {
+    key: 'menus',
+    landingTopic: 'menu',
+    landingSlug: 'menus-and-groups',
+    titleKey: 'helpMenusTitle',
+    blurbKey: 'helpMenusBlurb',
+  },
 };
 
 const HELP_LANGS = ['en', 'fr', 'he'];

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import {
   DataTable,
   DataTableHead,
@@ -169,6 +170,8 @@ export default function MenusPage() {
           </>
         }
       />
+
+      <FeatureIntro feature="menus" />
 
       {/* Toolbar */}
       <div className="flex items-center gap-3">

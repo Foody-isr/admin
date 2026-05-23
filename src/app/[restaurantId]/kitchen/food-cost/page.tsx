@@ -19,6 +19,7 @@ import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
 import { Button, PageHead } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
 
 // Figma page: foodyadmin_figma/src/app/pages/cuisine/foodcost.tsx
@@ -252,6 +253,10 @@ export default function FoodCostPage() {
         title="Food Cost"
         desc={t('foodCostSubtitle') || 'Analysez les coûts alimentaires de vos recettes'}
       />
+
+      <div className="px-8 pt-4">
+        <FeatureIntro feature="foodCost" />
+      </div>
 
       {/* Chart Section — cost % per item with target line + legend */}
       <div className="px-8 py-6 bg-[var(--surface)] border-b border-[var(--line)]">
