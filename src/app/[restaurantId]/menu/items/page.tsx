@@ -32,6 +32,7 @@ import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
 import CsvImportModal from '@/components/import/CsvImportModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
@@ -416,6 +417,8 @@ export default function ItemLibraryPage() {
           </>
         }
       />
+
+      <FeatureIntro feature="items" />
 
       {/* Legacy header wrapper — kept for layout, stripped of styling */}
       <header className="mb-[var(--s-4)]">

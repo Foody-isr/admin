@@ -14,6 +14,7 @@ import {
 import { Badge, Button, Field, Section, Select } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/lib/i18n';
+import { LearnMore } from '@/components/help/LearnMore';
 
 interface Props {
   rid: number;
@@ -155,6 +156,8 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
         </div>
 
         {error && <span className="text-fs-sm text-red-400">{error}</span>}
+
+        <LearnMore feature="availability" className="mt-1" />
       </div>
     </Section>
   );

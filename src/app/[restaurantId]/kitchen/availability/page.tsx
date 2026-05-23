@@ -15,6 +15,7 @@ import {
 import { Badge, Button, Drawer, Field, Input, NumberField, PageHead, Section, Select } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/lib/i18n';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 
 const BLANK: AvailabilityRuleInput = {
   name: '',
@@ -112,13 +113,14 @@ export default function AvailabilityRulesPage() {
     <div className="p-4 md:p-6">
       <PageHead
         title={t('availabilityRulesTitle')}
-        desc={t('availabilityRulesDesc')}
         actions={
           <Button onClick={openNew}>
             <PlusIcon className="size-4" /> {t('availabilityNewRule')}
           </Button>
         }
       />
+
+      <FeatureIntro feature="availability" />
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-fs-sm text-red-400">

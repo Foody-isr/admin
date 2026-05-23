@@ -21,6 +21,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import {
@@ -489,6 +490,8 @@ export default function OrdersPage() {
             </>
           }
         />
+
+        <FeatureIntro feature="orders" />
 
         {/* Status tabs — underline style with inline counts + dot-pulse.
             The rail spans the full row so partial tabs can fade off the end

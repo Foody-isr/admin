@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Button, Kpi, PageHead } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import RecipeImportModal from '../RecipeImportModal';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -297,6 +298,8 @@ export default function PrepPage() {
           </>
         }
       />
+
+      <FeatureIntro feature="prep" />
 
       <header className="mb-[var(--s-4)]">
         {/* KPI strip — clickable shortcuts that set filters directly (mirrors Stock).

@@ -55,6 +55,7 @@ import {
 } from '@/components/data-table';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import {
   getPackaging,
   formatQuantityAtLevel,
@@ -393,6 +394,7 @@ export default function StockPage() {
           </>
         }
       />
+      <FeatureIntro feature="stock" />
       <header className="mb-[var(--s-4)]">
         <div className="hidden" />
 
