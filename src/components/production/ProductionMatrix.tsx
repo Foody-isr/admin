@@ -25,6 +25,8 @@ function fmtTotal(item: ProductionSheetItem): string {
 
 const HEAD_ROW = 'bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-800';
 const STICKY_HEAD = 'sticky left-0 z-20 bg-neutral-50 dark:bg-[#0a0a0a]';
+// Brand orange in both themes (overrides DataTableHeadCell's dark:text-neutral-300).
+const BRAND_TXT = 'text-[var(--brand-500)] dark:text-[var(--brand-500)]';
 
 /** "Par client" production grid, built on the shared DataTable so it matches the
  *  orders table's fonts/styles. Slim category band, item-name header, an
@@ -65,14 +67,14 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
 
         {/* À préparer totals — part of the header block, marked by bold orange numbers */}
         <tr className={`${HEAD_ROW} border-b-2 border-neutral-300 dark:border-neutral-700`}>
-          <DataTableHeadCell className={`${STICKY_HEAD} text-[var(--brand-500)]`}>
+          <DataTableHeadCell className={`${STICKY_HEAD} ${BRAND_TXT}`}>
             {t('productionToPrepare')}
           </DataTableHeadCell>
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id)!;
               return (
-                <DataTableHeadCell key={`tt-${id}`} align="center" className="text-[var(--brand-500)]">
+                <DataTableHeadCell key={`tt-${id}`} align="center" className={BRAND_TXT}>
                   <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
                   {item.measure === 'weight' && item.packaging && item.packaging.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
