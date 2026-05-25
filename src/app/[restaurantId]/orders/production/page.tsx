@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { SearchIcon, PrinterIcon, ShoppingCartIcon, ClipboardListIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { Kpi, PageHead } from '@/components/ds';
+import ActionsDropdown from '@/components/common/ActionsDropdown';
 import {
   fetchProductionSheet,
   fetchProductionDays,
@@ -58,39 +61,77 @@ export default function ProductionPage() {
     return recomputeTotals(sheet, orders);
   }, [sheet, search]);
 
-  return (
-    <div className="p-[var(--s-5)]">
-      {/* PageHead */}
-      <div className="flex items-end justify-between gap-[var(--s-4)] flex-wrap mb-[var(--s-5)]">
-        <div>
-          <h1 className="text-fs-3xl font-semibold leading-none -tracking-[0.02em]">{t('productionTitle')}</h1>
-          <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5">{t('productionLiveSub')}</p>
-        </div>
-        <div className="flex items-center gap-[var(--s-2)]">
-          {date && <DateStepper date={date} days={days} onChange={setDate} />}
-          <button
-            onClick={() => setView((v) => (v === 'production' ? 'courses' : 'production'))}
-            className="text-fs-sm font-semibold px-3 py-2 rounded-r-md border border-[var(--line)] bg-[var(--surface)]"
-          >
-            {view === 'production' ? t('productionShoppingList') : t('productionTitle')}
-          </button>
-          <button onClick={() => window.print()} className="text-fs-sm font-semibold px-3 py-2 rounded-r-md bg-[var(--brand-500)] text-white">
-            {t('productionPrintKitchen')}
-          </button>
-        </div>
-      </div>
+  // Day-level KPIs (reflect the whole day, independent of search).
+  const kpi = useMemo(() => {
+    const orders = sheet?.orders ?? [];
+    const starts = orders.map((o) => o.window_start).filter(Boolean) as string[];
+    const ends = orders.map((o) => o.window_end).filter(Boolean) as string[];
+    const min = starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : '';
+    const max = ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : '';
+    return {
+      orders: orders.length,
+      deliveries: orders.filter((o) => o.order_type === 'delivery').length,
+      pickups: orders.filter((o) => o.order_type === 'pickup').length,
+      window: min && max ? `${min}–${max}` : min || max || '—',
+    };
+  }, [sheet]);
 
-      {/* Client search (production view only) — always shows all by default */}
-      {view === 'production' && (
-        <div className="flex items-center mb-[var(--s-4)]">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('productionSearchClient')}
-            className="ms-auto text-fs-sm px-3 py-1.5 rounded-r-md border border-[var(--line)] bg-[var(--surface)]"
-          />
+  return (
+    <div className="flex flex-col">
+      <PageHead
+        title={t('productionTitle')}
+        desc={t('productionLiveSub')}
+        actions={
+          <>
+            {date && <DateStepper date={date} days={days} onChange={setDate} />}
+            <ActionsDropdown
+              actions={[
+                {
+                  label: view === 'production' ? t('productionShoppingList') : t('productionTitle'),
+                  onClick: () => setView((v) => (v === 'production' ? 'courses' : 'production')),
+                  icon:
+                    view === 'production' ? (
+                      <ShoppingCartIcon className="w-4 h-4" />
+                    ) : (
+                      <ClipboardListIcon className="w-4 h-4" />
+                    ),
+                },
+                {
+                  label: t('productionPrintKitchen'),
+                  onClick: () => window.print(),
+                  icon: <PrinterIcon className="w-4 h-4" />,
+                },
+              ]}
+            />
+          </>
+        }
+      />
+
+      <header className="mb-[var(--s-4)]">
+        {/* KPI strip */}
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
+          <Kpi label={t('productionKpiOrders')} value={kpi.orders} />
+          <Kpi label={t('productionFilterDeliveries')} value={kpi.deliveries} />
+          <Kpi label={t('productionFilterPickups')} value={kpi.pickups} />
+          <Kpi label={t('productionKpiWindow')} value={kpi.window} />
         </div>
-      )}
+
+        {/* Search toolbar (production view only) */}
+        {view === 'production' && (
+          <div className="flex flex-wrap items-center gap-[var(--s-3)]">
+            <div className="relative flex-1 min-w-[240px]">
+              <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
+              <input
+                type="text"
+                placeholder={t('productionSearchClient')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
+              />
+            </div>
+          </div>
+        )}
+      </header>
 
       {loading && <p className="text-fs-sm text-[var(--fg-muted)]">…</p>}
 
