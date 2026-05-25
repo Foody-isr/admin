@@ -9,6 +9,7 @@ import {
   ClipboardListIcon,
   Maximize2Icon,
   Minimize2Icon,
+  LayoutListIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Kpi, PageHead } from '@/components/ds';
@@ -38,6 +39,7 @@ export default function ProductionPage() {
   const [view, setView] = useState<'production' | 'courses'>('production');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [splitByCategory, setSplitByCategory] = useState(false);
   const fsRef = useRef<HTMLDivElement>(null);
 
   // Load available days, default to the next upcoming day (or the last one).
@@ -96,6 +98,27 @@ export default function ProductionPage() {
     return { orders: orders.length, dishes, weight, items: items.length };
   }, [sheet]);
 
+  // One sub-sheet per category (for the split view), keeping only clients who
+  // ordered something in that category. Reuses ProductionMatrix per table.
+  const categorySheets = useMemo(() => {
+    if (!filteredSheet) return [];
+    return filteredSheet.categories
+      .map((cat) => ({
+        cat,
+        sheet: {
+          date: filteredSheet.date,
+          categories: [cat],
+          items: filteredSheet.items.filter((it) => cat.item_ids.includes(it.menu_item_id)),
+          orders: filteredSheet.orders.filter((o) =>
+            cat.item_ids.some((id) => (o.cells[String(id)] ?? 0) > 0),
+          ),
+        } as ProductionSheetResponse,
+      }))
+      .filter((c) => c.sheet.orders.length > 0);
+  }, [filteredSheet]);
+
+  const handleRowClick = fullscreen ? () => undefined : (id: number) => setSelectedOrderId(id);
+
   // Enter full screen: maximize layout (state) + request native full-screen
   // (falls back to the in-app overlay if the browser blocks the API).
   const enterFullscreen = () => {
@@ -146,6 +169,11 @@ export default function ProductionPage() {
                       label: t('productionFullscreen'),
                       onClick: enterFullscreen,
                       icon: <Maximize2Icon className="w-4 h-4" />,
+                    },
+                    {
+                      label: splitByCategory ? t('productionSingleTable') : t('productionSplitByCategory'),
+                      onClick: () => setSplitByCategory((v) => !v),
+                      icon: <LayoutListIcon className="w-4 h-4" />,
                     },
                     {
                       label: view === 'production' ? t('productionShoppingList') : t('productionTitle'),
@@ -203,12 +231,19 @@ export default function ProductionPage() {
       {!loading && view === 'production' && filteredSheet && filteredSheet.orders.length === 0 && (
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
-      {!loading && view === 'production' && filteredSheet && filteredSheet.orders.length > 0 && (
-        <ProductionMatrix
-          sheet={filteredSheet}
-          onRowClick={fullscreen ? () => undefined : setSelectedOrderId}
-        />
-      )}
+      {!loading &&
+        view === 'production' &&
+        filteredSheet &&
+        filteredSheet.orders.length > 0 &&
+        (splitByCategory ? (
+          <div className="flex flex-col gap-[var(--s-4)]">
+            {categorySheets.map(({ cat, sheet: cs }) => (
+              <ProductionMatrix key={cat.id} sheet={cs} onRowClick={handleRowClick} />
+            ))}
+          </div>
+        ) : (
+          <ProductionMatrix sheet={filteredSheet} onRowClick={handleRowClick} />
+        ))}
 
       <ProductionOrderDrawer
         restaurantId={restaurantId}
