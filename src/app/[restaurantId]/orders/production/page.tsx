@@ -61,18 +61,25 @@ export default function ProductionPage() {
     return recomputeTotals(sheet, orders);
   }, [sheet, search]);
 
-  // Day-level KPIs (reflect the whole day, independent of search).
+  // Day-level production KPIs (reflect the whole day, independent of search).
   const kpi = useMemo(() => {
     const orders = sheet?.orders ?? [];
-    const starts = orders.map((o) => o.window_start).filter(Boolean) as string[];
-    const ends = orders.map((o) => o.window_end).filter(Boolean) as string[];
-    const min = starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : '';
-    const max = ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : '';
+    const items = sheet?.items ?? [];
+    let dishes = 0; // total unit-measured portions to plate
+    let weightG = 0; // total grams of weight-measured items to prepare
+    for (const it of items) {
+      if (it.measure === 'unit') dishes += it.total;
+      else weightG += it.total;
+    }
+    const weight =
+      weightG >= 1000
+        ? `${(weightG / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`
+        : `${weightG.toLocaleString()} g`;
     return {
       orders: orders.length,
-      deliveries: orders.filter((o) => o.order_type === 'delivery').length,
-      pickups: orders.filter((o) => o.order_type === 'pickup').length,
-      window: min && max ? `${min}–${max}` : min || max || '—',
+      dishes,
+      weight,
+      items: items.length,
     };
   }, [sheet]);
 
@@ -111,9 +118,9 @@ export default function ProductionPage() {
         {/* KPI strip */}
         <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
           <Kpi label={t('productionKpiOrders')} value={kpi.orders} />
-          <Kpi label={t('productionFilterDeliveries')} value={kpi.deliveries} />
-          <Kpi label={t('productionFilterPickups')} value={kpi.pickups} />
-          <Kpi label={t('productionKpiWindow')} value={kpi.window} />
+          <Kpi label={t('productionKpiDishes')} value={kpi.dishes} />
+          <Kpi label={t('productionKpiWeight')} value={kpi.weight} />
+          <Kpi label={t('productionKpiItems')} value={kpi.items} />
         </div>
 
         {/* Search toolbar (production view only) */}
