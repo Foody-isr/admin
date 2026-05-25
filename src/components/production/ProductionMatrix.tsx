@@ -15,9 +15,6 @@ interface Props {
   onRowClick: (orderId: number) => void;
 }
 
-// Opaque brand tint for the "À préparer" totals row (sticky cells must be opaque).
-const TOTAL_BG = 'color-mix(in oklab, var(--brand-500) 12%, var(--surface))';
-
 function cellVal(value: number | undefined, measure: 'weight' | 'unit'): string {
   if (!value) return '0';
   return measure === 'weight' ? value.toLocaleString() : String(value);
@@ -66,16 +63,16 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
           )}
         </tr>
 
-        {/* À préparer totals — the fridge-puller's row */}
-        <tr className="border-b-2 border-neutral-300 dark:border-neutral-700">
-          <DataTableHeadCell className="sticky left-0 z-20 text-[var(--brand-500)]" style={{ background: TOTAL_BG }}>
+        {/* À préparer totals — part of the header block, marked by bold orange numbers */}
+        <tr className={`${HEAD_ROW} border-b-2 border-neutral-300 dark:border-neutral-700`}>
+          <DataTableHeadCell className={`${STICKY_HEAD} text-[var(--brand-500)]`}>
             {t('productionToPrepare')}
           </DataTableHeadCell>
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id)!;
               return (
-                <DataTableHeadCell key={`tt-${id}`} align="center" className="text-[var(--brand-500)]" style={{ background: TOTAL_BG }}>
+                <DataTableHeadCell key={`tt-${id}`} align="center" className="text-[var(--brand-500)]">
                   <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
                   {item.measure === 'weight' && item.packaging && item.packaging.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
