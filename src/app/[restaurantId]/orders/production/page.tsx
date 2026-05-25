@@ -11,7 +11,6 @@ import {
   ProductionDay,
 } from '@/lib/api';
 import { DateStepper } from '@/components/production/DateStepper';
-import { ProductionToPrepare } from '@/components/production/ProductionToPrepare';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
 import { ProductionOrderDrawer } from '@/components/production/ProductionOrderDrawer';
@@ -134,10 +133,7 @@ export default function ProductionPage() {
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
       {!loading && view === 'production' && filteredSheet && filteredSheet.orders.length > 0 && (
-        <>
-          <ProductionToPrepare sheet={filteredSheet} />
-          <ProductionMatrix sheet={filteredSheet} onRowClick={setSelectedOrderId} />
-        </>
+        <ProductionMatrix sheet={filteredSheet} onRowClick={setSelectedOrderId} />
       )}
 
       <ProductionOrderDrawer
