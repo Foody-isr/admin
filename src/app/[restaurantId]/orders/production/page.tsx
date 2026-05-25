@@ -15,8 +15,6 @@ import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
 import { ProductionOrderDrawer } from '@/components/production/ProductionOrderDrawer';
 
-type Filter = 'all' | 'delivery' | 'pickup';
-
 export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = Number(params.restaurantId);
@@ -25,7 +23,6 @@ export default function ProductionPage() {
   const [days, setDays] = useState<ProductionDay[]>([]);
   const [date, setDate] = useState<string>('');
   const [sheet, setSheet] = useState<ProductionSheetResponse | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'production' | 'courses'>('production');
@@ -50,26 +47,16 @@ export default function ProductionPage() {
       .finally(() => setLoading(false));
   }, [restaurantId, date]);
 
-  // Apply filters/search to the orders; both sections share the filtered set.
+  // Always show all orders; client search just narrows the visible rows.
   const filteredSheet = useMemo<ProductionSheetResponse | null>(() => {
     if (!sheet) return null;
     let orders = sheet.orders;
-    if (filter !== 'all') orders = orders.filter((o) => o.order_type === filter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       orders = orders.filter((o) => o.customer_name.toLowerCase().includes(q));
     }
     return recomputeTotals(sheet, orders);
-  }, [sheet, filter, search]);
-
-  const counts = useMemo(() => {
-    const o = sheet?.orders ?? [];
-    return {
-      all: o.length,
-      delivery: o.filter((x) => x.order_type === 'delivery').length,
-      pickup: o.filter((x) => x.order_type === 'pickup').length,
-    };
-  }, [sheet]);
+  }, [sheet, search]);
 
   return (
     <div className="p-[var(--s-5)]">
@@ -93,27 +80,9 @@ export default function ProductionPage() {
         </div>
       </div>
 
-      {/* Filters (production view only) */}
+      {/* Client search (production view only) — always shows all by default */}
       {view === 'production' && (
-        <div className="flex items-center gap-[var(--s-2)] mb-[var(--s-4)]">
-          {(['all', 'delivery', 'pickup'] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`text-fs-sm px-3 py-1.5 rounded-r-xl border ${
-                filter === f
-                  ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
-                  : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)]'
-              }`}
-            >
-              {f === 'all'
-                ? t('productionFilterAll')
-                : f === 'delivery'
-                ? t('productionFilterDeliveries')
-                : t('productionFilterPickups')}{' '}
-              ({f === 'all' ? counts.all : f === 'delivery' ? counts.delivery : counts.pickup})
-            </button>
-          ))}
+        <div className="flex items-center mb-[var(--s-4)]">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
