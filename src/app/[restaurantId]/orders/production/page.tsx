@@ -1,8 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { SearchIcon, PrinterIcon, ShoppingCartIcon, ClipboardListIcon } from 'lucide-react';
+import {
+  SearchIcon,
+  PrinterIcon,
+  ShoppingCartIcon,
+  ClipboardListIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+} from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Kpi, PageHead } from '@/components/ds';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
@@ -30,6 +37,8 @@ export default function ProductionPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'production' | 'courses'>('production');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const fsRef = useRef<HTMLDivElement>(null);
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -49,6 +58,15 @@ export default function ProductionPage() {
       .then(setSheet)
       .finally(() => setLoading(false));
   }, [restaurantId, date]);
+
+  // Keep state in sync when the user leaves native full-screen via Esc.
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   // Always show all orders; client search just narrows the visible rows.
   const filteredSheet = useMemo<ProductionSheetResponse | null>(() => {
@@ -75,70 +93,106 @@ export default function ProductionPage() {
       weightG >= 1000
         ? `${(weightG / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`
         : `${weightG.toLocaleString()} g`;
-    return {
-      orders: orders.length,
-      dishes,
-      weight,
-      items: items.length,
-    };
+    return { orders: orders.length, dishes, weight, items: items.length };
   }, [sheet]);
 
+  // Enter full screen: maximize layout (state) + request native full-screen
+  // (falls back to the in-app overlay if the browser blocks the API).
+  const enterFullscreen = () => {
+    setFullscreen(true);
+    const el = fsRef.current;
+    if (el?.requestFullscreen) el.requestFullscreen().catch(() => undefined);
+  };
+  const exitFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
+    setFullscreen(false);
+  };
+
   return (
-    <div className="flex flex-col">
-      <PageHead
-        title={t('productionTitle')}
-        desc={t('productionLiveSub')}
-        actions={
-          <>
+    <div
+      ref={fsRef}
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-[60] flex flex-col gap-[var(--s-3)] overflow-auto bg-[var(--bg)] p-[var(--s-4)]'
+          : 'flex flex-col'
+      }
+    >
+      {fullscreen ? (
+        /* Maximized, table-only header */
+        <div className="flex items-center justify-between gap-[var(--s-3)] flex-wrap">
+          <div className="flex items-center gap-[var(--s-3)]">
+            <h1 className="text-fs-xl font-semibold leading-none">{t('productionTitle')}</h1>
             {date && <DateStepper date={date} days={days} onChange={setDate} />}
-            <ActionsDropdown
-              actions={[
-                {
-                  label: view === 'production' ? t('productionShoppingList') : t('productionTitle'),
-                  onClick: () => setView((v) => (v === 'production' ? 'courses' : 'production')),
-                  icon:
-                    view === 'production' ? (
-                      <ShoppingCartIcon className="w-4 h-4" />
-                    ) : (
-                      <ClipboardListIcon className="w-4 h-4" />
-                    ),
-                },
-                {
-                  label: t('productionPrintKitchen'),
-                  onClick: () => window.print(),
-                  icon: <PrinterIcon className="w-4 h-4" />,
-                },
-              ]}
-            />
-          </>
-        }
-      />
-
-      <header className="mb-[var(--s-4)]">
-        {/* KPI strip */}
-        <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
-          <Kpi label={t('productionKpiOrders')} value={kpi.orders} />
-          <Kpi label={t('productionKpiDishes')} value={kpi.dishes} />
-          <Kpi label={t('productionKpiWeight')} value={kpi.weight} />
-          <Kpi label={t('productionKpiItems')} value={kpi.items} />
-        </div>
-
-        {/* Search toolbar (production view only) */}
-        {view === 'production' && (
-          <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-            <div className="relative flex-1 min-w-[240px]">
-              <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
-              <input
-                type="text"
-                placeholder={t('productionSearchClient')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
-              />
-            </div>
           </div>
-        )}
-      </header>
+          <button
+            onClick={exitFullscreen}
+            className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-fs-sm font-medium hover:bg-[var(--surface-2)] transition-colors"
+          >
+            <Minimize2Icon className="w-4 h-4" />
+            {t('productionExitFullscreen')}
+          </button>
+        </div>
+      ) : (
+        <>
+          <PageHead
+            title={t('productionTitle')}
+            desc={t('productionLiveSub')}
+            actions={
+              <>
+                {date && <DateStepper date={date} days={days} onChange={setDate} />}
+                <ActionsDropdown
+                  actions={[
+                    {
+                      label: t('productionFullscreen'),
+                      onClick: enterFullscreen,
+                      icon: <Maximize2Icon className="w-4 h-4" />,
+                    },
+                    {
+                      label: view === 'production' ? t('productionShoppingList') : t('productionTitle'),
+                      onClick: () => setView((v) => (v === 'production' ? 'courses' : 'production')),
+                      icon:
+                        view === 'production' ? (
+                          <ShoppingCartIcon className="w-4 h-4" />
+                        ) : (
+                          <ClipboardListIcon className="w-4 h-4" />
+                        ),
+                    },
+                    {
+                      label: t('productionPrintKitchen'),
+                      onClick: () => window.print(),
+                      icon: <PrinterIcon className="w-4 h-4" />,
+                    },
+                  ]}
+                />
+              </>
+            }
+          />
+
+          <header className="mb-[var(--s-4)]">
+            <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-6">
+              <Kpi label={t('productionKpiOrders')} value={kpi.orders} />
+              <Kpi label={t('productionKpiDishes')} value={kpi.dishes} />
+              <Kpi label={t('productionKpiWeight')} value={kpi.weight} />
+              <Kpi label={t('productionKpiItems')} value={kpi.items} />
+            </div>
+
+            {view === 'production' && (
+              <div className="flex flex-wrap items-center gap-[var(--s-3)]">
+                <div className="relative flex-1 min-w-[240px]">
+                  <SearchIcon className="w-4 h-4 absolute start-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder={t('productionSearchClient')}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+          </header>
+        </>
+      )}
 
       {loading && <p className="text-fs-sm text-[var(--fg-muted)]">…</p>}
 
@@ -150,7 +204,10 @@ export default function ProductionPage() {
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
       {!loading && view === 'production' && filteredSheet && filteredSheet.orders.length > 0 && (
-        <ProductionMatrix sheet={filteredSheet} onRowClick={setSelectedOrderId} />
+        <ProductionMatrix
+          sheet={filteredSheet}
+          onRowClick={fullscreen ? () => undefined : setSelectedOrderId}
+        />
       )}
 
       <ProductionOrderDrawer
