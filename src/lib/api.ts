@@ -2238,6 +2238,71 @@ export async function fetchKitchenPlanDetails(
   };
 }
 
+// ----- Production sheet -----
+export interface ProductionSheetPortion {
+  portion_g: number;
+  count: number;
+}
+export interface ProductionSheetItem {
+  menu_item_id: number;
+  name: string;
+  category_id: number;
+  measure: 'weight' | 'unit';
+  total: number;
+  unit: 'g' | 'u';
+  packaging?: ProductionSheetPortion[];
+}
+export interface ProductionSheetCategory {
+  id: number;
+  name: string;
+  measure: 'weight' | 'unit';
+  item_ids: number[];
+}
+export interface ProductionSheetOrder {
+  order_id: number;
+  customer_name: string;
+  order_type: 'dine_in' | 'pickup' | 'delivery';
+  window_start?: string;
+  window_end?: string;
+  cells: Record<string, number>; // menu_item_id (string key) -> grams or count
+}
+export interface ProductionSheetResponse {
+  date: string;
+  categories: ProductionSheetCategory[];
+  items: ProductionSheetItem[];
+  orders: ProductionSheetOrder[];
+}
+export interface ProductionDay {
+  date: string;
+  order_count: number;
+}
+
+export async function fetchProductionSheet(
+  restaurantId: number,
+  date: string,
+): Promise<ProductionSheetResponse> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId), date });
+  const data = await apiFetch<ProductionSheetResponse>(
+    `/api/v1/orders/production-sheet?${qs.toString()}`,
+    restaurantId,
+  );
+  return {
+    date: data.date,
+    categories: data.categories ?? [],
+    items: data.items ?? [],
+    orders: data.orders ?? [],
+  };
+}
+
+export async function fetchProductionDays(restaurantId: number): Promise<ProductionDay[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  const data = await apiFetch<{ days: ProductionDay[] }>(
+    `/api/v1/orders/production-sheet/days?${qs.toString()}`,
+    restaurantId,
+  );
+  return data.days ?? [];
+}
+
 export interface KitchenPlanVariantCount {
   name: string;
   qty: number;
