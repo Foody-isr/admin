@@ -2258,6 +2258,10 @@ export interface ProductionSheetCategory {
   measure: 'weight' | 'unit';
   item_ids: number[];
 }
+export interface ProductionComboRef {
+  name: string;
+  qty: number;
+}
 export interface ProductionSheetOrder {
   order_id: number;
   customer_name: string;
@@ -2265,6 +2269,7 @@ export interface ProductionSheetOrder {
   window_start?: string;
   window_end?: string;
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
+  combos?: Record<string, ProductionComboRef[]>; // menu_item_id -> contributing combos
 }
 export interface ProductionSheetResponse {
   date: string;

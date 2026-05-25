@@ -9,6 +9,7 @@ import {
   DataTableRow,
   DataTableCell,
 } from '@/components/data-table/DataTable';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface Props {
   sheet: ProductionSheetResponse;
@@ -112,13 +113,36 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
               cat.item_ids.map((id) => {
                 const item = itemsById.get(id)!;
                 const v = o.cells[String(id)];
+                const combos = o.combos?.[String(id)];
                 return (
                   <DataTableCell
                     key={`${o.order_id}-${id}`}
                     align="center"
                     className={`tabular-nums ${v ? '' : 'text-[var(--fg-subtle)]'}`}
                   >
-                    {cellVal(v, item.measure)}
+                    {combos && combos.length > 0 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-[var(--brand-500)] underline-offset-4">
+                            {cellVal(v, item.measure)}
+                            <span
+                              className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]"
+                              aria-hidden
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <span className="font-semibold">{t('productionFromCombo')}</span>
+                          {combos.map((c) => (
+                            <span key={c.name} className="block">
+                              {c.name} ×{c.qty}
+                            </span>
+                          ))}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      cellVal(v, item.measure)
+                    )}
                   </DataTableCell>
                 );
               }),
