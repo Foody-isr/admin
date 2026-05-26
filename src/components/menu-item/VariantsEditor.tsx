@@ -202,7 +202,7 @@ export default function VariantsEditor({
       {groups.map((g, gi) => (
         <section
           key={g.key}
-          className="bg-[var(--bg)] rounded-r-md border border-[var(--line)] overflow-hidden"
+          className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] overflow-hidden"
         >
           <div className="p-[var(--s-4)] border-b border-[var(--line)] relative">
             <label className="block text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)] mb-[var(--s-2)]">

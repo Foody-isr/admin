@@ -318,7 +318,7 @@ export default function MenuItemTabCost({
           {summary.lines.length === 1 ? 'élément' : 'éléments'}
         </h4>
 
-        <div className="rounded-r-md border border-[var(--line)] bg-[var(--bg)] overflow-hidden">
+        <div className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] overflow-hidden">
           {/* Column headers — desktop only; mobile rows show inline labels per cell */}
           <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-[var(--fg-muted)] uppercase bg-[var(--surface-2)] border-b border-[var(--line)]">
             <div className="col-span-5">{t('ingredient') || 'Ingrédient'}</div>

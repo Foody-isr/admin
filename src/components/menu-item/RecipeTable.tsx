@@ -558,7 +558,7 @@ export default function RecipeTable({
           {t('noIngredients') || 'Aucun ingrédient ajouté.'}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--bg)]">
+        <div className="overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
           <table className="w-full text-fs-sm" role="table">
             <thead className="bg-[var(--surface-2)]">
               <tr>
