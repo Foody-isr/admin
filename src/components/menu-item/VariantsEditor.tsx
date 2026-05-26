@@ -198,14 +198,14 @@ export default function VariantsEditor({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[var(--s-4)]">
       {groups.map((g, gi) => (
         <section
           key={g.key}
-          className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden"
+          className="bg-[var(--bg)] rounded-r-md border border-[var(--line)] overflow-hidden"
         >
-          <div className="p-5 border-b border-neutral-200 dark:border-neutral-700 relative">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+          <div className="p-[var(--s-4)] border-b border-[var(--line)] relative">
+            <label className="block text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)] mb-[var(--s-2)]">
               {t('variantGroupTitle')}
             </label>
             <input
@@ -216,7 +216,7 @@ export default function VariantsEditor({
               onFocus={() => setDropdownGroupIdx(gi)}
               onBlur={() => setTimeout(() => setDropdownGroupIdx(null), 200)}
               placeholder={t('variantGroupTitle')}
-              className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+              className="w-full h-9 px-[var(--s-3)] text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-md text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
             />
             {(() => {
               if (dropdownGroupIdx !== gi) return null;
@@ -227,8 +227,8 @@ export default function VariantsEditor({
               );
               if (matches.length === 0) return null;
               return (
-                <div className="absolute left-5 right-5 top-full mt-1 z-30 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto">
-                  <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700">
+                <div className="absolute left-[var(--s-4)] right-[var(--s-4)] top-full mt-1 z-30 bg-[var(--surface)] border border-[var(--line)] rounded-r-md shadow-3 overflow-hidden max-h-56 overflow-y-auto">
+                  <div className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)] bg-[var(--surface-2)] border-b border-[var(--line)]">
                     {t('savedOptionSets') || 'Saved option sets'}
                   </div>
                   {matches.map((os) => (
@@ -237,12 +237,12 @@ export default function VariantsEditor({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => applyOptionSet(g.key, os)}
-                      className="w-full text-left px-4 py-3 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                      className="w-full text-start px-[var(--s-3)] py-[var(--s-2)] hover:bg-[var(--surface-2)] transition-colors"
                     >
-                      <span className="text-sm font-medium text-neutral-900 dark:text-white">
+                      <span className="text-fs-sm font-medium text-[var(--fg)]">
                         {os.name}
                       </span>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                      <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
                         {(os.options ?? []).map((o) => o.name).join(', ')}
                       </p>
                     </button>
@@ -254,13 +254,13 @@ export default function VariantsEditor({
 
           <div>
             <div
-              className="grid text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-4 py-3 bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-700"
+              className="grid text-fs-xs font-semibold text-[var(--fg-muted)] uppercase tracking-[.06em] px-[var(--s-3)] py-[var(--s-2)] bg-[var(--surface-2)] border-b border-[var(--line)]"
               style={{ gridTemplateColumns: '32px 1fr 110px 120px 130px 36px' }}
             >
               <span />
               <span>{t('variantName')}</span>
               <span
-                className="text-right"
+                className="text-end"
                 title={
                   itemBasePrice > 0
                     ? `Laisser à 0 pour utiliser le prix de base de l'article (₪${itemBasePrice.toFixed(2)}).`
@@ -269,7 +269,7 @@ export default function VariantsEditor({
               >
                 {t('price')}
                 {itemBasePrice > 0 && (
-                  <span className="ml-1 normal-case text-neutral-400 dark:text-neutral-500 lowercase font-normal">
+                  <span className="ml-1 normal-case text-[var(--fg-subtle)] lowercase font-normal">
                     (0 = base)
                   </span>
                 )}
@@ -284,16 +284,16 @@ export default function VariantsEditor({
             {g.rows.map((row, ri) => (
               <div
                 key={row.key}
-                className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
+                className="grid items-center gap-2 px-[var(--s-3)] py-[var(--s-2)] border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
                 style={{ gridTemplateColumns: '32px 1fr 110px 120px 130px 36px' }}
               >
-                <div className="flex flex-col items-center justify-center -my-1 text-neutral-400">
+                <div className="flex flex-col items-center justify-center -my-1 text-[var(--fg-muted)]">
                   <button
                     type="button"
                     onClick={() => moveRow(g.key, ri, 'up')}
                     disabled={ri === 0}
                     title="Monter"
-                    className="size-5 flex items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                    className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
                   >
                     <ChevronUp size={14} />
                   </button>
@@ -302,7 +302,7 @@ export default function VariantsEditor({
                     onClick={() => moveRow(g.key, ri, 'down')}
                     disabled={ri === g.rows.length - 1}
                     title="Descendre"
-                    className="size-5 flex items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                    className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
                   >
                     <ChevronDown size={14} />
                   </button>
@@ -311,40 +311,40 @@ export default function VariantsEditor({
                   value={row.name}
                   onChange={(e) => updateRow(g.key, row.key, { name: e.target.value })}
                   placeholder={t('variantName')}
-                  className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+                  className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
                 />
                 <NumberInput
                   min={0}
                   value={row.price}
                   onChange={(n) => updateRow(g.key, row.key, { price: n })}
                   placeholder="0.00"
-                  className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
+                  className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
                 />
                 <select
                   value={row.isActive ? 'active' : 'inactive'}
                   onChange={(e) =>
                     updateRow(g.key, row.key, { isActive: e.target.value === 'active' })
                   }
-                  className="text-xs bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
+                  className="text-fs-xs bg-transparent border-0 outline-none text-[var(--fg-muted)]"
                 >
                   <option value="active">{t('available')}</option>
                   <option value="inactive">{t('unavailable')}</option>
                 </select>
-                <label className="inline-flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300 cursor-pointer select-none">
+                <label className="inline-flex items-center gap-2 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={row.isComboOnly}
                     onChange={(e) =>
                       updateRow(g.key, row.key, { isComboOnly: e.target.checked })
                     }
-                    className="w-3.5 h-3.5 rounded border-neutral-300 dark:border-neutral-600"
+                    className="w-3.5 h-3.5 accent-[var(--brand-500)]"
                   />
                   Combo seul
                 </label>
                 <button
                   type="button"
                   onClick={() => removeRow(g.key, row.key)}
-                  className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="size-7 flex items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
                   title={t('delete')}
                 >
                   <Trash2 size={14} />
@@ -355,18 +355,18 @@ export default function VariantsEditor({
             <button
               type="button"
               onClick={() => addRow(g.key)}
-              className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-t border-neutral-200 dark:border-neutral-700"
+              className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors border-t border-[var(--line)]"
             >
               <Plus size={16} />
               {t('addVariant')}
             </button>
           </div>
 
-          <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
+          <div className="p-[var(--s-3)] border-t border-[var(--line)]">
             <button
               type="button"
               onClick={() => removeGroup(g.key)}
-              className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"
+              className="text-fs-sm font-medium text-red-500 hover:underline"
             >
               {t('remove')}
             </button>
@@ -377,7 +377,7 @@ export default function VariantsEditor({
       <button
         type="button"
         onClick={addGroup}
-        className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors border-2 border-dashed border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 w-full justify-center"
+        className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 rounded-r-md transition-colors border-2 border-dashed border-[var(--line)] hover:border-[var(--brand-500)]/50 w-full justify-center"
       >
         <Plus size={16} />
         {t('addAnotherSet')}

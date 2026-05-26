@@ -281,7 +281,7 @@ export default function MenuItemTabCost({
 
         <div className="space-y-2">
           {/* Column headers — desktop only; mobile rows show inline labels per cell */}
-          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase">
+          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-[var(--fg-muted)] uppercase">
             <div className="col-span-5">{t('ingredient') || 'Ingrédient'}</div>
             <div className="col-span-2 text-right">{t('quantity') || 'Quantité'}</div>
             <div className="col-span-2 text-right">{t('unitCost') || 'Prix unitaire'}</div>
@@ -323,24 +323,24 @@ export default function MenuItemTabCost({
           })}
 
           {summary.lines.length === 0 && (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 py-6 text-center">
+            <p className="text-sm text-[var(--fg-muted)] py-6 text-center">
               {t('noIngredientCosts') || 'Ajoutez des ingrédients pour voir le détail des coûts.'}
             </p>
           )}
 
           {summary.lines.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+            <div className="mt-4 pt-4 border-t border-[var(--line)]">
               {/* Total — flex row on mobile (label · value · pct), 12-col grid on desktop */}
               <div className="flex items-center justify-between gap-3 md:grid md:grid-cols-12 md:gap-4 px-4 py-2 font-semibold">
-                <div className="md:col-span-5 text-neutral-900 dark:text-white">
+                <div className="md:col-span-5 text-[var(--fg)]">
                   {t('total') || 'Total'}
                 </div>
                 <div className="hidden md:block md:col-span-2" />
                 <div className="hidden md:block md:col-span-2" />
-                <div className="md:col-span-2 text-end text-neutral-900 dark:text-white tabular-nums">
+                <div className="md:col-span-2 text-end text-[var(--fg)] tabular-nums">
                   {summary.foodCost.toFixed(2)} {CURRENCY}
                 </div>
-                <div className="md:col-span-1 text-end text-orange-500">100%</div>
+                <div className="md:col-span-1 text-end text-[var(--brand-500)]">100%</div>
               </div>
             </div>
           )}
@@ -426,13 +426,13 @@ function CostIngredientRow({
   // Mobile: stacked card with name + percentage badge as the heading row, then
   // label/value rows for quantity / unit cost / total. Desktop: 12-col grid.
   return (
-    <div className="flex flex-col gap-2 md:grid md:grid-cols-12 md:gap-4 md:items-center px-4 py-3 bg-white dark:bg-[#0a0a0a] rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-orange-500/50 transition-colors">
+    <div className="flex flex-col gap-2 md:grid md:grid-cols-12 md:gap-4 md:items-center px-4 py-3 bg-[var(--bg)] rounded-r-md border border-[var(--line)] hover:border-[var(--brand-500)]/50 transition-colors">
       {/* Heading row on mobile: name + pct on the right; just name on desktop */}
       <div className="flex items-center justify-between gap-3 md:contents">
         <button
           type="button"
           onClick={onNameClick}
-          className="md:col-span-5 flex items-center gap-2 min-w-0 text-left hover:text-orange-500 transition-colors"
+          className="md:col-span-5 flex items-center gap-2 min-w-0 text-left hover:text-[var(--brand-500)] transition-colors"
           title={type === 'preparation' ? 'Ouvrir la préparation' : "Ouvrir l'article de stock"}
         >
           <div
@@ -448,17 +448,17 @@ function CostIngredientRow({
               <Package size={12} className="text-blue-600 dark:text-blue-400" />
             )}
           </div>
-          <span className="text-sm font-medium text-neutral-900 dark:text-white truncate underline-offset-2 hover:underline">
+          <span className="text-sm font-medium text-[var(--fg)] truncate underline-offset-2 hover:underline">
             {name}
           </span>
         </button>
-        <span className="md:hidden text-sm font-semibold text-orange-500 shrink-0 tabular-nums">
+        <span className="md:hidden text-sm font-semibold text-[var(--brand-500)] shrink-0 tabular-nums">
           {percentage}
         </span>
       </div>
 
       {/* Quantity */}
-      <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm text-neutral-600 dark:text-neutral-400">
+      <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm text-[var(--fg-muted)]">
         <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
           {quantityLabel}
         </span>
@@ -466,7 +466,7 @@ function CostIngredientRow({
       </div>
 
       {/* Unit cost */}
-      <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm text-neutral-600 dark:text-neutral-400">
+      <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm text-[var(--fg-muted)]">
         <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
           {unitCostLabel}
         </span>
@@ -478,7 +478,7 @@ function CostIngredientRow({
         <button
           type="button"
           onClick={onPriceClick}
-          className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-neutral-900 dark:text-white hover:text-orange-500 underline-offset-2 hover:underline transition-colors"
+          className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-[var(--fg)] hover:text-[var(--brand-500)] underline-offset-2 hover:underline transition-colors"
           title="Voir le détail du coût"
         >
           <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
@@ -487,7 +487,7 @@ function CostIngredientRow({
           <span className="tabular-nums text-end">{totalCost}</span>
         </button>
       ) : (
-        <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-neutral-900 dark:text-white">
+        <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm font-semibold text-[var(--fg)]">
           <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
             {totalCostLabel}
           </span>
@@ -496,7 +496,7 @@ function CostIngredientRow({
       )}
 
       {/* Percentage — visible only on desktop (mobile shows it in the heading row) */}
-      <div className="hidden md:block md:col-span-1 text-sm font-semibold text-orange-500 text-end">
+      <div className="hidden md:block md:col-span-1 text-sm font-semibold text-[var(--brand-500)] text-end">
         {percentage}
       </div>
     </div>

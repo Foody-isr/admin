@@ -1146,6 +1146,7 @@ const translations: Record<Locale, Record<string, string>> = {
     tabStock: 'Stock & availability',
     recipePerSize: 'Different quantities per size?',
     priceFromSizes: 'Price is set by the sizes below.',
+    cartesPickHint: 'Where this item appears for customers.',
     // ── Combo type picker (Details tab) ──
     typeArticle: 'Single item',
     typeArticleTagline: 'A product sold as-is.',
@@ -3559,6 +3560,7 @@ const translations: Record<Locale, Record<string, string>> = {
     tabStock: 'מלאי וזמינות',
     recipePerSize: 'כמויות שונות לפי גודל?',
     priceFromSizes: 'המחיר נקבע לפי הגדלים שלמטה.',
+    cartesPickHint: 'היכן הפריט מופיע ללקוחות.',
     // ── Combo type picker (Details tab) ──
     typeArticle: 'פריט יחיד',
     typeArticleTagline: 'מוצר שנמכר כפי שהוא.',
@@ -5952,6 +5954,7 @@ const translations: Record<Locale, Record<string, string>> = {
     tabStock: 'Stock & disponibilité',
     recipePerSize: 'Quantités différentes par taille ?',
     priceFromSizes: 'Le prix est défini par les tailles ci-dessous.',
+    cartesPickHint: 'Où cet article apparaît côté client.',
     // ── Combo type picker (Details tab) ──
     typeArticle: 'Article unique',
     typeArticleTagline: 'Un produit qu\'on vend tel quel.',

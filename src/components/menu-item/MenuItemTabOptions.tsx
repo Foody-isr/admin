@@ -69,22 +69,17 @@ export default function MenuItemTabOptions({
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)]">
         <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
         <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
-          {t('tabModifiers') || 'Modificateurs et variantes'}
+          {t('modifiers') || 'Modificateurs'}
         </h3>
       </div>
 
       {/* Modificateurs */}
       <div className="mb-[var(--s-6)]">
-        <div className="flex items-center justify-between mb-[var(--s-3)]">
-          <div>
-            <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
-              {t('modifiers') || 'Modificateurs'}
-            </h4>
-            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-              {t('modifiersDesc') ||
-                'Options ajoutées à la commande (sans coriandre, sauce à part…).'}
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-3)]">
+          <p className="text-fs-xs text-[var(--fg-muted)]">
+            {t('modifiersDesc') ||
+              'Options ajoutées à la commande (sans coriandre, sauce à part…).'}
+          </p>
           <button
             type="button"
             onClick={onAddModifierSet}

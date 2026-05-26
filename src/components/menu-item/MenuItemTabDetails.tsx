@@ -331,7 +331,7 @@ export default function MenuItemTabDetails({
         {/* Menus / Cartes — foody-specific; below reference fields. The picker
             lets the owner choose exact groups (not just menus) so that items
             don't silently land in whichever group happens to be first. */}
-        <Field label={t('menus') || 'Cartes'} hint={t('cartesDescription') || "Cartes où cet article apparaît"}>
+        <Field label={t('menus') || 'Cartes'} hint={t('cartesPickHint') || 'Où cet article apparaît côté client.'}>
           <MenuGroupPicker
             menus={menus}
             selectedGroupIds={selectedGroupIds}
