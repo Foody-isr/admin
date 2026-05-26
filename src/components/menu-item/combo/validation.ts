@@ -4,7 +4,7 @@
 
 import type { MenuItem } from '@/lib/api';
 import type { ComboStepDraft } from './types';
-import { buildOptions } from './types';
+import { buildOptions, getSourceVariants } from './types';
 
 export interface ComboValidationError {
   /** Empty when the error is global (e.g. "no steps"). */
@@ -18,6 +18,7 @@ interface I18nFns {
   stepRange: (stepName: string) => string;
   stepNoVariants: (stepName: string, itemName: string) => string;
   stepNoCategory: (stepName: string) => string;
+  stepSizeNoMatch: (stepName: string, size: string) => string;
 }
 
 export function validateCombo(
@@ -41,6 +42,20 @@ export function validateCombo(
       }
       if (step.max_picks > 0 && step.max_picks < step.min_picks) {
         errors.push({ stepKey: step.key, message: i18n.stepRange(stepName) });
+      }
+      // A pinned size that matches no item in the category would leave the step
+      // empty (every item excluded) — block it.
+      if (step.source_variant_label && step.source_category_id) {
+        const want = step.source_variant_label.trim().toLowerCase();
+        const anyMatch = Array.from(itemsById.values()).some(
+          (it) =>
+            it.category_id === step.source_category_id &&
+            it.is_active &&
+            getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want),
+        );
+        if (!anyMatch) {
+          errors.push({ stepKey: step.key, message: i18n.stepSizeNoMatch(stepName, step.source_variant_label) });
+        }
       }
       continue; // category mode bypasses explicit-item checks
     }

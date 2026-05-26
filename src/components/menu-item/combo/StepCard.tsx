@@ -14,7 +14,7 @@ import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
-import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, effectiveStepKind } from './types';
+import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, effectiveStepKind, getSourceVariants } from './types';
 import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
@@ -475,14 +475,44 @@ function CategoryModePanel({
 }) {
   const { t } = useI18n();
   const selectedId = step.source_category_id ?? 0;
-  const previewItems = useMemo(() => {
-    if (!selectedId) return [] as string[];
-    const out: string[] = [];
-    for (const it of Array.from(itemsById.values())) {
-      if (it.category_id === selectedId && it.is_active) out.push(it.name);
-    }
-    return out;
+
+  // Active items in the selected category — the set the server will resolve.
+  const catItems = useMemo(() => {
+    if (!selectedId) return [] as MenuItem[];
+    return Array.from(itemsById.values()).filter(
+      (it) => it.category_id === selectedId && it.is_active,
+    );
   }, [selectedId, itemsById]);
+
+  const previewItems = useMemo(() => catItems.map((it) => it.name), [catItems]);
+
+  // Distinct variant labels across the category's items (for the size dropdown).
+  const sizeLabels = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const it of catItems) {
+      for (const v of getSourceVariants(it)) {
+        const name = v.name.trim();
+        const key = name.toLowerCase();
+        if (name && !seen.has(key)) {
+          seen.add(key);
+          out.push(name);
+        }
+      }
+    }
+    return out.sort();
+  }, [catItems]);
+
+  const label = step.source_variant_label?.trim() ?? '';
+
+  // Items that would be excluded because they lack a variant matching the label.
+  const excluded = useMemo(() => {
+    if (!label) return [] as string[];
+    const want = label.toLowerCase();
+    return catItems
+      .filter((it) => !getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want))
+      .map((it) => it.name);
+  }, [catItems, label]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -492,6 +522,7 @@ function CategoryModePanel({
           onChange({
             ...step,
             source_category_id: Number(e.target.value) || undefined,
+            source_variant_label: undefined, // reset size when category changes
           })
         }
         className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
@@ -501,11 +532,39 @@ function CategoryModePanel({
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </select>
+
+      {selectedId > 0 && sizeLabels.length > 0 && (
+        <label className="flex flex-col gap-1">
+          <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
+          <select
+            value={label}
+            onChange={(e) =>
+              onChange({ ...step, source_variant_label: e.target.value || undefined })
+            }
+            className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+          >
+            <option value="">{t('composeStepSizeAll')}</option>
+            {sizeLabels.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {selectedId > 0 && (
         <div className="text-fs-xs text-[var(--fg-muted)]">
           {previewItems.length === 0
             ? t('composeStepCategoryEmpty')
             : t('composeStepCategoryPreview').replace('{items}', previewItems.join(', '))}
+        </div>
+      )}
+
+      {label && excluded.length > 0 && (
+        <div className="text-fs-xs text-[var(--warn,#b45309)]">
+          {t('composeStepSizeExcluded')
+            .replace('{count}', String(excluded.length))
+            .replace('{size}', label)
+            .replace('{items}', excluded.join(', '))}
         </div>
       )}
     </div>

@@ -200,6 +200,7 @@ export default function EditItemPage() {
                 max_picks: s.max_picks,
                 source_type: s.source_type ?? 'explicit',
                 source_category_id: s.source_category_id ?? undefined,
+                source_variant_label: s.source_variant_label ?? undefined,
                 items: s.items.map((si) => ({
                   menu_item_id: si.menu_item_id,
                   price_delta: si.price_delta,
@@ -340,6 +341,7 @@ export default function EditItemPage() {
           sort_order: i,
           source_type: s.source_type,
           source_category_id: s.source_type === 'category' ? s.source_category_id : undefined,
+          source_variant_label: s.source_type === 'category' ? (s.source_variant_label || null) : null,
           items: s.source_type === 'category'
             ? []
             : s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),

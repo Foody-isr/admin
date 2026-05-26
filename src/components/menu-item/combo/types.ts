@@ -45,6 +45,10 @@ export interface ComboStepDraft {
   source_type: 'explicit' | 'category';
   /** Required when source_type === 'category'. */
   source_category_id?: number;
+  /** Category mode only: pin every resolved item to the variant whose name
+   *  matches this label (e.g. "250g"). undefined = no pin (whole items).
+   *  Items without a matching variant are excluded by the server. */
+  source_variant_label?: string;
   /** UI-only intent flag. Not sent to the server.
    *
    *  - "choice" — operator wants the customer to pick from multiple options.

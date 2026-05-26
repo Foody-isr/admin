@@ -272,6 +272,7 @@ export interface ComboStep {
   fixed_modifier_name?: string;
   source_type?: ComboStepSourceType;
   source_category_id?: number | null;
+  source_variant_label?: string | null;
   items: ComboStepItem[];
 }
 
@@ -284,6 +285,7 @@ export interface ComboStepInput {
   fixed_modifier_name?: string;
   source_type?: ComboStepSourceType;
   source_category_id?: number | null;
+  source_variant_label?: string | null;
   items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
 }
 

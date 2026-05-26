@@ -66,6 +66,8 @@ export default function CompositionTab({
       stepNoVariants: (n, item) =>
         t('comboValidStepNoVariantsIncluded').replace('{name}', n).replace('{item}', item),
       stepNoCategory: (n) => t('comboValidStepNoCategory').replace('{name}', n),
+      stepSizeNoMatch: (n, size) =>
+        t('comboValidStepSizeNoMatch').replace('{name}', n).replace('{size}', size),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [steps, itemsById],
