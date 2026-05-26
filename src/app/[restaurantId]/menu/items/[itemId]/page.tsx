@@ -27,6 +27,7 @@ import VariantsEditor, {
   VariantGroupState,
   variantGroupsFromOptionSets,
   toVariantSyncPayload,
+  hasMeaningfulVariants,
 } from '@/components/menu-item/VariantsEditor';
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
@@ -44,7 +45,16 @@ import { Boxes } from 'lucide-react';
 import { computeItemCostSummary } from '@/lib/cost-utils';
 import { XIcon } from 'lucide-react';
 
-const VALID_TABS: MenuItemSection[] = ['details', 'modifiers', 'composition', 'recipe', 'cost'];
+const VALID_TABS: MenuItemSection[] = ['details', 'composition', 'recipe', 'availability'];
+
+// Legacy deep links: the old 'modifiers' tab merged into 'details' (Article)
+// and the old 'cost' tab merged into 'recipe'. Remap so existing ?tab links
+// still land somewhere sensible.
+function remapLegacyTab(raw: string | null): MenuItemSection | null {
+  if (!raw) return null;
+  const mapped = raw === 'modifiers' ? 'details' : raw === 'cost' ? 'recipe' : raw;
+  return VALID_TABS.includes(mapped as MenuItemSection) ? (mapped as MenuItemSection) : null;
+}
 
 export default function EditItemPage() {
   const { restaurantId, itemId } = useParams();
@@ -74,10 +84,7 @@ export default function EditItemPage() {
   });
   const [loading, setLoading] = useState<boolean>(() => item == null);
 
-  const initialTab = (() => {
-    const raw = searchParams.get('tab');
-    return raw && VALID_TABS.includes(raw as MenuItemSection) ? (raw as MenuItemSection) : 'details';
-  })();
+  const initialTab = remapLegacyTab(searchParams.get('tab')) ?? 'details';
   const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
 
   // Form state — seeded from the hydrated MenuItem (if present) so the
@@ -265,7 +272,9 @@ export default function EditItemPage() {
       setPendingType(next);
     } else {
       setItemType(next);
-      if (next === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+      // 'recipe' is article-only; 'composition' is combo-only. Bounce to the
+      // shared 'details' (Article) tab when the active one leaves the new set.
+      if (next === 'combo' && activeTab === 'recipe') {
         setActiveTab('details');
       } else if (next !== 'combo' && activeTab === 'composition') {
         setActiveTab('details');
@@ -284,7 +293,7 @@ export default function EditItemPage() {
       setComboSteps([]);
     }
     setItemType(pendingType);
-    if (pendingType === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+    if (pendingType === 'combo' && activeTab === 'recipe') {
       setActiveTab('details');
     } else if (pendingType !== 'combo' && activeTab === 'composition') {
       setActiveTab('details');
@@ -292,14 +301,30 @@ export default function EditItemPage() {
     setPendingType(null);
   };
 
+  // Price single-source-of-truth. When an article has meaningful sizes, the
+  // base-price field in the Details tab is hidden (see hideBasePrice) and the
+  // price is owned by the size rows. We mirror the first size's price into the
+  // saved base price so the data model stays valid and the rail / cost use the
+  // right number. Combos keep their own explicit base price.
+  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups);
+  const firstVariantPrice = useMemo(() => {
+    for (const g of variantGroups) {
+      for (const r of g.rows) {
+        if (r.name.trim() && !r.isComboOnly) return r.price;
+      }
+    }
+    return 0;
+  }, [variantGroups]);
+  const effectivePrice = meaningfulVariants && firstVariantPrice > 0 ? firstVariantPrice : price;
+
   const handleSave = async () => {
-    if (!name.trim() || price <= 0) return;
+    if (!name.trim() || effectivePrice <= 0) return;
     setSaving(true);
     try {
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
-        price,
+        price: effectivePrice,
         is_active: isActive,
         item_type: itemType,
         category_id: categoryId,
@@ -432,19 +457,23 @@ export default function EditItemPage() {
     );
   }
 
-  // Tab set adapts to item type. Combos: details · composition · cost.
-  // Articles: details · modifiers · recipe · cost.
+  // Tab set adapts to item type, and is intentionally limited to three:
+  //   Articles → Article (identity + price + sizes + modifiers) · Recette
+  //              (recipe + folded-in cost) · Stock & disponibilité.
+  //   Combos   → Article · Composition · Stock & disponibilité.
+  // The cost-over-target warning now rides on the Recette tab (cost lives
+  // there), since the standalone Coût tab was removed.
+  const costWarning = costSummary?.costPct != null && costSummary.costPct > 0.35;
   const tabs: TabBarItem[] = itemType === 'combo'
     ? [
-        { id: 'details', label: t('tabDetails') },
+        { id: 'details', label: t('tabArticle') },
         { id: 'composition', label: t('tabComposition'), count: comboSteps.length },
-        { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
+        { id: 'availability', label: t('tabStock') },
       ]
     : [
-        { id: 'details', label: t('tabDetails') },
-        { id: 'modifiers', label: t('tabModifiers') },
-        { id: 'recipe', label: t('tabRecipe') },
-        { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
+        { id: 'details', label: t('tabArticle') },
+        { id: 'recipe', label: t('tabRecipe'), warning: costWarning },
+        { id: 'availability', label: t('tabStock') },
       ];
 
   // Hidden on mobile: tab bar is tight on phones, and the orange brand badge
@@ -461,7 +490,7 @@ export default function EditItemPage() {
     <MenuItemSummaryRail
       imageUrl={imageUrl}
       name={name}
-      price={price}
+      price={effectivePrice}
       activeStatus={isActive}
       categoryName={activeCategoryName}
       // Hide the food-cost summary for combos — it doesn't apply (a combo's
@@ -491,7 +520,7 @@ export default function EditItemPage() {
         onClose={goBack}
         onSave={handleSave}
         saving={saving}
-        saveDisabled={!name.trim() || price <= 0}
+        saveDisabled={!name.trim() || effectivePrice <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
@@ -508,32 +537,88 @@ export default function EditItemPage() {
 
           {/* Tab content — same vertical rhythm as food-cost page */}
           <div className="flex-1 overflow-y-auto p-[var(--s-6)]">
-            {/* ── Tab: Détails ─────────────────────────────────── */}
+            {/* ── Tab: Article (identity + price + sizes + modifiers) ── */}
             {activeTab === 'details' && (
-              <MenuItemTabDetails
-                name={name}
-                setName={setName}
-                price={price}
-                setPrice={setPrice}
-                description={description}
-                setDescription={setDescription}
-                categoryId={categoryId}
-                setCategoryId={setCategoryId}
-                isActive={isActive}
-                setIsActive={setIsActive}
-                vatRate={vatRate}
-                categories={categories}
-                menus={menus}
-                selectedGroupIds={selectedGroupIds}
-                setSelectedGroupIds={setSelectedGroupIds}
-                itemType={itemType}
-                sourceLocale={sourceLocale}
-                translations={translations}
-                setTranslations={setTranslations}
-                onTypeChange={requestTypeChange}
-                comboStepsCount={comboSteps.length}
-                onJumpToComposition={() => setActiveTab('composition')}
-              />
+              <div className="space-y-[var(--s-6)]">
+                <MenuItemTabDetails
+                  name={name}
+                  setName={setName}
+                  price={price}
+                  setPrice={setPrice}
+                  description={description}
+                  setDescription={setDescription}
+                  categoryId={categoryId}
+                  setCategoryId={setCategoryId}
+                  isActive={isActive}
+                  setIsActive={setIsActive}
+                  vatRate={vatRate}
+                  categories={categories}
+                  menus={menus}
+                  selectedGroupIds={selectedGroupIds}
+                  setSelectedGroupIds={setSelectedGroupIds}
+                  itemType={itemType}
+                  sourceLocale={sourceLocale}
+                  translations={translations}
+                  setTranslations={setTranslations}
+                  onTypeChange={requestTypeChange}
+                  comboStepsCount={comboSteps.length}
+                  onJumpToComposition={() => setActiveTab('composition')}
+                  // Only hide the base-price field once the first size carries
+                  // a real price; otherwise the owner would have nowhere to set
+                  // a price (the first size inherits the base when left at 0).
+                  hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
+                />
+
+                {/* Sizes / variants — pricing lives here when present, which is
+                    why the base-price field above hides itself (no more "same
+                    price shown twice"). Combos price via the Composition tab. */}
+                {itemType !== 'combo' && (
+                  <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+                    <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
+                      <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+                      <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
+                        {t('variants') || 'Variantes'}
+                      </h3>
+                    </div>
+                    <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-4)]">
+                      {t('variantsDesc') ||
+                        'Tailles ou options liées (Normal, Grand…). Le prix du variant remplace le prix de base.'}
+                    </p>
+                    <VariantsEditor
+                      groups={variantGroups}
+                      onChange={(g) => { setVariantGroups(g); setVariantsDirty(true); }}
+                      allOptionSets={allOptionSets}
+                      itemBasePrice={effectivePrice}
+                    />
+                  </section>
+                )}
+
+                {/* Modifiers — add-ons (sans coriandre, sauce à part…) */}
+                {itemType !== 'combo' && (
+                  <MenuItemTabOptions
+                    item={item}
+                    attachedModifierSets={item.modifier_sets ?? []}
+                    attachedOptionSets={attachedOptionSets}
+                    itemOptionOverrides={itemOptionOverrides}
+                    onAddModifierSet={() => setModifierModalOpen(true)}
+                    onDetachModifierSet={async (id) => {
+                      if (!confirm('Unlink this modifier set from item?')) return;
+                      await detachModifierSetFromItem(rid, id, iid);
+                      loadData();
+                    }}
+                    onDeleteModifier={handleDeleteModifier}
+                    // Variants render in their own section just above, so these
+                    // handlers are no-ops kept to satisfy the prop contract.
+                    onAddVariantGroup={() => {}}
+                    onEditVariantGroup={() => {}}
+                    onDeleteVariantGroup={() => {}}
+                    onAddOptionSet={() => {}}
+                    onEditOptionSet={() => {}}
+                    onDetachOptionSet={() => {}}
+                    hideVariantsSection
+                  />
+                )}
+              </div>
             )}
 
             {/* ── Tab: Composition (combo only) ─────────────────── */}
@@ -550,55 +635,7 @@ export default function EditItemPage() {
               />
             )}
 
-            {/* ── Tab: Modificateurs & Variantes — articles only ─── */}
-            {activeTab === 'modifiers' && itemType !== 'combo' && (
-              <div className="space-y-[var(--s-6)]">
-                <MenuItemTabOptions
-                  item={item}
-                  attachedModifierSets={item.modifier_sets ?? []}
-                  attachedOptionSets={attachedOptionSets}
-                  itemOptionOverrides={itemOptionOverrides}
-                  onAddModifierSet={() => setModifierModalOpen(true)}
-                  onDetachModifierSet={async (id) => {
-                    if (!confirm('Unlink this modifier set from item?')) return;
-                    await detachModifierSetFromItem(rid, id, iid);
-                    loadData();
-                  }}
-                  onDeleteModifier={handleDeleteModifier}
-                  // Variants are rendered inline via <VariantsEditor> below,
-                  // so these handlers are no-ops kept only to satisfy the
-                  // prop contract.
-                  onAddVariantGroup={() => {}}
-                  onEditVariantGroup={() => {}}
-                  onDeleteVariantGroup={() => {}}
-                  onAddOptionSet={() => {}}
-                  onEditOptionSet={() => {}}
-                  onDetachOptionSet={() => {}}
-                  hideVariantsSection
-                />
-
-                <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
-                  <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
-                    <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
-                    <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
-                      {t('variants') || 'Variantes'}
-                    </h3>
-                  </div>
-                  <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-4)]">
-                    {t('variantsDesc') ||
-                      'Tailles ou options liées (Normal, Grand…). Le prix du variant remplace le prix de base.'}
-                  </p>
-                  <VariantsEditor
-                    groups={variantGroups}
-                    onChange={(g) => { setVariantGroups(g); setVariantsDirty(true); }}
-                    allOptionSets={allOptionSets}
-                    itemBasePrice={price}
-                  />
-                </section>
-              </div>
-            )}
-
-            {/* ── Tab: Recette — Figma:323 ─────────────────────── */}
+            {/* ── Tab: Recette (recipe + folded-in cost readout) ─── */}
             {activeTab === 'recipe' && (
               <MenuItemTabRecipe
                 ref={recipeRef}
@@ -676,23 +713,25 @@ export default function EditItemPage() {
               />
             )}
 
+            {/* Cost is fully derived from the recipe above + price, so it lives
+                here as a readout under the recipe instead of a separate tab. */}
             {activeTab === 'recipe' && item && (
-              <div className="mt-4">
-                <ItemAvailabilityPanel rid={rid} itemId={iid} item={item} onSaved={loadData} />
+              <div className="mt-[var(--s-6)]">
+                <MenuItemTabCost
+                  rid={rid}
+                  item={item}
+                  ingredients={ingredients}
+                  itemOptionOverrides={itemOptionOverrides}
+                  vatRate={vatRate}
+                  price={effectivePrice}
+                  onChangesApplied={loadData}
+                />
               </div>
             )}
 
-            {/* ── Tab: Coût — Figma MenuItemDetails.tsx:644 ─────── */}
-            {activeTab === 'cost' && item && (
-              <MenuItemTabCost
-                rid={rid}
-                item={item}
-                ingredients={ingredients}
-                itemOptionOverrides={itemOptionOverrides}
-                vatRate={vatRate}
-                price={price}
-                onChangesApplied={loadData}
-              />
+            {/* ── Tab: Stock & disponibilité ───────────────────── */}
+            {activeTab === 'availability' && item && (
+              <ItemAvailabilityPanel rid={rid} itemId={iid} item={item} onSaved={loadData} />
             )}
           </div>
         </div>

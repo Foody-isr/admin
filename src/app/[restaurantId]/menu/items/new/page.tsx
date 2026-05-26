@@ -141,7 +141,10 @@ export default function NewItemPage() {
     setSelectedGroupIds(new Set(bannerDraft.selectedGroupIds));
     setSelectedModifierSetIds(new Set(bannerDraft.selectedModifierSetIds));
     setVariantGroups(bannerDraft.variantGroups);
-    setActiveTab(bannerDraft.activeTab);
+    // Drafts persisted before the editor was simplified may carry a removed
+    // tab id ('modifiers' / 'cost'); fall back to the Article tab in that case.
+    const validTabs: MenuItemSection[] = ['details', 'composition', 'recipe', 'availability'];
+    setActiveTab(validTabs.includes(bannerDraft.activeTab) ? bannerDraft.activeTab : 'details');
     setBannerDraft(null);
     setAutosaveEnabled(true);
   };
@@ -170,14 +173,28 @@ export default function NewItemPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
 
+  // Price single-source-of-truth — see the edit page for rationale. When an
+  // article has meaningful sizes, the Details base-price field hides and the
+  // first size's price becomes the saved base price.
+  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups);
+  const firstVariantPrice = useMemo(() => {
+    for (const g of variantGroups) {
+      for (const r of g.rows) {
+        if (r.name.trim() && !r.isComboOnly) return r.price;
+      }
+    }
+    return 0;
+  }, [variantGroups]);
+  const effectivePrice = meaningfulVariants && firstVariantPrice > 0 ? firstVariantPrice : price;
+
   const handleSave = async () => {
-    if (!name.trim() || price <= 0) return;
+    if (!name.trim() || effectivePrice <= 0) return;
     setSaving(true);
     try {
       const createPayload: Parameters<typeof createMenuItem>[1] = {
         name: name.trim(),
         description,
-        price,
+        price: effectivePrice,
         is_active: isActive,
         item_type: itemType,
         category_id: categoryId || categories[0]?.id,
@@ -248,8 +265,8 @@ export default function NewItemPage() {
       setPendingType(next);
     } else {
       setItemType(next);
-      // Switch to details if the active tab is no longer in the new tab set.
-      if (next === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+      // Switch to Article if the active tab is no longer in the new tab set.
+      if (next === 'combo' && activeTab === 'recipe') {
         setActiveTab('details');
       } else if (next !== 'combo' && activeTab === 'composition') {
         setActiveTab('details');
@@ -266,7 +283,7 @@ export default function NewItemPage() {
       setComboSteps([]);
     }
     setItemType(pendingType);
-    if (pendingType === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+    if (pendingType === 'combo' && activeTab === 'recipe') {
       setActiveTab('details');
     } else if (pendingType !== 'combo' && activeTab === 'composition') {
       setActiveTab('details');
@@ -318,20 +335,21 @@ export default function NewItemPage() {
     );
   }
 
-  // Tab set adapts to item type. Combos: details · composition · cost.
-  // Articles: details · modifiers · recipe · cost. Recipe/cost are disabled
-  // pre-save (the user has to create the item before adding ingredients).
+  // Tab set adapts to item type, limited to three. Recipe and Stock &
+  // disponibilité need a saved item (ingredients/availability attach to an
+  // existing id), so they're disabled until the article is first created.
+  //   Articles → Article · Recette · Stock & disponibilité.
+  //   Combos   → Article · Composition · Stock & disponibilité.
   const tabs: TabBarItem[] = itemType === 'combo'
     ? [
-        { id: 'details', label: t('tabDetails') },
+        { id: 'details', label: t('tabArticle') },
         { id: 'composition', label: t('tabComposition'), count: comboSteps.length },
-        { id: 'cost', label: t('tabCost'), disabled: true },
+        { id: 'availability', label: t('tabStock'), disabled: true },
       ]
     : [
-        { id: 'details', label: t('tabDetails') },
-        { id: 'modifiers', label: t('tabModifiers') },
+        { id: 'details', label: t('tabArticle') },
         { id: 'recipe', label: t('tabRecipe'), disabled: true },
-        { id: 'cost', label: t('tabCost'), disabled: true },
+        { id: 'availability', label: t('tabStock'), disabled: true },
       ];
 
   // Hidden on mobile: tab bar is tight on phones, and the orange brand badge
@@ -348,7 +366,7 @@ export default function NewItemPage() {
     <MenuItemSummaryRail
       imageUrl={imagePreview || undefined}
       name={name}
-      price={price}
+      price={effectivePrice}
       activeStatus={isActive}
       categoryName={activeCategoryName}
       comboSummary={railComboSummary}
@@ -373,7 +391,7 @@ export default function NewItemPage() {
         onClose={goBack}
         onSave={handleSave}
         saving={saving}
-        saveDisabled={!name.trim() || price <= 0}
+        saveDisabled={!name.trim() || effectivePrice <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -423,7 +441,7 @@ export default function NewItemPage() {
 
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto p-8">
-            {/* ── Tab: Détails ─────────────────────────────────── */}
+            {/* ── Tab: Article — identity (sizes + modifiers render below) ── */}
             {activeTab === 'details' && (
               <MenuItemTabDetails
                 name={name}
@@ -445,6 +463,10 @@ export default function NewItemPage() {
                 onTypeChange={requestTypeChange}
                 comboStepsCount={comboSteps.length}
                 onJumpToComposition={() => setActiveTab('composition')}
+                // Only hide the base-price field once the first size carries a
+                // real price; otherwise the owner would have nowhere to set a
+                // price (the first size inherits the base when left at 0).
+                hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
               />
             )}
 
@@ -462,8 +484,8 @@ export default function NewItemPage() {
               />
             )}
 
-            {/* ── Tab: Modificateurs & Variantes — articles only ─── */}
-            {activeTab === 'modifiers' && itemType !== 'combo' && (
+            {/* ── Sizes & modifiers — rendered inside the Article tab ── */}
+            {activeTab === 'details' && itemType !== 'combo' && (
               <div className="max-w-4xl">
                 <div className="mb-8">
                   <div className="flex items-center gap-3 mb-6">
@@ -480,7 +502,7 @@ export default function NewItemPage() {
                       groups={variantGroups}
                       onChange={setVariantGroups}
                       allOptionSets={allOptionSets}
-                      itemBasePrice={price}
+                      itemBasePrice={effectivePrice}
                     />
                   </div>
                 </div>
@@ -528,13 +550,13 @@ export default function NewItemPage() {
               </div>
             )}
 
-            {/* ── Recipe / Cost tabs are disabled until the item is saved ── */}
-            {(activeTab === 'recipe' || activeTab === 'cost') && (
+            {/* ── Recipe / Stock tabs are disabled until the item is saved ── */}
+            {(activeTab === 'recipe' || activeTab === 'availability') && (
               <div className="max-w-4xl">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-1 h-6 bg-orange-500 rounded-full" />
                   <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-                    {activeTab === 'recipe' ? t('tabRecipe') : t('tabCost')}
+                    {activeTab === 'recipe' ? t('tabRecipe') : t('tabStock')}
                   </h3>
                 </div>
                 <div className="bg-neutral-50 dark:bg-[#1a1a1a] rounded-xl border border-neutral-200 dark:border-neutral-700 p-6">

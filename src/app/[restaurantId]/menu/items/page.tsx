@@ -887,7 +887,7 @@ export default function ItemLibraryPage() {
                           <tr
                             key={`${item.id}-v-${v.id}`}
                             className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
-                            onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=modifiers`)}
+                            onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=details`)}
                           >
                             <td className="p-3" />
                             <td className="p-3 pl-16">

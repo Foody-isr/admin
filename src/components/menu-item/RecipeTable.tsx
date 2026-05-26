@@ -747,6 +747,17 @@ function RecipeRow({
                   <AlertTriangle className="w-3.5 h-3.5 text-[var(--warn-500,#d97706)]" />
                 </span>
               )}
+              {/* A variant added after this recipe was set up has no quantity
+                  here and silently deducts nothing. Surface it so a forgotten
+                  value is visible. Deliberate explicit 0s are NOT flagged. */}
+              {!row.sameForAll && variants.some((v) => !row.cells.has(v.optionId)) && (
+                <span
+                  title="Une ou plusieurs variantes n'ont pas de quantité définie. Rien ne sera décompté du stock pour ces variantes tant qu'une valeur n'est pas saisie."
+                  className="shrink-0 inline-flex"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-[var(--warn-500,#d97706)]" />
+                </span>
+              )}
             </div>
             {hasVariants && (
               <label className="inline-flex items-center gap-1 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
@@ -780,8 +791,21 @@ function RecipeRow({
       {hasVariants ? (
         variants.map((v) => {
           const cellQty = row.sameForAll ? row.baseQty : row.cells.get(v.optionId) ?? 0;
+          // A non-"même quantité" row with no override entry for this variant
+          // silently falls back to 0 — nothing gets deducted for this size.
+          // An explicit 0 (present in cells) is a deliberate "not used here"
+          // and is intentionally NOT flagged.
+          const cellUnset = !row.sameForAll && !row.cells.has(v.optionId);
           return (
-            <td key={v.optionId} className="px-[var(--s-3)] py-[var(--s-2)] text-end">
+            <td
+              key={v.optionId}
+              className="px-[var(--s-3)] py-[var(--s-2)] text-end"
+              title={
+                cellUnset
+                  ? `Aucune quantité définie pour « ${v.name} ». Rien ne sera décompté du stock pour cette variante tant qu'une valeur n'est pas saisie.`
+                  : undefined
+              }
+            >
               <NumberInput
                 value={cellQty}
                 onChange={(n) => {
@@ -790,7 +814,11 @@ function RecipeRow({
                 }}
                 onBlur={handleBlur}
                 placeholder="0"
-                className="w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
+                className={`w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)] ${
+                  cellUnset
+                    ? 'border-[var(--warn-500,#d97706)] bg-[var(--warn-50,#fffbeb)]'
+                    : 'border-[var(--line-strong)]'
+                }`}
               />
             </td>
           );

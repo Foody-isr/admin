@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Layers, ChefHat, DollarSign, AlertCircle, Boxes, ChevronRight, ChevronLeft } from 'lucide-react';
+import { FileText, ChefHat, PackageCheck, AlertCircle, Boxes, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { MenuItemSection } from './TabBar';
 
 export interface TabBarItem {
@@ -25,14 +25,12 @@ function TabIcon({ id }: { id: MenuItemSection }) {
   switch (id) {
     case 'details':
       return <FileText className="w-4 h-4" />;
-    case 'modifiers':
-      return <Layers className="w-4 h-4" />;
     case 'composition':
       return <Boxes className="w-4 h-4" />;
     case 'recipe':
       return <ChefHat className="w-4 h-4" />;
-    case 'cost':
-      return <DollarSign className="w-4 h-4" />;
+    case 'availability':
+      return <PackageCheck className="w-4 h-4" />;
   }
 }
 

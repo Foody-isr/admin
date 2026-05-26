@@ -74,6 +74,21 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
 ) {
   const { t } = useI18n();
 
+  // Per-size quantities are an advanced case — most recipes use the same
+  // quantity for every size. Default to a single column and only reveal the
+  // per-variant grid when the item actually has sizes AND the owner opts in.
+  // If the recipe already carries per-variant overrides, start expanded so
+  // existing data stays visible (the owner can still collapse it).
+  const hasVariants = variants.length > 0;
+  const hasOverrides = ingredients.some((i) =>
+    (i.variant_overrides ?? []).some((o) => (o.quantity ?? 0) > 0),
+  );
+  const [perSize, setPerSize] = useState(false);
+  useEffect(() => {
+    if (hasOverrides) setPerSize(true);
+  }, [hasOverrides]);
+  const tableVariants: VariantRef[] = perSize ? variants : [];
+
   // Inline "add ingredient" draft. Click the button → a draft card appears
   // at the top of the list, already expanded with mode selection visible.
   // The user picks both the source and the mode before confirming.
@@ -171,13 +186,24 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
           The picker appears *above* the table when adding so the user keeps
           context on what's already in the recipe while choosing what to add. */}
       <div className="mb-[var(--s-6)] flex flex-col gap-[var(--s-4)]">
+        {hasVariants && (
+          <label className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              checked={perSize}
+              onChange={(e) => setPerSize(e.target.checked)}
+              className="w-4 h-4 accent-[var(--brand-500)]"
+            />
+            {t('recipePerSize') || 'Quantités différentes par taille ?'}
+          </label>
+        )}
         {addingDraft && (
           <SimpleIngredientPicker
             rid={rid}
             menuItemName={item.name}
             stockItems={stockItems}
             prepItems={prepItems}
-            variants={variants}
+            variants={tableVariants}
             saving={draftSaving}
             onAdd={handleAddFromDraft}
             onCancel={() => setAddingDraft(false)}
@@ -187,7 +213,7 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
         <RecipeTable
             item={item}
             ingredients={ingredients}
-            variants={variants.map((v): VariantColumn => ({
+            variants={tableVariants.map((v): VariantColumn => ({
               optionId: v.option_id,
               name: v.name,
             }))}

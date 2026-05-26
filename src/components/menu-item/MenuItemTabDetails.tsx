@@ -57,6 +57,14 @@ interface Props {
   translations?: TranslationMap;
   /** Updater for translations. Pass a fresh object back to the parent. */
   setTranslations?: (t: TranslationMap) => void;
+  /**
+   * When the article has meaningful sizes/variants, the single base-price
+   * field is replaced by a hint — price is then owned solely by the size rows
+   * (rendered just below by the page's VariantsEditor). This removes the
+   * "same price shown in two places" confusion. Combos never set this (they
+   * keep a base price).
+   */
+  hideBasePrice?: boolean;
 }
 
 export default function MenuItemTabDetails({
@@ -77,6 +85,7 @@ export default function MenuItemTabDetails({
   sourceLocale,
   translations,
   setTranslations,
+  hideBasePrice = false,
 }: Props) {
   const { t } = useI18n();
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -232,18 +241,26 @@ export default function MenuItemTabDetails({
             label={priceLabel}
             hint={isCombo ? t('composeBasePriceHint') : undefined}
           >
-            <div className="relative">
-              <NumberField
-                min={0}
-                value={price}
-                onChange={setPrice}
-                placeholder="0.00"
-                className="pr-8 font-mono"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                ₪
-              </span>
-            </div>
+            {hideBasePrice ? (
+              // Sizes own the price — show a read-only hint pointing at the
+              // size rows below instead of a second editable price field.
+              <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)]/40 text-fs-xs text-[var(--fg-muted)]">
+                {t('priceFromSizes') || 'Le prix est défini par les tailles ci-dessous.'}
+              </div>
+            ) : (
+              <div className="relative">
+                <NumberField
+                  min={0}
+                  value={price}
+                  onChange={setPrice}
+                  placeholder="0.00"
+                  className="pr-8 font-mono"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                  ₪
+                </span>
+              </div>
+            )}
           </Field>
 
           <Field label={t('vat') || 'TVA'}>
