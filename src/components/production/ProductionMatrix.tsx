@@ -134,15 +134,15 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <span className="font-semibold">{t('productionFromCombo')}</span>
                           {prov.combos.map((c) => (
                             <span key={c.name} className="block">
-                              {c.name} ×{c.qty}
+                              {item.measure === 'weight' ? `${c.qty} g` : c.qty} {item.name} ({c.name})
                             </span>
                           ))}
                           {prov.standalone > 0 && (
                             <span className="block opacity-80">
-                              {t('productionIndividual')} ×{prov.standalone}
+                              {item.measure === 'weight' ? `${prov.standalone} g` : prov.standalone} {item.name} (
+                              {t('productionIndividual')})
                             </span>
                           )}
                         </TooltipContent>
