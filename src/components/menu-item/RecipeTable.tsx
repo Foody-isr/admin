@@ -12,7 +12,7 @@
 //   • Cells differ per variant  → variant_overrides[] (one row per variant)
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
 import type {
@@ -206,6 +206,9 @@ export default function RecipeTable({
   // (e.g. user clicked Apply before entering any base value). Replaces a
   // blocking native alert() that surprised testers as a "browser warning".
   const [applyHint, setApplyHint] = useState<string | null>(null);
+  // The per-variant multiplier tool is an occasional bulk-fill helper, so it
+  // stays tucked behind a disclosure link to keep the recipe view calm.
+  const [showMultipliers, setShowMultipliers] = useState(false);
   useEffect(() => {
     if (!applyHint) return;
     const timer = window.setTimeout(() => setApplyHint(null), 4000);
@@ -458,8 +461,8 @@ export default function RecipeTable({
           </h4>
           <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
             {hasVariants
-              ? 'Une ligne par ingrédient. Une colonne par variante. Saisissez la quantité utilisée à chaque taille.'
-              : 'Saisissez la quantité de chaque ingrédient pour 1 portion.'}
+              ? 'Quantité utilisée à chaque taille.'
+              : 'Quantité pour 1 portion.'}
           </p>
         </div>
         <button
@@ -477,64 +480,74 @@ export default function RecipeTable({
           Pure productivity helper — bulk-fills empty cells using base ×
           multiplier. Persisted to localStorage per item. */}
       {hasVariants && variants.length > 1 && rows.length > 0 && (
-        <div className="mb-[var(--s-2)] flex items-start gap-[var(--s-3)] flex-wrap rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]/40 px-[var(--s-3)] py-[var(--s-2)]">
-          <div className="flex-1 min-w-[180px]">
-            <div className="text-fs-xs font-semibold text-[var(--fg)]">
-              Multiplicateurs par variante
-            </div>
-            <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-              Outil de remplissage rapide — entrez un multiplicateur par variante pour
-              pré-remplir les lignes vides à partir de la quantité de base de chaque
-              ingrédient. Chaque cellule reste modifiable individuellement.
-            </div>
-          </div>
-          <div className="flex items-end gap-[var(--s-3)] flex-wrap">
-            {variants.map((v, i) => {
-              // First variant is locked to "1" — it's the base everything else
-              // multiplies against.
-              const isBase = i === 0;
-              const value = isBase ? 1 : multipliers[v.optionId] ?? 0;
-              return (
-                <label key={v.optionId} className="flex flex-col gap-0.5">
-                  <span className="text-fs-xs text-[var(--fg-muted)]">{v.name}</span>
-                  <NumberInput
-                    value={value}
-                    onChange={(n) => {
-                      if (isBase) return;
-                      setUserMultipliers((prev) => {
-                        if (n <= 0) {
-                          const next = { ...prev };
-                          delete next[v.optionId];
-                          return next;
-                        }
-                        return { ...prev, [v.optionId]: n };
-                      });
-                    }}
-                    placeholder={isBase ? '1' : '—'}
-                    disabled={isBase}
-                    className={`w-16 px-[var(--s-2)] py-1 text-fs-sm font-mono tabular-nums text-end bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] ${
-                      isBase ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  />
-                </label>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => void applyMultipliers()}
-              className="inline-flex items-center gap-1 h-8 px-[var(--s-3)] rounded-r-sm bg-[var(--brand-500)] text-white text-fs-xs font-semibold hover:opacity-90 transition-opacity"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Appliquer aux lignes vides
-            </button>
-          </div>
-          {applyHint && (
-            <div
-              className="basis-full text-fs-xs text-[var(--warn-500,#d97706)] mt-[var(--s-2)]"
-              role="status"
-              aria-live="polite"
-            >
-              {applyHint}
+        <div className="mb-[var(--s-3)]">
+          <button
+            type="button"
+            onClick={() => setShowMultipliers((v) => !v)}
+            aria-expanded={showMultipliers}
+            className="inline-flex items-center gap-1.5 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Pré-remplir les quantités par taille
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-fast ${showMultipliers ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {showMultipliers && (
+            <div className="mt-[var(--s-2)] flex items-start gap-[var(--s-3)] flex-wrap rounded-r-md border border-[var(--line)] bg-[var(--surface-2)]/40 px-[var(--s-3)] py-[var(--s-2)]">
+              <div className="flex-1 min-w-[180px] text-fs-xs text-[var(--fg-muted)]">
+                Un multiplicateur par taille pré-remplit les lignes vides depuis la
+                quantité de base. Chaque cellule reste modifiable.
+              </div>
+              <div className="flex items-end gap-[var(--s-3)] flex-wrap">
+                {variants.map((v, i) => {
+                  // First variant is locked to "1" — it's the base everything else
+                  // multiplies against.
+                  const isBase = i === 0;
+                  const value = isBase ? 1 : multipliers[v.optionId] ?? 0;
+                  return (
+                    <label key={v.optionId} className="flex flex-col gap-0.5">
+                      <span className="text-fs-xs text-[var(--fg-muted)]">{v.name}</span>
+                      <NumberInput
+                        value={value}
+                        onChange={(n) => {
+                          if (isBase) return;
+                          setUserMultipliers((prev) => {
+                            if (n <= 0) {
+                              const next = { ...prev };
+                              delete next[v.optionId];
+                              return next;
+                            }
+                            return { ...prev, [v.optionId]: n };
+                          });
+                        }}
+                        placeholder={isBase ? '1' : '—'}
+                        disabled={isBase}
+                        className={`w-16 px-[var(--s-2)] py-1 text-fs-sm font-mono tabular-nums text-end bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] ${
+                          isBase ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      />
+                    </label>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => void applyMultipliers()}
+                  className="inline-flex items-center gap-1 h-8 px-[var(--s-3)] rounded-r-sm bg-[var(--brand-500)] text-white text-fs-xs font-semibold hover:opacity-90 transition-opacity"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Appliquer
+                </button>
+              </div>
+              {applyHint && (
+                <div
+                  className="basis-full text-fs-xs text-[var(--warn-500,#d97706)] mt-[var(--s-2)]"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {applyHint}
+                </div>
+              )}
             </div>
           )}
         </div>

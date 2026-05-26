@@ -725,6 +725,7 @@ export default function EditItemPage() {
                   vatRate={vatRate}
                   price={effectivePrice}
                   onChangesApplied={loadData}
+                  collapsible
                 />
               </div>
             )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, FlaskConical, Package } from 'lucide-react';
+import { AlertCircle, ChevronDown, FlaskConical, Package } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
@@ -42,6 +42,10 @@ interface Props {
   /** Called after the simulator's Apply persists changes — caller refetches
    *  ingredients / item state. */
   onChangesApplied?: () => void | Promise<void>;
+  /** When true, the whole section starts collapsed behind its "Coût" header
+   *  (used inside the Recette tab, where the live summary already shows in the
+   *  left rail). The standalone food-cost page leaves this off. */
+  collapsible?: boolean;
 }
 
 const CURRENCY = '\u20AA';
@@ -55,6 +59,7 @@ export default function MenuItemTabCost({
   price,
   headerIndentClass = '',
   onChangesApplied,
+  collapsible = false,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -62,6 +67,9 @@ export default function MenuItemTabCost({
   const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
   const [breakdownIng, setBreakdownIng] = useState<MenuItemIngredient | null>(null);
   const [showCostPctBreakdown, setShowCostPctBreakdown] = useState(false);
+  // Collapsed-by-default when embedded in the Recette tab. The header stays
+  // visible (with a compact cost summary) and toggles the body.
+  const [collapsed, setCollapsed] = useState(collapsible);
 
   // Variant pills — lets the user switch the "portion" the cost math uses.
   const variants = useMemo(
@@ -120,36 +128,63 @@ export default function MenuItemTabCost({
       {/* Section head with 3px brand accent + HT/TTC toggle. Caller may
           pass `headerIndentClass` (e.g. `ms-[37px]`) to align with an
           adjacent emoji-offset title — see food-cost/page.tsx. */}
-      <div className="flex items-center justify-between gap-[var(--s-3)] mb-[var(--s-5)]">
-        <div className={`flex items-center gap-[var(--s-3)] ${headerIndentClass}`}>
-          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
-          <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabCost')}</h3>
-        </div>
+      <div className={`flex items-center justify-between gap-[var(--s-3)] ${collapsed ? '' : 'mb-[var(--s-5)]'}`}>
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-expanded={!collapsed}
+            className={`flex items-center gap-[var(--s-3)] min-w-0 text-start ${headerIndentClass}`}
+          >
+            <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)] shrink-0" />
+            <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabCost')}</h3>
+            <ChevronDown
+              className={`w-5 h-5 text-[var(--fg-muted)] shrink-0 transition-transform duration-fast ${collapsed ? '' : 'rotate-180'}`}
+            />
+            {collapsed && (
+              <span
+                className="text-fs-sm tabular-nums truncate"
+                style={{ color: over ? 'var(--warning-500)' : 'var(--fg-muted)' }}
+              >
+                {summary.foodCost.toFixed(2)} {CURRENCY} · {(summary.costPct * 100).toFixed(0)}%
+              </span>
+            )}
+          </button>
+        ) : (
+          <div className={`flex items-center gap-[var(--s-3)] ${headerIndentClass}`}>
+            <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+            <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabCost')}</h3>
+          </div>
+        )}
 
-        {/* HT / TTC toggle — segmented control matching .tabs pattern */}
-        <div
-          role="group"
-          aria-label={t('showExVat') || 'Affichage TVA'}
-          className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md"
-        >
-          {(['ex', 'inc'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => vatDisplayMode !== mode && toggleVatDisplay()}
-              aria-pressed={vatDisplayMode === mode}
-              className={`inline-flex items-center h-[26px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors ${
-                vatDisplayMode === mode
-                  ? 'bg-[var(--surface)] text-[var(--brand-500)] shadow-1'
-                  : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-              }`}
-            >
-              {mode === 'ex' ? (t('exVat') || 'HT') : (t('incVat') || 'TTC')}
-            </button>
-          ))}
-        </div>
+        {/* HT / TTC toggle — segmented control; only meaningful when expanded */}
+        {!collapsed && (
+          <div
+            role="group"
+            aria-label={t('showExVat') || 'Affichage TVA'}
+            className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md"
+          >
+            {(['ex', 'inc'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => vatDisplayMode !== mode && toggleVatDisplay()}
+                aria-pressed={vatDisplayMode === mode}
+                className={`inline-flex items-center h-[26px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors ${
+                  vatDisplayMode === mode
+                    ? 'bg-[var(--surface)] text-[var(--brand-500)] shadow-1'
+                    : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                }`}
+              >
+                {mode === 'ex' ? (t('exVat') || 'HT') : (t('incVat') || 'TTC')}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {!collapsed && (
+      <>
       {/* Variant pills + active variant's selling price (follows HT/TTC) */}
       {variants.length > 0 && (
         <div className="mb-[var(--s-5)] flex items-start justify-between gap-[var(--s-4)] flex-wrap">
@@ -269,9 +304,13 @@ export default function MenuItemTabCost({
           </p>
         </button>
       </div>
+      </>
+      )}
 
       </section>
 
+      {!collapsed && (
+      <>
       {/* Ingredient breakdown — own card, tokenized */}
       <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
         <h4 className="text-fs-md font-semibold text-[var(--fg)] mb-[var(--s-4)]">
@@ -367,6 +406,8 @@ export default function MenuItemTabCost({
           t={t}
         />
       </div>
+      </>
+      )}
 
       {/* Modals */}
       <KPIInfoModal
