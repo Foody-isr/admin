@@ -318,9 +318,9 @@ export default function MenuItemTabCost({
           {summary.lines.length === 1 ? 'élément' : 'éléments'}
         </h4>
 
-        <div className="space-y-2">
+        <div className="rounded-r-md border border-[var(--line)] bg-[var(--bg)] overflow-hidden">
           {/* Column headers — desktop only; mobile rows show inline labels per cell */}
-          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-[var(--fg-muted)] uppercase">
+          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-[var(--fg-muted)] uppercase bg-[var(--surface-2)] border-b border-[var(--line)]">
             <div className="col-span-5">{t('ingredient') || 'Ingrédient'}</div>
             <div className="col-span-2 text-right">{t('quantity') || 'Quantité'}</div>
             <div className="col-span-2 text-right">{t('unitCost') || 'Prix unitaire'}</div>
@@ -368,7 +368,7 @@ export default function MenuItemTabCost({
           )}
 
           {summary.lines.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-[var(--line)]">
+            <div className="border-t border-[var(--line)] bg-[var(--surface-2)]/30">
               {/* Total — flex row on mobile (label · value · pct), 12-col grid on desktop */}
               <div className="flex items-center justify-between gap-3 md:grid md:grid-cols-12 md:gap-4 px-4 py-2 font-semibold">
                 <div className="md:col-span-5 text-[var(--fg)]">
@@ -467,7 +467,7 @@ function CostIngredientRow({
   // Mobile: stacked card with name + percentage badge as the heading row, then
   // label/value rows for quantity / unit cost / total. Desktop: 12-col grid.
   return (
-    <div className="flex flex-col gap-2 md:grid md:grid-cols-12 md:gap-4 md:items-center px-4 py-3 bg-[var(--bg)] rounded-r-md border border-[var(--line)] hover:border-[var(--brand-500)]/50 transition-colors">
+    <div className="flex flex-col gap-2 md:grid md:grid-cols-12 md:gap-4 md:items-center px-4 py-3 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)]/50 transition-colors">
       {/* Heading row on mobile: name + pct on the right; just name on desktop */}
       <div className="flex items-center justify-between gap-3 md:contents">
         <button
