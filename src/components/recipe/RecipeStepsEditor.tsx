@@ -146,7 +146,7 @@ export default function RecipeStepsEditor({
       {/* Prep time (+ notes when inline) */}
       <div className={`mt-6 grid grid-cols-1 gap-4 ${showNotes ? 'md:grid-cols-3' : ''}`}>
         <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+          <label className="block text-fs-sm font-medium text-[var(--fg-muted)] mb-2">
             {t('prepTime') || 'Temps de préparation'}
           </label>
           <div className="relative">
@@ -155,16 +155,16 @@ export default function RecipeStepsEditor({
               integer
               value={prepTime}
               onChange={onPrepTimeChange}
-              className="w-full px-4 py-2.5 pr-14 bg-neutral-100 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+              className="w-full px-4 py-2.5 pr-14 bg-[var(--surface-2)] border border-[var(--line-strong)] rounded-r-md text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 dark:text-neutral-400 text-sm pointer-events-none">
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)] text-sm pointer-events-none">
               min
             </span>
           </div>
         </div>
         {showNotes && (
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <label className="block text-fs-sm font-medium text-[var(--fg-muted)] mb-2">
               {t('recipeNotes') || 'Notes'}
             </label>
             <textarea
