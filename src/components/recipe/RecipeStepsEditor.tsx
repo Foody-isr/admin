@@ -1,6 +1,7 @@
 'use client';
 
-import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { NumberInput } from '@/components/ui/NumberInput';
 
@@ -41,6 +42,13 @@ interface Props {
    * modal rail (single source of truth for PrepItem.notes).
    */
   showNotes?: boolean;
+  /**
+   * When true, the section starts collapsed behind its "Instructions" header
+   * (used in the menu-item Recette tab). The header stays visible with the
+   * step count; clicking it reveals the steps + prep/notes. The prep recipe
+   * tab leaves this off.
+   */
+  collapsible?: boolean;
 }
 
 /**
@@ -58,38 +66,62 @@ export default function RecipeStepsEditor({
   onPrepTimeChange,
   onNotesChange,
   showNotes = true,
+  collapsible = false,
 }: Props) {
   const { t } = useI18n();
+  const [collapsed, setCollapsed] = useState(collapsible);
 
   const addStep = () => onStepsChange([...steps, { title: '', description: '', duration_mins: 0 }]);
   const updateStep = (idx: number, patch: Partial<StepView>) =>
     onStepsChange(steps.map((step, i) => (i === idx ? { ...step, ...patch } : step)));
   const removeStep = (idx: number) => onStepsChange(steps.filter((_, i) => i !== idx));
 
+  const instructionsTitle = (
+    <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+      {t('recipeInstructions') || 'Instructions'}
+      <span className="text-[var(--fg-muted)] font-normal ms-1.5">
+        · {steps.length} {steps.length === 1 ? 'étape' : 'étapes'}
+      </span>
+    </h4>
+  );
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-[var(--s-3)]">
-        <div>
-          <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
-            {t('recipeInstructions') || 'Instructions'}
-            <span className="text-[var(--fg-muted)] font-normal ms-1.5">
-              · {steps.length} {steps.length === 1 ? 'étape' : 'étapes'}
-            </span>
-          </h4>
-          <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-            {t('recipeInstructionsSubtitle') || 'Étapes détaillées pour préparer ce plat'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={addStep}
-          className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {t('addStep') || 'Ajouter une étape'}
-        </button>
+      <div className={`flex items-center justify-between gap-[var(--s-3)] ${collapsed ? '' : 'mb-[var(--s-3)]'}`}>
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-expanded={!collapsed}
+            className="flex items-center gap-[var(--s-2)] min-w-0 text-start"
+          >
+            {instructionsTitle}
+            <ChevronDown
+              className={`w-4 h-4 text-[var(--fg-muted)] shrink-0 transition-transform duration-fast ${collapsed ? '' : 'rotate-180'}`}
+            />
+          </button>
+        ) : (
+          <div>
+            {instructionsTitle}
+            <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+              {t('recipeInstructionsSubtitle') || 'Étapes détaillées pour préparer ce plat'}
+            </p>
+          </div>
+        )}
+        {!collapsed && (
+          <button
+            type="button"
+            onClick={addStep}
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t('addStep') || 'Ajouter une étape'}
+          </button>
+        )}
       </div>
 
+      {!collapsed && (
+      <>
       <div className="flex flex-col gap-[var(--s-3)]">
         {steps.map((step, idx) => (
           <InstructionItem
@@ -144,6 +176,8 @@ export default function RecipeStepsEditor({
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

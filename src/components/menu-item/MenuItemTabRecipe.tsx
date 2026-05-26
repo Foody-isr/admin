@@ -222,22 +222,26 @@ const MenuItemTabRecipe = forwardRef<MenuItemTabRecipeHandle, Props>(function Me
             onAddClick={() => setAddingDraft(true)}
           />
       </div>
+      </section>
 
-      {/* Instructions de préparation — shared with the prep recipe tab */}
-      <RecipeStepsEditor
-        steps={steps}
-        prepTime={prepTime}
-        notes={notes}
-        onStepsChange={handleStepsChange}
-        onPrepTimeChange={(n) => {
-          setPrepTime(n);
-          setDirty(true);
-        }}
-        onNotesChange={(v) => {
-          setNotes(v);
-          setDirty(true);
-        }}
-      />
+      {/* Instructions de préparation — its own collapsible section, collapsed
+          by default so the recipe view stays focused on ingredients + cost. */}
+      <section className="bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)] mt-[var(--s-5)]">
+        <RecipeStepsEditor
+          steps={steps}
+          prepTime={prepTime}
+          notes={notes}
+          onStepsChange={handleStepsChange}
+          onPrepTimeChange={(n) => {
+            setPrepTime(n);
+            setDirty(true);
+          }}
+          onNotesChange={(v) => {
+            setNotes(v);
+            setDirty(true);
+          }}
+          collapsible
+        />
       </section>
 
       {showImportModal && (
