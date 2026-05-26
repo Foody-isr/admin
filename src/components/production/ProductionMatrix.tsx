@@ -76,30 +76,9 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
               const item = itemsById.get(id)!;
               return (
                 <DataTableHeadCell key={`tt-${id}`} align="center" className={BRAND_TXT}>
-                  {item.combo_breakdown && item.combo_breakdown.length > 0 ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-block text-base font-extrabold tabular-nums normal-case cursor-help underline decoration-dotted underline-offset-4">
-                          {fmtTotal(item)}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <span className="font-semibold">{t('productionFromCombo')}</span>
-                        {item.combo_breakdown.map((c) => (
-                          <span key={c.name} className="block">
-                            {c.name} ×{c.qty}
-                          </span>
-                        ))}
-                        {(item.standalone_count ?? 0) > 0 && (
-                          <span className="block opacity-80">
-                            {t('productionIndividual')} ×{item.standalone_count}
-                          </span>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
-                  )}
+                  {/* Total is intentionally not flagged for combos: a column total can mix
+                      combo and non-combo items, so the dotted flag belongs on cells only. */}
+                  <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
                   {item.measure === 'weight' && item.packaging && item.packaging.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
                       {item.packaging.map((p) => `${p.count}×${p.portion_g}`).join(' · ')}
