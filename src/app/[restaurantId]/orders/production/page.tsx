@@ -262,12 +262,15 @@ function recomputeTotals(
   const sameSet = orders.length === sheet.orders.length;
   const items = sheet.items.map((it) => {
     const total = orders.reduce((s, o) => s + (o.cells[String(it.menu_item_id)] ?? 0), 0);
+    // Packaging + day-total combo breakdown are full-day aggregates that can't be
+    // recomputed from cells under a filter; keep them only for the unfiltered view.
+    const comboFields = sameSet
+      ? {}
+      : { combo_breakdown: undefined, standalone_count: undefined };
     if (it.measure !== 'weight') {
-      return { ...it, total, packaging: undefined };
+      return { ...it, total, packaging: undefined, ...comboFields };
     }
-    // Per-order cells carry summed grams, so the per-portion packaging breakdown
-    // can't be recomputed under a filter; keep it only for the unfiltered view.
-    return { ...it, total, packaging: sameSet ? it.packaging : undefined };
+    return { ...it, total, packaging: sameSet ? it.packaging : undefined, ...comboFields };
   });
   return { ...sheet, orders, items };
 }

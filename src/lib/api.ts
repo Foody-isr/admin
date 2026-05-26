@@ -2251,6 +2251,8 @@ export interface ProductionSheetItem {
   total: number;
   unit: 'g' | 'u';
   packaging?: ProductionSheetPortion[];
+  combo_breakdown?: ProductionComboRef[]; // aggregated combo portions for the day total
+  standalone_count?: number; // aggregated individually-ordered portions
 }
 export interface ProductionSheetCategory {
   id: number;
@@ -2262,6 +2264,10 @@ export interface ProductionComboRef {
   name: string;
   qty: number;
 }
+export interface ProductionCellProvenance {
+  combos: ProductionComboRef[];
+  standalone: number; // count ordered individually (not via a combo)
+}
 export interface ProductionSheetOrder {
   order_id: number;
   customer_name: string;
@@ -2269,7 +2275,7 @@ export interface ProductionSheetOrder {
   window_start?: string;
   window_end?: string;
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
-  combos?: Record<string, ProductionComboRef[]>; // menu_item_id -> contributing combos
+  provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
 }
 export interface ProductionSheetResponse {
   date: string;

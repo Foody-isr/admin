@@ -76,7 +76,30 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
               const item = itemsById.get(id)!;
               return (
                 <DataTableHeadCell key={`tt-${id}`} align="center" className={BRAND_TXT}>
-                  <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
+                  {item.combo_breakdown && item.combo_breakdown.length > 0 ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-block text-base font-extrabold tabular-nums normal-case cursor-help underline decoration-dotted underline-offset-4">
+                          {fmtTotal(item)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <span className="font-semibold">{t('productionFromCombo')}</span>
+                        {item.combo_breakdown.map((c) => (
+                          <span key={c.name} className="block">
+                            {c.name} ×{c.qty}
+                          </span>
+                        ))}
+                        {(item.standalone_count ?? 0) > 0 && (
+                          <span className="block opacity-80">
+                            {t('productionIndividual')} ×{item.standalone_count}
+                          </span>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
+                  )}
                   {item.measure === 'weight' && item.packaging && item.packaging.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
                       {item.packaging.map((p) => `${p.count}×${p.portion_g}`).join(' · ')}
@@ -113,14 +136,14 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
               cat.item_ids.map((id) => {
                 const item = itemsById.get(id)!;
                 const v = o.cells[String(id)];
-                const combos = o.combos?.[String(id)];
+                const prov = o.provenance?.[String(id)];
                 return (
                   <DataTableCell
                     key={`${o.order_id}-${id}`}
                     align="center"
                     className={`tabular-nums ${v ? '' : 'text-[var(--fg-subtle)]'}`}
                   >
-                    {combos && combos.length > 0 ? (
+                    {prov ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-[var(--brand-500)] underline-offset-4">
@@ -133,11 +156,16 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
                         </TooltipTrigger>
                         <TooltipContent>
                           <span className="font-semibold">{t('productionFromCombo')}</span>
-                          {combos.map((c) => (
+                          {prov.combos.map((c) => (
                             <span key={c.name} className="block">
                               {c.name} ×{c.qty}
                             </span>
                           ))}
+                          {prov.standalone > 0 && (
+                            <span className="block opacity-80">
+                              {t('productionIndividual')} ×{prov.standalone}
+                            </span>
+                          )}
                         </TooltipContent>
                       </Tooltip>
                     ) : (
