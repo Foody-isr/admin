@@ -43,6 +43,7 @@ import {
   QrCode,
   Sparkles,
   Boxes,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -249,6 +250,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'language',      href: `${base}/settings/language`,        labelKey: 'language',      icon: Languages },
         { id: 'hours',         href: `${base}/settings/opening-hours`,   labelKey: 'openingHours',  icon: Clock },
         { id: 'notifications', href: `${base}/settings/notifications`,   labelKey: 'notifications', icon: Bell },
+        { id: 'whatsapp',      href: `${base}/settings/whatsapp`,        labelKey: 'whatsapp',      icon: MessageCircle },
       ],
     },
     {

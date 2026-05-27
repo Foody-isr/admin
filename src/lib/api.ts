@@ -4899,3 +4899,46 @@ export async function deleteAvailabilityRule(restaurantId: number, id: number): 
 export async function previewItemAvailability(restaurantId: number, itemId: number): Promise<AvailabilityPreview> {
   return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview`, restaurantId);
 }
+
+// ─── WhatsApp Embedded Signup (ISV / Tech Provider) ────────────────────────────
+
+export interface WhatsAppSender {
+  id: number;
+  restaurant_id: number;
+  waba_id: string;
+  phone_number_id: string;
+  sender_sid: string;
+  sender_number: string;
+  display_name: string;
+  status: string; // CREATING | ONLINE | OFFLINE | PENDING_VERIFICATION | ...
+}
+
+/** Returns the restaurant's connected WhatsApp sender (with live-refreshed status), or null. */
+export async function getWhatsAppSender(restaurantId: number): Promise<WhatsAppSender | null> {
+  const res = await apiFetch<{ sender: WhatsAppSender | null }>(
+    `/api/v1/restaurants/${restaurantId}/whatsapp/sender`,
+    restaurantId,
+  );
+  return res.sender;
+}
+
+/** Registers the restaurant's WhatsApp sender after Embedded Signup completes. */
+export async function connectWhatsApp(
+  restaurantId: number,
+  input: { waba_id: string; phone_number_id: string; phone_number: string; display_name: string },
+): Promise<WhatsAppSender> {
+  return apiFetch<WhatsAppSender>(
+    `/api/v1/restaurants/${restaurantId}/whatsapp/connect`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Disconnects the restaurant's WhatsApp sender (deletes the local record). */
+export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/whatsapp/sender`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+}
