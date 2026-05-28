@@ -98,6 +98,10 @@ export interface RestaurantSettings {
   batch_cutoff_time?: string; // "HH:MM"
   batch_fulfillment_days?: BatchFulfillmentDay[];
   batch_require_prepayment?: boolean;
+  // OTP mode for guest checkout (pickup/delivery):
+  //   "required" — ask phone + send a code, customer types it back (default)
+  //   "skip"     — skip the code entirely, phone is optional (notifications only)
+  otp_mode?: 'required' | 'skip';
 }
 
 export interface MenuAvailabilityHour {

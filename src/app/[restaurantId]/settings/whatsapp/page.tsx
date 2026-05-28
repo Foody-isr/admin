@@ -14,6 +14,8 @@ import {
   getWhatsAppSender,
   connectWhatsApp,
   disconnectWhatsApp,
+  getRestaurantSettings,
+  updateRestaurantSettings,
   WhatsAppSender,
 } from '@/lib/api';
 import { Badge, Button, Field, Input, PageHead, Section } from '@/components/ds';
@@ -43,6 +45,8 @@ export default function WhatsAppSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otpMode, setOtpMode] = useState<'required' | 'skip'>('required');
+  const [otpSaving, setOtpSaving] = useState(false);
   // Embedded Signup outputs awaiting the owner's phone-number confirmation.
   const [pending, setPending] = useState<{ waba_id: string; phone_number_id: string } | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -93,6 +97,33 @@ export default function WhatsAppSettingsPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Load OTP mode from RestaurantSettings.
+  useEffect(() => {
+    if (!Number.isFinite(rid)) return;
+    getRestaurantSettings(rid)
+      .then((s) => {
+        if (s.otp_mode === 'skip' || s.otp_mode === 'required') {
+          setOtpMode(s.otp_mode);
+        }
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+  }, [rid]);
+
+  const saveOtpMode = async (mode: 'required' | 'skip') => {
+    const previous = otpMode;
+    setOtpMode(mode);
+    setOtpSaving(true);
+    setError(null);
+    try {
+      await updateRestaurantSettings(rid, { otp_mode: mode });
+    } catch (e: unknown) {
+      setOtpMode(previous); // rollback
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOtpSaving(false);
+    }
+  };
 
   // Poll while a sender is mid-provisioning.
   useEffect(() => {
@@ -206,6 +237,55 @@ export default function WhatsAppSettingsPage() {
           </div>
         )}
         {error && <p className="mt-3 text-fs-sm text-[var(--danger-500)]">{error}</p>}
+      </Section>
+
+      <Section title="Phone validation at checkout">
+        <p className="mb-3 text-fs-sm opacity-80">
+          Controls whether guests must validate their phone number with a one-time code at the
+          online checkout (pickup &amp; delivery orders).
+        </p>
+        <div className="flex flex-col gap-3">
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-[var(--line)] p-3">
+            <input
+              type="radio"
+              name="otp_mode"
+              value="required"
+              checked={otpMode === 'required'}
+              disabled={otpSaving}
+              onChange={() => saveOtpMode('required')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-medium">Require a validation code (default)</div>
+              <div className="text-fs-sm opacity-70">
+                Customer enters their phone, receives a code (SMS or WhatsApp depending on Meta
+                setup), and types it back before payment. Maximum fraud protection. Approx.
+                ₪0.50/order in SMS cost.
+              </div>
+            </div>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-[var(--line)] p-3">
+            <input
+              type="radio"
+              name="otp_mode"
+              value="skip"
+              checked={otpMode === 'skip'}
+              disabled={otpSaving}
+              onChange={() => saveOtpMode('skip')}
+              className="mt-1"
+            />
+            <div>
+              <div className="font-medium">Skip the validation code</div>
+              <div className="text-fs-sm opacity-70">
+                No SMS/WhatsApp code. The phone field is optional and only used for order
+                notifications. Card payment is the fraud signal. Cuts checkout cost to ~₪0.12/order
+                (notifications only). Recommended if you accept card payments only.
+              </div>
+            </div>
+          </label>
+        </div>
+        {otpSaving && <p className="mt-2 text-fs-sm opacity-60">Saving...</p>}
       </Section>
     </div>
   );
