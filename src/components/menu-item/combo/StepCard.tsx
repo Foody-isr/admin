@@ -377,7 +377,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 ? 'bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]'
                 : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
             }`}>
-              {required ? t('composeRequired') : t('composeOptional')}
+              {required ? t('composeKindChoiceRequired') : t('composeKindChoiceOptional')}
             </span>
           </div>
           <EditableField
