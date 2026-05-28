@@ -16,6 +16,7 @@ import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft, ComboStepDraftItem, ComboOptionView } from './types';
 import { buildOptions, getSourceVariants, toDraftItems, promoteDefaultOption } from './types';
 import StepRulesPanel from './StepRulesPanel';
+import { buildWebItemIdSet, isOffWebCarte } from './webCarte';
 
 const MENU_FILTER_STORAGE_KEY = 'foody.combo.menuFilter';
 
@@ -79,6 +80,10 @@ export default function StepPicker({ step, categories, itemsById, menus, onCommi
       /* ignore */
     }
   }, [menuFilter]);
+
+  /** Web-orderable item IDs across every menu. Drives the per-row
+   *  "not on web carte" warning in the Selected panel. */
+  const webItemIds = useMemo(() => buildWebItemIdSet(menus), [menus]);
 
   // Set of menu-item IDs reachable through the selected carte. `null` =
   // no scoping (show the full library). We union the new groups model
@@ -572,6 +577,7 @@ export default function StepPicker({ step, categories, itemsById, menus, onCommi
                 name={opt.itemName}
                 imageUrl={opt.imageUrl}
                 isDefault={opt.isDefault}
+                offWebCarte={isOffWebCarte(opt.menuItemId, webItemIds)}
                 onRemove={() => removeOption(opt.menuItemId)}
                 onSetDefault={() => promoteToDefault(opt.menuItemId)}
               />
@@ -684,11 +690,12 @@ function ParentCheckbox({ state }: { state: 'empty' | 'partial' | 'full' }) {
 }
 
 function SelectedRow({
-  name, imageUrl, isDefault, onRemove, onSetDefault,
+  name, imageUrl, isDefault, offWebCarte, onRemove, onSetDefault,
 }: {
   name: string;
   imageUrl?: string;
   isDefault: boolean;
+  offWebCarte?: boolean;
   onRemove: () => void;
   onSetDefault: () => void;
 }) {
@@ -698,6 +705,18 @@ function SelectedRow({
       <Thumb url={imageUrl} />
       <div className="flex-1 min-w-0">
         <div className="text-fs-sm font-medium truncate">{name}</div>
+        {offWebCarte && (
+          <div
+            className="inline-flex items-center gap-1 mt-0.5 text-fs-xs px-1.5 py-0.5 rounded-r-sm"
+            style={{
+              background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+              color: 'var(--warning-500)',
+            }}
+            title={t('comboWarnOffWebCarte')}
+          >
+            ⚠ {t('comboWarnOffWebCarte')}
+          </div>
+        )}
         {isDefault ? (
           <div className="text-fs-xs text-[var(--info-500)] dark:text-[#60a5fa]">{t('composeDefaultBadge')}</div>
         ) : (
