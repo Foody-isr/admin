@@ -746,13 +746,18 @@ const TIMELINE_STEPS = [
 ];
 
 function statusIndex(status: string) {
-  // Map status to the furthest reached step (0..4)
+  // Map status to the furthest reached step (0..4).
+  // Step 0 "Reçue" means "a new order arrived", so every live order (including
+  // pending_review and scheduled) starts there — that first dot is the current
+  // step until staff accept the order. Only `rejected` sits before step 0 (-1):
+  // it's a terminal/negative outcome shown with its own danger banner, so the
+  // progression stays empty.
   if (['served', 'received', 'picked_up', 'delivered'].includes(status)) return 4;
   if (['ready', 'ready_for_pickup', 'ready_for_delivery', 'out_for_delivery'].includes(status)) return 3;
   if (status === 'in_kitchen') return 2;
   if (status === 'accepted') return 1;
-  if (['rejected', 'pending_review', 'scheduled'].includes(status)) return -1;
-  return 0;
+  if (status === 'rejected') return -1;
+  return 0; // pending_review, scheduled, and any other live status → "Reçue"
 }
 
 function OrderDetailDrawer({
@@ -1080,7 +1085,7 @@ function OrderDetailDrawer({
                 return (
                   <div
                     key={groupKey}
-                    className={`px-[var(--s-5)] py-[var(--s-4)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
+                    className={`px-[var(--s-5)] py-[var(--s-3)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
                   >
                     <ComboCard
                       comboName={comboName}
@@ -1224,6 +1229,19 @@ function ScheduledBanner({ iso, t }: { iso: string; t: (k: string) => string }) 
   );
 }
 
+// ─── Quantity badge — the colored "{n}×" square shared by lines and combos ────
+
+function QtyBadge({ count, seed }: { count: number; seed: string }) {
+  return (
+    <div
+      className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm tracking-[-0.02em] shrink-0"
+      style={{ background: itemColor(seed) }}
+    >
+      {count}×
+    </div>
+  );
+}
+
 // ─── Regular order line row (shared across the items list) ────────────────────
 
 function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder: boolean }) {
@@ -1233,12 +1251,7 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
         showTopBorder ? 'border-t border-[var(--line)]' : ''
       }`}
     >
-      <div
-        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm tracking-[-0.02em] shrink-0"
-        style={{ background: itemColor(item.name) }}
-      >
-        {item.quantity}×
-      </div>
+      <QtyBadge count={item.quantity} seed={item.name} />
       <div className="min-w-0">
         <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
           {item.name}
@@ -1292,7 +1305,7 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
   );
 }
 
-// ─── Combo group card — distinct visual unit with brand-tinted rail ──────────
+// ─── Combo group card — same row format as a line, with a "COMBO" badge ───────
 
 function ComboCard({
   comboName,
@@ -1310,47 +1323,37 @@ function ComboCard({
   comboLabel: string;
 }) {
   return (
-    <div
-      className="rounded-r-md overflow-hidden"
-      style={{
-        background:
-          'linear-gradient(180deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, color-mix(in oklab, var(--brand-500) 3%, var(--surface)) 100%)',
-        borderInlineStart: '2px solid var(--brand-500)',
-        border: '1px solid color-mix(in oklab, var(--brand-500) 18%, var(--line))',
-        borderInlineStartWidth: '2px',
-      }}
-    >
-      {/* Eyebrow row */}
-      <div className="px-[var(--s-4)] pt-[var(--s-3)] flex items-center justify-between gap-2">
-        <span
-          className="text-[10px] font-bold uppercase tracking-[0.14em]"
-          style={{ color: 'var(--brand-500)' }}
-        >
-          {comboLabel}
-        </span>
-        <span className="text-[11px] text-[var(--fg-subtle)] tabular-nums font-medium">
-          {totalPicks} {picksLabel}
-        </span>
-      </div>
-
-      {/* Title row */}
-      <div className="px-[var(--s-4)] pt-[var(--s-1)] pb-[var(--s-3)] grid grid-cols-[1fr_auto] gap-[var(--s-3)] items-baseline">
-        <div className="text-fs-md font-semibold truncate tracking-[-0.01em]">
-          {comboName}
+    <div>
+      {/* Header — identical layout to OrderLineRow (badge · name · price). A combo
+          is one unit, so the badge reads "1×" like any other line. */}
+      <div className="grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start">
+        <QtyBadge count={1} seed={comboName} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-fs-sm font-medium truncate tracking-[-0.005em]">
+              {comboName}
+            </span>
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em]"
+              style={{
+                background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                color: 'var(--brand-500)',
+              }}
+            >
+              {comboLabel}
+            </span>
+          </div>
+          <div className="text-fs-xs text-[var(--fg-subtle)] tabular-nums mt-0.5">
+            {totalPicks} {picksLabel}
+          </div>
         </div>
-        <div className="font-mono tabular-nums font-semibold text-fs-md tracking-[-0.01em]">
+        <div className="text-end font-mono tabular-nums font-medium">
           ₪{comboTotal.toFixed(2)}
         </div>
       </div>
 
-      {/* Sub-items */}
-      <div
-        className="px-[var(--s-4)] py-[var(--s-3)] flex flex-col gap-[var(--s-2)]"
-        style={{
-          borderTop: '1px solid color-mix(in oklab, var(--brand-500) 14%, transparent)',
-          background: 'color-mix(in oklab, var(--brand-500) 2%, transparent)',
-        }}
-      >
+      {/* Sub-items — nested under the name column with a neutral guide rail */}
+      <div className="mt-[var(--s-2)] ms-14 ps-[var(--s-3)] border-s border-[var(--line)] flex flex-col gap-[var(--s-2)]">
         {comboItems.map((ci) => {
           const lineDelta = ci.price * ci.quantity;
           const hasMods = ci.modifiers && ci.modifiers.length > 0;
@@ -1361,7 +1364,7 @@ function ComboCard({
             >
               <span
                 className="block w-1.5 h-1.5 rounded-full mt-[7px]"
-                style={{ background: 'color-mix(in oklab, var(--brand-500) 60%, var(--fg-muted))' }}
+                style={{ background: 'var(--fg-muted)' }}
               />
               <div className="min-w-0">
                 <span className="text-[var(--fg)] font-medium">
