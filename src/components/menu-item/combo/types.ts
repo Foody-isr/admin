@@ -19,6 +19,11 @@ export interface ComboStepDraftItem {
   /** When the source item has variants, this points to the specific variant. */
   variant_id?: number;
   price_delta: number;
+  /** When the linked item is off all cartes, this controls what the server
+   *  resolver does at order time. true = surface anyway (combo IS the
+   *  customer pathway); false = drop so the combo silently follows carte
+   *  rotation. Defaults to true everywhere it isn't explicitly set. */
+  force_off_carte?: boolean;
   /** UI-only: cached display name so the row renders before the source item
    *  is loaded. */
   item_name?: string;
@@ -105,6 +110,10 @@ export interface ComboOptionView {
   imageUrl?: string;
   isDefault: boolean;
   hasVariants: boolean;
+  /** Mirrors the server-side ComboStepItem flag for this option's MenuItem.
+   *  Per option (not per variant) — carte membership is a property of the
+   *  source item, so every variant of the same item shares this value. */
+  forceOffCarte: boolean;
   /** Set when `hasVariants === false` — the option's flat upcharge. */
   upcharge: number;
   /** Set when `hasVariants === true` — one row per source variant, including
@@ -182,6 +191,12 @@ export function buildOptions(
     const itemName = source?.name ?? draftRows[0].item_name ?? `#${menuItemId}`;
     const imageUrl = source?.image_url || undefined;
 
+    // All draft rows for the same menu_item_id should carry the same value
+    // for force_off_carte (it's a property of the source item, not the
+    // variant). Read from the first; if missing on a freshly-loaded row,
+    // default to true to preserve the server's existing-row default.
+    const forceOffCarte = draftRows[0].force_off_carte ?? true;
+
     if (sourceVariants.length === 0) {
       // No variants — single flat row.
       const row = draftRows[0];
@@ -192,6 +207,7 @@ export function buildOptions(
         imageUrl,
         isDefault: false,
         hasVariants: false,
+        forceOffCarte,
         upcharge: row.price_delta ?? 0,
         variants: [],
       });
@@ -226,6 +242,7 @@ export function buildOptions(
       imageUrl,
       isDefault: false,
       hasVariants: true,
+      forceOffCarte,
       upcharge: 0,
       variants,
     });
@@ -235,7 +252,9 @@ export function buildOptions(
 }
 
 /** Convert a list of options back to draft items (one row per included
- *  variant for variant items, one row per option for variant-less items). */
+ *  variant for variant items, one row per option for variant-less items).
+ *  force_off_carte stamps on every row of the same menu_item_id so the
+ *  server-side ComboStepItem rows stay in sync regardless of variant. */
 export function toDraftItems(options: ComboOptionView[]): ComboStepDraftItem[] {
   const out: ComboStepDraftItem[] = [];
   for (const opt of options) {
@@ -243,6 +262,7 @@ export function toDraftItems(options: ComboOptionView[]): ComboStepDraftItem[] {
       out.push({
         menu_item_id: opt.menuItemId,
         price_delta: opt.upcharge,
+        force_off_carte: opt.forceOffCarte,
         item_name: opt.itemName,
         pick_key: opt.key,
       });
@@ -254,6 +274,7 @@ export function toDraftItems(options: ComboOptionView[]): ComboStepDraftItem[] {
         menu_item_id: opt.menuItemId,
         variant_id: v.variantId,
         price_delta: v.upcharge,
+        force_off_carte: opt.forceOffCarte,
         item_name: `${opt.itemName} — ${v.name}`,
         pick_key: `variant:${opt.menuItemId}:${v.variantId}`,
       });

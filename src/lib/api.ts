@@ -255,6 +255,10 @@ export interface ComboStepItem {
   menu_item_id: number;
   option_id?: number | null;
   price_delta: number;
+  // Off-carte items are dropped by the server resolver at order time unless
+  // this is true. Defaults to true (preserves pre-flag behavior); the admin
+  // surfaces a toggle on rows where the item is currently off-carte.
+  force_off_carte?: boolean;
   menu_item?: MenuItem;
 }
 
@@ -286,7 +290,12 @@ export interface ComboStepInput {
   source_type?: ComboStepSourceType;
   source_category_id?: number | null;
   source_variant_label?: string | null;
-  items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
+  items: {
+    menu_item_id: number;
+    option_id?: number | null;
+    price_delta: number;
+    force_off_carte?: boolean;
+  }[];
 }
 
 /**

@@ -204,6 +204,11 @@ export default function EditItemPage() {
                 items: s.items.map((si) => ({
                   menu_item_id: si.menu_item_id,
                   price_delta: si.price_delta,
+                  // Server defaults this column to TRUE on migration, so any
+                  // missing value (older response shape) is treated as "force
+                  // include" — preserves the customer-visible status quo for
+                  // existing combos.
+                  force_off_carte: si.force_off_carte ?? true,
                   item_name: si.menu_item?.name,
                   variant_id: si.option_id ?? undefined,
                   pick_key: si.option_id ? `variant:${si.menu_item_id}:${si.option_id}` : `item:${si.menu_item_id}`,
@@ -344,7 +349,12 @@ export default function EditItemPage() {
           source_variant_label: s.source_type === 'category' ? (s.source_variant_label || null) : null,
           items: s.source_type === 'category'
             ? []
-            : s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
+            : s.items.map((si) => ({
+                menu_item_id: si.menu_item_id,
+                option_id: si.variant_id || undefined,
+                price_delta: si.price_delta,
+                force_off_carte: si.force_off_carte ?? true,
+              })),
         }));
       }
       const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);

@@ -7,7 +7,7 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, Info, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -21,20 +21,50 @@ import StepRulesPanel from './StepRulesPanel';
 import Thumb from './Thumb';
 import { isOffAnyCarte } from './webCarte';
 
-// Informational chip surfacing "this item isn't on any carte — customers
-// reach it only through this combo". Neutral muted styling (not amber)
-// because absence from a carte for an explicit-mode combo row is a fact
-// about how the item is sold, not a configuration error. The combo IS the
-// customer pathway.
-function ComboOnlyChip({ label, tooltip }: { label: string; tooltip: string }) {
+// Surfaces the off-carte warning + the operator's "Inclure quand même"
+// decision. Both pieces in one component so the chip and toggle always
+// render together — losing either half would make the row ambiguous.
+// Used by fixed-step item rows; choice-step rows inline the same shape
+// inside OptionRow / OptionRowWithVariants so the toggle sits next to the
+// existing controls instead of breaking row width.
+function OffCarteControl({
+  forceOffCarte,
+  onToggle,
+  warnLabel,
+  warnTooltip,
+  forceLabel,
+  forceTooltip,
+}: {
+  forceOffCarte: boolean;
+  onToggle: (next: boolean) => void;
+  warnLabel: string;
+  warnTooltip: string;
+  forceLabel: string;
+  forceTooltip: string;
+}) {
   return (
-    <span
-      className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0 bg-[var(--surface-3)] text-[var(--fg-muted)]"
-      title={tooltip}
-    >
-      <Info className="w-2.5 h-2.5" />
-      {label}
-    </span>
+    <div className="inline-flex flex-col items-end gap-0.5 shrink-0">
+      <span
+        className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm"
+        style={{
+          background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+          color: 'var(--warning-500)',
+        }}
+        title={warnTooltip}
+      >
+        <AlertTriangle className="w-2.5 h-2.5" />
+        {warnLabel}
+      </span>
+      <label className="inline-flex items-center gap-1 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={forceOffCarte}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="w-3 h-3 accent-[var(--brand-500)]"
+        />
+        <span title={forceTooltip}>{forceLabel}</span>
+      </label>
+    </div>
   );
 }
 
@@ -154,6 +184,14 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
     );
   };
 
+  const handleForceOffCarteToggle = (menuItemId: number, next: boolean) => {
+    setOptions(
+      options.map((o) =>
+        o.menuItemId === menuItemId ? { ...o, forceOffCarte: next } : o,
+      ),
+    );
+  };
+
   // ── Picker mode ────────────────────────────────────────────────────────
 
   const renderKind = effectiveStepKind(step);
@@ -214,6 +252,15 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
       // keep min/max in lockstep with items.length.
       const nextMinMax = n === 0 ? 1 : n === 1 ? Math.max(1, step.min_picks || 1) : n;
       onChange({ ...step, items: remaining, min_picks: nextMinMax, max_picks: nextMinMax });
+    };
+
+    const setForceOffCarteAt = (idx: number, next: boolean) => {
+      onChange({
+        ...step,
+        items: step.items.map((it, i) =>
+          i === idx ? { ...it, force_off_carte: next } : it,
+        ),
+      });
     };
 
     return (
@@ -294,9 +341,13 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                       {displayName || t('composeFixedItemMissing')}
                     </span>
                     {comboOnly && (
-                      <ComboOnlyChip
-                        label={t('composeBadgeComboOnly')}
-                        tooltip={t('composeBadgeComboOnlyTooltip')}
+                      <OffCarteControl
+                        forceOffCarte={draftItem.force_off_carte ?? true}
+                        onToggle={(next) => setForceOffCarteAt(idx, next)}
+                        warnLabel={t('composeOffCarteWarnShort')}
+                        warnTooltip={t('composeOffCarteWarnTooltip')}
+                        forceLabel={t('composeOffCarteForceLabel')}
+                        forceTooltip={t('composeOffCarteForceTooltip')}
                       />
                     )}
 
@@ -505,6 +556,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                       basePrice={basePrice}
                       comboOnly={comboOnly}
                       onChange={(variants) => handleVariantsChange(opt.menuItemId, variants)}
+                      onForceOffCarteToggle={(next) => handleForceOffCarteToggle(opt.menuItemId, next)}
                       onRemove={() => handleRemoveOption(opt.menuItemId)}
                     />
                   ) : (
@@ -513,6 +565,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                       option={opt}
                       comboOnly={comboOnly}
                       onUpchargeChange={(next) => handleOptionUpchargeChange(opt.menuItemId, next)}
+                      onForceOffCarteToggle={(next) => handleForceOffCarteToggle(opt.menuItemId, next)}
                       onRemove={() => handleRemoveOption(opt.menuItemId)}
                       onSetDefault={() => handleSetDefaultOption(opt.menuItemId)}
                     />

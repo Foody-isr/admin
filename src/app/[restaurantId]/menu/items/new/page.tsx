@@ -211,7 +211,12 @@ export default function NewItemPage() {
           source_variant_label: s.source_type === 'category' ? (s.source_variant_label || null) : null,
           items: s.source_type === 'category'
             ? []
-            : s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
+            : s.items.map((si) => ({
+                menu_item_id: si.menu_item_id,
+                option_id: si.variant_id || undefined,
+                price_delta: si.price_delta,
+                force_off_carte: si.force_off_carte ?? true,
+              })),
         }));
       }
       const item = await createMenuItem(rid, createPayload);

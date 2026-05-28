@@ -4,7 +4,7 @@
 //
 // Layout: [drag] [thumb] [name + default badge] [upcharge chip / inclus] [edit] [remove]
 
-import { GripVertical, Info, Pin, X } from 'lucide-react';
+import { AlertTriangle, GripVertical, Pin, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView } from './types';
@@ -13,15 +13,17 @@ import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
-  /** Item isn't on any carte — reachable only through this combo. Surfaces
-   *  the informational "Combo-only" chip next to the item name. */
+  /** Item isn't on any carte. Triggers the off-carte warning chip + the
+   *  "Inclure quand même" toggle so the operator decides whether the combo
+   *  surfaces this item to customers anyway. */
   comboOnly?: boolean;
   onUpchargeChange: (next: number) => void;
+  onForceOffCarteToggle: (next: boolean) => void;
   onRemove: () => void;
   onSetDefault: () => void;
 }
 
-export default function OptionRow({ option, comboOnly, onUpchargeChange, onRemove, onSetDefault }: Props) {
+export default function OptionRow({ option, comboOnly, onUpchargeChange, onForceOffCarteToggle, onRemove, onSetDefault }: Props) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
 
@@ -41,14 +43,31 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onRemov
           )}
           {comboOnly && (
             <span
-              className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0 bg-[var(--surface-3)] text-[var(--fg-muted)]"
-              title={t('composeBadgeComboOnlyTooltip')}
+              className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
+              style={{
+                background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+                color: 'var(--warning-500)',
+              }}
+              title={t('composeOffCarteWarnTooltip')}
             >
-              <Info className="w-2.5 h-2.5" />
-              {t('composeBadgeComboOnly')}
+              <AlertTriangle className="w-2.5 h-2.5" />
+              {t('composeOffCarteWarnShort')}
             </span>
           )}
         </div>
+        {comboOnly && (
+          <label className="inline-flex items-center gap-1.5 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={option.forceOffCarte}
+              onChange={(e) => onForceOffCarteToggle(e.target.checked)}
+              className="w-3 h-3 accent-[var(--brand-500)]"
+            />
+            <span title={t('composeOffCarteForceTooltip')}>
+              {t('composeOffCarteForceLabel')}
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Upcharge: pill (collapsed) → inline number input (editing) */}

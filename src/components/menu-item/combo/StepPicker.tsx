@@ -9,7 +9,7 @@
 // variant chips). Right column = selected panel + step rules.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Check, Info, Plus } from 'lucide-react';
+import { Search, X, Check, AlertTriangle, Plus } from 'lucide-react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { Button, Chip, InputGroup, Kbd, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
@@ -709,11 +709,15 @@ function SelectedRow({
         <div className="text-fs-sm font-medium truncate">{name}</div>
         {comboOnly && (
           <div
-            className="inline-flex items-center gap-1 mt-0.5 text-fs-xs px-1.5 py-0.5 rounded-r-sm bg-[var(--surface-3)] text-[var(--fg-muted)]"
-            title={t('composeBadgeComboOnlyTooltip')}
+            className="inline-flex items-center gap-1 mt-0.5 text-fs-xs px-1.5 py-0.5 rounded-r-sm"
+            style={{
+              background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+              color: 'var(--warning-500)',
+            }}
+            title={t('composeOffCarteWarnTooltip')}
           >
-            <Info className="w-2.5 h-2.5" />
-            {t('composeBadgeComboOnly')}
+            <AlertTriangle className="w-2.5 h-2.5" />
+            {t('composeOffCarteWarnShort')}
           </div>
         )}
         {isDefault ? (
