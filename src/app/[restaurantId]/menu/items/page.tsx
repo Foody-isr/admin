@@ -18,6 +18,9 @@ import {
   Eye,
   Tag,
   Trash2,
+  Sparkles,
+  Settings,
+  ListPlus,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -25,8 +28,11 @@ import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
+import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
+import CsvImportModal from '@/components/import/CsvImportModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button, PageHead } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
@@ -138,6 +144,8 @@ export default function ItemLibraryPage() {
     mode: 'filter',
   });
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [optionsDrawerOpen, setOptionsDrawerOpen] = useState(false);
+  const [modifiersDrawerOpen, setModifiersDrawerOpen] = useState(false);
 
   // KPI collapse + info modal — Figma App.tsx:552, 570
   const [showKpis, setShowKpis] = useState(true);
@@ -192,6 +200,7 @@ export default function ItemLibraryPage() {
   const [qcPrice, setQcPrice] = useState(0);
   const [qcCategoryId, setQcCategoryId] = useState(0);
   const [qcSaving, setQcSaving] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   // ─── Data loading ─────────────────────────────────────────────────
 
@@ -409,6 +418,8 @@ export default function ItemLibraryPage() {
         }
       />
 
+      <FeatureIntro feature="items" />
+
       {/* Legacy header wrapper — kept for layout, stripped of styling */}
       <header className="mb-[var(--s-4)]">
         <div className="flex items-start justify-between gap-4 mb-6 flex-wrap hidden">
@@ -448,6 +459,22 @@ export default function ItemLibraryPage() {
               >
                 <Tag size={16} />
                 {t('assignCategory') || 'Assigner une catégorie'}
+              </button>
+              <button
+                onClick={() => setOptionsDrawerOpen(true)}
+                disabled={bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
+              >
+                <ListPlus size={16} />
+                {t('assignOptions')}
+              </button>
+              <button
+                onClick={() => setModifiersDrawerOpen(true)}
+                disabled={bulkProcessing}
+                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
+              >
+                <Settings size={16} />
+                {t('assignModifiers')}
               </button>
               <button
                 onClick={handleBulkDelete}
@@ -501,7 +528,21 @@ export default function ItemLibraryPage() {
             <ChevronDown className="w-4 h-4" />
           </button>
 
-          <ActionsDropdown actions={[{ label: t('refresh'), onClick: reload }]} />
+          <ActionsDropdown
+            actions={[
+              {
+                label: t('importMenuWithAI'),
+                icon: <Sparkles size={16} />,
+                onClick: () => router.push(`/${rid}/menu/import`),
+              },
+              {
+                label: t('importCsv'),
+                icon: <ListPlus size={16} />,
+                onClick: () => setCsvImportOpen(true),
+              },
+              { label: t('refresh'), onClick: reload },
+            ]}
+          />
         </div>
       </header>
 
@@ -691,14 +732,23 @@ export default function ItemLibraryPage() {
                 const hasVariants = variants.length > 0;
                 const isExpanded = expandedItemIds.has(item.id);
 
-                const variantPrices = variants.map((v) => v.price ?? 0);
+                // A variant priced at 0 is interpreted as "same as the item
+                // base price" — operators use that to express choices (e.g.
+                // a sauce on a pasta) that don't change the price. So the
+                // displayed range coerces 0 to the item base before
+                // computing min/max.
+                const itemBase = item.price ?? 0;
+                const variantPrices = variants.map((v) => {
+                  const raw = v.price ?? 0;
+                  return raw > 0 ? raw : itemBase;
+                });
                 const minVariantPrice = hasVariants ? Math.min(...variantPrices) : 0;
                 const maxVariantPrice = hasVariants ? Math.max(...variantPrices) : 0;
                 const priceLabel = hasVariants
                   ? minVariantPrice === maxVariantPrice
                     ? `₪${minVariantPrice.toFixed(2)}`
                     : `₪${minVariantPrice.toFixed(2)} – ₪${maxVariantPrice.toFixed(2)}`
-                  : `₪${(item.price ?? 0).toFixed(2)}`;
+                  : `₪${itemBase.toFixed(2)}`;
 
                 return (
                   <React.Fragment key={item.id}>
@@ -729,16 +779,19 @@ export default function ItemLibraryPage() {
                         </div>
                       </DataTableCell>
                       <DataTableCell mobilePrimary>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
                           {item.image_url ? (
-                            <img
-                              src={item.image_url}
-                              alt=""
-                              className="size-12 rounded-xl object-cover shrink-0"
-                            />
+                            <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.image_url}
+                                alt=""
+                                className="size-full object-contain drop-shadow-sm"
+                              />
+                            </div>
                           ) : (
-                            <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
-                              <ImageIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
+                            <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center">
+                              <ImageIcon className="w-7 h-7 text-neutral-400 dark:text-white/30" />
                             </div>
                           )}
                           <div>
@@ -827,38 +880,47 @@ export default function ItemLibraryPage() {
 
                     {hasVariants &&
                       isExpanded &&
-                      variants.map((v) => (
-                        <tr
-                          key={`${item.id}-v-${v.id}`}
-                          className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
-                          onClick={() => router.push(`/${rid}/menu/items/${item.id}/variants`)}
-                        >
-                          <td className="p-3" />
-                          <td className="p-3 pl-16">
-                            <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                              {v.name}
-                            </span>
-                          </td>
-                          <td className="p-3" />
-                          <td className="p-3">
-                            <span
-                              className={`text-xs font-medium ${
-                                v.is_active
-                                  ? 'text-green-600 dark:text-green-400'
-                                  : 'text-neutral-500 dark:text-neutral-400'
-                              }`}
-                            >
-                              {v.is_active ? t('available') : t('unavailable')}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right text-sm text-neutral-600 dark:text-neutral-400">
-                            ₪{(v.price ?? 0).toFixed(2)}
-                          </td>
-                          <td className="p-3">
-                            <MoreVertical className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
-                          </td>
-                        </tr>
-                      ))}
+                      variants.map((v) => {
+                        const raw = v.price ?? 0;
+                        const effective = raw > 0 ? raw : itemBase;
+                        return (
+                          <tr
+                            key={`${item.id}-v-${v.id}`}
+                            className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
+                            onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=details`)}
+                          >
+                            <td className="p-3" />
+                            <td className="p-3 pl-16">
+                              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                                {v.name}
+                              </span>
+                            </td>
+                            <td className="p-3" />
+                            <td className="p-3">
+                              <span
+                                className={`text-xs font-medium ${
+                                  v.is_active
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : 'text-neutral-500 dark:text-neutral-400'
+                                }`}
+                              >
+                                {v.is_active ? t('available') : t('unavailable')}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right text-sm text-neutral-600 dark:text-neutral-400">
+                              ₪{effective.toFixed(2)}
+                              {raw === 0 && itemBase > 0 && (
+                                <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
+                                  ({t('inherited') || 'inherited'})
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <MoreVertical className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </React.Fragment>
                 );
               })}
@@ -943,6 +1005,30 @@ export default function ItemLibraryPage() {
         processing={bulkProcessing}
       />
 
+      <AssignSetDrawer
+        open={optionsDrawerOpen}
+        onClose={() => setOptionsDrawerOpen(false)}
+        mode="options"
+        restaurantId={rid}
+        selectedItems={paged.filter((i) => selected.has(i.id))}
+        onApplied={() => {
+          setSelected(new Set());
+          reload();
+        }}
+      />
+
+      <AssignSetDrawer
+        open={modifiersDrawerOpen}
+        onClose={() => setModifiersDrawerOpen(false)}
+        mode="modifiers"
+        restaurantId={rid}
+        selectedItems={paged.filter((i) => selected.has(i.id))}
+        onApplied={() => {
+          setSelected(new Set());
+          reload();
+        }}
+      />
+
       {/* Filters Drawer (nested: index → category / status) */}
       <KPIInfoModal
         kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
@@ -963,6 +1049,21 @@ export default function ItemLibraryPage() {
         selectedStatuses={selectedStatuses}
         onStatusChange={setSelectedStatuses}
       />
+
+      {csvImportOpen && (
+        <CsvImportModal
+          mode="library"
+          restaurantId={rid}
+          onClose={() => setCsvImportOpen(false)}
+          onImported={reload}
+          existingCategories={categories.map((c) => c.name)}
+          existingItemKeys={new Set(
+            categories.flatMap((c) =>
+              (c.items ?? []).map((it) => `${c.name.toLowerCase()}::${it.name.toLowerCase()}`)
+            )
+          )}
+        />
+      )}
     </div>
   );
 }

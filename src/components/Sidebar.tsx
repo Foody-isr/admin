@@ -37,6 +37,13 @@ import {
   DollarSign,
   Printer,
   Bell,
+  LayoutGrid,
+  Armchair,
+  Route,
+  QrCode,
+  Sparkles,
+  Boxes,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -133,12 +140,12 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['kitchen.view', 'kitchen.manage'],
       subItems: [
         { href: `${base}/kitchen/stock`, labelKey: 'stock', badge: lowStockCount },
-        // { href: `${base}/kitchen/recipes`, labelKey: 'recipes' },
-        // Recipes page is hidden for now — per-item recipes are edited inside the menu item Recette tab.
         { href: `${base}/kitchen/prep`, labelKey: 'preparations', badge: lowPrepCount },
         { href: `${base}/kitchen/food-cost`, labelKey: 'foodCost', desktopOnly: true },
+        { href: `${base}/kitchen/availability`, labelKey: 'availability', desktopOnly: true },
         { href: `${base}/kitchen/daily-operations`, labelKey: 'dailyOperations', desktopOnly: true },
         { href: `${base}/kitchen/supplies`, labelKey: 'supplies' },
+        { href: `${base}/kitchen/lab`, labelKey: 'recipeLab' },
       ],
     },
     {
@@ -149,7 +156,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       clickHref: `${base}/orders/all`,
       subItems: [
         { href: `${base}/orders/all`, labelKey: 'orders' },
-        { href: `${base}/orders/calendar`, labelKey: 'calendarTitle' },
+        { href: `${base}/orders/production`, labelKey: 'productionTitle' },
       ],
     },
     {
@@ -227,7 +234,13 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   // groups so the user sees a single sidebar instead of two stacked. Mirrors
   // design-reference/screens/settings.jsx SettingsShell groups.
   const isSettingsRoute =
-    pathname === `${base}/settings` || pathname.startsWith(`${base}/settings/`);
+    pathname === `${base}/settings` ||
+    pathname.startsWith(`${base}/settings/`) ||
+    pathname.startsWith(`${base}/restaurant/floor-plans`) ||
+    pathname.startsWith(`${base}/restaurant/sections`) ||
+    pathname.startsWith(`${base}/restaurant/table-status`) ||
+    pathname.startsWith(`${base}/restaurant/table-qr`) ||
+    pathname.startsWith(`${base}/restaurant/workflow`);
   const settingsSections: { groupKey: string; items: { id: string; href: string; labelKey: string; icon: LucideIcon; desktopOnly?: boolean }[] }[] = [
     {
       groupKey: 'settingsGroupAccount',
@@ -237,6 +250,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'language',      href: `${base}/settings/language`,        labelKey: 'language',      icon: Languages },
         { id: 'hours',         href: `${base}/settings/opening-hours`,   labelKey: 'openingHours',  icon: Clock },
         { id: 'notifications', href: `${base}/settings/notifications`,   labelKey: 'notifications', icon: Bell },
+        { id: 'whatsapp',      href: `${base}/settings/whatsapp`,        labelKey: 'whatsapp',      icon: MessageCircle },
       ],
     },
     {
@@ -245,6 +259,16 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'scheduled', href: `${base}/settings/scheduled-orders`, labelKey: 'scheduledOrders', icon: CalendarClock },
+      ],
+    },
+    {
+      groupKey: 'settingsGroupRestaurant',
+      items: [
+        { id: 'floor-plans', href: `${base}/restaurant/floor-plans`, labelKey: 'floorPlans', icon: LayoutGrid, desktopOnly: true },
+        { id: 'sections', href: `${base}/restaurant/sections`, labelKey: 'sections', icon: Boxes },
+        { id: 'table-status', href: `${base}/restaurant/table-status`, labelKey: 'tableStatus', icon: Armchair },
+        { id: 'table-qr', href: `${base}/restaurant/table-qr`, labelKey: 'tableQrCodes', icon: QrCode },
+        { id: 'workflow', href: `${base}/restaurant/workflow`, labelKey: 'workflow', icon: Route },
       ],
     },
     {

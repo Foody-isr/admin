@@ -13,7 +13,8 @@ export type BaseUnit = 'g' | 'kg' | 'ml' | 'l' | 'unit';
 export type PackagingUnit =
   | 'carton' | 'pack' | 'box' | 'bag' | 'bottle'
   | 'can' | 'jar' | 'sachet' | 'tub' | 'brick' | 'packet'
-  | 'crate' | 'sack' | 'case' | 'pot' | 'jug';
+  | 'crate' | 'sack' | 'case' | 'pot' | 'jug'
+  | 'plaquette' | 'tray';
 
 export type StockInput =
   | {
@@ -67,6 +68,7 @@ export const UNIT_I18N_KEY: Record<PackagingUnit, string> = {
   bottle: 'ut_bottle', can: 'ut_can', jar: 'ut_jar', bag: 'ut_bag', brick: 'ut_brick',
   packet: 'ut_packet', box: 'ut_box', sachet: 'ut_sachet', tub: 'ut_tub',
   pot: 'ut_pot', jug: 'ut_jug',
+  plaquette: 'ct_plaquette', tray: 'ct_tray',
 };
 export const labelFor = (u: PackagingUnit, t: (k: string) => string) => t(UNIT_I18N_KEY[u] || u);
 
@@ -102,6 +104,7 @@ const PACKAGING_CONTENT_DEFAULT: Partial<Record<PackagingUnit, BaseUnit>> = {
   can: 'g', jar: 'g', box: 'g', packet: 'g', sachet: 'g', tub: 'g', pot: 'g',
   bag: 'kg', sack: 'kg',
   carton: 'g', crate: 'kg', case: 'g', pack: 'g',
+  plaquette: 'unit', tray: 'unit',
 };
 
 // ─── Defaults / constructors ──────────────────────────────────────────────
@@ -373,6 +376,7 @@ export default function StockQuantityForm({
     restaurantRate: vatRate,
     onChange,
     t,
+    compact: !!compact,
   };
 
   // ─── Simple ─────────────────────────────────────────────────────────────
@@ -635,7 +639,7 @@ type PriceLevel = 'total' | 'outer' | 'inner' | 'base';
 //   simple:    "Prix au [kg ↻]  [ N ] ₪"
 //   packaged:  "Chaque [carton ↻] coûte  [ N ] ₪"
 function PriceSentence({
-  value, d, effMult, vatDisplayMode, vatRateOverride, onVatRateChange, restaurantRate, onChange, t,
+  value, d, effMult, vatDisplayMode, vatRateOverride, onVatRateChange, restaurantRate, onChange, t, compact,
 }: {
   value: StockInput;
   d: Totals;
@@ -647,6 +651,8 @@ function PriceSentence({
   restaurantRate: number;
   onChange: (v: StockInput) => void;
   t: (k: string) => string;
+  /** When true, collapse the per-pack TTC and per-base hint into one summary row. */
+  compact?: boolean;
 }) {
   const isInc = vatDisplayMode === 'inc';
   // value.totalPrice is stored ex-VAT. When the user is typing in TTC mode,
@@ -873,18 +879,36 @@ function PriceSentence({
             compact
           />
         )}
-        {showSecondary && (
+        {showSecondary && !compact && (
           <span className="text-[12px] text-fg-tertiary tabular-nums">
             ({t('equivalentTo') || 'soit'} {fmtPrice(secondaryBase)} &#8362;&nbsp;/&nbsp;{d.baseUnit})
           </span>
         )}
       </div>
-      {displayedEx > 0 && effMult !== 1 && (
+      {displayedEx > 0 && effMult !== 1 && !compact && (
         <div className="text-[12px] tabular-nums text-fg-tertiary pt-0.5">
           {t('equivalentTo') || 'soit'} {fmtPrice(otherSideValue)} &#8362; {otherSideLabel}
         </div>
       )}
-      {d.totalPrice > 0 && (
+      {d.totalPrice > 0 && (compact ? (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-2 mt-1 border-t border-[var(--divider)]/40">
+          <span className="text-[10px] uppercase tracking-wider text-fg-tertiary font-semibold">
+            {t('totalPrice') || 'Prix total'}
+          </span>
+          <span className="tabular-nums">
+            <span className="text-[14px] font-semibold text-fg-primary">{fmtPrice(d.totalPrice)}&nbsp;&#8362;</span>
+            <span className="text-[11px] text-fg-tertiary ml-1">{t('exVat')}</span>
+            <span className="text-fg-tertiary mx-2">·</span>
+            <span className="text-[14px] font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)}&nbsp;&#8362;</span>
+            <span className="text-[11px] text-fg-tertiary ml-1">{t('incVat')}</span>
+          </span>
+          {showSecondary && (
+            <span className="ml-auto text-[12px] text-fg-tertiary tabular-nums">
+              {fmtPrice(secondaryBase)}&nbsp;&#8362;&nbsp;/&nbsp;{d.baseUnit}
+            </span>
+          )}
+        </div>
+      ) : (
         <div className="text-[12px] tabular-nums pt-0.5">
           <span className="text-fg-tertiary">{t('totalPrice') || 'Prix total'} · </span>
           <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice)} &#8362;</span>
@@ -893,7 +917,7 @@ function PriceSentence({
           <span className="font-semibold text-fg-primary">{fmtPrice(d.totalPrice * effMult)} &#8362;</span>
           <span className="text-fg-tertiary"> {t('incVat')}</span>
         </div>
-      )}
+      ))}
     </div>
   );
 }

@@ -1,6 +1,15 @@
 // Foody Admin API client — restaurant owner/manager portal
 // Calls foodyserver at /api/v1/* using JWT auth.
 
+import type {
+  Draft,
+  DraftPayload,
+  ChatPatch as LabChatPatch,
+  DraftStatus,
+  CommitResult,
+} from '@/app/[restaurantId]/kitchen/lab/types';
+import type { PosDisplayLayout } from './posDisplay';
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
@@ -79,6 +88,9 @@ export interface RestaurantSettings {
   table_red_after_minutes: number;
   pickup_prep_time_minutes?: number;
   vat_rate: number;
+  // Delivery — minimum cart total to allow a delivery order (0 = no minimum).
+  // Drives the "Min ₪X" pill on the foodyweb hero in delivery mode.
+  minimum_order_delivery?: number;
   // Batch fulfillment — pre-orders that all ship on a fixed weekly day.
   // Mutually exclusive with `scheduling_enabled` (slot-based).
   batch_fulfillment_enabled?: boolean;
@@ -128,6 +140,7 @@ export interface Menu {
   groups?: MenuGroup[];
   categories?: MenuCategory[]; // Deprecated: use groups
   locations?: Location[];
+  pos_display?: PosDisplayLayout;
 }
 
 export interface GroupAvailabilityHour {
@@ -169,8 +182,11 @@ export interface MenuCategory {
   web_enabled: boolean;
   follows_menu_hours: boolean;
   is_hidden: boolean;
+  is_weekly_rotating?: boolean;
   availability_hours?: CategoryAvailabilityHour[];
   items?: MenuItem[];
+  /** Default availability rule for items in this category (null = inherit default). */
+  availability_rule_id?: number | null;
 }
 
 export interface MenuItemModifier {
@@ -239,8 +255,14 @@ export interface ComboStepItem {
   menu_item_id: number;
   option_id?: number | null;
   price_delta: number;
+  // Off-carte items are dropped by the server resolver at order time unless
+  // this is true. Defaults to true (preserves pre-flag behavior); the admin
+  // surfaces a toggle on rows where the item is currently off-carte.
+  force_off_carte?: boolean;
   menu_item?: MenuItem;
 }
+
+export type ComboStepSourceType = 'explicit' | 'category';
 
 export interface ComboStep {
   id?: number;
@@ -252,6 +274,9 @@ export interface ComboStep {
   max_picks: number;
   sort_order: number;
   fixed_modifier_name?: string;
+  source_type?: ComboStepSourceType;
+  source_category_id?: number | null;
+  source_variant_label?: string | null;
   items: ComboStepItem[];
 }
 
@@ -262,7 +287,15 @@ export interface ComboStepInput {
   max_picks: number;
   sort_order: number;
   fixed_modifier_name?: string;
-  items: { menu_item_id: number; option_id?: number | null; price_delta: number }[];
+  source_type?: ComboStepSourceType;
+  source_category_id?: number | null;
+  source_variant_label?: string | null;
+  items: {
+    menu_item_id: number;
+    option_id?: number | null;
+    price_delta: number;
+    force_off_carte?: boolean;
+  }[];
 }
 
 /**
@@ -294,6 +327,14 @@ export interface MenuItem {
   recipe_steps?: RecipeStep[];
   /** Per-locale name/description overrides. Source-locale is never stored here. */
   translations?: TranslationMap;
+  /** Recipe-aware availability rule assignment (null = inherit category/default). */
+  availability_rule_id?: number | null;
+  /** Staff "86" switch: 'auto' | 'force_available' | 'force_sold_out'. */
+  availability_override?: AvailabilityOverride;
+  /** Computed (read-only) availability stamped onto staff menu responses. */
+  availability_state?: AvailabilityState;
+  buildable_count?: number | null;
+  availability_bottleneck?: string;
 }
 
 export interface OrderItemModifier {
@@ -316,12 +357,19 @@ export interface OrderItem {
   selected_variant_id?: number;
   selected_variant_name?: string;
   selected_variant_price?: number;
+  // variant_portion is a formatted label like "250 g" / "1 kg", snapshotted
+  // at order creation from the recipe. Empty/undefined when no portion mass
+  // is computable for the item+variant (no recipe, no numeric variant name).
   variant_portion?: string;
   modifiers?: OrderItemModifier[];
   combo_item_id?: number;
   combo_group?: string;
   combo_name?: string;
   combo_price?: number;
+  // Snapshot of the item's category at order time. NULL on older/fake rows
+  // that pre-date the snapshot migration — render those under an "Other" bucket.
+  category_id?: number;
+  category_name?: string;
 }
 
 export interface Order {
@@ -405,12 +453,23 @@ export interface WebsiteConfig {
   show_phone: boolean;
   show_hours: boolean;
   favicon_url: string;
+  hero_cta_text: string;
+  mid_cta_enabled: boolean;
+  mid_cta_title: string;
+  mid_cta_body: string;
+  mid_cta_btn_text: string;
+  footer_text: string;
   navbar_style: string;
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  landing_enabled: boolean;
+  // Draft / publish workflow (added in v2)
+  draft_dirty?: boolean;
+  draft_saved_at?: string | null;
+  published_at?: string | null;
 }
 
 export interface ThemeCatalogEntry {
@@ -702,11 +761,13 @@ export interface PrepItem {
   shelf_life_hours: number;
   category: string;
   notes: string;
+  prep_time_mins?: number;
   is_active: boolean;
   cost_per_unit: number;
   created_at: string;
   updated_at: string;
   ingredients?: PrepItemIngredient[];
+  recipe_steps?: PrepRecipeStep[];
 }
 
 export interface PrepItemInput {
@@ -1234,7 +1295,22 @@ export async function setMenuHours(restaurantId: number, menuId: number, hours: 
   return data.hours ?? [];
 }
 
-export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string; pos_enabled?: boolean; web_enabled?: boolean; follows_menu_hours?: boolean; is_hidden?: boolean }): Promise<MenuCategory> {
+export async function getPosDisplay(restaurantId: number, menuId: number): Promise<PosDisplayLayout> {
+  return apiFetch<PosDisplayLayout>(
+    `/api/v1/menu/menus/${menuId}/pos-display?restaurant_id=${restaurantId}`, restaurantId
+  );
+}
+
+export async function savePosDisplay(
+  restaurantId: number, menuId: number, payload: PosDisplayLayout
+): Promise<PosDisplayLayout> {
+  return apiFetch<PosDisplayLayout>(
+    `/api/v1/menu/menus/${menuId}/pos-display?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
+}
+
+export async function createCategory(restaurantId: number, input: { name: string; sort_order?: number; menu_id?: number; parent_id?: number; image_url?: string; pos_enabled?: boolean; web_enabled?: boolean; follows_menu_hours?: boolean; is_hidden?: boolean; is_weekly_rotating?: boolean }): Promise<MenuCategory> {
   const data = await apiFetch<{ category: MenuCategory }>(
     `/api/v1/menu/categories?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
@@ -1304,18 +1380,73 @@ export async function reorderGroups(restaurantId: number, menuId: number, groupI
   );
 }
 
-export async function addItemsToGroup(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
+export async function reorderGroupItems(restaurantId: number, groupId: number, itemIds: number[]): Promise<void> {
   await apiFetch<void>(
-    `/api/v1/menu/groups/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    `/api/v1/menu/groups/${groupId}/items/reorder?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }
   );
 }
 
-export async function removeItemFromGroup(restaurantId: number, groupId: number, itemId: number): Promise<void> {
+export interface GroupItemScope {
+  /** ISO date "YYYY-MM-DD" — inclusive lower bound. Omit for "from forever". */
+  effective_from?: string;
+  /** ISO date "YYYY-MM-DD" — inclusive upper bound. Omit for "until forever". */
+  effective_until?: string;
+}
+
+export async function addItemsToGroup(
+  restaurantId: number,
+  groupId: number,
+  itemIds: number[],
+  scope: GroupItemScope = {},
+): Promise<void> {
   await apiFetch<void>(
-    `/api/v1/menu/groups/${groupId}/items/${itemId}?restaurant_id=${restaurantId}`, restaurantId,
+    `/api/v1/menu/groups/${groupId}/items?restaurant_id=${restaurantId}`, restaurantId,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        item_ids: itemIds,
+        effective_from: scope.effective_from,
+        effective_until: scope.effective_until,
+      }),
+    }
+  );
+}
+
+export async function removeItemFromGroup(
+  restaurantId: number,
+  groupId: number,
+  itemId: number,
+  /** When set, soft-retire by setting effective_until = that ISO date instead
+   *  of hard-deleting the membership. */
+  effectiveUntil?: string,
+): Promise<void> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (effectiveUntil) qs.set('effective_until', effectiveUntil);
+  await apiFetch<void>(
+    `/api/v1/menu/groups/${groupId}/items/${itemId}?${qs.toString()}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+export interface MenuGroupMembership {
+  id: number;
+  menu_group_id: number;
+  menu_item_id: number;
+  sort_order: number;
+  effective_from?: string;
+  effective_until?: string;
+  item?: MenuItem;
+}
+
+export async function listGroupMemberships(
+  restaurantId: number,
+  groupId: number,
+): Promise<MenuGroupMembership[]> {
+  const data = await apiFetch<{ memberships: MenuGroupMembership[] }>(
+    `/api/v1/menu/groups/${groupId}/memberships?restaurant_id=${restaurantId}`, restaurantId,
+  );
+  return data.memberships ?? [];
 }
 
 export async function getGroupHours(restaurantId: number, groupId: number): Promise<GroupAvailabilityHour[]> {
@@ -2125,6 +2256,142 @@ export async function fetchKitchenPlanDetails(
   };
 }
 
+// ----- Production sheet -----
+export interface ProductionSheetPortion {
+  portion_g: number;
+  count: number;
+}
+export interface ProductionSheetItem {
+  menu_item_id: number;
+  name: string;
+  category_id: number;
+  measure: 'weight' | 'unit';
+  total: number;
+  unit: 'g' | 'u';
+  packaging?: ProductionSheetPortion[];
+  combo_breakdown?: ProductionComboRef[]; // aggregated combo portions for the day total
+  standalone_count?: number; // aggregated individually-ordered portions
+}
+export interface ProductionSheetCategory {
+  id: number;
+  name: string;
+  measure: 'weight' | 'unit';
+  item_ids: number[];
+}
+export interface ProductionComboRef {
+  name: string;
+  qty: number;
+}
+export interface ProductionCellProvenance {
+  combos: ProductionComboRef[];
+  standalone: number; // count ordered individually (not via a combo)
+}
+export interface ProductionSheetOrder {
+  order_id: number;
+  customer_name: string;
+  order_type: 'dine_in' | 'pickup' | 'delivery';
+  window_start?: string;
+  window_end?: string;
+  cells: Record<string, number>; // menu_item_id (string key) -> grams or count
+  provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
+}
+export interface ProductionSheetResponse {
+  date: string;
+  categories: ProductionSheetCategory[];
+  items: ProductionSheetItem[];
+  orders: ProductionSheetOrder[];
+}
+export interface ProductionDay {
+  date: string;
+  order_count: number;
+}
+
+export async function fetchProductionSheet(
+  restaurantId: number,
+  date: string,
+): Promise<ProductionSheetResponse> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId), date });
+  const data = await apiFetch<ProductionSheetResponse>(
+    `/api/v1/orders/production-sheet?${qs.toString()}`,
+    restaurantId,
+  );
+  return {
+    date: data.date,
+    categories: data.categories ?? [],
+    items: data.items ?? [],
+    orders: data.orders ?? [],
+  };
+}
+
+export async function fetchProductionDays(restaurantId: number): Promise<ProductionDay[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  const data = await apiFetch<{ days: ProductionDay[] }>(
+    `/api/v1/orders/production-sheet/days?${qs.toString()}`,
+    restaurantId,
+  );
+  return data.days ?? [];
+}
+
+export interface KitchenPlanVariantCount {
+  name: string;
+  qty: number;
+}
+
+export interface KitchenPlanStockLine {
+  stock_item_id: number;
+  name: string;
+  total_qty: number;
+  unit: string;
+}
+
+export interface KitchenPlanPrepBreakdownLine {
+  stock_item_id: number;
+  name: string;
+  qty: number;
+  unit: string;
+}
+
+export interface KitchenPlanPrepLine {
+  prep_item_id: number;
+  name: string;
+  total_qty: number;
+  unit: string;
+  breakdown: KitchenPlanPrepBreakdownLine[];
+}
+
+export interface KitchenPlanItemBreakdown {
+  menu_item_id: number;
+  name: string;
+  total_count: number;
+  variants: KitchenPlanVariantCount[];
+  total_prep_mass: number; // total grams across all prep lines, 0 when none
+  stock_lines: KitchenPlanStockLine[];
+  prep_lines: KitchenPlanPrepLine[];
+}
+
+export interface KitchenPlanItemBreakdownResponse {
+  date: string;
+  items: KitchenPlanItemBreakdown[];
+}
+
+export async function fetchKitchenPlanIngredients(
+  restaurantId: number,
+  date: string,
+): Promise<KitchenPlanItemBreakdownResponse> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    date,
+  });
+  const data = await apiFetch<KitchenPlanItemBreakdownResponse>(
+    `/api/v1/orders/kitchen-plan/ingredients?${qs.toString()}`,
+    restaurantId,
+  );
+  return {
+    date: data.date,
+    items: data.items ?? [],
+  };
+}
+
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
 export async function getAnalyticsToday(restaurantId: number): Promise<TodayStats> {
@@ -2445,6 +2712,62 @@ export async function listSiteStyles(): Promise<SiteStylePreset[]> {
   return data.styles || [];
 }
 
+// ─── Website Editor v2 — Draft / Publish ─────────────────────────────────────
+
+export type DraftSectionPayload = {
+  id?: number;
+  tmp_id?: string;
+  section_type: string;
+  page: string;
+  sort_order: number;
+  is_visible: boolean;
+  layout: string;
+  content: Record<string, any>;
+  settings: Record<string, any>;
+};
+
+export type DraftStatePayload = {
+  config: Record<string, any>;
+  sections: DraftSectionPayload[];
+  deleted_section_ids: number[];
+};
+
+export type DraftResponse = {
+  state: DraftStatePayload;
+  draft_dirty: boolean;
+  draft_saved_at?: string | null;
+  published_at?: string | null;
+};
+
+export async function getWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId
+  );
+}
+
+export async function saveWebsiteDraft(
+  restaurantId: number, payload: DraftStatePayload
+): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-draft`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(payload) }
+  );
+}
+
+export async function publishWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-publish`, restaurantId,
+    { method: 'POST' }
+  );
+}
+
+export async function discardWebsiteDraft(restaurantId: number): Promise<DraftResponse> {
+  return apiFetch<DraftResponse>(
+    `/api/v1/restaurants/${restaurantId}/website-discard`, restaurantId,
+    { method: 'POST' }
+  );
+}
+
 // ─── Stock Management ────────────────────────────────────────────────────────
 
 export async function listStockItems(
@@ -2481,6 +2804,38 @@ export async function updateStockItem(restaurantId: number, id: number, input: P
 
 export async function deleteStockItem(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/stock/items/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+// ─── Ingredient Icon Library (read-only picker) ─────────────────────────────
+// The library is curated by superadmins from the backoffice. Restaurant admins
+// can only list and pick.
+
+export interface IngredientIcon {
+  id: number;
+  name: string;
+  slug: string;
+  image_url: string;
+  category: string;
+  aliases: string[];
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listIngredientIcons(
+  restaurantId: number,
+  params?: { q?: string; category?: string; limit?: number },
+): Promise<IngredientIcon[]> {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set('q', params.q);
+  if (params?.category) qs.set('category', params.category);
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const query = qs.toString() ? `?${qs.toString()}` : '';
+  const data = await apiFetch<{ icons: IngredientIcon[] }>(
+    `/api/v1/ingredient-icons${query}`,
+    restaurantId,
+  );
+  return data.icons || [];
 }
 
 export async function uploadStockItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
@@ -2617,6 +2972,204 @@ export async function importDelivery(restaurantId: number, file: File, lang?: st
   return data.extraction;
 }
 
+export interface DeliveryStreamMeta {
+  supplier_name?: string;
+  delivery_date?: string;
+}
+
+export interface DeliveryStreamLateFlags {
+  duplicate_row_indexes: number[];
+  deduped_indexes: number[];
+}
+
+export interface DeliveryStreamDone {
+  total: number;
+  raw_notes?: string;
+  late_flags?: DeliveryStreamLateFlags;
+  usage?: { input_tokens: number; output_tokens: number };
+}
+
+export interface DeliveryStreamHandlers {
+  onMeta: (m: DeliveryStreamMeta) => void;
+  onItem: (item: DeliveryExtraction['items'][number]) => void;
+  onProgress: (p: { count: number }) => void;
+  onDone: (d: DeliveryStreamDone) => void;
+  onError: (e: { message: string }) => void;
+}
+
+export async function importDeliveryStream(
+  restaurantId: number,
+  file: File,
+  opts: { lang?: string; supplierId?: number },
+  handlers: DeliveryStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (opts.lang) params.set('lang', opts.lang);
+  if (opts.supplierId) params.set('supplier_id', String(opts.supplierId));
+
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery/stream?${params}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Stream failed (${res.status})`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buf = '';
+  const dispatch = (event: string, data: string) => {
+    let payload: unknown;
+    try { payload = JSON.parse(data); } catch { return; }
+    switch (event) {
+      case 'meta':     handlers.onMeta(payload as DeliveryStreamMeta); break;
+      case 'item':     handlers.onItem(payload as DeliveryExtraction['items'][number]); break;
+      case 'progress': handlers.onProgress(payload as { count: number }); break;
+      case 'done':     handlers.onDone(payload as DeliveryStreamDone); break;
+      case 'error':    handlers.onError(payload as { message: string }); break;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+
+    let sep = buf.indexOf('\n\n');
+    while (sep >= 0) {
+      const frame = buf.slice(0, sep);
+      buf = buf.slice(sep + 2);
+      let event = '';
+      let data = '';
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event: ')) event = line.slice(7);
+        else if (line.startsWith('data: ')) data = data ? data + '\n' + line.slice(6) : line.slice(6);
+      }
+      if (event) dispatch(event, data);
+      sep = buf.indexOf('\n\n');
+    }
+  }
+}
+
+// ─── AI Chat: targeted delivery edits ─────────────────────────────────
+//
+// The chat endpoint runs one Anthropic tool-use round on the current
+// item list and returns either a clarifying question or a set of
+// patches the client applies to editedItems.
+
+export interface ChatItemSnapshot {
+  index: number;
+  name: string;
+  original_name?: string;
+  category?: string;
+  unit: string;
+  quantity: number;
+  cost_per_unit: number;
+  total_price: number;
+  pack_count?: number;
+  units_per_pack?: number;
+  unit_size?: number;
+  unit_size_unit?: string;
+  container_type?: string;
+  unit_type?: string;
+  vat_rate_override?: number | null;
+  skipped?: boolean;
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatPatch {
+  item_index: number;
+  name?: string;
+  category?: string;
+  quantity?: number;
+  total_price?: number;
+  cost_per_unit?: number;
+  vat_rate_override?: number | null;
+  skipped?: boolean;
+}
+
+export interface ChatDeliveryRequest {
+  items: ChatItemSnapshot[];
+  history: ChatTurn[];
+  message: string;
+  vat_display_mode: 'ex' | 'inc';
+  default_vat_rate: number;
+  lang?: string;
+}
+
+export interface ChatDeliveryResponse {
+  assistant_message: string;
+  patches: ChatPatch[];
+  clarification_needed: boolean;
+}
+
+export async function chatDeliveryEdit(restaurantId: number, body: ChatDeliveryRequest): Promise<ChatDeliveryResponse> {
+  return apiFetch<ChatDeliveryResponse>(
+    `/api/v1/stock/import/delivery/chat?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+// importDeliveryVoice uploads a voice recording of the owner describing a
+// delivery and returns the same DeliveryExtraction shape as importDelivery.
+// Reuses the entire review flow downstream.
+export interface VoiceImportResult {
+  extraction: DeliveryExtraction;
+  transcript: string;
+}
+
+export async function importDeliveryVoice(
+  restaurantId: number,
+  audioBlob: Blob,
+  mediaType: string,
+  lang?: string,
+  supplierId?: number,
+): Promise<VoiceImportResult> {
+  const token = getToken();
+  const formData = new FormData();
+  // The backend matches Content-Type by prefix; the filename extension is
+  // only cosmetic for server logs.
+  const ext = mediaType.includes('webm') ? 'webm'
+    : mediaType.includes('mp4')  ? 'mp4'
+    : mediaType.includes('mpeg') || mediaType.includes('mp3') ? 'mp3'
+    : mediaType.includes('ogg')  ? 'ogg'
+    : mediaType.includes('wav')  ? 'wav'
+    : 'audio';
+  formData.append('file', new File([audioBlob], `voice.${ext}`, { type: mediaType }));
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (lang) params.set('lang', lang);
+  if (supplierId) params.set('supplier_id', String(supplierId));
+  const res = await fetch(`${API_URL}/api/v1/stock/import/delivery/voice?${params}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Voice import failed (${res.status})`);
+  }
+  const data = await res.json();
+  return { extraction: data.extraction, transcript: data.transcript ?? '' };
+}
+
 export async function confirmDelivery(restaurantId: number, input: ConfirmDeliveryInput): Promise<void> {
   await apiFetch(`/api/v1/stock/import/delivery/confirm?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'POST', body: JSON.stringify(input),
@@ -2703,6 +3256,12 @@ export interface ExtractedIngredient {
   is_new: boolean;
 }
 
+export interface ExtractedRecipeStep {
+  title: string;
+  description: string;
+  duration_mins: number;
+}
+
 export interface ExtractedRecipe {
   dish_name: string;
   dish_description: string;
@@ -2710,6 +3269,7 @@ export interface ExtractedRecipe {
   total_yield: number;
   total_yield_unit: string;
   ingredients: ExtractedIngredient[];
+  steps?: ExtractedRecipeStep[];
   matched_menu_item_id?: number | null;
   matched_menu_item_name: string;
   confidence: number;
@@ -2777,13 +3337,23 @@ export async function confirmRecipes(restaurantId: number, input: ConfirmRecipeI
   });
 }
 
+export interface ConfirmPrepRecipeStepInput {
+  instruction: string;
+  duration_mins?: number;
+  image_url?: string;
+}
+
 export interface ConfirmPrepRecipeInput {
+  /** nil = create a new prep; set = replace the recipe of this existing prep. */
+  prep_item_id?: number | null;
   name: string;
   category?: string;
   notes?: string;
   yield: number;
   yield_unit: string;
+  prep_time_mins?: number;
   ingredients: ConfirmRecipeIngredientInput[];
+  steps?: ConfirmPrepRecipeStepInput[];
 }
 
 export async function confirmPrepRecipe(restaurantId: number, input: ConfirmPrepRecipeInput): Promise<PrepItem> {
@@ -3353,6 +3923,8 @@ export interface RestaurantTableRef {
   seats: number;
   active: boolean;
   section_id: number | null;
+  /** Locale code (en/he/fr) used when rendering this table's QR card. Empty = inherit restaurant default. */
+  language?: string;
 }
 
 export interface FloorPlanPlacement {
@@ -3505,6 +4077,121 @@ export async function reorderFloorPlans(restaurantId: number, ids: number[]): Pr
 }
 
 
+// ─── Tables CRUD ──────────────────────────────────────────────────────────────
+
+export interface TableInput {
+  code: string;
+  name?: string;
+  seats?: number;
+  is_open?: boolean;
+  /** Optional. Pass 0 to clear an existing section assignment on update. */
+  section_id?: number;
+  /** Optional locale code (en/he/fr). Empty string clears the override. */
+  language?: string;
+}
+
+export async function listTables(restaurantId: number): Promise<RestaurantTableRef[]> {
+  const data = await apiFetch<{ tables: RestaurantTableRef[] }>(
+    `/api/v1/restaurants/${restaurantId}/tables?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.tables ?? [];
+}
+
+export async function createTable(restaurantId: number, input: TableInput): Promise<RestaurantTableRef> {
+  const data = await apiFetch<{ table: RestaurantTableRef }>(
+    `/api/v1/restaurants/${restaurantId}/tables?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+  return data.table;
+}
+
+export async function updateTable(
+  restaurantId: number,
+  tableCode: string,
+  input: Omit<TableInput, 'code'>,
+): Promise<RestaurantTableRef> {
+  const data = await apiFetch<{ table: RestaurantTableRef }>(
+    `/api/v1/restaurants/${restaurantId}/tables/${encodeURIComponent(tableCode)}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ code: tableCode, ...input }) }
+  );
+  return data.table;
+}
+
+export async function deleteTable(restaurantId: number, tableCode: string): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/tables/${encodeURIComponent(tableCode)}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+// ─── Table QR Codes ───────────────────────────────────────────────────────────
+
+export interface TableQrPayload {
+  url: string;
+  signature: string;
+  tableId: string;
+}
+
+export async function generateTableQr(
+  restaurantId: number,
+  tableCode: string,
+): Promise<TableQrPayload> {
+  return apiFetch<TableQrPayload>(
+    `/api/v1/restaurants/${restaurantId}/tables/${encodeURIComponent(tableCode)}/qr?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
+// ─── QR Card Customization ────────────────────────────────────────────────────
+
+export type QrCardTemplate = 'compact' | 'wide' | 'tall';
+export type QrCardBrandMode = 'text' | 'logo';
+export type QrCardLocale = 'en' | 'he' | 'fr';
+
+export const QR_CARD_LOCALES: QrCardLocale[] = ['en', 'he', 'fr'];
+
+/** Per-language text content on a QR card. All fields optional; empty falls back to other locales then defaults. */
+export interface QrCardTexts {
+  brand_text?: string;
+  title?: string;
+  subtitle?: string;
+  step1?: string;
+  step2?: string;
+  step3?: string;
+}
+
+export interface QrCardConfig {
+  id: number;
+  restaurant_id: number;
+  template: QrCardTemplate;
+  background_color: string;
+  text_color: string;
+  brand_mode: QrCardBrandMode;
+  /** Locale code (en/he/fr) → text content. */
+  texts: Partial<Record<QrCardLocale, QrCardTexts>>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getQrCardConfig(restaurantId: number): Promise<QrCardConfig> {
+  const data = await apiFetch<{ qr_card_config: QrCardConfig }>(
+    `/api/v1/restaurants/${restaurantId}/qr-card-config`, restaurantId
+  );
+  return data.qr_card_config;
+}
+
+export async function updateQrCardConfig(
+  restaurantId: number, input: Partial<QrCardConfig>
+): Promise<QrCardConfig> {
+  const data = await apiFetch<{ qr_card_config: QrCardConfig }>(
+    `/api/v1/restaurants/${restaurantId}/qr-card-config`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.qr_card_config;
+}
+
+
 // ─── Rotation Schedule ────────────────────────────────────────────────────────
 
 export interface RotationSchedule {
@@ -3649,6 +4336,67 @@ export async function uploadRecipeStepImage(restaurantId: number, menuItemId: nu
   const formData = new FormData();
   formData.append('image', file);
   const res = await fetch(`${API_URL}/api/v1/recipes/items/${menuItemId}/steps/${stepId}/image`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
+}
+
+// ─── Prep Recipe Steps (Cooking Instructions for Préparations) ────────────────
+// Mirrors the menu-item recipe step API, scoped under /prep/items/:id.
+
+export interface PrepRecipeStep {
+  id: number;
+  prep_item_id: number;
+  step_number: number;
+  instruction: string;
+  image_url: string;
+  duration_mins: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrepRecipeStepInput {
+  step_number: number;
+  instruction: string;
+  image_url?: string;
+  duration_mins?: number;
+}
+
+export async function getPrepRecipeSteps(restaurantId: number, prepItemId: number): Promise<PrepRecipeStep[]> {
+  const res = await apiFetch<{ steps: PrepRecipeStep[] }>(`/api/v1/prep/items/${prepItemId}/steps`, restaurantId);
+  return res.steps;
+}
+
+export async function setPrepRecipeSteps(restaurantId: number, prepItemId: number, steps: PrepRecipeStepInput[]): Promise<PrepRecipeStep[]> {
+  const res = await apiFetch<{ steps: PrepRecipeStep[] }>(`/api/v1/prep/items/${prepItemId}/steps`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ steps }),
+  });
+  return res.steps;
+}
+
+export async function updatePrepRecipeMeta(restaurantId: number, prepItemId: number, meta: { prep_time_mins: number; notes: string }): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/v1/prep/items/${prepItemId}/recipe-meta`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify(meta),
+  });
+}
+
+export async function uploadPrepStepImage(restaurantId: number, prepItemId: number, stepId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/prep/items/${prepItemId}/steps/${stepId}/image`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -3889,4 +4637,324 @@ export async function deleteStockTransactions(restaurantId: number, ids: number[
     method: 'DELETE',
     body: JSON.stringify({ ids }),
   });
+}
+
+// ─── Global Search ──────────────────────────────────────────────────────────
+
+export type SearchGroupType = 'item' | 'order' | 'customer' | 'stock';
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  subtitle: string;
+  url: string;
+  image?: string;
+}
+
+export interface SearchGroup {
+  type: SearchGroupType;
+  label: string;
+  items: SearchResult[];
+}
+
+export interface SearchResponse {
+  query: string;
+  groups: SearchGroup[];
+}
+
+/**
+ * Global search across Articles, Commandes, Clients, Stock for a restaurant.
+ * Server returns empty groups for queries shorter than 2 chars; clients should
+ * skip the call in that case to avoid round trips.
+ */
+export async function searchGlobal(
+  restaurantId: number,
+  q: string,
+  signal?: AbortSignal,
+): Promise<SearchResponse> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    'X-Restaurant-ID': String(restaurantId),
+  };
+  const url = `${API_URL}/api/v1/restaurants/${restaurantId}/search?q=${encodeURIComponent(q)}&limit=5`;
+  const res = await fetch(url, { headers, signal });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Search failed (${res.status})`);
+  }
+  return res.json();
+}
+
+// ─── CSV Import (stock + library items) ──────────────────────────────────────
+
+export type CsvImportCategoryInput = {
+  name: string;
+  items: string[];
+};
+
+export type CsvImportStockInput = {
+  default_unit?: StockUnit;
+  categories: CsvImportCategoryInput[];
+};
+
+export type CsvImportLibraryInput = {
+  categories: CsvImportCategoryInput[];
+};
+
+export type CsvImportSkipped = {
+  name: string;
+  category: string;
+  reason: string;
+};
+
+export type CsvImportStockCreated = {
+  id: number;
+  name: string;
+  category: string;
+};
+
+export type CsvImportStockResult = {
+  created: CsvImportStockCreated[];
+  skipped: CsvImportSkipped[];
+};
+
+export type CsvImportLibraryCreated = {
+  id: number;
+  name: string;
+  category_id: number;
+};
+
+export type CsvImportLibraryCategory = {
+  id: number;
+  name: string;
+};
+
+export type CsvImportLibraryResult = {
+  created: CsvImportLibraryCreated[];
+  skipped: CsvImportSkipped[];
+  categories_created: CsvImportLibraryCategory[];
+};
+
+export async function importStockCsv(
+  restaurantId: number, payload: CsvImportStockInput
+): Promise<CsvImportStockResult> {
+  return apiFetch<CsvImportStockResult>(
+    `/api/v1/stock/import/csv?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+export async function importMenuItemsCsv(
+  restaurantId: number, payload: CsvImportLibraryInput
+): Promise<CsvImportLibraryResult> {
+  return apiFetch<CsvImportLibraryResult>(
+    `/api/v1/menu/import/csv?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+// ─── Recipe Lab ───────────────────────────────────────────────────────────────
+
+/** Generate one or more recipe drafts by dish name or existing menu item IDs. */
+export async function labGenerateDrafts(
+  restaurantId: number,
+  body: { dish_names?: string[]; menu_item_ids?: string[]; locale?: string }
+): Promise<{ drafts: Draft[] }> {
+  return apiFetch<{ drafts: Draft[] }>(
+    `/api/v1/lab/drafts/generate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(body) }
+  );
+}
+
+/** List recipe drafts, optionally filtered by status. */
+export async function labListDrafts(
+  restaurantId: number,
+  params?: { status?: DraftStatus[] }
+): Promise<Draft[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (params?.status?.length) {
+    qs.set('status', params.status.join(','));
+  }
+  return apiFetch<Draft[]>(`/api/v1/lab/drafts?${qs.toString()}`, restaurantId);
+}
+
+/** Fetch a single recipe draft by ID. */
+export async function labGetDraft(
+  restaurantId: number,
+  id: number
+): Promise<Draft> {
+  return apiFetch<Draft>(
+    `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId
+  );
+}
+
+/** Replace the payload of a draft without changing its status. Returns 204. */
+export async function labPatchDraft(
+  restaurantId: number,
+  id: number,
+  payload: DraftPayload
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PATCH', body: JSON.stringify(payload) }
+  );
+}
+
+/** Send a chat message to refine a draft; returns the assistant reply and diff patches. */
+export async function labRefineDraft(
+  restaurantId: number,
+  id: number,
+  userMessage: string
+): Promise<{ assistant_message: string; patches: LabChatPatch[] }> {
+  return apiFetch<{ assistant_message: string; patches: LabChatPatch[] }>(
+    `/api/v1/lab/drafts/${id}/refine?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ user_message: userMessage }) }
+  );
+}
+
+/** Commit a draft: create/link stock & prep items and create the menu item. */
+export async function labCommitDraft(
+  restaurantId: number,
+  id: number,
+  payload: DraftPayload
+): Promise<CommitResult> {
+  return apiFetch<CommitResult>(
+    `/api/v1/lab/drafts/${id}/commit?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+/** Discard a draft. Returns 204. */
+export async function labDiscardDraft(
+  restaurantId: number,
+  id: number
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/lab/drafts/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
+
+/** Get the restaurant's food cost target percentage (0–100). */
+export async function getFoodCostTarget(
+  restaurantId: number
+): Promise<{ food_cost_target_pct: number }> {
+  return apiFetch<{ food_cost_target_pct: number }>(
+    `/api/v1/restaurants/settings/food-cost-target?restaurant_id=${restaurantId}`, restaurantId
+  );
+}
+
+/** Set the restaurant's food cost target percentage (0–100). */
+export async function setFoodCostTarget(
+  restaurantId: number,
+  pct: number
+): Promise<{ food_cost_target_pct: number }> {
+  return apiFetch<{ food_cost_target_pct: number }>(
+    `/api/v1/restaurants/settings/food-cost-target?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ food_cost_target_pct: pct }) }
+  );
+}
+
+// ─── Recipe-aware Availability ──────────────────────────────────────────────
+
+export type AvailabilityOverride = 'auto' | 'force_available' | 'force_sold_out';
+export type AvailabilityState = 'available' | 'low' | 'sold_out' | 'hidden';
+export type OutOfStockBehavior = 'sold_out' | 'hide';
+
+/** A reusable availability rule in the restaurant's rule library. */
+export interface AvailabilityRule {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  track: boolean;
+  low_stock_threshold: number;
+  out_of_stock_behavior: OutOfStockBehavior;
+  show_count: boolean;
+  is_default: boolean;
+  sort_order: number;
+}
+
+export type AvailabilityRuleInput = Omit<AvailabilityRule, 'id' | 'restaurant_id'>;
+
+/** Live availability of one dish, for the per-dish editor panel. */
+export interface AvailabilityPreview {
+  buildable: number;
+  unlimited: boolean;
+  bottleneck: string;
+  state: AvailabilityState;
+  count: number | null;
+}
+
+/** List the rule library (seeds starter rules on first access). */
+export async function listAvailabilityRules(restaurantId: number): Promise<AvailabilityRule[]> {
+  const data = await apiFetch<{ rules: AvailabilityRule[] }>(`/api/v1/availability/rules`, restaurantId);
+  return data.rules ?? [];
+}
+
+export async function createAvailabilityRule(restaurantId: number, input: AvailabilityRuleInput): Promise<AvailabilityRule> {
+  const data = await apiFetch<{ rule: AvailabilityRule }>(`/api/v1/availability/rules`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.rule;
+}
+
+export async function updateAvailabilityRule(restaurantId: number, id: number, input: AvailabilityRuleInput): Promise<AvailabilityRule> {
+  const data = await apiFetch<{ rule: AvailabilityRule }>(`/api/v1/availability/rules/${id}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.rule;
+}
+
+export async function deleteAvailabilityRule(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/availability/rules/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** Live buildable count + bottleneck + resolved state for a single dish. */
+export async function previewItemAvailability(restaurantId: number, itemId: number): Promise<AvailabilityPreview> {
+  return apiFetch<AvailabilityPreview>(`/api/v1/availability/items/${itemId}/preview`, restaurantId);
+}
+
+// ─── WhatsApp Embedded Signup (ISV / Tech Provider) ────────────────────────────
+
+export interface WhatsAppSender {
+  id: number;
+  restaurant_id: number;
+  waba_id: string;
+  phone_number_id: string;
+  sender_sid: string;
+  sender_number: string;
+  display_name: string;
+  status: string; // CREATING | ONLINE | OFFLINE | PENDING_VERIFICATION | ...
+}
+
+/** Returns the restaurant's connected WhatsApp sender (with live-refreshed status), or null. */
+export async function getWhatsAppSender(restaurantId: number): Promise<WhatsAppSender | null> {
+  const res = await apiFetch<{ sender: WhatsAppSender | null }>(
+    `/api/v1/restaurants/${restaurantId}/whatsapp/sender`,
+    restaurantId,
+  );
+  return res.sender;
+}
+
+/** Registers the restaurant's WhatsApp sender after Embedded Signup completes. */
+export async function connectWhatsApp(
+  restaurantId: number,
+  input: { waba_id: string; phone_number_id: string; phone_number: string; display_name: string },
+): Promise<WhatsAppSender> {
+  return apiFetch<WhatsAppSender>(
+    `/api/v1/restaurants/${restaurantId}/whatsapp/connect`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Disconnects the restaurant's WhatsApp sender (deletes the local record). */
+export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/whatsapp/sender`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
 }

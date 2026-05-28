@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
@@ -21,6 +21,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import {
@@ -42,9 +43,13 @@ interface Tab {
   active?: boolean;
 }
 
+// The "active" tab sends an explicit status set instead of `active=true`
+// because the server's `active=true` shortcut still includes `served` for
+// backward compatibility with older POS clients — which would otherwise
+// inflate the badge count while the table filters them out.
 const TABS: Tab[] = [
   { key: 'all', labelKey: 'all', active: undefined },
-  { key: 'active', labelKey: 'active', active: true },
+  { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
   { key: 'scheduled', labelKey: 'scheduled', statuses: 'scheduled' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
@@ -242,13 +247,7 @@ export default function OrdersPage() {
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
   const [page, setPage] = useState(0);
 
-  // Mirrors foodypos: on the "Active" tab, hide orders that have reached a
-  // terminal state (served / received / picked_up / delivered / cancelled / rejected).
-  // The server includes `served` in the default active filter for backward
-  // compatibility with other clients, so we filter here.
-  const orders = activeTab === 'active'
-    ? rawOrders.filter((o) => !['served', 'received', 'picked_up', 'delivered', 'cancelled', 'rejected'].includes(o.status))
-    : rawOrders;
+  const orders = rawOrders;
   const setOrders = setRawOrders;
 
   // Selected order for right panel
@@ -271,7 +270,7 @@ export default function OrdersPage() {
       sort_dir: 'desc',
     };
     if (tab.statuses) params.status = tab.statuses;
-    if (tab.active) params.active = true;
+    else if (tab.active) params.active = true;
     if (searchSubmitted) params.q = searchSubmitted;
     if (typeFilter) params.type = typeFilter;
     if (paymentFilter) params.payment_status = paymentFilter;
@@ -382,20 +381,17 @@ export default function OrdersPage() {
       });
   };
 
-  const handleCloseOrder = (orderId: number, orderType: string, status: string) => {
+  const handleCloseOrder = (orderId: number, orderType: string) => {
     if (!confirm(t('closeOrderConfirm'))) return;
-    const isTerminalStatus = ['served', 'received', 'picked_up', 'delivered'].includes(status);
-    if (!isTerminalStatus) {
-      runAction(orderId, async () => {
-        if (orderType === 'delivery') {
-          await markOrderDelivered(rid, orderId);
-        } else {
-          // mark-served works from in_kitchen and ready (server validation).
-          // mark-received only works from ready, so prefer mark-served here.
-          await markOrderServed(rid, orderId);
-        }
-      });
-    }
+    runAction(orderId, async () => {
+      if (orderType === 'delivery') {
+        await markOrderDelivered(rid, orderId);
+      } else {
+        // mark-served works from in_kitchen and ready (server validation).
+        // mark-received only works from ready, so prefer mark-served here.
+        await markOrderServed(rid, orderId);
+      }
+    });
     setSelectedId(null);
   };
 
@@ -494,6 +490,8 @@ export default function OrdersPage() {
             </>
           }
         />
+
+        <FeatureIntro feature="orders" />
 
         {/* Status tabs — underline style with inline counts + dot-pulse.
             The rail spans the full row so partial tabs can fade off the end
@@ -723,7 +721,7 @@ export default function OrdersPage() {
         onOutForDelivery={() => selectedOrder && handleOutForDelivery(selectedOrder.id)}
         onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
-        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type, selectedOrder.status)}
+        onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
       />
 
       {/* Take Payment dialog */}
@@ -748,13 +746,18 @@ const TIMELINE_STEPS = [
 ];
 
 function statusIndex(status: string) {
-  // Map status to the furthest reached step (0..4)
+  // Map status to the furthest reached step (0..4).
+  // Step 0 "Reçue" means "a new order arrived", so every live order (including
+  // pending_review and scheduled) starts there — that first dot is the current
+  // step until staff accept the order. Only `rejected` sits before step 0 (-1):
+  // it's a terminal/negative outcome shown with its own danger banner, so the
+  // progression stays empty.
   if (['served', 'received', 'picked_up', 'delivered'].includes(status)) return 4;
   if (['ready', 'ready_for_pickup', 'ready_for_delivery', 'out_for_delivery'].includes(status)) return 3;
   if (status === 'in_kitchen') return 2;
   if (status === 'accepted') return 1;
-  if (['rejected', 'pending_review', 'scheduled'].includes(status)) return -1;
-  return 0;
+  if (status === 'rejected') return -1;
+  return 0; // pending_review, scheduled, and any other live status → "Reçue"
 }
 
 function OrderDetailDrawer({
@@ -809,6 +812,33 @@ function OrderDetailDrawer({
     }
   }
   const comboGroups: Array<[string, OrderItem[]]> = Array.from(comboGroupsMap.entries());
+
+  // Group regular items by their snapshotted category. Preserve first-seen
+  // order so the visual order matches how the customer composed the order.
+  // Items with no category snapshot (older/fake rows that pre-date the
+  // snapshot migration) fall into a single "Other" bucket at the end.
+  const categoryOrder: string[] = [];
+  const itemsByCategory = new Map<string, OrderItem[]>();
+  for (const it of regularItems) {
+    const key = it.category_name && it.category_name.trim() !== '' ? it.category_name : '__other__';
+    if (!itemsByCategory.has(key)) {
+      itemsByCategory.set(key, []);
+      categoryOrder.push(key);
+    }
+    itemsByCategory.get(key)!.push(it);
+  }
+  // Move __other__ to the end if both labelled and other groups exist, so
+  // labelled categories always come first.
+  const otherIdx = categoryOrder.indexOf('__other__');
+  if (otherIdx >= 0 && categoryOrder.length > 1) {
+    categoryOrder.splice(otherIdx, 1);
+    categoryOrder.push('__other__');
+  }
+  const categoryGroups: Array<{ key: string; label: string; items: OrderItem[] }> = categoryOrder.map((key) => ({
+    key,
+    label: key === '__other__' ? (t('uncategorized') || 'Autres') : key,
+    items: itemsByCategory.get(key)!,
+  }));
 
   const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const comboDeltasTotal = comboGroups.reduce(
@@ -868,7 +898,10 @@ function OrderDetailDrawer({
 
   const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
   const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
-  const canCloseOrder = !isCancelled && order.payment_status === 'paid';
+  // "Close order" transitions a paid in-progress order to served/delivered.
+  // Once already terminal there is nothing to do, so hide the button — clicking
+  // it was a no-op (the action early-exits) which read as a bug.
+  const canCloseOrder = !isCancelled && !isTerminal && order.payment_status === 'paid';
   const canCancelOrder = !isCancelled && !isTerminal;
 
   const toneVar: 'warning' | 'success' | 'danger' | 'info' =
@@ -1061,37 +1094,56 @@ function OrderDetailDrawer({
             </div>
           </Section>
 
-          {/* Items */}
+          {/* Items — grouped by snapshotted category, then a Combos section. */}
           <Section
             title={`${displayedLineCount} ${displayedLineCount === 1 ? t('item') : t('items')} · ${totalUnits} ${totalUnits === 1 ? (t('unit') || 'unité') : (t('units') || 'unités')}`}
           >
             <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {regularItems.map((item, i) => (
-                <OrderLineRow key={item.id} item={item} showTopBorder={i > 0} />
+              {categoryGroups.map((group, gi) => (
+                <Fragment key={group.key}>
+                  <CategoryHeader
+                    label={group.label}
+                    count={group.items.length}
+                    countLabel={group.items.length === 1 ? t('item') : t('items')}
+                    showTopBorder={gi > 0}
+                  />
+                  {group.items.map((item, ii) => (
+                    <OrderLineRow key={item.id} item={item} showTopBorder={ii > 0} />
+                  ))}
+                </Fragment>
               ))}
-              {comboGroups.map(([groupKey, comboItems], gi) => {
-                const comboName = comboItems[0]?.combo_name || t('comboMenuFallback') || 'Combo Menu';
-                const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
-                const comboTotal = comboPriceFor(comboItems) + deltas;
-                const showTopBorder = regularItems.length > 0 || gi > 0;
-                const totalPicks = comboItems.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
-                const picksLabel = totalPicks === 1 ? t('selection') : t('selections');
-                return (
-                  <div
-                    key={groupKey}
-                    className={`px-[var(--s-5)] py-[var(--s-4)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
-                  >
-                    <ComboCard
-                      comboName={comboName}
-                      comboTotal={comboTotal}
-                      comboItems={comboItems}
-                      totalPicks={totalPicks}
-                      picksLabel={picksLabel}
-                      comboLabel={(t('combo') || 'Combo').toUpperCase()}
-                    />
-                  </div>
-                );
-              })}
+              {comboGroups.length > 0 && (
+                <>
+                  <CategoryHeader
+                    label={(t('combos') || 'Combos').toUpperCase()}
+                    count={comboGroups.length}
+                    countLabel={comboGroups.length === 1 ? t('combo') || 'Combo' : t('combos') || 'Combos'}
+                    showTopBorder={categoryGroups.length > 0}
+                  />
+                  {comboGroups.map(([groupKey, comboItems], gi) => {
+                    const comboName = comboItems[0]?.combo_name || t('comboMenuFallback') || 'Combo Menu';
+                    const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
+                    const comboTotal = comboPriceFor(comboItems) + deltas;
+                    const totalPicks = comboItems.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
+                    const picksLabel = totalPicks === 1 ? t('selection') : t('selections');
+                    return (
+                      <div
+                        key={groupKey}
+                        className={`px-[var(--s-5)] py-[var(--s-3)] ${gi > 0 ? 'border-t border-[var(--line)]' : ''}`}
+                      >
+                        <ComboCard
+                          comboName={comboName}
+                          comboTotal={comboTotal}
+                          comboItems={comboItems}
+                          totalPicks={totalPicks}
+                          picksLabel={picksLabel}
+                          comboLabel={(t('combo') || 'Combo').toUpperCase()}
+                        />
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           </Section>
         </div>
@@ -1223,41 +1275,93 @@ function ScheduledBanner({ iso, t }: { iso: string; t: (k: string) => string }) 
   );
 }
 
+// ─── Variant chip text — name + recipe-derived portion, dedup'd ──────────────
+//
+// Returns the text to show in the variant chip on an order line. Combines the
+// variant name (e.g. "Normal") with the snapshotted portion (e.g. "250 g")
+// into "Normal · 250 g". Skips the portion when the variant name is itself a
+// numeric portion ("250g"), since the recipe-derived snapshot would otherwise
+// be a duplicate.
+function variantChipText(item: { selected_variant_name?: string; variant_portion?: string }): string | null {
+  const name = (item.selected_variant_name || '').trim();
+  const portion = (item.variant_portion || '').trim();
+  if (!name && !portion) return null;
+  const nameIsNumericPortion = /^\d+(?:[.,]\d+)?\s*(?:g|kg)?$/i.test(name);
+  if (!portion || nameIsNumericPortion) return name || portion;
+  if (!name) return portion;
+  return `${name} · ${portion}`;
+}
+
+// ─── Category / section header — the small uppercase eyebrow above each group ─
+
+function CategoryHeader({
+  label,
+  count,
+  countLabel,
+  showTopBorder,
+}: {
+  label: string;
+  count: number;
+  countLabel: string;
+  showTopBorder: boolean;
+}) {
+  return (
+    <div
+      className={`px-[var(--s-5)] py-[var(--s-2)] flex items-center justify-between gap-2 ${
+        showTopBorder ? 'border-t border-[var(--line)]' : ''
+      }`}
+      style={{ background: 'color-mix(in oklab, var(--fg) 3%, transparent)' }}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)] truncate">
+        {label}
+      </span>
+      <span className="text-[10px] text-[var(--fg-subtle)] tabular-nums shrink-0">
+        {count} {countLabel}
+      </span>
+    </div>
+  );
+}
+
+// ─── Quantity badge — the colored "{n}×" square shared by lines and combos ────
+
+function QtyBadge({ count, seed }: { count: number; seed: string }) {
+  return (
+    <div
+      className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm tracking-[-0.02em] shrink-0"
+      style={{ background: itemColor(seed) }}
+    >
+      {count}×
+    </div>
+  );
+}
+
 // ─── Regular order line row (shared across the items list) ────────────────────
 
 function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder: boolean }) {
+  const variantText = variantChipText(item);
+  const hasMods = !!(item.modifiers && item.modifiers.length > 0);
   return (
     <div
       className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
         showTopBorder ? 'border-t border-[var(--line)]' : ''
       }`}
     >
-      <div
-        className="w-11 h-11 rounded-r-md grid place-items-center text-white font-semibold text-fs-sm tracking-[-0.02em] shrink-0"
-        style={{ background: itemColor(item.name) }}
-      >
-        {item.quantity}×
-      </div>
+      <QtyBadge count={item.quantity} seed={item.name} />
       <div className="min-w-0">
         <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
           {item.name}
         </div>
-        {(item.selected_variant_name || item.variant_portion || (item.modifiers && item.modifiers.length > 0)) && (
+        {(variantText || hasMods) && (
           <div className="flex flex-wrap gap-1 mt-1.5">
-            {(item.variant_portion || item.selected_variant_name) && (
+            {variantText && (
               <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em] cursor-help"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em]"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
                   color: 'var(--brand-500)',
                 }}
-                title={
-                  item.variant_portion && item.selected_variant_name
-                    ? item.selected_variant_name
-                    : undefined
-                }
               >
-                {item.variant_portion || item.selected_variant_name}
+                {variantText}
               </span>
             )}
             {item.modifiers?.map((m) => (
@@ -1291,7 +1395,7 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
   );
 }
 
-// ─── Combo group card — distinct visual unit with brand-tinted rail ──────────
+// ─── Combo group card — same row format as a line, with a "COMBO" badge ───────
 
 function ComboCard({
   comboName,
@@ -1309,50 +1413,41 @@ function ComboCard({
   comboLabel: string;
 }) {
   return (
-    <div
-      className="rounded-r-md overflow-hidden"
-      style={{
-        background:
-          'linear-gradient(180deg, color-mix(in oklab, var(--brand-500) 7%, var(--surface)) 0%, color-mix(in oklab, var(--brand-500) 3%, var(--surface)) 100%)',
-        borderInlineStart: '2px solid var(--brand-500)',
-        border: '1px solid color-mix(in oklab, var(--brand-500) 18%, var(--line))',
-        borderInlineStartWidth: '2px',
-      }}
-    >
-      {/* Eyebrow row */}
-      <div className="px-[var(--s-4)] pt-[var(--s-3)] flex items-center justify-between gap-2">
-        <span
-          className="text-[10px] font-bold uppercase tracking-[0.14em]"
-          style={{ color: 'var(--brand-500)' }}
-        >
-          {comboLabel}
-        </span>
-        <span className="text-[11px] text-[var(--fg-subtle)] tabular-nums font-medium">
-          {totalPicks} {picksLabel}
-        </span>
-      </div>
-
-      {/* Title row */}
-      <div className="px-[var(--s-4)] pt-[var(--s-1)] pb-[var(--s-3)] grid grid-cols-[1fr_auto] gap-[var(--s-3)] items-baseline">
-        <div className="text-fs-md font-semibold truncate tracking-[-0.01em]">
-          {comboName}
+    <div>
+      {/* Header — identical layout to OrderLineRow (badge · name · price). A combo
+          is one unit, so the badge reads "1×" like any other line. */}
+      <div className="grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start">
+        <QtyBadge count={1} seed={comboName} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-fs-sm font-medium truncate tracking-[-0.005em]">
+              {comboName}
+            </span>
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em]"
+              style={{
+                background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                color: 'var(--brand-500)',
+              }}
+            >
+              {comboLabel}
+            </span>
+          </div>
+          <div className="text-fs-xs text-[var(--fg-subtle)] tabular-nums mt-0.5">
+            {totalPicks} {picksLabel}
+          </div>
         </div>
-        <div className="font-mono tabular-nums font-semibold text-fs-md tracking-[-0.01em]">
+        <div className="text-end font-mono tabular-nums font-medium">
           ₪{comboTotal.toFixed(2)}
         </div>
       </div>
 
-      {/* Sub-items */}
-      <div
-        className="px-[var(--s-4)] py-[var(--s-3)] flex flex-col gap-[var(--s-2)]"
-        style={{
-          borderTop: '1px solid color-mix(in oklab, var(--brand-500) 14%, transparent)',
-          background: 'color-mix(in oklab, var(--brand-500) 2%, transparent)',
-        }}
-      >
+      {/* Sub-items — nested under the name column with a neutral guide rail */}
+      <div className="mt-[var(--s-2)] ms-14 ps-[var(--s-3)] border-s border-[var(--line)] flex flex-col gap-[var(--s-2)]">
         {comboItems.map((ci) => {
           const lineDelta = ci.price * ci.quantity;
           const hasMods = ci.modifiers && ci.modifiers.length > 0;
+          const subVariantText = variantChipText(ci);
           return (
             <div
               key={ci.id}
@@ -1360,27 +1455,22 @@ function ComboCard({
             >
               <span
                 className="block w-1.5 h-1.5 rounded-full mt-[7px]"
-                style={{ background: 'color-mix(in oklab, var(--brand-500) 60%, var(--fg-muted))' }}
+                style={{ background: 'var(--fg-muted)' }}
               />
               <div className="min-w-0">
                 <span className="text-[var(--fg)] font-medium">
                   {ci.quantity > 1 ? `${ci.quantity}× ` : ''}
                   {ci.name}
                 </span>
-                {(ci.variant_portion || ci.selected_variant_name) && (
+                {subVariantText && (
                   <span
-                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle cursor-help"
+                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle"
                     style={{
                       background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
                       color: 'var(--brand-500)',
                     }}
-                    title={
-                      ci.variant_portion && ci.selected_variant_name
-                        ? ci.selected_variant_name
-                        : undefined
-                    }
                   >
-                    {ci.variant_portion || ci.selected_variant_name}
+                    {subVariantText}
                   </span>
                 )}
                 {hasMods && (

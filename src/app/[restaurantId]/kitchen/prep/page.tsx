@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   listPrepItems, listStockItems, createPrepItem, updatePrepItem, deletePrepItem,
-  getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
+  getPrepItem, getPrepIngredients, setPrepIngredients, previewPrepBatch, producePrepBatch,
   getDailyPrepPlan, createPrepTransaction,
   getPrepCategories, createPrepCategory, updatePrepCategory,
-  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory,
+  getPrepRecipeSteps, setPrepRecipeSteps, updatePrepRecipeMeta,
+  PrepItem, PrepItemInput, PrepIngredientInput, PrepCategory, PrepRecipeStepInput,
   StockItem, StockUnit, ProduceBatchResult, DailyPlanItem, PrepTransactionType,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
@@ -44,10 +45,14 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Button, Kpi, PageHead } from '@/components/ds';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import RecipeImportModal from '../RecipeImportModal';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { Layers as LayersIcon } from 'lucide-react';
+import RecipeStepsEditor, {
+  splitInstruction, joinInstruction, type StepView,
+} from '@/components/recipe/RecipeStepsEditor';
 
 const UNITS: StockUnit[] = ['kg', 'g', 'l', 'ml', 'unit', 'pack', 'box', 'bag', 'dose', 'other'];
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -293,6 +298,8 @@ export default function PrepPage() {
           </>
         }
       />
+
+      <FeatureIntro feature="prep" />
 
       <header className="mb-[var(--s-4)]">
         {/* KPI strip — clickable shortcuts that set filters directly (mirrors Stock).
@@ -653,15 +660,40 @@ function PrepItemModal({
   const [loadingIngs, setLoadingIngs] = useState(!!editing);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  // Cooking instructions (Recette tab). Steps are loaded for an existing prep;
+  // a new prep starts empty and is saved after the item is created.
+  const [tab, setTab] = useState<'details' | 'recipe'>('details');
+  const [steps, setSteps] = useState<StepView[]>([]);
+  const [prepTime, setPrepTime] = useState<number>(editing?.prep_time_mins ?? 0);
+  const [loadingSteps, setLoadingSteps] = useState(!!editing);
+  const [importOpen, setImportOpen] = useState(false);
+
+  // Load (and reload, e.g. after an AI import) the existing prep's recipe:
+  // prep time, ingredients and cooking steps.
+  const reloadRecipe = useCallback(async () => {
     if (!editing) return;
-    getPrepIngredients(rid, editing.id)
-      .then((ings) => setIngredients(ings.map((i) => ({
+    try {
+      const [item, ings, stepData] = await Promise.all([
+        getPrepItem(rid, editing.id).catch(() => null),
+        getPrepIngredients(rid, editing.id),
+        getPrepRecipeSteps(rid, editing.id).catch(() => [] as Awaited<ReturnType<typeof getPrepRecipeSteps>>),
+      ]);
+      if (item) setPrepTime(item.prep_time_mins ?? 0);
+      setIngredients(ings.map((i) => ({
         stock_item_id: i.stock_item_id,
         quantity_needed: Math.round(i.quantity_needed * 10000) / 10000,
-      }))))
-      .finally(() => setLoadingIngs(false));
+      })));
+      setSteps((stepData ?? []).map((s) => {
+        const parts = splitInstruction(s.instruction);
+        return { title: parts.title, description: parts.description, duration_mins: s.duration_mins ?? 0 };
+      }));
+    } finally {
+      setLoadingIngs(false);
+      setLoadingSteps(false);
+    }
   }, [rid, editing]);
+
+  useEffect(() => { void reloadRecipe(); }, [reloadRecipe]);
 
   const removeIngredient = (idx: number) => setIngredients(ingredients.filter((_, i) => i !== idx));
   const updateIngredient = (idx: number, patch: Partial<PrepIngredientInput>) => {
@@ -712,6 +744,16 @@ function PrepItemModal({
       if (ingredients.length > 0) {
         await setPrepIngredients(rid, itemId, ingredients);
       }
+      // Persist cooking instructions + prep time. setPrepRecipeSteps replaces
+      // the full set (an empty array clears removed steps); recipe-meta carries
+      // the prep time (notes is kept in sync via the rail field).
+      const stepsPayload: PrepRecipeStepInput[] = steps.map((s, i) => ({
+        step_number: i + 1,
+        instruction: joinInstruction(s.title, s.description),
+        duration_mins: s.duration_mins,
+      }));
+      await setPrepRecipeSteps(rid, itemId, stepsPayload);
+      await updatePrepRecipeMeta(rid, itemId, { prep_time_mins: prepTime, notes });
       onSaved();
       onClose();
     } catch (err: any) {
@@ -846,6 +888,17 @@ function PrepItemModal({
                   if (ingredients.length > 0) {
                     await setPrepIngredients(rid, created.id, ingredients);
                   }
+                  // Carry the recipe (cooking steps + prep time) onto the copy.
+                  if (steps.length > 0) {
+                    await setPrepRecipeSteps(rid, created.id, steps.map((s, i) => ({
+                      step_number: i + 1,
+                      instruction: joinInstruction(s.title, s.description),
+                      duration_mins: s.duration_mins,
+                    })));
+                  }
+                  if (prepTime > 0) {
+                    await updatePrepRecipeMeta(rid, created.id, { prep_time_mins: prepTime, notes });
+                  }
                   onSaved();
                   onClose();
                 } catch (err: any) {
@@ -893,6 +946,25 @@ function PrepItemModal({
       cancelLabel={t('cancel')}
       rail={rail}
     >
+      {/* Tabs: Détails | Recette */}
+      <div className="max-w-3xl mb-[var(--s-5)] flex gap-[var(--s-1)] border-b border-[var(--line)]">
+        {(['details', 'recipe'] as const).map((tk) => (
+          <button
+            key={tk}
+            type="button"
+            onClick={() => setTab(tk)}
+            className={`px-[var(--s-4)] py-[var(--s-2)] text-fs-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === tk
+                ? 'border-[var(--brand-500)] text-[var(--fg)]'
+                : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'
+            }`}
+          >
+            {tk === 'details' ? (t('tabDetails') || 'Détails') : (t('tabRecipe') || 'Recette')}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'details' && (
       <div className="max-w-3xl">
         <EditorSectionHead title={t('identityAndYield') || 'Identité & rendement'} />
 
@@ -973,88 +1045,161 @@ function PrepItemModal({
           </div>
         </div>
 
-        {/* Ingredients — 3px brand accent matches reference */}
-        <EditorSectionHead
-          title={t('prepRecipeSection') || 'Ingrédients'}
-          desc={
-            (yieldPerBatch ?? 0) > 0
-              ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
-              : undefined
-          }
-          aside={
-            <button
-              type="button"
-              onClick={openAddPicker}
-              className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-            >
-              <PlusIcon className="w-3.5 h-3.5" />
-              {t('addIngredient')}
-            </button>
-          }
-        />
-        {(yieldPerBatch ?? 0) > 0 && (
-          <p className="text-fs-xs text-[var(--fg-muted)] -mt-[var(--s-3)] mb-[var(--s-3)]">
-            {/* absorbed into EditorSectionHead desc above */}
-          </p>
-        )}
-        {loadingIngs ? (
-          <div className="flex justify-center py-4">
-            <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {ingredients.map((ing, idx) => {
-              const si = stockItems.find((s) => s.id === ing.stock_item_id);
-              return (
-                <div key={idx} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openSwapPicker(idx)}
-                    className="flex-1 min-w-0 flex items-center gap-3 px-2 py-1.5 rounded-lg border border-[var(--divider)] hover:border-brand-500 hover:bg-brand-500/5 transition-colors text-left"
-                  >
-                    {si?.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={si.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-lg bg-[var(--surface-subtle)] flex items-center justify-center shrink-0">
-                        <ImageIcon className="w-5 h-5 text-fg-tertiary" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-fg-primary truncate">
-                        {si?.name || '—'}
-                      </div>
-                      <div className="text-xs text-fg-secondary truncate">
-                        {si ? `${si.category || '—'} · ${si.unit}` : ''}
-                      </div>
-                    </div>
-                  </button>
-                  <div className="relative w-32 shrink-0">
-                    <NumberInput
-                      min={0}
-                      className="input w-full text-sm text-right pr-9"
-                      value={ing.quantity_needed}
-                      onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
-                      placeholder={t('qty')}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-fg-secondary pointer-events-none">
-                      {si?.unit || ''}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeIngredient(idx)}
-                    className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
-                    aria-label={t('delete')}
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
+      )}
+
+      {tab === 'recipe' && (
+        <div className="max-w-3xl">
+          {/* AI import shortcut — like the article recipe tab. Only for an
+              existing prep (it replaces this prep's recipe; creating a new prep
+              from a recipe is done from the page's Actions menu). */}
+          {editing && (
+            <div className="flex justify-end mb-[var(--s-4)]">
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-sm border border-[var(--line-strong)] text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors"
+              >
+                <SparklesIcon className="w-4 h-4" />
+                {t('importRecipe') || 'Importer une recette'}
+              </button>
+            </div>
+          )}
+
+          {/* Ingredients — same layout as the article recipe tab (RecipeTable),
+              adapted to preps (stock-only ingredients, no variants). */}
+          <div className="mb-[var(--s-6)]">
+            <div className="flex items-center justify-between mb-[var(--s-3)]">
+              <div>
+                <h4 className="text-fs-sm font-semibold text-[var(--fg)]">
+                  {t('ingredients') || 'Ingrédients'}
+                  <span className="text-[var(--fg-muted)] font-normal ms-1.5">
+                    · {ingredients.length} {ingredients.length === 1 ? 'élément' : 'éléments'}
+                  </span>
+                </h4>
+                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+                  {(yieldPerBatch ?? 0) > 0
+                    ? t('rawIngredientsDesc').replace('{yield}', String(yieldPerBatch)).replace('{unit}', unit)
+                    : (t('prepIngredientsSubtitle') || 'Saisissez la quantité de chaque ingrédient pour 1 batch.')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openAddPicker}
+                className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+              >
+                <PlusIcon className="w-3.5 h-3.5" />
+                {t('addIngredient') || 'Ajouter un ingrédient'}
+              </button>
+            </div>
+
+            {loadingIngs ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
+              </div>
+            ) : ingredients.length === 0 ? (
+              <p className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-8)] text-center rounded-r-md border-2 border-dashed border-[var(--line-strong)]">
+                {t('noIngredients') || 'Aucun ingrédient ajouté.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-r-md border border-[var(--line)] bg-[var(--surface)]">
+                <table className="w-full text-fs-sm" role="table">
+                  <thead className="bg-[var(--surface-2)]">
+                    <tr>
+                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
+                        Ingrédient
+                      </th>
+                      <th className="text-start px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider w-[110px]">
+                        Unité
+                      </th>
+                      <th className="text-end px-[var(--s-3)] py-[var(--s-2)] font-semibold text-[var(--fg-muted)] uppercase text-fs-xs tracking-wider">
+                        Quantité
+                      </th>
+                      <th className="w-10" aria-hidden />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ingredients.map((ing, idx) => {
+                      const si = stockItems.find((s) => s.id === ing.stock_item_id);
+                      return (
+                        <tr key={idx} className="border-t border-[var(--line)] hover:bg-[var(--surface-2)]/50 transition-colors">
+                          <td className="px-[var(--s-3)] py-[var(--s-2)]">
+                            <button
+                              type="button"
+                              onClick={() => openSwapPicker(idx)}
+                              className="flex items-center gap-[var(--s-2)] min-w-0 text-start"
+                            >
+                              {si?.image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={si.image_url} alt="" className="w-7 h-7 rounded-r-sm object-cover shrink-0" />
+                              ) : (
+                                <div className="shrink-0 w-7 h-7 rounded-full grid place-items-center text-white" style={{ background: 'var(--brand-700)' }} aria-hidden>
+                                  <ImageIcon className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+                              <span className="text-fs-sm font-medium text-[var(--fg)] truncate hover:underline">
+                                {si?.name || '—'}
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-[var(--s-3)] py-[var(--s-2)] text-[var(--fg-muted)]">
+                            {si?.unit || '—'}
+                          </td>
+                          <td className="px-[var(--s-3)] py-[var(--s-2)] text-end">
+                            <NumberInput
+                              min={0}
+                              value={ing.quantity_needed}
+                              onChange={(v) => updateIngredient(idx, { quantity_needed: v })}
+                              placeholder="0"
+                              className="w-full max-w-[100px] px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] text-end font-mono tabular-nums focus:outline-none focus:border-[var(--brand-500)]"
+                            />
+                          </td>
+                          <td className="px-[var(--s-2)] py-[var(--s-2)] text-end">
+                            <button
+                              type="button"
+                              onClick={() => removeIngredient(idx)}
+                              className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                              aria-label={t('delete')}
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-[var(--surface-2)]">
+                    <tr className="border-t-2 border-[var(--line-strong)]">
+                      <td className="px-[var(--s-3)] py-[var(--s-2)] text-fs-xs font-semibold uppercase tracking-wider text-[var(--fg-muted)]" colSpan={2}>
+                        Coût matière (HT)
+                      </td>
+                      <td className="px-[var(--s-3)] py-[var(--s-2)] text-end font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                        {costTotal > 0 ? `${costTotal.toFixed(2)} ₪` : '—'}
+                      </td>
+                      <td aria-hidden />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Instructions — shared with the article recipe tab */}
+          {loadingSteps ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <RecipeStepsEditor
+              steps={steps}
+              prepTime={prepTime}
+              showNotes={false}
+              onStepsChange={setSteps}
+              onPrepTimeChange={setPrepTime}
+            />
+          )}
+        </div>
+      )}
 
       {pickerOpen && (
         <StockItemPickerModal
@@ -1072,6 +1217,20 @@ function PrepItemModal({
           }
           onConfirm={onPickerConfirm}
           onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {importOpen && editing && (
+        <RecipeImportModal
+          rid={rid}
+          stockItems={stockItems}
+          mode={{ kind: 'prep', prepItem: editing }}
+          onClose={() => setImportOpen(false)}
+          onImported={async () => {
+            setImportOpen(false);
+            await reloadRecipe();
+            onSaved();
+          }}
         />
       )}
     </FullScreenEditor>

@@ -252,7 +252,7 @@ export default function CompareCostsPage() {
                 </span>
               )}
               <button
-                onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=cost`)}
+                onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
                 className="inline-flex items-center gap-[var(--s-1)] text-fs-xs text-[var(--brand-500)] hover:text-[var(--brand-600)] transition-colors w-fit"
               >
                 {t('openItemCta') || 'Ouvrir l’article'}

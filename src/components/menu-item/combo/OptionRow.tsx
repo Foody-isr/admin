@@ -4,20 +4,26 @@
 //
 // Layout: [drag] [thumb] [name + default badge] [upcharge chip / inclus] [edit] [remove]
 
-import { GripVertical, Pin, X } from 'lucide-react';
+import { AlertTriangle, GripVertical, Pin, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView } from './types';
 import { NumberInput } from '@/components/ui/NumberInput';
+import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
+  /** Item isn't on any carte. Triggers the off-carte warning chip + the
+   *  "Inclure quand même" toggle so the operator decides whether the combo
+   *  surfaces this item to customers anyway. */
+  comboOnly?: boolean;
   onUpchargeChange: (next: number) => void;
+  onForceOffCarteToggle: (next: boolean) => void;
   onRemove: () => void;
   onSetDefault: () => void;
 }
 
-export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDefault }: Props) {
+export default function OptionRow({ option, comboOnly, onUpchargeChange, onForceOffCarteToggle, onRemove, onSetDefault }: Props) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
 
@@ -35,7 +41,33 @@ export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDef
               <Pin className="w-2.5 h-2.5" /> {t('composeDefaultBadge')}
             </span>
           )}
+          {comboOnly && (
+            <span
+              className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
+              style={{
+                background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+                color: 'var(--warning-500)',
+              }}
+              title={t('composeOffCarteWarnTooltip')}
+            >
+              <AlertTriangle className="w-2.5 h-2.5" />
+              {t('composeOffCarteWarnShort')}
+            </span>
+          )}
         </div>
+        {comboOnly && (
+          <label className="inline-flex items-center gap-1.5 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={option.forceOffCarte}
+              onChange={(e) => onForceOffCarteToggle(e.target.checked)}
+              className="w-3 h-3 accent-[var(--brand-500)]"
+            />
+            <span title={t('composeOffCarteForceTooltip')}>
+              {t('composeOffCarteForceLabel')}
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Upcharge: pill (collapsed) → inline number input (editing) */}
@@ -89,19 +121,3 @@ export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDef
   );
 }
 
-function Thumb({ url }: { url?: string }) {
-  if (url) {
-    /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={url} alt="" className="w-7 h-7 rounded-r-sm object-cover bg-[var(--surface-3)] shrink-0" />;
-  }
-  return (
-    <div
-      className="w-7 h-7 rounded-r-sm shrink-0"
-      style={{
-        background: 'var(--surface-3)',
-        backgroundImage: 'repeating-linear-gradient(45deg, color-mix(in oklab, var(--fg) 14%, transparent) 0 4px, transparent 4px 8px)',
-      }}
-      aria-hidden
-    />
-  );
-}

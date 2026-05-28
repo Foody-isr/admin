@@ -5,20 +5,26 @@
 //   • a vertical list of VariantSubRow — one per source variant (excluded
 //     ones rendered greyed-out so the operator can re-include them).
 
-import { ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView, VariantView } from './types';
 import VariantSubRow from './VariantSubRow';
+import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
   basePrice: number;
+  /** Item isn't on any carte. Triggers the warning chip + "Inclure quand
+   *  même" toggle so the operator decides per-option (not per-variant —
+   *  carte status is a property of the source MenuItem). */
+  comboOnly?: boolean;
   onChange: (variants: VariantView[]) => void;
+  onForceOffCarteToggle: (next: boolean) => void;
   onRemove: () => void;
 }
 
-export default function OptionRowWithVariants({ option, basePrice, onChange, onRemove }: Props) {
+export default function OptionRowWithVariants({ option, basePrice, comboOnly, onChange, onForceOffCarteToggle, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -38,7 +44,7 @@ export default function OptionRowWithVariants({ option, basePrice, onChange, onR
     <div className="rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] overflow-hidden">
       {/* Parent header */}
       <div className="flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)]">
-        <Thumb url={option.imageUrl} />
+        <Thumb url={option.imageUrl} size={36} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-fs-sm font-semibold text-[var(--fg)] truncate">{option.itemName}</span>
@@ -46,10 +52,37 @@ export default function OptionRowWithVariants({ option, basePrice, onChange, onR
               <Layers className="w-2.5 h-2.5" />
               {t('composeVariantsCount').replace('{n}', String(option.variants.length))}
             </span>
+            {comboOnly && (
+              <span
+                className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
+                style={{
+                  background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+                  color: 'var(--warning-500)',
+                }}
+                title={t('composeOffCarteWarnTooltip')}
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+                {t('composeOffCarteWarnShort')}
+              </span>
+            )}
           </div>
-          <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-            {t('composeIncludedInCombo')}
-          </div>
+          {comboOnly ? (
+            <label className="inline-flex items-center gap-1.5 mt-0.5 text-fs-xs text-[var(--fg-muted)] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={option.forceOffCarte}
+                onChange={(e) => onForceOffCarteToggle(e.target.checked)}
+                className="w-3 h-3 accent-[var(--brand-500)]"
+              />
+              <span title={t('composeOffCarteForceTooltip')}>
+                {t('composeOffCarteForceLabel')}
+              </span>
+            </label>
+          ) : (
+            <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+              {t('composeIncludedInCombo')}
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -92,19 +125,3 @@ export default function OptionRowWithVariants({ option, basePrice, onChange, onR
   );
 }
 
-function Thumb({ url }: { url?: string }) {
-  if (url) {
-    /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={url} alt="" className="w-9 h-9 rounded-r-sm object-cover bg-[var(--surface-3)] shrink-0" />;
-  }
-  return (
-    <div
-      className="w-9 h-9 rounded-r-sm shrink-0"
-      style={{
-        background: 'var(--surface-3)',
-        backgroundImage: 'repeating-linear-gradient(45deg, color-mix(in oklab, var(--fg) 14%, transparent) 0 4px, transparent 4px 8px)',
-      }}
-      aria-hidden
-    />
-  );
-}

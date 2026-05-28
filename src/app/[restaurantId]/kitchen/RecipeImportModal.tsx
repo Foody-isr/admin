@@ -5,7 +5,7 @@ import {
   importRecipesFromFile, importRecipesFromText, confirmRecipes, confirmPrepRecipe,
   getRestaurantSettings,
   RecipeExtraction, ConfirmRecipeItemInput, ConfirmPrepRecipeInput,
-  StockItem, MenuItem,
+  StockItem, MenuItem, PrepItem,
 } from '@/lib/api';
 import {
   SparklesIcon, TrashIcon, FileTextIcon,
@@ -18,6 +18,7 @@ import StockQuantityForm, {
   StockInput, BaseUnit, defaultStockInput, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
 import { classifyUnits, convertUnit, formatConverted } from '@/lib/stock/unit-compat';
+import RecipeStepsEditor, { joinInstruction, type StepView } from '@/components/recipe/RecipeStepsEditor';
 
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
 function coerceBaseUnit(u: string): BaseUnit {
@@ -26,7 +27,9 @@ function coerceBaseUnit(u: string): BaseUnit {
 
 export type RecipeImportModalMode =
   | { kind: 'menu-item'; menuItem: MenuItem }
-  | { kind: 'prep' };
+  // prepItem set = import into that existing prep (replace its recipe);
+  // omitted = create a new prep from the imported recipe.
+  | { kind: 'prep'; prepItem?: PrepItem };
 
 interface RecipeImportModalProps {
   rid: number;
@@ -64,6 +67,9 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
     /** Captured packaging/pricing form state for new items (UI-only, not persisted). */
     stockForm?: StockInput;
   }>>([]);
+  // Extracted cooking instructions (prep mode only). Reviewed/edited before confirm.
+  const [editedSteps, setEditedSteps] = useState<StepView[]>([]);
+  const [editedPrepTime, setEditedPrepTime] = useState(0);
   const [vatRate, setVatRate] = useState(18);
 
   // Load VAT rate
@@ -94,9 +100,11 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
       // Auto-select first recipe
       if (result.recipes.length > 0) {
         const recipe = result.recipes[0];
-        setEditedName(recipe.dish_name || '');
-        setEditedYield(recipe.total_yield || 0);
-        setEditedYieldUnit(recipe.total_yield_unit || 'kg');
+        const existingPrep = mode.kind === 'prep' ? mode.prepItem : undefined;
+        setEditedName(recipe.dish_name || existingPrep?.name || '');
+        // Prefer the document's yield; fall back to the existing prep's batch yield.
+        setEditedYield(recipe.total_yield || existingPrep?.yield_per_batch || 0);
+        setEditedYieldUnit(recipe.total_yield_unit || existingPrep?.unit || 'kg');
         setEditedIngredients(recipe.ingredients.map((ing) => {
           const matched = ing.matched_item_id ? stockItems.find((s) => s.id === ing.matched_item_id) : null;
           const isNew = ing.is_new || !matched;
@@ -115,6 +123,12 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
               : undefined,
           };
         }));
+        setEditedSteps((recipe.steps ?? []).map((s) => ({
+          title: s.title || '',
+          description: s.description || '',
+          duration_mins: s.duration_mins ?? 0,
+        })));
+        setEditedPrepTime(existingPrep?.prep_time_mins ?? 0);
       }
       if (file) setPreviewUrl(URL.createObjectURL(file));
       setStep('review');
@@ -146,16 +160,25 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
         };
         await confirmRecipes(rid, { recipes: [input] });
       } else {
-        if (!editedName.trim()) {
+        const existingPrep = mode.prepItem;
+        // Name is only user-entered when creating; for an existing prep we keep
+        // its name and just replace the recipe.
+        if (!existingPrep && !editedName.trim()) {
           setError(t('nameLabel') + ' *');
           setLoading(false);
           return;
         }
         const input: ConfirmPrepRecipeInput = {
-          name: editedName.trim(),
+          prep_item_id: existingPrep?.id ?? null,
+          name: existingPrep ? existingPrep.name : editedName.trim(),
           yield: editedYield,
           yield_unit: editedYieldUnit,
+          prep_time_mins: editedPrepTime,
           ingredients,
+          steps: editedSteps.map((s) => ({
+            instruction: joinInstruction(s.title, s.description),
+            duration_mins: s.duration_mins,
+          })),
         };
         await confirmPrepRecipe(rid, input);
       }
@@ -185,7 +208,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-fg-primary flex items-center gap-2">
               <SparklesIcon className="w-5 h-5 text-brand-500" />
-              {t('importRecipe')}{mode.kind === 'menu-item' ? ` — ${mode.menuItem.name}` : ''}
+              {t('importRecipe')}{mode.kind === 'menu-item' ? ` — ${mode.menuItem.name}` : (mode.prepItem ? ` — ${mode.prepItem.name}` : '')}
             </h3>
             <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none">&times;</button>
           </div>
@@ -273,6 +296,9 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           {mode.kind === 'menu-item' && (
             <span className="text-sm text-fg-secondary">— {mode.menuItem.name}</span>
           )}
+          {mode.kind === 'prep' && mode.prepItem && (
+            <span className="text-sm text-fg-secondary">— {mode.prepItem.name}</span>
+          )}
           <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-500 font-medium">
             {editedIngredients.length} {t('ingredients')}
           </span>
@@ -281,7 +307,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
           <button onClick={() => { setStep('input'); setExtraction(null); }} className="btn-secondary text-sm">{t('back')}</button>
           <button
             onClick={handleConfirm}
-            disabled={loading || editedIngredients.length === 0 || (mode.kind === 'prep' && !editedName.trim())}
+            disabled={loading || editedIngredients.length === 0 || (mode.kind === 'prep' && !mode.prepItem && !editedName.trim())}
             className="btn-primary text-sm"
           >
             {loading ? t('saving') : t('confirmImport')}
@@ -325,7 +351,7 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
         {/* ─ Ingredients editor (right) ─ */}
         <div className={`${hasDocumentPreview || tab === 'text' ? 'w-1/2' : 'w-full'} overflow-y-auto p-4`}>
           {/* Prep name (only when creating a new prep item) */}
-          {mode.kind === 'prep' && (
+          {mode.kind === 'prep' && !mode.prepItem && (
             <div className="flex items-center gap-3 mb-3 p-3 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
               <label className="text-sm text-fg-secondary font-medium shrink-0">{t('nameLabel')}:</label>
               <input
@@ -548,6 +574,25 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
               );
             })}
           </div>
+
+          {/* Cooking instructions extracted by the AI — review before confirm (prep only) */}
+          {mode.kind === 'prep' && (
+            <div className="mt-6 pt-6 border-t border-[var(--divider)]">
+              <h4 className="text-sm font-semibold text-fg-primary mb-1">
+                {t('recipeInstructions') || 'Instructions'}
+              </h4>
+              <p className="text-xs text-fg-secondary mb-4">
+                {t('importStepsReviewHint') || 'Vérifiez les étapes extraites avant de confirmer.'}
+              </p>
+              <RecipeStepsEditor
+                steps={editedSteps}
+                prepTime={editedPrepTime}
+                showNotes={false}
+                onStepsChange={setEditedSteps}
+                onPrepTimeChange={setEditedPrepTime}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

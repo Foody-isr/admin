@@ -1,50 +1,50 @@
 'use client';
 
-// Pricing model card for the Composition tab. Holds:
-//   • segmented mode picker (only "Fixed" enabled in v1)
-//   • base price + computed range + savings vs solo
+// Pricing card for the Composition tab. Shows base price + computed range +
+// savings vs solo.
 //
 // `basePrice` is the canonical "Prix" field already on the MenuItem record;
 // we just expose its label here as "Prix de base" since that's what it
 // represents for combos.
 
-import { Pin, Layers, DollarSign, Info, AlertTriangle } from 'lucide-react';
+import { Info, AlertTriangle } from 'lucide-react';
 import type { MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Chip } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft } from './types';
-import { computeComboSavings, type PricingMode } from './pricing';
+import { computeComboSavings } from './pricing';
 
 interface Props {
   basePrice: number;
   onBasePriceChange: (next: number) => void;
   steps: ComboStepDraft[];
   itemsById: Map<number, MenuItem>;
-  pricingMode: PricingMode;
-  onPricingModeChange: (next: PricingMode) => void;
   /** Optional drilldown — when set, the savings cell becomes a button that
    *  calls this on click (the host page opens the breakdown modal). */
   onShowSavingsDetail?: () => void;
 }
 
 export default function PricingCard({
-  basePrice, onBasePriceChange, steps, itemsById, pricingMode, onPricingModeChange,
+  basePrice, onBasePriceChange, steps, itemsById,
   onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
   const summary = computeComboSavings(basePrice, steps, itemsById);
 
-  // Three states for the savings cell:
-  //   • unknown: items haven't loaded — no comparison possible. Render "—".
-  //   • saves:   savingsMax > 0 — combo cheaper than solo in at least the
-  //     pricier scenarios. We key off savingsMax (not savingsMin) so a combo
-  //     that breaks even at the cheapest pick but saves money elsewhere still
-  //     surfaces the upside.
-  //   • costs more: savingsMin < 0 — combo MORE expensive than solo in at
+  // Four states for the savings cell:
+  //   • unknown:      items haven't loaded — no comparison possible.
+  //   • incomparable: at least one required step has options with no
+  //     standalone retail price (share plates, per-person items priced at ₪0
+  //     solo). Surfacing a savings or surcharge number would mislead — we
+  //     render "—" and the modal explains why.
+  //   • saves:        savingsMax > 0 — combo cheaper than solo in at least
+  //     the pricier scenarios. Keyed off savingsMax (not savingsMin) so a
+  //     combo that breaks even at the cheapest pick still surfaces upside.
+  //   • costs more:   savingsMin < 0 — combo MORE expensive than solo in at
   //     least one scenario (operator misconfiguration warning).
-  const savingsState: 'unknown' | 'saves' | 'costs-more' | 'even' =
+  const savingsState: 'unknown' | 'incomparable' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
+    : !summary.comparable ? 'incomparable'
     : summary.savingsMax > 0 ? 'saves'
     : summary.savingsMin < 0 ? 'costs-more'
     : 'even';
@@ -55,36 +55,9 @@ export default function PricingCard({
 
   return (
     <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 p-[var(--s-4)]">
-      <div className="flex items-start justify-between gap-[var(--s-3)] mb-[var(--s-4)] flex-wrap">
-        <div>
-          <div className="text-fs-md font-semibold text-[var(--fg)]">{t('composePricingTitle')}</div>
-          <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{t('composePricingSubtitle')}</div>
-        </div>
-        <div className="flex items-center gap-[var(--s-2)] flex-wrap">
-          <Chip
-            active={pricingMode === 'fixed'}
-            onClick={() => onPricingModeChange('fixed')}
-            leading={<Pin className="w-3 h-3" />}
-          >
-            {t('composePricingFixed')}
-          </Chip>
-          <Chip
-            active={pricingMode === 'sumMinusPercent'}
-            disabled
-            title={t('composePricingSoon')}
-            leading={<Layers className="w-3 h-3" />}
-          >
-            {t('composePricingSumPercent')}
-          </Chip>
-          <Chip
-            active={pricingMode === 'sumMinusFixed'}
-            disabled
-            title={t('composePricingSoon')}
-            leading={<DollarSign className="w-3 h-3" />}
-          >
-            {t('composePricingSumFixed')}
-          </Chip>
-        </div>
+      <div className="mb-[var(--s-4)]">
+        <div className="text-fs-md font-semibold text-[var(--fg)]">{t('composePricingTitle')}</div>
+        <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{t('composePricingSubtitle')}</div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-4)]">
@@ -146,6 +119,14 @@ export default function PricingCard({
             const inner = (
               <>
                 {savingsState === 'unknown' && <>—</>}
+                {savingsState === 'incomparable' && (
+                  <span
+                    className="truncate"
+                    title={t('comboSavingsIncomparable') || 'Comparaison indisponible : certaines options sont vendues uniquement dans ce combo.'}
+                  >
+                    {t('comboSavingsIncomparableShort') || 'Non comparable'}
+                  </span>
+                )}
                 {savingsState === 'even' && <>±₪0 · 0%</>}
                 {savingsState === 'saves' && (
                   absSaveMin === absSaveMax

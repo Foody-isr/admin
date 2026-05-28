@@ -22,6 +22,7 @@ export interface RailComboSummary {
   savingsMax: number;
   savingsPct: number;
   unknown: boolean;
+  comparable: boolean;
 }
 
 interface Props {
@@ -63,8 +64,8 @@ export default function MenuItemSummaryRail({
   return (
     <>
       {/* Item card */}
-      <div className="bg-white dark:bg-[#1a1a1a] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 shadow-sm">
-        <div className="relative h-48 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30">
+      <div className="bg-[var(--surface)] rounded-r-lg overflow-hidden border border-[var(--line)] shadow-sm">
+        <div className="relative h-48 bg-gradient-to-br from-[color-mix(in_oklab,var(--brand-500)_16%,transparent)] to-[color-mix(in_oklab,var(--brand-500)_7%,transparent)]">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -73,14 +74,14 @@ export default function MenuItemSummaryRail({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-orange-600 dark:text-orange-200">
+            <div className="w-full h-full flex items-center justify-center text-[var(--brand-500)]">
               <ImageIcon className="w-10 h-10" />
             </div>
           )}
           {typeof activeStatus === 'boolean' && (
             <span
-              className={`absolute top-3 right-3 size-3 rounded-full border-2 border-white dark:border-[#1a1a1a] ${
-                activeStatus ? 'bg-green-500' : 'bg-neutral-400'
+              className={`absolute top-3 right-3 size-3 rounded-full border-2 border-[var(--surface)] ${
+                activeStatus ? 'bg-[var(--success-500)]' : 'bg-[var(--fg-subtle)]'
               }`}
               title={activeStatus ? t('available') : t('unavailable')}
             />
@@ -98,17 +99,17 @@ export default function MenuItemSummaryRail({
         </div>
 
         <div className="p-4">
-          <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-1 truncate" title={name}>
+          <h3 className="text-lg font-bold text-[var(--fg)] mb-1 truncate" title={name}>
             {name || placeholderLabel || '\u2014'}
           </h3>
           <div className="flex items-center gap-2">
             {typeof price === 'number' && price > 0 && (
-              <span className="text-orange-500 font-semibold text-base">
+              <span className="text-[var(--brand-500)] font-semibold text-base">
                 {price.toFixed(2)} {currency}
               </span>
             )}
             {categoryName && (
-              <span className="px-2.5 py-0.5 bg-neutral-100 dark:bg-[#2a2a2a] text-neutral-700 dark:text-neutral-300 rounded text-xs font-medium truncate">
+              <span className="px-2.5 py-0.5 bg-[var(--surface-2)] text-[var(--fg-muted)] rounded text-xs font-medium truncate">
                 {categoryName}
               </span>
             )}
@@ -128,13 +129,13 @@ export default function MenuItemSummaryRail({
 
       {/* Cost summary — Figma:65 */}
       {costSummary && (
-        <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
-          <h4 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-4">
+        <div className="mt-6 bg-[var(--surface)] rounded-r-lg p-4 border border-[var(--line)]">
+          <h4 className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wider mb-4">
             {t('costSummary')}
           </h4>
           <div className="space-y-3">
             <Row label={t('foodCostLabel')}>
-              <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+              <span className="text-sm font-semibold text-[var(--fg)]">
                 {costSummary.foodCost.toFixed(2)} {currency}
               </span>
             </Row>
@@ -143,8 +144,8 @@ export default function MenuItemSummaryRail({
               <span
                 className={`text-sm font-semibold ${
                   costSummary.margin >= 0
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-orange-500'
+                    ? 'text-[var(--success-500)]'
+                    : 'text-[var(--brand-500)]'
                 }`}
               >
                 {costSummary.margin.toFixed(2)} {currency}
@@ -154,13 +155,13 @@ export default function MenuItemSummaryRail({
             <Row label={t('costPercent')}>
               <div className="flex items-center gap-1">
                 {overThreshold && (
-                  <AlertCircle size={14} className="text-orange-500" />
+                  <AlertCircle size={14} className="text-[var(--brand-500)]" />
                 )}
                 <span
                   className={`text-sm font-semibold ${
                     overThreshold
-                      ? 'text-orange-500'
-                      : 'text-neutral-900 dark:text-white'
+                      ? 'text-[var(--brand-500)]'
+                      : 'text-[var(--fg)]'
                   }`}
                 >
                   {(costSummary.costPct * 100).toFixed(1)}%
@@ -177,14 +178,14 @@ export default function MenuItemSummaryRail({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-neutral-600 dark:text-neutral-400">{label}</span>
+      <span className="text-sm text-[var(--fg-muted)]">{label}</span>
       {children}
     </div>
   );
 }
 
 function Divider() {
-  return <div className="h-px bg-neutral-200 dark:bg-neutral-700" />;
+  return <div className="h-px bg-[var(--line)]" />;
 }
 
 // ── Combo savings panel ─────────────────────────────────────────────────
@@ -204,8 +205,12 @@ function ComboSavingsPanel({
   // State is driven by the OUTER bound of the savings range so a combo whose
   // cheapest scenario breaks even but whose pricier scenarios save money still
   // shows up as "saves" instead of falling silently into 'even'.
-  const state: 'unknown' | 'saves' | 'costs-more' | 'even' =
+  // `incomparable` short-circuits all the others — when the comparison would
+  // run against a fictional baseline (share plates, per-person items priced
+  // at ₪0 solo), we replace the saves/surcharge framing with a help note.
+  const state: 'unknown' | 'incomparable' | 'saves' | 'costs-more' | 'even' =
     summary.unknown ? 'unknown'
+    : !summary.comparable ? 'incomparable'
     : summary.savingsMax > 0 ? 'saves'
     : summary.savingsMin < 0 ? 'costs-more'
     : 'even';
@@ -235,20 +240,56 @@ function ComboSavingsPanel({
     ? `${summary.comboMin.toFixed(2)} ${currency}`
     : `${summary.comboMin.toFixed(2)} – ${summary.comboMax.toFixed(2)} ${currency}`;
 
+  // Incomparable combos skip the solo/surcharge math entirely — showing
+  // "490 ₪" with a strike-through next to a ₪1600 combo is just noise when
+  // the operator never intended those items to sell solo. The drilldown
+  // stays reachable so the operator can still see which options are
+  // missing a standalone retail price.
+  if (state === 'incomparable') {
+    const help = (
+      <p className="text-xs text-[var(--fg-muted)] leading-relaxed">
+        {t('comboSavingsIncomparable') || 'Comparaison indisponible : certaines options sont vendues uniquement dans ce combo (plats à partager, prix par personne).'}
+      </p>
+    );
+    return (
+      <div className="mt-6 bg-[var(--surface)] rounded-r-lg p-4 border border-[var(--line)]">
+        <h4 className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wider mb-4">
+          {t('comboSavingsPanelTitle') || 'Économies pour le client'}
+        </h4>
+        <div className="space-y-3">
+          <Row label={t('composeBasePriceLabel')}>
+            <span className="text-sm font-semibold text-[var(--fg)] tabular-nums">
+              {comboLabel}
+            </span>
+          </Row>
+          {onShowDetail ? (
+            <button
+              type="button"
+              onClick={onShowDetail}
+              className="text-start hover:underline focus:outline-none focus-visible:underline"
+            >
+              {help}
+            </button>
+          ) : help}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-6 bg-white dark:bg-[#1a1a1a] rounded-xl p-4 border border-neutral-200 dark:border-neutral-700">
-      <h4 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-4">
+    <div className="mt-6 bg-[var(--surface)] rounded-r-lg p-4 border border-[var(--line)]">
+      <h4 className="text-xs font-semibold text-[var(--fg-muted)] uppercase tracking-wider mb-4">
         {t('comboSavingsPanelTitle') || 'Économies pour le client'}
       </h4>
       <div className="space-y-3">
         <Row label={t('composeSoldSeparately')}>
-          <span className="text-sm text-neutral-500 dark:text-neutral-400 line-through tabular-nums">
+          <span className="text-sm text-[var(--fg-muted)] line-through tabular-nums">
             {soloLabel}
           </span>
         </Row>
         <Divider />
         <Row label={t('composeBasePriceLabel')}>
-          <span className="text-sm font-semibold text-neutral-900 dark:text-white tabular-nums">
+          <span className="text-sm font-semibold text-[var(--fg)] tabular-nums">
             {comboLabel}
           </span>
         </Row>
@@ -257,10 +298,10 @@ function ComboSavingsPanel({
           ? (t('comboSurchargeLabel') || 'Surcoût combo')
           : (t('reduction') || 'Réduction')}>
           {state === 'unknown' && (
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">—</span>
+            <span className="text-sm text-[var(--fg-muted)]">—</span>
           )}
           {state === 'even' && (
-            <span className="text-sm text-neutral-500 dark:text-neutral-400 tabular-nums">±{currency}0</span>
+            <span className="text-sm text-[var(--fg-muted)] tabular-nums">±{currency}0</span>
           )}
           {state === 'saves' && (
             detailable ? (

@@ -4,7 +4,7 @@ import { ChevronDown, Boxes, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
-import SearchableListField from '@/components/SearchableListField';
+import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import TypePickerCards from './combo/TypePickerCards';
@@ -33,8 +33,9 @@ interface Props {
   categories: MenuCategory[];
   // Foody-specific: menu attachment (kept below the reference fields).
   menus: Menu[];
-  selectedMenuIds: Set<number>;
-  setSelectedMenuIds: (s: Set<number>) => void;
+  /** menu_group IDs this item should be a member of. */
+  selectedGroupIds: Set<number>;
+  setSelectedGroupIds: (s: Set<number>) => void;
   itemType: ItemType;
   /** Request a type change. The parent decides whether to confirm or apply
    *  immediately (it owns the variant/recipe/modifier/step state that may
@@ -56,6 +57,14 @@ interface Props {
   translations?: TranslationMap;
   /** Updater for translations. Pass a fresh object back to the parent. */
   setTranslations?: (t: TranslationMap) => void;
+  /**
+   * When the article has meaningful sizes/variants, the single base-price
+   * field is replaced by a hint — price is then owned solely by the size rows
+   * (rendered just below by the page's VariantsEditor). This removes the
+   * "same price shown in two places" confusion. Combos never set this (they
+   * keep a base price).
+   */
+  hideBasePrice?: boolean;
 }
 
 export default function MenuItemTabDetails({
@@ -67,8 +76,8 @@ export default function MenuItemTabDetails({
   vatRate,
   categories,
   menus,
-  selectedMenuIds,
-  setSelectedMenuIds,
+  selectedGroupIds,
+  setSelectedGroupIds,
   itemType,
   onTypeChange,
   comboStepsCount = 0,
@@ -76,6 +85,7 @@ export default function MenuItemTabDetails({
   sourceLocale,
   translations,
   setTranslations,
+  hideBasePrice = false,
 }: Props) {
   const { t } = useI18n();
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -231,18 +241,26 @@ export default function MenuItemTabDetails({
             label={priceLabel}
             hint={isCombo ? t('composeBasePriceHint') : undefined}
           >
-            <div className="relative">
-              <NumberField
-                min={0}
-                value={price}
-                onChange={setPrice}
-                placeholder="0.00"
-                className="pr-8 font-mono"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                ₪
-              </span>
-            </div>
+            {hideBasePrice ? (
+              // Sizes own the price — show a read-only hint pointing at the
+              // size rows below instead of a second editable price field.
+              <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)]/40 text-fs-xs text-[var(--fg-muted)]">
+                {t('priceFromSizes') || 'Le prix est défini par les tailles ci-dessous.'}
+              </div>
+            ) : (
+              <div className="relative">
+                <NumberField
+                  min={0}
+                  value={price}
+                  onChange={setPrice}
+                  placeholder="0.00"
+                  className="pr-8 font-mono"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                  ₪
+                </span>
+              </div>
+            )}
           </Field>
 
           <Field label={t('vat') || 'TVA'}>
@@ -310,15 +328,17 @@ export default function MenuItemTabDetails({
           )}
         </Field>
 
-        {/* Menus / Cartes — foody-specific; below reference fields. */}
-        <Field label={t('menus') || 'Cartes'} hint={t('cartesDescription') || "Cartes où cet article apparaît"}>
-          <SearchableListField
-            mode="multi"
+        {/* Menus / Cartes — foody-specific; below reference fields. The picker
+            lets the owner choose exact groups (not just menus) so that items
+            don't silently land in whichever group happens to be first. */}
+        <Field label={t('menus') || 'Cartes'} hint={t('cartesPickHint') || 'Où cet article apparaît côté client.'}>
+          <MenuGroupPicker
+            menus={menus}
+            selectedGroupIds={selectedGroupIds}
+            onChange={setSelectedGroupIds}
             placeholder={t('addToMenus') || 'Ajouter à des cartes'}
             emptyLabel={t('noMenusAvailable') || 'Aucune carte disponible'}
-            options={menus.map((m) => ({ value: String(m.id), label: m.name }))}
-            values={Array.from(selectedMenuIds).map(String)}
-            onChange={(vs) => setSelectedMenuIds(new Set(vs.map(Number)))}
+            noGroupsHint={t('noGroupsInMenu') || 'Aucun groupe dans cette carte'}
           />
         </Field>
 

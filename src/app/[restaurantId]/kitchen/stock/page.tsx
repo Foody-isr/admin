@@ -7,12 +7,13 @@ import {
   getStockCategories, createStockTransaction, listStockTransactions,
   batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
-  createStockCategory, updateStockCategory,
+  createStockCategory, updateStockCategory, deleteStockCategory,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
   Supplier,
 } from '@/lib/api';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
+import CsvImportModal from '@/components/import/CsvImportModal';
 import StockQuantityForm, {
   StockInput,
   defaultStockInput,
@@ -29,7 +30,8 @@ import FormField from '@/components/FormField';
 import StatusPill from '@/components/StatusPill';
 import SearchableListField from '@/components/SearchableListField';
 import { FullScreenEditor, EditorSectionHead, Badge, Field, Input, NumberField, Textarea } from '@/components/ds';
-import { Image as LucideImageIcon, Camera } from 'lucide-react';
+import { Image as LucideImageIcon, Camera, Sparkles } from 'lucide-react';
+import IngredientIconPicker from '@/components/stock/IngredientIconPicker';
 import {
   SearchIcon, PlusIcon, DownloadIcon,
   AlertTriangleIcon, TrashIcon, PencilIcon,
@@ -53,6 +55,7 @@ import {
 } from '@/components/data-table';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
+import { FeatureIntro } from '@/components/help/FeatureIntro';
 import {
   getPackaging,
   formatQuantityAtLevel,
@@ -150,6 +153,7 @@ export default function StockPage() {
   const [historyItem, setHistoryItem] = useState<StockItem | null>(null);
   const [importModal, setImportModal] = useState(false);
   const [importDraftId, setImportDraftId] = useState<number | undefined>(undefined);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [vatRate, setVatRate] = useState(18);
   // HT/TTC display preference. Drives both the table price cells and the
   // create/edit form's price entry mode. Persists in localStorage per user.
@@ -390,6 +394,7 @@ export default function StockPage() {
           </>
         }
       />
+      <FeatureIntro feature="stock" />
       <header className="mb-[var(--s-4)]">
         <div className="hidden" />
 
@@ -535,6 +540,11 @@ export default function StockPage() {
                 icon: <SparklesIcon className="w-4 h-4" />,
               },
               {
+                label: t('importCsv'),
+                onClick: () => setCsvImportOpen(true),
+                icon: <UploadIcon className="w-4 h-4" />,
+              },
+              {
                 label: t('refresh'),
                 onClick: reload,
                 icon: <RefreshCwIcon className="w-4 h-4" />,
@@ -649,18 +659,20 @@ export default function StockPage() {
                       <button
                         type="button"
                         onClick={() => setItemModal({ open: true, editing: item })}
-                        className="flex items-center gap-3 text-left hover:text-orange-500 transition-colors"
+                        className="flex items-center gap-4 text-left hover:text-orange-500 transition-colors"
                       >
                         {item.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={item.image_url}
-                            alt=""
-                            className="size-12 rounded-xl object-cover shrink-0"
-                          />
+                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.image_url}
+                              alt=""
+                              className="size-full object-contain drop-shadow-sm"
+                            />
+                          </div>
                         ) : (
-                          <div className="size-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900 dark:to-orange-800 flex items-center justify-center shrink-0">
-                            <ImageIcon className="w-5 h-5 text-orange-600 dark:text-orange-200" />
+                          <div className="size-20 rounded-2xl shrink-0 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-white/[0.04] dark:to-white/[0.02] ring-1 ring-black/5 dark:ring-white/5 shadow-sm shadow-black/5 dark:shadow-black/30 flex items-center justify-center">
+                            <ImageIcon className="w-7 h-7 text-neutral-400 dark:text-white/30" />
                           </div>
                         )}
                         <span className="font-medium text-neutral-900 dark:text-white">
@@ -857,6 +869,18 @@ export default function StockPage() {
         />
       )}
 
+      {/* CSV Import Modal */}
+      {csvImportOpen && (
+        <CsvImportModal
+          mode="stock"
+          restaurantId={rid}
+          onClose={() => setCsvImportOpen(false)}
+          onImported={reload}
+          existingCategories={categories.map((c) => c.name)}
+          existingItemKeys={new Set(items.map((it) => `${(it.category ?? '').toLowerCase()}::${it.name.toLowerCase()}`))}
+        />
+      )}
+
       {/* Category drawer — dual-mode (filter | bulk-assign), same as Articles.
           Create & edit use the stock_categories metadata table. */}
       <CategoryDrawer
@@ -893,6 +917,23 @@ export default function StockPage() {
           ]);
           setCategories(fresh);
           setItems(items2);
+        }}
+        onDeleteCategory={async (name) => {
+          const cat = categories.find((c) => c.name === name);
+          if (!cat || cat.id <= 0) return;
+          await deleteStockCategory(rid, cat.id);
+          const [fresh, items2] = await Promise.all([
+            getStockCategories(rid),
+            listStockItems(rid),
+          ]);
+          setCategories(fresh);
+          setItems(items2);
+          setSelectedCategories((prev) => {
+            if (!prev.has(name)) return prev;
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
         }}
         processing={bulkProcessing}
       />
@@ -958,7 +999,24 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleIconPick = async (iconUrl: string) => {
+    setIconPickerOpen(false);
+    // Picked from library = no file to upload, just point at the existing URL.
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingFile(null);
+    setPendingPreview('');
+    setImageUrl(iconUrl);
+    if (editing) {
+      try {
+        await updateStockItem(rid, editing.id, { image_url: iconUrl });
+      } catch (err: any) {
+        alert(err.message || 'Save failed');
+      }
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -1073,15 +1131,28 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             e.target.value = '';
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="absolute bottom-2 end-2 w-8 h-8 rounded-r-sm grid place-items-center text-white"
-          style={{ background: 'rgba(0,0,0,.6)' }}
-          aria-label={t('editImage') || 'Modifier'}
-        >
-          <Camera className="w-3.5 h-3.5" />
-        </button>
+        <div className="absolute bottom-2 end-2 flex gap-1">
+          <button
+            type="button"
+            onClick={() => setIconPickerOpen(true)}
+            className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
+            style={{ background: 'rgba(0,0,0,.6)' }}
+            aria-label={t('pickFromLibrary') || 'Pick from icon library'}
+            title={t('pickFromLibrary') || 'Pick from icon library'}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
+            style={{ background: 'rgba(0,0,0,.6)' }}
+            aria-label={t('editImage') || 'Upload photo'}
+            title={t('editImage') || 'Upload photo'}
+          >
+            <Camera className="w-3.5 h-3.5" />
+          </button>
+        </div>
         <div className="absolute top-2 start-2">
           <Badge tone={isActive ? 'success' : 'neutral'} dot>
             {isActive ? t('active') : t('inactive')}
@@ -1331,6 +1402,14 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           </div>
         </div>
       </div>
+      {iconPickerOpen && (
+        <IngredientIconPicker
+          restaurantId={rid}
+          initialQuery={name}
+          onPick={(icon) => handleIconPick(icon.image_url)}
+          onClose={() => setIconPickerOpen(false)}
+        />
+      )}
     </FullScreenEditor>
   );
 }

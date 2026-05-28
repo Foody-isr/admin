@@ -12,14 +12,15 @@
 
 import { Plus, AlertCircle } from 'lucide-react';
 import { useMemo } from 'react';
-import type { MenuCategory, MenuItem } from '@/lib/api';
+import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft } from './types';
+import { effectiveStepKind } from './types';
 import StepCard from './StepCard';
 import PricingCard from './PricingCard';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
-import type { PricingMode } from './pricing';
+import { buildAnyCarteItemIdSet } from './webCarte';
 
 interface Props {
   comboName: string;
@@ -28,8 +29,9 @@ interface Props {
   steps: ComboStepDraft[];
   onStepsChange: (next: ComboStepDraft[]) => void;
   categories: MenuCategory[];
-  pricingMode?: PricingMode;
-  onPricingModeChange?: (next: PricingMode) => void;
+  /** Available cartes — forwarded into the step picker so the operator can
+   *  scope the catalog to a single menu while composing the combo. */
+  menus: Menu[];
   /** Forwarded to the PricingCard's savings cell — host opens the breakdown
    *  modal. */
   onShowSavingsDetail?: () => void;
@@ -39,7 +41,7 @@ export default function CompositionTab({
   comboName, basePrice, onBasePriceChange,
   steps, onStepsChange,
   categories,
-  pricingMode = 'fixed', onPricingModeChange,
+  menus,
   onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
@@ -53,6 +55,13 @@ export default function CompositionTab({
     return m;
   }, [categories]);
 
+  // Items reachable through any non-hidden, channel-enabled group on any
+  // carte. Drives (1) the category-step preview's "hors carte" zone — items
+  // the server's resolver would silently drop at order time — and (2) the
+  // per-row "Combo-only" informational badge on explicit-mode rows, where
+  // absence from a carte just means the combo IS the customer pathway.
+  const anyCarteItemIds = useMemo(() => buildAnyCarteItemIdSet(menus), [menus]);
+
 
   const errors = useMemo(
     () => validateCombo(steps, itemsById, {
@@ -61,6 +70,9 @@ export default function CompositionTab({
       stepRange: (n) => t('comboValidStepRange').replace('{name}', n),
       stepNoVariants: (n, item) =>
         t('comboValidStepNoVariantsIncluded').replace('{name}', n).replace('{item}', item),
+      stepNoCategory: (n) => t('comboValidStepNoCategory').replace('{name}', n),
+      stepSizeNoMatch: (n, size) =>
+        t('comboValidStepSizeNoMatch').replace('{name}', n).replace('{size}', size),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [steps, itemsById],
@@ -75,13 +87,35 @@ export default function CompositionTab({
   };
 
   const addStep = () => {
+    const choiceCount = steps.filter((s) => s.kind !== 'fixed').length;
     const fresh: ComboStepDraft = {
       key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}`,
-      name: t('composeStepDefaultName').replace('{n}', String(steps.length + 1)),
+      name: t('composeStepDefaultName').replace('{n}', String(choiceCount + 1)),
       description: '',
       min_picks: 1,
       max_picks: 1,
       items: [],
+      source_type: 'explicit',
+      kind: 'choice',
+    };
+    onStepsChange([...steps, fresh]);
+  };
+
+  // Fixed item = a step whose contents are pre-defined and the customer makes
+  // no choice. Encoded as a single-item step with min_picks === max_picks. The
+  // foodyweb modal auto-detects when every step matches this shape and renders
+  // a "What's included" preview instead of the stepper.
+  const addFixedItem = () => {
+    const fixedCount = steps.filter((s) => s.kind === 'fixed').length;
+    const fresh: ComboStepDraft = {
+      key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `fixed-${Date.now()}`,
+      name: t('composeFixedItemDefaultName').replace('{n}', String(fixedCount + 1)),
+      description: '',
+      min_picks: 1,
+      max_picks: 1,
+      items: [],
+      source_type: 'explicit',
+      kind: 'fixed',
     };
     onStepsChange([...steps, fresh]);
   };
@@ -100,34 +134,53 @@ export default function CompositionTab({
         onBasePriceChange={onBasePriceChange}
         steps={steps}
         itemsById={itemsById}
-        pricingMode={pricingMode}
-        onPricingModeChange={onPricingModeChange ?? (() => {})}
         onShowSavingsDetail={onShowSavingsDetail}
       />
 
-      {/* Steps */}
+      {/* Steps. Choice-step indices restart at 0 because the numbered circle
+          encodes the customer's pick sequence — fixed items aren't part of
+          that flow (they're just "what's included") and render with a pin
+          glyph instead of a number, so they're skipped when numbering. */}
       <div className="flex flex-col gap-[var(--s-3)]">
-        {steps.map((step, i) => (
-          <StepCard
-            key={step.key}
-            step={step}
-            index={i}
-            basePrice={basePrice}
-            categories={categories}
-            itemsById={itemsById}
-            onChange={(next) => updateStep(step.key, next)}
-            onRemove={() => removeStep(step.key)}
-          />
-        ))}
+        {(() => {
+          let choiceIdx = 0;
+          return steps.map((step) => {
+            const displayIndex = effectiveStepKind(step) === 'fixed' ? 0 : choiceIdx++;
+            return (
+              <StepCard
+                key={step.key}
+                step={step}
+                index={displayIndex}
+                basePrice={basePrice}
+                categories={categories}
+                itemsById={itemsById}
+                menus={menus}
+                anyCarteItemIds={anyCarteItemIds}
+                onChange={(next) => updateStep(step.key, next)}
+                onRemove={() => removeStep(step.key)}
+              />
+            );
+          });
+        })()}
 
-        {/* Add step CTA */}
-        <button
-          type="button"
-          onClick={addStep}
-          className="w-full py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
-        >
-          <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
-        </button>
+        {/* Add CTAs — "New step" for choices, "Fixed item" for pre-defined contents. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-3)]">
+          <button
+            type="button"
+            onClick={addStep}
+            className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
+          </button>
+          <button
+            type="button"
+            onClick={addFixedItem}
+            title={t('composeAddFixedItemHint')}
+            className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" /> {t('composeAddFixedItem')}
+          </button>
+        </div>
       </div>
 
       {/* Validation errors — surfaced inline at the bottom of the tab */}

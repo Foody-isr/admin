@@ -1,23 +1,49 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  importDelivery, confirmDelivery, listSuppliers, getRestaurantSettings,
-  getImportDraft, createImportDraft, deleteImportDraft,
+  importDeliveryStream, importDeliveryVoice, confirmDelivery, listSuppliers, getRestaurantSettings,
+  getImportDraft, createImportDraft, deleteImportDraft, chatDeliveryEdit,
   DeliveryExtraction, ConfirmDeliveryItemInput, StockItem, Supplier, StockUnit,
+  DeliveryStreamDone, ChatItemSnapshot, ChatTurn, ChatPatch,
 } from '@/lib/api';
 
-import { SparklesIcon, FileTextIcon } from 'lucide-react';
+import { SparklesIcon, FileTextIcon, SendHorizonalIcon, MicIcon, ScanIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import SearchableSelect from '@/components/SearchableSelect';
+import { FoodySpinner } from '@/components/FoodySpinner';
+import VoiceRecorder from '@/components/VoiceRecorder';
 import StockQuantityForm, {
   StockInput, BaseUnit, PackagingUnit, deriveTotals,
 } from '@/components/stock/StockQuantityForm';
+
+// Maps the AI's canonical English category labels (from the extraction prompt)
+// to i18n keys, so we can render and persist them in the user's locale rather
+// than forcing English category names into a French/Hebrew admin.
+const AI_CATEGORY_KEYS: Record<string, string> = {
+  'meat':       'catMeat',
+  'dairy':      'catDairy',
+  'produce':    'catProduce',
+  'dry goods':  'catDryGoods',
+  'beverages':  'catBeverages',
+  'frozen':     'catFrozen',
+  'oils':       'catOils',
+  'spices':     'catSpices',
+  'cleaning':   'catCleaning',
+  'other':      'catOther',
+};
+
+function localizeAiCategory(raw: string, t: (key: string) => string): string {
+  if (!raw) return '';
+  const key = AI_CATEGORY_KEYS[raw.trim().toLowerCase()];
+  return key ? t(key) : raw;
+}
 
 const PACKAGING_UNITS: Set<string> = new Set([
   'carton', 'pack', 'box', 'bag', 'bottle',
   'can', 'jar', 'sachet', 'tub', 'brick', 'packet',
   'crate', 'sack', 'case', 'pot', 'jug',
+  'plaquette', 'tray',
 ]);
 
 function coercePackagingUnit(value: string | undefined, fallback: PackagingUnit): PackagingUnit {
@@ -25,6 +51,11 @@ function coercePackagingUnit(value: string | undefined, fallback: PackagingUnit)
 }
 
 const BASE_SET: Set<string> = new Set(['g', 'kg', 'ml', 'l', 'unit']);
+// Weight/volume base units only — used to defensively prefer item.unit_size_unit
+// over item.unit when the extracted item gives a real weight/volume for the
+// inner content (e.g. "240 g") but the top-level unit field was emitted as
+// "unit" — a common AI mistake the prompt cannot fully prevent.
+const WEIGHT_VOLUME_UNITS: Set<string> = new Set(['g', 'kg', 'ml', 'l']);
 
 /** Map the AI-extracted delivery line into our union.
  *  Strategy: if pack/units-per-pack/unit-size suggest multi-level packaging,
@@ -34,7 +65,14 @@ function lineToStockInput(item: ConfirmDeliveryItemInput): StockInput {
   const packs = item.pack_count ?? 0;
   const upp = item.units_per_pack ?? 0;
   const us = item.unit_size ?? 0;
-  const unit = (item.unit || 'kg') as StockUnit;
+  // Effective base unit for the CONTENT. Prefer item.unit_size_unit when it
+  // declares a real weight/volume — that field describes the size of the
+  // inner unit directly and is more reliable than item.unit, which the AI
+  // sometimes defaults to "unit" even when a weight ("240 grammes") was
+  // clearly given. Falls back to item.unit otherwise.
+  const usu = (item.unit_size_unit ?? '').toLowerCase();
+  const rawUnit = (item.unit ?? '').toLowerCase();
+  const unit = (WEIGHT_VOLUME_UNITS.has(usu) ? usu : (rawUnit || 'kg')) as StockUnit;
   const isBase = BASE_SET.has(unit);
 
   // Nested: outer × inner × content
@@ -168,6 +206,22 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
   }, []);
   const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(draftId);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [importMode, setImportMode] = useState<'scan' | 'voice'>('scan');
+  const [streaming, setStreaming] = useState(false);
+  const [streamError, setStreamError] = useState('');
+  // Last submitted blob — kept so the Retry button on the error banner can
+  // re-send the same audio without forcing the user to re-record.
+  const lastVoiceRef = useRef<{ blob: Blob; mediaType: string } | null>(null);
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
+  // Whisper transcript from the most recent voice import — rendered in the
+  // left pane so the user can see exactly what the AI heard before reviewing
+  // the extracted items. Cleared between scans.
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Load restaurant suppliers + VAT rate, and resume draft if draftId provided
   useEffect(() => {
@@ -226,9 +280,125 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
   const handleUpload = async () => {
     if (!file) return;
-    setLoading(true);
+    setStreamError('');
+    setEditedItems([]);
+    setFormStates([]);
+    setReviewedItems(new Set());
+    setExtraction({ supplier_name: '', delivery_date: '', items: [], raw_notes: '' });
+    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewType(file.type);
+    setStep('review');
+    setStreaming(true);
+    setSummaryDismissed(false);
+    setVoiceTranscript('');
+
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    const appendItem = (it: DeliveryExtraction['items'][number]) => {
+      const matched = it.matched_item_id ? stockItems.find((s) => s.id === it.matched_item_id) : null;
+      const line: ConfirmDeliveryItemInput = {
+        stock_item_id: it.matched_item_id ?? undefined,
+        name: it.translated_name || it.original_name,
+        original_name: it.original_name,
+        sku: it.sku || '',
+        quantity: it.quantity,
+        unit: it.unit,
+        // The AI emits a fixed English enum for category (Meat / Dairy / …).
+        // Translate to the active locale before storing so the admin doesn't
+        // show English labels in a French/Hebrew UI, and so the value matches
+        // what the user would type if they created a category manually.
+        category: localizeAiCategory(it.category, t),
+        cost_per_unit: it.estimated_cost,
+        pack_count: it.pack_count ?? 0,
+        units_per_pack: it.units_per_pack ?? 0,
+        price_per_pack: it.price_per_pack || 0,
+        total_price: it.total_price || (it.estimated_cost * it.quantity),
+        unit_size: it.unit_size || 0,
+        unit_size_unit: it.unit_size_unit || '',
+        container_type: it.container_type || '',
+        unit_type: it.unit_type || '',
+        vat_rate_override: matched?.vat_rate_override ?? null,
+        row_index: it.row_index,
+        needs_review: it.needs_review,
+        review_reason: it.review_reason,
+      };
+      setEditedItems((prev) => [...prev, line]);
+      setFormStates((prev) => [...prev, lineToStockInput(line)]);
+    };
+
+    const applyLateFlags = (done: DeliveryStreamDone) => {
+      const flags = done.late_flags;
+      if (flags) {
+        setEditedItems((prev) => prev.map((item, idx) => {
+          let next = item;
+          if (flags.duplicate_row_indexes?.includes(idx)) {
+            next = {
+              ...next,
+              needs_review: true,
+              review_reason: next.review_reason || 'duplicate_row',
+            };
+          }
+          if (flags.deduped_indexes?.includes(idx)) {
+            next = { ...next, skipped: true };
+          }
+          return next;
+        }));
+      }
+      setExtraction((prev) => prev ? { ...prev, raw_notes: done.raw_notes ?? prev.raw_notes } : prev);
+    };
+
     try {
-      const result = await importDelivery(rid, file, locale, 'hybrid', undefined, selectedSupplierId > 0 ? selectedSupplierId : undefined);
+      await importDeliveryStream(rid, file,
+        { lang: locale, supplierId: selectedSupplierId > 0 ? selectedSupplierId : undefined },
+        {
+          onMeta: (m) => setExtraction((prev) => prev
+            ? { ...prev, supplier_name: m.supplier_name ?? prev.supplier_name, delivery_date: m.delivery_date ?? prev.delivery_date }
+            : prev),
+          onItem: appendItem,
+          onProgress: () => {},
+          onDone: (done) => { applyLateFlags(done); setStreaming(false); },
+          onError: ({ message }) => { setStreamError(message); setStreaming(false); },
+        },
+        ac.signal,
+      );
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setStreamError((err as Error).message);
+      }
+      setStreaming(false);
+    }
+  };
+
+  // ── Voice import: record → transcribe → review ────────────────────────
+  // Reuses the same streaming-UI state as the bill-scan path: while the
+  // backend transcribes + parses we flip `streaming=true` so the user sees
+  // the FoodySpinner banner with cycling verbs. When the extraction arrives,
+  // we batch-insert every item just like a list arriving at the end.
+  const handleVoiceSubmit = async (audioBlob: Blob, mediaType: string) => {
+    lastVoiceRef.current = { blob: audioBlob, mediaType };
+    setStreamError('');
+    setEditedItems([]);
+    setFormStates([]);
+    setReviewedItems(new Set());
+    setExtraction({ supplier_name: '', delivery_date: '', items: [], raw_notes: '' });
+    setPreviewUrl(null);
+    setPreviewType('');
+    setReviewTab('items');
+    setStep('review');
+    setStreaming(true);
+    setSummaryDismissed(false);
+    setVoiceTranscript('');
+
+    try {
+      const { extraction: result, transcript } = await importDeliveryVoice(
+        rid,
+        audioBlob,
+        mediaType,
+        locale,
+        selectedSupplierId > 0 ? selectedSupplierId : undefined,
+      );
+      setVoiceTranscript(transcript);
       setExtraction(result);
       const newItems: ConfirmDeliveryItemInput[] = result.items.map((i) => {
         const matched = i.matched_item_id ? stockItems.find((s) => s.id === i.matched_item_id) : null;
@@ -239,7 +409,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           sku: i.sku || '',
           quantity: i.quantity,
           unit: i.unit,
-          category: i.category,
+          category: localizeAiCategory(i.category, t),
           cost_per_unit: i.estimated_cost,
           pack_count: i.pack_count ?? 0,
           units_per_pack: i.units_per_pack ?? 0,
@@ -257,14 +427,114 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
       });
       setEditedItems(newItems);
       setFormStates(newItems.map(lineToStockInput));
-      setReviewedItems(new Set());
-      setPreviewUrl(URL.createObjectURL(file));
-      setPreviewType(file.type);
-      setStep('review');
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      setStreamError((err as Error).message);
     } finally {
-      setLoading(false);
+      setStreaming(false);
+    }
+  };
+
+  const cancelStream = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    lastVoiceRef.current = null;
+    setStreaming(false);
+    setEditedItems([]);
+    setFormStates([]);
+    setStep('upload');
+  };
+
+  // ── Chat: targeted AI edits over the current items ─────────────────────
+  // Builds a slim snapshot of the current items, sends the user's message
+  // + history to the chat endpoint, and applies the returned patches to
+  // editedItems/formStates in place.
+  const applyChatPatches = (patches: ChatPatch[]) => {
+    if (patches.length === 0) return;
+    setEditedItems((prev) => {
+      const next = prev.slice();
+      const formNext = formStates.slice();
+      for (const p of patches) {
+        if (p.item_index < 0 || p.item_index >= next.length) continue;
+        const cur = next[p.item_index];
+        const patched: ConfirmDeliveryItemInput = {
+          ...cur,
+          ...(p.name !== undefined ? { name: p.name } : {}),
+          ...(p.category !== undefined ? { category: p.category } : {}),
+          ...(p.quantity !== undefined ? { quantity: p.quantity } : {}),
+          ...(p.total_price !== undefined ? { total_price: p.total_price } : {}),
+          ...(p.cost_per_unit !== undefined ? { cost_per_unit: p.cost_per_unit } : {}),
+          ...(p.vat_rate_override !== undefined ? { vat_rate_override: p.vat_rate_override } : {}),
+          ...(p.skipped !== undefined ? { skipped: p.skipped } : {}),
+        };
+        // If price or quantity changed, total_price stays as patched (server
+        // already converted units / VAT). Recompute cost_per_unit if the
+        // model didn't give us one but moved the total or quantity.
+        if (p.cost_per_unit === undefined && (p.total_price !== undefined || p.quantity !== undefined)) {
+          const q = patched.quantity || cur.quantity;
+          patched.cost_per_unit = q > 0 ? (patched.total_price ?? 0) / q : 0;
+        }
+        next[p.item_index] = patched;
+        formNext[p.item_index] = lineToStockInput(patched);
+      }
+      setFormStates(formNext);
+      return next;
+    });
+    // Treat AI edits as acknowledged for any flagged rows we touched.
+    setReviewedItems((prev) => {
+      const next = new Set(prev);
+      patches.forEach((p) => next.add(p.item_index));
+      return next;
+    });
+  };
+
+  const sendChat = async () => {
+    const message = chatInput.trim();
+    if (!message || chatLoading) return;
+    setChatLoading(true);
+    const nextHistory: ChatTurn[] = [...chatHistory, { role: 'user', content: message }];
+    setChatHistory(nextHistory);
+    setChatInput('');
+
+    const snapshot: ChatItemSnapshot[] = editedItems.map((i, index) => ({
+      index,
+      name: i.name,
+      original_name: i.original_name,
+      category: i.category,
+      unit: i.unit,
+      quantity: i.quantity,
+      cost_per_unit: i.cost_per_unit,
+      total_price: i.total_price ?? 0,
+      pack_count: i.pack_count,
+      units_per_pack: i.units_per_pack,
+      unit_size: i.unit_size,
+      unit_size_unit: i.unit_size_unit,
+      container_type: i.container_type,
+      unit_type: i.unit_type,
+      vat_rate_override: i.vat_rate_override,
+      skipped: i.skipped,
+    }));
+
+    try {
+      const res = await chatDeliveryEdit(rid, {
+        items: snapshot,
+        history: chatHistory,
+        message,
+        vat_display_mode: vatDisplayMode,
+        default_vat_rate: vatRate,
+        lang: locale,
+      });
+      applyChatPatches(res.patches);
+      setChatHistory([
+        ...nextHistory,
+        { role: 'assistant', content: res.assistant_message || (res.patches.length > 0 ? t('aiPatchApplied') : t('aiNoChange')) },
+      ]);
+    } catch (err) {
+      setChatHistory([
+        ...nextHistory,
+        { role: 'assistant', content: t('aiErrorGeneric') + ' (' + (err as Error).message + ')' },
+      ]);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -380,9 +650,32 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           </div>
 
           <div className="space-y-4">
-            <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
+            {/* Mode picker — Scan vs Voice. Voice is faster for hands-busy
+                kitchens; scan is more accurate when a printed bill is on hand. */}
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-lg" style={{ background: 'var(--surface-subtle)' }}>
+              <button
+                type="button"
+                onClick={() => setImportMode('scan')}
+                className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'scan' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
+              >
+                <ScanIcon className="w-4 h-4" />
+                {t('importModeScan')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportMode('voice')}
+                className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors ${importMode === 'voice' ? 'bg-[var(--surface)] text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
+              >
+                <MicIcon className="w-4 h-4" />
+                {t('importModeVoice')}
+              </button>
+            </div>
 
-            {/* Supplier selector */}
+            {importMode === 'scan' && (
+              <p className="text-sm text-fg-secondary">{t('aiDeliveryDesc')}</p>
+            )}
+
+            {/* Supplier selector — shared across modes */}
             <div>
               <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('selectSupplier')} *</label>
               <SearchableSelect
@@ -412,31 +705,49 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 />
               )}
             </div>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="input w-full py-2 text-sm"
-            />
-            {/* File thumbnail preview */}
-            {file && file.type.startsWith('image/') && (
-              <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
-              </div>
+
+            {importMode === 'scan' && (
+              <>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="input w-full py-2 text-sm"
+                />
+                {/* File thumbnail preview */}
+                {file && file.type.startsWith('image/') && (
+                  <div className="rounded-lg overflow-hidden border border-[var(--divider)] max-h-40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
+                  </div>
+                )}
+                {file && file.type === 'application/pdf' && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
+                    <FileTextIcon className="w-5 h-5" />
+                    {file.name}
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
+                  <button
+                    onClick={handleUpload}
+                    disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
+                    className="btn-primary text-sm inline-flex items-center gap-2"
+                  >
+                    {loading && <FoodySpinner size={14} className="opacity-90" />}
+                    {loading ? t('analyzing') : t('uploadAndAnalyze')}
+                  </button>
+                </div>
+              </>
             )}
-            {file && file.type === 'application/pdf' && (
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] text-sm text-fg-secondary">
-                <FileTextIcon className="w-5 h-5" />
-                {file.name}
-              </div>
+
+            {importMode === 'voice' && (
+              <VoiceRecorder
+                t={t}
+                disabled={!selectedSupplierId && !newSupplierName.trim()}
+                onSubmit={handleVoiceSubmit}
+              />
             )}
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button onClick={handleUpload} disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())} className="btn-primary text-sm">
-                {loading ? t('analyzing') : t('uploadAndAnalyze')}
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -503,14 +814,28 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               </div>
               {/* Desktop action group — buttons live in a sticky footer on mobile (see bottom of modal). */}
               <div className="hidden lg:flex items-center gap-2 shrink-0">
-                <button onClick={() => { setStep('upload'); }} className="btn-secondary text-sm">{t('back')}</button>
-                <button onClick={handleSaveDraft} disabled={savingDraft} className="btn-secondary text-sm">
+                <button
+                  onClick={() => { if (streaming) { cancelStream(); return; } setStep('upload'); }}
+                  className="btn-secondary text-sm"
+                >
+                  {t('back')}
+                </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={savingDraft || streaming}
+                  title={streaming ? t('waitingForScan') : undefined}
+                  className="btn-secondary text-sm"
+                >
                   {savingDraft ? t('saving') : t('saveDraft')}
                 </button>
                 <button
                   onClick={handleConfirm}
-                  disabled={loading || unreviewedFlaggedCount > 0}
-                  title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+                  disabled={loading || unreviewedFlaggedCount > 0 || streaming}
+                  title={
+                    streaming ? t('waitingForScan') :
+                    unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
+                    undefined
+                  }
                   className="btn-primary text-sm"
                 >
                   {loading ? t('confirming') : t('confirmImport')}
@@ -528,7 +853,7 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
           className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${reviewTab === 'document' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-fg-secondary'}`}
           onClick={() => setReviewTab('document')}
         >
-          {t('originalDocument')}
+          {importMode === 'voice' ? t('voiceTranscript') : t('originalDocument')}
         </button>
         <button
           className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${reviewTab === 'items' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-fg-secondary'}`}
@@ -540,30 +865,63 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
       {/* ─ Main content ─ */}
       <div className={`flex flex-1 min-h-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
-        {/* ─ Document preview (left on LTR, right on RTL) ─ */}
+        {/* ─ Document / Transcript pane (left on LTR, right on RTL) ─
+            Same slot serves both modes: bill scan shows the original
+            image/PDF; voice import shows the Whisper transcript so the
+            user can verify what the AI heard. */}
         <div className={`w-1/2 border-[var(--divider)] overflow-auto p-4 hidden lg:flex flex-col ${isRtl ? 'border-l' : 'border-r'}`}>
-          <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">{t('originalDocument')}</h4>
+          <h4 className="text-xs font-medium text-fg-secondary uppercase tracking-wide mb-3">
+            {importMode === 'voice' ? t('voiceTranscript') : t('originalDocument')}
+          </h4>
           <div className="flex-1 rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-            {previewUrl && previewType.startsWith('image/') && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
-            )}
-            {previewUrl && previewType === 'application/pdf' && (
-              <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+            {importMode === 'voice' ? (
+              voiceTranscript ? (
+                <p className="p-4 text-sm text-fg-primary whitespace-pre-wrap leading-relaxed" dir="auto">
+                  {voiceTranscript}
+                </p>
+              ) : (
+                <p className="p-4 text-sm text-fg-tertiary italic">
+                  {t('voiceTranscriptPending')}
+                </p>
+              )
+            ) : (
+              <>
+                {previewUrl && previewType.startsWith('image/') && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
+                )}
+                {previewUrl && previewType === 'application/pdf' && (
+                  <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* ─ Mobile document view ─ */}
+        {/* ─ Mobile document / transcript view ─ */}
         {reviewTab === 'document' && (
           <div className="flex-1 overflow-auto p-4 lg:hidden">
             <div className="rounded-lg overflow-auto border border-[var(--divider)]" style={{ background: 'var(--surface-subtle)' }}>
-              {previewUrl && previewType.startsWith('image/') && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
-              )}
-              {previewUrl && previewType === 'application/pdf' && (
-                <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+              {importMode === 'voice' ? (
+                voiceTranscript ? (
+                  <p className="p-4 text-sm text-fg-primary whitespace-pre-wrap leading-relaxed" dir="auto">
+                    {voiceTranscript}
+                  </p>
+                ) : (
+                  <p className="p-4 text-sm text-fg-tertiary italic">
+                    {t('voiceTranscriptPending')}
+                  </p>
+                )
+              ) : (
+                <>
+                  {previewUrl && previewType.startsWith('image/') && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={previewUrl} alt="Delivery document" className="w-full h-auto" />
+                  )}
+                  {previewUrl && previewType === 'application/pdf' && (
+                    <iframe src={previewUrl} className="w-full h-full min-h-[70vh]" title="Delivery document" />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -571,6 +929,39 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
         {/* ─ Items editor (right on LTR, left on RTL) ─ */}
         <div className={`w-1/2 overflow-y-auto p-4 hidden lg:block`}>
+          <StreamingHeader
+            streaming={streaming}
+            count={editedItems.length}
+            error={streamError}
+            errorDetail={streamError}
+            onCancel={cancelStream}
+            onRetry={() => {
+              if (lastVoiceRef.current) {
+                handleVoiceSubmit(lastVoiceRef.current.blob, lastVoiceRef.current.mediaType);
+              } else {
+                handleUpload();
+              }
+            }}
+            t={t}
+          />
+          {/* AI summary bubble — temporarily hidden, may revisit.
+          {!streaming && !streamError && (
+            <AiSummaryBubble
+              items={editedItems}
+              supplier={
+                (selectedSupplierId === -1
+                  ? newSupplierName
+                  : selectedSupplierId > 0
+                    ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+                    : extraction?.supplier_name) ?? ''
+              }
+              vatRate={vatRate}
+              dismissed={summaryDismissed}
+              onDismiss={() => setSummaryDismissed(true)}
+              t={t}
+            />
+          )}
+          */}
           <ItemsList
             editedItems={editedItems}
             formStates={formStates}
@@ -584,12 +975,62 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
             t={t}
             reviewedItems={reviewedItems}
             markReviewed={markReviewed}
+            streaming={streaming}
           />
+          {/* AI chat panel — temporarily hidden, may revisit.
+          {!streaming && !streamError && editedItems.length > 0 && (
+            <div className="mt-4">
+              <ChatPanel
+                open={chatOpen}
+                onToggle={() => setChatOpen((o) => !o)}
+                history={chatHistory}
+                input={chatInput}
+                loading={chatLoading}
+                onInput={setChatInput}
+                onSend={sendChat}
+                t={t}
+              />
+            </div>
+          )}
+          */}
         </div>
 
         {/* ─ Mobile items view ─ */}
         {reviewTab === 'items' && (
           <div className="flex-1 overflow-y-auto p-4 lg:hidden">
+            <StreamingHeader
+              streaming={streaming}
+              count={editedItems.length}
+              error={streamError}
+              errorDetail={streamError}
+              onCancel={cancelStream}
+              onRetry={() => {
+                if (lastVoiceRef.current) {
+                  handleVoiceSubmit(lastVoiceRef.current.blob, lastVoiceRef.current.mediaType);
+                } else {
+                  handleUpload();
+                }
+              }}
+              t={t}
+            />
+            {/* AI summary bubble — temporarily hidden, may revisit.
+            {!streaming && !streamError && (
+              <AiSummaryBubble
+                items={editedItems}
+                supplier={
+                  (selectedSupplierId === -1
+                    ? newSupplierName
+                    : selectedSupplierId > 0
+                      ? suppliers.find((s) => s.id === selectedSupplierId)?.name
+                      : extraction?.supplier_name) ?? ''
+                }
+                vatRate={vatRate}
+                dismissed={summaryDismissed}
+                onDismiss={() => setSummaryDismissed(true)}
+                t={t}
+              />
+            )}
+            */}
             <ItemsList
               editedItems={editedItems}
               formStates={formStates}
@@ -603,7 +1044,24 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
               t={t}
               reviewedItems={reviewedItems}
               markReviewed={markReviewed}
+              streaming={streaming}
             />
+            {/* AI chat panel — temporarily hidden, may revisit.
+            {!streaming && !streamError && editedItems.length > 0 && (
+              <div className="mt-4">
+                <ChatPanel
+                  open={chatOpen}
+                  onToggle={() => setChatOpen((o) => !o)}
+                  history={chatHistory}
+                  input={chatInput}
+                  loading={chatLoading}
+                  onInput={setChatInput}
+                  onSend={sendChat}
+                  t={t}
+                />
+              </div>
+            )}
+            */}
           </div>
         )}
       </div>
@@ -618,22 +1076,27 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         style={{ background: 'var(--surface-subtle)' }}
       >
         <button
-          onClick={() => { setStep('upload'); }}
+          onClick={() => { if (streaming) { cancelStream(); return; } setStep('upload'); }}
           className="text-fg-secondary hover:text-fg-primary text-sm px-2 shrink-0"
         >
           {t('back')}
         </button>
         <button
           onClick={handleSaveDraft}
-          disabled={savingDraft}
+          disabled={savingDraft || streaming}
+          title={streaming ? t('waitingForScan') : undefined}
           className="btn-secondary text-sm flex-1 min-w-0"
         >
           {savingDraft ? t('saving') : t('saveDraft')}
         </button>
         <button
           onClick={handleConfirm}
-          disabled={loading || unreviewedFlaggedCount > 0}
-          title={unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) : undefined}
+          disabled={loading || unreviewedFlaggedCount > 0 || streaming}
+          title={
+            streaming ? t('waitingForScan') :
+            unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
+            undefined
+          }
           className="btn-primary text-sm flex-1 min-w-0"
         >
           {loading ? t('confirming') : t('confirmImport')}
@@ -645,8 +1108,269 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
 
 // ─── Items List (shared between desktop and mobile) ───────────────────────
 
+// ItemSkeleton mirrors the shape of an item card (title + subtitle, metadata
+// line, ARTICLE section, quantity grid). The `delay` staggers the pulse
+// animation across multiple placeholders so they don't all flash in lock-step,
+// which reads as a more natural "AI is thinking" feel.
+function ItemSkeleton({ delay = 0 }: { delay?: number }) {
+  return (
+    <div
+      className="p-4 rounded-lg space-y-4 animate-pulse"
+      style={{ background: 'var(--surface-subtle)', animationDelay: `${delay}ms` }}
+    >
+      {/* Header: title + subtitle + status chip */}
+      <div className="space-y-1.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 space-y-1.5">
+            <div className="h-5 w-3/4 rounded bg-fg-tertiary/15" />
+            <div className="h-3.5 w-1/2 rounded bg-fg-tertiary/15" />
+          </div>
+          <div className="h-5 w-14 rounded-full bg-fg-tertiary/15 shrink-0" />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-3 w-14 rounded bg-fg-tertiary/15" />
+          <div className="h-3 flex-1 rounded bg-fg-tertiary/15" />
+          <div className="h-5 w-14 rounded-full bg-fg-tertiary/15" />
+        </div>
+      </div>
+      {/* Article section */}
+      <div className="space-y-3 border-t border-[var(--divider)] pt-3">
+        <div className="h-2.5 w-12 rounded bg-fg-tertiary/15" />
+        <div className="h-9 w-full rounded bg-fg-tertiary/15" />
+      </div>
+      {/* Quantity section */}
+      <div className="border-t border-[var(--divider)] pt-3">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="h-9 rounded bg-fg-tertiary/15" />
+          <div className="h-9 rounded bg-fg-tertiary/15" />
+          <div className="h-9 rounded bg-fg-tertiary/15" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// AiSummaryBubble is a one-shot, computed-locally trust-builder shown above
+// the items list once the stream completes. It re-reads from the items
+// themselves so it stays accurate as the user edits.
+function AiSummaryBubble({
+  items, supplier, vatRate, dismissed, onDismiss, t,
+}: {
+  items: ConfirmDeliveryItemInput[];
+  supplier: string;
+  vatRate: number;
+  dismissed: boolean;
+  onDismiss: () => void;
+  t: (key: string) => string;
+}) {
+  if (dismissed) return null;
+  const active = items.filter((i) => !i.skipped);
+  if (active.length === 0) return null;
+
+  const totalHt = active.reduce((s, i) => s + (i.total_price ?? 0), 0);
+  const totalTtc = active.reduce((s, i) => {
+    const rate = i.vat_rate_override ?? vatRate;
+    return s + (i.total_price ?? 0) * (1 + rate / 100);
+  }, 0);
+  const fmt = (n: number) => n.toFixed(2);
+
+  const top = [...active]
+    .sort((a, b) => (b.total_price ?? 0) - (a.total_price ?? 0))
+    .slice(0, 3)
+    .map((i) => `${i.name} (${fmt(i.total_price ?? 0)} ₪)`)
+    .join(', ');
+
+  const readKey = supplier ? 'aiSummaryRead' : 'aiSummaryReadNoSupplier';
+  const readMsg = t(readKey)
+    .replace('{n}', String(active.length))
+    .replace('{supplier}', supplier)
+    .replace('{totalTtc}', fmt(totalTtc))
+    .replace('{totalHt}', fmt(totalHt));
+
+  return (
+    <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-start gap-3">
+      <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0 space-y-1">
+        <p className="text-sm text-fg-primary">{readMsg}</p>
+        {active.length >= 2 && (
+          <p className="text-xs text-fg-secondary">
+            {t('aiSummaryTopItems').replace('{items}', top)}
+          </p>
+        )}
+        <p className="text-xs text-fg-tertiary">{t('aiSummaryCheckTotal')}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="dismiss"
+        className="shrink-0 text-fg-tertiary hover:text-fg-primary text-lg leading-none px-1"
+      >
+        &times;
+      </button>
+    </div>
+  );
+}
+
+// ChatPanel is the interactive natural-language editor docked below the
+// items list. Collapsed by default to a single trigger line; expands into
+// a transcript + input. Stateless across re-renders — its conversation
+// history lives on the parent component.
+function ChatPanel({
+  open, onToggle, history, input, loading, onInput, onSend, t,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  history: ChatTurn[];
+  input: string;
+  loading: boolean;
+  onInput: (v: string) => void;
+  onSend: () => void;
+  t: (key: string) => string;
+}) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 p-3 rounded-lg border border-[var(--divider)] bg-[var(--surface-subtle)] hover:bg-[var(--surface)] transition-colors text-left"
+      >
+        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
+        <span className="text-sm text-fg-secondary flex-1 truncate">{t('askAi')}</span>
+        <span className="text-xs text-fg-tertiary shrink-0">▴</span>
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden flex flex-col" style={{ maxHeight: '40vh' }}>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--divider)]">
+        <SparklesIcon className="w-4 h-4 text-brand-500 shrink-0" />
+        <span className="text-sm font-medium text-fg-primary flex-1">{t('aiAssistant')}</span>
+        <button onClick={onToggle} className="text-xs text-fg-tertiary hover:text-fg-primary px-1">▾</button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[8rem]">
+        {history.length === 0 && (
+          <p className="text-xs text-fg-tertiary italic">{t('askAiPlaceholder')}</p>
+        )}
+        {history.map((turn, i) => (
+          <div
+            key={i}
+            className={`text-sm leading-snug ${turn.role === 'user' ? 'text-fg-primary' : 'text-fg-secondary'}`}
+          >
+            <span className={`text-[10px] uppercase tracking-wider mr-2 ${turn.role === 'user' ? 'text-fg-tertiary' : 'text-brand-500'}`}>
+              {turn.role === 'user' ? '·' : '✨'}
+            </span>
+            {turn.content}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-sm text-fg-tertiary italic flex items-center gap-2">
+            <span className="text-brand-500">✨</span>
+            {t('aiThinking')}
+            <span className="inline-flex gap-1 items-end">
+              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" style={{ animationDelay: '-300ms' }} />
+              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" style={{ animationDelay: '-150ms' }} />
+              <span className="w-1 h-1 rounded-full bg-fg-tertiary animate-bounce" />
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 p-2 border-t border-[var(--divider)]">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => onInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          placeholder={t('askAiPlaceholder')}
+          disabled={loading}
+          className="flex-1 bg-transparent text-sm px-2 py-1.5 outline-none focus:ring-1 focus:ring-brand-500 rounded"
+        />
+        <button
+          onClick={onSend}
+          disabled={loading || !input.trim()}
+          aria-label={t('aiSend')}
+          className="shrink-0 p-1.5 rounded-md text-brand-500 hover:bg-brand-500/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+        >
+          <SendHorizonalIcon className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StreamingHeader({
+  streaming, count, error, errorDetail, onCancel, onRetry, t,
+}: {
+  streaming: boolean;
+  count: number;
+  error: string;
+  /** Verbatim upstream error message for the user to copy/screenshot. */
+  errorDetail?: string;
+  onCancel: () => void;
+  onRetry: () => void;
+  t: (key: string) => string;
+}) {
+  // Cycle a list of status verbs while streaming so the banner doesn't
+  // feel frozen. Verbs come from the locale's aiStatusVerbs key (CSV).
+  const verbs = t('aiStatusVerbs').split(',').map((s) => s.trim()).filter(Boolean);
+  const [verbIndex, setVerbIndex] = useState(0);
+  useEffect(() => {
+    if (!streaming) return;
+    setVerbIndex(0);
+    const id = setInterval(() => {
+      setVerbIndex((i) => (i + 1) % verbs.length);
+    }, 1400);
+    return () => clearInterval(id);
+  }, [streaming, verbs.length]);
+
+  if (streaming) {
+    const verb = verbs[verbIndex] || '';
+    const msg = t('scanInProgress')
+      .replace('{verb}', verb)
+      .replace('{n}', String(count));
+    return (
+      <div className="mb-3 rounded-lg border border-brand-500/30 bg-brand-500/5 p-3 flex items-center gap-3">
+        <FoodySpinner size={20} className="shrink-0" />
+        <span
+          key={verbIndex}
+          className="text-sm text-fg-primary flex-1 animate-in fade-in slide-in-from-bottom-0.5 duration-300"
+        >
+          {msg}
+        </span>
+        <button onClick={onCancel} className="text-xs text-fg-secondary hover:text-fg-primary px-2 py-1 rounded border border-[var(--divider)] shrink-0">
+          {t('cancelScan')}
+        </button>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-3">
+        <div className="flex-1 min-w-0 space-y-1">
+          <p className="text-sm text-amber-600">
+            {t('scanInterrupted').replace('{n}', String(count))}
+          </p>
+          {errorDetail && (
+            <p className="text-xs text-amber-600/80 break-words font-mono">
+              {errorDetail}
+            </p>
+          )}
+        </div>
+        <button onClick={onRetry} className="shrink-0 text-xs px-2 py-1 rounded border border-amber-500/40 hover:bg-amber-500/20 text-amber-600">
+          {t('retry')}
+        </button>
+      </div>
+    );
+  }
+  return null;
+}
+
 function ItemsList({
-  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed,
+  editedItems, formStates, stockItems, stockOptions, existingCategories, updateItem, updateFormState, vatRate, vatDisplayMode, t, reviewedItems, markReviewed, streaming,
 }: {
   editedItems: ConfirmDeliveryItemInput[];
   formStates: StockInput[];
@@ -660,6 +1384,7 @@ function ItemsList({
   t: (key: string) => string;
   reviewedItems: Set<number>;
   markReviewed: (idx: number) => void;
+  streaming: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -677,10 +1402,15 @@ function ItemsList({
             default:                    return 'reviewNeededBanner';
           }
         })();
+        const statusChip = isSkipped
+          ? { label: t('skipped'), cls: 'bg-fg-tertiary/10 text-fg-secondary' }
+          : isExisting
+            ? { label: t('existing'), cls: 'bg-green-500/10 text-green-500' }
+            : { label: t('new'), cls: 'bg-amber-500/10 text-amber-500' };
         return (
           <div
             key={idx}
-            className={`p-4 rounded-lg space-y-3 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
+            className={`p-4 rounded-lg space-y-4 animate-in fade-in slide-in-from-top-1 duration-200 ${isFlagged ? 'border-l-4 border-amber-500' : ''}`}
             style={{ background: 'var(--surface-subtle)', opacity: isSkipped ? 0.5 : 1 }}
           >
             {isFlagged && (
@@ -696,91 +1426,114 @@ function ItemsList({
                 </button>
               </div>
             )}
-            {/* Row 1: Stock item match */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0" style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>
-                <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('matchToStockItem')}</label>
-                <SearchableSelect
-                  value={item.stock_item_id ? String(item.stock_item_id) : ''}
-                  onChange={(val) => {
-                    if (val) {
-                      const si = stockItems.find((s) => s.id === +val);
-                      if (si) updateItem(idx, { stock_item_id: si.id, name: si.name, unit: si.unit, category: si.category });
-                    } else {
-                      updateItem(idx, { stock_item_id: undefined });
-                    }
-                  }}
-                  options={stockOptions}
-                  placeholder={t('matchToStockItem')}
-                />
+
+            {/* ── Header: identity + status ───────────────────────────── */}
+            <div className="space-y-1.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <h4
+                    className="text-base font-semibold text-fg-primary truncate"
+                    dir="auto"
+                    style={{ textDecoration: isSkipped ? 'line-through' : undefined }}
+                  >
+                    {item.name || item.original_name || '—'}
+                  </h4>
+                  {item.original_name && item.original_name !== item.name && (
+                    <p className="text-sm text-fg-secondary truncate">
+                      <bdi>{item.original_name}</bdi>
+                    </p>
+                  )}
+                </div>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap shrink-0 ${statusChip.cls}`}>
+                  {statusChip.label}
+                </span>
               </div>
-              {isSkipped ? (
-                <span className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 bg-fg-tertiary/10 text-fg-secondary">
-                  {t('skipped')}
-                </span>
-              ) : (
-                <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 ${isExisting ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                  {isExisting ? t('existing') : t('new')}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => updateItem(idx, { skipped: !isSkipped })}
-                className="text-xs px-2 py-0.5 rounded-full whitespace-nowrap self-end mb-1 border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary"
-                style={{ opacity: 1 }}
-              >
-                {isSkipped ? t('unskip') : t('skip')}
-              </button>
+
+              {/* Metadata line: line number + editable SKU + skip toggle */}
+              <div className="flex items-center gap-3 text-xs text-fg-tertiary">
+                {item.row_index && item.row_index > 0 ? (
+                  <span className="shrink-0">{t('rowNumber').replace('{n}', String(item.row_index))}</span>
+                ) : null}
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <span className="shrink-0">{t('sku')}</span>
+                  <input
+                    className="bg-transparent border-b border-[var(--divider)]/40 hover:border-[var(--divider)] focus:border-brand-500 outline-none text-xs flex-1 min-w-0 px-0.5 py-0.5 text-fg-secondary transition-colors"
+                    value={item.sku ?? ''}
+                    disabled={isSkipped}
+                    onChange={(e) => updateItem(idx, { sku: e.target.value })}
+                    placeholder={t('skuHelp')}
+                    dir="ltr"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => updateItem(idx, { skipped: !isSkipped })}
+                  className="ml-auto text-xs px-2 py-0.5 rounded-full whitespace-nowrap border border-[var(--divider)] hover:bg-[var(--surface)] text-fg-secondary shrink-0"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  {isSkipped ? t('unskip') : t('skip')}
+                </button>
+              </div>
             </div>
 
-            {/* Original name (supplier language) */}
-            {item.original_name && item.original_name !== item.name && (
-              <p className="text-xs text-fg-secondary" dir="auto" style={{ textDecoration: isSkipped ? 'line-through' : undefined }}>
-                <span className="text-fg-tertiary">{t('originalName')}:</span> {item.original_name}
-              </p>
-            )}
-
-            {/* SKU / supplier code (editable so the user can correct AI mis-reads) */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-fg-tertiary shrink-0">{t('sku')}:</label>
-              <input
-                className="input flex-1 py-1 text-xs"
-                value={item.sku ?? ''}
-                disabled={isSkipped}
-                onChange={(e) => updateItem(idx, { sku: e.target.value })}
-                placeholder={t('skuHelp')}
-                dir="ltr"
+            {/* ── Article section: match + name/category ──────────────── */}
+            <div
+              className="space-y-3 border-t border-[var(--divider)] pt-3"
+              style={{ pointerEvents: isSkipped ? 'none' : undefined }}
+              aria-disabled={isSkipped}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-fg-tertiary font-semibold">
+                {t('articleSection')}
+              </div>
+              <SearchableSelect
+                value={item.stock_item_id ? String(item.stock_item_id) : ''}
+                onChange={(val) => {
+                  if (val) {
+                    const si = stockItems.find((s) => s.id === +val);
+                    if (si) updateItem(idx, { stock_item_id: si.id, name: si.name, unit: si.unit, category: si.category });
+                  } else {
+                    updateItem(idx, { stock_item_id: undefined });
+                  }
+                }}
+                options={stockOptions}
+                placeholder={t('matchToStockItem')}
               />
+              {!isExisting && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
+                    <input
+                      className="input w-full py-1.5 text-sm"
+                      value={item.name}
+                      disabled={isSkipped}
+                      onChange={(e) => updateItem(idx, { name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
+                    <select
+                      className="input w-full py-1.5 text-sm"
+                      value={item.category}
+                      disabled={isSkipped}
+                      onChange={(e) => updateItem(idx, { category: e.target.value })}
+                    >
+                      <option value="">{t('category')}</option>
+                      {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {item.category && !existingCategories.includes(item.category) && (
+                        <option value={item.category}>{item.category}</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Row 2: Name + Category (new items only) */}
-            {!isExisting && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('name')}</label>
-                  <input className="input w-full py-1.5 text-sm" value={item.name}
-                    disabled={isSkipped}
-                    onChange={(e) => updateItem(idx, { name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs text-fg-secondary font-medium mb-1 block">{t('category')}</label>
-                  <select className="input w-full py-1.5 text-sm" value={item.category}
-                    disabled={isSkipped}
-                    onChange={(e) => updateItem(idx, { category: e.target.value })}>
-                    <option value="">{t('category')}</option>
-                    {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-                    {item.category && !existingCategories.includes(item.category) && (
-                      <option value={item.category}>{item.category}</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Shared quantity / packaging / price form.
-                Reads from persisted per-line formStates so mode + packaging
-                fields stick across renders (e.g. empty Advanced mode). */}
-            <div style={{ pointerEvents: isSkipped ? 'none' : undefined }} aria-disabled={isSkipped}>
+            {/* ── Quantity / packaging / price ────────────────────────── */}
+            <div
+              className="border-t border-[var(--divider)] pt-3"
+              style={{ pointerEvents: isSkipped ? 'none' : undefined }}
+              aria-disabled={isSkipped}
+            >
               <StockQuantityForm
                 value={formStates[idx] ?? lineToStockInput(item)}
                 onChange={(v) => updateFormState(idx, v)}
@@ -794,6 +1547,13 @@ function ItemsList({
           </div>
         );
       })}
+      {streaming && (
+        <>
+          <ItemSkeleton delay={0} />
+          <ItemSkeleton delay={200} />
+          <ItemSkeleton delay={400} />
+        </>
+      )}
     </div>
   );
 }

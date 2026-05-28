@@ -5,9 +5,10 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
   detachModifierSetFromItem,
-  listMenus, addItemsToGroup, removeItemFromGroup, createGroup,
+  listMenus, addItemsToGroup, removeItemFromGroup,
   listModifierSets, attachModifierSetToItems,
-  listOptionSets, detachOptionSetFromItem, getItemOptionPrices,
+  listOptionSets, getItemOptionPrices,
+  syncItemVariants,
   listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
   getRestaurant,
   MenuCategory, MenuItem, ModifierSet, Menu,
@@ -22,21 +23,38 @@ import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
+import VariantsEditor, {
+  VariantGroupState,
+  variantGroupsFromOptionSets,
+  toVariantSyncPayload,
+  hasMeaningfulVariants,
+} from '@/components/menu-item/VariantsEditor';
 import MenuItemTabRecipe, { MenuItemTabRecipeHandle } from '@/components/menu-item/MenuItemTabRecipe';
 import MenuItemTabCost from '@/components/menu-item/MenuItemTabCost';
+import ItemAvailabilityPanel from '@/components/menu-item/ItemAvailabilityPanel';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
+import { deriveStepKind } from '@/components/menu-item/combo/types';
 import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
 import { computeItemCostSummary } from '@/lib/cost-utils';
 import { XIcon } from 'lucide-react';
 
-const VALID_TABS: MenuItemSection[] = ['details', 'modifiers', 'composition', 'recipe', 'cost'];
+const VALID_TABS: MenuItemSection[] = ['details', 'composition', 'recipe', 'availability'];
+
+// Legacy deep links: the old 'modifiers' tab merged into 'details' (Article)
+// and the old 'cost' tab merged into 'recipe'. Remap so existing ?tab links
+// still land somewhere sensible.
+function remapLegacyTab(raw: string | null): MenuItemSection | null {
+  if (!raw) return null;
+  const mapped = raw === 'modifiers' ? 'details' : raw === 'cost' ? 'recipe' : raw;
+  return VALID_TABS.includes(mapped as MenuItemSection) ? (mapped as MenuItemSection) : null;
+}
 
 export default function EditItemPage() {
   const { restaurantId, itemId } = useParams();
@@ -66,10 +84,7 @@ export default function EditItemPage() {
   });
   const [loading, setLoading] = useState<boolean>(() => item == null);
 
-  const initialTab = (() => {
-    const raw = searchParams.get('tab');
-    return raw && VALID_TABS.includes(raw as MenuItemSection) ? (raw as MenuItemSection) : 'details';
-  })();
+  const initialTab = remapLegacyTab(searchParams.get('tab')) ?? 'details';
   const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
 
   // Form state — seeded from the hydrated MenuItem (if present) so the
@@ -104,15 +119,25 @@ export default function EditItemPage() {
   const [allModifierSets, setAllModifierSets] = useState<ModifierSet[]>([]);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
 
-  // Option sets (attached to this item)
+  // Option sets (attached to this item) + the full restaurant list (used by
+  // the inline VariantsEditor's autocomplete to suggest re-using an existing
+  // option set when the operator types a matching title).
   const [attachedOptionSets, setAttachedOptionSets] = useState<OptionSet[]>([]);
+  const [allOptionSets, setAllOptionSets] = useState<OptionSet[]>([]);
   const [itemOptionOverrides, setItemOptionOverrides] = useState<ItemOptionOverride[]>([]);
 
-  // Menus / Cartes state
+  // Inline-editable variant groups. Seeded from attachedOptionSets +
+  // overrides on each loadData() run; user edits flow through onChange and
+  // get persisted via syncItemVariants() when the main Save button fires.
+  const [variantGroups, setVariantGroups] = useState<VariantGroupState[]>([]);
+  const [variantsDirty, setVariantsDirty] = useState(false);
+
+  // Menus / Cartes state — selection is at the *group* level so the operator
+  // can pick the exact group inside each carte. The previous menu-only model
+  // dropped items into whichever group happened to be first on save.
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [selectedMenuIds, setSelectedMenuIds] = useState<Set<number>>(new Set());
-  const [initialMenuIds, setInitialMenuIds] = useState<Set<number>>(new Set());
-  const [menuGroupMap, setMenuGroupMap] = useState<Map<number, number>>(new Map());
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<number>>(new Set());
+  const [initialGroupIds, setInitialGroupIds] = useState<Set<number>>(new Set());
 
   // Food cost / ingredients state
   const [ingredients, setIngredients] = useState<MenuItemIngredient[]>([]);
@@ -146,9 +171,13 @@ export default function EditItemPage() {
       setStockItems(stock ?? []);
       setPrepItems(prep ?? []);
       setIngredients(ings ?? []);
-      setAttachedOptionSets((optSets ?? []).filter((os) =>
+      const attached = (optSets ?? []).filter((os) =>
         (os.menu_items ?? []).some((mi) => mi.id === iid)
-      ));
+      );
+      setAllOptionSets(optSets ?? []);
+      setAttachedOptionSets(attached);
+      setVariantGroups(variantGroupsFromOptionSets(attached, optOverrides ?? [], iid));
+      setVariantsDirty(false);
       for (const cat of cats) {
         const found = (cat.items ?? []).find((i) => i.id === iid);
         if (found) {
@@ -162,38 +191,46 @@ export default function EditItemPage() {
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
           if (found.item_type === 'combo' && found.combo_steps) {
-            setComboSteps(found.combo_steps.map((s) => ({
-              key: crypto.randomUUID(),
-              name: s.name,
-              description: s.description ?? '',
-              min_picks: s.min_picks,
-              max_picks: s.max_picks,
-              items: s.items.map((si) => ({
-                menu_item_id: si.menu_item_id,
-                price_delta: si.price_delta,
-                item_name: si.menu_item?.name,
-                variant_id: si.option_id ?? undefined,
-                pick_key: si.option_id ? `variant:${si.menu_item_id}:${si.option_id}` : `item:${si.menu_item_id}`,
-              })),
-            })));
+            setComboSteps(found.combo_steps.map((s) => {
+              const draft: ComboStepDraft = {
+                key: crypto.randomUUID(),
+                name: s.name,
+                description: s.description ?? '',
+                min_picks: s.min_picks,
+                max_picks: s.max_picks,
+                source_type: s.source_type ?? 'explicit',
+                source_category_id: s.source_category_id ?? undefined,
+                source_variant_label: s.source_variant_label ?? undefined,
+                items: s.items.map((si) => ({
+                  menu_item_id: si.menu_item_id,
+                  price_delta: si.price_delta,
+                  // Server defaults this column to TRUE on migration, so any
+                  // missing value (older response shape) is treated as "force
+                  // include" — preserves the customer-visible status quo for
+                  // existing combos.
+                  force_off_carte: si.force_off_carte ?? true,
+                  item_name: si.menu_item?.name,
+                  variant_id: si.option_id ?? undefined,
+                  pick_key: si.option_id ? `variant:${si.menu_item_id}:${si.option_id}` : `item:${si.menu_item_id}`,
+                })),
+              };
+              draft.kind = deriveStepKind(draft);
+              return draft;
+            }));
           }
           break;
         }
       }
-      const mIds = new Set<number>();
-      const gMap = new Map<number, number>();
+      const gIds = new Set<number>();
       for (const menu of allMenus) {
         for (const group of menu.groups ?? []) {
           if ((group.items ?? []).some((i) => i.id === iid)) {
-            mIds.add(menu.id);
-            gMap.set(menu.id, group.id);
-            break;
+            gIds.add(group.id);
           }
         }
       }
-      setSelectedMenuIds(mIds);
-      setInitialMenuIds(new Set(mIds));
-      setMenuGroupMap(gMap);
+      setSelectedGroupIds(gIds);
+      setInitialGroupIds(new Set(gIds));
     } finally {
       setLoading(false);
     }
@@ -214,15 +251,16 @@ export default function EditItemPage() {
   // them up via their respective UIs after switching.
   const variantsCountFromItem = useMemo(() => {
     if (!item) return 0;
-    const fromGroups = (item.variant_groups ?? []).reduce(
+    const fromLegacyGroups = (item.variant_groups ?? []).reduce(
       (sum, g) => sum + (g.variants ?? []).length,
       0,
     );
-    return fromGroups + attachedOptionSets.reduce(
-      (sum, os) => sum + (os.options ?? []).length,
+    const fromEditor = variantGroups.reduce(
+      (sum, g) => sum + g.rows.filter((r) => r.name.trim()).length,
       0,
     );
-  }, [item, attachedOptionSets]);
+    return fromLegacyGroups + fromEditor;
+  }, [item, variantGroups]);
 
   const lossSummary: TypeSwitchLossSummary = useMemo(() => ({
     recipeCount: ingredients.length,
@@ -240,7 +278,9 @@ export default function EditItemPage() {
       setPendingType(next);
     } else {
       setItemType(next);
-      if (next === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+      // 'recipe' is article-only; 'composition' is combo-only. Bounce to the
+      // shared 'details' (Article) tab when the active one leaves the new set.
+      if (next === 'combo' && activeTab === 'recipe') {
         setActiveTab('details');
       } else if (next !== 'combo' && activeTab === 'composition') {
         setActiveTab('details');
@@ -259,7 +299,7 @@ export default function EditItemPage() {
       setComboSteps([]);
     }
     setItemType(pendingType);
-    if (pendingType === 'combo' && (activeTab === 'modifiers' || activeTab === 'recipe')) {
+    if (pendingType === 'combo' && activeTab === 'recipe') {
       setActiveTab('details');
     } else if (pendingType !== 'combo' && activeTab === 'composition') {
       setActiveTab('details');
@@ -267,14 +307,30 @@ export default function EditItemPage() {
     setPendingType(null);
   };
 
+  // Price single-source-of-truth. When an article has meaningful sizes, the
+  // base-price field in the Details tab is hidden (see hideBasePrice) and the
+  // price is owned by the size rows. We mirror the first size's price into the
+  // saved base price so the data model stays valid and the rail / cost use the
+  // right number. Combos keep their own explicit base price.
+  const meaningfulVariants = itemType !== 'combo' && hasMeaningfulVariants(variantGroups);
+  const firstVariantPrice = useMemo(() => {
+    for (const g of variantGroups) {
+      for (const r of g.rows) {
+        if (r.name.trim() && !r.isComboOnly) return r.price;
+      }
+    }
+    return 0;
+  }, [variantGroups]);
+  const effectivePrice = meaningfulVariants && firstVariantPrice > 0 ? firstVariantPrice : price;
+
   const handleSave = async () => {
-    if (!name.trim() || price <= 0) return;
+    if (!name.trim() || effectivePrice <= 0) return;
     setSaving(true);
     try {
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
-        price,
+        price: effectivePrice,
         is_active: isActive,
         item_type: itemType,
         category_id: categoryId,
@@ -288,7 +344,17 @@ export default function EditItemPage() {
           min_picks: s.min_picks,
           max_picks: s.max_picks,
           sort_order: i,
-          items: s.items.map((si) => ({ menu_item_id: si.menu_item_id, option_id: si.variant_id || undefined, price_delta: si.price_delta })),
+          source_type: s.source_type,
+          source_category_id: s.source_type === 'category' ? s.source_category_id : undefined,
+          source_variant_label: s.source_type === 'category' ? (s.source_variant_label || null) : null,
+          items: s.source_type === 'category'
+            ? []
+            : s.items.map((si) => ({
+                menu_item_id: si.menu_item_id,
+                option_id: si.variant_id || undefined,
+                price_delta: si.price_delta,
+                force_off_carte: si.force_off_carte ?? true,
+              })),
         }));
       }
       const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
@@ -296,23 +362,18 @@ export default function EditItemPage() {
       if (recipeRef.current?.isDirty()) {
         await recipeRef.current.save();
       }
-      const added = Array.from(selectedMenuIds).filter((id) => !initialMenuIds.has(id));
-      const removed = Array.from(initialMenuIds).filter((id) => !selectedMenuIds.has(id));
-      for (const menuId of added) {
-        const menu = menus.find((m) => m.id === menuId);
-        const groups = menu?.groups ?? [];
-        let groupId: number;
-        if (groups.length > 0) {
-          groupId = groups[0].id;
-        } else {
-          const newGroup = await createGroup(rid, { menu_id: menuId, name: menu?.name ?? 'Default' });
-          groupId = newGroup.id;
-        }
+      if (variantsDirty && itemType !== 'combo') {
+        await syncItemVariants(rid, iid, {
+          groups: toVariantSyncPayload(variantGroups),
+        });
+      }
+      const addedGroups = Array.from(selectedGroupIds).filter((id) => !initialGroupIds.has(id));
+      const removedGroups = Array.from(initialGroupIds).filter((id) => !selectedGroupIds.has(id));
+      for (const groupId of addedGroups) {
         await addItemsToGroup(rid, groupId, [iid]);
       }
-      for (const menuId of removed) {
-        const groupId = menuGroupMap.get(menuId);
-        if (groupId) await removeItemFromGroup(rid, groupId, iid);
+      for (const groupId of removedGroups) {
+        await removeItemFromGroup(rid, groupId, iid);
       }
       router.push(`/${rid}/menu/items`);
     } catch (err) {
@@ -408,19 +469,23 @@ export default function EditItemPage() {
     );
   }
 
-  // Tab set adapts to item type. Combos: details · composition · cost.
-  // Articles: details · modifiers · recipe · cost.
+  // Tab set adapts to item type, and is intentionally limited to three:
+  //   Articles → Article (identity + price + sizes + modifiers) · Recette
+  //              (recipe + folded-in cost) · Stock & disponibilité.
+  //   Combos   → Article · Composition · Stock & disponibilité.
+  // The cost-over-target warning now rides on the Recette tab (cost lives
+  // there), since the standalone Coût tab was removed.
+  const costWarning = costSummary?.costPct != null && costSummary.costPct > 0.35;
   const tabs: TabBarItem[] = itemType === 'combo'
     ? [
-        { id: 'details', label: t('tabDetails') },
+        { id: 'details', label: t('tabArticle') },
         { id: 'composition', label: t('tabComposition'), count: comboSteps.length },
-        { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
+        { id: 'availability', label: t('tabStock') },
       ]
     : [
-        { id: 'details', label: t('tabDetails') },
-        { id: 'modifiers', label: t('tabModifiers') },
-        { id: 'recipe', label: t('tabRecipe') },
-        { id: 'cost', label: t('tabCost'), warning: costSummary?.costPct != null && costSummary.costPct > 0.35 },
+        { id: 'details', label: t('tabArticle') },
+        { id: 'recipe', label: t('tabRecipe'), warning: costWarning },
+        { id: 'availability', label: t('tabStock') },
       ];
 
   // Hidden on mobile: tab bar is tight on phones, and the orange brand badge
@@ -437,7 +502,7 @@ export default function EditItemPage() {
     <MenuItemSummaryRail
       imageUrl={imageUrl}
       name={name}
-      price={price}
+      price={effectivePrice}
       activeStatus={isActive}
       categoryName={activeCategoryName}
       // Hide the food-cost summary for combos — it doesn't apply (a combo's
@@ -467,7 +532,7 @@ export default function EditItemPage() {
         onClose={goBack}
         onSave={handleSave}
         saving={saving}
-        saveDisabled={!name.trim() || price <= 0}
+        saveDisabled={!name.trim() || effectivePrice <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
@@ -484,32 +549,88 @@ export default function EditItemPage() {
 
           {/* Tab content — same vertical rhythm as food-cost page */}
           <div className="flex-1 overflow-y-auto p-[var(--s-6)]">
-            {/* ── Tab: Détails ─────────────────────────────────── */}
+            {/* ── Tab: Article (identity + price + sizes + modifiers) ── */}
             {activeTab === 'details' && (
-              <MenuItemTabDetails
-                name={name}
-                setName={setName}
-                price={price}
-                setPrice={setPrice}
-                description={description}
-                setDescription={setDescription}
-                categoryId={categoryId}
-                setCategoryId={setCategoryId}
-                isActive={isActive}
-                setIsActive={setIsActive}
-                vatRate={vatRate}
-                categories={categories}
-                menus={menus}
-                selectedMenuIds={selectedMenuIds}
-                setSelectedMenuIds={setSelectedMenuIds}
-                itemType={itemType}
-                sourceLocale={sourceLocale}
-                translations={translations}
-                setTranslations={setTranslations}
-                onTypeChange={requestTypeChange}
-                comboStepsCount={comboSteps.length}
-                onJumpToComposition={() => setActiveTab('composition')}
-              />
+              <div className="space-y-[var(--s-6)]">
+                <MenuItemTabDetails
+                  name={name}
+                  setName={setName}
+                  price={price}
+                  setPrice={setPrice}
+                  description={description}
+                  setDescription={setDescription}
+                  categoryId={categoryId}
+                  setCategoryId={setCategoryId}
+                  isActive={isActive}
+                  setIsActive={setIsActive}
+                  vatRate={vatRate}
+                  categories={categories}
+                  menus={menus}
+                  selectedGroupIds={selectedGroupIds}
+                  setSelectedGroupIds={setSelectedGroupIds}
+                  itemType={itemType}
+                  sourceLocale={sourceLocale}
+                  translations={translations}
+                  setTranslations={setTranslations}
+                  onTypeChange={requestTypeChange}
+                  comboStepsCount={comboSteps.length}
+                  onJumpToComposition={() => setActiveTab('composition')}
+                  // Only hide the base-price field once the first size carries
+                  // a real price; otherwise the owner would have nowhere to set
+                  // a price (the first size inherits the base when left at 0).
+                  hideBasePrice={meaningfulVariants && firstVariantPrice > 0}
+                />
+
+                {/* Sizes / variants — pricing lives here when present, which is
+                    why the base-price field above hides itself (no more "same
+                    price shown twice"). Combos price via the Composition tab. */}
+                {itemType !== 'combo' && (
+                  <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
+                    <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
+                      <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+                      <h3 className="text-fs-xl font-semibold text-[var(--fg)]">
+                        {t('variants') || 'Variantes'}
+                      </h3>
+                    </div>
+                    <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-4)]">
+                      {t('variantsDesc') ||
+                        'Tailles ou options liées (Normal, Grand…). Le prix du variant remplace le prix de base.'}
+                    </p>
+                    <VariantsEditor
+                      groups={variantGroups}
+                      onChange={(g) => { setVariantGroups(g); setVariantsDirty(true); }}
+                      allOptionSets={allOptionSets}
+                      itemBasePrice={effectivePrice}
+                    />
+                  </section>
+                )}
+
+                {/* Modifiers — add-ons (sans coriandre, sauce à part…) */}
+                {itemType !== 'combo' && (
+                  <MenuItemTabOptions
+                    item={item}
+                    attachedModifierSets={item.modifier_sets ?? []}
+                    attachedOptionSets={attachedOptionSets}
+                    itemOptionOverrides={itemOptionOverrides}
+                    onAddModifierSet={() => setModifierModalOpen(true)}
+                    onDetachModifierSet={async (id) => {
+                      if (!confirm('Unlink this modifier set from item?')) return;
+                      await detachModifierSetFromItem(rid, id, iid);
+                      loadData();
+                    }}
+                    onDeleteModifier={handleDeleteModifier}
+                    // Variants render in their own section just above, so these
+                    // handlers are no-ops kept to satisfy the prop contract.
+                    onAddVariantGroup={() => {}}
+                    onEditVariantGroup={() => {}}
+                    onDeleteVariantGroup={() => {}}
+                    onAddOptionSet={() => {}}
+                    onEditOptionSet={() => {}}
+                    onDetachOptionSet={() => {}}
+                    hideVariantsSection
+                  />
+                )}
+              </div>
             )}
 
             {/* ── Tab: Composition (combo only) ─────────────────── */}
@@ -521,40 +642,12 @@ export default function EditItemPage() {
                 steps={comboSteps}
                 onStepsChange={setComboSteps}
                 categories={categories}
+                menus={menus}
                 onShowSavingsDetail={() => setSavingsModalOpen(true)}
               />
             )}
 
-            {/* ── Tab: Modificateurs & Variantes — articles only ─── */}
-            {activeTab === 'modifiers' && itemType !== 'combo' && (
-              <>
-                <MenuItemTabOptions
-                  item={item}
-                  attachedModifierSets={item.modifier_sets ?? []}
-                  attachedOptionSets={attachedOptionSets}
-                  itemOptionOverrides={itemOptionOverrides}
-                  onAddModifierSet={() => setModifierModalOpen(true)}
-                  onDetachModifierSet={async (id) => {
-                    if (!confirm('Unlink this modifier set from item?')) return;
-                    await detachModifierSetFromItem(rid, id, iid);
-                    loadData();
-                  }}
-                  onDeleteModifier={handleDeleteModifier}
-                  onAddVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onEditVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onDeleteVariantGroup={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onAddOptionSet={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onEditOptionSet={() => router.push(`/${restaurantId}/menu/items/${iid}/variants`)}
-                  onDetachOptionSet={async (id) => {
-                    if (!confirm(t('remove') + '?')) return;
-                    await detachOptionSetFromItem(rid, id, iid);
-                    loadData();
-                  }}
-                />
-              </>
-            )}
-
-            {/* ── Tab: Recette — Figma:323 ─────────────────────── */}
+            {/* ── Tab: Recette (recipe + folded-in cost readout) ─── */}
             {activeTab === 'recipe' && (
               <MenuItemTabRecipe
                 ref={recipeRef}
@@ -563,10 +656,10 @@ export default function EditItemPage() {
                 ingredients={ingredients}
                 stockItems={stockItems}
                 prepItems={prepItems}
-                variants={attachedOptionSets.flatMap((os) =>
-                  (os.options ?? [])
-                    .filter((o) => o.is_active)
-                    .map((o) => ({ option_id: o.id, name: o.name })),
+                variants={variantGroups.flatMap((g) =>
+                  g.rows
+                    .filter((r) => r.isActive && r.optionId != null && r.name.trim())
+                    .map((r) => ({ option_id: r.optionId!, name: r.name })),
                 )}
                 onAddIngredient={async (input) => {
                   const next = [
@@ -628,20 +721,30 @@ export default function EditItemPage() {
                   setStockItems(stock ?? []);
                   setPrepItems(prep ?? []);
                 }}
+                onImported={loadData}
               />
             )}
 
-            {/* ── Tab: Coût — Figma MenuItemDetails.tsx:644 ─────── */}
-            {activeTab === 'cost' && item && (
-              <MenuItemTabCost
-                rid={rid}
-                item={item}
-                ingredients={ingredients}
-                itemOptionOverrides={itemOptionOverrides}
-                vatRate={vatRate}
-                price={price}
-                onChangesApplied={loadData}
-              />
+            {/* Cost is fully derived from the recipe above + price, so it lives
+                here as a readout under the recipe instead of a separate tab. */}
+            {activeTab === 'recipe' && item && (
+              <div className="mt-[var(--s-6)]">
+                <MenuItemTabCost
+                  rid={rid}
+                  item={item}
+                  ingredients={ingredients}
+                  itemOptionOverrides={itemOptionOverrides}
+                  vatRate={vatRate}
+                  price={effectivePrice}
+                  onChangesApplied={loadData}
+                  collapsible
+                />
+              </div>
+            )}
+
+            {/* ── Tab: Stock & disponibilité ───────────────────── */}
+            {activeTab === 'availability' && item && (
+              <ItemAvailabilityPanel rid={rid} itemId={iid} item={item} onSaved={loadData} />
             )}
           </div>
         </div>

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import {
   listMenus, getRestaurant, deleteGroup, deleteMenu, reorderGroups,
+  reorderGroupItems,
   listAllItems, addItemsToGroup, removeItemFromGroup,
   Menu, MenuGroup, MenuItem, Restaurant,
 } from '@/lib/api';
@@ -19,6 +20,7 @@ import {
   XIcon,
   SearchIcon,
   GripVerticalIcon,
+  MonitorSmartphoneIcon,
 } from 'lucide-react';
 
 type TFn = (k: string) => string;
@@ -66,6 +68,7 @@ export default function MenuDetailPage() {
   const { t } = useI18n();
 
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -77,14 +80,29 @@ export default function MenuDetailPage() {
   const [orderedGroupIds, setOrderedGroupIds] = useState<number[] | null>(null);
   const [draggingGroupId, setDraggingGroupId] = useState<number | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<number | null>(null);
+  // Per-group local override of item order during a drag — kept until reload
+  // reflects the persisted order. Key: groupId → ordered itemIds.
+  const [itemOrderByGroup, setItemOrderByGroup] = useState<Map<number, number[]>>(new Map());
+  // Active item drag — { groupId, itemId } of the row being dragged. Scoped
+  // to a single group; cross-group reorder isn't supported here.
+  const [draggingItem, setDraggingItem] = useState<{ groupId: number; itemId: number } | null>(null);
+  // Multi-select state per group for bulk actions (e.g. "Remove from group").
+  const [selectedItemsByGroup, setSelectedItemsByGroup] = useState<Map<number, Set<number>>>(new Map());
+  // Open state for the "Move selected items to another group" picker. Tracks
+  // the source group so we know which selection to move and which group to
+  // exclude from the target list.
+  const [moveModalSourceGroupId, setMoveModalSourceGroupId] = useState<number | null>(null);
 
   const reload = useCallback(() => {
     setLoading(true);
     Promise.all([listMenus(rid), listAllItems(rid)]).then(([menus, items]) => {
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
+      setAllMenus(menus);
       setAllItems(items);
       setOrderedGroupIds(null);
+      setItemOrderByGroup(new Map());
+      setSelectedItemsByGroup(new Map());
       if (found?.groups) {
         setExpanded(new Set(found.groups.map((g) => g.id)));
       }
@@ -147,6 +165,128 @@ export default function MenuDetailPage() {
   const clearDragState = () => {
     setDraggingGroupId(null);
     setDragOverGroupId(null);
+  };
+
+  // Items inside a group, applying any in-flight drag-and-drop override so
+  // optimistic reorder updates are reflected before the server roundtrip.
+  const itemsForGroup = (group: MenuGroup): MenuItem[] => {
+    const items = group.items ?? [];
+    const override = itemOrderByGroup.get(group.id);
+    if (!override) return items;
+    const byId = new Map(items.map((i) => [i.id, i] as const));
+    const ordered = override.map((id) => byId.get(id)).filter((i): i is MenuItem => !!i);
+    // Append any item not in the override (e.g. just-added) at the end.
+    for (const i of items) if (!override.includes(i.id)) ordered.push(i);
+    return ordered;
+  };
+
+  // ── Item drag-and-drop within a group ─────────────────────────────────────
+  const handleItemDragStart = (e: React.DragEvent<HTMLElement>, groupId: number, itemId: number) => {
+    e.stopPropagation();
+    setDraggingItem({ groupId, itemId });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `item:${itemId}`);
+  };
+
+  const handleItemDragOver = (e: React.DragEvent<HTMLElement>, groupId: number, itemId: number) => {
+    if (!draggingItem || draggingItem.groupId !== groupId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggingItem.itemId === itemId) return;
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
+    const currentOrder = itemsForGroup(group).map((i) => i.id);
+    const fromIdx = currentOrder.indexOf(draggingItem.itemId);
+    const toIdx = currentOrder.indexOf(itemId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const next = [...currentOrder];
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, draggingItem.itemId);
+    setItemOrderByGroup((prev) => {
+      const m = new Map(prev);
+      m.set(groupId, next);
+      return m;
+    });
+  };
+
+  const handleItemDrop = async (e: React.DragEvent<HTMLElement>, groupId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const drag = draggingItem;
+    setDraggingItem(null);
+    if (!drag || drag.groupId !== groupId) return;
+    const finalOrder = itemOrderByGroup.get(groupId);
+    if (!finalOrder) return;
+    try {
+      await reorderGroupItems(rid, groupId, finalOrder);
+    } catch {
+      reload();
+    }
+  };
+
+  // ── Bulk selection ────────────────────────────────────────────────────────
+  const selectedInGroup = (groupId: number): Set<number> =>
+    selectedItemsByGroup.get(groupId) ?? new Set<number>();
+
+  const toggleItemSelected = (groupId: number, itemId: number) => {
+    setSelectedItemsByGroup((prev) => {
+      const m = new Map(prev);
+      const cur = new Set(m.get(groupId) ?? new Set<number>());
+      if (cur.has(itemId)) cur.delete(itemId); else cur.add(itemId);
+      if (cur.size === 0) m.delete(groupId); else m.set(groupId, cur);
+      return m;
+    });
+  };
+
+  const toggleSelectAllInGroup = (groupId: number, itemIds: number[]) => {
+    setSelectedItemsByGroup((prev) => {
+      const m = new Map(prev);
+      const cur = m.get(groupId);
+      if (cur && cur.size === itemIds.length) {
+        m.delete(groupId);
+      } else {
+        m.set(groupId, new Set(itemIds));
+      }
+      return m;
+    });
+  };
+
+  const clearGroupSelection = (groupId: number) => {
+    setSelectedItemsByGroup((prev) => {
+      if (!prev.has(groupId)) return prev;
+      const m = new Map(prev);
+      m.delete(groupId);
+      return m;
+    });
+  };
+
+  const bulkRemoveFromGroup = async (groupId: number) => {
+    const ids = Array.from(selectedInGroup(groupId));
+    if (ids.length === 0) return;
+    if (!confirm(t('removeSelectedFromGroupConfirm').replace('{n}', String(ids.length)))) return;
+    for (const itemId of ids) {
+      await removeItemFromGroup(rid, groupId, itemId);
+    }
+    clearGroupSelection(groupId);
+    reload();
+  };
+
+  // Move all currently-selected items from sourceGroupId into targetGroupId.
+  // Server has no atomic move endpoint, so we add to the new group (batch) and
+  // then remove from the old group one-by-one. Items already present in the
+  // target group simply update their existing membership row (idempotent).
+  const bulkMoveToGroup = async (sourceGroupId: number, targetGroupId: number) => {
+    if (sourceGroupId === targetGroupId) return;
+    const ids = Array.from(selectedInGroup(sourceGroupId));
+    if (ids.length === 0) return;
+    await addItemsToGroup(rid, targetGroupId, ids);
+    for (const itemId of ids) {
+      await removeItemFromGroup(rid, sourceGroupId, itemId);
+    }
+    clearGroupSelection(sourceGroupId);
+    setMoveModalSourceGroupId(null);
+    reload();
   };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetGroupId: number) => {
@@ -262,8 +402,11 @@ export default function MenuDetailPage() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <button className="btn-secondary rounded-full flex items-center gap-2" onClick={() => alert(t('comingSoon'))}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>
+          <button
+            className="btn-secondary rounded-full flex items-center gap-2"
+            onClick={() => router.push(`/${rid}/menu/menus/${mid}/pos-display`)}
+          >
+            <MonitorSmartphoneIcon className="w-4 h-4" />
             {t('editPosLayout')}
           </button>
           <div className="relative">
@@ -303,14 +446,18 @@ export default function MenuDetailPage() {
         )}
 
         {groups.map((group) => {
-          const items = group.items ?? [];
+          const items = itemsForGroup(group);
+          const itemIds = items.map((i) => i.id);
+          const selected = selectedInGroup(group.id);
+          const allSelected = items.length > 0 && selected.size === items.length;
+          const someSelected = selected.size > 0 && !allSelected;
           const isExpanded = expanded.has(group.id);
           const isDragging = draggingGroupId === group.id;
           const isDragTarget = dragOverGroupId === group.id && draggingGroupId !== null && draggingGroupId !== group.id;
           return (
             <div
               key={group.id}
-              draggable
+              draggable={draggingItem === null}
               onDragStart={(e) => handleDragStart(e, group.id)}
               onDragOver={(e) => handleDragOver(e, group.id)}
               onDrop={(e) => handleDrop(e, group.id)}
@@ -362,10 +509,46 @@ export default function MenuDetailPage() {
               {/* ── Group Content (expanded) ── */}
               {isExpanded && (
                 <div className="border-t border-[var(--divider)] rounded-b-xl">
+                  {/* Bulk-action bar — shown when any items in this group are selected. */}
+                  {selected.size > 0 && (
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] border-b border-[var(--divider)]">
+                      <span className="text-sm font-medium text-[var(--text-primary)]">
+                        {t('nSelected').replace('{n}', String(selected.size))}
+                      </span>
+                      <div className="flex-1" />
+                      <button
+                        onClick={() => clearGroupSelection(group.id)}
+                        className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                      >
+                        {t('cancel')}
+                      </button>
+                      <button
+                        onClick={() => setMoveModalSourceGroupId(group.id)}
+                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {t('moveToGroup')}
+                      </button>
+                      <button
+                        onClick={() => bulkRemoveFromGroup(group.id)}
+                        className="text-sm font-medium text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                      >
+                        {t('removeFromGroup')}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Table Header Row — desktop only, mobile rows show inline labels */}
                   {items.length > 0 && (
                     <div className={`hidden ${GRID_COLS_DESKTOP} px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
-                      <div><input type="checkbox" className="rounded border-[var(--divider)]" disabled /></div>
+                      <div>
+                        <input
+                          type="checkbox"
+                          className="rounded border-[var(--divider)]"
+                          checked={allSelected}
+                          ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                          onChange={() => toggleSelectAllInGroup(group.id, itemIds)}
+                        />
+                      </div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('article')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('pointOfSale')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('salesChannels')}</div>
@@ -385,6 +568,13 @@ export default function MenuDetailPage() {
                       t={t}
                       rid={rid}
                       groupId={group.id}
+                      isSelected={selected.has(item.id)}
+                      onToggleSelected={() => toggleItemSelected(group.id, item.id)}
+                      isDragging={draggingItem?.itemId === item.id && draggingItem.groupId === group.id}
+                      onItemDragStart={(e) => handleItemDragStart(e, group.id, item.id)}
+                      onItemDragOver={(e) => handleItemDragOver(e, group.id, item.id)}
+                      onItemDrop={(e) => handleItemDrop(e, group.id)}
+                      onItemDragEnd={() => setDraggingItem(null)}
                       onUpdate={reload}
                     />
                   ))}
@@ -434,6 +624,18 @@ export default function MenuDetailPage() {
           onClose={() => setItemPickerGroupId(null)}
           onDone={() => { setItemPickerGroupId(null); reload(); }}
           onCreateNew={() => { setItemPickerGroupId(null); router.push(`/${rid}/menu/items/new`); }}
+        />
+      )}
+
+      {/* ── Bulk Move-to-Group Modal ── */}
+      {moveModalSourceGroupId !== null && (
+        <MoveToGroupModal
+          t={t}
+          menus={allMenus}
+          sourceGroupId={moveModalSourceGroupId}
+          itemCount={selectedInGroup(moveModalSourceGroupId).size}
+          onClose={() => setMoveModalSourceGroupId(null)}
+          onPick={(targetGroupId) => bulkMoveToGroup(moveModalSourceGroupId, targetGroupId)}
         />
       )}
     </div>
@@ -588,9 +790,111 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
   );
 }
 
+// ─── Move-to-Group Modal ────────────────────────────────────────────────────
+
+function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick }: {
+  t: TFn;
+  menus: Menu[];
+  sourceGroupId: number;
+  itemCount: number;
+  onClose: () => void;
+  onPick: (targetGroupId: number) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [picked, setPicked] = useState<number | null>(null);
+
+  const visibleMenus = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const out: { menu: Menu; groups: MenuGroup[] }[] = [];
+    for (const m of menus) {
+      const menuMatches = !q || m.name.toLowerCase().includes(q);
+      const groups = (m.groups ?? []).filter((g) => {
+        if (g.id === sourceGroupId) return false;
+        if (!q) return true;
+        return menuMatches || g.name.toLowerCase().includes(q);
+      });
+      if (groups.length === 0) continue;
+      out.push({ menu: m, groups });
+    }
+    return out;
+  }, [menus, search, sourceGroupId]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[8vh] bg-black/50" onClick={onClose}>
+      <div
+        className="bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col border border-[var(--divider)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full border-2 border-[var(--divider)] hover:bg-[var(--surface-subtle)] transition-colors flex items-center justify-center"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => picked !== null && onPick(picked)}
+              disabled={picked === null}
+              className="btn-secondary rounded-full disabled:opacity-40"
+            >
+              {t('move')}
+            </button>
+          </div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">{t('moveToGroup')}</h2>
+          <p className="text-sm text-[var(--text-secondary)] mb-4">
+            {t('moveToGroupDesc').replace('{n}', String(itemCount))}
+          </p>
+          <div className="relative">
+            <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              className="input w-full pl-12 rounded-full"
+              placeholder={t('search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          {visibleMenus.length === 0 ? (
+            <p className="text-sm text-[var(--text-muted)] text-center py-8">{t('noResults')}</p>
+          ) : (
+            visibleMenus.map(({ menu: m, groups }) => (
+              <div key={m.id} className="mb-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-2">
+                  {m.name}
+                </div>
+                {groups.map((g) => (
+                  <label
+                    key={g.id}
+                    className="flex items-center gap-3 py-3 border-b border-[var(--divider)] cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
+                    onClick={() => setPicked(g.id)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-medium text-[var(--text-primary)] truncate">{g.name}</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${picked === g.id ? 'border-fg-primary' : 'border-[var(--divider)]'}`}>
+                      {picked === g.id && <div className="w-2.5 h-2.5 rounded-full bg-fg-primary" />}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Item Row (CSS Grid) ─────────────────────────────────────────────────────
 
-function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
+function ItemRow({
+  item, restaurantName, menu, t, rid, groupId, onUpdate,
+  isSelected, onToggleSelected,
+  isDragging, onItemDragStart, onItemDragOver, onItemDrop, onItemDragEnd,
+}: {
   item: MenuItem;
   restaurantName?: string;
   menu: Menu;
@@ -598,6 +902,13 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
   rid: number;
   groupId: number;
   onUpdate: () => void;
+  isSelected: boolean;
+  onToggleSelected: () => void;
+  isDragging: boolean;
+  onItemDragStart: (e: React.DragEvent<HTMLElement>) => void;
+  onItemDragOver: (e: React.DragEvent<HTMLElement>) => void;
+  onItemDrop: (e: React.DragEvent<HTMLElement>) => void;
+  onItemDragEnd: () => void;
 }) {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -639,12 +950,23 @@ function ItemRow({ item, restaurantName, menu, t, rid, groupId, onUpdate }: {
 
   return (
     <div
-      className={`relative flex flex-col gap-2 ${GRID_COLS_DESKTOP} md:gap-0 px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer`}
+      draggable
+      onDragStart={onItemDragStart}
+      onDragOver={onItemDragOver}
+      onDrop={onItemDrop}
+      onDragEnd={onItemDragEnd}
+      className={`relative flex flex-col gap-2 ${GRID_COLS_DESKTOP} md:gap-0 px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer ${isDragging ? 'opacity-40' : ''}`}
       onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
     >
-      {/* Checkbox — desktop only on mobile cards */}
-      <div className="hidden md:block" onClick={(e) => e.stopPropagation()}>
-        <input type="checkbox" className="rounded border-[var(--divider)]" />
+      {/* Checkbox + drag handle — desktop only; cards collapse on mobile */}
+      <div className="hidden md:flex md:items-center md:gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <GripVerticalIcon className="w-4 h-4 text-[var(--text-muted)] cursor-grab active:cursor-grabbing shrink-0" />
+        <input
+          type="checkbox"
+          className="rounded border-[var(--divider)]"
+          checked={isSelected}
+          onChange={onToggleSelected}
+        />
       </div>
 
       {/* Article name + image (card heading on mobile) */}

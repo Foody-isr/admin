@@ -9,13 +9,17 @@ import {
   deleteWebsiteSection, reorderWebsiteSections, listSiteStyles,
   uploadRestaurantLogo, uploadRestaurantBackground, uploadSectionImage,
   getAllCategories, getThemeCatalog,
+  getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
+  DraftStatePayload, DraftSectionPayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
   ThemeCatalog,
 } from '@/lib/api';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
+import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
+import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
@@ -84,6 +88,17 @@ const BUTTON_STYLES = [
   { value: 'outline', labelKey: 'outline' },
 ];
 
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (diffSec < 5) return "à l'instant";
+  if (diffSec < 60) return `il y a ${diffSec}s`;
+  if (diffSec < 3600) return `il y a ${Math.floor(diffSec / 60)} min`;
+  if (diffSec < 86400) return `il y a ${Math.floor(diffSec / 3600)} h`;
+  return `il y a ${Math.floor(diffSec / 86400)} j`;
+}
+
 // ─── Main Component ─────────────────────────────────────────────────
 
 type Tab = 'styles' | 'sections';
@@ -100,6 +115,54 @@ export default function WebsitePage() {
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('sections');
   const [previewMode, setPreviewMode] = useState<'mobile' | 'desktop'>('mobile');
+
+  // ─── Editor mode (new 3-way IA) ─────────────────────────────────
+  // Pages: edit the section content of Landing + Order pages.
+  // Thème: global colors, typography, logo, favicon — applies to BOTH pages.
+  // Paramètres: slug, contact display toggles, social links, SEO.
+  // The old "Site Settings"/"Section Settings" duality is gone.
+  type EditorMode = 'pages' | 'theme' | 'settings';
+  type ThemeSubMode = 'colors' | 'typography' | 'logo';
+  type SettingsSubMode = 'general' | 'contact' | 'social' | 'seo';
+  const [editorMode, setEditorMode] = useState<EditorMode>('pages');
+  const [themeSubMode, setThemeSubMode] = useState<ThemeSubMode>('colors');
+  const [settingsSubMode, setSettingsSubMode] = useState<SettingsSubMode>('general');
+
+  // ─── Draft / publish state ────────────────────────────────────────
+  // The editor edits a draft snapshot stored on the server; customers see
+  // the live columns unchanged until Publier promotes the draft.
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Sections inserted in the editor but not yet persisted carry a stable tmp_id
+  // (uuid) and have id === 0. Server returns them under tmp_id until publish.
+  const newSectionTmpIds = useRef<Map<number, string>>(new Map());
+  // Sections deleted in the editor but originally persisted — tracked so we
+  // can send them in `deleted_section_ids` on save.
+  const [deletedIds, setDeletedIds] = useState<number[]>([]);
+  // Suppress autosave during initial load + during publish/discard refresh.
+  // Also a content-based skip: lastSavedPayloadRef holds the most recent
+  // server-confirmed shape; autosave compares against it and noops when
+  // the current shape is identical (prevents phantom saves from hydration).
+  const suppressAutosaveRef = useRef(true);
+  const lastSavedPayloadRef = useRef<string>('');
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─── Selection overlay state ─────────────────────────────────────
+  // Bounds reported by the foodyweb iframe and the iframe's current viewport
+  // rect together let SelectionOverlay draw outlines + the floating toolbar
+  // directly over the live preview.
+  const [sectionBounds, setSectionBounds] = useState<SectionBounds[]>([]);
+  const [iframeRect, setIframeRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [iframeScrollY, setIframeScrollY] = useState(0);
+  const handleBoundsUpdate = useCallback((bounds: SectionBounds[], scrollY: number) => {
+    if (bounds.length > 0) setSectionBounds(bounds);
+    setIframeScrollY(scrollY);
+  }, []);
+  const handleIframeRectUpdate = useCallback((rect: { top: number; left: number; width: number; height: number } | null) => {
+    setIframeRect(rect);
+  }, []);
 
   // Resizable left sidebar (persisted to localStorage, bounded 220–520 px).
   const [sidebarWidth, setSidebarWidth] = useState(280);
@@ -162,6 +225,7 @@ export default function WebsitePage() {
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
+  const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -197,25 +261,19 @@ export default function WebsitePage() {
   }, []);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
+    // Local-state-only — the global autosave effect persists to the draft.
+    // (Previously this called updateWebsiteConfig directly, which bypassed
+    // the draft model and wrote straight to live config — defeating the
+    // "Publier is a real action" promise.)
     setConfig((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
-      // Mirror to local form state for branding fields the parent also tracks.
       if (patch.logo_size !== undefined) setLogoSize(patch.logo_size);
       if (patch.hide_navbar_name !== undefined) setHideNavbarName(patch.hide_navbar_name);
       postMenuPreview(next);
       return next;
     });
-    if (menuSaveTimerRef.current) clearTimeout(menuSaveTimerRef.current);
-    menuSaveTimerRef.current = setTimeout(async () => {
-      try {
-        const updated = await updateWebsiteConfig(restaurantId, patch);
-        setConfig(updated);
-      } catch (e) {
-        setError((e as Error).message || 'Save failed');
-      }
-    }, 500);
-  }, [restaurantId, postMenuPreview]);
+  }, [postMenuPreview]);
 
   // When a section is selected, show section settings (not site styles)
   useEffect(() => {
@@ -254,56 +312,149 @@ export default function WebsitePage() {
 
   // ─── Load Data ──────────────────────────────────────────────────
 
+  // Helper: hydrate component state from a fresh draft response.
+  const hydrateFromDraft = useCallback((draft: { state: DraftStatePayload; draft_dirty: boolean; draft_saved_at?: string | null; published_at?: string | null }) => {
+    suppressAutosaveRef.current = true;
+    setDraftDirty(draft.draft_dirty);
+    setDraftSavedAt(draft.draft_saved_at || null);
+    setPublishedAt(draft.published_at || null);
+
+    const stateConfig = draft.state.config || {};
+    setConfig({
+      ...(config || {}),
+      ...stateConfig,
+      restaurant_id: restaurantId,
+    } as WebsiteConfig);
+    setTagline(stateConfig.tagline || '');
+    setShowAddress(stateConfig.show_address ?? true);
+    setShowPhone(stateConfig.show_phone ?? true);
+    setShowHours(stateConfig.show_hours ?? true);
+    setNavbarStyle(stateConfig.navbar_style || 'solid');
+    setNavbarColor(stateConfig.navbar_color || '');
+    setLogoSize(stateConfig.logo_size > 0 ? stateConfig.logo_size : 40);
+    setHideNavbarName(stateConfig.hide_navbar_name || false);
+    setHeroNameFont(stateConfig.hero_name_font || '');
+    setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
+    const landingOn = stateConfig.landing_enabled ?? true;
+    setLandingEnabled(landingOn);
+    // If landing is disabled, the page switcher hides "Landing"; make sure the
+    // editor isn't sitting on a page that's no longer reachable.
+    if (!landingOn) setActivePage('menu');
+
+    // Sections: assign synthetic negative ids to tmp_id-only sections so
+    // existing UI keeps working with a numeric `id` field. The tmp_id is
+    // preserved in newSectionTmpIds for use when saving back to the server.
+    const tmpIdMap = new Map<number, string>();
+    let nextSynthId = -1;
+    const sections = (draft.state.sections || []).map((s) => {
+      let id = s.id || 0;
+      if (!id && s.tmp_id) {
+        id = nextSynthId--;
+        tmpIdMap.set(id, s.tmp_id);
+      }
+      return {
+        id,
+        restaurant_id: restaurantId,
+        section_type: s.section_type,
+        page: s.page || 'home',
+        sort_order: s.sort_order ?? 0,
+        is_visible: s.is_visible ?? true,
+        layout: s.layout || 'default',
+        content: s.content || {},
+        settings: s.settings || {},
+        created_at: '',
+        updated_at: '',
+      } as WebsiteSection;
+    });
+    newSectionTmpIds.current = tmpIdMap;
+    setSections(sections);
+    setDeletedIds([]);
+    // Seed the autosave snapshot so the next render's buildDraftPayload()
+    // matches and the global autosave effect noops until the user actually
+    // edits something. We rebuild the snapshot in the same shape as
+    // buildDraftPayload to guarantee an exact byte match.
+    setTimeout(() => {
+      lastSavedPayloadRef.current = JSON.stringify({
+        config: {
+          theme_id: stateConfig.theme_id || 'editorial-dark',
+          pairing_id: stateConfig.pairing_id || 'modern-sans',
+          brand_color: stateConfig.brand_color ?? null,
+          layout_default: stateConfig.layout_default || 'magazine',
+          hero_layout: stateConfig.hero_layout || 'standard',
+          welcome_text: stateConfig.welcome_text || '',
+          tagline: stateConfig.tagline || '',
+          social_links: stateConfig.social_links || {},
+          show_address: stateConfig.show_address ?? true,
+          show_phone: stateConfig.show_phone ?? true,
+          show_hours: stateConfig.show_hours ?? true,
+          favicon_url: stateConfig.favicon_url || '',
+          hero_cta_text: stateConfig.hero_cta_text || 'Start Your Order',
+          mid_cta_enabled: stateConfig.mid_cta_enabled ?? true,
+          mid_cta_title: stateConfig.mid_cta_title || '',
+          mid_cta_body: stateConfig.mid_cta_body || '',
+          mid_cta_btn_text: stateConfig.mid_cta_btn_text || '',
+          footer_text: stateConfig.footer_text || '',
+          navbar_style: stateConfig.navbar_style || 'solid',
+          navbar_color: stateConfig.navbar_color || '',
+          logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
+          hide_navbar_name: stateConfig.hide_navbar_name || false,
+          hero_name_font: stateConfig.hero_name_font || '',
+          category_banner_style: stateConfig.category_banner_style || 'image-overlay',
+          landing_enabled: stateConfig.landing_enabled ?? true,
+        },
+        sections: sections.map((s) => {
+          const tmp = tmpIdMap.get(s.id);
+          return {
+            ...(tmp ? { tmp_id: tmp } : { id: s.id }),
+            section_type: s.section_type,
+            page: s.page || 'home',
+            sort_order: s.sort_order ?? 0,
+            is_visible: s.is_visible,
+            layout: s.layout || 'default',
+            content: s.content || {},
+            settings: s.settings || {},
+          };
+        }),
+        deleted_section_ids: [],
+      });
+      suppressAutosaveRef.current = false;
+    }, 50);
+  }, [restaurantId, config]);
+
   useEffect(() => {
     async function load() {
       try {
-        const [cfg, rest, sects, styles] = await Promise.all([
-          getWebsiteConfig(restaurantId),
+        const [draft, rest, styles] = await Promise.all([
+          getWebsiteDraft(restaurantId),
           getRestaurant(restaurantId),
-          listWebsiteSections(restaurantId),
           listSiteStyles(),
         ]);
-        setConfig(cfg);
         setRestaurant(rest);
         setSiteStyles(styles);
 
-        // Auto-create default sections if restaurant has none
-        if (sects.length === 0) {
-          const defaults = [
-            { section_type: 'hero_banner', page: 'home', is_visible: true, layout: 'centered', sort_order: 0, content: getDefaultContent('hero_banner'), settings: { color_style: 'brand', text_alignment: 'center', padding: 'normal' } },
-            { section_type: 'action_buttons', page: 'home', is_visible: true, layout: 'default', sort_order: 1, content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } },
-            { section_type: 'footer', page: 'home', is_visible: true, layout: 'columns', sort_order: 99, content: getDefaultContent('footer'), settings: { color_style: 'dark' } },
-          ];
-          const created = await Promise.all(defaults.map(d => createWebsiteSection(restaurantId, d)));
-          setSections(created);
-        } else {
-          // Auto-create missing essential sections for existing restaurants
-          const existingTypes = new Set(sects.map(s => s.section_type));
-          const missing: { section_type: string; sort_order: number; layout: string; content: Record<string, any>; settings: Record<string, any> }[] = [];
-          if (!existingTypes.has('footer')) {
-            missing.push({ section_type: 'footer', sort_order: 99, layout: 'columns', content: getDefaultContent('footer'), settings: { color_style: 'dark' } });
-          }
-          if (!existingTypes.has('action_buttons')) {
-            missing.push({ section_type: 'action_buttons', sort_order: sects.length, layout: 'default', content: getDefaultContent('action_buttons'), settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' } });
-          }
-          if (missing.length > 0) {
-            const created = await Promise.all(missing.map(d => createWebsiteSection(restaurantId, { ...d, page: 'home', is_visible: true })));
-            setSections([...sects, ...created]);
-          } else {
-            setSections(sects);
-          }
+        // Auto-create essential sections (footer, action_buttons) if missing.
+        // Done locally so it lands in the draft without touching live state.
+        const existingTypes = new Set((draft.state.sections || []).map((s) => s.section_type));
+        const missing: DraftSectionPayload[] = [];
+        if (!existingTypes.has('footer')) {
+          missing.push({
+            tmp_id: `tmp_${Date.now()}_footer`, section_type: 'footer', page: 'home',
+            is_visible: true, layout: 'columns', sort_order: 99,
+            content: getDefaultContent('footer'), settings: { color_style: 'dark' },
+          });
         }
-
-        setTagline(cfg.tagline || '');
-        setShowAddress(cfg.show_address ?? true);
-        setShowPhone(cfg.show_phone ?? true);
-        setShowHours(cfg.show_hours ?? true);
-        setNavbarStyle(cfg.navbar_style || 'solid');
-        setNavbarColor(cfg.navbar_color || '');
-        setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
-        setHideNavbarName(cfg.hide_navbar_name || false);
-        setHeroNameFont(cfg.hero_name_font || '');
-        setCategoryBannerStyle((cfg.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
+        if (!existingTypes.has('action_buttons')) {
+          missing.push({
+            tmp_id: `tmp_${Date.now()}_action`, section_type: 'action_buttons', page: 'home',
+            is_visible: true, layout: 'default', sort_order: (draft.state.sections?.length || 0),
+            content: getDefaultContent('action_buttons'),
+            settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+          });
+        }
+        if (missing.length > 0) {
+          draft.state.sections = [...(draft.state.sections || []), ...missing];
+        }
+        hydrateFromDraft(draft);
       } catch (err: any) {
         setError(err.message || 'Failed to load');
       } finally {
@@ -311,116 +462,187 @@ export default function WebsitePage() {
       }
     }
     load();
+    // hydrateFromDraft intentionally NOT in deps — first-load only effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId]);
 
-  // ─── Save Config ────────────────────────────────────────────────
+  // ─── Build the current draft payload from local state ──────────────
 
-  const handleSaveConfig = useCallback(async () => {
-    // Flush any pending debounced section save
-    if (sectionSaveTimerRef.current) {
-      clearTimeout(sectionSaveTimerRef.current);
-      sectionSaveTimerRef.current = null;
-    }
-
-    setSaving(true); setSaved(false); setError('');
-    try {
-      // Save any unsaved section changes first
-      const savePromises = sections.map(s =>
-        updateWebsiteSection(restaurantId, s.id, {
-          content: s.content,
-          settings: s.settings,
-          layout: s.layout,
-          is_visible: s.is_visible,
-        }).catch(() => {}) // ignore individual failures
-      );
-      await Promise.all(savePromises);
-
-      const updated = await updateWebsiteConfig(restaurantId, {
+  const buildDraftPayload = useCallback((): DraftStatePayload => {
+    return {
+      config: {
+        theme_id: config?.theme_id || 'editorial-dark',
+        pairing_id: config?.pairing_id || 'modern-sans',
+        brand_color: config?.brand_color ?? null,
+        layout_default: config?.layout_default || 'magazine',
+        hero_layout: config?.hero_layout || 'standard',
+        welcome_text: config?.welcome_text || '',
         tagline,
+        social_links: config?.social_links || {},
         show_address: showAddress,
         show_phone: showPhone,
         show_hours: showHours,
+        favicon_url: config?.favicon_url || '',
+        hero_cta_text: config?.hero_cta_text || 'Start Your Order',
+        mid_cta_enabled: config?.mid_cta_enabled ?? true,
+        mid_cta_title: config?.mid_cta_title || '',
+        mid_cta_body: config?.mid_cta_body || '',
+        mid_cta_btn_text: config?.mid_cta_btn_text || '',
+        footer_text: config?.footer_text || '',
         navbar_style: navbarStyle,
         navbar_color: navbarColor,
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
-      });
-      setConfig(updated);
-      setSaved(true);
+        landing_enabled: landingEnabled,
+      },
+      sections: sections.map((s) => {
+        const tmpId = newSectionTmpIds.current.get(s.id);
+        return {
+          ...(tmpId ? { tmp_id: tmpId } : { id: s.id }),
+          section_type: s.section_type,
+          page: s.page || 'home',
+          sort_order: s.sort_order ?? 0,
+          is_visible: s.is_visible,
+          layout: s.layout || 'default',
+          content: s.content || {},
+          settings: s.settings || {},
+        } as DraftSectionPayload;
+      }),
+      deleted_section_ids: deletedIds,
+    };
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, landingEnabled, sections, deletedIds]);
 
-      setTimeout(() => setSaved(false), 3000);
+  // ─── Autosave: persist the entire draft on any local change ──────
+
+  useEffect(() => {
+    if (loading || suppressAutosaveRef.current) return;
+    // Content-based skip — if the current payload matches what we last saved,
+    // nothing has actually changed (e.g. transient re-render after hydration).
+    const serialized = JSON.stringify(buildDraftPayload());
+    if (serialized === lastSavedPayloadRef.current) return;
+
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const payload = buildDraftPayload();
+        const resp = await saveWebsiteDraft(restaurantId, payload);
+        lastSavedPayloadRef.current = JSON.stringify(payload);
+        setDraftDirty(resp.draft_dirty);
+        setDraftSavedAt(resp.draft_saved_at || null);
+      } catch (err: any) {
+        setError(err.message || 'Autosave failed');
+      }
+    }, 400);
+    return () => {
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    };
+  }, [loading, restaurantId, buildDraftPayload]);
+
+  // ─── Publish ───────────────────────────────────────────────────
+
+  const handlePublish = useCallback(async () => {
+    // Flush any pending autosave first so the freshest state is published.
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+      try {
+        await saveWebsiteDraft(restaurantId, buildDraftPayload());
+      } catch {}
+    }
+    setSaving(true); setSaved(false); setError('');
+    try {
+      const resp = await publishWebsiteDraft(restaurantId);
+      hydrateFromDraft(resp);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to save');
+      setError(err.message || 'Failed to publish');
     } finally {
       setSaving(false);
     }
-  }, [restaurantId, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, sections]);
+  }, [restaurantId, buildDraftPayload, hydrateFromDraft]);
 
+  // ─── Discard ───────────────────────────────────────────────────
+
+  const handleDiscard = useCallback(async () => {
+    if (draftSaveTimerRef.current) {
+      clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    setShowDiscardConfirm(false);
+    setError('');
+    try {
+      const resp = await discardWebsiteDraft(restaurantId);
+      hydrateFromDraft(resp);
+      setSelectedSectionId(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to discard');
+    }
+  }, [restaurantId, hydrateFromDraft]);
+
+  // Legacy "reset to defaults" — kept for the gear-icon "Reset" button in
+  // the style panel. Discard is now the primary "undo" affordance.
   const handleResetConfig = useCallback(async () => {
     try {
       const data = await resetWebsiteConfig(restaurantId);
-      const cfg = data.website_config;
-      setConfig(cfg);
-      setTagline(cfg.tagline || '');
-      setShowAddress(cfg.show_address ?? true);
-      setShowPhone(cfg.show_phone ?? true);
-      setShowHours(cfg.show_hours ?? true);
-      setNavbarStyle(cfg.navbar_style || 'solid');
-      setNavbarColor(cfg.navbar_color || '');
-      setLogoSize(cfg.logo_size > 0 ? cfg.logo_size : 40);
-      setHideNavbarName(cfg.hide_navbar_name || false);
-      setHeroNameFont(cfg.hero_name_font || '');
-      setCategoryBannerStyle((cfg.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
-      // Also refresh sections from reset response
-      if (data.sections) {
-        setSections(data.sections);
-        setSelectedSectionId(null);
-      }
+      // After resetting the published state, re-hydrate from the draft endpoint
+      // so we're back in sync with the server's view of the world.
+      const draft = await getWebsiteDraft(restaurantId);
+      hydrateFromDraft(draft);
     } catch (err: any) {
       setError(err.message || 'Failed to reset');
     }
-  }, [restaurantId]);
+  }, [restaurantId, hydrateFromDraft]);
 
   // ─── Section CRUD ───────────────────────────────────────────────
 
-  async function handleAddSection(sectionType: string) {
+  // All section mutations now write to LOCAL state only. The autosave effect
+  // persists the entire draft to the server on a 400ms debounce. The "Publier"
+  // button promotes draft → live.
+
+  function handleAddSection(sectionType: string) {
     setShowAddModal(false);
-    try {
-      const section = await createWebsiteSection(restaurantId, {
-        section_type: sectionType,
-        page: activePage,
-        is_visible: true,
-        layout: 'default',
-        content: getDefaultContent(sectionType),
-        settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
-      });
-      setSections(prev => [...prev, section]);
-      setSelectedSectionId(section.id);
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to add section');
-    }
+    // Assign a stable tmp_id (used to address the row on the server side
+    // until publish replaces it with a real DB id) plus a synthetic negative
+    // local id so the existing UI keeps treating sections as { id: number }.
+    const tmpId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    let syntheticId = -1;
+    newSectionTmpIds.current.forEach((_, k) => { if (k <= syntheticId) syntheticId = k - 1; });
+    newSectionTmpIds.current.set(syntheticId, tmpId);
+    const newSection: WebsiteSection = {
+      id: syntheticId,
+      restaurant_id: restaurantId,
+      section_type: sectionType,
+      page: activePage,
+      sort_order: sections.length,
+      is_visible: true,
+      layout: 'default',
+      content: getDefaultContent(sectionType),
+      settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+      created_at: '',
+      updated_at: '',
+    };
+    setSections((prev) => [...prev, newSection]);
+    setSelectedSectionId(syntheticId);
   }
 
-  async function handleDeleteSection(sectionId: number) {
-    try {
-      await deleteWebsiteSection(restaurantId, sectionId);
-      setSections(prev => prev.filter(s => s.id !== sectionId));
-      if (selectedSectionId === sectionId) setSelectedSectionId(null);
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete section');
+  function handleDeleteSection(sectionId: number) {
+    // If it's a previously persisted section (positive id), record its id
+    // for inclusion in deleted_section_ids on the next autosave / publish.
+    if (sectionId > 0) {
+      setDeletedIds((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
+    } else {
+      // Synthetic id (never persisted) — just forget the tmp_id mapping.
+      newSectionTmpIds.current.delete(sectionId);
     }
+    setSections((prev) => prev.filter((s) => s.id !== sectionId));
+    if (selectedSectionId === sectionId) setSelectedSectionId(null);
   }
-
-  // Debounced API save for section updates
-  const sectionSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleUpdateSection(sectionId: number, updates: Partial<WebsiteSection>) {
-    // Optimistic local update — immediate, so iframe gets it right away
-    setSections(prev => prev.map(s => {
+    setSections((prev) => prev.map((s) => {
       if (s.id !== sectionId) return s;
       return {
         ...s,
@@ -429,45 +651,23 @@ export default function WebsitePage() {
         settings: updates.settings ? { ...s.settings, ...updates.settings } : s.settings,
       };
     }));
-
-    // Debounce the actual API save (500ms)
-    if (sectionSaveTimerRef.current) clearTimeout(sectionSaveTimerRef.current);
-    sectionSaveTimerRef.current = setTimeout(async () => {
-      try {
-        await updateWebsiteSection(restaurantId, sectionId, updates);
-      } catch (err: any) {
-        setError(err.message || 'Failed to update section');
-      }
-    }, 500);
   }
 
-  async function handleMoveSection(sectionId: number, direction: 'up' | 'down') {
+  function handleMoveSection(sectionId: number, direction: 'up' | 'down') {
     const pageSections = filteredSections;
-    const idx = pageSections.findIndex(s => s.id === sectionId);
+    const idx = pageSections.findIndex((s) => s.id === sectionId);
     if (idx < 0) return;
     const newIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= pageSections.length) return;
 
     const reordered = [...pageSections];
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
-    const order = reordered.map((s, i) => ({ id: s.id, sort_order: i }));
+    const orderMap = new Map(reordered.map((s, i) => [s.id, i]));
 
-    // Update full sections array
-    const newSections = sections.map(s => {
-      const updated = order.find(o => o.id === s.id);
-      return updated ? { ...s, sort_order: updated.sort_order } : s;
-    });
-    setSections(newSections);
-
-    try {
-      const updated = await reorderWebsiteSections(restaurantId, order);
-      setSections(prev => {
-        const updatedMap = new Map(updated.map(u => [u.id, u]));
-        return prev.map(s => updatedMap.get(s.id) || s);
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to reorder');
-    }
+    setSections((prev) => prev.map((s) => {
+      const newOrder = orderMap.get(s.id);
+      return newOrder !== undefined ? { ...s, sort_order: newOrder } : s;
+    }));
   }
 
   // ─── Render ─────────────────────────────────────────────────────
@@ -480,181 +680,196 @@ export default function WebsitePage() {
     );
   }
 
+  const sectionLabel = (s: WebsiteSection | null) =>
+    s ? (SECTION_TYPE_META[s.section_type] ? t(SECTION_TYPE_META[s.section_type].labelKey) : s.section_type) : '';
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Top Bar — Wix-style */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-divider" style={{ background: 'var(--surface)' }}>
-        {/* Left: back + title */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/${restaurantId}/dashboard`)} className="w-8 h-8 rounded-full border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition" title={t('backToDashboard')}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+    <div className="h-screen flex flex-col" style={{ background: 'var(--bg-page)' }}>
+      {/* ─── Top Bar ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-divider" style={{ background: 'var(--surface)' }}>
+        {/* Left: back + project name */}
+        <div className="flex items-center gap-3 min-w-[240px]">
+          <button
+            onClick={() => router.push(`/${restaurantId}/dashboard`)}
+            className="w-8 h-8 rounded-lg border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition"
+            title={t('backToDashboard')}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-subtle">
-            <svg className="w-4 h-4 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-            <span className="text-sm font-semibold text-fg-primary">{t('siteDesign')}</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">Site web</span>
+            <span className="text-[13px] font-semibold text-fg-primary truncate max-w-[180px]">
+              {restaurant?.name ?? 'Sans titre'}
+            </span>
           </div>
         </div>
 
-        {/* Center: device toggle + undo/redo */}
-        <div className="flex items-center gap-2">
-          {/* Device dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-divider hover:bg-surface-subtle transition text-fg-secondary"
-            >
-              {previewMode === 'desktop' ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-              )}
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-          </div>
+        {/* Center: mode tabs (Pages / Thème / Paramètres) */}
+        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
+          {(['pages', 'theme', 'settings'] as EditorMode[]).map((m) => {
+            const label = m === 'pages' ? 'Pages' : m === 'theme' ? 'Thème' : 'Paramètres';
+            const active = editorMode === m;
+            return (
+              <button
+                key={m}
+                onClick={() => { setEditorMode(m); if (m !== 'pages') setSelectedSectionId(null); }}
+                className={`px-4 py-1.5 rounded-lg text-[13px] font-medium transition ${
+                  active ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+                }`}
+                style={active ? { background: 'var(--surface)' } : undefined}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Right: Preview Live + Publish */}
-        <div className="flex items-center gap-3">
+        {/* Right: device, status, preview link, annuler, publier */}
+        <div className="flex items-center gap-3 min-w-[240px] justify-end">
+          <button
+            onClick={() => setPreviewMode(previewMode === 'desktop' ? 'mobile' : 'desktop')}
+            className="w-8 h-8 rounded-lg border border-divider flex items-center justify-center text-fg-secondary hover:bg-surface-subtle transition"
+            title={previewMode === 'mobile' ? 'Aperçu desktop' : 'Aperçu mobile'}
+          >
+            {previewMode === 'desktop' ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+            )}
+          </button>
+
+          {/* Status badge */}
+          <div className="text-xs">
+            {draftDirty ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium" style={{ background: 'rgba(235, 82, 4, 0.12)', color: '#EB5204' }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#EB5204' }} />
+                Brouillon
+              </span>
+            ) : publishedAt ? (
+              <span className="text-fg-secondary">Publié {formatRelativeTime(publishedAt)}</span>
+            ) : (
+              <span className="text-fg-secondary">Aucune modification</span>
+            )}
+          </div>
+
           {restaurant?.slug && (
             <a
               href={`${process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'}/r/${restaurant.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+              className="text-[13px] text-brand-500 hover:text-brand-600 font-medium"
             >
-              Preview
+              Voir le site
             </a>
           )}
+
+          {draftDirty && (
+            <button
+              onClick={() => setShowDiscardConfirm(true)}
+              className="text-[13px] text-fg-secondary hover:text-fg-primary font-medium px-3 py-1.5 rounded-lg hover:bg-surface-subtle transition"
+            >
+              Annuler
+            </button>
+          )}
+
           <button
-            onClick={handleSaveConfig}
-            disabled={saving}
-            className="btn-primary px-5 py-2 rounded-lg disabled:opacity-50 text-sm font-semibold"
+            onClick={handlePublish}
+            disabled={saving || !draftDirty}
+            className="btn-primary px-5 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-semibold"
           >
-            {saving ? t('saving') : saved ? 'Saved!' : t('publish')}
+            {saving ? 'Publication…' : saved ? 'Publié ✓' : 'Publier'}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm shadow-lg">
           {error}
-          <button onClick={() => setError('')} className="ml-2 text-red-500 font-bold">&times;</button>
+          <button onClick={() => setError('')} className="ml-3 text-red-500 font-bold">&times;</button>
         </div>
       )}
 
-      {/* Main Layout: Left sidebar + Full preview */}
+      {/* ─── Main: Left rail + Canvas + Right panel ──────────────── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (resizable) */}
-        <div
-          className="border-r border-divider overflow-y-auto flex-shrink-0 flex flex-col relative"
-          style={{ width: `${sidebarWidth}px`, background: 'var(--surface)' }}
-        >
-          {/* Resize handle — drag the right edge */}
-          <div
-            onMouseDown={startSidebarResize}
-            className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-500/40 active:bg-brand-500/60 transition-colors z-10"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            title="Drag to resize"
-          />
-          {/* Page tabs + gear + add */}
-          <div className="px-3 pt-3 pb-2 space-y-2">
-            <div className="flex rounded-lg border border-divider overflow-hidden">
-              {pages.map(p => (
-                <button
-                  key={p}
-                  onClick={() => setActivePage(p)}
-                  className={`flex-1 px-3 py-2 text-sm font-medium transition ${
-                    activePage === p
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-[var(--surface)] text-fg-secondary hover:bg-surface-subtle'
-                  }`}
-                >
-                  {p === 'home' ? t('home') : p === 'menu' ? t('viewMenu') : p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (activeTab === 'styles' && showSettingsPanel) {
-                    setActiveTab('sections');
-                    setShowSettingsPanel(false);
-                  } else {
-                    setActiveTab('styles');
-                    setSelectedSectionId(null);
-                    setShowSettingsPanel(true);
-                  }
-                }}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${activeTab === 'styles' && showSettingsPanel ? 'bg-brand-500 text-white' : 'border border-divider text-fg-secondary hover:bg-surface-subtle'}`}
-                title="Site settings"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-              {activePage === 'home' && (
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 transition text-lg font-bold"
-                  title="Add section"
-                >
-                  +
-                </button>
-              )}
-              <span className="text-xs text-fg-secondary ml-auto">
-                {activePage === 'home' ? t('editSections') : t('menuSettings')}
-              </span>
-            </div>
-          </div>
-
-          {/* Section list */}
-          <div className="flex-1 overflow-y-auto px-2 pb-3">
-            {activePage === 'home' ? (
-              <SectionListPanel
-                sections={filteredSections}
-                selectedId={selectedSectionId}
-                onSelect={setSelectedSectionId}
-                onMove={handleMoveSection}
-                onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
-              />
-            ) : (
-              <div className="px-3 py-3 flex flex-col gap-3">
-                {/* Inner pill tabs */}
-                <div className="flex rounded-lg border border-divider overflow-hidden">
-                  {(['themes', 'typography', 'branding'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setMenuSubTab(tab)}
-                      className={`flex-1 px-2 py-1.5 text-xs font-medium transition ${
-                        menuSubTab === tab
-                          ? 'bg-brand-500 text-white'
-                          : 'bg-[var(--surface)] text-fg-secondary hover:bg-surface-subtle'
-                      }`}
-                    >
-                      {t(`menuTab_${tab}`)}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Active panel */}
-                {!themeCatalog || !config ? (
-                  <p className="text-xs text-fg-secondary py-2">{t('loading')}…</p>
-                ) : menuSubTab === 'themes' ? (
-                  <ThemesPanel config={config} catalog={themeCatalog} onUpdate={handleMenuConfigUpdate} />
-                ) : menuSubTab === 'typography' ? (
-                  <TypographyPanel config={config} catalog={themeCatalog} onUpdate={handleMenuConfigUpdate} />
-                ) : (
-                  <BrandingPanel config={config} onUpdate={handleMenuConfigUpdate} />
-                )}
-              </div>
-            )}
-          </div>
+        {/* Left Rail (content depends on mode) */}
+        <div className="border-r border-divider flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 320, background: 'var(--surface)' }}>
+          {editorMode === 'pages' && (
+            <PagesLeftRail
+              activePage={activePage}
+              onActivePageChange={setActivePage}
+              landingEnabled={landingEnabled}
+              sections={filteredSections}
+              selectedId={selectedSectionId}
+              onSelect={setSelectedSectionId}
+              onMove={handleMoveSection}
+              onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
+              onAddSection={() => setShowAddModal(true)}
+              menuLayout={config?.layout_default || 'magazine'}
+              categoryBannerStyle={categoryBannerStyle}
+              onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
+              onCategoryBannerStyleChange={setCategoryBannerStyle}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              onRestaurantUpdate={setRestaurant}
+            />
+          )}
+          {editorMode === 'theme' && (
+            <ThemeLeftRail
+              subMode={themeSubMode}
+              onSubModeChange={setThemeSubMode}
+              config={config}
+              themeCatalog={themeCatalog}
+              onConfigUpdate={handleMenuConfigUpdate}
+              logoSize={logoSize}
+              hideNavbarName={hideNavbarName}
+              heroNameFont={heroNameFont}
+              onLogoSizeChange={setLogoSize}
+              onHideNavbarNameChange={setHideNavbarName}
+              onHeroNameFontChange={setHeroNameFont}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              onRestaurantUpdate={setRestaurant}
+            />
+          )}
+          {editorMode === 'settings' && (
+            <SettingsLeftRail
+              subMode={settingsSubMode}
+              onSubModeChange={setSettingsSubMode}
+              restaurant={restaurant}
+              tagline={tagline}
+              navbarStyle={navbarStyle}
+              navbarColor={navbarColor}
+              showAddress={showAddress}
+              showPhone={showPhone}
+              showHours={showHours}
+              landingEnabled={landingEnabled}
+              socialLinks={(config?.social_links as Record<string, string>) ?? {}}
+              onTaglineChange={setTagline}
+              onNavbarStyleChange={setNavbarStyle}
+              onNavbarColorChange={setNavbarColor}
+              onShowAddressChange={setShowAddress}
+              onShowPhoneChange={setShowPhone}
+              onShowHoursChange={setShowHours}
+              onLandingEnabledChange={(v) => {
+                setLandingEnabled(v);
+                // If the user turns off Landing while they were editing it,
+                // snap to the menu page so the editor doesn't keep showing a
+                // page that's about to be redirected away.
+                if (!v && activePage === 'home') setActivePage('menu');
+              }}
+              onSocialLinksChange={(links) => setConfig((c) => (c ? ({ ...c, social_links: links } as WebsiteConfig) : c))}
+            />
+          )}
         </div>
 
-        {/* Main Preview Area */}
-        <div className="flex-1 overflow-auto flex items-start justify-center" style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : undefined }}>
-          {activePage === 'menu' ? (
+        {/* Center: live preview iframe */}
+        <div
+          className="flex-1 overflow-auto flex items-start justify-center py-6"
+          style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : 'var(--bg-page)' }}
+        >
+          {editorMode === 'pages' && activePage === 'menu' ? (
             <MenuPreviewIframe
               ref={menuIframeRef}
               mode={previewMode}
@@ -663,92 +878,678 @@ export default function WebsitePage() {
               postMessage={postMenuPreview}
             />
           ) : (
-            <PreviewPanel
+            <LiveHomePreviewIframe
               mode={previewMode}
-              activePage={activePage}
-              restaurant={restaurant}
-              primaryColor={config?.brand_color || '#EB5204'}
-              secondaryColor={'#C94400'}
-              fontFamily={'Switzer'}
-              themeMode={'light'}
-              menuLayout={config?.layout_default || 'magazine'}
-              cartStyle={'bar-bottom'}
-              navbarStyle={navbarStyle}
-              navbarColor={navbarColor}
-              logoSize={logoSize}
-              hideNavbarName={hideNavbarName}
-              sections={sections}
-              selectedSectionId={selectedSectionId}
+              slug={restaurant?.slug}
+              draftPayload={buildDraftPayload()}
+              onSectionClick={(id) => {
+                if (editorMode !== 'pages') return;
+                if (typeof id === 'number') setSelectedSectionId(id);
+                else {
+                  let local: number | null = null;
+                  newSectionTmpIds.current.forEach((tmp, sid) => { if (tmp === id) local = sid; });
+                  if (local !== null) setSelectedSectionId(local);
+                }
+              }}
+              onBoundsUpdate={handleBoundsUpdate}
+              onIframeRectUpdate={handleIframeRectUpdate}
             />
           )}
         </div>
 
-        {/* Right slide-in settings panel */}
-        {showSettingsPanel && (selectedSection || activeTab === 'styles') && (
-          <div className="w-80 border-l border-divider overflow-y-auto flex-shrink-0 animate-in slide-in-from-right" style={{ background: 'var(--surface)' }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-divider">
-              <h3 className="text-sm font-semibold text-fg-primary">
-                {activeTab === 'styles' ? 'Site Settings' : 'Section Settings'}
-              </h3>
-              <button onClick={closeSettings} className="w-6 h-6 rounded-full hover:bg-surface-subtle flex items-center justify-center text-fg-secondary">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        {/* Right panel — section settings (Pages mode, home page, section selected) */}
+        {editorMode === 'pages' && activePage === 'home' && selectedSection && (
+          <div className="border-l border-divider flex-shrink-0 flex flex-col overflow-y-auto" style={{ width: 340, background: 'var(--surface)' }}>
+            <div className="flex items-start justify-between px-4 py-3 border-b border-divider sticky top-0 z-10" style={{ background: 'var(--surface)' }}>
+              <div className="flex flex-col leading-tight">
+                <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">
+                  Pages › {activePage === 'home' ? 'Landing' : 'Order'}
+                </span>
+                <span className="text-sm font-semibold text-fg-primary">{sectionLabel(selectedSection)}</span>
+              </div>
+              <button
+                onClick={() => setSelectedSectionId(null)}
+                className="w-7 h-7 rounded-lg hover:bg-surface-subtle flex items-center justify-center text-fg-secondary"
+                title="Fermer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
             <div className="p-4">
-              {activeTab === 'styles' ? (
-                <StyleSettingsPanel
-                  restaurantId={restaurantId}
-                  restaurant={restaurant}
-                  tagline={tagline}
-                  themeMode={'light'}
-                  showAddress={showAddress}
-                  showPhone={showPhone}
-                  showHours={showHours}
-                  navbarStyle={navbarStyle}
-                  navbarColor={navbarColor}
-                  logoSize={logoSize}
-                  hideNavbarName={hideNavbarName}
-                  heroNameFont={heroNameFont}
-                  categoryBannerStyle={categoryBannerStyle}
-                  onTaglineChange={setTagline}
-                  onThemeModeChange={() => {}}
-                  onShowAddressChange={setShowAddress}
-                  onShowPhoneChange={setShowPhone}
-                  onShowHoursChange={setShowHours}
-                  onNavbarStyleChange={setNavbarStyle}
-                  onNavbarColorChange={setNavbarColor}
-                  onLogoSizeChange={setLogoSize}
-                  onHideNavbarNameChange={setHideNavbarName}
-                  onHeroNameFontChange={setHeroNameFont}
-                  onCategoryBannerStyleChange={setCategoryBannerStyle}
-                  onRestaurantUpdate={setRestaurant}
-                  onReset={handleResetConfig}
-                />
-              ) : selectedSection ? (
-                <SectionSettingsPanel
-                  section={selectedSection}
-                  restaurantId={restaurantId}
-                  onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
-                  onDelete={() => { handleDeleteSection(selectedSection.id); closeSettings(); }}
-                />
-              ) : null}
+              <SectionSettingsPanel
+                section={selectedSection}
+                restaurantId={restaurantId}
+                onUpdate={(updates) => handleUpdateSection(selectedSection.id, updates)}
+                onDelete={() => { handleDeleteSection(selectedSection.id); setSelectedSectionId(null); }}
+              />
             </div>
           </div>
         )}
       </div>
 
+      {/* Direct-selection overlay (Pages mode, home page only) */}
+      {editorMode === 'pages' && activePage === 'home' && (
+        <SelectionOverlay
+          iframeRect={iframeRect}
+          scale={1}
+          selectedId={selectedSectionId}
+          bounds={sectionBounds}
+          iframeScrollY={iframeScrollY}
+          onSelect={(id) => { if (typeof id === 'number') setSelectedSectionId(id); }}
+          onMoveUp={(id) => typeof id === 'number' && handleMoveSection(id, 'up')}
+          onMoveDown={(id) => typeof id === 'number' && handleMoveSection(id, 'down')}
+          onToggleVisibility={(id) => {
+            if (typeof id !== 'number') return;
+            const sec = sections.find((s) => s.id === id);
+            if (sec) handleUpdateSection(id, { is_visible: !sec.is_visible });
+          }}
+          onDelete={(id) => typeof id === 'number' && handleDeleteSection(id)}
+          isDeletable={(id) => {
+            if (typeof id !== 'number') return false;
+            const sec = sections.find((s) => s.id === id);
+            return sec ? sec.section_type !== 'footer' : false;
+          }}
+        />
+      )}
+
       {/* Add Section Modal */}
       {showAddModal && (
-        <AddSectionModal
-          onAdd={handleAddSection}
-          onClose={() => setShowAddModal(false)}
-        />
+        <AddSectionModal onAdd={handleAddSection} onClose={() => setShowAddModal(false)} />
+      )}
+
+      {/* Discard confirm modal */}
+      {showDiscardConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDiscardConfirm(false)}>
+          <div className="bg-[var(--surface)] rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-fg-primary mb-2">Annuler les modifications ?</h3>
+            <p className="text-sm text-fg-secondary mb-6">
+              Toutes les modifications non publiées seront perdues. La version actuellement en ligne ne sera pas affectée.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDiscardConfirm(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-fg-primary hover:bg-surface-subtle transition"
+              >
+                Garder mes modifications
+              </button>
+              <button
+                onClick={handleDiscard}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-500 hover:bg-red-600 transition"
+              >
+                Tout annuler
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// New left-rail components for the three editor modes.
+// Each owns its own internal layout; the parent just hands them state.
+// ═══════════════════════════════════════════════════════════════════
+
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange, restaurantId, restaurant, onRestaurantUpdate }: {
+  activePage: string;
+  onActivePageChange: (p: string) => void;
+  landingEnabled: boolean;
+  sections: WebsiteSection[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+  onMove: (id: number, dir: 'up' | 'down') => void;
+  onToggleVisibility: (id: number, visible: boolean) => void;
+  onAddSection: () => void;
+  menuLayout: string;
+  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  onMenuLayoutChange: (v: string) => void;
+  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
+  restaurantId: number;
+  restaurant: Restaurant | null;
+  onRestaurantUpdate: (r: Restaurant) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      {/* Page switcher. If landing is disabled, only the menu page is offered;
+          the user can re-enable landing in Paramètres → Général. */}
+      <div className="px-4 pt-4 pb-3 border-b border-divider">
+        <label className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-1.5">Page</label>
+        {landingEnabled ? (
+          <select
+            value={activePage}
+            onChange={(e) => onActivePageChange(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          >
+            <option value="home">Landing</option>
+            <option value="menu">Page de commande</option>
+          </select>
+        ) : (
+          <div className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary">
+            Page de commande
+            <div className="text-[10px] text-fg-secondary mt-0.5">
+              La page d&apos;accueil est désactivée. Activez-la dans Paramètres → Général.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Menu-page-specific options: cover image, layout, category banner style.
+          Only shown on the Page de commande because they only affect the menu
+          rendering. */}
+      {activePage === 'menu' && (
+        <div className="px-4 py-4 border-b border-divider space-y-4">
+          <CoverBackgroundEditor
+            restaurantId={restaurantId}
+            restaurant={restaurant}
+            onRestaurantUpdate={onRestaurantUpdate}
+          />
+          <div className="pt-2 border-t border-divider">
+            <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Mise en page du menu</span>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { v: 'magazine', label: 'Magazine', hint: 'Grandes vignettes' },
+                { v: 'compact', label: 'Compact', hint: 'Liste dense' },
+              ] as const).map((opt) => {
+                const active = menuLayout === opt.v;
+                return (
+                  <button
+                    key={opt.v}
+                    onClick={() => onMenuLayoutChange(opt.v)}
+                    className={`text-left px-3 py-2 rounded-lg border text-sm transition ${
+                      active
+                        ? 'border-brand-500 bg-brand-500/5 text-fg-primary'
+                        : 'border-divider text-fg-secondary hover:border-fg-secondary'
+                    }`}
+                  >
+                    <div className="font-medium text-[13px]">{opt.label}</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">{opt.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Bannière de catégorie</span>
+            <select
+              value={categoryBannerStyle || 'image-overlay'}
+              onChange={(e) => onCategoryBannerStyleChange(e.target.value as typeof categoryBannerStyle)}
+              className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            >
+              <option value="image-overlay">Image avec titre superposé</option>
+              <option value="text-block">Bloc de texte uniquement</option>
+              <option value="striped-rule">Ligne rayée minimale</option>
+              <option value="none">Sans bannière</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Section list — sections scoped to the active page. The order page can
+          have its own banners/promos around the auto-rendered menu grid. */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">
+          {activePage === 'home' ? 'Sections' : 'Sections (autour du menu)'}
+        </span>
+        <button
+          onClick={onAddSection}
+          className="text-[11px] font-medium text-brand-500 hover:text-brand-600 flex items-center gap-1"
+        >
+          + Ajouter
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-2 pb-4">
+        {sections.length > 0 ? (
+          <SectionListPanel
+            sections={sections}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onMove={onMove}
+            onToggleVisibility={onToggleVisibility}
+          />
+        ) : (
+          <div className="px-3 py-4 text-[11px] text-fg-secondary leading-relaxed">
+            {activePage === 'home'
+              ? 'Aucune section. Cliquez sur + Ajouter pour commencer.'
+              : 'Aucune section additionnelle. Vous pouvez ajouter une bannière promotionnelle, un bandeau de texte ou un pied de page propre à la page de commande.'}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, restaurantId, restaurant, onRestaurantUpdate }: {
+  subMode: 'colors' | 'typography' | 'logo';
+  onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
+  config: WebsiteConfig | null;
+  themeCatalog: ThemeCatalog | null;
+  onConfigUpdate: (patch: Partial<WebsiteConfig>) => void;
+  logoSize: number;
+  hideNavbarName: boolean;
+  heroNameFont: string;
+  onLogoSizeChange: (n: number) => void;
+  onHideNavbarNameChange: (v: boolean) => void;
+  onHeroNameFontChange: (f: string) => void;
+  restaurantId: number;
+  restaurant: Restaurant | null;
+  onRestaurantUpdate: (r: Restaurant) => void;
+}) {
+  const tabs: { id: typeof subMode; label: string }[] = [
+    { id: 'colors', label: 'Couleurs' },
+    { id: 'typography', label: 'Typographie' },
+    { id: 'logo', label: 'Logo & favicon' },
+  ];
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 pt-4 pb-2 border-b border-divider">
+        <div className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Apparence</div>
+        <p className="text-[11px] text-fg-secondary leading-relaxed mb-3">
+          Ces paramètres s&apos;appliquent à <strong>toutes</strong> les pages de votre site (landing + commande).
+        </p>
+        <div className="flex flex-col gap-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onSubModeChange(t.id)}
+              className={`text-left px-3 py-2 rounded-lg text-sm transition ${
+                subMode === t.id ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary hover:bg-surface-subtle'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        {!themeCatalog || !config ? (
+          <p className="text-xs text-fg-secondary">Chargement…</p>
+        ) : subMode === 'colors' ? (
+          <ThemesPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
+        ) : subMode === 'typography' ? (
+          <div className="space-y-4">
+            <TypographyPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
+            <div className="border-t border-divider pt-4">
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Police du nom du restaurant (hero)</label>
+              <select
+                value={heroNameFont}
+                onChange={(e) => onHeroNameFontChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                <option value="">Par défaut (typographie du thème)</option>
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <BrandingPanel
+              config={config}
+              onUpdate={onConfigUpdate}
+              restaurantId={restaurantId}
+              restaurant={restaurant}
+              onRestaurantUpdate={onRestaurantUpdate}
+            />
+            <div className="border-t border-divider pt-4 space-y-3">
+              <div>
+                <label className="flex items-center justify-between text-xs font-medium text-fg-primary mb-1.5">
+                  <span>Taille du logo (navbar)</span>
+                  <span className="text-fg-secondary">{logoSize}px</span>
+                </label>
+                <input
+                  type="range" min={24} max={80}
+                  value={logoSize}
+                  onChange={(e) => onLogoSizeChange(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hideNavbarName}
+                  onChange={(e) => onHideNavbarNameChange(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span>Masquer le nom du restaurant dans la navbar</span>
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange }: {
+  subMode: 'general' | 'contact' | 'social' | 'seo';
+  onSubModeChange: (m: 'general' | 'contact' | 'social' | 'seo') => void;
+  restaurant: Restaurant | null;
+  tagline: string;
+  navbarStyle: string;
+  navbarColor: string;
+  showAddress: boolean;
+  showPhone: boolean;
+  showHours: boolean;
+  landingEnabled: boolean;
+  socialLinks: Record<string, string>;
+  onTaglineChange: (v: string) => void;
+  onNavbarStyleChange: (v: string) => void;
+  onNavbarColorChange: (v: string) => void;
+  onShowAddressChange: (v: boolean) => void;
+  onShowPhoneChange: (v: boolean) => void;
+  onShowHoursChange: (v: boolean) => void;
+  onLandingEnabledChange: (v: boolean) => void;
+  onSocialLinksChange: (links: Record<string, string>) => void;
+}) {
+  const tabs: { id: typeof subMode; label: string }[] = [
+    { id: 'general', label: 'Général' },
+    { id: 'contact', label: 'Contact' },
+    { id: 'social', label: 'Réseaux sociaux' },
+    { id: 'seo', label: 'SEO' },
+  ];
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 pt-4 pb-2 border-b border-divider">
+        <div className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Paramètres du site</div>
+        <div className="flex flex-col gap-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onSubModeChange(t.id)}
+              className={`text-left px-3 py-2 rounded-lg text-sm transition ${
+                subMode === t.id ? 'bg-brand-500/10 text-brand-500 font-medium' : 'text-fg-primary hover:bg-surface-subtle'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {subMode === 'general' && (
+          <>
+            {/* Landing page toggle — controls whether /r/<slug> shows the
+                marketing landing or redirects straight to the order page.
+                Sections are not deleted when this is off; they're hidden. */}
+            <div className="rounded-xl border border-divider p-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={landingEnabled}
+                  onChange={(e) => onLandingEnabledChange(e.target.checked)}
+                  className="w-4 h-4 mt-0.5"
+                />
+                <span className="flex-1">
+                  <span className="block text-sm font-medium text-fg-primary">Page d&apos;accueil (landing)</span>
+                  <span className="block text-[11px] text-fg-secondary leading-relaxed mt-0.5">
+                    {landingEnabled
+                      ? "Vos visiteurs arrivent sur la page d'accueil avec votre bannière et vos sections."
+                      : "Vos visiteurs sont redirigés directement vers la page de commande. Vos sections de landing sont conservées mais masquées."}
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Slogan</label>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(e) => onTaglineChange(e.target.value)}
+                placeholder="Une phrase courte qui décrit votre restaurant"
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Style de la barre de navigation</label>
+              <select
+                value={navbarStyle}
+                onChange={(e) => onNavbarStyleChange(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              >
+                <option value="solid">Plein</option>
+                <option value="transparent">Transparent</option>
+                <option value="hidden">Masqué</option>
+                <option value="custom">Sur mesure</option>
+              </select>
+            </div>
+            {navbarStyle === 'custom' && (
+              <div>
+                <label className="block text-xs font-medium text-fg-primary mb-1.5">Couleur de la navbar</label>
+                <input
+                  type="color"
+                  value={navbarColor || '#000000'}
+                  onChange={(e) => onNavbarColorChange(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-divider cursor-pointer"
+                />
+              </div>
+            )}
+            <div className="text-[11px] text-fg-secondary pt-2 border-t border-divider">
+              Slug: <code className="text-fg-primary">{restaurant?.slug || '—'}</code>
+              <span className="block mt-1 opacity-70">(modifiable via les paramètres du restaurant)</span>
+            </div>
+          </>
+        )}
+        {subMode === 'contact' && (
+          <>
+            <p className="text-[11px] text-fg-secondary leading-relaxed">
+              Choisissez quelles informations afficher publiquement sur votre site. Les coordonnées proviennent du profil du restaurant.
+            </p>
+            <label className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-subtle cursor-pointer">
+              <input type="checkbox" checked={showAddress} onChange={(e) => onShowAddressChange(e.target.checked)} className="w-4 h-4" />
+              <span className="flex-1 text-sm text-fg-primary">Afficher l&apos;adresse</span>
+              <span className="text-[11px] text-fg-secondary truncate max-w-[140px]">{restaurant?.address || '—'}</span>
+            </label>
+            <label className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-subtle cursor-pointer">
+              <input type="checkbox" checked={showPhone} onChange={(e) => onShowPhoneChange(e.target.checked)} className="w-4 h-4" />
+              <span className="flex-1 text-sm text-fg-primary">Afficher le téléphone</span>
+              <span className="text-[11px] text-fg-secondary">{restaurant?.phone || '—'}</span>
+            </label>
+            <label className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-subtle cursor-pointer">
+              <input type="checkbox" checked={showHours} onChange={(e) => onShowHoursChange(e.target.checked)} className="w-4 h-4" />
+              <span className="flex-1 text-sm text-fg-primary">Afficher les horaires d&apos;ouverture</span>
+            </label>
+          </>
+        )}
+        {subMode === 'social' && (
+          <>
+            <p className="text-[11px] text-fg-secondary leading-relaxed">
+              Liens vers vos réseaux sociaux, affichés dans le pied de page.
+            </p>
+            {(['instagram', 'facebook', 'tiktok', 'twitter', 'youtube'] as const).map((key) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-fg-primary mb-1.5 capitalize">{key}</label>
+                <input
+                  type="url"
+                  value={socialLinks[key] || ''}
+                  onChange={(e) => onSocialLinksChange({ ...socialLinks, [key]: e.target.value })}
+                  placeholder={`https://${key}.com/votre-compte`}
+                  className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                />
+              </div>
+            ))}
+            {/* Email — separate input because it's a mailto link, not a URL.
+                Surfaces in the foodyweb "À propos" panel under Contact. */}
+            <div>
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">Email</label>
+              <input
+                type="email"
+                value={socialLinks.email || ''}
+                onChange={(e) => onSocialLinksChange({ ...socialLinks, email: e.target.value })}
+                placeholder="hello@votre-restaurant.com"
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              />
+            </div>
+
+            {/* WiFi — surfaces as the "📶 WiFi · <SSID>" pill on the
+                foodyweb hero (dine-in only). Tapping the pill opens a sheet
+                with the password + a join-network QR code. */}
+            <div className="mt-2 pt-3 border-t border-divider">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-fg-secondary mb-2">
+                WiFi
+              </p>
+              <p className="text-[11px] text-fg-secondary leading-relaxed mb-3">
+                Visible uniquement en mode « Sur place » sur la page de commande.
+                Le client peut récupérer le mot de passe en tapant sur le badge.
+              </p>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="block text-xs font-medium text-fg-primary mb-1.5">
+                    Nom du réseau (SSID)
+                  </label>
+                  <input
+                    type="text"
+                    value={socialLinks.wifi_ssid || ''}
+                    onChange={(e) =>
+                      onSocialLinksChange({ ...socialLinks, wifi_ssid: e.target.value })
+                    }
+                    placeholder="BellaItalia-Guest"
+                    className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fg-primary mb-1.5">
+                    Mot de passe
+                  </label>
+                  <input
+                    type="text"
+                    value={socialLinks.wifi_password || ''}
+                    onChange={(e) =>
+                      onSocialLinksChange({ ...socialLinks, wifi_password: e.target.value })
+                    }
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        {subMode === 'seo' && (
+          <p className="text-[12px] text-fg-secondary leading-relaxed">
+            Les paramètres SEO avancés (titre de page, description, image Open Graph) seront ajoutés bientôt. Pour l&apos;instant, ils sont générés automatiquement à partir du nom et de la description du restaurant.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Sub-components ─────────────────────────────────────────────────
+
+function LiveHomePreviewIframe({ mode, slug, draftPayload, onSectionClick, onBoundsUpdate, onIframeRectUpdate }: {
+  mode: 'mobile' | 'desktop';
+  slug: string | undefined;
+  draftPayload: DraftStatePayload;
+  onSectionClick: (id: number | string) => void;
+  onBoundsUpdate: (bounds: SectionBounds[], scrollY: number) => void;
+  onIframeRectUpdate: (rect: { top: number; left: number; width: number; height: number } | null) => void;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const readyRef = useRef(false);
+  const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+
+  // Listen for messages from the iframe.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      // Only trust messages from our iframe.
+      if (e.source !== iframeRef.current?.contentWindow) return;
+
+      if (e.data?.type === 'foody-editor-ready') {
+        readyRef.current = true;
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'foody-draft-state', state: draftPayload }, '*'
+        );
+      } else if (e.data?.type === 'foody-section-bounds' && Array.isArray(e.data.bounds)) {
+        onBoundsUpdate(e.data.bounds, e.data.scrollY ?? 0);
+      } else if (e.data?.type === 'foody-section-click' && e.data.id !== undefined) {
+        onSectionClick(e.data.id);
+      } else if (e.data?.type === 'foody-select-section' && e.data.sectionId !== undefined) {
+        // Legacy message kept for compatibility with older foodyweb deploys.
+        onSectionClick(e.data.sectionId);
+      } else if (e.data?.type === 'foody-scroll' && typeof e.data.scrollY === 'number') {
+        // Forward scrollY as part of the next bounds update — overlay needs it
+        // to translate iframe-document coords to viewport coords.
+        onBoundsUpdate([], e.data.scrollY);
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+    // draftPayload intentionally NOT in deps — the ready handshake fires once;
+    // post-mount updates go through the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onBoundsUpdate, onSectionClick]);
+
+  // Post the draft state whenever it changes.
+  useEffect(() => {
+    if (!readyRef.current) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'foody-draft-state', state: draftPayload }, '*'
+    );
+  }, [draftPayload]);
+
+  // Publish iframe's viewport rect so the overlay knows where to position itself.
+  // Recomputed on resize and on a 250ms interval to catch scroll changes in the
+  // editor's outer scroll container.
+  useEffect(() => {
+    function publishRect() {
+      const el = wrapperRef.current;
+      if (!el) {
+        onIframeRectUpdate(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      onIframeRectUpdate({ top: r.top, left: r.left, width: r.width, height: r.height });
+    }
+    publishRect();
+    window.addEventListener('resize', publishRect);
+    window.addEventListener('scroll', publishRect, true);
+    const id = window.setInterval(publishRect, 250);
+    return () => {
+      window.removeEventListener('resize', publishRect);
+      window.removeEventListener('scroll', publishRect, true);
+      window.clearInterval(id);
+      onIframeRectUpdate(null);
+    };
+  }, [onIframeRectUpdate, mode]);
+
+  if (!slug) {
+    return <div className="text-sm text-fg-secondary p-8">Slug du restaurant requis pour la prévisualisation</div>;
+  }
+
+  const width = mode === 'mobile' ? 390 : '100%';
+  const height = mode === 'mobile' ? 844 : '100%';
+  return (
+    <div
+      ref={wrapperRef}
+      className="my-6 shadow-xl overflow-hidden bg-white"
+      style={{
+        width,
+        height,
+        maxWidth: '100%',
+        borderRadius: mode === 'mobile' ? 32 : 8,
+        border: mode === 'mobile' ? '6px solid #1a1a1a' : '1px solid var(--divider)',
+      }}
+    >
+      <iframe
+        ref={iframeRef}
+        src={`${WEB_URL}/r/${slug}?preview=1`}
+        title="Live preview"
+        className="w-full h-full"
+        style={{ border: 'none' }}
+      />
+    </div>
+  );
+}
 
 const MenuPreviewIframe = forwardRef<HTMLIFrameElement, {
   mode: 'mobile' | 'desktop';

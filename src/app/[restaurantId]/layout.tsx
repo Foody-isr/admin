@@ -13,6 +13,8 @@ import TopBar from '@/components/TopBar';
 import IdleModal from '@/components/IdleModal';
 import AiDrawer from '@/components/ai/AiDrawer';
 import { AiChatProvider } from '@/lib/ai-context';
+import { SearchShortcutProvider } from '@/lib/search-shortcut';
+import SearchModal from '@/components/search/SearchModal';
 import { getRestaurant, Restaurant } from '@/lib/api';
 
 const PAGE_NAMES: Record<string, string> = {
@@ -114,22 +116,25 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
         <AiChatProvider restaurantId={restaurantId}>
-          <SidebarProvider>
-            <RestaurantShell
-              restaurant={restaurant}
-              restaurantId={restaurantId}
-              sidebarOpen={sidebarOpen}
-              toggleSidebar={toggleSidebar}
-              closeSidebar={closeSidebar}
-              isRtl={isRtl}
-              isWideLayout={isWideLayout}
-              pageName={pageName}
-            >
-              {children}
-            </RestaurantShell>
-            <AiDrawer />
-            {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
-          </SidebarProvider>
+          <SearchShortcutProvider>
+            <SidebarProvider>
+              <RestaurantShell
+                restaurant={restaurant}
+                restaurantId={restaurantId}
+                sidebarOpen={sidebarOpen}
+                toggleSidebar={toggleSidebar}
+                closeSidebar={closeSidebar}
+                isRtl={isRtl}
+                isWideLayout={isWideLayout}
+                pageName={pageName}
+              >
+                {children}
+              </RestaurantShell>
+              <AiDrawer />
+              <SearchModal />
+              {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
+            </SidebarProvider>
+          </SearchShortcutProvider>
         </AiChatProvider>
       </WsProvider>
     </PermissionsProvider>

@@ -8,8 +8,21 @@ import {
   FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { XIcon, TrashIcon } from 'lucide-react';
+import {
+  XIcon,
+  TrashIcon,
+  Plus,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignStartHorizontal,
+  AlignCenterHorizontal,
+  AlignEndHorizontal,
+  AlignHorizontalDistributeCenter,
+  AlignVerticalSpaceAround,
+} from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { TableEditorModal } from '@/components/tables/TableEditorModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +54,82 @@ type SelectedItem =
   | { type: 'decoration'; id: string }
   | null;
 
+type SelectionEntry =
+  | { type: 'table'; id: number }
+  | { type: 'decoration'; id: string };
+
+type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+interface ItemBox {
+  type: 'table' | 'decoration';
+  id: number | string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const MIN_ITEM_SIZE = 3; // percent
+const MAX_ITEM_SIZE = 60; // percent
+const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers snap together
+
+interface SnapBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface SnapResult {
+  x: number;
+  y: number;
+  /** Vertical guide lines (x positions in % of canvas) shown during drag */
+  vGuides: number[];
+  /** Horizontal guide lines (y positions in % of canvas) shown during drag */
+  hGuides: number[];
+}
+
+/**
+ * Snaps a moving bbox to nearby static items and canvas centerlines.
+ * Snap targets: each other item's left / center / right (X) and top / middle
+ * / bottom (Y), plus the canvas edges and center. Within `SNAP_THRESHOLD` the
+ * bbox is shifted to align exactly, and the matching target line is returned
+ * for the renderer to draw.
+ */
+function computeSnap(bbox: SnapBox, others: SnapBox[]): SnapResult {
+  const xAnchors = [bbox.x, bbox.x + bbox.width / 2, bbox.x + bbox.width];
+  const yAnchors = [bbox.y, bbox.y + bbox.height / 2, bbox.y + bbox.height];
+
+  const xTargets = [0, 50, 100, ...others.flatMap((o) => [o.x, o.x + o.width / 2, o.x + o.width])];
+  const yTargets = [0, 50, 100, ...others.flatMap((o) => [o.y, o.y + o.height / 2, o.y + o.height])];
+
+  let bestX: { target: number; delta: number } | null = null;
+  for (const a of xAnchors) {
+    for (const t of xTargets) {
+      const diff = t - a;
+      if (Math.abs(diff) <= SNAP_THRESHOLD && (bestX === null || Math.abs(diff) < Math.abs(bestX.delta))) {
+        bestX = { target: t, delta: diff };
+      }
+    }
+  }
+  let bestY: { target: number; delta: number } | null = null;
+  for (const a of yAnchors) {
+    for (const t of yTargets) {
+      const diff = t - a;
+      if (Math.abs(diff) <= SNAP_THRESHOLD && (bestY === null || Math.abs(diff) < Math.abs(bestY.delta))) {
+        bestY = { target: t, delta: diff };
+      }
+    }
+  }
+
+  return {
+    x: bestX ? bbox.x + bestX.delta : bbox.x,
+    y: bestY ? bbox.y + bestY.delta : bbox.y,
+    vGuides: bestX ? [bestX.target] : [],
+    hGuides: bestY ? [bestY.target] : [],
+  };
+}
+
 const DECORATION_PRESETS = [
   { label: 'Cuisine',  shape: 'rectangle' as const, color: '#d1c4a8' },
   { label: 'Bar',      shape: 'rectangle' as const, color: '#b3cde0' },
@@ -56,13 +145,13 @@ const PALETTE_COLORS = ['#e5e7eb', '#d1c4a8', '#b3cde0', '#c8e6c9', '#e1bee7', '
 
 function SectionModal({ restaurantId, onCreated, onClose }: {
   restaurantId: number;
-  onCreated: () => void;
+  onCreated: (sectionId: number) => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [label, setLabel] = useState('');
-  const [count, setCount] = useState(5);
+  const [count, setCount] = useState(0);
   const [autoNames, setAutoNames] = useState(true);
   const [customText, setCustomText] = useState('');
   const [saving, setSaving] = useState(false);
@@ -81,8 +170,8 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
       } else {
         input.custom_names = customText.split('\n').map((l) => l.trim()).filter(Boolean);
       }
-      await createSection(restaurantId, input);
-      onCreated();
+      const created = await createSection(restaurantId, input);
+      onCreated(created.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed');
       setSaving(false);
@@ -176,6 +265,182 @@ function SectionModal({ restaurantId, onCreated, onClose }: {
   );
 }
 
+// ─── Resize handles ──────────────────────────────────────────────────────────
+
+const RESIZE_HANDLES: { handle: ResizeHandle; top?: string; bottom?: string; left?: string; right?: string; cursor: string }[] = [
+  { handle: 'nw', top: '-6px', left: '-6px', cursor: 'nwse-resize' },
+  { handle: 'n', top: '-6px', left: '50%', cursor: 'ns-resize' },
+  { handle: 'ne', top: '-6px', right: '-6px', cursor: 'nesw-resize' },
+  { handle: 'e', top: '50%', right: '-6px', cursor: 'ew-resize' },
+  { handle: 'se', bottom: '-6px', right: '-6px', cursor: 'nwse-resize' },
+  { handle: 's', bottom: '-6px', left: '50%', cursor: 'ns-resize' },
+  { handle: 'sw', bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
+  { handle: 'w', top: '50%', left: '-6px', cursor: 'ew-resize' },
+];
+
+function ResizeHandles({
+  type,
+  id,
+  onMouseDown,
+}: {
+  type: 'table' | 'decoration';
+  id: number | string;
+  onMouseDown: (e: React.MouseEvent, type: 'table' | 'decoration', id: number | string, handle: ResizeHandle) => void;
+}) {
+  return (
+    <>
+      {RESIZE_HANDLES.map((h) => {
+        const isHorizontalMid = h.handle === 'n' || h.handle === 's';
+        const isVerticalMid = h.handle === 'e' || h.handle === 'w';
+        return (
+          <div
+            key={h.handle}
+            onMouseDown={(e) => onMouseDown(e, type, id, h.handle)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              width: '12px',
+              height: '12px',
+              background: '#ffffff',
+              border: '2px solid #F18A47',
+              borderRadius: '2px',
+              cursor: h.cursor,
+              top: h.top,
+              bottom: h.bottom,
+              left: h.left,
+              right: h.right,
+              transform: isHorizontalMid
+                ? 'translate(-50%, 0)'
+                : isVerticalMid
+                  ? 'translate(0, -50%)'
+                  : undefined,
+              zIndex: 11,
+            }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// ─── Alignment toolbar ───────────────────────────────────────────────────────
+
+function AlignmentToolbar({
+  count,
+  onAlignLeft,
+  onAlignHCenter,
+  onAlignRight,
+  onAlignTop,
+  onAlignVCenter,
+  onAlignBottom,
+  onDistributeH,
+  onDistributeV,
+  onDeleteAll,
+}: {
+  count: number;
+  onAlignLeft: () => void;
+  onAlignHCenter: () => void;
+  onAlignRight: () => void;
+  onAlignTop: () => void;
+  onAlignVCenter: () => void;
+  onAlignBottom: () => void;
+  onDistributeH: () => void;
+  onDistributeV: () => void;
+  onDeleteAll: () => void;
+}) {
+  const Btn = ({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) => (
+    <button
+      title={title}
+      onClick={onClick}
+      className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary transition-colors"
+    >
+      {children}
+    </button>
+  );
+  return (
+    <div
+      className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-1.5 rounded-lg shadow-xl"
+      style={{
+        bottom: '24px',
+        background: 'var(--surface)',
+        border: '1px solid var(--divider)',
+      }}
+    >
+      <span className="text-xs font-semibold text-fg-secondary px-2 select-none">
+        {count} selected
+      </span>
+      <div className="w-px h-5 bg-[var(--divider)] mx-1" />
+      <Btn title="Align left" onClick={onAlignLeft}><AlignStartVertical className="w-4 h-4" /></Btn>
+      <Btn title="Align horizontal center" onClick={onAlignHCenter}><AlignCenterVertical className="w-4 h-4" /></Btn>
+      <Btn title="Align right" onClick={onAlignRight}><AlignEndVertical className="w-4 h-4" /></Btn>
+      <div className="w-px h-5 bg-[var(--divider)] mx-1" />
+      <Btn title="Align top" onClick={onAlignTop}><AlignStartHorizontal className="w-4 h-4" /></Btn>
+      <Btn title="Align vertical center" onClick={onAlignVCenter}><AlignCenterHorizontal className="w-4 h-4" /></Btn>
+      <Btn title="Align bottom" onClick={onAlignBottom}><AlignEndHorizontal className="w-4 h-4" /></Btn>
+      <div className="w-px h-5 bg-[var(--divider)] mx-1" />
+      <Btn title="Distribute horizontally" onClick={onDistributeH}><AlignHorizontalDistributeCenter className="w-4 h-4" /></Btn>
+      <Btn title="Distribute vertically" onClick={onDistributeV}><AlignVerticalSpaceAround className="w-4 h-4" /></Btn>
+      <div className="w-px h-5 bg-[var(--divider)] mx-1" />
+      <Btn title="Delete selection" onClick={onDeleteAll}>
+        <TrashIcon className="w-4 h-4 text-red-500" />
+      </Btn>
+    </div>
+  );
+}
+
+// ─── Picker: bring an existing section into the current plan's sidebar ────────
+
+function AddExistingSectionPicker({
+  sections,
+  onPick,
+  onClose,
+}: {
+  sections: TableSection[];
+  onPick: (sectionId: number) => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-md p-6 space-y-4 max-h-[80vh] overflow-y-auto"
+        style={{ background: 'var(--bg)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-fg-primary">{t('useExistingSection')}</h2>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
+            <XIcon className="w-5 h-5 text-fg-secondary" />
+          </button>
+        </div>
+        <p className="text-xs text-fg-secondary">{t('useExistingSectionHint')}</p>
+        {sections.length === 0 ? (
+          <p className="text-sm text-fg-secondary py-4 text-center">{t('noOtherSections')}</p>
+        ) : (
+          <div className="space-y-1.5">
+            {sections.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onPick(s.id)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-[var(--divider)] hover:border-[var(--brand-500)] hover:bg-[var(--surface-subtle)] transition-colors text-left"
+              >
+                <span className="font-medium text-fg-primary">{s.name}</span>
+                <span className="text-xs text-fg-secondary">
+                  {(s.tables ?? []).length} {t('tablesCount')}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Editor ──────────────────────────────────────────────────────────────
 
 export default function FloorPlanEditorPage() {
@@ -196,15 +461,30 @@ export default function FloorPlanEditorPage() {
   const [decorations, setDecorations] = useState<CanvasDecoration[]>([]);
   const [originalDecorations, setOriginalDecorations] = useState<CanvasDecoration[]>([]);
 
-  const [selected, setSelected] = useState<SelectedItem>(null);
+  // Multi-selection. `selection[0]` is the "primary" — the property panel
+  // shows its details. Other entries participate in multi-drag, alignment,
+  // and group-delete. Empty array = nothing selected.
+  const [selection, setSelection] = useState<SelectionEntry[]>([]);
   const [showSectionModal, setShowSectionModal] = useState(false);
+  const [showAddSectionPicker, setShowAddSectionPicker] = useState(false);
+  // Sections the user has explicitly brought into this plan's sidebar during
+  // the current session. Combined with sections that already have placements,
+  // this determines what's visible in the right panel. New plans start with
+  // an empty sidebar so they aren't polluted by every restaurant-wide section.
+  const [sessionAddedSectionIds, setSessionAddedSectionIds] = useState<Set<number>>(new Set());
+  const [addTableTarget, setAddTableTarget] = useState<{
+    sectionId: number;
+    sectionName: string;
+    nextIndex: number;
+  } | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{
-    kind: 'table' | 'decoration';
-    id: number | string;
-    startMouseX: number; startMouseY: number;
-    startX: number; startY: number;
+    startMouseX: number;
+    startMouseY: number;
+    // Snapshot of initial positions for every item being dragged. Lets the
+    // group move together with the cursor without React state staleness.
+    initial: Array<{ type: 'table' | 'decoration'; id: number | string; x: number; y: number }>;
   } | null>(null);
   const rotateState = useRef<{
     kind: 'table' | 'decoration';
@@ -212,7 +492,25 @@ export default function FloorPlanEditorPage() {
     centerX: number; centerY: number;
     startAngle: number; startRotation: number;
   } | null>(null);
+  const resizeState = useRef<{
+    type: 'table' | 'decoration';
+    id: number | string;
+    handle: ResizeHandle;
+    startMouseX: number;
+    startMouseY: number;
+    initialX: number;
+    initialY: number;
+    initialWidth: number;
+    initialHeight: number;
+  } | null>(null);
   const dropState = useRef<{ tableId: number; tableName: string } | null>(null);
+  // Rubber-band selection: click an empty spot of the canvas and drag a box;
+  // every item the box covers becomes selected on mouse-up.
+  const [rubberBand, setRubberBand] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const rubberBandStart = useRef<{ x: number; y: number } | null>(null);
+  // Smart guides shown during a drag: orange dashed lines through the snap
+  // targets the dragged item's edges/center are aligning to.
+  const [snapGuides, setSnapGuides] = useState<{ vertical: number[]; horizontal: number[] }>({ vertical: [], horizontal: [] });
 
   const loadData = useCallback(async () => {
     try {
@@ -253,24 +551,86 @@ export default function FloorPlanEditorPage() {
 
   const placedIds = new Set(placements.map((p) => p.tableId));
 
+  // Sections visible in the right sidebar: sections that have at least one
+  // table placed on this plan, plus any the user has explicitly added to this
+  // plan during the current edit session.
+  const visibleSections = sections.filter((s) => {
+    if (sessionAddedSectionIds.has(s.id)) return true;
+    return (s.tables ?? []).some((t) => placedIds.has(t.id));
+  });
+  const hiddenSections = sections.filter(
+    (s) => !visibleSections.some((v) => v.id === s.id),
+  );
+
+  // ─── Selection helpers ───────────────────────────────────────────────────
+
+  const isSelected = (type: 'table' | 'decoration', id: number | string) =>
+    selection.some((s) => s.type === type && s.id === id);
+
+  /**
+   * Returns the selection that should be active for a drag/click starting on
+   * (type, id). Pure — does not mutate state. Caller updates state with the
+   * returned value AND uses it directly for the drag snapshot (avoids a
+   * stale-state race condition).
+   */
+  const computeSelectionForClick = (
+    type: 'table' | 'decoration',
+    id: number | string,
+    shiftKey: boolean,
+  ): SelectionEntry[] => {
+    const already = isSelected(type, id);
+    if (shiftKey) {
+      return already
+        ? selection.filter((s) => !(s.type === type && s.id === id))
+        : [...selection, { type, id } as SelectionEntry];
+    }
+    // Plain click on something already selected → keep the multi-selection
+    // so the user can drag the whole group. Otherwise replace.
+    return already ? selection : [{ type, id } as SelectionEntry];
+  };
+
+  type SnapshotEntry = { type: 'table' | 'decoration'; id: number | string; x: number; y: number };
+  const snapshotPositions = (sel: SelectionEntry[]): SnapshotEntry[] => {
+    const out: SnapshotEntry[] = [];
+    for (const s of sel) {
+      if (s.type === 'table') {
+        const p = placements.find((pp) => pp.tableId === s.id);
+        if (p) out.push({ type: 'table', id: s.id, x: p.x, y: p.y });
+      } else {
+        const d = decorations.find((dd) => dd.id === s.id);
+        if (d) out.push({ type: 'decoration', id: s.id, x: d.x, y: d.y });
+      }
+    }
+    return out;
+  };
+
   // ─── Canvas drag (move tables and decorations) ────────────────────────────
 
   const handleTableMouseDown = (e: React.MouseEvent, tableId: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected({ type: 'table', id: tableId });
-    const placement = placements.find((p) => p.tableId === tableId);
-    if (!placement) return;
-    dragState.current = { kind: 'table', id: tableId, startMouseX: e.clientX, startMouseY: e.clientY, startX: placement.x, startY: placement.y };
+    const next = computeSelectionForClick('table', tableId, e.shiftKey);
+    setSelection(next);
+    // Shift+click toggles — don't start dragging on a shift-click.
+    if (e.shiftKey) return;
+    dragState.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      initial: snapshotPositions(next),
+    };
   };
 
   const handleDecorationMouseDown = (e: React.MouseEvent, decId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelected({ type: 'decoration', id: decId });
-    const dec = decorations.find((d) => d.id === decId);
-    if (!dec) return;
-    dragState.current = { kind: 'decoration', id: decId, startMouseX: e.clientX, startMouseY: e.clientY, startX: dec.x, startY: dec.y };
+    const next = computeSelectionForClick('decoration', decId, e.shiftKey);
+    setSelection(next);
+    if (e.shiftKey) return;
+    dragState.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      initial: snapshotPositions(next),
+    };
   };
 
   const handleRotateMouseDown = (e: React.MouseEvent, kind: 'table' | 'decoration', id: number | string) => {
@@ -294,6 +654,49 @@ export default function FloorPlanEditorPage() {
     rotateState.current = { kind, id, centerX, centerY, startAngle, startRotation };
   };
 
+  const handleResizeMouseDown = (
+    e: React.MouseEvent,
+    type: 'table' | 'decoration',
+    id: number | string,
+    handle: ResizeHandle,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item: ItemBox | undefined =
+      type === 'table'
+        ? (() => {
+            const p = placements.find((pp) => pp.tableId === id);
+            return p ? { type, id, x: p.x, y: p.y, width: p.width, height: p.height } : undefined;
+          })()
+        : (() => {
+            const d = decorations.find((dd) => dd.id === id);
+            return d ? { type, id, x: d.x, y: d.y, width: d.width, height: d.height } : undefined;
+          })();
+    if (!item) return;
+    resizeState.current = {
+      type,
+      id,
+      handle,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      initialX: item.x,
+      initialY: item.y,
+      initialWidth: item.width,
+      initialHeight: item.height,
+    };
+  };
+
+  // Mouse-down on the canvas background → start a rubber-band selection.
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    rubberBandStart.current = { x, y };
+    if (!e.shiftKey) setSelection([]);
+  };
+
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       // Rotation
@@ -308,28 +711,178 @@ export default function FloorPlanEditorPage() {
         }
         return;
       }
-      // Move
-      if (!dragState.current || !canvasRef.current) return;
-      const { kind, id, startMouseX, startMouseY, startX, startY } = dragState.current;
-      const rect = canvasRef.current.getBoundingClientRect();
-      const dx = ((e.clientX - startMouseX) / rect.width) * 100;
-      const dy = ((e.clientY - startMouseY) / rect.height) * 100;
-      const newX = Math.max(0, Math.min(94, startX + dx));
-      const newY = Math.max(0, Math.min(94, startY + dy));
-      if (kind === 'table') {
-        setPlacements((prev) => prev.map((p) => p.tableId === id ? { ...p, x: newX, y: newY } : p));
-      } else {
-        setDecorations((prev) => prev.map((d) => d.id === id ? { ...d, x: newX, y: newY } : d));
+
+      // Resize via handle
+      if (resizeState.current && canvasRef.current) {
+        const rs = resizeState.current;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dx = ((e.clientX - rs.startMouseX) / rect.width) * 100;
+        const dy = ((e.clientY - rs.startMouseY) / rect.height) * 100;
+
+        let nx = rs.initialX;
+        let ny = rs.initialY;
+        let nw = rs.initialWidth;
+        let nh = rs.initialHeight;
+
+        if (rs.handle.includes('e')) nw = rs.initialWidth + dx;
+        if (rs.handle.includes('w')) {
+          nx = rs.initialX + dx;
+          nw = rs.initialWidth - dx;
+        }
+        if (rs.handle.includes('s')) nh = rs.initialHeight + dy;
+        if (rs.handle.includes('n')) {
+          ny = rs.initialY + dy;
+          nh = rs.initialHeight - dy;
+        }
+
+        // Clamp size; if it would go below the minimum, peg the position.
+        if (nw < MIN_ITEM_SIZE) {
+          if (rs.handle.includes('w')) nx = rs.initialX + (rs.initialWidth - MIN_ITEM_SIZE);
+          nw = MIN_ITEM_SIZE;
+        }
+        if (nh < MIN_ITEM_SIZE) {
+          if (rs.handle.includes('n')) ny = rs.initialY + (rs.initialHeight - MIN_ITEM_SIZE);
+          nh = MIN_ITEM_SIZE;
+        }
+        if (nw > MAX_ITEM_SIZE) nw = MAX_ITEM_SIZE;
+        if (nh > MAX_ITEM_SIZE) nh = MAX_ITEM_SIZE;
+        // Keep inside the canvas.
+        if (nx < 0) { nw += nx; nx = 0; }
+        if (ny < 0) { nh += ny; ny = 0; }
+        if (nx + nw > 100) nw = 100 - nx;
+        if (ny + nh > 100) nh = 100 - ny;
+
+        if (rs.type === 'table') {
+          setPlacements((prev) => prev.map((p) => p.tableId === rs.id ? { ...p, x: nx, y: ny, width: nw, height: nh } : p));
+        } else {
+          setDecorations((prev) => prev.map((d) => d.id === rs.id ? { ...d, x: nx, y: ny, width: nw, height: nh } : d));
+        }
+        return;
+      }
+
+      // Multi-drag (move all selected items by the same delta)
+      if (dragState.current && canvasRef.current) {
+        const { initial, startMouseX, startMouseY } = dragState.current;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dx = ((e.clientX - startMouseX) / rect.width) * 100;
+        const dy = ((e.clientY - startMouseY) / rect.height) * 100;
+
+        // Clamp delta so no item leaves the canvas.
+        let clampedDx = dx;
+        let clampedDy = dy;
+        for (const init of initial) {
+          const w = init.type === 'table'
+            ? placements.find((p) => p.tableId === init.id)?.width ?? 6
+            : decorations.find((d) => d.id === init.id)?.width ?? 10;
+          const h = init.type === 'table'
+            ? placements.find((p) => p.tableId === init.id)?.height ?? 6
+            : decorations.find((d) => d.id === init.id)?.height ?? 10;
+          clampedDx = Math.max(-init.x, Math.min(100 - init.x - w, clampedDx));
+          clampedDy = Math.max(-init.y, Math.min(100 - init.y - h, clampedDy));
+        }
+
+        // Smart guides: only meaningful for a single-item drag. For
+        // multi-drag the snap target is ambiguous — keep guides off so the
+        // group moves freely.
+        let snappedDx = clampedDx;
+        let snappedDy = clampedDy;
+        if (initial.length === 1) {
+          const init = initial[0];
+          const item = init.type === 'table'
+            ? placements.find((p) => p.tableId === init.id)
+            : decorations.find((d) => d.id === init.id);
+          if (item) {
+            const proposed: SnapBox = {
+              x: init.x + clampedDx,
+              y: init.y + clampedDy,
+              width: item.width,
+              height: item.height,
+            };
+            const others: SnapBox[] = [];
+            for (const p of placements) {
+              if (!(init.type === 'table' && p.tableId === init.id)) {
+                others.push({ x: p.x, y: p.y, width: p.width, height: p.height });
+              }
+            }
+            for (const d of decorations) {
+              if (!(init.type === 'decoration' && d.id === init.id)) {
+                others.push({ x: d.x, y: d.y, width: d.width, height: d.height });
+              }
+            }
+            const snap = computeSnap(proposed, others);
+            snappedDx = snap.x - init.x;
+            snappedDy = snap.y - init.y;
+            setSnapGuides({ vertical: snap.vGuides, horizontal: snap.hGuides });
+          }
+        } else {
+          setSnapGuides({ vertical: [], horizontal: [] });
+        }
+
+        setPlacements((prev) => prev.map((p) => {
+          const init = initial.find((i) => i.type === 'table' && i.id === p.tableId);
+          return init ? { ...p, x: init.x + snappedDx, y: init.y + snappedDy } : p;
+        }));
+        setDecorations((prev) => prev.map((d) => {
+          const init = initial.find((i) => i.type === 'decoration' && i.id === d.id);
+          return init ? { ...d, x: init.x + snappedDx, y: init.y + snappedDy } : d;
+        }));
+        return;
+      }
+
+      // Rubber-band selection box
+      if (rubberBandStart.current && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        setRubberBand({
+          startX: rubberBandStart.current.x,
+          startY: rubberBandStart.current.y,
+          currentX: x,
+          currentY: y,
+        });
       }
     };
-    const onMouseUp = () => { dragState.current = null; rotateState.current = null; };
+
+    const onMouseUp = () => {
+      // Finalize rubber-band: select every item whose bbox overlaps the box.
+      if (rubberBand) {
+        const minX = Math.min(rubberBand.startX, rubberBand.currentX);
+        const minY = Math.min(rubberBand.startY, rubberBand.currentY);
+        const maxX = Math.max(rubberBand.startX, rubberBand.currentX);
+        const maxY = Math.max(rubberBand.startY, rubberBand.currentY);
+        // Tiny boxes are accidental clicks; ignore them.
+        const moved = (maxX - minX) > 0.5 || (maxY - minY) > 0.5;
+        if (moved) {
+          const next: SelectionEntry[] = [];
+          for (const p of placements) {
+            if (p.x < maxX && p.x + p.width > minX && p.y < maxY && p.y + p.height > minY) {
+              next.push({ type: 'table', id: p.tableId });
+            }
+          }
+          for (const d of decorations) {
+            if (d.x < maxX && d.x + d.width > minX && d.y < maxY && d.y + d.height > minY) {
+              next.push({ type: 'decoration', id: d.id });
+            }
+          }
+          setSelection(next);
+        }
+      }
+      dragState.current = null;
+      rotateState.current = null;
+      resizeState.current = null;
+      rubberBandStart.current = null;
+      setRubberBand(null);
+      setSnapGuides({ vertical: [], horizontal: [] });
+    };
+
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rubberBand, placements, decorations]);
 
   // ─── Drop chip onto canvas ────────────────────────────────────────────────
 
@@ -349,32 +902,35 @@ export default function FloorPlanEditorPage() {
 
   // ─── Selected item controls ───────────────────────────────────────────────
 
-  const selectedPlacement = selected?.type === 'table'
-    ? placements.find((p) => p.tableId === selected.id)
+  // Primary selection drives the property panel (first item the user clicked).
+  const primary: SelectedItem = selection[0] ?? null;
+
+  const selectedPlacement = primary?.type === 'table'
+    ? placements.find((p) => p.tableId === primary.id)
     : undefined;
 
-  const selectedDecoration = selected?.type === 'decoration'
-    ? decorations.find((d) => d.id === selected.id)
+  const selectedDecoration = primary?.type === 'decoration'
+    ? decorations.find((d) => d.id === primary.id)
     : undefined;
 
   const updateSelected = (patch: Partial<CanvasPlacement>) => {
-    if (selected?.type !== 'table') return;
-    setPlacements((prev) => prev.map((p) => p.tableId === selected.id ? { ...p, ...patch } : p));
+    if (primary?.type !== 'table') return;
+    setPlacements((prev) => prev.map((p) => p.tableId === primary.id ? { ...p, ...patch } : p));
   };
 
   const updateSelectedDecoration = (patch: Partial<CanvasDecoration>) => {
-    if (selected?.type !== 'decoration') return;
-    setDecorations((prev) => prev.map((d) => d.id === selected.id ? { ...d, ...patch } : d));
+    if (primary?.type !== 'decoration') return;
+    setDecorations((prev) => prev.map((d) => d.id === primary.id ? { ...d, ...patch } : d));
   };
 
+  /** Removes every selected item from the canvas (placements and/or decorations). */
   const removeSelected = () => {
-    if (!selected) return;
-    if (selected.type === 'table') {
-      setPlacements((prev) => prev.filter((p) => p.tableId !== selected.id));
-    } else {
-      setDecorations((prev) => prev.filter((d) => d.id !== selected.id));
-    }
-    setSelected(null);
+    if (selection.length === 0) return;
+    const tableIds = new Set(selection.filter((s) => s.type === 'table').map((s) => s.id as number));
+    const decIds = new Set(selection.filter((s) => s.type === 'decoration').map((s) => s.id as string));
+    setPlacements((prev) => prev.filter((p) => !tableIds.has(p.tableId)));
+    setDecorations((prev) => prev.filter((d) => !decIds.has(d.id)));
+    setSelection([]);
   };
 
   const addDecoration = (preset: typeof DECORATION_PRESETS[number]) => {
@@ -384,7 +940,93 @@ export default function FloorPlanEditorPage() {
     const id = `dec-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const dec: CanvasDecoration = { id, label: preset.label, x, y, width: 16, height: 10, shape: preset.shape, color: preset.color, rotation: 0 };
     setDecorations((prev) => [...prev, dec]);
-    setSelected({ type: 'decoration', id });
+    setSelection([{ type: 'decoration', id }]);
+  };
+
+  // ─── Alignment / distribution ─────────────────────────────────────────────
+
+  /** Bounding boxes of every selected item (in canvas-percent units). */
+  const selectionBoxes = (): ItemBox[] => {
+    const boxes: ItemBox[] = [];
+    for (const s of selection) {
+      if (s.type === 'table') {
+        const p = placements.find((pp) => pp.tableId === s.id);
+        if (p) boxes.push({ type: 'table', id: s.id, x: p.x, y: p.y, width: p.width, height: p.height });
+      } else {
+        const d = decorations.find((dd) => dd.id === s.id);
+        if (d) boxes.push({ type: 'decoration', id: s.id, x: d.x, y: d.y, width: d.width, height: d.height });
+      }
+    }
+    return boxes;
+  };
+
+  /** Applies a per-item x/y adjustment to every selected item. */
+  const applyAlignment = (compute: (b: ItemBox, all: ItemBox[]) => { x?: number; y?: number }) => {
+    const boxes = selectionBoxes();
+    if (boxes.length < 2) return;
+    const updates = new Map<string, { x?: number; y?: number }>();
+    for (const b of boxes) {
+      updates.set(`${b.type}:${b.id}`, compute(b, boxes));
+    }
+    setPlacements((prev) => prev.map((p) => {
+      const u = updates.get(`table:${p.tableId}`);
+      return u ? { ...p, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) } : p;
+    }));
+    setDecorations((prev) => prev.map((d) => {
+      const u = updates.get(`decoration:${d.id}`);
+      return u ? { ...d, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) } : d;
+    }));
+  };
+
+  const alignLeft = () => {
+    const minX = Math.min(...selectionBoxes().map((b) => b.x));
+    applyAlignment((b) => ({ x: minX }));
+  };
+  const alignRight = () => {
+    const maxRight = Math.max(...selectionBoxes().map((b) => b.x + b.width));
+    applyAlignment((b) => ({ x: maxRight - b.width }));
+  };
+  const alignHCenter = () => {
+    const boxes = selectionBoxes();
+    const avgCenter = boxes.reduce((s, b) => s + b.x + b.width / 2, 0) / boxes.length;
+    applyAlignment((b) => ({ x: avgCenter - b.width / 2 }));
+  };
+  const alignTop = () => {
+    const minY = Math.min(...selectionBoxes().map((b) => b.y));
+    applyAlignment((b) => ({ y: minY }));
+  };
+  const alignBottom = () => {
+    const maxBottom = Math.max(...selectionBoxes().map((b) => b.y + b.height));
+    applyAlignment((b) => ({ y: maxBottom - b.height }));
+  };
+  const alignVCenter = () => {
+    const boxes = selectionBoxes();
+    const avgCenter = boxes.reduce((s, b) => s + b.y + b.height / 2, 0) / boxes.length;
+    applyAlignment((b) => ({ y: avgCenter - b.height / 2 }));
+  };
+
+  /** Distributes selected items evenly along an axis between the outer two. */
+  const distribute = (axis: 'x' | 'y') => {
+    const boxes = selectionBoxes();
+    if (boxes.length < 3) return;
+    const sorted = [...boxes].sort((a, b) => (axis === 'x' ? a.x - b.x : a.y - b.y));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const span = axis === 'x' ? (last.x - first.x) : (last.y - first.y);
+    const step = span / (sorted.length - 1);
+    const updates = new Map<string, { x?: number; y?: number }>();
+    sorted.forEach((b, i) => {
+      const next = (axis === 'x' ? first.x : first.y) + step * i;
+      updates.set(`${b.type}:${b.id}`, axis === 'x' ? { x: next } : { y: next });
+    });
+    setPlacements((prev) => prev.map((p) => {
+      const u = updates.get(`table:${p.tableId}`);
+      return u ? { ...p, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) } : p;
+    }));
+    setDecorations((prev) => prev.map((d) => {
+      const u = updates.get(`decoration:${d.id}`);
+      return u ? { ...d, ...(u.x !== undefined ? { x: u.x } : {}), ...(u.y !== undefined ? { y: u.y } : {}) } : d;
+    }));
   };
 
   // ─── Save / Delete ────────────────────────────────────────────────────────
@@ -429,7 +1071,7 @@ export default function FloorPlanEditorPage() {
   const handleReset = () => {
     setPlacements(originalPlacements);
     setDecorations(originalDecorations);
-    setSelected(null);
+    setSelection([]);
   };
 
   const goBack = () => router.push(`/${rid}/restaurant/floor-plans`);
@@ -563,7 +1205,7 @@ export default function FloorPlanEditorPage() {
           </div>
 
           {/* Center — canvas */}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-4 relative">
             <div
               ref={canvasRef}
               className="relative w-full select-none"
@@ -577,11 +1219,12 @@ export default function FloorPlanEditorPage() {
               }}
               onDragOver={handleCanvasDragOver}
               onDrop={handleCanvasDrop}
-              onClick={() => setSelected(null)}
+              onMouseDown={handleCanvasMouseDown}
             >
               {/* Decorations — rendered first (behind tables) */}
               {decorations.map((d) => {
-                const isSelectedDec = selected?.type === 'decoration' && selected.id === d.id;
+                const isSelectedDec = isSelected('decoration', d.id);
+                const isPrimary = primary?.type === 'decoration' && primary.id === d.id;
                 return (
                   <div
                     key={d.id}
@@ -599,7 +1242,6 @@ export default function FloorPlanEditorPage() {
                     {/* Visible shape */}
                     <div
                       onMouseDown={(e) => handleDecorationMouseDown(e, d.id)}
-                      onClick={(e) => { e.stopPropagation(); setSelected({ type: 'decoration', id: d.id }); }}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -617,8 +1259,10 @@ export default function FloorPlanEditorPage() {
                         {d.label}
                       </span>
                     </div>
+                    {/* Resize handles — only on the primary selected item */}
+                    {isPrimary && <ResizeHandles type="decoration" id={d.id} onMouseDown={handleResizeMouseDown} />}
                     {/* Rotate handle */}
-                    {isSelectedDec && (
+                    {isPrimary && (
                       <div
                         onMouseDown={(e) => handleRotateMouseDown(e, 'decoration', d.id)}
                         onClick={(e) => e.stopPropagation()}
@@ -652,7 +1296,8 @@ export default function FloorPlanEditorPage() {
 
               {/* Tables — rendered on top of decorations */}
               {placements.map((p) => {
-                const isSelectedTbl = selected?.type === 'table' && selected.id === p.tableId;
+                const isSelectedTbl = isSelected('table', p.tableId);
+                const isPrimary = primary?.type === 'table' && primary.id === p.tableId;
                 return (
                   <div
                     key={p.tableId}
@@ -670,7 +1315,6 @@ export default function FloorPlanEditorPage() {
                     {/* Visible table */}
                     <div
                       onMouseDown={(e) => handleTableMouseDown(e, p.tableId)}
-                      onClick={(e) => { e.stopPropagation(); setSelected({ type: 'table', id: p.tableId }); }}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -689,8 +1333,10 @@ export default function FloorPlanEditorPage() {
                         {p.tableName}
                       </span>
                     </div>
+                    {/* Resize handles — only on the primary selected item */}
+                    {isPrimary && <ResizeHandles type="table" id={p.tableId} onMouseDown={handleResizeMouseDown} />}
                     {/* Rotate handle */}
-                    {isSelectedTbl && (
+                    {isPrimary && (
                       <div
                         onMouseDown={(e) => handleRotateMouseDown(e, 'table', p.tableId)}
                         onClick={(e) => e.stopPropagation()}
@@ -721,7 +1367,79 @@ export default function FloorPlanEditorPage() {
                   </div>
                 );
               })}
+
+              {/* Smart guides — dashed orange lines that appear during drag
+                  when an item's edge or center aligns with another item. */}
+              {snapGuides.vertical.map((x, i) => (
+                <div
+                  key={`vg-${i}-${x}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${x}%`,
+                    top: 0,
+                    width: 0,
+                    height: '100%',
+                    borderLeft: '1px dashed #F18A47',
+                    pointerEvents: 'none',
+                    zIndex: 49,
+                  }}
+                />
+              ))}
+              {snapGuides.horizontal.map((y, i) => (
+                <div
+                  key={`hg-${i}-${y}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${y}%`,
+                    left: 0,
+                    height: 0,
+                    width: '100%',
+                    borderTop: '1px dashed #F18A47',
+                    pointerEvents: 'none',
+                    zIndex: 49,
+                  }}
+                />
+              ))}
+
+              {/* Rubber-band selection box */}
+              {rubberBand && (() => {
+                const minX = Math.min(rubberBand.startX, rubberBand.currentX);
+                const minY = Math.min(rubberBand.startY, rubberBand.currentY);
+                const w = Math.abs(rubberBand.currentX - rubberBand.startX);
+                const h = Math.abs(rubberBand.currentY - rubberBand.startY);
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: `${minX}%`,
+                      top: `${minY}%`,
+                      width: `${w}%`,
+                      height: `${h}%`,
+                      border: '1px dashed #F18A47',
+                      background: 'rgba(241,138,71,0.08)',
+                      pointerEvents: 'none',
+                      zIndex: 50,
+                    }}
+                  />
+                );
+              })()}
             </div>
+
+            {/* Floating alignment toolbar — shown when 2+ items are selected */}
+            {selection.length >= 2 && (
+              <AlignmentToolbar
+                count={selection.length}
+                onAlignLeft={alignLeft}
+                onAlignHCenter={alignHCenter}
+                onAlignRight={alignRight}
+                onAlignTop={alignTop}
+                onAlignVCenter={alignVCenter}
+                onAlignBottom={alignBottom}
+                onDistributeH={() => distribute('x')}
+                onDistributeV={() => distribute('y')}
+                onDeleteAll={removeSelected}
+              />
+            )}
           </div>
 
           {/* Right panel — sections palette */}
@@ -733,14 +1451,22 @@ export default function FloorPlanEditorPage() {
               </div>
             )}
 
-            {/* Sections */}
-            {sections.map((section) => {
-              const unplaced = section.tables.filter((t) => !placedIds.has(t.id));
-              const placed = section.tables.filter((t) => placedIds.has(t.id));
+            {/* Empty-state hint when no sections are active in this plan */}
+            {visibleSections.length === 0 && (
+              <p className="text-xs text-fg-secondary">
+                {t('noSectionsInPlanHint')}
+              </p>
+            )}
+
+            {/* Sections — filtered to only those active in this plan */}
+            {visibleSections.map((section) => {
+              const tables = section.tables ?? [];
+              const unplaced = tables.filter((t) => !placedIds.has(t.id));
+              const placed = tables.filter((t) => placedIds.has(t.id));
               return (
                 <div key={section.id}>
                   <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">{section.name}</p>
-                  {section.tables.length === 0 && (
+                  {tables.length === 0 && (
                     <p className="text-xs text-fg-secondary">{t('noTablesInSection')}</p>
                   )}
                   <div className="flex flex-wrap gap-1.5">
@@ -756,7 +1482,7 @@ export default function FloorPlanEditorPage() {
                           const x = Math.min(10 + offset, 60);
                           const y = Math.min(10 + offset, 60);
                           setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: 6, height: 6, shape: 'square', rotation: 0 }]);
-                          setSelected({ type: 'table', id: tbl.id });
+                          setSelection([{ type: 'table', id: tbl.id }]);
                         }}
                         className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"
                         style={{ background: '#1a1a1a', color: 'white' }}
@@ -776,6 +1502,22 @@ export default function FloorPlanEditorPage() {
                         {tbl.name}
                       </div>
                     ))}
+                    {/* + Add table — the primary table creation entry point */}
+                    <button
+                      onClick={() =>
+                        setAddTableTarget({
+                          sectionId: section.id,
+                          sectionName: section.name,
+                          nextIndex: tables.length + 1,
+                        })
+                      }
+                      className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
+                      style={{ border: '1px dashed var(--divider)' }}
+                      title={t('addTable')}
+                    >
+                      <Plus className="w-3 h-3" />
+                      {t('addTable')}
+                    </button>
                   </div>
                 </div>
               );
@@ -798,7 +1540,17 @@ export default function FloorPlanEditorPage() {
               </div>
             </div>
 
-            {/* Add section */}
+            {/* Use an existing section on this plan */}
+            {hiddenSections.length > 0 && (
+              <button
+                onClick={() => setShowAddSectionPicker(true)}
+                className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
+              >
+                + {t('useExistingSection')}
+              </button>
+            )}
+
+            {/* Create a brand-new section */}
             <button
               onClick={() => setShowSectionModal(true)}
               className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
@@ -813,10 +1565,50 @@ export default function FloorPlanEditorPage() {
       {showSectionModal && (
         <SectionModal
           restaurantId={rid}
-          onCreated={() => { setShowSectionModal(false); loadData(); }}
+          onCreated={(newId) => {
+            setShowSectionModal(false);
+            // Newly created sections start visible in this plan's sidebar so
+            // the user can immediately drop their tables onto the canvas.
+            setSessionAddedSectionIds((prev) => {
+              const next = new Set(prev);
+              next.add(newId);
+              return next;
+            });
+            loadData();
+          }}
           onClose={() => setShowSectionModal(false)}
         />
       )}
+
+      {/* Picker — bring an existing section into this plan's sidebar */}
+      {showAddSectionPicker && (
+        <AddExistingSectionPicker
+          sections={hiddenSections}
+          onPick={(sectionId) => {
+            setSessionAddedSectionIds((prev) => {
+              const next = new Set(prev);
+              next.add(sectionId);
+              return next;
+            });
+            setShowAddSectionPicker(false);
+          }}
+          onClose={() => setShowAddSectionPicker(false)}
+        />
+      )}
+
+      {/* Table creation modal (per-section) */}
+      {addTableTarget && (
+        <TableEditorModal
+          restaurantId={rid}
+          sectionId={addTableTarget.sectionId}
+          sectionName={addTableTarget.sectionName}
+          nextIndex={addTableTarget.nextIndex}
+          onSaved={() => { setAddTableTarget(null); loadData(); }}
+          onDeleted={() => { setAddTableTarget(null); loadData(); }}
+          onClose={() => setAddTableTarget(null)}
+        />
+      )}
+
     </>
   );
 }
