@@ -15,6 +15,7 @@ import { useMemo } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft } from './types';
+import { effectiveStepKind } from './types';
 import StepCard from './StepCard';
 import PricingCard from './PricingCard';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
@@ -133,22 +134,31 @@ export default function CompositionTab({
         onShowSavingsDetail={onShowSavingsDetail}
       />
 
-      {/* Steps */}
+      {/* Steps. Choice-step indices restart at 0 because the numbered circle
+          encodes the customer's pick sequence — fixed items aren't part of
+          that flow (they're just "what's included") and render with a pin
+          glyph instead of a number, so they're skipped when numbering. */}
       <div className="flex flex-col gap-[var(--s-3)]">
-        {steps.map((step, i) => (
-          <StepCard
-            key={step.key}
-            step={step}
-            index={i}
-            basePrice={basePrice}
-            categories={categories}
-            itemsById={itemsById}
-            menus={menus}
-            webItemIds={webItemIds}
-            onChange={(next) => updateStep(step.key, next)}
-            onRemove={() => removeStep(step.key)}
-          />
-        ))}
+        {(() => {
+          let choiceIdx = 0;
+          return steps.map((step) => {
+            const displayIndex = effectiveStepKind(step) === 'fixed' ? 0 : choiceIdx++;
+            return (
+              <StepCard
+                key={step.key}
+                step={step}
+                index={displayIndex}
+                basePrice={basePrice}
+                categories={categories}
+                itemsById={itemsById}
+                menus={menus}
+                webItemIds={webItemIds}
+                onChange={(next) => updateStep(step.key, next)}
+                onRemove={() => removeStep(step.key)}
+              />
+            );
+          });
+        })()}
 
         {/* Add CTAs — "New step" for choices, "Fixed item" for pre-defined contents. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-3)]">

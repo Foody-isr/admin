@@ -219,16 +219,18 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
 
     return (
       <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden">
-        {/* Header: drag, badge, optional group name (bundles only), delete */}
+        {/* Header: drag, kind glyph (pin, NOT a sequence number — fixed items
+            aren't a step the customer walks through), title, badge, delete */}
         <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]">
           <span className="text-[var(--fg-subtle)] cursor-grab" aria-hidden>
             <GripVertical className="w-3.5 h-3.5" />
           </span>
           <div
-            className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-fs-sm shrink-0"
+            className="w-8 h-8 rounded-full grid place-items-center shrink-0"
             style={{ background: 'var(--brand-500)' }}
+            aria-hidden
           >
-            {index + 1}
+            <Pin className="w-3.5 h-3.5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -239,9 +241,8 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 variant="title"
               />
               <span
-                className="inline-flex items-center gap-1 h-[20px] px-2 rounded-r-sm text-fs-xs font-medium shrink-0 bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]"
+                className="inline-flex items-center h-[20px] px-2 rounded-r-sm text-fs-xs font-medium shrink-0 bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]"
               >
-                <Pin className="w-2.5 h-2.5" />
                 {t('composeKindFixed')}
               </span>
             </div>
