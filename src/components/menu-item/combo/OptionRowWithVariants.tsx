@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView, VariantView } from './types';
 import VariantSubRow from './VariantSubRow';
+import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
@@ -38,7 +39,7 @@ export default function OptionRowWithVariants({ option, basePrice, onChange, onR
     <div className="rounded-r-md bg-[var(--surface-2)] border border-[var(--line)] overflow-hidden">
       {/* Parent header */}
       <div className="flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)]">
-        <Thumb url={option.imageUrl} />
+        <Thumb url={option.imageUrl} size={36} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-fs-sm font-semibold text-[var(--fg)] truncate">{option.itemName}</span>
@@ -92,19 +93,3 @@ export default function OptionRowWithVariants({ option, basePrice, onChange, onR
   );
 }
 
-function Thumb({ url }: { url?: string }) {
-  if (url) {
-    /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={url} alt="" className="w-9 h-9 rounded-r-sm object-cover bg-[var(--surface-3)] shrink-0" />;
-  }
-  return (
-    <div
-      className="w-9 h-9 rounded-r-sm shrink-0"
-      style={{
-        background: 'var(--surface-3)',
-        backgroundImage: 'repeating-linear-gradient(45deg, color-mix(in oklab, var(--fg) 14%, transparent) 0 4px, transparent 4px 8px)',
-      }}
-      aria-hidden
-    />
-  );
-}

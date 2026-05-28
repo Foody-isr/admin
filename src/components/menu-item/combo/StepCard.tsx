@@ -7,8 +7,7 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus, Minus, Image as ImageIcon } from 'lucide-react';
-import Image from 'next/image';
+import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -19,6 +18,45 @@ import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
 import StepRulesPanel from './StepRulesPanel';
+import Thumb from './Thumb';
+
+// Editable title/description input with a hover-pencil affordance. The input
+// stays borderless so the card reads quietly at rest, but: (1) the placeholder
+// is always visible when empty, (2) hovering reveals a small pencil that
+// signals the field is editable, and (3) `cursor: text` makes the affordance
+// match the cursor. Used for every step kind (fixed-single, fixed-bundle,
+// choice) so the pattern is uniform across the composer.
+function EditableField({
+  value,
+  onChange,
+  placeholder,
+  variant,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  variant: 'title' | 'description';
+}) {
+  const isTitle = variant === 'title';
+  return (
+    <div className="group/edit relative inline-flex items-center gap-1.5 w-full min-w-0">
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={
+          isTitle
+            ? 'flex-1 min-w-0 bg-transparent border-none outline-none cursor-text text-fs-md font-semibold text-[var(--fg)] placeholder:text-[var(--fg-subtle)] placeholder:font-normal focus:underline focus:underline-offset-4 decoration-[var(--brand-500)]'
+            : 'flex-1 min-w-0 bg-transparent border-none outline-none cursor-text text-fs-xs text-[var(--fg-muted)] placeholder:text-[var(--fg-subtle)] focus:text-[var(--fg)]'
+        }
+      />
+      <Pencil
+        className={`shrink-0 ${isTitle ? 'w-3 h-3' : 'w-2.5 h-2.5'} opacity-0 group-hover/edit:opacity-60 transition-opacity text-[var(--fg-subtle)] pointer-events-none`}
+        aria-hidden
+      />
+    </div>
+  );
+}
 
 const FIXED_QTY_MAX = 99;
 
@@ -169,21 +207,21 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
             {index + 1}
           </div>
           <div className="flex-1 min-w-0">
-            {isBundle ? (
-              <>
-                <input
-                  value={step.name}
-                  onChange={(e) => onChange({ ...step, name: e.target.value })}
-                  placeholder={t('composeFixedGroupNamePlaceholder')}
-                  className="w-full bg-transparent border-none outline-none text-fs-md font-semibold text-[var(--fg)] focus:underline focus:underline-offset-4 decoration-[var(--brand-500)]"
-                />
-                <div className="text-fs-xs text-[var(--fg-muted)]">
-                  {t('composeFixedGroupHint').replace('{n}', String(step.items.length))}
-                </div>
-              </>
-            ) : (
-              <div className="text-fs-xs text-[var(--fg-muted)]">
-                {t('composeFixedItemIncluded')}
+            <EditableField
+              value={step.name}
+              onChange={(name) => onChange({ ...step, name })}
+              placeholder={isBundle ? t('composeFixedGroupNamePlaceholder') : t('composeFixedItemIncluded')}
+              variant="title"
+            />
+            <EditableField
+              value={step.description ?? ''}
+              onChange={(description) => onChange({ ...step, description })}
+              placeholder={t('composeStepDescriptionPlaceholder')}
+              variant="description"
+            />
+            {isBundle && (
+              <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                {t('composeFixedGroupHint').replace('{n}', String(step.items.length))}
               </div>
             )}
           </div>
@@ -212,21 +250,13 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
               {step.items.map((draftItem, idx) => {
                 const sourceItem = itemsById.get(draftItem.menu_item_id);
                 const displayName = sourceItem?.name ?? draftItem.item_name ?? '';
-                const imageUrl = sourceItem?.image_url ?? '';
+                const imageUrl = sourceItem?.image_url || undefined;
                 return (
                   <div
                     key={draftItem.pick_key ?? `${draftItem.menu_item_id}-${idx}`}
                     className="flex items-center gap-[var(--s-3)] py-[var(--s-2)]"
                   >
-                    {imageUrl ? (
-                      <span className="w-9 h-9 rounded-r-sm overflow-hidden relative shrink-0">
-                        <Image src={imageUrl} alt={displayName} fill className="object-cover" sizes="36px" />
-                      </span>
-                    ) : (
-                      <span className="w-9 h-9 rounded-r-sm shrink-0 grid place-items-center bg-[var(--surface-2)] text-[var(--fg-subtle)]">
-                        <ImageIcon className="w-4 h-4" />
-                      </span>
-                    )}
+                    <Thumb url={imageUrl} size={36} />
                     <span className="flex-1 min-w-0 truncate text-fs-md font-medium text-[var(--fg)]">
                       {displayName || t('composeFixedItemMissing')}
                     </span>
@@ -302,13 +332,13 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <input
+            <EditableField
               value={step.name}
-              onChange={(e) => onChange({ ...step, name: e.target.value })}
+              onChange={(name) => onChange({ ...step, name })}
               placeholder={t('composeStepDefaultName').replace('{n}', String(index + 1))}
-              className="bg-transparent border-none outline-none text-fs-md font-semibold text-[var(--fg)] focus:underline focus:underline-offset-4 decoration-[var(--brand-500)]"
+              variant="title"
             />
-            <span className={`inline-flex items-center h-[20px] px-2 rounded-r-sm text-fs-xs font-medium ${
+            <span className={`inline-flex items-center h-[20px] px-2 rounded-r-sm text-fs-xs font-medium shrink-0 ${
               required
                 ? 'bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]'
                 : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
@@ -316,11 +346,11 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
               {required ? t('composeRequired') : t('composeOptional')}
             </span>
           </div>
-          <input
+          <EditableField
             value={step.description ?? ''}
-            onChange={(e) => onChange({ ...step, description: e.target.value })}
+            onChange={(description) => onChange({ ...step, description })}
             placeholder={t('composeStepDescriptionPlaceholder')}
-            className="w-full bg-transparent border-none outline-none text-fs-xs text-[var(--fg-muted)] placeholder:text-[var(--fg-subtle)] mt-0.5 focus:text-[var(--fg)]"
+            variant="description"
           />
           <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{hint}</div>
         </div>

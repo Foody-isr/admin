@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView } from './types';
 import { NumberInput } from '@/components/ui/NumberInput';
+import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
@@ -89,19 +90,3 @@ export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDef
   );
 }
 
-function Thumb({ url }: { url?: string }) {
-  if (url) {
-    /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={url} alt="" className="w-7 h-7 rounded-r-sm object-cover bg-[var(--surface-3)] shrink-0" />;
-  }
-  return (
-    <div
-      className="w-7 h-7 rounded-r-sm shrink-0"
-      style={{
-        background: 'var(--surface-3)',
-        backgroundImage: 'repeating-linear-gradient(45deg, color-mix(in oklab, var(--fg) 14%, transparent) 0 4px, transparent 4px 8px)',
-      }}
-      aria-hidden
-    />
-  );
-}

@@ -19,7 +19,6 @@ import StepCard from './StepCard';
 import PricingCard from './PricingCard';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
-import type { PricingMode } from './pricing';
 import { buildWebItemIdSet, isOffWebCarte } from './webCarte';
 
 interface Props {
@@ -32,8 +31,6 @@ interface Props {
   /** Available cartes — forwarded into the step picker so the operator can
    *  scope the catalog to a single menu while composing the combo. */
   menus: Menu[];
-  pricingMode?: PricingMode;
-  onPricingModeChange?: (next: PricingMode) => void;
   /** Forwarded to the PricingCard's savings cell — host opens the breakdown
    *  modal. */
   onShowSavingsDetail?: () => void;
@@ -44,7 +41,6 @@ export default function CompositionTab({
   steps, onStepsChange,
   categories,
   menus,
-  pricingMode = 'fixed', onPricingModeChange,
   onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
@@ -134,8 +130,6 @@ export default function CompositionTab({
         onBasePriceChange={onBasePriceChange}
         steps={steps}
         itemsById={itemsById}
-        pricingMode={pricingMode}
-        onPricingModeChange={onPricingModeChange ?? (() => {})}
         onShowSavingsDetail={onShowSavingsDetail}
       />
 
