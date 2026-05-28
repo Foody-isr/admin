@@ -25,3 +25,19 @@ export function buildWebItemIdSet(menus: Menu[]): Set<number> {
 export function isOffWebCarte(menuItemId: number, webItemIds: Set<number>): boolean {
   return !webItemIds.has(menuItemId);
 }
+
+/** Returns the set of menu_item.id values reachable through any non-hidden
+ *  group on any carte, on either channel (POS or web). Used by the combo
+ *  composer's category-step preview to flag items that wouldn't resolve at
+ *  order time because they aren't bound to any carte at all. */
+export function buildAnyCarteItemIdSet(menus: Menu[]): Set<number> {
+  const ids = new Set<number>();
+  for (const m of menus) {
+    for (const g of m.groups ?? []) {
+      if (g.is_hidden) continue;
+      if (!g.pos_enabled && !g.web_enabled) continue;
+      for (const it of g.items ?? []) ids.add(it.id);
+    }
+  }
+  return ids;
+}

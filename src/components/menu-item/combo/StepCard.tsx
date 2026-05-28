@@ -7,7 +7,7 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { ChevronUp, ChevronDown, GripVertical, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -91,11 +91,15 @@ interface Props {
    *  not on any web-enabled carte so the operator sees the warning next to the
    *  specific row instead of a vague step-level pill. */
   webItemIds: Set<number>;
+  /** Items reachable through any non-hidden group on any carte (either
+   *  channel). Used by the category-step preview to flag items that aren't
+   *  attached to any carte at all. */
+  anyCarteItemIds: Set<number>;
   onChange: (next: ComboStepDraft) => void;
   onRemove: () => void;
 }
 
-export default function StepCard({ step, index, basePrice, categories, itemsById, menus, webItemIds, onChange, onRemove }: Props) {
+export default function StepCard({ step, index, basePrice, categories, itemsById, menus, webItemIds, anyCarteItemIds, onChange, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -482,6 +486,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
               step={step}
               categories={categories}
               itemsById={itemsById}
+              anyCarteItemIds={anyCarteItemIds}
               onChange={onChange}
             />
           ) : (
@@ -534,25 +539,24 @@ function CategoryModePanel({
   step,
   categories,
   itemsById,
+  anyCarteItemIds,
   onChange,
 }: {
   step: ComboStepDraft;
   categories: MenuCategory[];
   itemsById: Map<number, MenuItem>;
+  anyCarteItemIds: Set<number>;
   onChange: (next: ComboStepDraft) => void;
 }) {
   const { t } = useI18n();
   const selectedId = step.source_category_id ?? 0;
 
-  // Active items in the selected category — the set the server will resolve.
   const catItems = useMemo(() => {
     if (!selectedId) return [] as MenuItem[];
     return Array.from(itemsById.values()).filter(
       (it) => it.category_id === selectedId && it.is_active,
     );
   }, [selectedId, itemsById]);
-
-  const previewItems = useMemo(() => catItems.map((it) => it.name), [catItems]);
 
   // Distinct variant labels across the category's items (for the size dropdown).
   const sizeLabels = useMemo(() => {
@@ -573,14 +577,35 @@ function CategoryModePanel({
 
   const label = step.source_variant_label?.trim() ?? '';
 
-  // Items that would be excluded because they lack a variant matching the label.
-  const excluded = useMemo(() => {
-    if (!label) return [] as string[];
+  // Split the category into three zones the operator can scan independently:
+  //   • available     — passes size filter AND is on at least one carte
+  //   • excludedBySize — on a carte but lacks a variant matching the label
+  //   • notOnAnyCarte  — would silently not resolve at order time
+  // Each zone renders only when non-empty so the panel stays quiet when
+  // there's nothing to flag.
+  const zones = useMemo(() => {
     const want = label.toLowerCase();
-    return catItems
-      .filter((it) => !getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want))
-      .map((it) => it.name);
-  }, [catItems, label]);
+    const matchesSize = (it: MenuItem) =>
+      !label || getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want);
+
+    const available: string[] = [];
+    const excludedBySize: string[] = [];
+    const notOnAnyCarte: string[] = [];
+    for (const it of catItems) {
+      const onCarte = anyCarteItemIds.has(it.id);
+      if (!onCarte) {
+        notOnAnyCarte.push(it.name);
+      } else if (!matchesSize(it)) {
+        excludedBySize.push(it.name);
+      } else {
+        available.push(it.name);
+      }
+    }
+    return { available, excludedBySize, notOnAnyCarte };
+  }, [catItems, label, anyCarteItemIds]);
+
+  const hasAnyZone =
+    zones.available.length + zones.excludedBySize.length + zones.notOnAnyCarte.length > 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -619,20 +644,107 @@ function CategoryModePanel({
         </label>
       )}
 
-      {selectedId > 0 && (
-        <div className="text-fs-xs text-[var(--fg-muted)]">
-          {previewItems.length === 0
-            ? t('composeStepCategoryEmpty')
-            : t('composeStepCategoryPreview').replace('{items}', previewItems.join(', '))}
-        </div>
+      {selectedId > 0 && !hasAnyZone && (
+        <div className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepCategoryEmpty')}</div>
       )}
 
-      {label && excluded.length > 0 && (
-        <div className="text-fs-xs text-[var(--warn,#b45309)]">
-          {t('composeStepSizeExcluded')
-            .replace('{count}', String(excluded.length))
-            .replace('{size}', label)
-            .replace('{items}', excluded.join(', '))}
+      {selectedId > 0 && hasAnyZone && (
+        <div className="flex flex-col gap-1.5 mt-1">
+          {zones.available.length > 0 && (
+            <CategoryZone
+              tone="ok"
+              icon={<Check className="w-3.5 h-3.5" />}
+              title={t('composeStepCategoryAvailable').replace('{n}', String(zones.available.length))}
+              items={zones.available}
+            />
+          )}
+          {zones.excludedBySize.length > 0 && (
+            <CategoryZone
+              tone="warn"
+              icon={<AlertTriangle className="w-3.5 h-3.5" />}
+              title={t('composeStepCategoryExcludedSize')
+                .replace('{n}', String(zones.excludedBySize.length))
+                .replace('{size}', label)}
+              items={zones.excludedBySize}
+            />
+          )}
+          {zones.notOnAnyCarte.length > 0 && (
+            <CategoryZone
+              tone="warn"
+              icon={<AlertTriangle className="w-3.5 h-3.5" />}
+              title={t('composeStepCategoryNotOnCarte').replace('{n}', String(zones.notOnAnyCarte.length))}
+              subtitle={t('composeStepCategoryNotOnCarteHint')}
+              items={zones.notOnAnyCarte}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Single zone of the category-step preview. Defaults to showing the first 5
+// item names, with an inline expand toggle when more exist — long lists
+// otherwise wrap into walls of text that hide the count summary above them.
+function CategoryZone({
+  tone,
+  icon,
+  title,
+  subtitle,
+  items,
+}: {
+  tone: 'ok' | 'warn';
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  items: string[];
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  const PEEK = 5;
+  const shown = expanded ? items : items.slice(0, PEEK);
+  const hidden = items.length - shown.length;
+  const accent = tone === 'ok' ? 'var(--success-500)' : 'var(--warning-500)';
+
+  return (
+    <div
+      className="rounded-r-md px-[var(--s-3)] py-[var(--s-2)] border"
+      style={{
+        background: `color-mix(in oklab, ${accent} 8%, transparent)`,
+        borderColor: `color-mix(in oklab, ${accent} 26%, transparent)`,
+        color: accent,
+      }}
+    >
+      <div className="flex items-center gap-1.5 text-fs-xs font-semibold">
+        {icon}
+        <span>{title}</span>
+      </div>
+      {subtitle && (
+        <div className="text-fs-xs opacity-80 mt-0.5 ms-5">{subtitle}</div>
+      )}
+      {items.length > 0 && (
+        <div className="text-fs-xs text-[var(--fg-muted)] mt-1 ms-5 leading-relaxed">
+          {shown.join(', ')}
+          {hidden > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="ms-1.5 underline hover:no-underline"
+              style={{ color: accent }}
+            >
+              {t('composeStepCategoryShowMore').replace('{n}', String(hidden))}
+            </button>
+          )}
+          {expanded && items.length > PEEK && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="ms-1.5 underline hover:no-underline"
+              style={{ color: accent }}
+            >
+              {t('composeStepCategoryShowLess')}
+            </button>
+          )}
         </div>
       )}
     </div>

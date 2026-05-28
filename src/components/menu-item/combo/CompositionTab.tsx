@@ -20,7 +20,7 @@ import StepCard from './StepCard';
 import PricingCard from './PricingCard';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
-import { buildWebItemIdSet } from './webCarte';
+import { buildWebItemIdSet, buildAnyCarteItemIdSet } from './webCarte';
 
 interface Props {
   comboName: string;
@@ -58,6 +58,11 @@ export default function CompositionTab({
   // Web-orderable item IDs across every menu. Drives the per-step
   // "won't show to web guests" amber summary below each StepCard.
   const webItemIds = useMemo(() => buildWebItemIdSet(menus), [menus]);
+
+  // Items reachable through any non-hidden group on any carte, either channel.
+  // Drives the category-step preview's "not on any carte" zone — items that
+  // wouldn't resolve at order time because they aren't on any carte at all.
+  const anyCarteItemIds = useMemo(() => buildAnyCarteItemIdSet(menus), [menus]);
 
 
   const errors = useMemo(
@@ -153,6 +158,7 @@ export default function CompositionTab({
                 itemsById={itemsById}
                 menus={menus}
                 webItemIds={webItemIds}
+                anyCarteItemIds={anyCarteItemIds}
                 onChange={(next) => updateStep(step.key, next)}
                 onRemove={() => removeStep(step.key)}
               />
