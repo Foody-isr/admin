@@ -51,11 +51,23 @@ export function variantGroupsFromOptionSets(
   const groups: VariantGroupState[] = [];
   for (const os of attachedOptionSets) {
     if (!(os.menu_items ?? []).some((mi) => mi.id === itemId)) continue;
+    // The per-item override (OptionSetMenuItemOption) is the source of truth
+    // for which options apply to THIS item. Options on the shared set without
+    // an override were removed from this item (the shared option stays for
+    // other items). Without this filter, removed variants resurrect on reload.
+    // Fallback: when no override exists for any option in the set (legacy
+    // direct-attach via AttachOptionSetToItems pre-SyncItemVariants), show all
+    // options — the next save through SyncItemVariants will backfill overrides.
+    const setOptions = os.options ?? [];
+    const hasOverrides = setOptions.some((opt) => overrideMap.has(opt.id));
+    const visibleOptions = hasOverrides
+      ? setOptions.filter((opt) => overrideMap.has(opt.id))
+      : setOptions;
     groups.push({
       key: crypto.randomUUID(),
       optionSetId: os.id,
       title: os.name,
-      rows: (os.options ?? []).map((opt) => {
+      rows: visibleOptions.map((opt) => {
         const ov = overrideMap.get(opt.id);
         return {
           key: crypto.randomUUID(),

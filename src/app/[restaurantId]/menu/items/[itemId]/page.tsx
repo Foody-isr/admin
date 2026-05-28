@@ -646,10 +646,10 @@ export default function EditItemPage() {
                 ingredients={ingredients}
                 stockItems={stockItems}
                 prepItems={prepItems}
-                variants={attachedOptionSets.flatMap((os) =>
-                  (os.options ?? [])
-                    .filter((o) => o.is_active)
-                    .map((o) => ({ option_id: o.id, name: o.name })),
+                variants={variantGroups.flatMap((g) =>
+                  g.rows
+                    .filter((r) => r.isActive && r.optionId != null && r.name.trim())
+                    .map((r) => ({ option_id: r.optionId!, name: r.name })),
                 )}
                 onAddIngredient={async (input) => {
                   const next = [
