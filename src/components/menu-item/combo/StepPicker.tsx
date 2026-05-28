@@ -9,14 +9,14 @@
 // variant chips). Right column = selected panel + step rules.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Check, Plus } from 'lucide-react';
+import { Search, X, Check, Info, Plus } from 'lucide-react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { Button, Chip, InputGroup, Kbd, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import type { ComboStepDraft, ComboStepDraftItem, ComboOptionView } from './types';
 import { buildOptions, getSourceVariants, toDraftItems, promoteDefaultOption } from './types';
 import StepRulesPanel from './StepRulesPanel';
-import { buildWebItemIdSet, isOffWebCarte } from './webCarte';
+import { buildAnyCarteItemIdSet, isOffAnyCarte } from './webCarte';
 import Thumb from './Thumb';
 
 const MENU_FILTER_STORAGE_KEY = 'foody.combo.menuFilter';
@@ -82,9 +82,10 @@ export default function StepPicker({ step, categories, itemsById, menus, onCommi
     }
   }, [menuFilter]);
 
-  /** Web-orderable item IDs across every menu. Drives the per-row
-   *  "not on web carte" warning in the Selected panel. */
-  const webItemIds = useMemo(() => buildWebItemIdSet(menus), [menus]);
+  /** Items reachable through any non-hidden, channel-enabled group on any
+   *  carte. Drives the per-row "Combo-only" badge in the Selected panel —
+   *  items not on any carte are reachable only through this combo. */
+  const anyCarteItemIds = useMemo(() => buildAnyCarteItemIdSet(menus), [menus]);
 
   // Set of menu-item IDs reachable through the selected carte. `null` =
   // no scoping (show the full library). We union the new groups model
@@ -578,7 +579,7 @@ export default function StepPicker({ step, categories, itemsById, menus, onCommi
                 name={opt.itemName}
                 imageUrl={opt.imageUrl}
                 isDefault={opt.isDefault}
-                offWebCarte={isOffWebCarte(opt.menuItemId, webItemIds)}
+                comboOnly={isOffAnyCarte(opt.menuItemId, anyCarteItemIds)}
                 onRemove={() => removeOption(opt.menuItemId)}
                 onSetDefault={() => promoteToDefault(opt.menuItemId)}
               />
@@ -691,12 +692,12 @@ function ParentCheckbox({ state }: { state: 'empty' | 'partial' | 'full' }) {
 }
 
 function SelectedRow({
-  name, imageUrl, isDefault, offWebCarte, onRemove, onSetDefault,
+  name, imageUrl, isDefault, comboOnly, onRemove, onSetDefault,
 }: {
   name: string;
   imageUrl?: string;
   isDefault: boolean;
-  offWebCarte?: boolean;
+  comboOnly?: boolean;
   onRemove: () => void;
   onSetDefault: () => void;
 }) {
@@ -706,16 +707,13 @@ function SelectedRow({
       <Thumb url={imageUrl} />
       <div className="flex-1 min-w-0">
         <div className="text-fs-sm font-medium truncate">{name}</div>
-        {offWebCarte && (
+        {comboOnly && (
           <div
-            className="inline-flex items-center gap-1 mt-0.5 text-fs-xs px-1.5 py-0.5 rounded-r-sm"
-            style={{
-              background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-              color: 'var(--warning-500)',
-            }}
-            title={t('comboWarnOffWebCarte')}
+            className="inline-flex items-center gap-1 mt-0.5 text-fs-xs px-1.5 py-0.5 rounded-r-sm bg-[var(--surface-3)] text-[var(--fg-muted)]"
+            title={t('composeBadgeComboOnlyTooltip')}
           >
-            ⚠ {t('comboWarnOffWebCarte')}
+            <Info className="w-2.5 h-2.5" />
+            {t('composeBadgeComboOnly')}
           </div>
         )}
         {isDefault ? (

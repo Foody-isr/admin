@@ -5,7 +5,7 @@
 //   • a vertical list of VariantSubRow — one per source variant (excluded
 //     ones rendered greyed-out so the operator can re-include them).
 
-import { ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Info, Layers, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView, VariantView } from './types';
@@ -15,14 +15,15 @@ import Thumb from './Thumb';
 interface Props {
   option: ComboOptionView;
   basePrice: number;
-  /** Flag this option as not appearing on any web carte. Shows the inline
-   *  warning chip next to the item name in the header. */
-  offWebCarte?: boolean;
+  /** Item isn't on any carte — reachable only through this combo. Surfaces
+   *  the informational "Combo-only" chip next to the item name in the
+   *  header. */
+  comboOnly?: boolean;
   onChange: (variants: VariantView[]) => void;
   onRemove: () => void;
 }
 
-export default function OptionRowWithVariants({ option, basePrice, offWebCarte, onChange, onRemove }: Props) {
+export default function OptionRowWithVariants({ option, basePrice, comboOnly, onChange, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -50,16 +51,13 @@ export default function OptionRowWithVariants({ option, basePrice, offWebCarte, 
               <Layers className="w-2.5 h-2.5" />
               {t('composeVariantsCount').replace('{n}', String(option.variants.length))}
             </span>
-            {offWebCarte && (
+            {comboOnly && (
               <span
-                className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
-                style={{
-                  background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-                  color: 'var(--warning-500)',
-                }}
-                title={t('comboWarnOffWebCarte')}
+                className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0 bg-[var(--surface-3)] text-[var(--fg-muted)]"
+                title={t('composeBadgeComboOnlyTooltip')}
               >
-                ⚠ {t('comboWarnOffWebCarte')}
+                <Info className="w-2.5 h-2.5" />
+                {t('composeBadgeComboOnly')}
               </span>
             )}
           </div>

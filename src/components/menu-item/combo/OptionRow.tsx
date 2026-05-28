@@ -4,7 +4,7 @@
 //
 // Layout: [drag] [thumb] [name + default badge] [upcharge chip / inclus] [edit] [remove]
 
-import { GripVertical, Pin, X } from 'lucide-react';
+import { GripVertical, Info, Pin, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView } from './types';
@@ -13,15 +13,15 @@ import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
-  /** Flag this row as not appearing on any web carte. Shows the inline
-   *  warning chip next to the item name. */
-  offWebCarte?: boolean;
+  /** Item isn't on any carte — reachable only through this combo. Surfaces
+   *  the informational "Combo-only" chip next to the item name. */
+  comboOnly?: boolean;
   onUpchargeChange: (next: number) => void;
   onRemove: () => void;
   onSetDefault: () => void;
 }
 
-export default function OptionRow({ option, offWebCarte, onUpchargeChange, onRemove, onSetDefault }: Props) {
+export default function OptionRow({ option, comboOnly, onUpchargeChange, onRemove, onSetDefault }: Props) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
 
@@ -39,16 +39,13 @@ export default function OptionRow({ option, offWebCarte, onUpchargeChange, onRem
               <Pin className="w-2.5 h-2.5" /> {t('composeDefaultBadge')}
             </span>
           )}
-          {offWebCarte && (
+          {comboOnly && (
             <span
-              className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
-              style={{
-                background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-                color: 'var(--warning-500)',
-              }}
-              title={t('comboWarnOffWebCarte')}
+              className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0 bg-[var(--surface-3)] text-[var(--fg-muted)]"
+              title={t('composeBadgeComboOnlyTooltip')}
             >
-              ⚠ {t('comboWarnOffWebCarte')}
+              <Info className="w-2.5 h-2.5" />
+              {t('composeBadgeComboOnly')}
             </span>
           )}
         </div>

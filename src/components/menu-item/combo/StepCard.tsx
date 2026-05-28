@@ -7,7 +7,7 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, Info, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -19,23 +19,21 @@ import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
 import StepRulesPanel from './StepRulesPanel';
 import Thumb from './Thumb';
-import { isOffWebCarte } from './webCarte';
+import { isOffAnyCarte } from './webCarte';
 
-// Small amber chip surfacing the "not on any web carte" warning next to the
-// specific row it applies to. Matches the chip already used by the picker
-// (StepPicker) so the language and styling stay consistent across the
-// composer. Click-through-friendly via `title` for the tooltip text.
-function OffWebChip({ label }: { label: string }) {
+// Informational chip surfacing "this item isn't on any carte — customers
+// reach it only through this combo". Neutral muted styling (not amber)
+// because absence from a carte for an explicit-mode combo row is a fact
+// about how the item is sold, not a configuration error. The combo IS the
+// customer pathway.
+function ComboOnlyChip({ label, tooltip }: { label: string; tooltip: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
-      style={{
-        background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-        color: 'var(--warning-500)',
-      }}
-      title={label}
+      className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0 bg-[var(--surface-3)] text-[var(--fg-muted)]"
+      title={tooltip}
     >
-      ⚠ {label}
+      <Info className="w-2.5 h-2.5" />
+      {label}
     </span>
   );
 }
@@ -87,19 +85,16 @@ interface Props {
   categories: MenuCategory[];
   itemsById: Map<number, MenuItem>;
   menus: Menu[];
-  /** Items currently surfaced to web guests. Used to flag rows whose item is
-   *  not on any web-enabled carte so the operator sees the warning next to the
-   *  specific row instead of a vague step-level pill. */
-  webItemIds: Set<number>;
-  /** Items reachable through any non-hidden group on any carte (either
-   *  channel). Used by the category-step preview to flag items that aren't
-   *  attached to any carte at all. */
+  /** Items reachable through any non-hidden, channel-enabled group on any
+   *  carte. Used by per-item rows to surface the informational "Combo-only"
+   *  badge (item reachable only through this combo) and by the category-step
+   *  preview's "hors carte" zone (items the resolver would silently drop). */
   anyCarteItemIds: Set<number>;
   onChange: (next: ComboStepDraft) => void;
   onRemove: () => void;
 }
 
-export default function StepCard({ step, index, basePrice, categories, itemsById, menus, webItemIds, anyCarteItemIds, onChange, onRemove }: Props) {
+export default function StepCard({ step, index, basePrice, categories, itemsById, menus, anyCarteItemIds, onChange, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -288,7 +283,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 const sourceItem = itemsById.get(draftItem.menu_item_id);
                 const displayName = sourceItem?.name ?? draftItem.item_name ?? '';
                 const imageUrl = sourceItem?.image_url || undefined;
-                const offWeb = isOffWebCarte(draftItem.menu_item_id, webItemIds);
+                const comboOnly = isOffAnyCarte(draftItem.menu_item_id, anyCarteItemIds);
                 return (
                   <div
                     key={draftItem.pick_key ?? `${draftItem.menu_item_id}-${idx}`}
@@ -298,7 +293,12 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                     <span className="flex-1 min-w-0 truncate text-fs-md font-medium text-[var(--fg)]">
                       {displayName || t('composeFixedItemMissing')}
                     </span>
-                    {offWeb && <OffWebChip label={t('comboWarnOffWebCarte')} />}
+                    {comboOnly && (
+                      <ComboOnlyChip
+                        label={t('composeBadgeComboOnly')}
+                        tooltip={t('composeBadgeComboOnlyTooltip')}
+                      />
+                    )}
 
                     {/* Quantity stepper — only shown when single item. */}
                     {!isBundle && (
@@ -497,13 +497,13 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 </div>
               ) : (
                 options.map((opt) => {
-                  const offWeb = isOffWebCarte(opt.menuItemId, webItemIds);
+                  const comboOnly = isOffAnyCarte(opt.menuItemId, anyCarteItemIds);
                   return opt.hasVariants ? (
                     <OptionRowWithVariants
                       key={opt.key}
                       option={opt}
                       basePrice={basePrice}
-                      offWebCarte={offWeb}
+                      comboOnly={comboOnly}
                       onChange={(variants) => handleVariantsChange(opt.menuItemId, variants)}
                       onRemove={() => handleRemoveOption(opt.menuItemId)}
                     />
@@ -511,7 +511,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                     <OptionRow
                       key={opt.key}
                       option={opt}
-                      offWebCarte={offWeb}
+                      comboOnly={comboOnly}
                       onUpchargeChange={(next) => handleOptionUpchargeChange(opt.menuItemId, next)}
                       onRemove={() => handleRemoveOption(opt.menuItemId)}
                       onSetDefault={() => handleSetDefaultOption(opt.menuItemId)}
