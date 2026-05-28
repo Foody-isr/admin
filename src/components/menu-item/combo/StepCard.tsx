@@ -7,7 +7,7 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { ChevronUp, ChevronDown, GripVertical, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
+import { ChevronUp, ChevronDown, GripVertical, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -19,6 +19,26 @@ import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
 import StepRulesPanel from './StepRulesPanel';
 import Thumb from './Thumb';
+import { isOffWebCarte } from './webCarte';
+
+// Small amber chip surfacing the "not on any web carte" warning next to the
+// specific row it applies to. Matches the chip already used by the picker
+// (StepPicker) so the language and styling stay consistent across the
+// composer. Click-through-friendly via `title` for the tooltip text.
+function OffWebChip({ label }: { label: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
+      style={{
+        background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+        color: 'var(--warning-500)',
+      }}
+      title={label}
+    >
+      ⚠ {label}
+    </span>
+  );
+}
 
 // Editable title/description input with a hover-pencil affordance. The input
 // stays borderless so the card reads quietly at rest, but: (1) the placeholder
@@ -67,11 +87,15 @@ interface Props {
   categories: MenuCategory[];
   itemsById: Map<number, MenuItem>;
   menus: Menu[];
+  /** Items currently surfaced to web guests. Used to flag rows whose item is
+   *  not on any web-enabled carte so the operator sees the warning next to the
+   *  specific row instead of a vague step-level pill. */
+  webItemIds: Set<number>;
   onChange: (next: ComboStepDraft) => void;
   onRemove: () => void;
 }
 
-export default function StepCard({ step, index, basePrice, categories, itemsById, menus, onChange, onRemove }: Props) {
+export default function StepCard({ step, index, basePrice, categories, itemsById, menus, webItemIds, onChange, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -207,12 +231,20 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
             {index + 1}
           </div>
           <div className="flex-1 min-w-0">
-            <EditableField
-              value={step.name}
-              onChange={(name) => onChange({ ...step, name })}
-              placeholder={isBundle ? t('composeFixedGroupNamePlaceholder') : t('composeFixedItemIncluded')}
-              variant="title"
-            />
+            <div className="flex items-center gap-2">
+              <EditableField
+                value={step.name}
+                onChange={(name) => onChange({ ...step, name })}
+                placeholder={isBundle ? t('composeFixedGroupNamePlaceholder') : t('composeFixedItemIncluded')}
+                variant="title"
+              />
+              <span
+                className="inline-flex items-center gap-1 h-[20px] px-2 rounded-r-sm text-fs-xs font-medium shrink-0 bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]"
+              >
+                <Pin className="w-2.5 h-2.5" />
+                {t('composeKindFixed')}
+              </span>
+            </div>
             <EditableField
               value={step.description ?? ''}
               onChange={(description) => onChange({ ...step, description })}
@@ -251,6 +283,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 const sourceItem = itemsById.get(draftItem.menu_item_id);
                 const displayName = sourceItem?.name ?? draftItem.item_name ?? '';
                 const imageUrl = sourceItem?.image_url || undefined;
+                const offWeb = isOffWebCarte(draftItem.menu_item_id, webItemIds);
                 return (
                   <div
                     key={draftItem.pick_key ?? `${draftItem.menu_item_id}-${idx}`}
@@ -260,6 +293,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                     <span className="flex-1 min-w-0 truncate text-fs-md font-medium text-[var(--fg)]">
                       {displayName || t('composeFixedItemMissing')}
                     </span>
+                    {offWeb && <OffWebChip label={t('comboWarnOffWebCarte')} />}
 
                     {/* Quantity stepper — only shown when single item. */}
                     {!isBundle && (
@@ -456,12 +490,14 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                   {t('composeStepEmpty')}
                 </div>
               ) : (
-                options.map((opt) => (
-                  opt.hasVariants ? (
+                options.map((opt) => {
+                  const offWeb = isOffWebCarte(opt.menuItemId, webItemIds);
+                  return opt.hasVariants ? (
                     <OptionRowWithVariants
                       key={opt.key}
                       option={opt}
                       basePrice={basePrice}
+                      offWebCarte={offWeb}
                       onChange={(variants) => handleVariantsChange(opt.menuItemId, variants)}
                       onRemove={() => handleRemoveOption(opt.menuItemId)}
                     />
@@ -469,12 +505,13 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                     <OptionRow
                       key={opt.key}
                       option={opt}
+                      offWebCarte={offWeb}
                       onUpchargeChange={(next) => handleOptionUpchargeChange(opt.menuItemId, next)}
                       onRemove={() => handleRemoveOption(opt.menuItemId)}
                       onSetDefault={() => handleSetDefaultOption(opt.menuItemId)}
                     />
-                  )
-                ))
+                  );
+                })
               )}
 
               <button

@@ -19,7 +19,7 @@ import StepCard from './StepCard';
 import PricingCard from './PricingCard';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
-import { buildWebItemIdSet, isOffWebCarte } from './webCarte';
+import { buildWebItemIdSet } from './webCarte';
 
 interface Props {
   comboName: string;
@@ -135,37 +135,20 @@ export default function CompositionTab({
 
       {/* Steps */}
       <div className="flex flex-col gap-[var(--s-3)]">
-        {steps.map((step, i) => {
-          const offCount = step.items.reduce(
-            (n, it) => (isOffWebCarte(it.menu_item_id, webItemIds) ? n + 1 : n),
-            0,
-          );
-          return (
-            <div key={step.key} className="flex flex-col gap-[var(--s-1)]">
-              <StepCard
-                step={step}
-                index={i}
-                basePrice={basePrice}
-                categories={categories}
-                itemsById={itemsById}
-                menus={menus}
-                onChange={(next) => updateStep(step.key, next)}
-                onRemove={() => removeStep(step.key)}
-              />
-              {offCount > 0 && (
-                <div
-                  className="text-fs-xs px-[var(--s-3)] py-[var(--s-1)] rounded-r-sm inline-flex items-center gap-1 self-start"
-                  style={{
-                    background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
-                    color: 'var(--warning-500)',
-                  }}
-                >
-                  ⚠ {t('comboWarnOffWebCarteStep').replace('{n}', String(offCount))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {steps.map((step, i) => (
+          <StepCard
+            key={step.key}
+            step={step}
+            index={i}
+            basePrice={basePrice}
+            categories={categories}
+            itemsById={itemsById}
+            menus={menus}
+            webItemIds={webItemIds}
+            onChange={(next) => updateStep(step.key, next)}
+            onRemove={() => removeStep(step.key)}
+          />
+        ))}
 
         {/* Add CTAs — "New step" for choices, "Fixed item" for pre-defined contents. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-3)]">

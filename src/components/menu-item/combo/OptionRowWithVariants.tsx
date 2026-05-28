@@ -15,11 +15,14 @@ import Thumb from './Thumb';
 interface Props {
   option: ComboOptionView;
   basePrice: number;
+  /** Flag this option as not appearing on any web carte. Shows the inline
+   *  warning chip next to the item name in the header. */
+  offWebCarte?: boolean;
   onChange: (variants: VariantView[]) => void;
   onRemove: () => void;
 }
 
-export default function OptionRowWithVariants({ option, basePrice, onChange, onRemove }: Props) {
+export default function OptionRowWithVariants({ option, basePrice, offWebCarte, onChange, onRemove }: Props) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -47,6 +50,18 @@ export default function OptionRowWithVariants({ option, basePrice, onChange, onR
               <Layers className="w-2.5 h-2.5" />
               {t('composeVariantsCount').replace('{n}', String(option.variants.length))}
             </span>
+            {offWebCarte && (
+              <span
+                className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
+                style={{
+                  background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+                  color: 'var(--warning-500)',
+                }}
+                title={t('comboWarnOffWebCarte')}
+              >
+                ⚠ {t('comboWarnOffWebCarte')}
+              </span>
+            )}
           </div>
           <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
             {t('composeIncludedInCombo')}

@@ -13,12 +13,15 @@ import Thumb from './Thumb';
 
 interface Props {
   option: ComboOptionView;
+  /** Flag this row as not appearing on any web carte. Shows the inline
+   *  warning chip next to the item name. */
+  offWebCarte?: boolean;
   onUpchargeChange: (next: number) => void;
   onRemove: () => void;
   onSetDefault: () => void;
 }
 
-export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDefault }: Props) {
+export default function OptionRow({ option, offWebCarte, onUpchargeChange, onRemove, onSetDefault }: Props) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
 
@@ -34,6 +37,18 @@ export default function OptionRow({ option, onUpchargeChange, onRemove, onSetDef
           {option.isDefault && (
             <span className="inline-flex items-center gap-1 text-fs-xs px-1.5 h-[18px] rounded-r-sm bg-[color-mix(in_oklab,#2563eb_14%,transparent)] text-[#60a5fa] border border-[color-mix(in_oklab,#2563eb_30%,transparent)]">
               <Pin className="w-2.5 h-2.5" /> {t('composeDefaultBadge')}
+            </span>
+          )}
+          {offWebCarte && (
+            <span
+              className="inline-flex items-center gap-1 text-fs-xs px-1.5 py-0.5 rounded-r-sm shrink-0"
+              style={{
+                background: 'color-mix(in oklab, var(--warning-500) 12%, transparent)',
+                color: 'var(--warning-500)',
+              }}
+              title={t('comboWarnOffWebCarte')}
+            >
+              ⚠ {t('comboWarnOffWebCarte')}
             </span>
           )}
         </div>

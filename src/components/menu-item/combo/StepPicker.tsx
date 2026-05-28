@@ -17,6 +17,7 @@ import type { ComboStepDraft, ComboStepDraftItem, ComboOptionView } from './type
 import { buildOptions, getSourceVariants, toDraftItems, promoteDefaultOption } from './types';
 import StepRulesPanel from './StepRulesPanel';
 import { buildWebItemIdSet, isOffWebCarte } from './webCarte';
+import Thumb from './Thumb';
 
 const MENU_FILTER_STORAGE_KEY = 'foody.combo.menuFilter';
 
@@ -741,19 +742,3 @@ function SelectedRow({
   );
 }
 
-function Thumb({ url }: { url?: string }) {
-  if (url) {
-    /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={url} alt="" className="w-7 h-7 rounded-r-sm object-cover bg-[var(--surface-2)]" />;
-  }
-  return (
-    <div
-      className="w-7 h-7 rounded-r-sm shrink-0"
-      style={{
-        background: 'var(--surface-2)',
-        backgroundImage: 'repeating-linear-gradient(45deg, color-mix(in oklab, var(--fg) 12%, transparent) 0 4px, transparent 4px 8px)',
-      }}
-      aria-hidden
-    />
-  );
-}
