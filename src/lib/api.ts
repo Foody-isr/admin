@@ -348,12 +348,19 @@ export interface OrderItem {
   selected_variant_id?: number;
   selected_variant_name?: string;
   selected_variant_price?: number;
+  // variant_portion is a formatted label like "250 g" / "1 kg", snapshotted
+  // at order creation from the recipe. Empty/undefined when no portion mass
+  // is computable for the item+variant (no recipe, no numeric variant name).
   variant_portion?: string;
   modifiers?: OrderItemModifier[];
   combo_item_id?: number;
   combo_group?: string;
   combo_name?: string;
   combo_price?: number;
+  // Snapshot of the item's category at order time. NULL on older/fake rows
+  // that pre-date the snapshot migration — render those under an "Other" bucket.
+  category_id?: number;
+  category_name?: string;
 }
 
 export interface Order {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
@@ -813,6 +813,33 @@ function OrderDetailDrawer({
   }
   const comboGroups: Array<[string, OrderItem[]]> = Array.from(comboGroupsMap.entries());
 
+  // Group regular items by their snapshotted category. Preserve first-seen
+  // order so the visual order matches how the customer composed the order.
+  // Items with no category snapshot (older/fake rows that pre-date the
+  // snapshot migration) fall into a single "Other" bucket at the end.
+  const categoryOrder: string[] = [];
+  const itemsByCategory = new Map<string, OrderItem[]>();
+  for (const it of regularItems) {
+    const key = it.category_name && it.category_name.trim() !== '' ? it.category_name : '__other__';
+    if (!itemsByCategory.has(key)) {
+      itemsByCategory.set(key, []);
+      categoryOrder.push(key);
+    }
+    itemsByCategory.get(key)!.push(it);
+  }
+  // Move __other__ to the end if both labelled and other groups exist, so
+  // labelled categories always come first.
+  const otherIdx = categoryOrder.indexOf('__other__');
+  if (otherIdx >= 0 && categoryOrder.length > 1) {
+    categoryOrder.splice(otherIdx, 1);
+    categoryOrder.push('__other__');
+  }
+  const categoryGroups: Array<{ key: string; label: string; items: OrderItem[] }> = categoryOrder.map((key) => ({
+    key,
+    label: key === '__other__' ? (t('uncategorized') || 'Autres') : key,
+    items: itemsByCategory.get(key)!,
+  }));
+
   const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const comboDeltasTotal = comboGroups.reduce(
     (s, [, items]) => s + items.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0),
@@ -1067,37 +1094,56 @@ function OrderDetailDrawer({
             </div>
           </Section>
 
-          {/* Items */}
+          {/* Items — grouped by snapshotted category, then a Combos section. */}
           <Section
             title={`${displayedLineCount} ${displayedLineCount === 1 ? t('item') : t('items')} · ${totalUnits} ${totalUnits === 1 ? (t('unit') || 'unité') : (t('units') || 'unités')}`}
           >
             <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-              {regularItems.map((item, i) => (
-                <OrderLineRow key={item.id} item={item} showTopBorder={i > 0} />
+              {categoryGroups.map((group, gi) => (
+                <Fragment key={group.key}>
+                  <CategoryHeader
+                    label={group.label}
+                    count={group.items.length}
+                    countLabel={group.items.length === 1 ? t('item') : t('items')}
+                    showTopBorder={gi > 0}
+                  />
+                  {group.items.map((item, ii) => (
+                    <OrderLineRow key={item.id} item={item} showTopBorder={ii > 0} />
+                  ))}
+                </Fragment>
               ))}
-              {comboGroups.map(([groupKey, comboItems], gi) => {
-                const comboName = comboItems[0]?.combo_name || t('comboMenuFallback') || 'Combo Menu';
-                const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
-                const comboTotal = comboPriceFor(comboItems) + deltas;
-                const showTopBorder = regularItems.length > 0 || gi > 0;
-                const totalPicks = comboItems.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
-                const picksLabel = totalPicks === 1 ? t('selection') : t('selections');
-                return (
-                  <div
-                    key={groupKey}
-                    className={`px-[var(--s-5)] py-[var(--s-3)] ${showTopBorder ? 'border-t border-[var(--line)]' : ''}`}
-                  >
-                    <ComboCard
-                      comboName={comboName}
-                      comboTotal={comboTotal}
-                      comboItems={comboItems}
-                      totalPicks={totalPicks}
-                      picksLabel={picksLabel}
-                      comboLabel={(t('combo') || 'Combo').toUpperCase()}
-                    />
-                  </div>
-                );
-              })}
+              {comboGroups.length > 0 && (
+                <>
+                  <CategoryHeader
+                    label={(t('combos') || 'Combos').toUpperCase()}
+                    count={comboGroups.length}
+                    countLabel={comboGroups.length === 1 ? t('combo') || 'Combo' : t('combos') || 'Combos'}
+                    showTopBorder={categoryGroups.length > 0}
+                  />
+                  {comboGroups.map(([groupKey, comboItems], gi) => {
+                    const comboName = comboItems[0]?.combo_name || t('comboMenuFallback') || 'Combo Menu';
+                    const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
+                    const comboTotal = comboPriceFor(comboItems) + deltas;
+                    const totalPicks = comboItems.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
+                    const picksLabel = totalPicks === 1 ? t('selection') : t('selections');
+                    return (
+                      <div
+                        key={groupKey}
+                        className={`px-[var(--s-5)] py-[var(--s-3)] ${gi > 0 ? 'border-t border-[var(--line)]' : ''}`}
+                      >
+                        <ComboCard
+                          comboName={comboName}
+                          comboTotal={comboTotal}
+                          comboItems={comboItems}
+                          totalPicks={totalPicks}
+                          picksLabel={picksLabel}
+                          comboLabel={(t('combo') || 'Combo').toUpperCase()}
+                        />
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           </Section>
         </div>
@@ -1229,6 +1275,53 @@ function ScheduledBanner({ iso, t }: { iso: string; t: (k: string) => string }) 
   );
 }
 
+// ─── Variant chip text — name + recipe-derived portion, dedup'd ──────────────
+//
+// Returns the text to show in the variant chip on an order line. Combines the
+// variant name (e.g. "Normal") with the snapshotted portion (e.g. "250 g")
+// into "Normal · 250 g". Skips the portion when the variant name is itself a
+// numeric portion ("250g"), since the recipe-derived snapshot would otherwise
+// be a duplicate.
+function variantChipText(item: { selected_variant_name?: string; variant_portion?: string }): string | null {
+  const name = (item.selected_variant_name || '').trim();
+  const portion = (item.variant_portion || '').trim();
+  if (!name && !portion) return null;
+  const nameIsNumericPortion = /^\d+(?:[.,]\d+)?\s*(?:g|kg)?$/i.test(name);
+  if (!portion || nameIsNumericPortion) return name || portion;
+  if (!name) return portion;
+  return `${name} · ${portion}`;
+}
+
+// ─── Category / section header — the small uppercase eyebrow above each group ─
+
+function CategoryHeader({
+  label,
+  count,
+  countLabel,
+  showTopBorder,
+}: {
+  label: string;
+  count: number;
+  countLabel: string;
+  showTopBorder: boolean;
+}) {
+  return (
+    <div
+      className={`px-[var(--s-5)] py-[var(--s-2)] flex items-center justify-between gap-2 ${
+        showTopBorder ? 'border-t border-[var(--line)]' : ''
+      }`}
+      style={{ background: 'color-mix(in oklab, var(--fg) 3%, transparent)' }}
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--fg-subtle)] truncate">
+        {label}
+      </span>
+      <span className="text-[10px] text-[var(--fg-subtle)] tabular-nums shrink-0">
+        {count} {countLabel}
+      </span>
+    </div>
+  );
+}
+
 // ─── Quantity badge — the colored "{n}×" square shared by lines and combos ────
 
 function QtyBadge({ count, seed }: { count: number; seed: string }) {
@@ -1245,6 +1338,8 @@ function QtyBadge({ count, seed }: { count: number; seed: string }) {
 // ─── Regular order line row (shared across the items list) ────────────────────
 
 function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder: boolean }) {
+  const variantText = variantChipText(item);
+  const hasMods = !!(item.modifiers && item.modifiers.length > 0);
   return (
     <div
       className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
@@ -1256,22 +1351,17 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
         <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
           {item.name}
         </div>
-        {(item.selected_variant_name || item.variant_portion || (item.modifiers && item.modifiers.length > 0)) && (
+        {(variantText || hasMods) && (
           <div className="flex flex-wrap gap-1 mt-1.5">
-            {(item.variant_portion || item.selected_variant_name) && (
+            {variantText && (
               <span
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em] cursor-help"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tracking-[-0.005em]"
                 style={{
                   background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
                   color: 'var(--brand-500)',
                 }}
-                title={
-                  item.variant_portion && item.selected_variant_name
-                    ? item.selected_variant_name
-                    : undefined
-                }
               >
-                {item.variant_portion || item.selected_variant_name}
+                {variantText}
               </span>
             )}
             {item.modifiers?.map((m) => (
@@ -1357,6 +1447,7 @@ function ComboCard({
         {comboItems.map((ci) => {
           const lineDelta = ci.price * ci.quantity;
           const hasMods = ci.modifiers && ci.modifiers.length > 0;
+          const subVariantText = variantChipText(ci);
           return (
             <div
               key={ci.id}
@@ -1371,20 +1462,15 @@ function ComboCard({
                   {ci.quantity > 1 ? `${ci.quantity}× ` : ''}
                   {ci.name}
                 </span>
-                {(ci.variant_portion || ci.selected_variant_name) && (
+                {subVariantText && (
                   <span
-                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle cursor-help"
+                    className="inline-flex items-center px-1.5 py-0.5 ms-2 rounded-full text-[10px] font-medium align-middle"
                     style={{
                       background: 'color-mix(in oklab, var(--brand-500) 14%, transparent)',
                       color: 'var(--brand-500)',
                     }}
-                    title={
-                      ci.variant_portion && ci.selected_variant_name
-                        ? ci.selected_variant_name
-                        : undefined
-                    }
                   >
-                    {ci.variant_portion || ci.selected_variant_name}
+                    {subVariantText}
                   </span>
                 )}
                 {hasMods && (
