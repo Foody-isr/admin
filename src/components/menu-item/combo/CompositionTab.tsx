@@ -1,23 +1,25 @@
 'use client';
 
-// Top-level Composition tab content for combo items.
+// Two-pane combo composer (Design B):
+//   • Left pane (CarteCatalog) — carte selector + browsable category tree.
+//                                 Adds items / categories to the *active* step.
+//   • Right pane              — the combo's steps as cards. Clicking a step
+//                                makes it active. New empty step picks up the
+//                                next add automatically.
 //
-// Owns nothing persistent — pure prop-down. The host page passes:
-//   • the current draft steps + base price
-//   • the catalog (categories) for the picker
-//   • change handlers for each
-//
-// Renders: section heading, PricingCard, list of StepCards with reordering,
-// "+ Nouvelle étape" CTA, CustomerOutcomePreview, and any validation errors.
+// One unified step type — there is no Fixed/Step toggle. Every row is just a
+// step with items and min/max rules. "Always include X" is encoded as a step
+// with min=max=items.length (the foodyweb modal still auto-detects this
+// shape via isFixedComboShape and renders the customer flow accordingly).
 
 import { Plus, AlertCircle } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import type { ComboStepDraft } from './types';
-import { effectiveStepKind } from './types';
+import type { ComboStepDraft, ComboStepDraftItem } from './types';
 import StepCard from './StepCard';
 import PricingCard from './PricingCard';
+import CarteCatalog from './CarteCatalog';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
 import { buildAnyCarteItemIdSet } from './webCarte';
@@ -29,11 +31,7 @@ interface Props {
   steps: ComboStepDraft[];
   onStepsChange: (next: ComboStepDraft[]) => void;
   categories: MenuCategory[];
-  /** Available cartes — forwarded into the step picker so the operator can
-   *  scope the catalog to a single menu while composing the combo. */
   menus: Menu[];
-  /** Forwarded to the PricingCard's savings cell — host opens the breakdown
-   *  modal. */
   onShowSavingsDetail?: () => void;
 }
 
@@ -46,7 +44,6 @@ export default function CompositionTab({
 }: Props) {
   const { t } = useI18n();
 
-  // Flat lookup of all items, keyed by id, for the picker / view-model layer.
   const itemsById = useMemo(() => {
     const m = new Map<number, MenuItem>();
     for (const cat of categories) {
@@ -55,13 +52,7 @@ export default function CompositionTab({
     return m;
   }, [categories]);
 
-  // Items reachable through any non-hidden, channel-enabled group on any
-  // carte. Drives (1) the category-step preview's "hors carte" zone — items
-  // the server's resolver would silently drop at order time — and (2) the
-  // per-row "Combo-only" informational badge on explicit-mode rows, where
-  // absence from a carte just means the combo IS the customer pathway.
   const anyCarteItemIds = useMemo(() => buildAnyCarteItemIdSet(menus), [menus]);
-
 
   const errors = useMemo(
     () => validateCombo(steps, itemsById, {
@@ -78,51 +69,101 @@ export default function CompositionTab({
     [steps, itemsById],
   );
 
+  // Active step — the one the catalog's clicks target. Defaults to the last
+  // step (most-recently-touched), or null when the combo is empty (the first
+  // add creates a fresh step automatically).
+  const [activeStepKey, setActiveStepKey] = useState<string | null>(null);
+  const effectiveActiveKey =
+    activeStepKey && steps.some((s) => s.key === activeStepKey)
+      ? activeStepKey
+      : steps[steps.length - 1]?.key ?? null;
+  const activeStep =
+    steps.find((s) => s.key === effectiveActiveKey) ?? null;
+
   const updateStep = (key: string, next: ComboStepDraft) => {
     onStepsChange(steps.map((s) => (s.key === key ? next : s)));
   };
 
   const removeStep = (key: string) => {
     onStepsChange(steps.filter((s) => s.key !== key));
+    if (activeStepKey === key) setActiveStepKey(null);
   };
+
+  const freshStep = (): ComboStepDraft => ({
+    key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}`,
+    name: t('composeStepDefaultName').replace('{n}', String(steps.length + 1)),
+    description: '',
+    min_picks: 1,
+    max_picks: 1,
+    items: [],
+    source_type: 'explicit',
+  });
 
   const addStep = () => {
-    const choiceCount = steps.filter((s) => s.kind !== 'fixed').length;
-    const fresh: ComboStepDraft = {
-      key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `step-${Date.now()}`,
-      name: t('composeStepDefaultName').replace('{n}', String(choiceCount + 1)),
-      description: '',
-      min_picks: 1,
-      max_picks: 1,
-      items: [],
-      source_type: 'explicit',
-      kind: 'choice',
-    };
+    const fresh = freshStep();
     onStepsChange([...steps, fresh]);
+    setActiveStepKey(fresh.key);
   };
 
-  // Fixed item = a step whose contents are pre-defined and the customer makes
-  // no choice. Encoded as a single-item step with min_picks === max_picks. The
-  // foodyweb modal auto-detects when every step matches this shape and renders
-  // a "What's included" preview instead of the stepper.
-  const addFixedItem = () => {
-    const fixedCount = steps.filter((s) => s.kind === 'fixed').length;
-    const fresh: ComboStepDraft = {
-      key: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `fixed-${Date.now()}`,
-      name: t('composeFixedItemDefaultName').replace('{n}', String(fixedCount + 1)),
-      description: '',
-      min_picks: 1,
-      max_picks: 1,
-      items: [],
-      source_type: 'explicit',
-      kind: 'fixed',
-    };
+  const ensureActiveStep = (): ComboStepDraft => {
+    if (activeStep) return activeStep;
+    const fresh = freshStep();
     onStepsChange([...steps, fresh]);
+    setActiveStepKey(fresh.key);
+    return fresh;
+  };
+
+  // ── Catalog actions ───────────────────────────────────────────────────
+
+  const handleAddItem = (menuItemId: number) => {
+    const target = ensureActiveStep();
+    // If the active step is currently in category mode, adding an explicit
+    // item switches it to explicit mode (mixing the two has no coherent
+    // server semantic). Otherwise just append.
+    if (target.source_type === 'category') {
+      updateStep(target.key, {
+        ...target,
+        source_type: 'explicit',
+        source_category_id: undefined,
+        source_variant_label: undefined,
+        items: [{ menu_item_id: menuItemId, price_delta: 0, pick_key: `item:${menuItemId}` }],
+      });
+      return;
+    }
+    if (target.items.some((it) => it.menu_item_id === menuItemId)) return;
+    const nextItem: ComboStepDraftItem = {
+      menu_item_id: menuItemId,
+      price_delta: 0,
+      pick_key: `item:${menuItemId}`,
+    };
+    const nextItems = [...target.items, nextItem];
+    // Auto-bump max_picks so "Choisir 1 à 1" doesn't fight a growing item list.
+    const nextMax = Math.max(target.max_picks, nextItems.length === 1 ? 1 : target.max_picks);
+    updateStep(target.key, { ...target, items: nextItems, max_picks: nextMax });
+  };
+
+  const handleRemoveItem = (menuItemId: number) => {
+    if (!activeStep) return;
+    updateStep(activeStep.key, {
+      ...activeStep,
+      items: activeStep.items.filter((it) => it.menu_item_id !== menuItemId),
+    });
+  };
+
+  const handleSetCategory = (categoryId: number) => {
+    const target = ensureActiveStep();
+    updateStep(target.key, {
+      ...target,
+      source_type: 'category',
+      source_category_id: categoryId,
+      source_variant_label: undefined,
+      items: [],
+    });
   };
 
   return (
-    <div className="max-w-5xl flex flex-col gap-[var(--s-5)]">
-      {/* Section head with brand accent */}
+    <div className="flex flex-col gap-[var(--s-5)]">
+      {/* Section head + pricing — full-width above the two-pane composer. */}
       <div className="flex items-center gap-[var(--s-3)]">
         <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
         <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('composeStepsHeader')}</h3>
@@ -137,34 +178,56 @@ export default function CompositionTab({
         onShowSavingsDetail={onShowSavingsDetail}
       />
 
-      {/* Steps. Choice-step indices restart at 0 because the numbered circle
-          encodes the customer's pick sequence — fixed items aren't part of
-          that flow (they're just "what's included") and render with a pin
-          glyph instead of a number, so they're skipped when numbering. */}
-      <div className="flex flex-col gap-[var(--s-3)]">
-        {(() => {
-          let choiceIdx = 0;
-          return steps.map((step) => {
-            const displayIndex = effectiveStepKind(step) === 'fixed' ? 0 : choiceIdx++;
-            return (
-              <StepCard
-                key={step.key}
-                step={step}
-                index={displayIndex}
-                basePrice={basePrice}
-                categories={categories}
-                itemsById={itemsById}
-                menus={menus}
-                anyCarteItemIds={anyCarteItemIds}
-                onChange={(next) => updateStep(step.key, next)}
-                onRemove={() => removeStep(step.key)}
-              />
-            );
-          });
-        })()}
+      {/* Two-pane composer — catalog left, steps right. Both panes scroll
+          independently inside their share of the viewport height. The
+          breakpoint stacks them on narrow widths (combo edit is desktop-only
+          per project scope, but tablet operators still appreciate the wrap). */}
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-[var(--s-4)] min-h-[600px]">
+        <aside className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] flex flex-col min-h-0">
+          <CarteCatalog
+            menus={menus}
+            categories={categories}
+            activeStep={activeStep}
+            anyCarteItemIds={anyCarteItemIds}
+            onAddItem={handleAddItem}
+            onRemoveItem={handleRemoveItem}
+            onSetCategory={handleSetCategory}
+          />
+        </aside>
 
-        {/* Add CTAs — "New step" for choices, "Fixed item" for pre-defined contents. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--s-3)]">
+        <section className="flex flex-col gap-[var(--s-3)] min-w-0">
+          {steps.length === 0 && (
+            <div className="rounded-r-lg border border-dashed border-[var(--line-strong)] p-[var(--s-5)] text-center text-fs-sm text-[var(--fg-muted)]">
+              {t('composeEmptyHint')}
+            </div>
+          )}
+
+          {steps.map((step, i) => {
+            const isActive = step.key === effectiveActiveKey;
+            return (
+              <div
+                key={step.key}
+                onClick={() => setActiveStepKey(step.key)}
+                className={`rounded-r-lg transition-shadow cursor-pointer ${
+                  isActive
+                    ? 'shadow-[0_0_0_2px_var(--brand-500)]'
+                    : 'shadow-none'
+                }`}
+              >
+                <StepCard
+                  step={step}
+                  index={i}
+                  basePrice={basePrice}
+                  categories={categories}
+                  itemsById={itemsById}
+                  anyCarteItemIds={anyCarteItemIds}
+                  onChange={(next) => updateStep(step.key, next)}
+                  onRemove={() => removeStep(step.key)}
+                />
+              </div>
+            );
+          })}
+
           <button
             type="button"
             onClick={addStep}
@@ -172,18 +235,9 @@ export default function CompositionTab({
           >
             <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
           </button>
-          <button
-            type="button"
-            onClick={addFixedItem}
-            title={t('composeAddFixedItemHint')}
-            className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" /> {t('composeAddFixedItem')}
-          </button>
-        </div>
+        </section>
       </div>
 
-      {/* Validation errors — surfaced inline at the bottom of the tab */}
       {errors.length > 0 && (
         <div
           className="rounded-r-md p-[var(--s-3)] border"
@@ -202,7 +256,6 @@ export default function CompositionTab({
         </div>
       )}
 
-      {/* Customer-facing preview */}
       <CustomerOutcomePreview
         comboName={comboName}
         basePrice={basePrice}
