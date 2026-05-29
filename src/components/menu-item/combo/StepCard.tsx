@@ -346,6 +346,23 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 <Pin className="w-3 h-3" />
                 {t('composeKindFixed')}
               </span>
+              {/* Symmetric kind switch — choice steps get an "Include all"
+                  link that converts them to fixed; this is the inverse path
+                  so the operator never has to delete a fixed row just to
+                  give customers a choice. Sets kind=choice and opens the
+                  rules to a sane default (pick 1 of N), which the operator
+                  can refine via the inline rules. */}
+              <button
+                type="button"
+                onClick={() => {
+                  const n = Math.max(1, step.items.length);
+                  onChange({ ...step, kind: 'choice', min_picks: 1, max_picks: n });
+                }}
+                className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline shrink-0"
+                title={t('composeRevertToChoice')}
+              >
+                {t('composeRevertToChoice')}
+              </button>
             </div>
             <EditableField
               value={step.description ?? ''}
