@@ -818,36 +818,33 @@ export default function ItemLibraryPage() {
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('availability')}>
                         {(() => {
-                          // Three signals, in priority order: staff toggle (is_active),
-                          // recipe-aware computed state (availability_state), default.
-                          // Click still toggles is_active — for sold_out items, that's
-                          // the "also hide entirely" shortcut.
+                          // Read-only effective-state chip. Toggling is_active
+                          // lives in the item editor — clicking here only ever
+                          // confused staff because the chip doesn't show
+                          // "active vs inactive", it shows the customer-facing
+                          // state (active AND stockable).
                           let cls: string;
                           let label: string;
                           if (!item.is_active) {
-                            cls = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+                            cls = 'bg-neutral-200 dark:bg-neutral-700/40 text-neutral-700 dark:text-neutral-300';
                             label = t('unavailable');
                           } else if (item.availability_state === 'sold_out') {
-                            cls = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
+                            cls = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
                             label = t('outOfStock');
                           } else if (item.availability_state === 'low') {
-                            cls = 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
+                            cls = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
                             label = t('lowStock');
                           } else {
                             cls = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
                             label = t('available');
                           }
                           return (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleAvailability(item);
-                              }}
+                            <span
                               title={item.availability_bottleneck || undefined}
-                              className={`px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
+                              className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
                             >
                               {label}
-                            </button>
+                            </span>
                           );
                         })()}
                       </DataTableCell>

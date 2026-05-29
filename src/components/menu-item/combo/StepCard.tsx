@@ -7,17 +7,16 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, Pin, Settings, Trash2, Plus, Minus, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, HelpCircle, ListChecks, Pin, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
-import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, effectiveStepKind, getSourceVariants } from './types';
+import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, effectiveStepKind, getSourceVariants, classifyCategoryItems } from './types';
 import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 import StepPicker from './StepPicker';
-import StepRulesPanel from './StepRulesPanel';
 import Thumb from './Thumb';
 import { isOffAnyCarte } from './webCarte';
 
@@ -62,18 +61,22 @@ function OffCarteControl({
           onChange={(e) => onToggle(e.target.checked)}
           className="w-3 h-3 accent-[var(--brand-500)]"
         />
-        <span title={forceTooltip}>{forceLabel}</span>
+        <span>{forceLabel}</span>
+        <span title={forceTooltip} aria-label={forceTooltip} className="inline-flex">
+          <HelpCircle className="w-3 h-3 opacity-60 hover:opacity-100 transition-opacity" />
+        </span>
       </label>
     </div>
   );
 }
 
-// Editable title/description input with a hover-pencil affordance. The input
-// stays borderless so the card reads quietly at rest, but: (1) the placeholder
-// is always visible when empty, (2) hovering reveals a small pencil that
-// signals the field is editable, and (3) `cursor: text` makes the affordance
-// match the cursor. Used for every step kind (fixed-single, fixed-bundle,
-// choice) so the pattern is uniform across the composer.
+// Editable title/description input with a persistent edit affordance. Earlier
+// versions were borderless with a hover-only pencil; the field then read as a
+// static label until the operator happened to mouse over it. Now: an
+// always-visible dotted bottom border + low-opacity pencil signal "this is a
+// text field" at rest, hover firms the border, focus turns it solid brand. The
+// pattern is shared between fixed-single, fixed-bundle and choice steps so
+// every editable label in the composer looks the same.
 function EditableField({
   value,
   onChange,
@@ -86,22 +89,66 @@ function EditableField({
   variant: 'title' | 'description';
 }) {
   const isTitle = variant === 'title';
+  const inputBase =
+    'flex-1 min-w-0 bg-transparent outline-none cursor-text border-0 border-b border-dashed transition-colors py-0.5 focus:border-solid focus:border-[var(--brand-500)]';
+  const inputTone = isTitle
+    ? 'text-fs-md font-semibold text-[var(--fg)] placeholder:text-[var(--fg-subtle)] placeholder:font-normal border-[var(--line-strong)] hover:border-[var(--fg-muted)]'
+    : 'text-fs-xs text-[var(--fg-muted)] placeholder:text-[var(--fg-subtle)] focus:text-[var(--fg)] border-[var(--line)] hover:border-[var(--fg-subtle)]';
   return (
     <div className="group/edit relative inline-flex items-center gap-1.5 w-full min-w-0">
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={
-          isTitle
-            ? 'flex-1 min-w-0 bg-transparent border-none outline-none cursor-text text-fs-md font-semibold text-[var(--fg)] placeholder:text-[var(--fg-subtle)] placeholder:font-normal focus:underline focus:underline-offset-4 decoration-[var(--brand-500)]'
-            : 'flex-1 min-w-0 bg-transparent border-none outline-none cursor-text text-fs-xs text-[var(--fg-muted)] placeholder:text-[var(--fg-subtle)] focus:text-[var(--fg)]'
-        }
+        className={`${inputBase} ${inputTone}`}
       />
       <Pencil
-        className={`shrink-0 ${isTitle ? 'w-3 h-3' : 'w-2.5 h-2.5'} opacity-0 group-hover/edit:opacity-60 transition-opacity text-[var(--fg-subtle)] pointer-events-none`}
+        className={`shrink-0 ${isTitle ? 'w-3 h-3 opacity-40' : 'w-2.5 h-2.5 opacity-30'} group-hover/edit:opacity-80 group-focus-within/edit:opacity-100 transition-opacity text-[var(--fg-subtle)] pointer-events-none`}
         aria-hidden
       />
+    </div>
+  );
+}
+
+// Inline min/max stepper pair that lives directly in the step header. Replaces
+// the old "Règles" gear popover so the operator never has to open a secondary
+// surface to see or change the rules — the controls ARE the row's choice-step
+// identity (fixed steps don't render this control at all). Reads naturally as
+// "Choisir 1 à 3 (sur 4 options)" when expanded.
+function InlineRules({
+  minPicks,
+  maxPicks,
+  optionsCount,
+  onChange,
+}: {
+  minPicks: number;
+  maxPicks: number;
+  optionsCount: number;
+  onChange: (next: { minPicks: number; maxPicks: number }) => void;
+}) {
+  const { t } = useI18n();
+  const setMin = (raw: number) => {
+    const next = Math.max(0, Number.isFinite(raw) ? raw : 0);
+    onChange({ minPicks: next, maxPicks: Math.max(next, maxPicks) });
+  };
+  const setMax = (raw: number) => {
+    const next = Math.max(minPicks, Number.isFinite(raw) ? raw : 0);
+    onChange({ minPicks, maxPicks: next });
+  };
+  const inputCls =
+    'w-11 h-6 px-1 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] text-[var(--fg)]';
+  return (
+    <div className="inline-flex items-center gap-1.5 text-fs-xs text-[var(--fg-muted)] flex-wrap mt-1">
+      <ListChecks className="w-3.5 h-3.5 text-[var(--brand-500)]" aria-hidden />
+      <span className="font-semibold text-[var(--fg)]">{t('composeRulesChoose')}</span>
+      <NumberInput integer min={0} value={minPicks} onChange={setMin} className={inputCls} aria-label={t('composeMin')} />
+      <span>{t('composeRulesTo')}</span>
+      <NumberInput integer min={Math.max(1, minPicks)} value={maxPicks} onChange={setMax} className={inputCls} aria-label={t('composeMax')} />
+      {optionsCount > 0 && (
+        <span className="text-[var(--fg-subtle)]">
+          {t('composeRulesAmong').replace('{n}', String(optionsCount))}
+        </span>
+      )}
     </div>
   );
 }
@@ -140,16 +187,18 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
     [step.items, itemsById],
   );
 
-  const required = step.min_picks > 0;
-  const optionsCount = options.length;
-  const hint = step.max_picks > step.min_picks
-    ? t('composeStepHintRange')
-        .replace('{min}', String(step.min_picks))
-        .replace('{max}', String(step.max_picks))
-        .replace('{n}', String(optionsCount))
-    : t('composeStepHint')
-        .replace('{min}', String(step.min_picks))
-        .replace('{n}', String(optionsCount));
+  // Category-mode steps store no items locally — the server resolves them
+  // from `source_category_id` at order time. Count the resolvable items
+  // (same filter the server applies) so InlineRules reports what the
+  // customer will actually see instead of "parmi 0".
+  const categoryAvailableCount = useMemo(
+    () =>
+      step.source_type === 'category'
+        ? classifyCategoryItems(step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds).available.length
+        : 0,
+    [step.source_type, step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds],
+  );
+  const optionsCount = step.source_type === 'category' ? categoryAvailableCount : options.length;
 
   // ── Mutation helpers ───────────────────────────────────────────────────
 
@@ -264,19 +313,24 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
     };
 
     return (
-      <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden">
+      <div
+        className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden relative"
+        style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'color-mix(in oklab, var(--fg-subtle) 55%, transparent)' }}
+      >
         {/* Header: drag, kind glyph (pin, NOT a sequence number — fixed items
-            aren't a step the customer walks through), title, badge, delete */}
+            aren't a step the customer walks through), title, badge, delete.
+            The left rail (neutral) and pin circle (neutral too) read as
+            "static, customer doesn't choose" — distinct from choice steps
+            which carry the brand-orange rail and number badge. */}
         <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]">
           <span className="text-[var(--fg-subtle)] cursor-grab" aria-hidden>
             <GripVertical className="w-3.5 h-3.5" />
           </span>
           <div
-            className="w-8 h-8 rounded-full grid place-items-center shrink-0"
-            style={{ background: 'var(--brand-500)' }}
+            className="w-8 h-8 rounded-full grid place-items-center shrink-0 bg-[var(--surface-3)] text-[var(--fg-muted)]"
             aria-hidden
           >
-            <Pin className="w-3.5 h-3.5 text-white" />
+            <Pin className="w-3.5 h-3.5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -287,8 +341,9 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                 variant="title"
               />
               <span
-                className="inline-flex items-center h-[20px] px-2 rounded-r-sm text-fs-xs font-medium shrink-0 bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]"
+                className="inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs font-semibold shrink-0 bg-[var(--surface-2)] text-[var(--fg-muted)] border border-[var(--line)]"
               >
+                <Pin className="w-3 h-3" />
                 {t('composeKindFixed')}
               </span>
             </div>
@@ -408,8 +463,13 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
   // ── Default mode ───────────────────────────────────────────────────────
 
   return (
-    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden">
-      {/* Header */}
+    <div
+      className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden relative"
+      style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'var(--brand-500)' }}
+    >
+      {/* Header — brand rail + numbered badge mark this as a step the customer
+          walks through. Pairs with the fixed card's neutral rail + pin badge so
+          row type is unmistakable at a glance. */}
       <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]">
         <span className="text-[var(--fg-subtle)] cursor-grab" aria-hidden>
           <GripVertical className="w-3.5 h-3.5" />
@@ -421,56 +481,34 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <EditableField
-              value={step.name}
-              onChange={(name) => onChange({ ...step, name })}
-              placeholder={t('composeStepDefaultName').replace('{n}', String(index + 1))}
-              variant="title"
-            />
-            <span className={`inline-flex items-center h-[20px] px-2 rounded-r-sm text-fs-xs font-medium shrink-0 ${
-              required
-                ? 'bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]'
-                : 'bg-[var(--surface-2)] text-[var(--fg-muted)]'
-            }`}>
-              {required ? t('composeKindChoiceRequired') : t('composeKindChoiceOptional')}
-            </span>
-          </div>
+          <EditableField
+            value={step.name}
+            onChange={(name) => onChange({ ...step, name })}
+            placeholder={t('composeStepDefaultName').replace('{n}', String(index + 1))}
+            variant="title"
+          />
           <EditableField
             value={step.description ?? ''}
             onChange={(description) => onChange({ ...step, description })}
             placeholder={t('composeStepDescriptionPlaceholder')}
             variant="description"
           />
-          <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">{hint}</div>
-        </div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 h-7 px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
-              title={t('composeStepRules')}
-            >
-              <Settings className="w-3.5 h-3.5" /> {t('composeStepRules')}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            sideOffset={6}
-            className="w-64 bg-[var(--surface)] border border-[var(--line)] text-[var(--fg)] rounded-r-md shadow-2 p-[var(--s-3)]"
-          >
-            <StepRulesPanel
-              flush
+          {/* Inline rules — the row's choice-step identity. Earlier versions
+              tucked these behind a "Règles" gear popover, which made it look
+              like the row was static and forced operators to discover the
+              controls. Now they're always visible, always editable. The
+              "Include all" link only appears when convertible (explicit-mode
+              step with >=1 item) and one-shot promotes the step to a fixed
+              bundle (sets min=max=items.length and flips kind to 'fixed'). */}
+          <div className="flex items-end justify-between gap-3 flex-wrap">
+            <InlineRules
               minPicks={step.min_picks}
               maxPicks={step.max_picks}
+              optionsCount={optionsCount}
               onChange={({ minPicks, maxPicks }) =>
                 onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
               }
             />
-            {/* One-click conversion to fixed bundle: forces min=max=items.length
-              * so the customer auto-gets every option. Useful when an operator
-              * realises a "1 of N" step is actually "all N included". After
-              * conversion the card re-renders without a rules popover. */}
             {step.items.length >= 1 && step.source_type !== 'category' && (
               <button
                 type="button"
@@ -478,13 +516,14 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
                   const n = step.items.length;
                   onChange({ ...step, min_picks: n, max_picks: n, kind: 'fixed' });
                 }}
-                className="mt-[var(--s-3)] w-full h-8 rounded-r-sm border border-dashed border-[var(--line-strong)] text-fs-xs font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors"
+                className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline mt-1"
+                title={t('composeIncludeAll')}
               >
                 {t('composeIncludeAll')}
               </button>
             )}
-          </PopoverContent>
-        </Popover>
+          </div>
+        </div>
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
@@ -636,26 +675,10 @@ function CategoryModePanel({
   //   • notOnAnyCarte  — would silently not resolve at order time
   // Each zone renders only when non-empty so the panel stays quiet when
   // there's nothing to flag.
-  const zones = useMemo(() => {
-    const want = label.toLowerCase();
-    const matchesSize = (it: MenuItem) =>
-      !label || getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want);
-
-    const available: string[] = [];
-    const excludedBySize: string[] = [];
-    const notOnAnyCarte: string[] = [];
-    for (const it of catItems) {
-      const onCarte = anyCarteItemIds.has(it.id);
-      if (!onCarte) {
-        notOnAnyCarte.push(it.name);
-      } else if (!matchesSize(it)) {
-        excludedBySize.push(it.name);
-      } else {
-        available.push(it.name);
-      }
-    }
-    return { available, excludedBySize, notOnAnyCarte };
-  }, [catItems, label, anyCarteItemIds]);
+  const zones = useMemo(
+    () => classifyCategoryItems(step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds),
+    [step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds],
+  );
 
   const hasAnyZone =
     zones.available.length + zones.excludedBySize.length + zones.notOnAnyCarte.length > 0;

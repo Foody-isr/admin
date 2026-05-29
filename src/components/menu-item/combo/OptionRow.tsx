@@ -4,7 +4,7 @@
 //
 // Layout: [drag] [thumb] [name + default badge] [upcharge chip / inclus] [edit] [remove]
 
-import { AlertTriangle, GripVertical, Pin, X } from 'lucide-react';
+import { AlertTriangle, GripVertical, HelpCircle, Pin, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView } from './types';
@@ -63,8 +63,13 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
               onChange={(e) => onForceOffCarteToggle(e.target.checked)}
               className="w-3 h-3 accent-[var(--brand-500)]"
             />
-            <span title={t('composeOffCarteForceTooltip')}>
-              {t('composeOffCarteForceLabel')}
+            <span>{t('composeOffCarteForceLabel')}</span>
+            <span
+              title={t('composeOffCarteForceTooltip')}
+              aria-label={t('composeOffCarteForceTooltip')}
+              className="inline-flex"
+            >
+              <HelpCircle className="w-3 h-3 opacity-60 hover:opacity-100 transition-opacity" />
             </span>
           </label>
         )}

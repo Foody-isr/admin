@@ -5,7 +5,7 @@
 //   • a vertical list of VariantSubRow — one per source variant (excluded
 //     ones rendered greyed-out so the operator can re-include them).
 
-import { AlertTriangle, ChevronDown, ChevronUp, Layers, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, HelpCircle, Layers, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ComboOptionView, VariantView } from './types';
@@ -74,8 +74,13 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
                 onChange={(e) => onForceOffCarteToggle(e.target.checked)}
                 className="w-3 h-3 accent-[var(--brand-500)]"
               />
-              <span title={t('composeOffCarteForceTooltip')}>
-                {t('composeOffCarteForceLabel')}
+              <span>{t('composeOffCarteForceLabel')}</span>
+              <span
+                title={t('composeOffCarteForceTooltip')}
+                aria-label={t('composeOffCarteForceTooltip')}
+                className="inline-flex"
+              >
+                <HelpCircle className="w-3 h-3 opacity-60 hover:opacity-100 transition-opacity" />
               </span>
             </label>
           ) : (

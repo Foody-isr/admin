@@ -12,7 +12,7 @@ import {
   AvailabilityState,
   MenuItem,
 } from '@/lib/api';
-import { Button, Section, Select } from '@/components/ds';
+import { Section, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { LearnMore } from '@/components/help/LearnMore';
@@ -96,8 +96,23 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
       : state === 'low'
         ? 'text-amber-500'
         : state === 'sold_out'
-          ? 'text-red-400'
+          ? 'text-red-500'
           : 'text-[var(--fg-muted)]';
+
+  // Descriptions per override mode, shown inside each card.
+  const overrideDescription: Record<AvailabilityOverride, string> = {
+    auto: t('availabilityOverrideAutoDesc'),
+    force_available: t('availabilityOverrideForceAvailableDesc'),
+    force_sold_out: t('availabilityOverrideForceSoldOutDesc'),
+  };
+
+  // Static colour legend rows, aligned with the list chip + photo dot.
+  const legendRows: { dot: string; label: string; desc: string }[] = [
+    { dot: 'bg-emerald-500', label: t('available'), desc: t('availabilityLegendAvailableDesc') },
+    { dot: 'bg-amber-500', label: t('lowStock'), desc: t('availabilityLegendLowDesc') },
+    { dot: 'bg-red-500', label: t('outOfStock'), desc: t('availabilityLegendSoldOutDesc') },
+    { dot: 'bg-neutral-400', label: t('unavailable'), desc: t('availabilityLegendInactiveDesc') },
+  ];
 
   return (
     <Section title={t('availability')}>
@@ -171,7 +186,8 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
           </p>
         </div>
 
-        {/* Override */}
+        {/* Override — radio-style cards instead of pill buttons so each mode
+            carries its own one-line description of what the customer sees. */}
         <div>
           <div className="mb-1.5 flex items-center gap-1.5">
             <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
@@ -179,26 +195,67 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
             </span>
             <InfoTip text={t('availabilityOverrideHelp')} />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {overrides.map((o) => (
-              <Button
-                key={o.value}
-                size="sm"
-                variant={override === o.value ? 'primary' : 'ghost'}
-                disabled={busy}
-                onClick={() => {
-                  setOverride(o.value);
-                  save({ override: o.value });
-                }}
-              >
-                {o.label}
-              </Button>
-            ))}
+          <div className="flex flex-col gap-2">
+            {overrides.map((o) => {
+              const selected = override === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setOverride(o.value);
+                    save({ override: o.value });
+                  }}
+                  className={cn(
+                    'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-start transition-colors',
+                    selected
+                      ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_10%,var(--surface-2))]'
+                      : 'border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--fg-muted)]',
+                    busy && 'opacity-60',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'mt-0.5 size-4 shrink-0 rounded-full border-2',
+                      selected
+                        ? 'border-[var(--brand-500)] bg-[var(--brand-500)]'
+                        : 'border-[var(--fg-muted)]',
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-fs-sm font-medium text-[var(--fg)]">{o.label}</span>
+                    <span className="mt-0.5 block text-fs-xs text-[var(--fg-muted)]">
+                      {overrideDescription[o.value]}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">{t('availabilityOverrideHint')}</p>
         </div>
 
         {error && <span className="text-fs-sm text-red-400">{error}</span>}
+
+        {/* Colour legend — same chip + dot palette used in the items list and
+            the photo dot, so staff can map a colour they see in the list to a
+            customer-facing behaviour without leaving this tab. */}
+        <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+          <div className="mb-2 text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+            {t('availabilityLegendTitle')}
+          </div>
+          <ul className="flex flex-col gap-1.5">
+            {legendRows.map((row) => (
+              <li key={row.label} className="flex items-start gap-2.5 text-fs-xs">
+                <span className={cn('mt-1 size-2.5 shrink-0 rounded-full', row.dot)} />
+                <span className="min-w-0">
+                  <span className="font-medium text-[var(--fg)]">{row.label}</span>
+                  <span className="text-[var(--fg-muted)]"> — {row.desc}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} className="mt-1" />
       </div>

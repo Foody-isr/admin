@@ -164,6 +164,47 @@ export function getSourceVariants(item: Pick<MenuItem, 'variant_groups' | 'optio
     .sort((a, b) => a.sort_order - b.sort_order);
 }
 
+export interface CategoryZones {
+  /** Resolvable + matches the variant filter — the customer will see these. */
+  available: string[];
+  /** On at least one carte but missing a variant matching `source_variant_label`. */
+  excludedBySize: string[];
+  /** Active in the category but not on any non-hidden carte — silently dropped
+   *  by the server resolver at order time. */
+  notOnAnyCarte: string[];
+}
+
+/** Classify a category-mode step's resolvable items into the three zones the
+ *  operator-facing preview surfaces. Mirrors the server resolver's filter so
+ *  the "parmi N" count on the step hint and the "N article(s) disponible(s)"
+ *  badge in the panel stay in lockstep. */
+export function classifyCategoryItems(
+  categoryId: number | undefined,
+  variantLabel: string | undefined,
+  itemsById: Map<number, MenuItem>,
+  anyCarteItemIds: Set<number>,
+): CategoryZones {
+  if (!categoryId) return { available: [], excludedBySize: [], notOnAnyCarte: [] };
+
+  const want = (variantLabel ?? '').trim().toLowerCase();
+  const available: string[] = [];
+  const excludedBySize: string[] = [];
+  const notOnAnyCarte: string[] = [];
+
+  for (const it of Array.from(itemsById.values())) {
+    if (it.category_id !== categoryId || !it.is_active) continue;
+    if (!anyCarteItemIds.has(it.id)) {
+      notOnAnyCarte.push(it.name);
+      continue;
+    }
+    const matchesSize =
+      !want || getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want);
+    if (!matchesSize) excludedBySize.push(it.name);
+    else available.push(it.name);
+  }
+  return { available, excludedBySize, notOnAnyCarte };
+}
+
 /** Group a step's draft items into options. For each `menu_item_id`, look up
  *  the source item and reconcile variants — included variants come from the
  *  draft, excluded variants are appended so the operator can re-include them. */
