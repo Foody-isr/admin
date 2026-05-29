@@ -91,10 +91,10 @@ export default function MenuItemSummaryRail({
               dotClass = 'bg-[var(--fg-subtle)]';
               dotTitle = t('unavailable');
             } else if (availabilityState === 'sold_out') {
-              dotClass = 'bg-amber-500';
+              dotClass = 'bg-red-500';
               dotTitle = availabilityBottleneck || t('outOfStock');
             } else if (availabilityState === 'low') {
-              dotClass = 'bg-yellow-400';
+              dotClass = 'bg-amber-500';
               dotTitle = availabilityBottleneck || t('lowStock');
             } else {
               dotClass = 'bg-[var(--success-500)]';

@@ -7,7 +7,7 @@
 // All option mutations are emitted through `onChange(nextDraft)`. The parent
 // CompositionTab owns the `ComboStepDraft[]` array.
 
-import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, ListChecks, Pin, Trash2, Plus, Minus, Pencil } from 'lucide-react';
+import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, HelpCircle, ListChecks, Pin, Trash2, Plus, Minus, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -61,7 +61,10 @@ function OffCarteControl({
           onChange={(e) => onToggle(e.target.checked)}
           className="w-3 h-3 accent-[var(--brand-500)]"
         />
-        <span title={forceTooltip}>{forceLabel}</span>
+        <span>{forceLabel}</span>
+        <span title={forceTooltip} aria-label={forceTooltip} className="inline-flex">
+          <HelpCircle className="w-3 h-3 opacity-60 hover:opacity-100 transition-opacity" />
+        </span>
       </label>
     </div>
   );
