@@ -30,6 +30,10 @@ interface Props {
   name: string;
   price?: number;
   activeStatus?: boolean;
+  /** Recipe-aware availability — overrides the dot colour to amber/yellow when
+   *  the item is active but can't be made or is running low. */
+  availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
+  availabilityBottleneck?: string;
   categoryName?: string;
   costSummary?: RailCostSummary | null;
   /** When set, renders the "Économies pour le client" panel instead of /
@@ -50,6 +54,8 @@ export default function MenuItemSummaryRail({
   name,
   price,
   activeStatus,
+  availabilityState,
+  availabilityBottleneck,
   categoryName,
   costSummary,
   comboSummary,
@@ -78,14 +84,29 @@ export default function MenuItemSummaryRail({
               <ImageIcon className="w-10 h-10" />
             </div>
           )}
-          {typeof activeStatus === 'boolean' && (
-            <span
-              className={`absolute top-3 right-3 size-3 rounded-full border-2 border-[var(--surface)] ${
-                activeStatus ? 'bg-[var(--success-500)]' : 'bg-[var(--fg-subtle)]'
-              }`}
-              title={activeStatus ? t('available') : t('unavailable')}
-            />
-          )}
+          {typeof activeStatus === 'boolean' && (() => {
+            let dotClass: string;
+            let dotTitle: string;
+            if (!activeStatus) {
+              dotClass = 'bg-[var(--fg-subtle)]';
+              dotTitle = t('unavailable');
+            } else if (availabilityState === 'sold_out') {
+              dotClass = 'bg-amber-500';
+              dotTitle = availabilityBottleneck || t('outOfStock');
+            } else if (availabilityState === 'low') {
+              dotClass = 'bg-yellow-400';
+              dotTitle = availabilityBottleneck || t('lowStock');
+            } else {
+              dotClass = 'bg-[var(--success-500)]';
+              dotTitle = t('available');
+            }
+            return (
+              <span
+                className={`absolute top-3 right-3 size-3 rounded-full border-2 border-[var(--surface)] ${dotClass}`}
+                title={dotTitle}
+              />
+            );
+          })()}
           {onImageClick && (
             <button
               type="button"

@@ -504,6 +504,8 @@ export default function EditItemPage() {
       name={name}
       price={effectivePrice}
       activeStatus={isActive}
+      availabilityState={item?.availability_state}
+      availabilityBottleneck={item?.availability_bottleneck}
       categoryName={activeCategoryName}
       // Hide the food-cost summary for combos — it doesn't apply (a combo's
       // cost is the sum of its constituent items' costs, not its own recipe).
