@@ -129,15 +129,13 @@ export default function CompositionTab({
       return;
     }
     if (target.items.some((it) => it.menu_item_id === menuItemId)) return;
-    const nextItem: ComboStepDraftItem = {
-      menu_item_id: menuItemId,
-      price_delta: 0,
-      pick_key: `item:${menuItemId}`,
-    };
-    const nextItems = [...target.items, nextItem];
-    // Auto-bump max_picks so "Choisir 1 à 1" doesn't fight a growing item list.
-    const nextMax = Math.max(target.max_picks, nextItems.length === 1 ? 1 : target.max_picks);
-    updateStep(target.key, { ...target, items: nextItems, max_picks: nextMax });
+    updateStep(target.key, {
+      ...target,
+      items: [
+        ...target.items,
+        { menu_item_id: menuItemId, price_delta: 0, pick_key: `item:${menuItemId}` },
+      ],
+    });
   };
 
   const handleRemoveItem = (menuItemId: number) => {
@@ -149,6 +147,27 @@ export default function CompositionTab({
   };
 
   const handleSetCategory = (categoryId: number) => {
+    // Active step in explicit mode → "tout ajouter" means "bulk-import these
+    // items as individual entries, stay in Liste manuelle". Skip items
+    // already present so repeated clicks are idempotent.
+    if (activeStep && activeStep.source_type === 'explicit') {
+      const cat = categories.find((c) => c.id === categoryId);
+      if (!cat) return;
+      const existing = new Set(activeStep.items.map((it) => it.menu_item_id));
+      const additions: ComboStepDraftItem[] = [];
+      for (const it of cat.items ?? []) {
+        if (!existing.has(it.id)) {
+          additions.push({ menu_item_id: it.id, price_delta: 0, pick_key: `item:${it.id}` });
+        }
+      }
+      if (additions.length === 0) return;
+      updateStep(activeStep.key, { ...activeStep, items: [...activeStep.items, ...additions] });
+      return;
+    }
+    // Otherwise (no active step, or active step already in category mode) →
+    // bind to a dynamic category. ensureActiveStep makes a fresh explicit
+    // step that we immediately convert — fine since the operator's click on
+    // "tout ajouter" on a category header signals category-mode intent.
     const target = ensureActiveStep();
     updateStep(target.key, {
       ...target,
