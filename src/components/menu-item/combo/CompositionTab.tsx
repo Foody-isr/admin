@@ -69,14 +69,12 @@ export default function CompositionTab({
     [steps, itemsById],
   );
 
-  // Active step — the one the catalog's clicks target. Defaults to the last
-  // step (most-recently-touched), or null when the combo is empty (the first
-  // add creates a fresh step automatically).
+  // Active step — the one the catalog's clicks target. Null on load (no
+  // step opened by default — the operator opens the one they want to edit).
+  // Stays in sync with steps[] so a deleted step's key doesn't dangle.
   const [activeStepKey, setActiveStepKey] = useState<string | null>(null);
   const effectiveActiveKey =
-    activeStepKey && steps.some((s) => s.key === activeStepKey)
-      ? activeStepKey
-      : steps[steps.length - 1]?.key ?? null;
+    activeStepKey && steps.some((s) => s.key === activeStepKey) ? activeStepKey : null;
   const activeStep =
     steps.find((s) => s.key === effectiveActiveKey) ?? null;
 
@@ -191,6 +189,7 @@ export default function CompositionTab({
           <CarteCatalog
             menus={menus}
             categories={categories}
+            itemsById={itemsById}
             activeStep={activeStep}
             anyCarteItemIds={anyCarteItemIds}
             onAddItem={handleAddItem}

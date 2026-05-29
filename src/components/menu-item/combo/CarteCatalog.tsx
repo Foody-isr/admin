@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react';
-import type { Menu, MenuCategory } from '@/lib/api';
+import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Select, InputGroup } from '@/components/ds';
 import type { ComboStepDraft } from './types';
@@ -23,6 +23,10 @@ const CARTE_FILTER_STORAGE_KEY = 'foody.combo.carte';
 interface Props {
   menus: Menu[];
   categories: MenuCategory[];
+  /** Flat item lookup — used to derive which item-categories contain items
+   *  from the active step, so opening a step auto-expands the categories
+   *  the operator needs to see (and leaves the rest collapsed). */
+  itemsById: Map<number, MenuItem>;
   /** The step the operator is currently composing. Item rows show a ✓ when
    *  the item is already in this step's items[]; the category row highlights
    *  when it's the step's source_category_id. Null disables the highlighting
@@ -40,6 +44,7 @@ interface Props {
 export default function CarteCatalog({
   menus,
   categories,
+  itemsById,
   activeStep,
   anyCarteItemIds,
   onAddItem,
@@ -90,16 +95,43 @@ export default function CarteCatalog({
       .filter((c) => (c.items?.length ?? 0) > 0);
   }, [categories, allowedItemIds]);
 
-  // Per-category expand state. Default: all expanded so the operator sees
-  // depth immediately. Toggle by clicking the header chevron.
-  const [collapsedCats, setCollapsedCats] = useState<Set<number>>(new Set());
-  const toggleCollapse = (catId: number) =>
-    setCollapsedCats((prev) => {
+  // Per-category expand state. Default: ALL collapsed so the operator sees
+  // a tidy table-of-contents on open. Two paths to expansion:
+  //   (a) operator clicks a category header chevron to toggle it manually
+  //   (b) an active step's items live in this category — opening that step
+  //       auto-expands the relevant categories (see effect below)
+  // Search also forces expand of any matching category (computed in render).
+  const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set());
+  const toggleExpanded = (catId: number) =>
+    setExpandedCats((prev) => {
       const next = new Set(prev);
       if (next.has(catId)) next.delete(catId);
       else next.add(catId);
       return next;
     });
+
+  // When the active step changes, expand the categories whose items appear
+  // in that step (plus the bound category for dynamic-mode steps). Doesn't
+  // collapse anything — the operator's manual expansions are preserved.
+  const activeStepKey = activeStep?.key;
+  useEffect(() => {
+    if (!activeStep) return;
+    const expand = new Set<number>();
+    for (const di of activeStep.items) {
+      const item = itemsById.get(di.menu_item_id);
+      if (item) expand.add(item.category_id);
+    }
+    if (activeStep.source_type === 'category' && activeStep.source_category_id != null) {
+      expand.add(activeStep.source_category_id);
+    }
+    if (expand.size === 0) return;
+    setExpandedCats((prev) => {
+      const next = new Set(prev);
+      expand.forEach((id) => next.add(id));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStepKey]);
 
   // Search — filters the tree by name (item or category). Empty = show all.
   const [search, setSearch] = useState('');
@@ -160,7 +192,10 @@ export default function CarteCatalog({
         ) : (
           <div className="flex flex-col gap-[var(--s-2)]">
             {filteredCategories.map((cat) => {
-              const collapsed = collapsedCats.has(cat.id);
+              // Search overrides manual collapse — when the operator is
+              // hunting for an item by name, hiding matches behind a
+              // chevron defeats the point.
+              const expanded = expandedCats.has(cat.id) || search.trim().length > 0;
               const isActiveCat = activeCategoryId === cat.id;
               return (
                 <div
@@ -171,20 +206,20 @@ export default function CarteCatalog({
                       : 'border-[var(--line)] bg-[var(--surface)]'
                   } overflow-hidden`}
                 >
-                  {/* Category header — chevron toggles collapse, "tout
+                  {/* Category header — chevron toggles expansion, "tout
                       ajouter" sets the active step to category mode bound
                       to this cat. The whole header is clickable for the
                       chevron; "tout ajouter" is a sibling button. */}
                   <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-b border-[var(--line)] bg-[var(--surface-2)]">
                     <button
                       type="button"
-                      onClick={() => toggleCollapse(cat.id)}
+                      onClick={() => toggleExpanded(cat.id)}
                       className="inline-flex items-center gap-1 flex-1 min-w-0 text-start"
                     >
-                      {collapsed ? (
-                        <ChevronRight className="w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
-                      ) : (
+                      {expanded ? (
                         <ChevronDown className="w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-[var(--fg-muted)] shrink-0" />
                       )}
                       <span className="text-fs-xs font-bold uppercase tracking-[.06em] text-[var(--fg)] truncate">
                         {cat.name}
@@ -207,7 +242,7 @@ export default function CarteCatalog({
                     </button>
                   </div>
 
-                  {!collapsed && (
+                  {expanded && (
                     <div>
                       {(cat.items ?? []).map((it) => {
                         const isIn = inActiveStep.has(it.id);
