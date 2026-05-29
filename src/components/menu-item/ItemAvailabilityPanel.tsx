@@ -86,6 +86,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   }
 
   const selectedRule = rules.find((r) => r.id === ruleId);
+  // When the item picks "Hériter", the cascade ends at the restaurant
+  // default (categories have an availability_rule_id field but no admin UI
+  // surfaces it, so for now the inheritance is effectively one step).
+  const defaultRule = rules.find((r) => r.is_default);
+  const inheritResolvesTo = ruleId === 0 ? defaultRule : null;
   const state: AvailabilityState | 'loading' = preview == null ? 'loading' : preview.unlimited ? 'available' : preview.state;
 
   const StatusIcon =
@@ -118,6 +123,24 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     <Section title={t('availability')}>
       <div className="flex max-w-xl flex-col gap-4">
         <p className="-mt-1 text-fs-sm text-[var(--fg-muted)]">{t('availabilityPanelIntro')}</p>
+
+        {/* How rule + override combine. A 2-line primer so staff don't have
+            to guess the relationship between the two controls below it. */}
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-fs-xs">
+          <div className="mb-1.5 font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+            {t('availabilityHowItWorksTitle')}
+          </div>
+          <ul className="flex flex-col gap-1 text-[var(--fg)]">
+            <li>
+              <span className="font-medium">1. </span>
+              {t('availabilityHowItWorksRule')}
+            </li>
+            <li>
+              <span className="font-medium">2. </span>
+              {t('availabilityHowItWorksOverride')}
+            </li>
+          </ul>
+        </div>
 
         {/* Live status */}
         <div className="flex items-start gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
@@ -158,11 +181,19 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
 
         {/* Rule picker */}
         <div>
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-              {t('availabilityRuleField')}
-            </span>
-            <InfoTip text={t('availabilityRuleHelp')} />
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+                {t('availabilityRuleField')}
+              </span>
+              <InfoTip text={t('availabilityRuleHelp')} />
+            </div>
+            <a
+              href={`/${rid}/kitchen/availability`}
+              className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
+            >
+              {t('availabilityManageRules')}
+            </a>
           </div>
           <Select
             value={String(ruleId)}
@@ -181,9 +212,24 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
               </option>
             ))}
           </Select>
-          <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">
-            {ruleId === 0 ? t('availabilityInheritHint') : ruleSummary(selectedRule)}
-          </p>
+          {ruleId === 0 ? (
+            <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">
+              {t('availabilityInheritHint')}
+              {inheritResolvesTo && (
+                <>
+                  {' '}
+                  <span className="text-[var(--fg)]">
+                    {t('availabilityInheritResolvesTo')}{' '}
+                    <span className="font-medium">{inheritResolvesTo.name}</span>
+                    {' — '}
+                    {ruleSummary(inheritResolvesTo)}
+                  </span>
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">{ruleSummary(selectedRule)}</p>
+          )}
         </div>
 
         {/* Override — radio-style cards instead of pill buttons so each mode
