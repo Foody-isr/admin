@@ -266,14 +266,26 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
 
   // Shared kind-switch handler used by KindToggle in both render branches.
   // Keeps the conversion semantics in one place so the choice→fixed and
-  // fixed→choice paths can't drift.
+  // fixed→choice paths can't drift. Preserves a round-trip stash so
+  // choice → fixed → choice lands back on the EXACT prior choice state
+  // (mode, category binding, min/max) — not the operator's pre-edit state.
   const switchKindTo = (target: 'fixed' | 'choice') => {
-    const n = Math.max(1, step.items.length);
     if (target === 'fixed') {
-      // Drop category binding if any — fixed steps are always explicit.
+      const n = Math.max(1, step.items.length);
       onChange({
         ...step,
         kind: 'fixed',
+        // Stash everything the choice → fixed transition would otherwise
+        // erase, so a later flip back can put it all back where it was.
+        _stashedChoice: {
+          source_type: step.source_type,
+          source_category_id: step.source_category_id,
+          source_variant_label: step.source_variant_label,
+          min_picks: step.min_picks,
+          max_picks: step.max_picks,
+        },
+        // Fixed steps are always explicit-mode (a fixed step that pulled
+        // from a dynamic category has no coherent meaning).
         source_type: 'explicit',
         source_category_id: undefined,
         source_variant_label: undefined,
@@ -281,8 +293,20 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
         max_picks: n,
       });
     } else {
-      // Seed a sane default — pick 1 of N. Operator refines via inline rules.
-      onChange({ ...step, kind: 'choice', min_picks: 1, max_picks: n });
+      // Restore from stash if present (round-trip); otherwise seed a sane
+      // default — pick 1 of N. Operator refines via the inline rules.
+      const stash = step._stashedChoice;
+      const fallbackMax = Math.max(1, step.items.length);
+      onChange({
+        ...step,
+        kind: 'choice',
+        source_type: stash?.source_type ?? 'explicit',
+        source_category_id: stash?.source_category_id,
+        source_variant_label: stash?.source_variant_label,
+        min_picks: stash?.min_picks ?? 1,
+        max_picks: stash?.max_picks ?? fallbackMax,
+        _stashedChoice: undefined,
+      });
     }
   };
 
