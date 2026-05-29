@@ -2,14 +2,19 @@
 
 // One step in a combo (Design B — two-pane composer).
 //
-// Single render branch: every row is "a step with items and rules". No
-// Fixed/Step toggle, no inline picker, no kind conversion. The catalog
-// (left pane in CompositionTab) is the sole add path; this component
-// renders what's currently in the step and exposes its rules + per-item
-// controls. The host wraps this in a clickable shell that drives the
-// "active step" selection — StepCard itself is purely presentational.
+// Two visual states, driven by `isActive`:
+//   • Closed (summary)  — single-line glance: number, name, rule summary,
+//                         item-count badge, delete. The whole row is a
+//                         button that activates the step (opens it for
+//                         editing AND becomes the target of catalog clicks).
+//   • Open (editor)     — full editing surface with title/description,
+//                         InlineRules, source-mode segmented control, and
+//                         either the items list or the category panel.
+//
+// Only one step is "open" at a time — CompositionTab owns activeStepKey and
+// passes isActive down. Active === open === target of catalog actions.
 
-import { AlertTriangle, Check, ChevronUp, ChevronDown, GripVertical, ListChecks, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, GripVertical, ListChecks, Pencil, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -21,11 +26,6 @@ import OptionRowWithVariants from './OptionRowWithVariants';
 
 // ── Inline helpers ─────────────────────────────────────────────────────────
 
-// Editable title/description input with a persistent edit affordance. Earlier
-// versions were borderless with a hover-only pencil; the field then read as a
-// static label until the operator happened to mouse over it. Now: an
-// always-visible dotted bottom border + low-opacity pencil signal "this is a
-// text field" at rest, hover firms the border, focus turns it solid brand.
 function EditableField({
   value, onChange, placeholder, variant,
 }: {
@@ -47,7 +47,6 @@ function EditableField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={`${inputBase} ${inputTone}`}
-        onClick={(e) => e.stopPropagation()}
       />
       <Pencil
         className={`shrink-0 ${isTitle ? 'w-3 h-3 opacity-40' : 'w-2.5 h-2.5 opacity-30'} group-hover/edit:opacity-80 group-focus-within/edit:opacity-100 transition-opacity text-[var(--fg-subtle)] pointer-events-none`}
@@ -57,10 +56,6 @@ function EditableField({
   );
 }
 
-// Inline min/max picker rendered under the title. The "Choisir N à M sur K"
-// language doubles as the row's choice-step identity — there's no Fixed/Step
-// chip anymore. min=max reads naturally ("Choisir 2 sur 4"); min=0 reads as
-// optional ("Choisir 0 à 3 sur 4").
 function InlineRules({
   minPicks, maxPicks, optionsCount, onChange,
 }: {
@@ -79,13 +74,10 @@ function InlineRules({
     onChange({ minPicks, maxPicks: next });
   };
   const inputCls =
-    'w-11 h-6 px-1 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] text-[var(--fg)]';
+    'w-12 h-7 px-1 text-center text-fs-sm bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm focus:outline-none focus:border-[var(--brand-500)] text-[var(--fg)]';
   return (
-    <div
-      className="inline-flex items-center gap-1.5 text-fs-xs text-[var(--fg-muted)] flex-wrap mt-1"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <ListChecks className="w-3.5 h-3.5 text-[var(--brand-500)]" aria-hidden />
+    <div className="inline-flex items-center gap-2 text-fs-sm text-[var(--fg-muted)] flex-wrap">
+      <ListChecks className="w-4 h-4 text-[var(--brand-500)]" aria-hidden />
       <span className="font-semibold text-[var(--fg)]">{t('composeRulesChoose')}</span>
       <NumberInput integer min={0} value={minPicks} onChange={setMin} className={inputCls} aria-label={t('composeMin')} />
       <span>{t('composeRulesTo')}</span>
@@ -99,6 +91,32 @@ function InlineRules({
   );
 }
 
+// Compact one-line summary of a step's rule, for the closed/summary state.
+// "Choisir 2 sur 4" / "Toujours ×3" / "Optionnel jusqu'à 2 sur 4". Stays
+// readable at a glance without taking on the full InlineRules controls.
+function ruleSummary(step: ComboStepDraft, optionsCount: number, t: (k: string) => string): string {
+  const min = step.min_picks;
+  const max = step.max_picks;
+  if (max === 0) return t('composeStepSummaryEmpty');
+  if (min === max) {
+    if (optionsCount > 0 && min === optionsCount) {
+      return t('composeStepSummaryAll').replace('{n}', String(min));
+    }
+    return t('composeStepSummaryExact')
+      .replace('{n}', String(min))
+      .replace('{total}', String(optionsCount));
+  }
+  if (min === 0) {
+    return t('composeStepSummaryUpTo')
+      .replace('{max}', String(max))
+      .replace('{total}', String(optionsCount));
+  }
+  return t('composeStepSummaryRange')
+    .replace('{min}', String(min))
+    .replace('{max}', String(max))
+    .replace('{total}', String(optionsCount));
+}
+
 // ── Step card ──────────────────────────────────────────────────────────────
 
 interface Props {
@@ -107,20 +125,18 @@ interface Props {
   basePrice: number;
   categories: MenuCategory[];
   itemsById: Map<number, MenuItem>;
-  /** Items reachable through any non-hidden, channel-enabled group on any
-   *  carte. Drives the per-item "Combo-only" badge and the category-mode
-   *  preview's "hors carte" zone. */
   anyCarteItemIds: Set<number>;
+  isActive: boolean;
+  onActivate: () => void;
   onChange: (next: ComboStepDraft) => void;
   onRemove: () => void;
 }
 
 export default function StepCard({
   step, index, basePrice, categories, itemsById, anyCarteItemIds,
-  onChange, onRemove,
+  isActive, onActivate, onChange, onRemove,
 }: Props) {
   const { t } = useI18n();
-  const [collapsed, setCollapsed] = useState(false);
 
   const options = useMemo<ComboOptionView[]>(() => {
     const opts = buildOptions(step.items, itemsById);
@@ -129,9 +145,6 @@ export default function StepCard({
     return opts;
   }, [step.items, itemsById]);
 
-  // Category-mode steps have no items locally — the server resolves them
-  // from source_category_id at order time. Count resolvable items so the
-  // InlineRules' "sur N" line reports what the customer will see.
   const categoryAvailableCount = useMemo(
     () =>
       step.source_type === 'category'
@@ -166,25 +179,108 @@ export default function StepCard({
     setOptions(options.map((o) => (o.menuItemId === menuItemId ? { ...o, forceOffCarte: next } : o)));
   };
 
-  // ── Render ───────────────────────────────────────────────────────────
+  // ── Closed (summary) state ───────────────────────────────────────────
 
-  return (
-    <div
-      className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] shadow-1 overflow-hidden relative"
-      style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'var(--brand-500)' }}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]">
-        <span className="text-[var(--fg-subtle)] cursor-grab" aria-hidden>
+  if (!isActive) {
+    const itemCount = step.source_type === 'category' ? categoryAvailableCount : options.length;
+    const stepName = step.name || t('composeStepDefaultName').replace('{n}', String(index + 1));
+    return (
+      <button
+        type="button"
+        onClick={onActivate}
+        className="group/step w-full text-start rounded-r-lg border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_3%,transparent)] transition-colors flex items-center gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)]"
+        style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'color-mix(in oklab, var(--brand-500) 35%, transparent)' }}
+      >
+        <span className="text-[var(--fg-subtle)] shrink-0" aria-hidden>
           <GripVertical className="w-3.5 h-3.5" />
         </span>
         <div
-          className="w-8 h-8 rounded-full grid place-items-center text-white font-bold text-fs-sm shrink-0"
+          className="w-7 h-7 rounded-full grid place-items-center text-white font-bold text-fs-xs shrink-0"
           style={{ background: 'var(--brand-500)' }}
         >
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
+          <div className="text-fs-md font-semibold text-[var(--fg)] truncate">{stepName}</div>
+          <div className="text-fs-xs text-[var(--fg-muted)] flex items-center gap-2 mt-0.5">
+            <span className="inline-flex items-center gap-1">
+              <ListChecks className="w-3 h-3 text-[var(--brand-500)]" />
+              {ruleSummary(step, optionsCount, t)}
+            </span>
+            {step.source_type === 'category' && step.source_category_id != null && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)] font-medium">
+                {categories.find((c) => c.id === step.source_category_id)?.name ?? '…'}
+                {step.source_variant_label ? ` · ${step.source_variant_label}` : ''}
+              </span>
+            )}
+            <span className="text-[var(--fg-subtle)]">·</span>
+            <span>{t('composeStepSummaryItemCount').replace('{n}', String(itemCount))}</span>
+          </div>
+        </div>
+        <span className="text-fs-xs text-[var(--fg-subtle)] opacity-0 group-hover/step:opacity-100 transition-opacity shrink-0">
+          {t('composeStepSummaryEditCta')}
+        </span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)] shrink-0"
+          aria-label={t('composeStepDelete')}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </button>
+    );
+  }
+
+  // ── Open (editor) state ──────────────────────────────────────────────
+
+  return (
+    <div
+      className="rounded-r-lg border-2 border-[var(--brand-500)] bg-[var(--surface)] overflow-hidden"
+      style={{
+        boxShadow: '0 0 0 4px color-mix(in oklab, var(--brand-500) 12%, transparent)',
+      }}
+    >
+      {/* Status strip — makes it unambiguous which step the catalog targets. */}
+      <div className="flex items-center justify-between gap-3 px-[var(--s-4)] py-[var(--s-2)] bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] border-b border-[var(--line)]">
+        <span className="inline-flex items-center gap-1.5 text-fs-xs font-bold uppercase tracking-[.08em] text-[var(--brand-500)]">
+          <span
+            className="w-5 h-5 rounded-full grid place-items-center text-white font-bold text-[10px]"
+            style={{ background: 'var(--brand-500)' }}
+          >
+            {index + 1}
+          </span>
+          {t('composeStepActiveLabel')}
+        </span>
+        <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepActiveHint')}</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onActivate}
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+            {t('composeStepClose')}
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
+            aria-label={t('composeStepDelete')}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Editor body — breathable spacing, fields stacked one per row. */}
+      <div className="px-[var(--s-4)] py-[var(--s-4)] flex flex-col gap-[var(--s-4)]">
+
+        {/* Name + description */}
+        <div className="flex flex-col gap-1">
+          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+            {t('composeStepFieldName')}
+          </span>
           <EditableField
             value={step.name}
             onChange={(name) => onChange({ ...step, name })}
@@ -197,6 +293,13 @@ export default function StepCard({
             placeholder={t('composeStepDescriptionPlaceholder')}
             variant="description"
           />
+        </div>
+
+        {/* Rules */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+            {t('composeStepFieldRules')}
+          </span>
           <InlineRules
             minPicks={step.min_picks}
             maxPicks={step.max_picks}
@@ -206,43 +309,47 @@ export default function StepCard({
             }
           />
         </div>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setCollapsed((c) => !c); }}
-          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
-        >
-          {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
-          aria-label="Delete step"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      </div>
 
-      {/* Body */}
-      {!collapsed && (
-        <div
-          className="px-[var(--s-4)] py-[var(--s-3)] flex flex-col gap-[var(--s-2)]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {step.source_type === 'category' ? (
-            <CategoryModePanel
-              step={step}
-              categories={categories}
-              itemsById={itemsById}
-              anyCarteItemIds={anyCarteItemIds}
-              onChange={onChange}
+        {/* Source mode — segmented control between manual list and dynamic category. */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+            {t('composeStepFieldSource')}
+          </span>
+          <div className="inline-flex items-center gap-0.5 rounded-r-sm bg-[var(--surface-2)] p-0.5 self-start">
+            <SourceSeg
+              active={step.source_type !== 'category'}
+              onClick={() =>
+                onChange({ ...step, source_type: 'explicit', source_category_id: undefined, source_variant_label: undefined })
+              }
+              label={t('composeStepModeExplicit')}
             />
-          ) : options.length === 0 ? (
-            <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-3)] text-center border border-dashed border-[var(--line)] rounded-r-md">
-              {t('composeStepEmptyHint')}
-            </div>
-          ) : (
-            options.map((opt) => {
+            <SourceSeg
+              active={step.source_type === 'category'}
+              onClick={() => {
+                if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
+                onChange({ ...step, source_type: 'category', items: [] });
+              }}
+              label={t('composeStepModeCategory')}
+            />
+          </div>
+        </div>
+
+        {/* Content — either the items list or the category panel */}
+        {step.source_type === 'category' ? (
+          <CategoryModePanel
+            step={step}
+            categories={categories}
+            itemsById={itemsById}
+            anyCarteItemIds={anyCarteItemIds}
+            onChange={onChange}
+          />
+        ) : options.length === 0 ? (
+          <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-4)] text-center border border-dashed border-[var(--line)] rounded-r-md">
+            {t('composeStepEmptyHint')}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-[var(--s-2)]">
+            {options.map((opt) => {
               const comboOnly = !anyCarteItemIds.has(opt.menuItemId);
               return opt.hasVariants ? (
                 <OptionRowWithVariants
@@ -265,18 +372,32 @@ export default function StepCard({
                   onSetDefault={() => handleSetDefaultOption(opt.menuItemId)}
                 />
               );
-            })
-          )}
-        </div>
-      )}
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+function SourceSeg({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-7 px-3 rounded-r-xs text-fs-xs font-medium transition-colors ${
+        active
+          ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1 border border-[var(--line-strong)]'
+          : 'bg-transparent text-[var(--fg-muted)] border border-transparent hover:text-[var(--fg)]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 // ── Category-mode sub-panel ───────────────────────────────────────────────
-// Same component the previous composer used. Kept intact: it owns the
-// category dropdown, variant-label picker, and 3-zone preview (available /
-// excluded by size / not on any carte).
 
 function CategoryModePanel({
   step,
@@ -328,7 +449,7 @@ function CategoryModePanel({
     zones.available.length + zones.excludedBySize.length + zones.notOnAnyCarte.length > 0;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <select
         value={selectedId}
         onChange={(e) =>
@@ -369,7 +490,7 @@ function CategoryModePanel({
       )}
 
       {selectedId > 0 && hasAnyZone && (
-        <div className="flex flex-col gap-1.5 mt-1">
+        <div className="flex flex-col gap-1.5">
           {zones.available.length > 0 && (
             <CategoryZone
               tone="ok"

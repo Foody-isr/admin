@@ -205,26 +205,19 @@ export default function CompositionTab({
           {steps.map((step, i) => {
             const isActive = step.key === effectiveActiveKey;
             return (
-              <div
+              <StepCard
                 key={step.key}
-                onClick={() => setActiveStepKey(step.key)}
-                className={`rounded-r-lg transition-shadow cursor-pointer ${
-                  isActive
-                    ? 'shadow-[0_0_0_2px_var(--brand-500)]'
-                    : 'shadow-none'
-                }`}
-              >
-                <StepCard
-                  step={step}
-                  index={i}
-                  basePrice={basePrice}
-                  categories={categories}
-                  itemsById={itemsById}
-                  anyCarteItemIds={anyCarteItemIds}
-                  onChange={(next) => updateStep(step.key, next)}
-                  onRemove={() => removeStep(step.key)}
-                />
-              </div>
+                step={step}
+                index={i}
+                basePrice={basePrice}
+                categories={categories}
+                itemsById={itemsById}
+                anyCarteItemIds={anyCarteItemIds}
+                isActive={isActive}
+                onActivate={() => setActiveStepKey(isActive ? null : step.key)}
+                onChange={(next) => updateStep(step.key, next)}
+                onRemove={() => removeStep(step.key)}
+              />
             );
           })}
 
