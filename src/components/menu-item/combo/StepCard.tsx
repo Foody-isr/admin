@@ -153,6 +153,64 @@ function InlineRules({
   );
 }
 
+// Unified kind switcher rendered identically on every step row. Replaces the
+// asymmetric chip + "Tout inclure" / "Convertir en étape" links the composer
+// had before — operators no longer have to learn a different affordance per
+// kind. The active segment shows the row's current kind; clicking the other
+// flips it. For choice-mode category steps, switching to fixed silently drops
+// the category binding (operator can re-pick via the standard picker); the
+// reverse is non-destructive.
+function KindToggle({
+  current,
+  onSwitch,
+}: {
+  current: 'fixed' | 'choice';
+  onSwitch: (next: 'fixed' | 'choice') => void;
+}) {
+  const { t } = useI18n();
+  const Seg = ({
+    label,
+    icon,
+    active,
+    onClick,
+  }: {
+    label: string;
+    icon: React.ReactNode;
+    active: boolean;
+    onClick: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1 h-6 px-2 text-fs-xs font-medium rounded-r-xs transition-colors ${
+        active
+          ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1 border border-[var(--line-strong)]'
+          : 'bg-transparent text-[var(--fg-muted)] border border-transparent hover:text-[var(--fg)]'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-r-sm bg-[var(--surface-2)] p-0.5 shrink-0">
+      <Seg
+        active={current === 'choice'}
+        icon={<ListChecks className="w-3 h-3" />}
+        label={t('composeKindStep')}
+        onClick={() => current !== 'choice' && onSwitch('choice')}
+      />
+      <Seg
+        active={current === 'fixed'}
+        icon={<Pin className="w-3 h-3" />}
+        label={t('composeKindFixed')}
+        onClick={() => current !== 'fixed' && onSwitch('fixed')}
+      />
+    </div>
+  );
+}
+
 const FIXED_QTY_MAX = 99;
 
 interface Props {
@@ -204,6 +262,28 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
 
   const setOptions = (nextOptions: ComboOptionView[]) => {
     onChange({ ...step, items: toDraftItems(nextOptions) });
+  };
+
+  // Shared kind-switch handler used by KindToggle in both render branches.
+  // Keeps the conversion semantics in one place so the choice→fixed and
+  // fixed→choice paths can't drift.
+  const switchKindTo = (target: 'fixed' | 'choice') => {
+    const n = Math.max(1, step.items.length);
+    if (target === 'fixed') {
+      // Drop category binding if any — fixed steps are always explicit.
+      onChange({
+        ...step,
+        kind: 'fixed',
+        source_type: 'explicit',
+        source_category_id: undefined,
+        source_variant_label: undefined,
+        min_picks: n,
+        max_picks: n,
+      });
+    } else {
+      // Seed a sane default — pick 1 of N. Operator refines via inline rules.
+      onChange({ ...step, kind: 'choice', min_picks: 1, max_picks: n });
+    }
   };
 
   const handleOptionUpchargeChange = (menuItemId: number, next: number) => {
@@ -333,37 +413,12 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
             <Pin className="w-3.5 h-3.5" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <EditableField
-                value={step.name}
-                onChange={(name) => onChange({ ...step, name })}
-                placeholder={isBundle ? t('composeFixedGroupNamePlaceholder') : t('composeFixedItemIncluded')}
-                variant="title"
-              />
-              <span
-                className="inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs font-semibold shrink-0 bg-[var(--surface-2)] text-[var(--fg-muted)] border border-[var(--line)]"
-              >
-                <Pin className="w-3 h-3" />
-                {t('composeKindFixed')}
-              </span>
-              {/* Symmetric kind switch — choice steps get an "Include all"
-                  link that converts them to fixed; this is the inverse path
-                  so the operator never has to delete a fixed row just to
-                  give customers a choice. Sets kind=choice and opens the
-                  rules to a sane default (pick 1 of N), which the operator
-                  can refine via the inline rules. */}
-              <button
-                type="button"
-                onClick={() => {
-                  const n = Math.max(1, step.items.length);
-                  onChange({ ...step, kind: 'choice', min_picks: 1, max_picks: n });
-                }}
-                className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline shrink-0"
-                title={t('composeRevertToChoice')}
-              >
-                {t('composeRevertToChoice')}
-              </button>
-            </div>
+            <EditableField
+              value={step.name}
+              onChange={(name) => onChange({ ...step, name })}
+              placeholder={isBundle ? t('composeFixedGroupNamePlaceholder') : t('composeFixedItemIncluded')}
+              variant="title"
+            />
             <EditableField
               value={step.description ?? ''}
               onChange={(description) => onChange({ ...step, description })}
@@ -376,6 +431,7 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
               </div>
             )}
           </div>
+          <KindToggle current="fixed" onSwitch={switchKindTo} />
           <button
             type="button"
             onClick={onRemove}
@@ -510,37 +566,20 @@ export default function StepCard({ step, index, basePrice, categories, itemsById
             placeholder={t('composeStepDescriptionPlaceholder')}
             variant="description"
           />
-          {/* Inline rules — the row's choice-step identity. Earlier versions
-              tucked these behind a "Règles" gear popover, which made it look
-              like the row was static and forced operators to discover the
-              controls. Now they're always visible, always editable. The
-              "Include all" link only appears when convertible (explicit-mode
-              step with >=1 item) and one-shot promotes the step to a fixed
-              bundle (sets min=max=items.length and flips kind to 'fixed'). */}
-          <div className="flex items-end justify-between gap-3 flex-wrap">
-            <InlineRules
-              minPicks={step.min_picks}
-              maxPicks={step.max_picks}
-              optionsCount={optionsCount}
-              onChange={({ minPicks, maxPicks }) =>
-                onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
-              }
-            />
-            {step.items.length >= 1 && step.source_type !== 'category' && (
-              <button
-                type="button"
-                onClick={() => {
-                  const n = step.items.length;
-                  onChange({ ...step, min_picks: n, max_picks: n, kind: 'fixed' });
-                }}
-                className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline mt-1"
-                title={t('composeIncludeAll')}
-              >
-                {t('composeIncludeAll')}
-              </button>
-            )}
-          </div>
+          {/* Inline rules — always visible, always editable. The KindToggle
+              in the header right slot is the sole kind-conversion affordance
+              (used to be a separate "Tout inclure" link here); operators flip
+              choice ↔ fixed there instead. */}
+          <InlineRules
+            minPicks={step.min_picks}
+            maxPicks={step.max_picks}
+            optionsCount={optionsCount}
+            onChange={({ minPicks, maxPicks }) =>
+              onChange({ ...step, min_picks: minPicks, max_picks: maxPicks })
+            }
+          />
         </div>
+        <KindToggle current="choice" onSwitch={switchKindTo} />
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
