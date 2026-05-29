@@ -178,12 +178,16 @@ export default function CompositionTab({
         onShowSavingsDetail={onShowSavingsDetail}
       />
 
-      {/* Two-pane composer — catalog left, steps right. Both panes scroll
-          independently inside their share of the viewport height. The
-          breakpoint stacks them on narrow widths (combo edit is desktop-only
-          per project scope, but tablet operators still appreciate the wrap). */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-[var(--s-4)] min-h-[600px]">
-        <aside className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] flex flex-col min-h-0">
+      {/* Two-pane composer — catalog left, steps right. The catalog is
+          sticky to the viewport so it stays in view no matter how many
+          steps the operator adds. Right pane scrolls naturally with the
+          page; the catalog scrolls internally within its sticky frame.
+          `items-start` is required for sticky to engage in a grid (without
+          it the grid item stretches to the row height and never sticks). */}
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-[var(--s-4)] items-start">
+        <aside
+          className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-3)] flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] min-h-0"
+        >
           <CarteCatalog
             menus={menus}
             categories={categories}
