@@ -71,10 +71,10 @@ export default function CheckoutPreviewIframe({
   }
 
   // The foodyweb checkout page lives at `/order/checkout` and the post-order
-  // page at `/order/tracking/preview` (both run in preview mode with ?preview=1).
+  // page at `/order/confirmation/preview` (both run in preview mode with ?preview=1).
   // The slug is passed via `restaurantId` — fetchRestaurant accepts id or slug.
   const src = subTab === 'confirmation'
-    ? `${WEB_URL}/order/tracking/preview?restaurantId=${encodeURIComponent(slug)}&preview=1`
+    ? `${WEB_URL}/order/confirmation/preview?restaurantId=${encodeURIComponent(slug)}&preview=1`
     : `${WEB_URL}/order/checkout?restaurantId=${encodeURIComponent(slug)}&orderType=${subTab}&preview=1`;
   const width = mode === 'mobile' ? 412 : 1024;
   const height = mode === 'mobile' ? 850 : 720;
