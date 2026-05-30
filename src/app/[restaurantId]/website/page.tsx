@@ -21,6 +21,7 @@ import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackground
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
+import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import type { CheckoutConfig } from '@/lib/api';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
@@ -231,6 +232,9 @@ export default function WebsitePage() {
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
+  // Which order-type sub-tab is active in the Commande editor. Lifted up so the
+  // preview iframe URL stays in sync with the section the owner is editing.
+  const [checkoutOrderType, setCheckoutOrderType] = useState<'delivery' | 'pickup'>('delivery');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -849,6 +853,8 @@ export default function WebsitePage() {
               value={checkoutConfig}
               onChange={setCheckoutConfig}
               placesAvailable={true}
+              orderType={checkoutOrderType}
+              onOrderTypeChange={setCheckoutOrderType}
             />
           )}
           {editorMode === 'settings' && (
@@ -887,7 +893,14 @@ export default function WebsitePage() {
           className="flex-1 overflow-auto flex items-start justify-center py-6"
           style={{ background: previewMode === 'mobile' ? 'var(--surface-subtle)' : 'var(--bg-page)' }}
         >
-          {editorMode === 'pages' && activePage === 'menu' ? (
+          {editorMode === 'checkout' ? (
+            <CheckoutPreviewIframe
+              mode={previewMode}
+              slug={restaurant?.slug}
+              orderType={checkoutOrderType}
+              checkoutConfig={checkoutConfig}
+            />
+          ) : editorMode === 'pages' && activePage === 'menu' ? (
             <MenuPreviewIframe
               ref={menuIframeRef}
               mode={previewMode}

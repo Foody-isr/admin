@@ -80,6 +80,8 @@ interface CheckoutEditorProps {
   value: CheckoutConfig | null | undefined;
   onChange: (next: CheckoutConfig) => void;
   placesAvailable: boolean;
+  orderType: OrderTypeKey;
+  onOrderTypeChange: (next: OrderTypeKey) => void;
 }
 
 /**
@@ -89,9 +91,11 @@ interface CheckoutEditorProps {
  * Each sub-tab shows OTP toggle, autocomplete toggle (delivery only), and a
  * reorderable list of fields. Selecting a field opens its property panel
  * inline beneath the row so the editor fits in the existing left-rail width.
+ *
+ * orderType is controlled by the page so the live preview iframe can stay in
+ * sync with the sub-tab the owner is editing.
  */
-export default function CheckoutEditor({ value, onChange, placesAvailable }: CheckoutEditorProps) {
-  const [orderType, setOrderType] = useState<OrderTypeKey>('delivery');
+export default function CheckoutEditor({ value, onChange, placesAvailable, orderType, onOrderTypeChange }: CheckoutEditorProps) {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
 
   const form = useMemo<CheckoutFormConfig>(() => {
@@ -183,7 +187,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable }: Che
             <button
               key={k}
               type="button"
-              onClick={() => { setOrderType(k); setExpandedFieldId(null); }}
+              onClick={() => { onOrderTypeChange(k); setExpandedFieldId(null); }}
               className={`flex-1 py-1.5 rounded-lg font-medium transition ${
                 orderType === k ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
               }`}
