@@ -470,10 +470,129 @@ export interface WebsiteConfig {
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   landing_enabled: boolean;
+  checkout_config?: CheckoutConfig | null;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
+}
+
+// ─── Checkout-form builder ──────────────────────────────────────────────
+// Mirrors foodyserver/internal/restaurants/checkout_config.go. Null/undefined
+// means "use legacy flow" — the foodyweb checkout falls back to the hard-coded
+// fields it had before this feature shipped.
+
+export type CheckoutFieldKind = 'builtin' | 'custom';
+export type CheckoutFieldType = 'text' | 'textarea' | 'tel' | 'email' | 'select' | 'checkbox';
+export type CheckoutVisibilityOperator = 'equals' | 'not_empty' | 'one_of';
+
+export interface CheckoutVisibilityRule {
+  field: string;
+  operator: CheckoutVisibilityOperator;
+  value?: string | number | boolean;
+  values?: string[];
+}
+
+export interface CheckoutOption {
+  value: string;
+  label?: Record<string, string>;
+}
+
+export interface CheckoutFieldConfig {
+  id: string;
+  kind: CheckoutFieldKind;
+  type?: CheckoutFieldType;
+  enabled: boolean;
+  required: boolean;
+  label?: Record<string, string>;
+  placeholder?: Record<string, string>;
+  options?: CheckoutOption[];
+  visible_when?: CheckoutVisibilityRule | null;
+}
+
+export interface CheckoutFormConfig {
+  require_auth: boolean;
+  address_autocomplete?: boolean;
+  fields: CheckoutFieldConfig[];
+}
+
+export interface CheckoutConfig {
+  delivery?: CheckoutFormConfig | null;
+  pickup?: CheckoutFormConfig | null;
+  confirmation?: ConfirmationConfig | null;
+}
+
+export interface ConfirmationAction {
+  id: string;
+  kind: 'builtin' | 'custom';
+  enabled: boolean;
+  label?: Record<string, string>;
+  config?: Record<string, unknown>;
+}
+
+export interface ConfirmationFAQ {
+  question?: Record<string, string>;
+  answer?: Record<string, string>;
+}
+
+export interface ConfirmationConfig {
+  title?: Record<string, string>;
+  subtitle?: Record<string, string>;
+  actions?: ConfirmationAction[];
+  faq?: ConfirmationFAQ[];
+}
+
+// Built-in confirmation action ids — order matches what the foodyweb tracking
+// page shows by default before any owner customisation.
+export const BUILTIN_CONFIRMATION_ACTIONS: ReadonlyArray<{ id: string; defaultEnabled: boolean }> = [
+  { id: 'track_order',  defaultEnabled: true  },
+  { id: 'view_receipt', defaultEnabled: true  },
+  { id: 'new_order',    defaultEnabled: true  },
+  { id: 'whatsapp',     defaultEnabled: false },
+];
+
+export function defaultConfirmationConfig(): ConfirmationConfig {
+  return {
+    actions: BUILTIN_CONFIRMATION_ACTIONS.map((a) => ({
+      id: a.id,
+      kind: 'builtin' as const,
+      enabled: a.defaultEnabled,
+    })),
+    faq: [],
+  };
+}
+
+// Built-in field catalogue per order type. The IDs match the server's
+// builtinDeliveryFields / builtinPickupFields maps. Owners can disable, retitle,
+// reorder, and toggle required, but the mapping to Order columns is fixed.
+export const BUILTIN_DELIVERY_FIELDS: ReadonlyArray<{ id: string; type: CheckoutFieldType; defaultRequired: boolean }> = [
+  { id: 'customer_name',    type: 'text',     defaultRequired: true  },
+  { id: 'customer_phone',   type: 'tel',      defaultRequired: true  },
+  { id: 'delivery_address', type: 'text',     defaultRequired: true  },
+  { id: 'delivery_city',    type: 'text',     defaultRequired: true  },
+  { id: 'delivery_floor',   type: 'text',     defaultRequired: false },
+  { id: 'delivery_apt',     type: 'text',     defaultRequired: false },
+  { id: 'delivery_notes',   type: 'textarea', defaultRequired: false },
+  { id: 'whatsapp_number',  type: 'tel',      defaultRequired: false },
+];
+
+export const BUILTIN_PICKUP_FIELDS: ReadonlyArray<{ id: string; type: CheckoutFieldType; defaultRequired: boolean }> = [
+  { id: 'customer_name',   type: 'text',     defaultRequired: true  },
+  { id: 'customer_phone',  type: 'tel',      defaultRequired: true  },
+  { id: 'pickup_notes',    type: 'textarea', defaultRequired: false },
+  { id: 'whatsapp_number', type: 'tel',      defaultRequired: false },
+];
+
+export function legacyCheckoutForm(orderType: 'delivery' | 'pickup'): CheckoutFormConfig {
+  // whatsapp_number is opt-in — seeded into the catalogue (so the owner sees
+  // it as an addable builtin) but disabled by default.
+  const fields = (orderType === 'delivery' ? BUILTIN_DELIVERY_FIELDS : BUILTIN_PICKUP_FIELDS).map((f) => ({
+    id: f.id,
+    kind: 'builtin' as const,
+    enabled: f.id !== 'whatsapp_number',
+    required: f.defaultRequired,
+  }));
+  return { require_auth: true, fields };
 }
 
 export interface ThemeCatalogEntry {
@@ -2285,10 +2404,12 @@ export interface ProductionSheetCategory {
 export interface ProductionComboRef {
   name: string;
   qty: number;
+  portions?: ProductionSheetPortion[]; // weighed items: breakdown of qty (e.g. 2×250g)
 }
 export interface ProductionCellProvenance {
   combos: ProductionComboRef[];
   standalone: number; // count ordered individually (not via a combo)
+  standalone_portions?: ProductionSheetPortion[]; // weighed items: breakdown of standalone count
 }
 export interface ProductionSheetOrder {
   order_id: number;

@@ -64,6 +64,21 @@ export interface ComboStepDraft {
    *  On reload from the server we infer this from the data shape (1 item
    *  with min_picks === max_picks → fixed). See `deriveStepKind` below. */
   kind?: 'fixed' | 'choice';
+  /** UI-only round-trip stash. Not sent to the server (whitelist serializer).
+   *
+   *  When the operator flips a choice step to fixed via KindToggle, the
+   *  prior choice metadata (source_type, category binding, min/max) is
+   *  saved here so that flipping back to choice restores the EXACT prior
+   *  state — including "Catégorie dynamique" mode and any pinned variant
+   *  label. Without this, every fixed → choice round-trip silently dropped
+   *  the operator back into "Liste manuelle" with min=1/max=N defaults. */
+  _stashedChoice?: {
+    source_type: 'explicit' | 'category';
+    source_category_id?: number;
+    source_variant_label?: string;
+    min_picks: number;
+    max_picks: number;
+  };
 }
 
 /** Infer a step's UI kind from its persisted shape.

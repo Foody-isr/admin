@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, ArrowRight } from 'lucide-react';
 import {
   listAvailabilityRules,
   previewItemAvailability,
@@ -12,11 +12,10 @@ import {
   AvailabilityState,
   MenuItem,
 } from '@/lib/api';
-import { Section, Select } from '@/components/ds';
+import { Field, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { LearnMore } from '@/components/help/LearnMore';
-import { InfoTip } from '@/components/help/InfoTip';
 
 interface Props {
   rid: number;
@@ -26,6 +25,14 @@ interface Props {
   onSaved?: () => void;
 }
 
+// Layout aligned with Article (MenuItemTabDetails) and Composition tabs:
+// • Brand-accent header (3px bar + text-fs-xl title) + intro paragraph
+// • max-w-4xl wrapper (matches Article tab width)
+// • Section cards using the shared `rounded-r-lg border border-[var(--line)]
+//   bg-[var(--surface)] p-[var(--s-5)]` recipe.
+// • Two sections only: live État + the unified Disponibilité control. The
+//   single radio group makes the rule a sub-option of "Suivre une règle" so
+//   the rule/override layers stop reading as two redundant controls.
 export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Props) {
   const { t } = useI18n();
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
@@ -35,10 +42,22 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const overrides: { value: AvailabilityOverride; label: string }[] = [
-    { value: 'auto', label: t('availabilityOverrideAuto') },
-    { value: 'force_available', label: t('availabilityOverrideForceAvailable') },
-    { value: 'force_sold_out', label: t('availabilityOverrideForceSoldOut') },
+  const modes: { value: AvailabilityOverride; label: string; desc: string }[] = [
+    {
+      value: 'auto',
+      label: t('availabilityOverrideAuto'),
+      desc: t('availabilityOverrideAutoDesc'),
+    },
+    {
+      value: 'force_available',
+      label: t('availabilityOverrideForceAvailable'),
+      desc: t('availabilityOverrideForceAvailableDesc'),
+    },
+    {
+      value: 'force_sold_out',
+      label: t('availabilityOverrideForceSoldOut'),
+      desc: t('availabilityOverrideForceSoldOutDesc'),
+    },
   ];
 
   const loadPreview = useCallback(async () => {
@@ -74,7 +93,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     [rid, itemId, ruleId, override, loadPreview, onSaved, t],
   );
 
-  // Plain-language summary of the currently selected rule, shown under the picker.
   function ruleSummary(rule: AvailabilityRule | undefined): string {
     if (!rule) return '';
     if (!rule.track) return t('availabilityAlwaysAvailableDesc');
@@ -85,77 +103,67 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     return parts.join(' · ');
   }
 
+  // Hide deprecated "Always available"-style rules (track=false, non-default)
+  // from the picker — their effect is reachable via the "Toujours disponible"
+  // mode. Keep them listed when an existing item still points to one so the
+  // owner can see what's selected before switching away.
+  const visibleRules = useMemo(
+    () => rules.filter((r) => r.id === ruleId || r.is_default || r.track !== false),
+    [rules, ruleId],
+  );
+
   const selectedRule = rules.find((r) => r.id === ruleId);
-  // When the item picks "Hériter", the cascade ends at the restaurant
-  // default (categories have an availability_rule_id field but no admin UI
-  // surfaces it, so for now the inheritance is effectively one step).
   const defaultRule = rules.find((r) => r.is_default);
-  const inheritResolvesTo = ruleId === 0 ? defaultRule : null;
-  const state: AvailabilityState | 'loading' = preview == null ? 'loading' : preview.unlimited ? 'available' : preview.state;
+  const resolvedRule = ruleId === 0 ? defaultRule : selectedRule;
+  const state: AvailabilityState | 'loading' =
+    preview == null ? 'loading' : preview.unlimited ? 'available' : preview.state;
 
   const StatusIcon =
     state === 'available' ? CheckCircle2 : state === 'low' ? AlertTriangle : state === 'sold_out' ? XCircle : Info;
-  const iconColor =
-    state === 'available'
-      ? 'text-emerald-500'
-      : state === 'low'
-        ? 'text-amber-500'
-        : state === 'sold_out'
-          ? 'text-red-500'
-          : 'text-[var(--fg-muted)]';
-
-  // Descriptions per override mode, shown inside each card.
-  const overrideDescription: Record<AvailabilityOverride, string> = {
-    auto: t('availabilityOverrideAutoDesc'),
-    force_available: t('availabilityOverrideForceAvailableDesc'),
-    force_sold_out: t('availabilityOverrideForceSoldOutDesc'),
+  const statusTone: Record<AvailabilityState | 'loading', { fg: string; bgMix: string }> = {
+    available:  { fg: 'var(--success-500)', bgMix: 'color-mix(in oklab, var(--success-500) 14%, transparent)' },
+    low:        { fg: 'var(--warning-500)', bgMix: 'color-mix(in oklab, var(--warning-500) 14%, transparent)' },
+    sold_out:   { fg: 'var(--danger-500)',  bgMix: 'color-mix(in oklab, var(--danger-500) 14%, transparent)' },
+    hidden:     { fg: 'var(--fg-muted)',    bgMix: 'color-mix(in oklab, var(--fg-muted) 14%, transparent)' },
+    loading:    { fg: 'var(--fg-muted)',    bgMix: 'color-mix(in oklab, var(--fg-muted) 14%, transparent)' },
   };
-
-  // Static colour legend rows, aligned with the list chip + photo dot.
-  const legendRows: { dot: string; label: string; desc: string }[] = [
-    { dot: 'bg-emerald-500', label: t('available'), desc: t('availabilityLegendAvailableDesc') },
-    { dot: 'bg-amber-500', label: t('lowStock'), desc: t('availabilityLegendLowDesc') },
-    { dot: 'bg-red-500', label: t('outOfStock'), desc: t('availabilityLegendSoldOutDesc') },
-    { dot: 'bg-neutral-400', label: t('unavailable'), desc: t('availabilityLegendInactiveDesc') },
-  ];
+  const tone = statusTone[state];
 
   return (
-    <Section title={t('availability')}>
-      <div className="flex max-w-xl flex-col gap-4">
-        <p className="-mt-1 text-fs-sm text-[var(--fg-muted)]">{t('availabilityPanelIntro')}</p>
-
-        {/* How rule + override combine. A 2-line primer so staff don't have
-            to guess the relationship between the two controls below it. */}
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5 text-fs-xs">
-          <div className="mb-1.5 font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-            {t('availabilityHowItWorksTitle')}
-          </div>
-          <ul className="flex flex-col gap-1 text-[var(--fg)]">
-            <li>
-              <span className="font-medium">1. </span>
-              {t('availabilityHowItWorksRule')}
-            </li>
-            <li>
-              <span className="font-medium">2. </span>
-              {t('availabilityHowItWorksOverride')}
-            </li>
-          </ul>
+    <div className="max-w-4xl flex flex-col gap-[var(--s-5)]">
+      {/* Brand-accent header — matches Composition tab. */}
+      <div className="flex flex-col gap-[var(--s-2)]">
+        <div className="flex items-center gap-[var(--s-3)]">
+          <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />
+          <h3 className="text-fs-xl font-semibold text-[var(--fg)]">{t('tabStock')}</h3>
         </div>
+        <p className="text-fs-sm text-[var(--fg-muted)]">{t('availabilityPanelIntro')}</p>
+      </div>
 
-        {/* Live status */}
-        <div className="flex items-start gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
-          <StatusIcon className={cn('mt-0.5 size-4 shrink-0', iconColor)} />
-          <div className="min-w-0 text-fs-sm">
+      {/* État — live status pill. */}
+      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
+        <div className="flex items-center gap-[var(--s-4)]">
+          <div
+            className="w-10 h-10 rounded-r-md grid place-items-center shrink-0"
+            style={{ background: tone.bgMix, color: tone.fg }}
+          >
+            <StatusIcon className="w-[18px] h-[18px]" />
+          </div>
+          <div className="min-w-0">
             {preview == null ? (
-              <span className="text-[var(--fg-muted)]">{t('availabilityComputing')}</span>
+              <div className="text-fs-sm text-[var(--fg-muted)]">{t('availabilityComputing')}</div>
             ) : preview.unlimited ? (
               <>
-                <div className="font-medium text-[var(--fg)]">{t('availabilityStateAvailable')}</div>
-                <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">{t('availabilityNoRecipeHint')}</div>
+                <div className="text-fs-md font-semibold text-[var(--fg)]">
+                  {t('availabilityStateAvailable')}
+                </div>
+                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                  {t('availabilityNoRecipeHint')}
+                </div>
               </>
             ) : (
               <>
-                <div className="font-medium text-[var(--fg)]">
+                <div className="text-fs-md font-semibold text-[var(--fg)]">
                   {t(
                     preview.state === 'low'
                       ? 'availabilityStateLow'
@@ -166,7 +174,7 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                           : 'availabilityStateAvailable',
                   )}
                 </div>
-                <div className="mt-0.5 text-fs-xs text-[var(--fg-muted)]">
+                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
                   {t('availabilityBuildableNow')} {preview.buildable} {t('availabilityPortions')}
                   {preview.bottleneck && (
                     <>
@@ -178,133 +186,116 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
             )}
           </div>
         </div>
+      </section>
 
-        {/* Rule picker */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-                {t('availabilityRuleField')}
-              </span>
-              <InfoTip text={t('availabilityRuleHelp')} />
+      {/* Disponibilité — single 3-option control. The rule picker appears
+          inline under "Suivre une règle" only; collapses otherwise. */}
+      <section className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)] flex flex-col gap-[var(--s-3)]">
+        <div className="flex items-start justify-between gap-[var(--s-3)] mb-[var(--s-2)]">
+          <div className="min-w-0">
+            <div className="text-fs-md font-semibold text-[var(--fg)]">
+              {t('availabilityModeTitle')}
             </div>
-            <a
-              href={`/${rid}/kitchen/availability`}
-              className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
-            >
-              {t('availabilityManageRules')}
-            </a>
+            <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+              {t('availabilityModeSubtitle')}
+            </div>
           </div>
-          <Select
-            value={String(ruleId)}
-            disabled={busy}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setRuleId(v);
-              save({ ruleId: v });
-            }}
-          >
-            <option value="0">{t('availabilityInherit')}</option>
-            {rules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-                {r.is_default ? ` ${t('availabilityDefaultParen')}` : ''}
-              </option>
-            ))}
-          </Select>
-          {ruleId === 0 ? (
-            <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">
-              {t('availabilityInheritHint')}
-              {inheritResolvesTo && (
-                <>
-                  {' '}
-                  <span className="text-[var(--fg)]">
-                    {t('availabilityInheritResolvesTo')}{' '}
-                    <span className="font-medium">{inheritResolvesTo.name}</span>
-                    {' — '}
-                    {ruleSummary(inheritResolvesTo)}
-                  </span>
-                </>
-              )}
-            </p>
-          ) : (
-            <p className="mt-1.5 text-fs-xs text-[var(--fg-muted)]">{ruleSummary(selectedRule)}</p>
-          )}
         </div>
 
-        {/* Override — radio-style cards instead of pill buttons so each mode
-            carries its own one-line description of what the customer sees. */}
-        <div>
-          <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-              {t('availabilityOverrideLabel')}
-            </span>
-            <InfoTip text={t('availabilityOverrideHelp')} />
-          </div>
-          <div className="flex flex-col gap-2">
-            {overrides.map((o) => {
-              const selected = override === o.value;
-              return (
-                <button
-                  key={o.value}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setOverride(o.value);
-                    save({ override: o.value });
-                  }}
+        {modes.map((m) => {
+          const selected = override === m.value;
+          return (
+            <div key={m.value}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setOverride(m.value);
+                  save({ override: m.value });
+                }}
+                className={cn(
+                  'w-full flex items-start gap-[var(--s-3)] rounded-r-lg border p-[var(--s-4)] text-start transition-colors',
+                  selected
+                    ? 'border-[var(--brand-500)]'
+                    : 'border-[var(--line)] hover:border-[var(--line-strong)]',
+                  busy && 'opacity-60 cursor-not-allowed',
+                )}
+                style={{
+                  background: selected
+                    ? 'color-mix(in oklab, var(--brand-500) 8%, var(--surface))'
+                    : 'var(--surface)',
+                }}
+              >
+                <span
                   className={cn(
-                    'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-start transition-colors',
-                    selected
-                      ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_10%,var(--surface-2))]'
-                      : 'border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--fg-muted)]',
-                    busy && 'opacity-60',
+                    'mt-0.5 w-4 h-4 shrink-0 rounded-full border-2 grid place-items-center',
+                    selected ? 'border-[var(--brand-500)]' : 'border-[var(--line-strong)]',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'mt-0.5 size-4 shrink-0 rounded-full border-2',
-                      selected
-                        ? 'border-[var(--brand-500)] bg-[var(--brand-500)]'
-                        : 'border-[var(--fg-muted)]',
-                    )}
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-fs-sm font-medium text-[var(--fg)]">{o.label}</span>
-                    <span className="mt-0.5 block text-fs-xs text-[var(--fg-muted)]">
-                      {overrideDescription[o.value]}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {error && <span className="text-fs-sm text-red-400">{error}</span>}
-
-        {/* Colour legend — same chip + dot palette used in the items list and
-            the photo dot, so staff can map a colour they see in the list to a
-            customer-facing behaviour without leaving this tab. */}
-        <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
-          <div className="mb-2 text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-            {t('availabilityLegendTitle')}
-          </div>
-          <ul className="flex flex-col gap-1.5">
-            {legendRows.map((row) => (
-              <li key={row.label} className="flex items-start gap-2.5 text-fs-xs">
-                <span className={cn('mt-1 size-2.5 shrink-0 rounded-full', row.dot)} />
-                <span className="min-w-0">
-                  <span className="font-medium text-[var(--fg)]">{row.label}</span>
-                  <span className="text-[var(--fg-muted)]"> — {row.desc}</span>
+                  {selected && <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]" />}
                 </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+                <span className="min-w-0">
+                  <span className="block text-fs-sm font-semibold text-[var(--fg)]">{m.label}</span>
+                  <span className="block text-fs-xs text-[var(--fg-muted)] mt-1 leading-[var(--lh-base)]">
+                    {m.desc}
+                  </span>
+                </span>
+              </button>
 
-        <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} className="mt-1" />
-      </div>
-    </Section>
+              {selected && m.value === 'auto' && (
+                <div className="mt-[var(--s-3)] ms-[calc(1rem+var(--s-3))] rounded-r-md border border-[var(--line)] bg-[var(--surface-2,var(--surface))] p-[var(--s-4)] flex flex-col gap-[var(--s-2)]">
+                  <div className="flex items-end justify-between gap-[var(--s-3)]">
+                    <Field label={t('availabilityRuleField')}>
+                      <Select
+                        value={String(ruleId)}
+                        disabled={busy}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          setRuleId(v);
+                          save({ ruleId: v });
+                        }}
+                      >
+                        <option value="0">
+                          {t('availabilityInherit')}
+                          {defaultRule ? ` (${defaultRule.name})` : ''}
+                        </option>
+                        {visibleRules.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                            {r.is_default ? ` ${t('availabilityDefaultParen')}` : ''}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <a
+                      href={`/${rid}/kitchen/availability`}
+                      className="shrink-0 pb-[10px] inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--brand-500)] hover:underline"
+                    >
+                      {t('availabilityManageRules')} <ArrowRight className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <p className="text-fs-xs text-[var(--fg-subtle)]">{ruleSummary(resolvedRule)}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {error && (
+          <div
+            className="rounded-r-md border p-[var(--s-3)] text-fs-sm"
+            style={{
+              background: 'color-mix(in oklab, var(--danger-500) 8%, transparent)',
+              borderColor: 'color-mix(in oklab, var(--danger-500) 30%, transparent)',
+              color: 'var(--danger-500)',
+            }}
+          >
+            {error}
+          </div>
+        )}
+      </section>
+
+      <LearnMore feature="availability" label={t('helpLearnMoreAvailability')} />
+    </div>
   );
 }
