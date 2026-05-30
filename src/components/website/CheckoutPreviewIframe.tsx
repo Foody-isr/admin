@@ -8,7 +8,7 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'
 interface CheckoutPreviewIframeProps {
   slug?: string;
   mode: 'mobile' | 'desktop';
-  orderType: 'delivery' | 'pickup';
+  subTab: 'delivery' | 'pickup' | 'confirmation';
   checkoutConfig: CheckoutConfig | null;
   googlePlacesApiKey?: string;
 }
@@ -24,7 +24,7 @@ interface CheckoutPreviewIframeProps {
  * overrides restaurant.checkoutConfig with whatever we post here.
  */
 export default function CheckoutPreviewIframe({
-  slug, mode, orderType, checkoutConfig, googlePlacesApiKey,
+  slug, mode, subTab, checkoutConfig, googlePlacesApiKey,
 }: CheckoutPreviewIframeProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
@@ -55,11 +55,11 @@ export default function CheckoutPreviewIframe({
     sendConfig();
   }, [ready, sendConfig]);
 
-  // Reset readiness when the URL changes (different slug or order type → the
+  // Reset readiness when the URL changes (different slug or sub-tab → the
   // iframe reloads and must re-announce itself).
   useEffect(() => {
     setReady(false);
-  }, [slug, orderType]);
+  }, [slug, subTab]);
 
   if (!slug) {
     return (
@@ -69,10 +69,12 @@ export default function CheckoutPreviewIframe({
     );
   }
 
-  // The foodyweb checkout page lives at `/order/checkout` (NOT under `/r/<slug>/`).
-  // The slug is passed via the `restaurantId` query param — fetchRestaurant
-  // accepts either an id or a slug.
-  const src = `${WEB_URL}/order/checkout?restaurantId=${encodeURIComponent(slug)}&orderType=${orderType}&preview=1`;
+  // The foodyweb checkout page lives at `/order/checkout` and the post-order
+  // page at `/order/tracking/preview` (both run in preview mode with ?preview=1).
+  // The slug is passed via `restaurantId` — fetchRestaurant accepts id or slug.
+  const src = subTab === 'confirmation'
+    ? `${WEB_URL}/order/tracking/preview?restaurantId=${encodeURIComponent(slug)}&preview=1`
+    : `${WEB_URL}/order/checkout?restaurantId=${encodeURIComponent(slug)}&orderType=${subTab}&preview=1`;
   const width = mode === 'mobile' ? 412 : 1024;
   const height = mode === 'mobile' ? 850 : 720;
 

@@ -9,10 +9,13 @@ import {
   CheckoutFieldType,
   CheckoutFormConfig,
   CheckoutVisibilityOperator,
+  ConfirmationConfig,
   legacyCheckoutForm,
 } from '@/lib/api';
+import ConfirmationEditor from './ConfirmationEditor';
 
 type OrderTypeKey = 'delivery' | 'pickup';
+export type CheckoutSubTab = OrderTypeKey | 'confirmation';
 
 // Default label strings for built-in fields. Owners can override per-language.
 const BUILTIN_LABELS: Record<string, { en: string; fr: string; he: string }> = {
@@ -24,6 +27,7 @@ const BUILTIN_LABELS: Record<string, { en: string; fr: string; he: string }> = {
   delivery_apt:     { en: 'Apartment / unit',  fr: 'Appartement',       he: 'דירה' },
   delivery_notes:   { en: 'Delivery notes',    fr: 'Notes de livraison', he: 'הערות למשלוח' },
   pickup_notes:     { en: 'Notes',             fr: 'Notes',             he: 'הערות' },
+  whatsapp_number:  { en: 'WhatsApp number',   fr: 'Numéro WhatsApp',   he: 'מספר וואטסאפ' },
 };
 
 const FIELD_TYPE_OPTIONS: Array<{ value: CheckoutFieldType; label: string }> = [
@@ -80,8 +84,8 @@ interface CheckoutEditorProps {
   value: CheckoutConfig | null | undefined;
   onChange: (next: CheckoutConfig) => void;
   placesAvailable: boolean;
-  orderType: OrderTypeKey;
-  onOrderTypeChange: (next: OrderTypeKey) => void;
+  subTab: CheckoutSubTab;
+  onSubTabChange: (next: CheckoutSubTab) => void;
 }
 
 /**
@@ -95,13 +99,18 @@ interface CheckoutEditorProps {
  * orderType is controlled by the page so the live preview iframe can stay in
  * sync with the sub-tab the owner is editing.
  */
-export default function CheckoutEditor({ value, onChange, placesAvailable, orderType, onOrderTypeChange }: CheckoutEditorProps) {
+export default function CheckoutEditor({ value, onChange, placesAvailable, subTab, onSubTabChange }: CheckoutEditorProps) {
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
+  const orderType: OrderTypeKey = subTab === 'pickup' ? 'pickup' : 'delivery';
 
   const form = useMemo<CheckoutFormConfig>(() => {
     const fromValue = orderType === 'delivery' ? value?.delivery : value?.pickup;
     return fromValue ?? defaultForm(orderType);
   }, [orderType, value]);
+
+  const updateConfirmation = useCallback((next: ConfirmationConfig) => {
+    onChange({ ...(value ?? {}), confirmation: next });
+  }, [value, onChange]);
 
   // Materialise a config write. Calling this for the first time replaces
   // null/undefined with a structured CheckoutConfig — that is the moment the
@@ -180,25 +189,33 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, order
 
   return (
     <div className="flex flex-col h-full">
-      {/* Order-type sub-tabs */}
+      {/* Sub-tabs: Livraison · Retrait · Confirmation */}
       <div className="px-4 pt-4">
         <div className="flex p-1 rounded-xl text-[13px]" style={{ background: 'var(--surface-subtle)' }}>
-          {(['delivery', 'pickup'] as OrderTypeKey[]).map((k) => (
+          {(['delivery', 'pickup', 'confirmation'] as CheckoutSubTab[]).map((k) => (
             <button
               key={k}
               type="button"
-              onClick={() => { onOrderTypeChange(k); setExpandedFieldId(null); }}
+              onClick={() => { onSubTabChange(k); setExpandedFieldId(null); }}
               className={`flex-1 py-1.5 rounded-lg font-medium transition ${
-                orderType === k ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
+                subTab === k ? 'text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'
               }`}
-              style={orderType === k ? { background: 'var(--surface)' } : undefined}
+              style={subTab === k ? { background: 'var(--surface)' } : undefined}
             >
-              {k === 'delivery' ? 'Livraison' : 'Retrait'}
+              {k === 'delivery' ? 'Livraison' : k === 'pickup' ? 'Retrait' : 'Confirmation'}
             </button>
           ))}
         </div>
       </div>
 
+      {subTab === 'confirmation' ? (
+        <div className="flex-1 overflow-y-auto">
+          <ConfirmationEditor
+            value={value?.confirmation ?? null}
+            onChange={updateConfirmation}
+          />
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         <section className="space-y-3">
           <Row
@@ -337,6 +354,7 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, order
           )}
         </p>
       </div>
+      )}
     </div>
   );
 }

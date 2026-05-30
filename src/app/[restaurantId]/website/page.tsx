@@ -232,9 +232,10 @@ export default function WebsitePage() {
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
-  // Which order-type sub-tab is active in the Commande editor. Lifted up so the
-  // preview iframe URL stays in sync with the section the owner is editing.
-  const [checkoutOrderType, setCheckoutOrderType] = useState<'delivery' | 'pickup'>('delivery');
+  // Which sub-tab is active in the Commande editor (delivery / pickup /
+  // confirmation). Lifted up so the preview iframe URL stays in sync with the
+  // section the owner is editing.
+  const [checkoutSubTab, setCheckoutSubTab] = useState<'delivery' | 'pickup' | 'confirmation'>('delivery');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -853,8 +854,8 @@ export default function WebsitePage() {
               value={checkoutConfig}
               onChange={setCheckoutConfig}
               placesAvailable={true}
-              orderType={checkoutOrderType}
-              onOrderTypeChange={setCheckoutOrderType}
+              subTab={checkoutSubTab}
+              onSubTabChange={setCheckoutSubTab}
             />
           )}
           {editorMode === 'settings' && (
@@ -897,7 +898,7 @@ export default function WebsitePage() {
             <CheckoutPreviewIframe
               mode={previewMode}
               slug={restaurant?.slug}
-              orderType={checkoutOrderType}
+              subTab={checkoutSubTab}
               checkoutConfig={checkoutConfig}
             />
           ) : editorMode === 'pages' && activePage === 'menu' ? (

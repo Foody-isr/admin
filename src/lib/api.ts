@@ -519,6 +519,47 @@ export interface CheckoutFormConfig {
 export interface CheckoutConfig {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
+  confirmation?: ConfirmationConfig | null;
+}
+
+export interface ConfirmationAction {
+  id: string;
+  kind: 'builtin' | 'custom';
+  enabled: boolean;
+  label?: Record<string, string>;
+  config?: Record<string, unknown>;
+}
+
+export interface ConfirmationFAQ {
+  question?: Record<string, string>;
+  answer?: Record<string, string>;
+}
+
+export interface ConfirmationConfig {
+  title?: Record<string, string>;
+  subtitle?: Record<string, string>;
+  actions?: ConfirmationAction[];
+  faq?: ConfirmationFAQ[];
+}
+
+// Built-in confirmation action ids — order matches what the foodyweb tracking
+// page shows by default before any owner customisation.
+export const BUILTIN_CONFIRMATION_ACTIONS: ReadonlyArray<{ id: string; defaultEnabled: boolean }> = [
+  { id: 'track_order',  defaultEnabled: true  },
+  { id: 'view_receipt', defaultEnabled: true  },
+  { id: 'new_order',    defaultEnabled: true  },
+  { id: 'whatsapp',     defaultEnabled: false },
+];
+
+export function defaultConfirmationConfig(): ConfirmationConfig {
+  return {
+    actions: BUILTIN_CONFIRMATION_ACTIONS.map((a) => ({
+      id: a.id,
+      kind: 'builtin' as const,
+      enabled: a.defaultEnabled,
+    })),
+    faq: [],
+  };
 }
 
 // Built-in field catalogue per order type. The IDs match the server's
@@ -532,19 +573,23 @@ export const BUILTIN_DELIVERY_FIELDS: ReadonlyArray<{ id: string; type: Checkout
   { id: 'delivery_floor',   type: 'text',     defaultRequired: false },
   { id: 'delivery_apt',     type: 'text',     defaultRequired: false },
   { id: 'delivery_notes',   type: 'textarea', defaultRequired: false },
+  { id: 'whatsapp_number',  type: 'tel',      defaultRequired: false },
 ];
 
 export const BUILTIN_PICKUP_FIELDS: ReadonlyArray<{ id: string; type: CheckoutFieldType; defaultRequired: boolean }> = [
-  { id: 'customer_name',  type: 'text',     defaultRequired: true  },
-  { id: 'customer_phone', type: 'tel',      defaultRequired: true  },
-  { id: 'pickup_notes',   type: 'textarea', defaultRequired: false },
+  { id: 'customer_name',   type: 'text',     defaultRequired: true  },
+  { id: 'customer_phone',  type: 'tel',      defaultRequired: true  },
+  { id: 'pickup_notes',    type: 'textarea', defaultRequired: false },
+  { id: 'whatsapp_number', type: 'tel',      defaultRequired: false },
 ];
 
 export function legacyCheckoutForm(orderType: 'delivery' | 'pickup'): CheckoutFormConfig {
+  // whatsapp_number is opt-in — seeded into the catalogue (so the owner sees
+  // it as an addable builtin) but disabled by default.
   const fields = (orderType === 'delivery' ? BUILTIN_DELIVERY_FIELDS : BUILTIN_PICKUP_FIELDS).map((f) => ({
     id: f.id,
     kind: 'builtin' as const,
-    enabled: true,
+    enabled: f.id !== 'whatsapp_number',
     required: f.defaultRequired,
   }));
   return { require_auth: true, fields };
