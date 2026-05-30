@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/lib/i18n';
-import { ProductionSheetResponse, ProductionSheetItem } from '@/lib/api';
+import { ProductionSheetResponse, ProductionSheetItem, ProductionSheetPortion } from '@/lib/api';
 import {
   DataTable,
   DataTableHeadCell,
@@ -22,6 +22,16 @@ function cellVal(value: number | undefined, measure: 'weight' | 'unit'): string 
 }
 function fmtTotal(item: ProductionSheetItem): string {
   return item.measure === 'weight' ? item.total.toLocaleString() : String(item.total);
+}
+/** Render a weighed provenance quantity with its packaging breakdown so that
+ *  e.g. 2×250 g doesn't read as a single 500 g portion. Falls back to a plain
+ *  "<qty> g" when there's no breakdown or it's just a single 1×N container. */
+function fmtProvQty(qty: number, measure: 'weight' | 'unit', portions?: ProductionSheetPortion[]): string {
+  if (measure !== 'weight') return String(qty);
+  const isTrivial =
+    !portions || portions.length === 0 || (portions.length === 1 && portions[0].count === 1);
+  if (isTrivial) return `${qty} g`;
+  return portions.map((p) => `${p.count}×${p.portion_g}`).join(' + ') + ' g';
 }
 
 const HEAD_ROW = 'bg-neutral-50 dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-neutral-800';
@@ -136,12 +146,12 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
                         <TooltipContent>
                           {prov.combos.map((c) => (
                             <span key={c.name} className="block">
-                              {item.measure === 'weight' ? `${c.qty} g` : c.qty} {item.name} ({c.name})
+                              {fmtProvQty(c.qty, item.measure, c.portions)} {item.name} ({c.name})
                             </span>
                           ))}
                           {prov.standalone > 0 && (
                             <span className="block opacity-80">
-                              {item.measure === 'weight' ? `${prov.standalone} g` : prov.standalone} {item.name} (
+                              {fmtProvQty(prov.standalone, item.measure, prov.standalone_portions)} {item.name} (
                               {t('productionIndividual')})
                             </span>
                           )}

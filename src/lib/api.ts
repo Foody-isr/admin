@@ -2404,10 +2404,12 @@ export interface ProductionSheetCategory {
 export interface ProductionComboRef {
   name: string;
   qty: number;
+  portions?: ProductionSheetPortion[]; // weighed items: breakdown of qty (e.g. 2×250g)
 }
 export interface ProductionCellProvenance {
   combos: ProductionComboRef[];
   standalone: number; // count ordered individually (not via a combo)
+  standalone_portions?: ProductionSheetPortion[]; // weighed items: breakdown of standalone count
 }
 export interface ProductionSheetOrder {
   order_id: number;
