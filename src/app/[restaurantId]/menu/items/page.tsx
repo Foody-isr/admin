@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteMenuItem, duplicateMenuItem, createMenuItem,
   createCategory, updateCategory,
-  MenuCategory, MenuItem,
+  AvailabilityOverride, MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -21,6 +21,7 @@ import {
   Sparkles,
   Settings,
   ListPlus,
+  CircleDot,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -167,6 +168,28 @@ export default function ItemLibraryPage() {
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  // Availability bulk dropdown — small inline menu in the bulk toolbar.
+  // Inline (not a drawer) because there are only three fixed options and the
+  // operational use case is fast: 86 these items, or put them back on.
+  const [availabilityMenuOpen, setAvailabilityMenuOpen] = useState(false);
+  const availabilityMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!availabilityMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (availabilityMenuRef.current?.contains(e.target as Node)) return;
+      setAvailabilityMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAvailabilityMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [availabilityMenuOpen]);
+
   // Pagination
   const [page, setPage] = useState(hydratedFilters.page);
 
@@ -287,6 +310,26 @@ export default function ItemLibraryPage() {
       reload();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to assign category');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  // Bulk-set the availability override on every selected item. The per-item
+  // availability_rule_id is intentionally left untouched: the rule is a
+  // sleeping pointer that wakes up when override flips back to 'auto', so
+  // "force sold out today, back to auto tomorrow" preserves rule choices.
+  const handleBulkAvailability = async (value: AvailabilityOverride) => {
+    if (selected.size === 0) return;
+    setBulkProcessing(true);
+    try {
+      for (const id of Array.from(selected)) {
+        await updateMenuItem(rid, id, { availability_override: value });
+      }
+      setSelected(new Set());
+      reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update availability');
     } finally {
       setBulkProcessing(false);
     }
@@ -476,6 +519,45 @@ export default function ItemLibraryPage() {
                 <Settings size={16} />
                 {t('assignModifiers')}
               </button>
+              <div className="relative" ref={availabilityMenuRef}>
+                <button
+                  onClick={() => setAvailabilityMenuOpen((v) => !v)}
+                  disabled={bulkProcessing}
+                  aria-haspopup="menu"
+                  aria-expanded={availabilityMenuOpen}
+                  className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-[#222222] transition-colors flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 disabled:opacity-50"
+                >
+                  <CircleDot size={16} />
+                  {t('availabilityModeTitle')}
+                  <ChevronDown size={14} />
+                </button>
+                {availabilityMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute end-0 top-full mt-1 w-60 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl overflow-hidden z-20"
+                  >
+                    {([
+                      { value: 'auto', label: t('availabilityOverrideAuto') },
+                      { value: 'force_available', label: t('availabilityOverrideForceAvailable') },
+                      { value: 'force_sold_out', label: t('availabilityOverrideForceSoldOut') },
+                    ] as { value: AvailabilityOverride; label: string }[]).map((opt, i) => (
+                      <button
+                        key={opt.value}
+                        role="menuitem"
+                        onClick={() => {
+                          setAvailabilityMenuOpen(false);
+                          handleBulkAvailability(opt.value);
+                        }}
+                        className={`flex w-full items-center gap-2 px-4 py-3 text-sm text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors text-start ${
+                          i > 0 ? 'border-t border-neutral-200 dark:border-neutral-700' : ''
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleBulkDelete}
                 disabled={bulkProcessing}
