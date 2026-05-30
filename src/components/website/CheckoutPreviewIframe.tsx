@@ -69,7 +69,10 @@ export default function CheckoutPreviewIframe({
     );
   }
 
-  const src = `${WEB_URL}/r/${encodeURIComponent(slug)}/order/checkout?orderType=${orderType}&preview=1&restaurantId=${encodeURIComponent(slug)}`;
+  // The foodyweb checkout page lives at `/order/checkout` (NOT under `/r/<slug>/`).
+  // The slug is passed via the `restaurantId` query param — fetchRestaurant
+  // accepts either an id or a slug.
+  const src = `${WEB_URL}/order/checkout?restaurantId=${encodeURIComponent(slug)}&orderType=${orderType}&preview=1`;
   const width = mode === 'mobile' ? 412 : 1024;
   const height = mode === 'mobile' ? 850 : 720;
 
