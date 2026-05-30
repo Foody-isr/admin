@@ -162,6 +162,11 @@ export default function AvailabilityRulesPage() {
                     <>{t('availabilityAlwaysAvailableDesc')}</>
                   )}
                 </div>
+                {!rule.track && !rule.is_default && (
+                  <div className="text-fs-xs text-[var(--warning-500)] leading-relaxed">
+                    {t('availabilityRuleDeprecated')}
+                  </div>
+                )}
                 <div className="mt-auto flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(rule)}>
                     <PencilIcon className="size-3.5" /> {t('edit')}
