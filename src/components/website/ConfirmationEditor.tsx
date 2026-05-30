@@ -286,46 +286,64 @@ function ActionEditor({
         />
       </FormRow>
 
-      {action.kind === 'builtin' && action.id === 'whatsapp' && (
-        <>
-          <FormRow label="Numéro WhatsApp">
-            <input
-              type="tel"
-              value={String((action.config?.phone as string) ?? '')}
-              onChange={(e) => onChange({ config: { ...(action.config ?? {}), phone: e.target.value } })}
-              placeholder="+972501234567"
-              className="admin-input"
-            />
-            <p className="text-[10px] text-fg-secondary mt-1">
-              Format international avec indicatif. Le bouton ouvrira wa.me/&lt;numéro&gt;.
-            </p>
-          </FormRow>
-          <FormRow label="Message pré-rempli">
-            <textarea
-              value={String((action.config?.message as string) ?? '')}
-              onChange={(e) => onChange({ config: { ...(action.config ?? {}), message: e.target.value } })}
-              placeholder="Bonjour, j&apos;ai une question sur ma commande #{order_id}"
-              rows={2}
-              className="admin-input"
-            />
-            <p className="text-[10px] text-fg-secondary mt-1">
-              Utilisez {'{order_id}'} pour insérer le numéro de commande.
-            </p>
-          </FormRow>
-        </>
-      )}
+      {action.kind === 'builtin' && action.id === 'whatsapp' && (() => {
+        const phoneStr = String((action.config?.phone as string) ?? '').trim();
+        const phoneMissing = action.enabled && phoneStr === '';
+        return (
+          <>
+            <FormRow label="Numéro WhatsApp">
+              <input
+                type="tel"
+                value={String((action.config?.phone as string) ?? '')}
+                onChange={(e) => onChange({ config: { ...(action.config ?? {}), phone: e.target.value } })}
+                placeholder="Saisir le numéro avec indicatif"
+                className="admin-input"
+              />
+              <p className="text-[10px] text-fg-secondary mt-1">
+                Format international, ex. <span className="font-mono">+972&nbsp;XX&nbsp;XXX&nbsp;XXXX</span>. Le bouton ouvrira wa.me/&lt;numéro&gt;.
+              </p>
+              {phoneMissing && (
+                <p className="text-[10px] mt-1.5 px-2 py-1 rounded-md" style={{ background: 'rgba(235, 82, 4, 0.12)', color: '#EB5204' }}>
+                  ⚠️ Le bouton WhatsApp n&apos;apparaîtra pas tant que le numéro n&apos;est pas saisi.
+                </p>
+              )}
+            </FormRow>
+            <FormRow label="Message pré-rempli (optionnel)">
+              <textarea
+                value={String((action.config?.message as string) ?? '')}
+                onChange={(e) => onChange({ config: { ...(action.config ?? {}), message: e.target.value } })}
+                placeholder="Saisir un message proposé au client (laisser vide pour aucun)"
+                rows={2}
+                className="admin-input"
+              />
+              <p className="text-[10px] text-fg-secondary mt-1">
+                Utilisez <span className="font-mono">{'{order_id}'}</span> pour insérer le numéro de commande.
+              </p>
+            </FormRow>
+          </>
+        );
+      })()}
 
-      {action.kind === 'custom' && (
-        <FormRow label="URL">
-          <input
-            type="url"
-            value={String((action.config?.url as string) ?? '')}
-            onChange={(e) => onChange({ config: { ...(action.config ?? {}), url: e.target.value } })}
-            placeholder="https://..."
-            className="admin-input"
-          />
-        </FormRow>
-      )}
+      {action.kind === 'custom' && (() => {
+        const urlStr = String((action.config?.url as string) ?? '').trim();
+        const urlMissing = action.enabled && urlStr === '';
+        return (
+          <FormRow label="URL">
+            <input
+              type="url"
+              value={String((action.config?.url as string) ?? '')}
+              onChange={(e) => onChange({ config: { ...(action.config ?? {}), url: e.target.value } })}
+              placeholder="https://..."
+              className="admin-input"
+            />
+            {urlMissing && (
+              <p className="text-[10px] mt-1.5 px-2 py-1 rounded-md" style={{ background: 'rgba(235, 82, 4, 0.12)', color: '#EB5204' }}>
+                ⚠️ Le bouton n&apos;apparaîtra pas tant que l&apos;URL n&apos;est pas saisie.
+              </p>
+            )}
+          </FormRow>
+        );
+      })()}
     </div>
   );
 }
