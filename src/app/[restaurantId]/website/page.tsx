@@ -20,6 +20,8 @@ import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
+import CheckoutEditor from '@/components/website/CheckoutEditor';
+import type { CheckoutConfig } from '@/lib/api';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
@@ -121,7 +123,7 @@ export default function WebsitePage() {
   // Thème: global colors, typography, logo, favicon — applies to BOTH pages.
   // Paramètres: slug, contact display toggles, social links, SEO.
   // The old "Site Settings"/"Section Settings" duality is gone.
-  type EditorMode = 'pages' | 'theme' | 'settings';
+  type EditorMode = 'pages' | 'theme' | 'checkout' | 'settings';
   type ThemeSubMode = 'colors' | 'typography' | 'logo';
   type SettingsSubMode = 'general' | 'contact' | 'social' | 'seo';
   const [editorMode, setEditorMode] = useState<EditorMode>('pages');
@@ -226,6 +228,9 @@ export default function WebsitePage() {
   const [heroNameFont, setHeroNameFont] = useState<string>('');
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
   const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
+  // CheckoutConfig is null until the owner opens the Checkout tab and saves —
+  // null/undefined sentinels keep existing restaurants on the legacy flow.
+  const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -340,6 +345,7 @@ export default function WebsitePage() {
     // If landing is disabled, the page switcher hides "Landing"; make sure the
     // editor isn't sitting on a page that's no longer reachable.
     if (!landingOn) setActivePage('menu');
+    setCheckoutConfig((stateConfig.checkout_config ?? null) as CheckoutConfig | null);
 
     // Sections: assign synthetic negative ids to tmp_id-only sections so
     // existing UI keeps working with a numeric `id` field. The tmp_id is
@@ -401,6 +407,7 @@ export default function WebsitePage() {
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           landing_enabled: stateConfig.landing_enabled ?? true,
+          ...(stateConfig.checkout_config != null ? { checkout_config: stateConfig.checkout_config } : {}),
         },
         sections: sections.map((s) => {
           const tmp = tmpIdMap.get(s.id);
@@ -496,6 +503,7 @@ export default function WebsitePage() {
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
         landing_enabled: landingEnabled,
+        ...(checkoutConfig != null ? { checkout_config: checkoutConfig } : {}),
       },
       sections: sections.map((s) => {
         const tmpId = newSectionTmpIds.current.get(s.id);
@@ -512,7 +520,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, landingEnabled, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, landingEnabled, checkoutConfig, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -708,8 +716,11 @@ export default function WebsitePage() {
 
         {/* Center: mode tabs (Pages / Thème / Paramètres) */}
         <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-subtle)' }}>
-          {(['pages', 'theme', 'settings'] as EditorMode[]).map((m) => {
-            const label = m === 'pages' ? 'Pages' : m === 'theme' ? 'Thème' : 'Paramètres';
+          {(['pages', 'theme', 'checkout', 'settings'] as EditorMode[]).map((m) => {
+            const label = m === 'pages' ? 'Pages'
+              : m === 'theme' ? 'Thème'
+              : m === 'checkout' ? 'Commande'
+              : 'Paramètres';
             const active = editorMode === m;
             return (
               <button
@@ -831,6 +842,13 @@ export default function WebsitePage() {
               restaurantId={restaurantId}
               restaurant={restaurant}
               onRestaurantUpdate={setRestaurant}
+            />
+          )}
+          {editorMode === 'checkout' && (
+            <CheckoutEditor
+              value={checkoutConfig}
+              onChange={setCheckoutConfig}
+              placesAvailable={true}
             />
           )}
           {editorMode === 'settings' && (
