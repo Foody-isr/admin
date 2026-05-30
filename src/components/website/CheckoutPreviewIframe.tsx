@@ -49,11 +49,12 @@ export default function CheckoutPreviewIframe({
     }, '*');
   }, [checkoutConfig, googlePlacesApiKey]);
 
-  // Push fresh config any time the owner edits something.
+  // Push fresh config any time the owner edits something or the iframe
+  // signals readiness. We always send the latest checkoutConfig — losing a
+  // post is worse than over-posting.
   useEffect(() => {
-    if (!ready) return;
     sendConfig();
-  }, [ready, sendConfig]);
+  }, [sendConfig, ready]);
 
   // Reset readiness when the URL changes (different slug or sub-tab → the
   // iframe reloads and must re-announce itself).
@@ -93,9 +94,13 @@ export default function CheckoutPreviewIframe({
         title="Aperçu de la commande"
         className="w-full h-full border-0"
         onLoad={() => {
-          // Some browsers fire load before the inner script wires its listener.
-          // If we already got the ready handshake, this is a refresh — re-send.
-          if (ready) sendConfig();
+          // Always re-send on load — the iframe's "ready" handshake can race
+          // ahead of our message listener attachment, so this is our floor.
+          // Two extra delayed sends give the inner React hook a moment to
+          // attach its own listener before we give up.
+          sendConfig();
+          setTimeout(sendConfig, 100);
+          setTimeout(sendConfig, 400);
         }}
       />
     </div>
