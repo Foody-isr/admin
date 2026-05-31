@@ -121,7 +121,7 @@ export default function CustomersPage() {
       phone: c.customer_phone,
       name: c.customer_name,
       orders: c.total_orders,
-      lastOrderAt: c.last_order_at,
+      lastOrderAt: c.last_order_date,
       trusted: trustedByKey.get(phoneKey(c.customer_phone)) ?? null,
     }));
     // On the unfiltered first page, surface trusted customers who have no
