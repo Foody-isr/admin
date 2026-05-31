@@ -7,8 +7,9 @@ the contract between them as implemented.
 ## Who is a courier?
 A courier is a **staff member** (a `User` with a `UserRestaurantRole` for the
 restaurant). A default RBAC role template **"Courier"** is seeded
-(`server/internal/rbac/permissions.go`) with `orders.view` + `orders.manage`.
-Owners create couriers through the existing Roles & Permissions / Staff UI.
+(`server/internal/rbac/permissions.go`) with a single, minimal permission:
+`orders.view` (read-only). Owners create couriers through the existing
+Roles & Permissions / Staff UI, and can grant more if they wish.
 
 The admin app treats a staff member as a courier when their role is the legacy
 `courier` enum **or** their RBAC `role_name` is `"Courier"` (`isCourier()` in
