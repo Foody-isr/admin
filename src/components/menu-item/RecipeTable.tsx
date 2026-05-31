@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
+import RecipeUnitSelect from './RecipeUnitSelect';
 import {
   type IngredientInput,
   type IngredientVariantOverride,
@@ -26,8 +27,6 @@ import {
 import { computePrepUnitCostExVat } from '@/lib/cost-utils';
 import { convertToBaseUnit, customUnitFactor, sameUnitFamily, type UnitConversionLike } from '@/lib/units';
 import { BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
-
-const UNITS = ['g', 'kg', 'ml', 'l', 'unit'] as const;
 
 export interface VariantColumn {
   /** Backend option_id for this variant. */
@@ -65,6 +64,9 @@ interface Row {
   /** Stock item's custom-unit conversions, so a custom unit (e.g. "piece")
    *  picked for this row resolves to a real cost/deduction. Empty for preps. */
   conversions: UnitConversionLike[];
+  /** Linked stock item id, so the unit picker can deep-link to the stock
+   *  editor where conversions are managed. Null for prep rows. */
+  stockItemId: number | null;
 }
 
 // Resolve unit cost for an ingredient. Stock items expose cost_per_unit
@@ -124,6 +126,7 @@ function toRow(ing: MenuItemIngredient, _variants: VariantColumn[]): Row {
     costPerUnit: cost,
     costUnit,
     conversions: ing.stock_item?.unit_conversions ?? [],
+    stockItemId: ing.stock_item?.id ?? ing.stock_item_id ?? null,
   };
 }
 
@@ -729,13 +732,6 @@ function RecipeRow({
   onCommit,
   onDelete,
 }: RecipeRowProps) {
-  // Per-ingredient custom unit names — only the units configured on this
-  // stock item (with a positive conversion). Prevents the dropdown from
-  // offering a unit that would silently pass through at deduction time.
-  const itemCustomUnits = row.conversions
-    .filter((c) => c.base_quantity > 0)
-    .map((c) => c.custom_unit?.name)
-    .filter((n): n is string => !!n);
   // Persist on blur — avoids saving on every keystroke. The change handler
   // updates the visible state immediately so input feels responsive; commit
   // pushes the latest snapshot to the server.
@@ -801,21 +797,13 @@ function RecipeRow({
       </td>
 
       <td className="px-[var(--s-3)] py-[var(--s-2)]">
-        <select
+        <RecipeUnitSelect
           value={row.unit}
-          onChange={(e) => onUnitChange(e.target.value)}
-          className="w-full px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)]"
-        >
-          {/* Built-in units + only the custom units this ingredient actually
-              has a conversion for. The current value is always kept in the
-              list so a stale/removed unit stays visible (and the ⚠️ icon
-              prompts the user to fix it). */}
-          {Array.from(new Set([...UNITS, ...itemCustomUnits, row.unit].filter(Boolean))).map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </select>
+          onChange={onUnitChange}
+          conversions={row.conversions}
+          baseUnit={row.costUnit}
+          stockItemId={row.stockItemId}
+        />
       </td>
 
       {hasVariants ? (
