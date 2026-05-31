@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, AlertTriangle, Camera, Image as ImageIcon } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { COST_THRESHOLD } from '@/lib/cost-utils';
 import { useI18n } from '@/lib/i18n';
 
@@ -45,6 +45,9 @@ interface Props {
   onShowComboSavingsDetail?: () => void;
   placeholderLabel?: string;
   onImageClick?: () => void;
+  /** When set, shows a sparkles button next to the camera that opens the
+   *  AI image generator modal. */
+  onAiImageClick?: () => void;
 }
 
 // Left rail — mirrors Figma MenuItemDetails.tsx:43-89.
@@ -62,6 +65,7 @@ export default function MenuItemSummaryRail({
   onShowComboSavingsDetail,
   placeholderLabel,
   onImageClick,
+  onAiImageClick,
 }: Props) {
   const { t } = useI18n();
   const currency = costSummary?.currencySymbol ?? '\u20AA';
@@ -107,6 +111,17 @@ export default function MenuItemSummaryRail({
               />
             );
           })()}
+          {onAiImageClick && (
+            <button
+              type="button"
+              onClick={onAiImageClick}
+              aria-label={t('generateWithAi') || 'Generate with AI'}
+              title={t('generateWithAi') || 'Generate with AI'}
+              className="absolute bottom-3 right-12 size-8 rounded-full bg-[var(--brand-500)] hover:bg-[var(--brand-600)] flex items-center justify-center transition-colors"
+            >
+              <Sparkles size={16} className="text-white" />
+            </button>
+          )}
           {onImageClick && (
             <button
               type="button"

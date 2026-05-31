@@ -56,6 +56,13 @@ export interface Restaurant {
    * Israeli restaurants typically use 0 (Sunday).
    */
   week_start_day?: number;
+  /**
+   * Explicit list of weekday numbers (0=Sun … 6=Sat) the restaurant
+   * operates. Empty / unset = derive from opening_hours_config (the
+   * default). Use `getEffectiveWorkdays(restaurant)` from
+   * `@/lib/weeks` to read the resolved value.
+   */
+  workdays?: number[];
   phone: string;
   delivery_enabled: boolean;
   pickup_enabled: boolean;
@@ -5236,5 +5243,122 @@ export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
     `/api/v1/restaurants/${restaurantId}/whatsapp/sender`,
     restaurantId,
     { method: 'DELETE' },
+  );
+}
+
+// ─── Menu Item AI Image Generator ───────────────────────────────────────────
+// Per-restaurant prompt templates + on-demand text-to-image and image-to-image
+// generation against gpt-image-1. Templates can include {{item_name}},
+// {{item_description}}, {{category}} placeholders rendered server-side.
+
+export interface MenuImagePrompt {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  prompt: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MenuImageGenerationResult {
+  generation_id: number;
+  image_b64: string;
+  rendered_prompt: string;
+}
+
+export interface MenuImageConfirmResult {
+  image_url: string;
+  item: MenuItem;
+}
+
+export async function listMenuImagePrompts(restaurantId: number): Promise<MenuImagePrompt[]> {
+  const data = await apiFetch<{ prompts: MenuImagePrompt[] }>(
+    `/api/v1/menu/image-prompts?restaurant_id=${restaurantId}`,
+    restaurantId,
+  );
+  return data.prompts ?? [];
+}
+
+export async function createMenuImagePrompt(
+  restaurantId: number,
+  input: { name: string; prompt: string; is_default?: boolean },
+): Promise<MenuImagePrompt> {
+  return apiFetch<MenuImagePrompt>(
+    `/api/v1/menu/image-prompts?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export async function updateMenuImagePrompt(
+  restaurantId: number,
+  id: number,
+  input: Partial<{ name: string; prompt: string; is_default: boolean }>,
+): Promise<MenuImagePrompt> {
+  return apiFetch<MenuImagePrompt>(
+    `/api/v1/menu/image-prompts/${id}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
+export async function deleteMenuImagePrompt(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(
+    `/api/v1/menu/image-prompts/${id}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+}
+
+export async function generateMenuItemImage(
+  restaurantId: number,
+  itemId: number,
+  input: { prompt_id?: number; prompt_override?: string },
+): Promise<MenuImageGenerationResult> {
+  return apiFetch<MenuImageGenerationResult>(
+    `/api/v1/menu/items/${itemId}/ai-image/generate?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Sends a reference image + prompt to /v1/images/edits. Bypasses apiFetch
+ *  because the body is multipart, not JSON. */
+export async function editMenuItemImage(
+  restaurantId: number,
+  itemId: number,
+  reference: File,
+  input: { prompt_id?: number; prompt_override?: string },
+): Promise<MenuImageGenerationResult> {
+  const form = new FormData();
+  form.append('image', reference);
+  if (input.prompt_id != null) form.append('prompt_id', String(input.prompt_id));
+  if (input.prompt_override) form.append('prompt_override', input.prompt_override);
+  const token = getToken();
+  const res = await fetch(
+    `${API_URL}/api/v1/menu/items/${itemId}/ai-image/edit?restaurant_id=${restaurantId}`,
+    {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Edit failed' }));
+    throw new Error(err.detail || err.error || 'Edit failed');
+  }
+  return res.json();
+}
+
+export async function confirmMenuItemImage(
+  restaurantId: number,
+  itemId: number,
+  input: { generation_id: number; image_b64: string },
+): Promise<MenuImageConfirmResult> {
+  return apiFetch<MenuImageConfirmResult>(
+    `/api/v1/menu/items/${itemId}/ai-image/confirm?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
   );
 }

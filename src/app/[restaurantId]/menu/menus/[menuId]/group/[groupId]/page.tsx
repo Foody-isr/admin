@@ -16,8 +16,8 @@ import { useI18n } from '@/lib/i18n';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import {
-  addDays, clampWeekStartDay, getWeekEnd, getWeekStart, isoDate,
-  type WeekStartDay,
+  addDays, clampWeekStartDay, getEffectiveWorkdays, getWeekStart, isoDate,
+  workdaySpan, type WeekStartDay,
 } from '@/lib/weeks';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
@@ -92,6 +92,10 @@ export default function GroupPage() {
   // the restaurant; until then we use Monday so the UI never renders an
   // undefined boundary. Overwritten by the value coming back from the API.
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
+  // Operating days inside each 7-day window. Defaults to all 7 (no filter)
+  // until the restaurant loads; then resolved via getEffectiveWorkdays so the
+  // operator's "follow opening hours" preference applies automatically.
+  const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   // `selectedWeekStart` is the YYYY-MM-DD of the first day of the week being
   // edited. Defaults to the current week and is rebased onto the configured
   // week-start day once the restaurant loads.
@@ -108,6 +112,7 @@ export default function GroupPage() {
       setActiveLocale(resolved);
       const wsd = clampWeekStartDay(restaurant.week_start_day);
       setWeekStartDay(wsd);
+      setWorkdays(getEffectiveWorkdays(restaurant));
       // Rebase the selected week onto the configured start day. The initial
       // default assumed Monday — if the restaurant uses Sunday, this slides
       // the picker back one day so the labels line up with the workweek.
@@ -264,9 +269,19 @@ export default function GroupPage() {
     return [...savedGroupItems, ...pendingItems.filter((i) => !savedIds.has(i.id))];
   }, [savedGroupItems, pendingItems]);
 
-  // Selected-week metadata for UI labels and date calculations.
+  // Selected-week metadata for UI labels and date calculations. The label
+  // shows the workday span ("Sun 31-05 → Thu 04-06") rather than the raw
+  // 7-day calendar window, so the dates the operator sees match the days
+  // their kitchen actually operates. The cutoff for soft-removing an item
+  // ("only this week onward") still uses the calendar start so historical
+  // memberships keep working consistently.
   const selectedWeekFirstDay = useMemo(() => new Date(selectedWeekStart + 'T00:00:00'), [selectedWeekStart]);
-  const selectedWeekLastIso = useMemo(() => isoDate(getWeekEnd(selectedWeekFirstDay)), [selectedWeekFirstDay]);
+  const selectedWeekSpan = useMemo(
+    () => workdaySpan(selectedWeekFirstDay, workdays),
+    [selectedWeekFirstDay, workdays],
+  );
+  const selectedWeekFirstWorkdayIso = useMemo(() => isoDate(selectedWeekSpan.first), [selectedWeekSpan]);
+  const selectedWeekLastWorkdayIso = useMemo(() => isoDate(selectedWeekSpan.last), [selectedWeekSpan]);
   const todayWeekStartIso = useMemo(() => isoDate(getWeekStart(new Date(), weekStartDay)), [weekStartDay]);
   const isCurrentWeek = selectedWeekStart === todayWeekStartIso;
 
@@ -311,7 +326,7 @@ export default function GroupPage() {
     } else if (gid) {
       const scope = isCurrentWeek
         ? {} // always-on for the current week — preserves legacy semantics
-        : { effective_from: selectedWeekStart, effective_until: selectedWeekLastIso };
+        : { effective_from: selectedWeekFirstWorkdayIso, effective_until: selectedWeekLastWorkdayIso };
       await addItemsToGroup(rid, gid, itemIds, scope);
       setModalView(null);
       load();
@@ -336,7 +351,7 @@ export default function GroupPage() {
     } else if (gid) {
       const scope = isCurrentWeek
         ? {}
-        : { effective_from: selectedWeekStart, effective_until: selectedWeekLastIso };
+        : { effective_from: selectedWeekFirstWorkdayIso, effective_until: selectedWeekLastWorkdayIso };
       await addItemsToGroup(rid, gid, itemsToImport, scope);
       setModalView(null);
       load();
@@ -571,8 +586,8 @@ export default function GroupPage() {
           {!isNew && !isCurrentWeek && (
             <div className="mb-4 px-3 py-2 rounded-lg bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] text-sm text-fg-secondary">
               {t('groupWeekScopeHint')
-                .replace('{from}', selectedWeekStart)
-                .replace('{to}', selectedWeekLastIso)}
+                .replace('{from}', selectedWeekFirstWorkdayIso)
+                .replace('{to}', selectedWeekLastWorkdayIso)}
             </div>
           )}
           {groupItems.length > 0 ? (
