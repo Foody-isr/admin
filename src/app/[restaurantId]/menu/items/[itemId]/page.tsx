@@ -11,6 +11,7 @@ import {
   syncItemVariants,
   listStockItems, listPrepItems, getMenuItemIngredients, setMenuItemIngredients,
   getRestaurant,
+  retranslateMenuItem,
   MenuCategory, MenuItem, ModifierSet, Menu,
   OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
   StockItem, PrepItem, MenuItemIngredient,
@@ -574,6 +575,7 @@ export default function EditItemPage() {
                   sourceLocale={sourceLocale}
                   translations={translations}
                   setTranslations={setTranslations}
+                  onRetranslate={(fields) => retranslateMenuItem(rid, iid, fields)}
                   onTypeChange={requestTypeChange}
                   comboStepsCount={comboSteps.length}
                   onJumpToComposition={() => setActiveTab('composition')}

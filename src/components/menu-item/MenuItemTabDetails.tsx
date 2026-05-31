@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Boxes, ArrowRight } from 'lucide-react';
+import { ChevronDown, Boxes, ArrowRight, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
@@ -58,6 +58,15 @@ interface Props {
   /** Updater for translations. Pass a fresh object back to the parent. */
   setTranslations?: (t: TranslationMap) => void;
   /**
+   * Force-refresh translations from AWS Translate. Called by the per-field
+   * "Re-translate this field" link (with a single-element `fields` array)
+   * and the "Re-translate all" button (no `fields` argument). The parent
+   * is responsible for the API call AND for persisting the result so the
+   * editor reflects what the DB now holds. Omit to hide the buttons (e.g.
+   * on the new-item page, where there is no item ID yet).
+   */
+  onRetranslate?: (fields?: string[]) => Promise<TranslationMap>;
+  /**
    * When the article has meaningful sizes/variants, the single base-price
    * field is replaced by a hint — price is then owned solely by the size rows
    * (rendered just below by the page's VariantsEditor). This removes the
@@ -85,10 +94,34 @@ export default function MenuItemTabDetails({
   sourceLocale,
   translations,
   setTranslations,
+  onRetranslate,
   hideBasePrice = false,
 }: Props) {
   const { t } = useI18n();
   const [categoryOpen, setCategoryOpen] = useState(false);
+  // Track which field is currently being re-translated so we can show a spinner
+  // and disable the button. `'all'` covers the strip-level "Re-translate all"
+  // action; individual field names cover the per-field links.
+  const [retranslating, setRetranslating] = useState<null | 'all' | 'name' | 'description'>(null);
+  const [retranslateError, setRetranslateError] = useState<string | null>(null);
+
+  const runRetranslate = async (target: 'all' | 'name' | 'description') => {
+    if (!onRetranslate || !setTranslations) return;
+    setRetranslating(target);
+    setRetranslateError(null);
+    try {
+      const next = await onRetranslate(target === 'all' ? undefined : [target]);
+      setTranslations(next);
+    } catch (e) {
+      setRetranslateError(
+        t('languageRetranslateFailed') || 'Re-translation failed. Try again.',
+      );
+      // Surface to console for debugging; users see the inline message.
+      console.error('retranslate failed', e);
+    } finally {
+      setRetranslating(null);
+    }
+  };
   // i18n editor is only enabled when the parent passes the trio of
   // sourceLocale / translations / setTranslations. The new-item page omits
   // them, so the editor behaves exactly as before there.
@@ -164,11 +197,33 @@ export default function MenuItemTabDetails({
               onChange={setActiveLocale}
               missing={missing}
             />
+            {onRetranslate && (
+              <button
+                type="button"
+                onClick={() => runRetranslate('all')}
+                disabled={retranslating !== null}
+                className="inline-flex items-center gap-1.5 h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-xs font-medium text-[var(--fg-muted)] hover:text-[var(--fg)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                title={t('languageRetranslateAll') || 'Re-translate all'}
+              >
+                <RefreshCw
+                  className={`w-3 h-3 ${retranslating === 'all' ? 'animate-spin' : ''}`}
+                  aria-hidden
+                />
+                <span>
+                  {retranslating === 'all'
+                    ? (t('languageRetranslateRunning') || 'Re-translating…')
+                    : (t('languageRetranslateAll') || 'Re-translate all')}
+                </span>
+              </button>
+            )}
             {!isSourceTab && (
               <span className="text-fs-xs text-[var(--fg-subtle)]">
                 {t('languageEditingTranslation') ||
                   'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
               </span>
+            )}
+            {retranslateError && (
+              <span className="text-fs-xs text-[var(--danger-500)]">{retranslateError}</span>
             )}
           </div>
         )}
@@ -190,9 +245,27 @@ export default function MenuItemTabDetails({
                   onChange={(e) => setTranslatedField('name', e.target.value)}
                   placeholder={name || (t('nameRequired') || 'Nom *')}
                 />
-                <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
-                  {(t('languageSourceLabel') || 'Source') + ': '}
-                  <span className="font-medium text-[var(--fg-muted)]">{name || '—'}</span>
+                <div className="flex items-center justify-between gap-[var(--s-3)] mt-1">
+                  <div className="text-fs-xs text-[var(--fg-subtle)]">
+                    {(t('languageSourceLabel') || 'Source') + ': '}
+                    <span className="font-medium text-[var(--fg-muted)]">{name || '—'}</span>
+                  </div>
+                  {onRetranslate && (
+                    <button
+                      type="button"
+                      onClick={() => runRetranslate('name')}
+                      disabled={retranslating !== null}
+                      className="inline-flex items-center gap-1 text-fs-xs text-[var(--brand-500)] hover:underline disabled:opacity-60 disabled:cursor-not-allowed disabled:no-underline"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 ${retranslating === 'name' ? 'animate-spin' : ''}`}
+                        aria-hidden
+                      />
+                      {retranslating === 'name'
+                        ? (t('languageRetranslateRunning') || 'Re-translating…')
+                        : (t('languageRetranslateField') || 'Re-translate this field')}
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -320,9 +393,27 @@ export default function MenuItemTabDetails({
                 placeholder={description || (t('addDescription') || 'Ajouter une description')}
                 rows={4}
               />
-              <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">
-                {(t('languageSourceLabel') || 'Source') + ': '}
-                <span className="text-[var(--fg-muted)]">{description || '—'}</span>
+              <div className="flex items-center justify-between gap-[var(--s-3)] mt-1">
+                <div className="text-fs-xs text-[var(--fg-subtle)]">
+                  {(t('languageSourceLabel') || 'Source') + ': '}
+                  <span className="text-[var(--fg-muted)]">{description || '—'}</span>
+                </div>
+                {onRetranslate && (
+                  <button
+                    type="button"
+                    onClick={() => runRetranslate('description')}
+                    disabled={retranslating !== null}
+                    className="inline-flex items-center gap-1 text-fs-xs text-[var(--brand-500)] hover:underline disabled:opacity-60 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    <RefreshCw
+                      className={`w-3 h-3 ${retranslating === 'description' ? 'animate-spin' : ''}`}
+                      aria-hidden
+                    />
+                    {retranslating === 'description'
+                      ? (t('languageRetranslateRunning') || 'Re-translating…')
+                      : (t('languageRetranslateField') || 'Re-translate this field')}
+                  </button>
+                )}
               </div>
             </>
           )}

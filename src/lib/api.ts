@@ -1721,6 +1721,24 @@ export async function duplicateMenuItem(restaurantId: number, id: number): Promi
   return data;
 }
 
+/** Force a fresh auto-translation pass on a single menu item. Pass `fields`
+ *  to refresh only some (e.g. `['name']`); omit it to refresh every
+ *  translatable field. Returns the new translation map so the caller can
+ *  apply it to in-memory editor state without a full reload. */
+export async function retranslateMenuItem(
+  restaurantId: number,
+  id: number,
+  fields?: string[],
+): Promise<TranslationMap> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (fields && fields.length > 0) qs.set('fields', fields.join(','));
+  const data = await apiFetch<{ translations: TranslationMap | null }>(
+    `/api/v1/menu/items/${id}/retranslate?${qs.toString()}`, restaurantId,
+    { method: 'POST' },
+  );
+  return data.translations ?? {};
+}
+
 export async function uploadMenuItemImage(restaurantId: number, itemId: number, file: File): Promise<string> {
   const form = new FormData();
   form.append('image', file);

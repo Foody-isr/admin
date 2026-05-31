@@ -2274,6 +2274,10 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateConfirmAction: 'Re-translate everything',
     languageEditingTranslation: 'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.',
     languageSourceLabel: 'Source',
+    languageRetranslateAll: 'Re-translate all',
+    languageRetranslateField: 'Re-translate this field',
+    languageRetranslateRunning: 'Re-translating…',
+    languageRetranslateFailed: 'Re-translation failed. Try again.',
 
     // ── Opening Hours ──
     openingHours: 'Opening Hours',
@@ -4779,6 +4783,10 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateConfirmAction: 'תרגם הכל מחדש',
     languageEditingTranslation: 'עריכת תרגום. השאר ריק כדי להשתמש בתרגום אוטומטי; מה שתקליד כאן יעקוף אותו.',
     languageSourceLabel: 'מקור',
+    languageRetranslateAll: 'תרגם הכל מחדש',
+    languageRetranslateField: 'תרגם שדה זה מחדש',
+    languageRetranslateRunning: 'מתרגם…',
+    languageRetranslateFailed: 'התרגום מחדש נכשל. נסה שוב.',
 
     openingHours: 'שעות פתיחה',
     openingHoursDesc: 'הגדר שעות פתיחה לפי סוג הזמנה ויום בשבוע.',
@@ -7296,6 +7304,10 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateConfirmAction: 'Tout retraduire',
     languageEditingTranslation: 'Édition d\'une traduction. Laissez vide pour utiliser la traduction automatique ; ce que vous saisissez ici la remplace.',
     languageSourceLabel: 'Source',
+    languageRetranslateAll: 'Tout retraduire',
+    languageRetranslateField: 'Retraduire ce champ',
+    languageRetranslateRunning: 'Traduction en cours…',
+    languageRetranslateFailed: 'Échec de la retraduction. Réessayez.',
 
     openingHours: 'Horaires d\'ouverture',
     openingHoursDesc: 'Définissez vos horaires par type de commande et jour de la semaine.',
