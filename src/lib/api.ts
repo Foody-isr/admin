@@ -414,6 +414,7 @@ export interface StaffMember {
   role: Role;
   role_id?: number;
   role_name?: string;
+  is_default_courier?: boolean;
 }
 
 export interface Subscription {
@@ -2732,6 +2733,18 @@ export async function removeStaff(restaurantId: number, userId: number): Promise
   await apiFetch<void>(
     `/api/v1/restaurants/${restaurantId}/staff/${userId}`, restaurantId,
     { method: 'DELETE' }
+  );
+}
+
+// setDefaultCourier marks a staff member as the restaurant's default courier
+// (or clears the flag). Only one default per restaurant — promoting a new
+// member clears the previous one server-side.
+export async function setDefaultCourier(
+  restaurantId: number, userId: number, isDefault: boolean
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/staff/${userId}/default-courier`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ is_default: isDefault }) }
   );
 }
 

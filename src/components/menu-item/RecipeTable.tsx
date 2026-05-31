@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import {
   type IngredientInput,
@@ -729,6 +730,7 @@ function RecipeRow({
   onCommit,
   onDelete,
 }: RecipeRowProps) {
+  const { t } = useI18n();
   // Per-ingredient custom unit names — only the units configured on this
   // stock item (with a positive conversion). Prevents the dropdown from
   // offering a unit that would silently pass through at deduction time.
@@ -801,21 +803,37 @@ function RecipeRow({
       </td>
 
       <td className="px-[var(--s-3)] py-[var(--s-2)]">
-        <select
-          value={row.unit}
-          onChange={(e) => onUnitChange(e.target.value)}
-          className="w-full px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)]"
-        >
-          {/* Built-in units + only the custom units this ingredient actually
-              has a conversion for. The current value is always kept in the
-              list so a stale/removed unit stays visible (and the ⚠️ icon
-              prompts the user to fix it). */}
-          {Array.from(new Set([...UNITS, ...itemCustomUnits, row.unit].filter(Boolean))).map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </select>
+        {/* Two groups so the chef can tell standard units apart from the
+            ingredient's named portions (e.g. "Unité" = 0.35 kg). The current
+            value is always rendered as an option so a stale/removed unit
+            stays visible — the ⚠️ icon prompts the user to fix it. */}
+        {(() => {
+          const stdUnits = Array.from(new Set([...UNITS, ...(UNITS.includes(row.unit as typeof UNITS[number]) ? [row.unit] : [])]));
+          const customUnitsList = Array.from(new Set([
+            ...itemCustomUnits,
+            ...(row.unit && !UNITS.includes(row.unit as typeof UNITS[number]) ? [row.unit] : []),
+          ]));
+          return (
+            <Select
+              value={row.unit}
+              onChange={(e) => onUnitChange(e.target.value)}
+              className="h-8 text-fs-sm"
+            >
+              <optgroup label={t('unitGroupStandard')}>
+                {stdUnits.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </optgroup>
+              {customUnitsList.length > 0 && (
+                <optgroup label={t('unitGroupCustom')}>
+                  {customUnitsList.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          );
+        })()}
       </td>
 
       {hasVariants ? (

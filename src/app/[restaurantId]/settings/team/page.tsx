@@ -13,10 +13,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { MoreHorizontal, Plus, Edit, Users } from 'lucide-react';
+import { MoreHorizontal, Plus, Edit, Users, Star } from 'lucide-react';
 import {
   listStaff,
   listRoles,
+  isCourier,
+  setDefaultCourier,
   StaffMember,
   RestaurantRole,
 } from '@/lib/api';
@@ -61,6 +63,25 @@ export default function TeamSettingsPage() {
 
   const activeCount = staff.length;
 
+  // Toggle the default-courier flag and reflect the server-side promotion rule
+  // locally: at most one courier per restaurant carries the flag at a time.
+  const toggleDefaultCourier = async (member: StaffMember) => {
+    const next = !member.is_default_courier;
+    try {
+      await setDefaultCourier(rid, member.id, next);
+      setStaff((prev) =>
+        prev.map((m) => {
+          if (m.id === member.id) return { ...m, is_default_courier: next };
+          if (next && m.is_default_courier) return { ...m, is_default_courier: false };
+          return m;
+        })
+      );
+    } catch {
+      // Silently leave the previous state if the request fails; the list
+      // refresh on next navigation will reconcile.
+    }
+  };
+
   return (
     <div className="max-w-[960px]">
       <PageHead
@@ -103,48 +124,84 @@ export default function TeamSettingsPage() {
           <div className="border border-[var(--line)] rounded-r-md overflow-hidden">
             <div
               className="grid gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] bg-[var(--surface-2)] text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-muted)]"
-              style={{ gridTemplateColumns: '1fr 180px 120px 140px 32px' }}
+              style={{ gridTemplateColumns: '1fr 180px 120px 140px 32px 32px' }}
             >
               <span>{t('name') || 'Nom'}</span>
               <span>{t('role') || 'Rôle'}</span>
               <span>{t('status') || 'Statut'}</span>
               <span>{t('lastActivity') || 'Dernière activité'}</span>
               <span />
+              <span />
             </div>
-            {staff.map((m, i) => (
-              <div
-                key={m.id}
-                className="grid gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] items-center text-fs-sm border-t border-[var(--line)]"
-                style={{ gridTemplateColumns: '1fr 180px 120px 140px 32px' }}
-              >
-                <div className="flex items-center gap-[var(--s-3)] min-w-0">
-                  <div
-                    className="relative w-9 h-9 rounded-full grid place-items-center text-white text-fs-xs font-semibold shrink-0"
-                    style={{ background: AVATAR_PALETTE[i % AVATAR_PALETTE.length] }}
-                  >
-                    {initials(m.full_name) || '?'}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{m.full_name}</div>
-                    <div className="text-fs-xs text-[var(--fg-subtle)] truncate">{m.email}</div>
-                  </div>
-                </div>
-                <span className="truncate">{m.role_name || m.role}</span>
-                <span>
-                  <Badge tone="success" dot>
-                    {t('active') || 'Actif'}
-                  </Badge>
-                </span>
-                <span className="text-fs-xs text-[var(--fg-subtle)]">—</span>
-                <button
-                  type="button"
-                  className="h-8 w-8 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
-                  aria-label={t('moreActions') || 'Plus'}
+            {staff.map((m, i) => {
+              const courier = isCourier(m);
+              const isDefault = Boolean(m.is_default_courier);
+              return (
+                <div
+                  key={m.id}
+                  className="grid gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] items-center text-fs-sm border-t border-[var(--line)]"
+                  style={{ gridTemplateColumns: '1fr 180px 120px 140px 32px 32px' }}
                 >
-                  <MoreHorizontal className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-[var(--s-3)] min-w-0">
+                    <div
+                      className="relative w-9 h-9 rounded-full grid place-items-center text-white text-fs-xs font-semibold shrink-0"
+                      style={{ background: AVATAR_PALETTE[i % AVATAR_PALETTE.length] }}
+                    >
+                      {initials(m.full_name) || '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-[var(--s-2)] min-w-0">
+                        <span className="font-medium truncate">{m.full_name}</span>
+                        {isDefault && (
+                          <Badge tone="warning">
+                            {t('defaultCourier') || 'Coursier par défaut'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-fs-xs text-[var(--fg-subtle)] truncate">{m.email}</div>
+                    </div>
+                  </div>
+                  <span className="truncate">{m.role_name || m.role}</span>
+                  <span>
+                    <Badge tone="success" dot>
+                      {t('active') || 'Actif'}
+                    </Badge>
+                  </span>
+                  <span className="text-fs-xs text-[var(--fg-subtle)]">·</span>
+                  {courier ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleDefaultCourier(m)}
+                      className="h-8 w-8 grid place-items-center rounded-r-md hover:bg-[var(--surface-2)]"
+                      title={
+                        isDefault
+                          ? t('clearDefaultCourier') || 'Retirer du coursier par défaut'
+                          : t('setAsDefaultCourier') || 'Définir comme coursier par défaut'
+                      }
+                      aria-label={t('defaultCourier') || 'Coursier par défaut'}
+                      aria-pressed={isDefault}
+                    >
+                      <Star
+                        className="w-4 h-4"
+                        style={{
+                          color: isDefault ? '#f59e0b' : 'var(--fg-muted)',
+                          fill: isDefault ? '#f59e0b' : 'none',
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    type="button"
+                    className="h-8 w-8 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                    aria-label={t('moreActions') || 'Plus'}
+                  >
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </Section>
