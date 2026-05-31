@@ -8,8 +8,9 @@ import {
   batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
   createStockCategory, updateStockCategory, deleteStockCategory,
+  listCustomUnits,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
-  Supplier,
+  Supplier, CustomUnit, UnitConversionInput,
 } from '@/lib/api';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
@@ -17,6 +18,7 @@ import CsvImportModal from '@/components/import/CsvImportModal';
 import StockQuantityForm, {
   StockInput,
   defaultStockInput,
+  deriveTotals,
   serverToStockInput,
   stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
@@ -994,6 +996,19 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
     editing?.vat_rate_override ?? null,
   );
 
+  // Custom-unit conversions: how much of this item's base unit equals one
+  // custom unit (e.g. 1 "piece" = 0.15 kg). Keyed by custom_unit_id so the UI
+  // can show every available unit with its (possibly empty) configured amount.
+  const [customUnits, setCustomUnits] = useState<CustomUnit[]>([]);
+  const [conversions, setConversions] = useState<Record<number, number>>(() => {
+    const out: Record<number, number> = {};
+    for (const c of editing?.unit_conversions ?? []) out[c.custom_unit_id] = c.base_quantity;
+    return out;
+  });
+  useEffect(() => {
+    listCustomUnits(rid).then(setCustomUnits).catch(() => setCustomUnits([]));
+  }, [rid]);
+
   // Image upload state
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -1068,6 +1083,9 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           .filter((a) => a.alias !== ''),
         is_active: isActive,
         vat_rate_override: vatRateOverride,
+        unit_conversions: customUnits
+          .map<UnitConversionInput>((u) => ({ custom_unit_id: u.id, base_quantity: conversions[u.id] ?? 0 }))
+          .filter((c) => c.base_quantity > 0),
       };
       if (editing) {
         await updateStockItem(rid, editing.id, payload);
@@ -1401,6 +1419,31 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             </button>
           </div>
         </div>
+
+        {/* Custom unit sizes — how much of the base unit one custom unit
+            (piece, slice…) equals for this item, so recipes can be written in
+            those units and still deduct stock / cost correctly. */}
+        {customUnits.length > 0 && (
+          <div className="mb-[var(--s-5)]">
+            <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-1">{t('customUnitSizes')}</h3>
+            <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-3)]">{t('customUnitSizesHint')}</p>
+            <div className="flex flex-col gap-[var(--s-2)]">
+              {customUnits.map((u) => (
+                <div key={u.id} className="flex items-center gap-[var(--s-2)]">
+                  <span className="text-fs-sm text-[var(--fg-muted)] w-24 shrink-0">1 {u.name}</span>
+                  <span className="text-fs-sm text-[var(--fg-muted)]">=</span>
+                  <NumberInput
+                    min={0}
+                    className="input w-28 py-2 text-sm"
+                    value={conversions[u.id] ?? 0}
+                    onChange={(n) => setConversions((prev) => ({ ...prev, [u.id]: n }))}
+                  />
+                  <span className="text-fs-sm text-[var(--fg-muted)]">{deriveTotals(qty).baseUnit}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       {iconPickerOpen && (
         <IngredientIconPicker
