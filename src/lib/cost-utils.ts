@@ -1,5 +1,5 @@
 import type { MenuItem, MenuItemIngredient, PrepItem, ItemOptionOverride } from '@/lib/api';
-import { convertQuantity } from '@/lib/units';
+import { convertQuantity, customUnitFactor } from '@/lib/units';
 
 // Industry guideline used as the threshold below which a menu item has a
 // healthy food-cost %. Lives here so the Cost tab and any other consumer
@@ -154,6 +154,14 @@ export function calcLineCost(
     if (!qtyUnit && PACKAGE_UNITS.includes(stockUnit)) return 0;
     return qty * unitCost;
   }
+
+  // Custom unit (e.g. "Unité" = 0.35 kg on this stock item): resolve via the
+  // per-item factor before applying the unit cost. Without this the cost tab
+  // multiplies the unit cost by the raw piece count and ignores the portion
+  // size — matching the recipe-table footer logic that already uses
+  // convertToBaseUnit.
+  const customFactor = customUnitFactor(qtyUnit, stock?.unit_conversions);
+  if (customFactor != null) return qty * customFactor * unitCost;
 
   const converted = convertQuantity(qty, qtyUnit, stockUnit);
   if (converted !== qty) return converted * unitCost;
