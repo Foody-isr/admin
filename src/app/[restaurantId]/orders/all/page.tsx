@@ -7,8 +7,10 @@ import {
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery,
   assignCourier, bulkAssignCourier, listCouriers,
+  getRestaurant,
   Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
+import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
@@ -290,6 +292,14 @@ export default function OrdersPage() {
   // Courier assignment (delivery orders)
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // First day of the week for the date picker's calendar grid and presets.
+  // Loaded with the restaurant; defaults to Monday until then.
+  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
+  useEffect(() => {
+    if (!rid) return;
+    getRestaurant(rid).then((r) => setWeekStartDay(clampWeekStartDay(r.week_start_day))).catch(() => {});
+  }, [rid]);
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
 
@@ -656,6 +666,7 @@ export default function OrdersPage() {
           <DateRangePicker
             value={dateRange}
             onChange={(range) => { setDateRange(range); setPage(0); }}
+            weekStartDay={weekStartDay}
           />
 
           <FilterDropdown

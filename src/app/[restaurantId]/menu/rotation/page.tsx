@@ -3,36 +3,25 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getAllCategories, getRotationSchedules, setRotationSchedule, deleteRotationSchedule,
+  getAllCategories, getRestaurant, getRotationSchedules, setRotationSchedule, deleteRotationSchedule,
   renameRotationGroup, deleteRotationGroup, updateMenuItem,
   MenuCategory, MenuItem, RotationSchedule,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { PencilIcon, TrashIcon, PlusIcon, CheckIcon, XIcon } from 'lucide-react';
+import { clampWeekStartDay, getWeekStart, isoDate, type WeekStartDay } from '@/lib/weeks';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Returns the Monday (start of ISO week) for a given Date, as YYYY-MM-DD. */
-function isoWeekMonday(date: Date): string {
-  const d = new Date(date);
-  const day = d.getUTCDay();
-  // ISO week: Monday = 1. Adjust so Monday = 0 offset.
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().split('T')[0];
-}
-
-/** Returns an array of 4 week start strings (Mondays) beginning from the current week. */
-function getWeekStarts(count = 4): string[] {
+/** Returns `count` consecutive week-start strings beginning from the current
+ *  week, using the restaurant's configured first day of the week. */
+function getWeekStarts(weekStartDay: WeekStartDay, count = 4): string[] {
+  const start = getWeekStart(new Date(), weekStartDay);
   const weeks: string[] = [];
-  const now = new Date();
-  const base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const monday = isoWeekMonday(base);
-  const start = new Date(monday);
   for (let i = 0; i < count; i++) {
     const d = new Date(start);
-    d.setUTCDate(d.getUTCDate() + i * 7);
-    weeks.push(d.toISOString().split('T')[0]);
+    d.setDate(d.getDate() + i * 7);
+    weeks.push(isoDate(d));
   }
   return weeks;
 }
@@ -59,9 +48,10 @@ export default function RotationPage() {
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [schedules, setSchedules] = useState<RotationSchedule[]>([]);
+  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
   const [loading, setLoading] = useState(true);
 
-  const weekStarts = getWeekStarts(4);
+  const weekStarts = getWeekStarts(weekStartDay, 4);
 
   // ─── Derived: groups ──────────────────────────────────────────────────────
 
@@ -87,9 +77,14 @@ export default function RotationPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [cats, scheds] = await Promise.all([getAllCategories(rid), getRotationSchedules(rid, 4)]);
+      const [cats, scheds, restaurant] = await Promise.all([
+        getAllCategories(rid),
+        getRotationSchedules(rid, 4),
+        getRestaurant(rid),
+      ]);
       setCategories(cats);
       setSchedules(scheds);
+      setWeekStartDay(clampWeekStartDay(restaurant.week_start_day));
     } finally {
       setLoading(false);
     }

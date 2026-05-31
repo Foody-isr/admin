@@ -50,6 +50,12 @@ export interface Restaurant {
   description: string;
   /** Source language the owner types in. en | he | fr. Falls back to 'en' if unset. */
   default_locale?: string;
+  /**
+   * First day of the week for weekly editors. 0=Sunday … 6=Saturday
+   * (matches JS Date.getDay / Go time.Weekday). Default 1 (Monday);
+   * Israeli restaurants typically use 0 (Sunday).
+   */
+  week_start_day?: number;
   phone: string;
   delivery_enabled: boolean;
   pickup_enabled: boolean;

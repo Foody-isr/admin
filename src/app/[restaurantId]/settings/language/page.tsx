@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Languages, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Languages, AlertTriangle, RefreshCw, CalendarDays } from 'lucide-react';
 import {
   getRestaurant,
   updateRestaurant,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button, Field, PageHead, Section, Select } from '@/components/ds';
+import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 
 const SUPPORTED_LOCALES: { value: 'en' | 'he' | 'fr'; labelKey: string; nativeLabel: string }[] = [
   { value: 'en', labelKey: 'languageEnglish', nativeLabel: 'English' },
@@ -43,6 +44,14 @@ export default function LanguageSettingsPage() {
   const [retranslateError, setRetranslateError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // First day of the week — separate save flow from the menu language so each
+  // setting persists independently and shows its own confirmation flash.
+  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
+  const [savedWeekStartDay, setSavedWeekStartDay] = useState<WeekStartDay>(1);
+  const [savingWeekStart, setSavingWeekStart] = useState(false);
+  const [weekStartFlash, setWeekStartFlash] = useState(false);
+  const [weekStartError, setWeekStartError] = useState<string | null>(null);
+
   useEffect(() => {
     getRestaurant(rid)
       .then((r) => {
@@ -50,11 +59,31 @@ export default function LanguageSettingsPage() {
         const initial: Locale = isLocale(r.default_locale) ? r.default_locale : 'en';
         setLocale(initial);
         setSavedLocale(initial);
+        const wsd = clampWeekStartDay(r.week_start_day);
+        setWeekStartDay(wsd);
+        setSavedWeekStartDay(wsd);
       })
       .finally(() => setLoading(false));
   }, [rid]);
 
   const localeChanged = locale !== savedLocale;
+  const weekStartChanged = weekStartDay !== savedWeekStartDay;
+
+  const handleSaveWeekStart = async () => {
+    setSavingWeekStart(true);
+    setWeekStartError(null);
+    try {
+      const updated = await updateRestaurant(rid, { week_start_day: weekStartDay } as Partial<Restaurant>);
+      setRestaurant(updated);
+      setSavedWeekStartDay(weekStartDay);
+      setWeekStartFlash(true);
+      setTimeout(() => setWeekStartFlash(false), 2500);
+    } catch (e) {
+      setWeekStartError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSavingWeekStart(false);
+    }
+  };
 
   const handleSave = async () => {
     setSavingLocale(true);
@@ -168,6 +197,49 @@ export default function LanguageSettingsPage() {
           )}
           {saveError && (
             <span className="text-fs-sm text-[var(--danger-500)]">{saveError}</span>
+          )}
+        </div>
+      </Section>
+
+      <Section
+        title={
+          <span className="inline-flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+            {t('weekStartTitle') || 'First day of the week'}
+          </span>
+        }
+        desc={
+          t('weekStartDesc') ||
+          'Drives weekly editors like the menu group rotation and the orders date picker. Pick the day your workweek starts on.'
+        }
+      >
+        <Field label={t('weekStartFieldLabel') || 'First day'}>
+          <Select
+            value={String(weekStartDay)}
+            onChange={(e) => setWeekStartDay(clampWeekStartDay(Number(e.target.value)))}
+            disabled={savingWeekStart}
+          >
+            <option value="0">{t('weekDaySunday') || 'Sunday'}</option>
+            <option value="1">{t('weekDayMonday') || 'Monday'}</option>
+            <option value="6">{t('weekDaySaturday') || 'Saturday'}</option>
+          </Select>
+        </Field>
+
+        <div className="mt-[var(--s-4)] flex items-center gap-3">
+          <Button
+            onClick={handleSaveWeekStart}
+            disabled={!weekStartChanged || savingWeekStart}
+            variant="primary"
+          >
+            {savingWeekStart ? t('saving') || 'Saving…' : t('save') || 'Save'}
+          </Button>
+          {weekStartFlash && (
+            <span className="text-fs-sm text-[var(--success-500)]">
+              {t('saved') || 'Saved'}
+            </span>
+          )}
+          {weekStartError && (
+            <span className="text-fs-sm text-[var(--danger-500)]">{weekStartError}</span>
           )}
         </div>
       </Section>

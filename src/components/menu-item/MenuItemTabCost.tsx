@@ -9,6 +9,7 @@ import {
   computeItemCostSummary,
   buildVariantOptions,
 } from '@/lib/cost-utils';
+import { customUnitFactor } from '@/lib/units';
 import type {
   MenuItem,
   MenuItemIngredient,
@@ -343,12 +344,20 @@ export default function MenuItemTabCost({
               if (prepId) router.push(`/${rid}/kitchen/prep?edit=${prepId}`);
               else if (stockId) router.push(`/${rid}/kitchen/stock?edit=${stockId}`);
             };
+            // Resolve a custom-unit quantity ("1 Unité") to its base-unit
+            // equivalent ("= 0.35 kg") so the breakdown row spells out the
+            // portion size the cost is actually computed from.
+            const customFactor = customUnitFactor(line.qtyUnit, ing.stock_item?.unit_conversions);
+            const quantityHint = customFactor != null && line.sourceUnit
+              ? `= ${+(line.qty * customFactor).toFixed(4)} ${line.sourceUnit}`
+              : undefined;
             return (
               <CostIngredientRow
                 key={i}
                 name={line.name}
                 type={line.isPrep ? 'preparation' : 'brut'}
                 quantity={`${line.qty ?? 0} ${line.qtyUnit ?? ''}`.trim()}
+                quantityHint={quantityHint}
                 unitCost={unitCostStr}
                 totalCost={`${line.lineCost.toFixed(2)} ${CURRENCY}`}
                 percentage={`${pct}%`}
@@ -443,6 +452,7 @@ function CostIngredientRow({
   name,
   type,
   quantity,
+  quantityHint,
   unitCost,
   totalCost,
   percentage,
@@ -455,6 +465,10 @@ function CostIngredientRow({
   name: string;
   type: 'preparation' | 'brut';
   quantity: string;
+  /** Optional secondary line under the quantity, e.g. "= 0.35 kg" when the
+   *  ingredient uses a custom unit and the row's cost is computed against the
+   *  resolved base amount. */
+  quantityHint?: string;
   unitCost: string;
   totalCost: string;
   percentage: string;
@@ -499,11 +513,18 @@ function CostIngredientRow({
       </div>
 
       {/* Quantity */}
-      <div className="flex items-center justify-between gap-3 md:block md:col-span-2 md:text-end text-sm text-[var(--fg-muted)]">
+      <div className="flex items-center justify-between gap-3 md:flex md:flex-col md:items-end md:col-span-2 md:text-end text-sm text-[var(--fg-muted)]">
         <span className="md:hidden text-[11px] font-semibold uppercase tracking-wider text-[var(--fg-secondary,var(--text-secondary))]">
           {quantityLabel}
         </span>
-        <span className="tabular-nums text-end">{quantity}</span>
+        <div className="flex flex-col items-end">
+          <span className="tabular-nums text-end">{quantity}</span>
+          {quantityHint && (
+            <span className="text-[11px] font-mono tabular-nums text-[var(--fg-subtle)]" title={quantityHint}>
+              {quantityHint}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Unit cost */}

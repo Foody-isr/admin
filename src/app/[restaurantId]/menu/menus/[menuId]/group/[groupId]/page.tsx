@@ -15,43 +15,16 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+import {
+  addDays, clampWeekStartDay, getWeekEnd, getWeekStart, isoDate,
+  type WeekStartDay,
+} from '@/lib/weeks';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ─── Week helpers (weekly rotation editor) ───────────────────────────────────
-
-/** Monday-of-week for a given date. Always returns a fresh Date at 00:00. */
-function getMonday(d: Date): Date {
-  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = out.getDay(); // 0 = Sun, 1 = Mon, …
-  const diff = day === 0 ? -6 : 1 - day; // Sunday rolls back to Monday before
-  out.setDate(out.getDate() + diff);
-  return out;
-}
-
-/** ISO YYYY-MM-DD for a date. Uses local timezone — date-only, no time. */
-function isoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-/** Sunday-of-week (inclusive end of the week starting at the given Monday). */
-function getSunday(monday: Date): Date {
-  const out = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
-  out.setDate(out.getDate() + 6);
-  return out;
-}
-
-/** Add N days to a date (returns a fresh Date). */
-function addDays(d: Date, days: number): Date {
-  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  out.setDate(out.getDate() + days);
-  return out;
-}
 
 /** True when the membership window covers `day` (both bounds inclusive,
  *  null/undefined = open-ended). */
@@ -115,9 +88,14 @@ export default function GroupPage() {
   // filters this list against the selected week so the operator can edit
   // past, current, or future week states from one view.
   const [memberships, setMemberships] = useState<MenuGroupMembership[]>([]);
-  // `selectedWeekStart` is the Monday (YYYY-MM-DD) of the week being edited.
-  // Defaults to the current ISO week.
-  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => isoDate(getMonday(new Date())));
+  // First day of the week for this restaurant (0=Sun … 6=Sat). Loaded with
+  // the restaurant; until then we use Monday so the UI never renders an
+  // undefined boundary. Overwritten by the value coming back from the API.
+  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
+  // `selectedWeekStart` is the YYYY-MM-DD of the first day of the week being
+  // edited. Defaults to the current week and is rebased onto the configured
+  // week-start day once the restaurant loads.
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(() => isoDate(getWeekStart(new Date(), 1)));
 
   const load = useCallback(() => {
     setLoading(true);
@@ -128,6 +106,12 @@ export default function GroupPage() {
       const resolved: Locale = dl === 'en' || dl === 'he' || dl === 'fr' ? dl : 'en';
       setSourceLocale(resolved);
       setActiveLocale(resolved);
+      const wsd = clampWeekStartDay(restaurant.week_start_day);
+      setWeekStartDay(wsd);
+      // Rebase the selected week onto the configured start day. The initial
+      // default assumed Monday — if the restaurant uses Sunday, this slides
+      // the picker back one day so the labels line up with the workweek.
+      setSelectedWeekStart(isoDate(getWeekStart(new Date(), wsd)));
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       const grps = found?.groups ?? [];
@@ -281,10 +265,10 @@ export default function GroupPage() {
   }, [savedGroupItems, pendingItems]);
 
   // Selected-week metadata for UI labels and date calculations.
-  const selectedWeekMonday = useMemo(() => new Date(selectedWeekStart + 'T00:00:00'), [selectedWeekStart]);
-  const selectedWeekSundayIso = useMemo(() => isoDate(getSunday(selectedWeekMonday)), [selectedWeekMonday]);
-  const todayMondayIso = useMemo(() => isoDate(getMonday(new Date())), []);
-  const isCurrentWeek = selectedWeekStart === todayMondayIso;
+  const selectedWeekFirstDay = useMemo(() => new Date(selectedWeekStart + 'T00:00:00'), [selectedWeekStart]);
+  const selectedWeekLastIso = useMemo(() => isoDate(getWeekEnd(selectedWeekFirstDay)), [selectedWeekFirstDay]);
+  const todayWeekStartIso = useMemo(() => isoDate(getWeekStart(new Date(), weekStartDay)), [weekStartDay]);
+  const isCurrentWeek = selectedWeekStart === todayWeekStartIso;
 
   // All categories (for category picker), excluding current group
   const allCategories = useMemo(() => {
@@ -307,7 +291,7 @@ export default function GroupPage() {
     const onlyThisWeek = confirm(promptMsg);
     if (onlyThisWeek) {
       // Soft retire: effective_until = day before selected week's Monday.
-      const cutoff = isoDate(addDays(selectedWeekMonday, -1));
+      const cutoff = isoDate(addDays(selectedWeekFirstDay, -1));
       await removeItemFromGroup(rid, gid, item.id, cutoff);
     } else {
       if (!confirm(t('removeFromGroupConfirm') + ` "${item.name}"?`)) return;
@@ -327,7 +311,7 @@ export default function GroupPage() {
     } else if (gid) {
       const scope = isCurrentWeek
         ? {} // always-on for the current week — preserves legacy semantics
-        : { effective_from: selectedWeekStart, effective_until: selectedWeekSundayIso };
+        : { effective_from: selectedWeekStart, effective_until: selectedWeekLastIso };
       await addItemsToGroup(rid, gid, itemIds, scope);
       setModalView(null);
       load();
@@ -352,7 +336,7 @@ export default function GroupPage() {
     } else if (gid) {
       const scope = isCurrentWeek
         ? {}
-        : { effective_from: selectedWeekStart, effective_until: selectedWeekSundayIso };
+        : { effective_from: selectedWeekStart, effective_until: selectedWeekLastIso };
       await addItemsToGroup(rid, gid, itemsToImport, scope);
       setModalView(null);
       load();
@@ -580,7 +564,7 @@ export default function GroupPage() {
               <WeekPicker
                 value={selectedWeekStart}
                 onChange={setSelectedWeekStart}
-                todayMondayIso={todayMondayIso}
+                todayWeekStartIso={todayWeekStartIso}
               />
             )}
           </div>
@@ -588,7 +572,7 @@ export default function GroupPage() {
             <div className="mb-4 px-3 py-2 rounded-lg bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] text-sm text-fg-secondary">
               {t('groupWeekScopeHint')
                 .replace('{from}', selectedWeekStart)
-                .replace('{to}', selectedWeekSundayIso)}
+                .replace('{to}', selectedWeekLastIso)}
             </div>
           )}
           {groupItems.length > 0 ? (
@@ -1260,19 +1244,19 @@ function HoursModal({ t, followsMenuHours, hours, onClose, onDone }: {
 function WeekPicker({
   value,
   onChange,
-  todayMondayIso,
+  todayWeekStartIso,
 }: {
   value: string;
   onChange: (next: string) => void;
-  todayMondayIso: string;
+  todayWeekStartIso: string;
 }) {
   const { t } = useI18n();
-  const monday = useMemo(() => new Date(value + 'T00:00:00'), [value]);
+  const selectedStart = useMemo(() => new Date(value + 'T00:00:00'), [value]);
   const labelFor = (iso: string): string => {
-    if (iso === todayMondayIso) return t('weekThis');
-    const todayMon = new Date(todayMondayIso + 'T00:00:00');
+    if (iso === todayWeekStartIso) return t('weekThis');
+    const todayStart = new Date(todayWeekStartIso + 'T00:00:00');
     const diff = Math.round(
-      (new Date(iso + 'T00:00:00').getTime() - todayMon.getTime()) / 86400000 / 7,
+      (new Date(iso + 'T00:00:00').getTime() - todayStart.getTime()) / 86400000 / 7,
     );
     if (diff === -1) return t('weekLast');
     if (diff === 1) return t('weekNext');
@@ -1280,17 +1264,17 @@ function WeekPicker({
   };
   // Build the 6-option list: last week, this week, next 4 weeks.
   const options = useMemo(() => {
-    const todayMon = new Date(todayMondayIso + 'T00:00:00');
+    const todayStart = new Date(todayWeekStartIso + 'T00:00:00');
     return [-1, 0, 1, 2, 3, 4].map((offset) => {
-      const d = new Date(todayMon);
+      const d = new Date(todayStart);
       d.setDate(d.getDate() + offset * 7);
       const iso = isoDate(d);
       return { iso, label: labelFor(iso) };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayMondayIso]);
+  }, [todayWeekStartIso]);
   const shift = (weeks: number) => {
-    const next = new Date(monday);
+    const next = new Date(selectedStart);
     next.setDate(next.getDate() + weeks * 7);
     onChange(isoDate(next));
   };
