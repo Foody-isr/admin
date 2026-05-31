@@ -17,6 +17,10 @@ interface DateRangePickerProps {
   /** First day of the week (0=Sun … 6=Sat). Drives "This/Last week" presets
    *  and the calendar-grid column order. Defaults to Sunday. */
   weekStartDay?: number;
+  /** Weekday numbers (0=Sun … 6=Sat) the restaurant operates on. Cells whose
+   *  day-of-week is not in this list are visually muted (still selectable).
+   *  Omit to keep every cell at full opacity. */
+  workdays?: number[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -124,9 +128,13 @@ function getPresets(weekStartDay: WeekStartDay): Preset[] {
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ value, onChange, weekStartDay }: DateRangePickerProps) {
+export default function DateRangePicker({ value, onChange, weekStartDay, workdays }: DateRangePickerProps) {
   const wsd = clampWeekStartDay(weekStartDay);
   const dayLabels = rotatedDayLabels(wsd);
+  // `null` workdays (rather than a 7-day default) lets the picker skip the
+  // muted-cell branch entirely when the caller doesn't care about workdays,
+  // keeping the rendered output identical to the pre-workday version.
+  const workdaySet = workdays && workdays.length > 0 ? new Set(workdays) : null;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -291,6 +299,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay }: DateR
                 const isToday = sameDay(date, today);
                 const isSelected = sameDay(date, tempFrom) || sameDay(date, tempTo);
                 const isInRange = inRange(date, tempFrom, tempTo);
+                const isOffDay = workdaySet !== null && !workdaySet.has(date.getDay());
 
                 return (
                   <button
@@ -304,7 +313,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay }: DateR
                         : isToday
                         ? 'font-bold text-fg-primary'
                         : 'text-fg-secondary hover:bg-[var(--surface-subtle)]'
-                    }`}
+                    } ${isOffDay && !isSelected && !isInRange ? 'opacity-40' : ''}`}
                     style={isToday && !isSelected ? { boxShadow: 'inset 0 0 0 1.5px var(--text-primary)' } : undefined}
                   >
                     {day}

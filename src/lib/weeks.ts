@@ -5,6 +5,12 @@
 //
 // Israeli restaurants typically use 0 (Sunday) — the workweek runs Sun→Thu
 // with Fri/Sat off. European restaurants default to 1 (Monday).
+//
+// "Workdays" is a separate concept: which days inside the 7-day calendar
+// window count as operating days. Owners can either pin them explicitly on
+// the Restaurant or let them be derived from opening hours by leaving
+// `workdays` empty (the default). Use `getEffectiveWorkdays` to resolve the
+// final list — never read `restaurant.workdays` directly in display code.
 
 /** A first-day-of-week value: 0 = Sunday … 6 = Saturday. */
 export type WeekStartDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -47,4 +53,91 @@ export function isoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+// ─── Workdays ────────────────────────────────────────────────────────────────
+
+// JS Date.getDay() puts Sunday at index 0 — match that here so the JSON
+// `workdays` array uses the same convention as the rest of the codebase
+// (server time.Weekday, BatchFulfillmentDay.day, SchedulingTimeSlot.days).
+const DAY_INDEX_BY_KEY: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+/** Minimal shape this module needs from a restaurant. Kept structural so it
+ *  works with both the full `Restaurant` API type and partial fetches. */
+export interface WorkdaysSource {
+  workdays?: number[] | null;
+  opening_hours_config?: {
+    dine_in?: Record<string, { closed?: boolean }>;
+    pickup?: Record<string, { closed?: boolean }>;
+    delivery?: Record<string, { closed?: boolean }>;
+  };
+}
+
+/**
+ * Resolves the workdays a restaurant should display:
+ *   - Explicit `workdays` if the owner pinned them (length > 0).
+ *   - Otherwise the union of days marked "open" across every configured
+ *     service type in opening hours.
+ *   - Otherwise every day of the week (safe default — never returns []).
+ *
+ * The returned array is sorted ascending (Sun=0 first) and deduped.
+ */
+export function getEffectiveWorkdays(source: WorkdaysSource): number[] {
+  if (source.workdays && source.workdays.length > 0) {
+    return dedupedSorted(source.workdays);
+  }
+  const cfg = source.opening_hours_config;
+  if (cfg) {
+    const days = new Set<number>();
+    for (const service of [cfg.dine_in, cfg.pickup, cfg.delivery]) {
+      if (!service) continue;
+      for (const [key, day] of Object.entries(service)) {
+        if (day && !day.closed && key in DAY_INDEX_BY_KEY) {
+          days.add(DAY_INDEX_BY_KEY[key]);
+        }
+      }
+    }
+    if (days.size > 0) return Array.from(days).sort((a, b) => a - b);
+  }
+  return [0, 1, 2, 3, 4, 5, 6];
+}
+
+/** True when the given JS-style weekday (0=Sun … 6=Sat) is a workday. */
+export function isWorkday(weekdayIndex: number, workdays: number[]): boolean {
+  return workdays.includes(weekdayIndex);
+}
+
+/**
+ * Returns the first and last workday of the 7-day window starting at
+ * `weekStart`. Both Date objects are at local midnight, time stripped.
+ * If no day in the window is a workday (degenerate config), falls back to
+ * the full window.
+ */
+export function workdaySpan(weekStart: Date, workdays: number[]): { first: Date; last: Date } {
+  let first: Date | null = null;
+  let last: Date | null = null;
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStart, i);
+    if (!workdays.includes(d.getDay())) continue;
+    if (first === null) first = d;
+    last = d;
+  }
+  if (first === null || last === null) {
+    return { first: weekStart, last: addDays(weekStart, 6) };
+  }
+  return { first, last };
+}
+
+function dedupedSorted(arr: number[]): number[] {
+  const out = Array.from(new Set(arr.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)));
+  out.sort((a, b) => a - b);
+  return out;
 }

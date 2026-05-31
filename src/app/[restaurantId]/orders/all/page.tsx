@@ -10,7 +10,7 @@ import {
   getRestaurant,
   Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
-import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
+import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
@@ -293,12 +293,19 @@ export default function OrdersPage() {
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // First day of the week for the date picker's calendar grid and presets.
-  // Loaded with the restaurant; defaults to Monday until then.
+  // First day of the week + workdays for the date picker. Loaded with the
+  // restaurant; both default to "everything on" until then so the picker
+  // never renders muted cells based on a stale guess.
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
+  const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   useEffect(() => {
     if (!rid) return;
-    getRestaurant(rid).then((r) => setWeekStartDay(clampWeekStartDay(r.week_start_day))).catch(() => {});
+    getRestaurant(rid)
+      .then((r) => {
+        setWeekStartDay(clampWeekStartDay(r.week_start_day));
+        setWorkdays(getEffectiveWorkdays(r));
+      })
+      .catch(() => {});
   }, [rid]);
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
@@ -667,6 +674,7 @@ export default function OrdersPage() {
             value={dateRange}
             onChange={(range) => { setDateRange(range); setPage(0); }}
             weekStartDay={weekStartDay}
+            workdays={workdays}
           />
 
           <FilterDropdown

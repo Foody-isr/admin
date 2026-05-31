@@ -1,20 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Calendar, Plus, Trash2 } from 'lucide-react';
+import { Calendar, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import {
   getRestaurant,
   updateRestaurant,
   OpeningHoursConfig,
   DayHours,
+  Restaurant,
   WeeklyHours,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Badge, Button, Field, Input, PageHead, Section } from '@/components/ds';
+import { Badge, Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
+import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Day = typeof DAYS[number];
+
+// Indexed by JS Date.getDay() so the chip picker matches the same convention
+// the rest of the codebase uses for the `workdays` array (Sun=0 … Sat=6).
+const DAY_SHORT_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ORDER_TYPES = ['pickup', 'dine_in', 'delivery'] as const;
 type OrderType = typeof ORDER_TYPES[number];
@@ -51,6 +57,20 @@ export default function OpeningHoursPage() {
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [dineInEnabled, setDineInEnabled] = useState(true);
 
+  // ── Week settings (separate save flow from the hour grid below) ───────────
+  // `weekMode` mirrors the API: "auto" stores [] (derive from hours), "custom"
+  // stores the explicit workdays array. We keep both in state so toggling
+  // doesn't drop the operator's manual selection mid-session.
+  const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
+  const [savedWeekStartDay, setSavedWeekStartDay] = useState<WeekStartDay>(1);
+  const [weekMode, setWeekMode] = useState<'auto' | 'custom'>('auto');
+  const [savedWeekMode, setSavedWeekMode] = useState<'auto' | 'custom'>('auto');
+  const [customWorkdays, setCustomWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [savedCustomWorkdays, setSavedCustomWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [savingWeek, setSavingWeek] = useState(false);
+  const [weekFlash, setWeekFlash] = useState(false);
+  const [weekError, setWeekError] = useState<string | null>(null);
+
   useEffect(() => {
     getRestaurant(rid)
       .then((r) => {
@@ -69,6 +89,17 @@ export default function OpeningHoursPage() {
         setPickupEnabled(r.pickup_enabled ?? true);
         setDeliveryEnabled(r.delivery_enabled ?? false);
         setDineInEnabled(r.dine_in_enabled ?? true);
+        const wsd = clampWeekStartDay(r.week_start_day);
+        setWeekStartDay(wsd);
+        setSavedWeekStartDay(wsd);
+        const explicit = Array.isArray(r.workdays) && r.workdays.length > 0;
+        const mode: 'auto' | 'custom' = explicit ? 'custom' : 'auto';
+        setWeekMode(mode);
+        setSavedWeekMode(mode);
+        if (explicit) {
+          setCustomWorkdays(r.workdays!);
+          setSavedCustomWorkdays(r.workdays!);
+        }
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -84,6 +115,49 @@ export default function OpeningHoursPage() {
       setSaveError(e instanceof Error ? e.message : 'Échec de l’enregistrement');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Workdays the picker would resolve to under the current (unsaved) config —
+  // shown beneath the "Auto" radio so the owner sees what's about to apply
+  // without having to read the opening-hours grid below.
+  const autoDerivedWorkdays = useMemo(
+    () => getEffectiveWorkdays({ opening_hours_config: config }),
+    [config],
+  );
+  const toggleCustomWorkday = (d: number) => {
+    setCustomWorkdays((prev) => {
+      const next = prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d];
+      return next.sort((a, b) => a - b);
+    });
+  };
+
+  const workdaysToPersist = weekMode === 'custom' ? customWorkdays : [];
+  const sameArray = (a: number[], b: number[]) =>
+    a.length === b.length && a.every((v, i) => v === b[i]);
+  const savedWorkdaysToPersist = savedWeekMode === 'custom' ? savedCustomWorkdays : [];
+  const weekChanged =
+    weekStartDay !== savedWeekStartDay ||
+    weekMode !== savedWeekMode ||
+    (weekMode === 'custom' && !sameArray(customWorkdays, savedCustomWorkdays));
+
+  const handleSaveWeek = async () => {
+    setSavingWeek(true);
+    setWeekError(null);
+    try {
+      await updateRestaurant(rid, {
+        week_start_day: weekStartDay,
+        workdays: workdaysToPersist,
+      } as Partial<Restaurant>);
+      setSavedWeekStartDay(weekStartDay);
+      setSavedWeekMode(weekMode);
+      setSavedCustomWorkdays(workdaysToPersist.length > 0 ? workdaysToPersist : customWorkdays);
+      setWeekFlash(true);
+      setTimeout(() => setWeekFlash(false), 2500);
+    } catch (e) {
+      setWeekError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSavingWeek(false);
     }
   };
 
@@ -158,6 +232,110 @@ export default function OpeningHoursPage() {
           )
         }
       />
+
+      <Section
+        title={
+          <span className="inline-flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+            {t('weekSectionTitle') || 'Week'}
+          </span>
+        }
+        desc={
+          t('weekSectionDesc') ||
+          'Controls how every weekly editor (menu group rotation, orders date picker) interprets a "week" for this restaurant.'
+        }
+      >
+        <Field label={t('weekStartFieldLabel') || 'First day of the week'}>
+          <Select
+            value={String(weekStartDay)}
+            onChange={(e) => setWeekStartDay(clampWeekStartDay(Number(e.target.value)))}
+            disabled={savingWeek}
+          >
+            <option value="0">{t('weekDaySunday') || 'Sunday'}</option>
+            <option value="1">{t('weekDayMonday') || 'Monday'}</option>
+            <option value="6">{t('weekDaySaturday') || 'Saturday'}</option>
+          </Select>
+        </Field>
+
+        <Field label={t('workdaysFieldLabel') || 'Work days'}>
+          <div className="flex flex-col gap-[var(--s-3)]">
+            <label className="flex items-start gap-2 cursor-pointer text-fs-sm">
+              <input
+                type="radio"
+                name="workdays-mode"
+                checked={weekMode === 'auto'}
+                onChange={() => setWeekMode('auto')}
+                disabled={savingWeek}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium text-[var(--fg)]">
+                  {t('workdaysModeAuto') || 'Auto from opening hours'}
+                </div>
+                <div className="text-fs-xs text-[var(--fg-muted)]">
+                  {(t('workdaysAutoPreview') || 'Currently: {days}').replace(
+                    '{days}',
+                    autoDerivedWorkdays.map((d) => DAY_SHORT_LABELS[d]).join(', ') || '—',
+                  )}
+                </div>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2 cursor-pointer text-fs-sm">
+              <input
+                type="radio"
+                name="workdays-mode"
+                checked={weekMode === 'custom'}
+                onChange={() => setWeekMode('custom')}
+                disabled={savingWeek}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <div className="font-medium text-[var(--fg)]">
+                  {t('workdaysModeCustom') || 'Custom'}
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {DAY_SHORT_LABELS.map((label, idx) => {
+                    const active = customWorkdays.includes(idx);
+                    const disabled = weekMode !== 'custom' || savingWeek;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => toggleCustomWorkday(idx)}
+                        disabled={disabled}
+                        className={`px-3 py-1.5 rounded-full text-fs-xs font-medium border transition-colors ${
+                          active
+                            ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
+                            : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)]'
+                        } ${disabled && !active ? 'opacity-50' : ''}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </label>
+          </div>
+        </Field>
+
+        <div className="mt-[var(--s-4)] flex items-center gap-3">
+          <Button
+            variant="primary"
+            onClick={handleSaveWeek}
+            disabled={!weekChanged || savingWeek}
+          >
+            {savingWeek ? t('saving') || 'Saving…' : t('save') || 'Save'}
+          </Button>
+          {weekFlash && (
+            <span className="text-fs-sm text-[var(--success-500)]">{t('saved') || 'Saved'}</span>
+          )}
+          {weekError && (
+            <span className="text-fs-sm text-[var(--danger-500)]">{weekError}</span>
+          )}
+        </div>
+      </Section>
 
       {noServiceEnabled ? (
         <div
