@@ -778,6 +778,43 @@ export interface StockItem {
   created_at: string;
   updated_at: string;
   aliases?: StockItemAlias[];
+  /** Per-item conversions from a custom unit to this item's base unit. */
+  unit_conversions?: StockItemUnitConversion[];
+}
+
+// ─── Custom units ───────────────────────────────────────────────────────────
+
+/** A restaurant-defined measurement unit (e.g. "piece", "slice"). Managed from
+ *  the Units screen; the concrete size of one custom unit is set per stock item
+ *  via StockItemUnitConversion. */
+export interface CustomUnit {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  abbreviation: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomUnitInput {
+  name: string;
+  abbreviation?: string;
+}
+
+/** How much of a stock item's base unit equals one custom unit
+ *  (e.g. base_quantity 0.15 with the item's unit = kg means 1 piece = 0.15 kg). */
+export interface StockItemUnitConversion {
+  id: number;
+  stock_item_id: number;
+  custom_unit_id: number;
+  base_quantity: number;
+  custom_unit?: CustomUnit;
+}
+
+/** Write payload for a single per-item conversion (see StockItemInput.unit_conversions). */
+export interface UnitConversionInput {
+  custom_unit_id: number;
+  base_quantity: number;
 }
 
 // StockItemAliasInput mirrors the server's write payload: the list replaces
@@ -855,6 +892,8 @@ export interface StockItemInput {
   sku?: string;
   is_active?: boolean;
   aliases?: StockItemAliasInput[];
+  /** nil/absent = leave conversions untouched; non-nil (incl. []) = replace them. */
+  unit_conversions?: UnitConversionInput[];
 }
 
 export interface StockTransactionInput {
@@ -3944,6 +3983,31 @@ export async function updateSupplier(restaurantId: number, id: number, input: Pa
 
 export async function deleteSupplier(restaurantId: number, id: number): Promise<void> {
   await apiFetch<void>(`/api/v1/suppliers/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+// ─── Custom units ───────────────────────────────────────────────────────────
+
+export async function listCustomUnits(restaurantId: number): Promise<CustomUnit[]> {
+  const data = await apiFetch<{ units: CustomUnit[] }>(`/api/v1/units`, restaurantId);
+  return data.units ?? [];
+}
+
+export async function createCustomUnit(restaurantId: number, input: CustomUnitInput): Promise<CustomUnit> {
+  const data = await apiFetch<{ unit: CustomUnit }>(`/api/v1/units`, restaurantId, {
+    method: 'POST', body: JSON.stringify(input),
+  });
+  return data.unit;
+}
+
+export async function updateCustomUnit(restaurantId: number, id: number, input: CustomUnitInput): Promise<CustomUnit> {
+  const data = await apiFetch<{ unit: CustomUnit }>(`/api/v1/units/${id}`, restaurantId, {
+    method: 'PUT', body: JSON.stringify(input),
+  });
+  return data.unit;
+}
+
+export async function deleteCustomUnit(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/units/${id}`, restaurantId, { method: 'DELETE' });
 }
 
 export async function listSupplierProducts(restaurantId: number, supplierId: number): Promise<SupplierProduct[]> {

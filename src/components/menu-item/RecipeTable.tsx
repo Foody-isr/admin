@@ -12,19 +12,21 @@
 //   • Cells differ per variant  → variant_overrides[] (one row per variant)
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
-import type {
-  IngredientInput,
-  IngredientVariantOverride,
-  MenuItem,
-  MenuItemIngredient,
-  PrepItem,
-  StockItem,
+import {
+  listCustomUnits,
+  type IngredientInput,
+  type IngredientVariantOverride,
+  type MenuItem,
+  type MenuItemIngredient,
+  type PrepItem,
+  type StockItem,
 } from '@/lib/api';
 import { computePrepUnitCostExVat } from '@/lib/cost-utils';
-import { convertQuantity, sameUnitFamily } from '@/lib/units';
+import { convertToBaseUnit, customUnitFactor, sameUnitFamily, type UnitConversionLike } from '@/lib/units';
 import { BRUT_COLOR, PREP_COLOR } from './RecipeComposer';
 
 const UNITS = ['g', 'kg', 'ml', 'l', 'unit'] as const;
@@ -62,6 +64,9 @@ interface Row {
    *  isn't priced (new stock item, prep with zero yield, etc.). */
   costPerUnit: number | null;
   costUnit: string | null;
+  /** Stock item's custom-unit conversions, so a custom unit (e.g. "piece")
+   *  picked for this row resolves to a real cost/deduction. Empty for preps. */
+  conversions: UnitConversionLike[];
 }
 
 // Resolve unit cost for an ingredient. Stock items expose cost_per_unit
@@ -120,6 +125,7 @@ function toRow(ing: MenuItemIngredient, _variants: VariantColumn[]): Row {
     cells,
     costPerUnit: cost,
     costUnit,
+    conversions: ing.stock_item?.unit_conversions ?? [],
   };
 }
 
@@ -161,6 +167,18 @@ export default function RecipeTable({
   onAddClick,
 }: RecipeTableProps) {
   const { t } = useI18n();
+  const { restaurantId } = useParams();
+
+  // Restaurant-defined custom units (e.g. "piece") offered in the unit picker
+  // alongside the built-in g/kg/ml/l/unit options.
+  const [customUnits, setCustomUnits] = useState<string[]>([]);
+  useEffect(() => {
+    const rid = Number(restaurantId);
+    if (!rid) return;
+    listCustomUnits(rid)
+      .then((us) => setCustomUnits(us.map((u) => u.name)))
+      .catch(() => setCustomUnits([]));
+  }, [restaurantId]);
 
   // Build initial row state from the API ingredients. We re-sync whenever
   // the parent passes a new list (after add/delete) but keep local edits
@@ -413,8 +431,9 @@ export default function RecipeTable({
     };
     const rowCost = (r: Row, qty: number): number => {
       if (qty <= 0 || !r.costPerUnit || !r.costUnit) return 0;
-      if (!sameUnitFamily(r.unit, r.costUnit)) return 0;
-      const inStock = convertQuantity(qty, r.unit, r.costUnit);
+      // Resolve into the stock unit, honouring custom units (1 piece = N base).
+      const inStock = convertToBaseUnit(qty, r.unit, r.costUnit, r.conversions);
+      if (inStock == null) return 0; // incompatible units → flagged by the warning
       return inStock * r.costPerUnit;
     };
     if (variants.length === 0) {
@@ -598,6 +617,7 @@ export default function RecipeTable({
                   onSameForAllChange={(v) => toggleSameForAll(row.id, v)}
                   onCommit={() => commitRowById(row.id)}
                   onDelete={() => onDelete(row.id)}
+                  customUnits={customUnits}
                 />
               ))}
             </tbody>
@@ -711,6 +731,7 @@ interface RecipeRowProps {
   onSameForAllChange: (v: boolean) => void;
   onCommit: () => void | Promise<void>;
   onDelete: () => void;
+  customUnits: string[];
 }
 
 function RecipeRow({
@@ -723,6 +744,7 @@ function RecipeRow({
   onSameForAllChange,
   onCommit,
   onDelete,
+  customUnits,
 }: RecipeRowProps) {
   // Persist on blur — avoids saving on every keystroke. The change handler
   // updates the visible state immediately so input feels responsive; commit
@@ -752,7 +774,8 @@ function RecipeRow({
               {/* Cross-family unit mismatch — chef wrote "g" but stock is in
                   "unit", or vice versa. The deduction silently falls back to
                   1× scaling, which surprised the user during testing. */}
-              {row.costUnit && !sameUnitFamily(row.unit, row.costUnit) && (
+              {row.costUnit && !sameUnitFamily(row.unit, row.costUnit)
+                && customUnitFactor(row.unit, row.conversions) == null && (
                 <span
                   title={`L'unité de cet ingrédient (${row.unit}) n'est pas compatible avec celle du stock (${row.costUnit}). La déduction et le coût seront incorrects.`}
                   className="shrink-0 inline-flex"
@@ -793,7 +816,9 @@ function RecipeRow({
           onChange={(e) => onUnitChange(e.target.value)}
           className="w-full px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)]"
         >
-          {UNITS.map((u) => (
+          {/* Built-in units, then restaurant-defined custom units. The current
+              value is always included so a stale/removed unit still shows. */}
+          {Array.from(new Set([...UNITS, ...customUnits, row.unit].filter(Boolean))).map((u) => (
             <option key={u} value={u}>
               {u}
             </option>
