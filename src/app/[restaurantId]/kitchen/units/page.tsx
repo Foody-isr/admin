@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   listCustomUnits, createCustomUnit, updateCustomUnit, deleteCustomUnit,
-  CustomUnit, CustomUnitInput,
+  listStockItems,
+  CustomUnit, CustomUnitInput, StockItem,
 } from '@/lib/api';
 import Modal from '@/components/Modal';
 import { PlusIcon, TrashIcon, PencilIcon, RulerIcon } from 'lucide-react';
@@ -19,19 +21,36 @@ export default function UnitsPage() {
   const { t } = useI18n();
 
   const [units, setUnits] = useState<CustomUnit[]>([]);
+  const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<{ open: boolean; editing?: CustomUnit }>({ open: false });
 
   const reload = useCallback(async () => {
     try {
-      setUnits(await listCustomUnits(rid));
+      const [us, is] = await Promise.all([listCustomUnits(rid), listStockItems(rid).catch(() => [])]);
+      setUnits(us);
+      setItems(is);
     } finally {
       setLoading(false);
     }
   }, [rid]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Map each library unit id -> the stock items that have a positive
+  // per-item conversion configured. Drives the "Used on N items" chip and
+  // the per-unit usage popover.
+  const usageByUnitId = new Map<number, StockItem[]>();
+  for (const item of items) {
+    for (const conv of item.unit_conversions ?? []) {
+      if (conv.base_quantity > 0) {
+        const list = usageByUnitId.get(conv.custom_unit_id) ?? [];
+        list.push(item);
+        usageByUnitId.set(conv.custom_unit_id, list);
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -46,7 +65,12 @@ export default function UnitsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-fg-primary">{t('units')}</h1>
-          <p className="text-sm text-fg-secondary mt-1 max-w-xl">{t('unitsSubtitle')}</p>
+          <p className="text-sm text-fg-secondary mt-1 max-w-xl">
+            {t('unitsLibrarySubtitle')}{' '}
+            <Link href={`/${rid}/kitchen/stock`} className="text-brand-500 hover:underline">
+              {t('unitsGoToStock')}
+            </Link>
+          </p>
         </div>
         <button
           onClick={() => setModal({ open: true })}
@@ -64,43 +88,51 @@ export default function UnitsPage() {
         </div>
       ) : (
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--divider)' }}>
-          {units.map((u, i) => (
-            <div
-              key={u.id}
-              className="flex items-center justify-between px-4 py-3"
-              style={i > 0 ? { borderTop: '1px solid var(--divider)' } : {}}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <RulerIcon className="w-4 h-4 text-fg-tertiary shrink-0" />
-                <span className="text-sm font-medium text-fg-primary truncate">{u.name}</span>
-                {u.abbreviation && (
-                  <span className="text-xs text-fg-tertiary px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-subtle)' }}>
-                    {u.abbreviation}
-                  </span>
-                )}
+          {units.map((u, i) => {
+            const usingItems = usageByUnitId.get(u.id) ?? [];
+            return (
+              <div
+                key={u.id}
+                className="flex items-center justify-between px-4 py-3"
+                style={i > 0 ? { borderTop: '1px solid var(--divider)' } : {}}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <RulerIcon className="w-4 h-4 text-fg-tertiary shrink-0" />
+                  <span className="text-sm font-medium text-fg-primary truncate">{u.name}</span>
+                  {u.abbreviation && (
+                    <span className="text-xs text-fg-tertiary px-1.5 py-0.5 rounded" style={{ background: 'var(--surface-subtle)' }}>
+                      {u.abbreviation}
+                    </span>
+                  )}
+                </div>
+                <UnitUsageChip rid={rid} unit={u} items={usingItems} t={t} />
+                <div className="flex items-center gap-1 shrink-0 ms-2">
+                  <button
+                    onClick={() => setModal({ open: true, editing: u })}
+                    className="p-2 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
+                    aria-label={t('edit')}
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const inUseCount = usingItems.length;
+                      const confirmMsg = inUseCount > 0
+                        ? `${t('deleteUnitConfirm')}\n\n${t('unitsUsageCount').replace('{count}', String(inUseCount))}.`
+                        : t('deleteUnitConfirm');
+                      if (!window.confirm(confirmMsg)) return;
+                      await deleteCustomUnit(rid, u.id);
+                      reload();
+                    }}
+                    className="p-2 rounded-md text-fg-secondary hover:text-red-600 hover:bg-red-50 transition-colors"
+                    aria-label={t('delete')}
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => setModal({ open: true, editing: u })}
-                  className="p-2 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                  aria-label={t('edit')}
-                >
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!window.confirm(t('deleteUnitConfirm'))) return;
-                    await deleteCustomUnit(rid, u.id);
-                    reload();
-                  }}
-                  className="p-2 rounded-md text-fg-secondary hover:text-red-600 hover:bg-red-50 transition-colors"
-                  aria-label={t('delete')}
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -127,6 +159,55 @@ export default function UnitsPage() {
         />
       )}
     </div>
+  );
+}
+
+// Renders the "Used on N items" affordance for a library unit. Empty state
+// is muted text; populated state expands into a list of links straight to
+// each stock item's editor (via the existing `?edit=<id>` deep-link).
+function UnitUsageChip({ rid, unit, items, t }: {
+  rid: number;
+  unit: CustomUnit;
+  items: StockItem[];
+  t: (k: string) => string;
+}) {
+  if (items.length === 0) {
+    return <span className="text-xs text-fg-tertiary italic shrink-0">{t('unitsUsageNone')}</span>;
+  }
+  const label = items.length === 1
+    ? t('unitsUsageOne')
+    : t('unitsUsageCount').replace('{count}', String(items.length));
+  return (
+    <details className="relative shrink-0">
+      <summary
+        className="cursor-pointer text-xs text-fg-secondary px-2 py-1 rounded hover:bg-[var(--surface-subtle)] list-none select-none"
+        aria-label={`${unit.name}: ${label}`}
+      >
+        {label}
+      </summary>
+      <div
+        className="absolute end-0 top-full mt-1 z-10 rounded-md border shadow-lg min-w-[220px] py-1"
+        style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}
+      >
+        {items.map((item) => {
+          const conv = item.unit_conversions?.find((c) => c.custom_unit_id === unit.id);
+          return (
+            <Link
+              key={item.id}
+              href={`/${rid}/kitchen/stock?edit=${item.id}`}
+              className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm hover:bg-[var(--surface-subtle)]"
+            >
+              <span className="truncate">{item.name}</span>
+              {conv && (
+                <span className="text-xs text-fg-tertiary font-mono tabular-nums shrink-0">
+                  {conv.base_quantity} {item.unit}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+    </details>
   );
 }
 

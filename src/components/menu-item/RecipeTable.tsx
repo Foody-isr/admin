@@ -12,12 +12,10 @@
 //   • Cells differ per variant  → variant_overrides[] (one row per variant)
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
 import {
-  listCustomUnits,
   type IngredientInput,
   type IngredientVariantOverride,
   type MenuItem,
@@ -167,18 +165,6 @@ export default function RecipeTable({
   onAddClick,
 }: RecipeTableProps) {
   const { t } = useI18n();
-  const { restaurantId } = useParams();
-
-  // Restaurant-defined custom units (e.g. "piece") offered in the unit picker
-  // alongside the built-in g/kg/ml/l/unit options.
-  const [customUnits, setCustomUnits] = useState<string[]>([]);
-  useEffect(() => {
-    const rid = Number(restaurantId);
-    if (!rid) return;
-    listCustomUnits(rid)
-      .then((us) => setCustomUnits(us.map((u) => u.name)))
-      .catch(() => setCustomUnits([]));
-  }, [restaurantId]);
 
   // Build initial row state from the API ingredients. We re-sync whenever
   // the parent passes a new list (after add/delete) but keep local edits
@@ -617,7 +603,6 @@ export default function RecipeTable({
                   onSameForAllChange={(v) => toggleSameForAll(row.id, v)}
                   onCommit={() => commitRowById(row.id)}
                   onDelete={() => onDelete(row.id)}
-                  customUnits={customUnits}
                 />
               ))}
             </tbody>
@@ -731,7 +716,6 @@ interface RecipeRowProps {
   onSameForAllChange: (v: boolean) => void;
   onCommit: () => void | Promise<void>;
   onDelete: () => void;
-  customUnits: string[];
 }
 
 function RecipeRow({
@@ -744,8 +728,14 @@ function RecipeRow({
   onSameForAllChange,
   onCommit,
   onDelete,
-  customUnits,
 }: RecipeRowProps) {
+  // Per-ingredient custom unit names — only the units configured on this
+  // stock item (with a positive conversion). Prevents the dropdown from
+  // offering a unit that would silently pass through at deduction time.
+  const itemCustomUnits = row.conversions
+    .filter((c) => c.base_quantity > 0)
+    .map((c) => c.custom_unit?.name)
+    .filter((n): n is string => !!n);
   // Persist on blur — avoids saving on every keystroke. The change handler
   // updates the visible state immediately so input feels responsive; commit
   // pushes the latest snapshot to the server.
@@ -816,9 +806,11 @@ function RecipeRow({
           onChange={(e) => onUnitChange(e.target.value)}
           className="w-full px-[var(--s-2)] py-1 bg-[var(--surface)] border border-[var(--line-strong)] rounded-r-sm text-fs-sm text-[var(--fg)] focus:outline-none focus:border-[var(--brand-500)]"
         >
-          {/* Built-in units, then restaurant-defined custom units. The current
-              value is always included so a stale/removed unit still shows. */}
-          {Array.from(new Set([...UNITS, ...customUnits, row.unit].filter(Boolean))).map((u) => (
+          {/* Built-in units + only the custom units this ingredient actually
+              has a conversion for. The current value is always kept in the
+              list so a stale/removed unit stays visible (and the ⚠️ icon
+              prompts the user to fix it). */}
+          {Array.from(new Set([...UNITS, ...itemCustomUnits, row.unit].filter(Boolean))).map((u) => (
             <option key={u} value={u}>
               {u}
             </option>
