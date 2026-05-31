@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,9 @@ export interface DateRange {
 interface DateRangePickerProps {
   value: DateRange;
   onChange: (range: DateRange) => void;
+  /** First day of the week (0=Sun … 6=Sat). Drives "This/Last week" presets
+   *  and the calendar-grid column order. Defaults to Sunday. */
+  weekStartDay?: number;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -49,8 +53,9 @@ function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
-function firstDayOfWeek(year: number, month: number): number {
-  return new Date(year, month, 1).getDay();
+/** Calendar column for the 1st of a month, given the configured first day of the week. */
+function firstColumn(year: number, month: number, weekStartDay: WeekStartDay): number {
+  return (new Date(year, month, 1).getDay() - weekStartDay + 7) % 7;
 }
 
 const MONTH_NAMES = [
@@ -58,7 +63,12 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const BASE_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Day labels rotated so the configured first-of-week sits in column 0. */
+function rotatedDayLabels(weekStartDay: WeekStartDay): string[] {
+  return [...BASE_DAY_LABELS.slice(weekStartDay), ...BASE_DAY_LABELS.slice(0, weekStartDay)];
+}
 
 // ─── Presets ───────────────────────────────────────────────────────────────
 
@@ -75,7 +85,7 @@ function matchPreset(value: DateRange, presets: Preset[]): string | null {
   return null;
 }
 
-function getPresets(): Preset[] {
+function getPresets(weekStartDay: WeekStartDay): Preset[] {
   const now = new Date();
   const today = startOfDay(now);
 
@@ -83,7 +93,7 @@ function getPresets(): Preset[] {
   yesterday.setDate(yesterday.getDate() - 1);
 
   const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() - weekStartDay + 7) % 7));
 
   const lastWeekStart = new Date(weekStart);
   lastWeekStart.setDate(lastWeekStart.getDate() - 7);
@@ -114,7 +124,9 @@ function getPresets(): Preset[] {
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ value, onChange }: DateRangePickerProps) {
+export default function DateRangePicker({ value, onChange, weekStartDay }: DateRangePickerProps) {
+  const wsd = clampWeekStartDay(weekStartDay);
+  const dayLabels = rotatedDayLabels(wsd);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -142,11 +154,11 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
     setTempTo(value.to);
   }, [value]);
 
-  const presets = getPresets();
+  const presets = getPresets(wsd);
   const activePresetLabel = matchPreset(value, presets);
   const today = new Date();
   const days = daysInMonth(viewYear, viewMonth);
-  const firstDay = firstDayOfWeek(viewYear, viewMonth);
+  const firstDay = firstColumn(viewYear, viewMonth, wsd);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
@@ -263,7 +275,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
 
             {/* Day labels */}
             <div className="grid grid-cols-7 mb-1">
-              {DAY_LABELS.map((d) => (
+              {dayLabels.map((d) => (
                 <div key={d} className="text-center text-[11px] font-medium text-fg-secondary py-1">
                   {d}
                 </div>
