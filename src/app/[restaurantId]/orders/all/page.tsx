@@ -6,7 +6,8 @@ import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery,
-  Order, OrderStatus, ListOrdersParams,
+  assignCourier, bulkAssignCourier, listCouriers,
+  Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
@@ -31,7 +32,9 @@ import {
   DataTableBody,
   DataTableRow,
   DataTableCell,
+  DataTableSelectAllCell,
 } from '@/components/data-table';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { OrderItem } from '@/lib/api';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
@@ -219,6 +222,36 @@ function localizeOrderType(type: Order['order_type'], t: (k: string) => string):
   return String(type).replace(/_/g, ' ');
 }
 
+// CourierSelect is a native <select> bound to a courier id. Choosing the
+// (empty) noneLabel option yields null — used to unassign in the drawer, or as
+// a placeholder in the bulk bar. stopPropagation keeps clicks off the row.
+function CourierSelect({
+  couriers, value, onChange, noneLabel, t,
+}: {
+  couriers: StaffMember[];
+  value: number | null;
+  onChange: (courierId: number | null) => void;
+  noneLabel: string;
+  t: (k: string) => string;
+}) {
+  if (couriers.length === 0) {
+    return <div className="text-fs-sm text-[var(--fg-subtle)]">{t('noCouriersHint')}</div>;
+  }
+  return (
+    <select
+      value={value ?? ''}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+      className="text-fs-sm rounded-standard border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-fg-primary"
+    >
+      <option value="">{noneLabel}</option>
+      {couriers.map((c) => (
+        <option key={c.id} value={c.id}>{c.full_name}</option>
+      ))}
+    </select>
+  );
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
@@ -254,7 +287,44 @@ export default function OrdersPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
 
+  // Courier assignment (delivery orders)
+  const [couriers, setCouriers] = useState<StaffMember[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
+
+  useEffect(() => {
+    if (!rid) return;
+    listCouriers(rid).then(setCouriers).catch(() => setCouriers([]));
+  }, [rid]);
+
+  // Only delivery orders can have a courier; a courier can be (re)assigned any
+  // time before the order is delivered.
+  const isAssignable = useCallback(
+    (o: Order) => o.order_type === 'delivery' && o.status !== 'delivered',
+    [],
+  );
+  const assignableOrders = orders.filter(isAssignable);
+
+  const toggleSelect = (id: number) => setSelectedIds((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleSelectAll = () => setSelectedIds((prev) =>
+    prev.size === assignableOrders.length && assignableOrders.length > 0
+      ? new Set()
+      : new Set(assignableOrders.map((o) => o.id)),
+  );
+  // Drop selections that scroll out of view / stop being assignable on refetch.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const valid = new Set(assignableOrders.map((o) => o.id));
+      const next = new Set<number>();
+      prev.forEach((id) => { if (valid.has(id)) next.add(id); });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [orders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Fetch ────────────────────────────────────────────────────────
 
@@ -355,6 +425,27 @@ export default function OrdersPage() {
     runAction(orderId, () => markOrderOutForDelivery(rid, orderId).then(() => {}), 'out_for_delivery');
   const handleMarkDelivered = (orderId: number) =>
     runAction(orderId, () => markOrderDelivered(rid, orderId).then(() => {}), 'delivered');
+
+  const handleAssignCourier = (orderId: number, courierId: number | null) =>
+    runAction(orderId, async () => {
+      const updated = await assignCourier(rid, orderId, courierId);
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updated } : o)));
+    });
+
+  const handleBulkAssignCourier = async (courierId: number | null) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const updated = await bulkAssignCourier(rid, ids, courierId);
+      setOrders((prev) => prev.map((o) => {
+        const u = updated.find((x) => x.id === o.id);
+        return u ? { ...o, ...u } : o;
+      }));
+      setSelectedIds(new Set());
+    } catch {
+      await fetchOrders();
+    }
+  };
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -612,13 +703,38 @@ export default function OrdersPage() {
           </div>
         ) : (
           <>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-[var(--s-3)] px-4 py-3 bg-brand-500/5 border-b border-[var(--line)]">
+                <span className="text-fs-sm font-medium text-fg-primary">
+                  {t('ordersSelected').replace('{n}', String(selectedIds.size))}
+                </span>
+                <CourierSelect
+                  couriers={couriers}
+                  value={null}
+                  noneLabel={t('assignCourier')}
+                  onChange={(courierId) => { if (courierId != null) handleBulkAssignCourier(courierId); }}
+                  t={t}
+                />
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-fs-sm text-fg-secondary hover:text-fg-primary transition-colors"
+                >
+                  {t('clearSelection') || t('cancel')}
+                </button>
+              </div>
+            )}
             <DataTable>
               <DataTableHead>
+                <DataTableSelectAllCell
+                  checked={assignableOrders.length > 0 && selectedIds.size === assignableOrders.length}
+                  onCheckedChange={toggleSelectAll}
+                />
                 <DataTableHeadCell>{t('name')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('source')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('date')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('courier')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('payment')}</DataTableHeadCell>
                 <DataTableHeadCell align="right">{t('total')}</DataTableHeadCell>
               </DataTableHead>
@@ -631,6 +747,14 @@ export default function OrdersPage() {
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
                     className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
+                    <DataTableCell onClick={(e) => e.stopPropagation()} mobileHidden>
+                      {isAssignable(order) && (
+                        <Checkbox
+                          checked={selectedIds.has(order.id)}
+                          onCheckedChange={() => toggleSelect(order.id)}
+                        />
+                      )}
+                    </DataTableCell>
                     <DataTableCell mobilePrimary>
                       <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
                     </DataTableCell>
@@ -660,6 +784,15 @@ export default function OrdersPage() {
                       <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
                         {localizeStatus(order.status, t)}
                       </Badge>
+                    </DataTableCell>
+                    <DataTableCell mobileLabel={t('courier')}>
+                      {order.order_type === 'delivery' ? (
+                        order.courier_name
+                          ? <span className="text-fg-primary">{order.courier_name}</span>
+                          : <span className="text-[var(--fg-subtle)]">{t('courierNone')}</span>
+                      ) : (
+                        <span className="text-[var(--fg-subtle)]">—</span>
+                      )}
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('payment')}>
                       <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
@@ -722,6 +855,8 @@ export default function OrdersPage() {
         onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
+        couriers={couriers}
+        onAssignCourier={(courierId) => selectedOrder && handleAssignCourier(selectedOrder.id, courierId)}
       />
 
       {/* Take Payment dialog */}
@@ -764,6 +899,7 @@ function OrderDetailDrawer({
   order, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder,
+  couriers, onAssignCourier,
 }: {
   order: Order | null;
   isLoading: boolean;
@@ -777,6 +913,8 @@ function OrderDetailDrawer({
   onMarkDelivered: () => void;
   onTakePayment: () => void;
   onCloseOrder: () => void;
+  couriers: StaffMember[];
+  onAssignCourier: (courierId: number | null) => void;
 }) {
   const { t } = useI18n();
 
@@ -1194,6 +1332,25 @@ function OrderDetailDrawer({
               )}
             </div>
           </div>
+
+          {/* Courier assignment — delivery orders, until delivered */}
+          {order.order_type === 'delivery' && (
+            <Section title={t('courier')}>
+              {order.status === 'delivered' ? (
+                <div className="text-fs-sm text-[var(--fg-subtle)]">
+                  {order.courier_name || t('courierNone')}
+                </div>
+              ) : (
+                <CourierSelect
+                  couriers={couriers}
+                  value={order.courier_id ?? null}
+                  noneLabel={t('courierNone')}
+                  onChange={onAssignCourier}
+                  t={t}
+                />
+              )}
+            </Section>
+          )}
 
           {/* Totals */}
           <Section title={t('total') || 'Total'}>

@@ -16,7 +16,7 @@ const USER_KEY = 'foody_restaurant_user';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Role = 'superadmin' | 'owner' | 'manager' | 'cashier' | 'waiter' | 'chef';
+export type Role = 'superadmin' | 'owner' | 'manager' | 'cashier' | 'waiter' | 'chef' | 'courier';
 export type PlanTier = 'starter' | 'premium' | 'enterprise';
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'deactivated' | 'cancelled';
 export type OrderStatus =
@@ -399,6 +399,11 @@ export interface Order {
   in_kitchen_at?: string;
   ready_at?: string;
   completed_at?: string;
+  // Courier assignment (delivery orders)
+  courier_id?: number | null;
+  courier_name?: string;
+  courier_phone?: string;
+  courier_assigned_at?: string;
 }
 
 export interface StaffMember {
@@ -535,11 +540,20 @@ export interface ConfirmationFAQ {
   answer?: Record<string, string>;
 }
 
+// ConfirmationDelivery controls what delivery / courier info the confirmation
+// page surfaces. Mirrors the server's restaurants.ConfirmationDelivery.
+export interface ConfirmationDelivery {
+  show_courier?: boolean;
+  show_eta?: boolean;
+  note?: string;
+}
+
 export interface ConfirmationConfig {
   title?: Record<string, string>;
   subtitle?: Record<string, string>;
   actions?: ConfirmationAction[];
   faq?: ConfirmationFAQ[];
+  delivery?: ConfirmationDelivery;
 }
 
 // Built-in confirmation action ids — order matches what the foodyweb tracking
@@ -2268,6 +2282,34 @@ export const markOrderOutForDelivery = (restaurantId: number, orderId: number) =
 export const markOrderDelivered = (restaurantId: number, orderId: number) =>
   postOrderAction(restaurantId, orderId, 'mark-delivered');
 
+// Assign (or clear, when courierId is null) the delivery courier for one order.
+export async function assignCourier(
+  restaurantId: number,
+  orderId: number,
+  courierId: number | null,
+): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/assign-courier?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ courier_id: courierId }) },
+  );
+  return data.order;
+}
+
+// Assign (or clear) the same courier across several orders at once.
+export async function bulkAssignCourier(
+  restaurantId: number,
+  orderIds: number[],
+  courierId: number | null,
+): Promise<Order[]> {
+  const data = await apiFetch<{ orders: Order[] }>(
+    `/api/v1/orders/bulk-assign-courier?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ order_ids: orderIds, courier_id: courierId }) },
+  );
+  return data.orders ?? [];
+}
+
 export async function updateOrderPaymentStatus(
   restaurantId: number,
   orderId: number,
@@ -2609,6 +2651,18 @@ export async function listStaff(restaurantId: number): Promise<StaffMember[]> {
     `/api/v1/restaurants/${restaurantId}/staff`, restaurantId
   );
   return data.staff ?? [];
+}
+
+// isCourier identifies staff that can be assigned to deliver orders: either the
+// legacy "courier" role or anyone in a custom RBAC role named "Courier".
+export function isCourier(staff: Pick<StaffMember, 'role' | 'role_name'>): boolean {
+  return staff.role === 'courier' || (staff.role_name ?? '').trim().toLowerCase() === 'courier';
+}
+
+// listCouriers returns the staff members eligible to be assigned as couriers.
+export async function listCouriers(restaurantId: number): Promise<StaffMember[]> {
+  const staff = await listStaff(restaurantId);
+  return staff.filter(isCourier);
 }
 
 export async function inviteStaff(restaurantId: number, input: {

@@ -5,6 +5,7 @@ import {
   BUILTIN_CONFIRMATION_ACTIONS,
   ConfirmationAction,
   ConfirmationConfig,
+  ConfirmationDelivery,
   ConfirmationFAQ,
   defaultConfirmationConfig,
 } from '@/lib/api';
@@ -55,6 +56,10 @@ export default function ConfirmationEditor({ value, onChange }: ConfirmationEdit
   const setSubtitle = useCallback((v: string) => {
     update({ subtitle: { ...(config.subtitle ?? {}), fr: v } });
   }, [config.subtitle, update]);
+
+  const setDelivery = useCallback((patch: Partial<ConfirmationDelivery>) => {
+    update({ delivery: { ...(config.delivery ?? {}), ...patch } });
+  }, [config.delivery, update]);
 
   const updateAction = useCallback((idx: number, patch: Partial<ConfirmationAction>) => {
     const next = (config.actions ?? []).slice();
@@ -215,6 +220,46 @@ export default function ConfirmationEditor({ value, onChange }: ConfirmationEdit
             </div>
           </div>
         )}
+      </section>
+
+      {/* ─── Livraison ─────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <h3 className="text-[11px] uppercase tracking-[0.12em] text-fg-secondary font-semibold">
+          Livraison
+        </h3>
+        <p className="text-[11px] text-fg-secondary -mt-1">
+          Ce que le client voit sur la page de confirmation pour les commandes en livraison.
+        </p>
+
+        <div className="flex items-center justify-between rounded-lg border px-3 py-2"
+          style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}>
+          <span className="text-[13px] text-fg-primary">Afficher le nom et le téléphone du livreur</span>
+          <Toggle
+            checked={config.delivery?.show_courier ?? false}
+            onChange={(b) => setDelivery({ show_courier: b })}
+            title={config.delivery?.show_courier ? 'Désactiver' : 'Activer'}
+          />
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border px-3 py-2"
+          style={{ borderColor: 'var(--divider)', background: 'var(--surface)' }}>
+          <span className="text-[13px] text-fg-primary">Afficher la fenêtre d&apos;arrivée estimée</span>
+          <Toggle
+            checked={config.delivery?.show_eta ?? false}
+            onChange={(b) => setDelivery({ show_eta: b })}
+            title={config.delivery?.show_eta ? 'Désactiver' : 'Activer'}
+          />
+        </div>
+
+        <FormRow label="Note de livraison">
+          <textarea
+            value={config.delivery?.note ?? ''}
+            onChange={(e) => setDelivery({ note: e.target.value })}
+            placeholder="ex. Le livreur vous contactera ~30 min avant l'arrivée."
+            rows={2}
+            className="admin-input"
+          />
+        </FormRow>
       </section>
 
       {/* ─── FAQ ───────────────────────────────────────────────────── */}
