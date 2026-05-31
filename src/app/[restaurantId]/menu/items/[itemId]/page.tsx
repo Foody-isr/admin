@@ -45,6 +45,7 @@ import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
 import { computeItemCostSummary } from '@/lib/cost-utils';
 import { XIcon } from 'lucide-react';
+import AIImageGeneratorModal from '@/components/menu-item/AIImageGeneratorModal';
 
 const VALID_TABS: MenuItemSection[] = ['details', 'composition', 'recipe', 'availability'];
 
@@ -105,6 +106,7 @@ export default function EditItemPage() {
   const [imageUrl, setImageUrl] = useState(() => item?.image_url ?? '');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // Combo steps — shape now imported from combo/types.ts (shared between
   // create + edit pages).
@@ -514,6 +516,7 @@ export default function EditItemPage() {
       comboSummary={railComboSummary}
       onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
       onImageClick={() => fileInputRef.current?.click()}
+      onAiImageClick={() => setAiModalOpen(true)}
     />
   );
 
@@ -527,6 +530,20 @@ export default function EditItemPage() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleImageUpload(file);
+        }}
+      />
+
+      <AIImageGeneratorModal
+        restaurantId={rid}
+        itemId={iid}
+        itemName={name}
+        itemDescription={description}
+        categoryName={activeCategoryName}
+        open={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        onSaved={(url, updated) => {
+          setImageUrl(url);
+          setItem((prev) => (prev ? { ...prev, ...updated } : prev));
         }}
       />
 
