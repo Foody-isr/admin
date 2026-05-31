@@ -8,8 +8,9 @@ import {
   batchUpdateStockCategory, batchUpdateStockVat, getRestaurantSettings, uploadStockItemImage,
   listSuppliers,
   createStockCategory, updateStockCategory, deleteStockCategory,
+  listCustomUnits, createCustomUnit,
   StockItem, StockCategory, StockItemInput, StockItemAliasInput, StockTransactionType, StockTransaction,
-  Supplier,
+  Supplier, CustomUnit, UnitConversionInput,
 } from '@/lib/api';
 import VatRateSelect from '@/components/stock/VatRateSelect';
 import DeliveryImportModal from './DeliveryImportModal';
@@ -17,6 +18,7 @@ import CsvImportModal from '@/components/import/CsvImportModal';
 import StockQuantityForm, {
   StockInput,
   defaultStockInput,
+  deriveTotals,
   serverToStockInput,
   stockInputToServer,
 } from '@/components/stock/StockQuantityForm';
@@ -38,6 +40,7 @@ import {
   ArrowUpIcon, ArrowDownIcon, ArrowRightLeftIcon,
   SparklesIcon, ClockIcon, RefreshCwIcon,
   ChevronDownIcon, ChevronUpIcon, ImageIcon, UploadIcon,
+  RulerIcon,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -994,6 +997,25 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
     editing?.vat_rate_override ?? null,
   );
 
+  // Custom-unit conversions: how much of this item's base unit equals one
+  // custom unit (e.g. 1 "piece" = 0.15 kg). Keyed by custom_unit_id so the UI
+  // can render configured rows and the Add modal can match typed names against
+  // the existing library.
+  const [customUnits, setCustomUnits] = useState<CustomUnit[]>([]);
+  const [conversions, setConversions] = useState<Record<number, number>>(() => {
+    const out: Record<number, number> = {};
+    for (const c of editing?.unit_conversions ?? []) out[c.custom_unit_id] = c.base_quantity;
+    return out;
+  });
+  const [recipeUnitModal, setRecipeUnitModal] = useState<
+    | { mode: 'add' }
+    | { mode: 'edit'; unitId: number; name: string; qty: number }
+    | null
+  >(null);
+  useEffect(() => {
+    listCustomUnits(rid).then(setCustomUnits).catch(() => setCustomUnits([]));
+  }, [rid]);
+
   // Image upload state
   const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -1068,6 +1090,9 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           .filter((a) => a.alias !== ''),
         is_active: isActive,
         vat_rate_override: vatRateOverride,
+        unit_conversions: customUnits
+          .map<UnitConversionInput>((u) => ({ custom_unit_id: u.id, base_quantity: conversions[u.id] ?? 0 }))
+          .filter((c) => c.base_quantity > 0),
       };
       if (editing) {
         await updateStockItem(rid, editing.id, payload);
@@ -1327,6 +1352,84 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           />
         </div>
 
+        {/* Recipe units — name a portion of this item (e.g. 1 cuisse de poulet
+            = 0.15 kg) so recipes can be written in pieces while stock stays in
+            its base unit. Source of truth is `conversions`: rows here are
+            ids present with a positive amount; the Add modal can either reuse
+            a library unit by name or create a new one inline. */}
+        <div className="mb-[var(--s-5)]">
+          <h3 className="text-fs-sm font-semibold text-[var(--fg)] mb-1">{t('recipeUnits')}</h3>
+          <p className="text-fs-xs text-[var(--fg-muted)] mb-[var(--s-3)]">{t('recipeUnitsHint')}</p>
+          {(() => {
+            const rows = Object.entries(conversions)
+              .filter(([, v]) => Number(v) > 0)
+              .map(([idStr, v]) => {
+                const id = Number(idStr);
+                const unit = customUnits.find((u) => u.id === id);
+                return unit ? { unit, qty: Number(v) } : null;
+              })
+              .filter((x): x is { unit: CustomUnit; qty: number } => x !== null);
+            const baseUnit = deriveTotals(qty).baseUnit;
+            return (
+              <div className="flex flex-col gap-[var(--s-2)]">
+                {rows.length === 0 && (
+                  <p className="text-fs-xs text-[var(--fg-subtle)] italic">{t('recipeUnitsEmpty')}</p>
+                )}
+                {rows.map(({ unit, qty: convQty }) => (
+                  <div
+                    key={unit.id}
+                    className="flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)] rounded-r-md border border-[var(--line)] bg-[var(--surface)]"
+                  >
+                    <RulerIcon className="w-4 h-4 text-[var(--fg-subtle)] shrink-0" />
+                    <span className="text-fs-sm font-medium text-[var(--fg)]">1 {unit.name}</span>
+                    {unit.abbreviation && (
+                      <span className="text-fs-xs text-[var(--fg-subtle)] px-1.5 py-0.5 rounded bg-[var(--surface-2)]">
+                        {unit.abbreviation}
+                      </span>
+                    )}
+                    <span className="text-fs-sm text-[var(--fg-muted)]">=</span>
+                    <span className="font-mono tabular-nums text-fs-sm text-[var(--fg)]">{convQty}</span>
+                    <span className="text-fs-sm text-[var(--fg-muted)]">{baseUnit}</span>
+                    <div className="ms-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setRecipeUnitModal({ mode: 'edit', unitId: unit.id, name: unit.name, qty: convQty })}
+                        className="p-2 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] transition-colors"
+                        aria-label={t('edit')}
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!window.confirm(t('recipeUnitRemoveConfirm'))) return;
+                          setConversions((prev) => {
+                            const next = { ...prev };
+                            delete next[unit.id];
+                            return next;
+                          });
+                        }}
+                        className="p-2 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                        aria-label={t('remove')}
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setRecipeUnitModal({ mode: 'add' })}
+                  className="self-start inline-flex items-center gap-[var(--s-2)] h-7 px-[var(--s-3)] rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+                >
+                  <PlusIcon className="w-3 h-3" />
+                  {t('addRecipeUnit')}
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+
         {/* Reorder threshold */}
         <div className="mb-[var(--s-5)]">
           <Field
@@ -1401,6 +1504,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             </button>
           </div>
         </div>
+
       </div>
       {iconPickerOpen && (
         <IngredientIconPicker
@@ -1410,7 +1514,148 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
           onClose={() => setIconPickerOpen(false)}
         />
       )}
+      {recipeUnitModal && (
+        <RecipeUnitFormModal
+          mode={recipeUnitModal.mode}
+          initialName={recipeUnitModal.mode === 'edit' ? recipeUnitModal.name : ''}
+          initialQty={recipeUnitModal.mode === 'edit' ? recipeUnitModal.qty : 0}
+          baseUnit={deriveTotals(qty).baseUnit}
+          libraryUnits={customUnits}
+          onClose={() => setRecipeUnitModal(null)}
+          onSave={async ({ name: unitName, abbreviation, qty: convQty }) => {
+            if (recipeUnitModal.mode === 'edit') {
+              // Editing an existing per-item conversion: only the amount can
+              // change here. Renames happen on the Units screen where the
+              // library-wide effect is visible.
+              setConversions((prev) => ({ ...prev, [recipeUnitModal.unitId]: convQty }));
+              setRecipeUnitModal(null);
+              return;
+            }
+            const match = customUnits.find((u) => u.name.toLowerCase() === unitName.toLowerCase());
+            if (match) {
+              setConversions((prev) => ({ ...prev, [match.id]: convQty }));
+              setRecipeUnitModal(null);
+              return;
+            }
+            const created = await createCustomUnit(rid, { name: unitName, abbreviation });
+            setCustomUnits((prev) => [...prev, created]);
+            setConversions((prev) => ({ ...prev, [created.id]: convQty }));
+            setRecipeUnitModal(null);
+          }}
+        />
+      )}
     </FullScreenEditor>
+  );
+}
+
+// ─── Recipe Unit Add/Edit Modal ─────────────────────────────────────────────
+
+function RecipeUnitFormModal({
+  mode, initialName, initialQty, baseUnit, libraryUnits, onClose, onSave,
+}: {
+  mode: 'add' | 'edit';
+  initialName: string;
+  initialQty: number;
+  baseUnit: string;
+  libraryUnits: CustomUnit[];
+  onClose: () => void;
+  onSave: (input: { name: string; abbreviation: string; qty: number }) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState(initialName);
+  const [abbreviation, setAbbreviation] = useState('');
+  const [qty, setQty] = useState(initialQty);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const trimmed = name.trim();
+  const matchedExisting = libraryUnits.find((u) => u.name.toLowerCase() === trimmed.toLowerCase());
+  const isEdit = mode === 'edit';
+  const canSave = trimmed.length > 0 && qty > 0 && !saving;
+
+  async function handleSave() {
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave({ name: trimmed, abbreviation: abbreviation.trim(), qty });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={isEdit ? t('editRecipeUnit') : t('recipeUnitModalTitle')} onClose={onClose}>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-fg-secondary mb-1">{t('unitNameLabel')} *</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('unitNamePlaceholder')}
+            list="recipe-unit-suggestions"
+            autoFocus={!isEdit}
+            disabled={isEdit}
+            className="w-full px-3 py-2 rounded-lg border text-sm disabled:opacity-60"
+            style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
+          />
+          {!isEdit && (
+            <>
+              <datalist id="recipe-unit-suggestions">
+                {libraryUnits.map((u) => <option key={u.id} value={u.name} />)}
+              </datalist>
+              <p className="text-xs text-fg-tertiary mt-1">{t('recipeUnitNameHint')}</p>
+            </>
+          )}
+        </div>
+        {!isEdit && !matchedExisting && (
+          <div>
+            <label className="block text-xs font-medium text-fg-secondary mb-1">{t('unitAbbrLabel')}</label>
+            <input
+              value={abbreviation}
+              onChange={(e) => setAbbreviation(e.target.value)}
+              placeholder={t('unitAbbrPlaceholder')}
+              className="w-full px-3 py-2 rounded-lg border text-sm"
+              style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+        <div>
+          <label className="block text-xs font-medium text-fg-secondary mb-1">
+            1 {trimmed || (t('unitNameLabel') || '').toLowerCase()} {t('recipeUnitConversionEquals')}
+          </label>
+          <div className="flex items-center gap-2">
+            <NumberInput
+              min={0}
+              value={qty}
+              onChange={setQty}
+              className="input w-32 py-2 text-sm"
+              autoFocus={isEdit}
+            />
+            <span className="text-sm text-fg-secondary">{baseUnit}</span>
+          </div>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            onClick={onClose}
+            type="button"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-fg-secondary hover:bg-[var(--surface-subtle)] transition-colors"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            type="button"
+            disabled={!canSave}
+            onClick={handleSave}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
+          >
+            {t('save')}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
