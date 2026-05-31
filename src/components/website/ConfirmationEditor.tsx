@@ -5,6 +5,7 @@ import {
   BUILTIN_CONFIRMATION_ACTIONS,
   ConfirmationAction,
   ConfirmationConfig,
+  ConfirmationDeliveryConfig,
   ConfirmationFAQ,
   defaultConfirmationConfig,
 } from '@/lib/api';
@@ -118,6 +119,12 @@ export default function ConfirmationEditor({ value, onChange }: ConfirmationEdit
     update({ faq: arr });
   }, [config.faq, update]);
 
+  // Delivery section helpers
+  const delivery = config.delivery ?? {};
+  const updateDelivery = useCallback((patch: Partial<ConfirmationDeliveryConfig>) => {
+    update({ delivery: { ...(config.delivery ?? {}), ...patch } });
+  }, [config.delivery, update]);
+
   return (
     <div className="px-4 py-4 space-y-6">
       {/* ─── Header ────────────────────────────────────────────────── */}
@@ -215,6 +222,48 @@ export default function ConfirmationEditor({ value, onChange }: ConfirmationEdit
             </div>
           </div>
         )}
+      </section>
+
+      {/* ─── Livraison ─────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <h3 className="text-[11px] uppercase tracking-[0.12em] text-fg-secondary font-semibold">
+          Livraison
+        </h3>
+        <p className="text-[11px] text-fg-secondary">
+          Informations affichées au client après une commande en livraison.
+        </p>
+
+        <ToggleRow
+          label="Afficher les détails de livraison"
+          description="Adresse, étage, appartement et notes saisis par le client."
+          checked={delivery.show_delivery_details ?? true}
+          onChange={(b) => updateDelivery({ show_delivery_details: b })}
+        />
+        <ToggleRow
+          label="Afficher le livreur"
+          description="Nom et téléphone du livreur, une fois assigné depuis les commandes."
+          checked={delivery.show_courier ?? true}
+          onChange={(b) => updateDelivery({ show_courier: b })}
+        />
+        <ToggleRow
+          label="Afficher l'heure estimée"
+          description="Créneau de livraison estimé, si disponible."
+          checked={delivery.show_eta ?? true}
+          onChange={(b) => updateDelivery({ show_eta: b })}
+        />
+
+        <FormRow label="Note de livraison">
+          <textarea
+            value={delivery.note?.fr ?? ''}
+            onChange={(e) => updateDelivery({ note: { ...(delivery.note ?? {}), fr: e.target.value } })}
+            placeholder="Ex. Le livreur vous contactera ~30 min avant son arrivée."
+            rows={2}
+            className="admin-input"
+          />
+          <p className="text-[10px] text-fg-secondary mt-1">
+            Message court rassurant le client sur le déroulé de la livraison.
+          </p>
+        </FormRow>
       </section>
 
       {/* ─── FAQ ───────────────────────────────────────────────────── */}
@@ -344,6 +393,23 @@ function ActionEditor({
           </FormRow>
         );
       })()}
+    </div>
+  );
+}
+
+function ToggleRow({
+  label, description, checked, onChange,
+}: { label: string; description?: string; checked: boolean; onChange: (b: boolean) => void }) {
+  return (
+    <div
+      className="flex items-start justify-between gap-3 p-3 rounded-lg"
+      style={{ background: 'var(--surface-subtle)' }}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-medium text-fg-primary">{label}</p>
+        {description && <p className="text-[11px] text-fg-secondary mt-0.5">{description}</p>}
+      </div>
+      <Toggle checked={checked} onChange={onChange} />
     </div>
   );
 }

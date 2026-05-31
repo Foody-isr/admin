@@ -6,7 +6,8 @@ import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery,
-  Order, OrderStatus, ListOrdersParams,
+  listStaff, assignCourier, bulkAssignCourier, isCourier,
+  Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
 import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
@@ -18,7 +19,7 @@ import {
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
   ChevronDownIcon, XIcon, PrinterIcon,
   CreditCardIcon, CheckCircle2Icon,
-  CheckIcon, ClockIcon, GlobeIcon, EditIcon,
+  CheckIcon, ClockIcon, GlobeIcon, EditIcon, BikeIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
@@ -254,7 +255,18 @@ export default function OrdersPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
 
+  // Couriers (staff with the courier role) — fetched once for assignment UI.
+  const [couriers, setCouriers] = useState<StaffMember[]>([]);
+  // Bulk selection of delivery orders for "assign courier to many".
+  const [selectedForBulk, setSelectedForBulk] = useState<Set<number>>(new Set());
+
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
+
+  // Load couriers once. Best-effort: if staff endpoint or courier role is
+  // unavailable the assignment UI simply won't show any options.
+  useEffect(() => {
+    listStaff(rid).then((s) => setCouriers(s.filter(isCourier))).catch(() => setCouriers([]));
+  }, [rid]);
 
   // ─── Fetch ────────────────────────────────────────────────────────
 
@@ -355,6 +367,40 @@ export default function OrdersPage() {
     runAction(orderId, () => markOrderOutForDelivery(rid, orderId).then(() => {}), 'out_for_delivery');
   const handleMarkDelivered = (orderId: number) =>
     runAction(orderId, () => markOrderDelivered(rid, orderId).then(() => {}), 'delivered');
+
+  // ─── Courier assignment ───────────────────────────────────────────
+  const applyOrderUpdate = (updated: Order) =>
+    setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
+
+  const handleAssignCourier = (orderId: number, courierId: number | null) =>
+    runAction(orderId, async () => {
+      const updated = await assignCourier(rid, orderId, courierId);
+      applyOrderUpdate(updated);
+    });
+
+  const handleBulkAssignCourier = async (courierId: number | null) => {
+    const ids = Array.from(selectedForBulk);
+    if (ids.length === 0) return;
+    try {
+      const { orders: updated } = await bulkAssignCourier(rid, ids, courierId);
+      updated.forEach(applyOrderUpdate);
+    } catch {
+      await fetchOrders();
+    } finally {
+      setSelectedForBulk(new Set());
+    }
+  };
+
+  const toggleBulkSelect = (orderId: number) =>
+    setSelectedForBulk((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+
+  // Reset bulk selection whenever the tab/filter set changes.
+  useEffect(() => { setSelectedForBulk(new Set()); }, [activeTab, typeFilter, searchSubmitted, paymentFilter]);
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -593,6 +639,33 @@ export default function OrdersPage() {
           />
         </div>
 
+        {/* Bulk courier assignment bar — appears when delivery orders are selected */}
+        {selectedForBulk.size > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-standard"
+            style={{ background: 'var(--surface-subtle)', border: '1px solid var(--divider)' }}
+          >
+            <span className="text-sm font-medium text-fg-primary inline-flex items-center gap-2">
+              <BikeIcon className="w-4 h-4 text-brand-500" />
+              {(t('ordersSelected') || '{n} selected').replace('{n}', String(selectedForBulk.size))}
+            </span>
+            <div className="flex items-center gap-2 ms-auto">
+              <CourierSelect
+                couriers={couriers}
+                value={null}
+                placeholder={t('assignCourier') || 'Assign courier'}
+                onChange={(cid) => handleBulkAssignCourier(cid)}
+              />
+              <button
+                onClick={() => setSelectedForBulk(new Set())}
+                className="btn-secondary text-sm py-2 px-3"
+              >
+                {t('clear') || 'Clear'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         {loading ? (
           <div className="flex justify-center py-16">
@@ -614,16 +687,21 @@ export default function OrdersPage() {
           <>
             <DataTable>
               <DataTableHead>
+                <DataTableHeadCell>{''}</DataTableHeadCell>
                 <DataTableHeadCell>{t('name')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('source')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('date')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('status')}</DataTableHeadCell>
+                <DataTableHeadCell>{t('courier')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('payment')}</DataTableHeadCell>
                 <DataTableHeadCell align="right">{t('total')}</DataTableHeadCell>
               </DataTableHead>
               <DataTableBody>
-                {orders.map((order, index) => (
+                {orders.map((order, index) => {
+                  const isDelivery = order.order_type === 'delivery';
+                  const canAssign = isDelivery && order.status !== 'delivered' && order.status !== 'rejected';
+                  return (
                   <DataTableRow
                     key={order.id}
                     index={index}
@@ -631,6 +709,18 @@ export default function OrdersPage() {
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
                     className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
+                    <DataTableCell>
+                      {canAssign ? (
+                        <input
+                          type="checkbox"
+                          aria-label={t('selectOrder') || 'Select order'}
+                          checked={selectedForBulk.has(order.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => toggleBulkSelect(order.id)}
+                          className="w-4 h-4 accent-[var(--brand-500)] cursor-pointer"
+                        />
+                      ) : null}
+                    </DataTableCell>
                     <DataTableCell mobilePrimary>
                       <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
                     </DataTableCell>
@@ -661,6 +751,13 @@ export default function OrdersPage() {
                         {localizeStatus(order.status, t)}
                       </Badge>
                     </DataTableCell>
+                    <DataTableCell mobileLabel={t('courier')} className="text-fg-secondary">
+                      {isDelivery
+                        ? (order.courier_name
+                            ? <span className="inline-flex items-center gap-1.5"><BikeIcon className="w-3.5 h-3.5 text-brand-500" />{order.courier_name}</span>
+                            : <span className="text-fg-subtle">—</span>)
+                        : null}
+                    </DataTableCell>
                     <DataTableCell mobileLabel={t('payment')}>
                       <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
                         {(() => {
@@ -673,7 +770,8 @@ export default function OrdersPage() {
                       ₪{(order.total_amount ?? 0).toFixed(0)}
                     </DataTableCell>
                   </DataTableRow>
-                ))}
+                  );
+                })}
               </DataTableBody>
             </DataTable>
 
@@ -712,6 +810,8 @@ export default function OrdersPage() {
       <OrderDetailDrawer
         order={selectedOrder}
         isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
+        couriers={couriers}
+        onAssignCourier={(cid) => selectedOrder && handleAssignCourier(selectedOrder.id, cid)}
         onClose={() => setSelectedId(null)}
         onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
@@ -761,12 +861,15 @@ function statusIndex(status: string) {
 }
 
 function OrderDetailDrawer({
-  order, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+  order, isLoading, couriers, onAssignCourier,
+  onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder,
 }: {
   order: Order | null;
   isLoading: boolean;
+  couriers: StaffMember[];
+  onAssignCourier: (courierId: number | null) => void;
   onClose: () => void;
   onAccept: () => void;
   onReject: () => void;
@@ -1195,6 +1298,47 @@ function OrderDetailDrawer({
             </div>
           </div>
 
+          {/* Courier — delivery orders only, assignable until delivered */}
+          {order.order_type === 'delivery' && (
+            <Section title={t('courier') || 'Livreur'}>
+              {order.status === 'delivered' || order.status === 'rejected' ? (
+                <div className="text-fs-sm">
+                  {order.courier_name ? (
+                    <div className="flex flex-col gap-[var(--s-1)]">
+                      <span className="font-medium text-fg-primary">{order.courier_name}</span>
+                      {order.courier_phone && (
+                        <span className="font-mono tabular-nums text-[var(--fg-muted)]">{order.courier_phone}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[var(--fg-subtle)]">{t('noCourierAssigned') || 'No courier assigned'}</span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-[var(--s-2)]">
+                  <CourierSelect
+                    couriers={couriers}
+                    value={order.courier_id ?? null}
+                    placeholder={t('assignCourier') || 'Assign courier'}
+                    disabled={isLoading}
+                    onChange={(cid) => onAssignCourier(cid)}
+                  />
+                  {order.courier_phone && (
+                    <div className="flex items-center justify-between text-fs-sm">
+                      <span className="text-[var(--fg-subtle)]">{t('phone')}</span>
+                      <span className="font-mono tabular-nums">{order.courier_phone}</span>
+                    </div>
+                  )}
+                  {couriers.length === 0 && (
+                    <p className="text-fs-xs text-[var(--fg-subtle)]">
+                      {t('noCouriersHint') || 'Add staff with the courier role to assign deliveries.'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </Section>
+          )}
+
           {/* Totals */}
           <Section title={t('total') || 'Total'}>
             <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
@@ -1568,6 +1712,40 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
         </div>
       ))}
     </div>
+  );
+}
+
+// ─── Courier Select ──────────────────────────────────────────────────────────
+// A plain <select> of couriers used both in the bulk bar and the drawer.
+// Choosing "—" clears the assignment (passes null).
+
+function CourierSelect({
+  couriers, value, placeholder, disabled, onChange,
+}: {
+  couriers: StaffMember[];
+  value: number | null;
+  placeholder: string;
+  disabled?: boolean;
+  onChange: (courierId: number | null) => void;
+}) {
+  return (
+    <select
+      className="input text-sm"
+      value={value ?? ''}
+      disabled={disabled}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        const v = e.target.value;
+        onChange(v === '' ? null : Number(v));
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {couriers.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.full_name}{c.phone ? ` · ${c.phone}` : ''}
+        </option>
+      ))}
+    </select>
   );
 }
 

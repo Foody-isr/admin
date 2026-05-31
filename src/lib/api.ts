@@ -16,7 +16,7 @@ const USER_KEY = 'foody_restaurant_user';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Role = 'superadmin' | 'owner' | 'manager' | 'cashier' | 'waiter' | 'chef';
+export type Role = 'superadmin' | 'owner' | 'manager' | 'cashier' | 'waiter' | 'chef' | 'courier';
 export type PlanTier = 'starter' | 'premium' | 'enterprise';
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'deactivated' | 'cancelled';
 export type OrderStatus =
@@ -399,6 +399,11 @@ export interface Order {
   in_kitchen_at?: string;
   ready_at?: string;
   completed_at?: string;
+  // Courier assignment (delivery orders). Populated by the server once a
+  // courier is assigned; absent/empty when none. See docs/courier-feature-contract.md.
+  courier_id?: number | null;
+  courier_name?: string;
+  courier_phone?: string;
 }
 
 export interface StaffMember {
@@ -535,11 +540,19 @@ export interface ConfirmationFAQ {
   answer?: Record<string, string>;
 }
 
+export interface ConfirmationDeliveryConfig {
+  show_delivery_details?: boolean; // show the address block on the confirmation page
+  show_courier?: boolean;          // show courier name/phone once a courier is assigned
+  show_eta?: boolean;              // show the estimated delivery window
+  note?: Record<string, string>;   // localized free note, e.g. "courier calls ~30 min before arrival"
+}
+
 export interface ConfirmationConfig {
   title?: Record<string, string>;
   subtitle?: Record<string, string>;
   actions?: ConfirmationAction[];
   faq?: ConfirmationFAQ[];
+  delivery?: ConfirmationDeliveryConfig | null;
 }
 
 // Built-in confirmation action ids — order matches what the foodyweb tracking
@@ -2282,6 +2295,44 @@ export async function updateOrderPaymentStatus(
     { method: 'PUT', body: JSON.stringify(body) },
   );
   return data.order;
+}
+
+// ─── Courier assignment ──────────────────────────────────────────────────────
+// See docs/courier-feature-contract.md. Backend pending — callers should treat
+// failures as non-fatal and fall back to a re-fetch.
+
+// Role key that identifies a courier. Matched against StaffMember.role and,
+// for custom roles, StaffMember.role_name (case-insensitive).
+export const COURIER_ROLE_KEY = 'courier';
+
+/** True when a staff member is a courier (built-in role or a role named "courier"). */
+export function isCourier(member: Pick<StaffMember, 'role' | 'role_name'>): boolean {
+  if (member.role === COURIER_ROLE_KEY) return true;
+  return (member.role_name ?? '').trim().toLowerCase() === COURIER_ROLE_KEY;
+}
+
+/** Assign (or clear, with courierId = null) a courier on a single delivery order. */
+export async function assignCourier(
+  restaurantId: number, orderId: number, courierId: number | null,
+): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/assign-courier?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ courier_id: courierId }) },
+  );
+  return data.order;
+}
+
+/** Assign one courier to many orders at once. Returns updated orders + ids that failed. */
+export async function bulkAssignCourier(
+  restaurantId: number, orderIds: number[], courierId: number | null,
+): Promise<{ orders: Order[]; failed: number[] }> {
+  const data = await apiFetch<{ orders: Order[]; failed?: number[] }>(
+    `/api/v1/orders/assign-courier/bulk?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ order_ids: orderIds, courier_id: courierId }) },
+  );
+  return { orders: data.orders ?? [], failed: data.failed ?? [] };
 }
 
 // ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
