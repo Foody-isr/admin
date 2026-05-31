@@ -90,7 +90,14 @@ export function toVariantSyncPayload(
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi];
     const validRows = g.rows.filter((r) => r.name.trim());
-    if (validRows.length === 0 && !g.title.trim()) continue;
+    // Drop empty groups regardless of title. Keeping an empty group in the
+    // payload makes SyncItemVariants leave the OptionSet attached with zero
+    // overrides for this item — which then trips the legacy fallback on
+    // reload and resurrects every option from the shared set (without the
+    // is_combo_only flag, since that lived on the now-deleted override).
+    // Letting the empty group fall through here means the server's detach
+    // loop removes the join row cleanly.
+    if (validRows.length === 0) continue;
     payload.push({
       option_set_id: g.optionSetId ?? null,
       name: g.title.trim(),
