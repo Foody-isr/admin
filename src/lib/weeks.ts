@@ -71,9 +71,14 @@ const DAY_INDEX_BY_KEY: Record<string, number> = {
 };
 
 /** Minimal shape this module needs from a restaurant. Kept structural so it
- *  works with both the full `Restaurant` API type and partial fetches. */
+ *  works with both the full `Restaurant` API type and partial fetches.
+ *  Pass the service-enabled flags to filter the derivation — a disabled
+ *  service shouldn't contribute days to the workdays union. */
 export interface WorkdaysSource {
   workdays?: number[] | null;
+  pickup_enabled?: boolean;
+  dine_in_enabled?: boolean;
+  delivery_enabled?: boolean;
   opening_hours_config?: {
     dine_in?: Record<string, { closed?: boolean }>;
     pickup?: Record<string, { closed?: boolean }>;
@@ -102,8 +107,17 @@ export function getEffectiveWorkdays(source: WorkdaysSource): number[] {
   }
   const cfg = source.opening_hours_config;
   if (cfg) {
+    // When enabled flags are present, treat `undefined` as "unknown — assume
+    // enabled" to keep callers that only pass opening_hours_config working
+    // unchanged. When a flag is explicitly false, the service is skipped.
+    const services: Array<[Record<string, { closed?: boolean }> | undefined, boolean]> = [
+      [cfg.dine_in, source.dine_in_enabled !== false],
+      [cfg.pickup, source.pickup_enabled !== false],
+      [cfg.delivery, source.delivery_enabled !== false],
+    ];
     const days = new Set<number>();
-    for (const service of [cfg.dine_in, cfg.pickup, cfg.delivery]) {
+    for (const [service, enabled] of services) {
+      if (!enabled) continue;
       if (!looksConfigured(service)) continue;
       for (const [key, day] of Object.entries(service!)) {
         if (day && !day.closed && key in DAY_INDEX_BY_KEY) {
