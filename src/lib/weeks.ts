@@ -84,9 +84,15 @@ export interface WorkdaysSource {
 /**
  * Resolves the workdays a restaurant should display:
  *   - Explicit `workdays` if the owner pinned them (length > 0).
- *   - Otherwise the union of days marked "open" across every configured
- *     service type in opening hours.
+ *   - Otherwise the union of "open" days across every *configured* service
+ *     in opening hours — see `looksConfigured` for the heuristic.
  *   - Otherwise every day of the week (safe default — never returns []).
+ *
+ * "Configured" requires at least one day marked `closed: true`. The settings
+ * page pre-fills unvisited service tabs with an "open every day 09:00-22:00"
+ * default; without this filter every restaurant with all 3 service types
+ * enabled would auto-derive to Sun-Sat regardless of what they actually
+ * configured. Real-world 24/7 restaurants can use Custom mode.
  *
  * The returned array is sorted ascending (Sun=0 first) and deduped.
  */
@@ -98,8 +104,8 @@ export function getEffectiveWorkdays(source: WorkdaysSource): number[] {
   if (cfg) {
     const days = new Set<number>();
     for (const service of [cfg.dine_in, cfg.pickup, cfg.delivery]) {
-      if (!service) continue;
-      for (const [key, day] of Object.entries(service)) {
+      if (!looksConfigured(service)) continue;
+      for (const [key, day] of Object.entries(service!)) {
         if (day && !day.closed && key in DAY_INDEX_BY_KEY) {
           days.add(DAY_INDEX_BY_KEY[key]);
         }
@@ -108,6 +114,16 @@ export function getEffectiveWorkdays(source: WorkdaysSource): number[] {
     if (days.size > 0) return Array.from(days).sort((a, b) => a - b);
   }
   return [0, 1, 2, 3, 4, 5, 6];
+}
+
+function looksConfigured(
+  service: Record<string, { closed?: boolean }> | undefined,
+): boolean {
+  if (!service) return false;
+  for (const day of Object.values(service)) {
+    if (day && day.closed) return true;
+  }
+  return false;
 }
 
 /** True when the given JS-style weekday (0=Sun … 6=Sat) is a workday. */

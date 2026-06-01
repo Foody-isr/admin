@@ -20,7 +20,18 @@ type Day = typeof DAYS[number];
 
 // Indexed by JS Date.getDay() so the chip picker matches the same convention
 // the rest of the codebase uses for the `workdays` array (Sun=0 … Sat=6).
-const DAY_SHORT_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Each entry is an i18n key — resolved at render time so the labels respect
+// the user's selected locale.
+const DAY_SHORT_KEYS = [
+  'sundayShort',
+  'mondayShort',
+  'tuesdayShort',
+  'wednesdayShort',
+  'thursdayShort',
+  'fridayShort',
+  'saturdayShort',
+];
+const DAY_SHORT_FALLBACKS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ORDER_TYPES = ['pickup', 'dine_in', 'delivery'] as const;
 type OrderType = typeof ORDER_TYPES[number];
@@ -275,7 +286,7 @@ export default function OpeningHoursPage() {
                 <div className="text-fs-xs text-[var(--fg-muted)]">
                   {(t('workdaysAutoPreview') || 'Currently: {days}').replace(
                     '{days}',
-                    autoDerivedWorkdays.map((d) => DAY_SHORT_LABELS[d]).join(', ') || '—',
+                    autoDerivedWorkdays.map((d) => t(DAY_SHORT_KEYS[d]) || DAY_SHORT_FALLBACKS[d]).join(', ') || '—',
                   )}
                 </div>
               </div>
@@ -295,9 +306,10 @@ export default function OpeningHoursPage() {
                   {t('workdaysModeCustom') || 'Custom'}
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {DAY_SHORT_LABELS.map((label, idx) => {
+                  {DAY_SHORT_KEYS.map((key, idx) => {
                     const active = customWorkdays.includes(idx);
                     const disabled = weekMode !== 'custom' || savingWeek;
+                    const label = t(key) || DAY_SHORT_FALLBACKS[idx];
                     return (
                       <button
                         key={idx}
