@@ -19,6 +19,19 @@ import {
   type PosDisplayTile,
   type PosTileSize,
 } from '@/lib/posDisplay';
+
+/** Build the default item tiles for a group, mirroring the POS fallback. */
+function seedGroupTiles(items: MenuItem[]): PosDisplayTile[] {
+  return items.map((item, idx) => ({
+    tile_type: 'item',
+    ref_item_id: item.id,
+    size: 'petit',
+    bg_type: 'color',
+    color: POS_PALETTE[idx % POS_PALETTE.length],
+    image_url: '',
+    position: idx,
+  }));
+}
 import {
   getPosDisplay,
   listAllItems,
@@ -132,9 +145,11 @@ export default function PosDisplayEditorPage() {
     const tile = currentTiles[i];
     if (tile?.tile_type !== 'group' || tile.ref_group_id == null) return;
     const gid = tile.ref_group_id;
-    setGroupTiles((prev) =>
-      prev[String(gid)] ? prev : { ...prev, [String(gid)]: [] },
-    );
+    setGroupTiles((prev) => {
+      if (prev[String(gid)]) return prev;
+      const items = groupMap.get(gid)?.items ?? [];
+      return { ...prev, [String(gid)]: seedGroupTiles(items) };
+    });
     setLevel(gid);
     setSelectedIndex(null);
   };
