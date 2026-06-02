@@ -89,7 +89,9 @@ export function PosTileCanvas({
               refData={resolve(t)}
               selected={selectedIndex === i}
               onClick={() => onSelect(i)}
-              onDrill={t.tile_type === 'group' ? () => onDrill(i) : undefined}
+              onDoubleClick={
+                t.tile_type === 'group' ? () => onDrill(i) : undefined
+              }
               draggable
               onDragStart={() => setDragFrom(i)}
               onDragEnd={() => setDragFrom(null)}

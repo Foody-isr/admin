@@ -1,6 +1,6 @@
 'use client';
 import * as React from 'react';
-import { ChevronRight, Layers } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PosDisplayTile } from '@/lib/posDisplay';
 
@@ -8,6 +8,8 @@ export interface PosTileRef {
   name: string;
   price?: number;
   imageUrl?: string;
+  /** Group tiles only: number of items in the group, shown as a subtitle. */
+  itemCount?: number;
 }
 
 export interface PosTileProps extends React.HTMLAttributes<HTMLButtonElement> {
@@ -15,33 +17,41 @@ export interface PosTileProps extends React.HTMLAttributes<HTMLButtonElement> {
   refData: PosTileRef;
   selected?: boolean;
   onClick?: () => void;
-  onDrill?: () => void; // group tiles only
   draggable?: boolean;
 }
 
 /**
- * Renders a single POS display tile as it appears on the POS screen.
- * Used in the admin canvas, preview (Aperçu), and the POS itself — all three
- * must match visually.
+ * Renders a single POS display tile, Square POS-style.
  *
- * Visual rules (Square-style):
- *  - Solid saturated background color OR image with a bottom dark gradient overlay
- *  - White bold label bottom-left
- *  - Group tiles: Layers glyph top-left + white circular ChevronRight badge top-right
- *  - Item tiles: price line below name
- *  - Selection: brand-colored ring with offset
+ * Layout depends on the tile size:
+ *  - petit (151×64) and large (312×64): single inline row — icon next to name.
+ *  - grand (151×138): stacked — icon top-left, name + subtitle bottom-left.
+ *
+ * Group tiles show a Layers glyph and (when room allows) an "N article(s)"
+ * subtitle. Item tiles show the price below the name on grand size.
+ * Drill-into-group is wired by the parent via `onClick` in preview mode and
+ * via the inspector panel in edit mode.
  */
 export function PosTile({
   tile,
   refData,
   selected,
   onClick,
-  onDrill,
   draggable,
   className,
   ...rest
 }: PosTileProps) {
   const isImage = tile.bg_type === 'image' && !!tile.image_url;
+  const isGroup = tile.tile_type === 'group';
+  const isStacked = tile.size === 'grand';
+
+  const subtitle = isGroup
+    ? refData.itemCount != null
+      ? `${refData.itemCount} article${refData.itemCount > 1 ? 's' : ''}`
+      : null
+    : refData.price != null
+      ? `₪${refData.price.toFixed(2)}`
+      : null;
 
   return (
     <button
@@ -49,15 +59,14 @@ export function PosTile({
       onClick={onClick}
       draggable={draggable}
       className={cn(
-        'relative w-full h-full rounded-md overflow-hidden text-start p-2.5',
-        'flex flex-col justify-between transition select-none',
+        'relative w-full h-full rounded-md overflow-hidden text-start p-2.5 transition select-none',
+        isStacked ? 'flex flex-col justify-between' : 'flex items-center gap-2',
         selected && 'ring-2 ring-offset-2 ring-[var(--brand-500)]',
         className,
       )}
       style={isImage ? undefined : { backgroundColor: tile.color || '#1C1C1E' }}
       {...rest}
     >
-      {/* Background image + dark gradient overlay */}
       {isImage && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -70,34 +79,21 @@ export function PosTile({
         </>
       )}
 
-      {/* Top row: layers glyph (groups) + drill badge */}
-      <div className="relative flex items-center justify-between">
-        {tile.tile_type === 'group' && <Layers className="w-4 h-4 text-white" />}
-        <span aria-hidden className="flex-1" />
-        {tile.tile_type === 'group' && onDrill && (
-          <span
-            role="button"
-            tabIndex={-1}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDrill();
-            }}
-            className="grid place-items-center w-6 h-6 rounded-full bg-white text-black shrink-0"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </span>
-        )}
-      </div>
+      {isGroup && (
+        <Layers className="relative w-4 h-4 text-white shrink-0" />
+      )}
 
-      {/* Bottom row: name + price */}
-      <div className="relative">
-        <div className="font-semibold text-fs-md text-white leading-tight">
+      <div className={cn('relative min-w-0', isStacked ? '' : 'flex-1')}>
+        <div
+          className={cn(
+            'font-semibold text-fs-md text-white leading-tight',
+            isStacked ? '' : 'truncate',
+          )}
+        >
           {refData.name}
         </div>
-        {tile.tile_type === 'item' && refData.price != null && (
-          <div className="text-fs-sm text-white/80">
-            ₪{refData.price.toFixed(2)}
-          </div>
+        {subtitle && isStacked && (
+          <div className="text-fs-xs text-white/70 mt-0.5">{subtitle}</div>
         )}
       </div>
     </button>

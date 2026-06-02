@@ -136,7 +136,11 @@ export default function PosDisplayEditorPage() {
     (tile: PosDisplayTile): PosTileRef => {
       if (tile.tile_type === 'group') {
         const g = tile.ref_group_id != null ? groupMap.get(tile.ref_group_id) : undefined;
-        return { name: g?.name ?? 'Groupe', imageUrl: g?.image_url };
+        return {
+          name: g?.name ?? 'Groupe',
+          imageUrl: g?.image_url,
+          itemCount: g?.items?.length,
+        };
       }
       const it = tile.ref_item_id != null ? itemMap.get(tile.ref_item_id) : undefined;
       return { name: it?.name ?? 'Article', price: it?.price, imageUrl: it?.image_url };
@@ -463,7 +467,7 @@ function PreviewGrid({
             <PosTile
               tile={t}
               refData={resolve(t)}
-              onDrill={t.tile_type === 'group' ? () => onDrill(i) : undefined}
+              onClick={t.tile_type === 'group' ? () => onDrill(i) : undefined}
             />
           </div>
         );
