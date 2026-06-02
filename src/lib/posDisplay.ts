@@ -8,7 +8,7 @@ export type PosBgType = 'color' | 'image';
 export const POS_TILE_SPANS: Record<PosTileSize, { col: number; row: number }> = {
   petit: { col: 1, row: 1 },
   large: { col: 2, row: 1 },
-  grand: { col: 2, row: 2 },
+  grand: { col: 1, row: 2 },
 };
 
 export const POS_GRID_COLUMNS = 4;

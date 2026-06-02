@@ -49,7 +49,7 @@ export function PosTile({
       onClick={onClick}
       draggable={draggable}
       className={cn(
-        'relative w-full h-full rounded-[14px] overflow-hidden text-start p-2.5',
+        'relative w-full h-full rounded-md overflow-hidden text-start p-2.5',
         'flex flex-col justify-between transition select-none',
         selected && 'ring-2 ring-offset-2 ring-[var(--brand-500)]',
         className,

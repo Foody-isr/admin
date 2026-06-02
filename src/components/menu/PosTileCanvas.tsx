@@ -23,14 +23,16 @@ export interface PosTileCanvasProps {
   onReorder: (from: number, to: number) => void;
 }
 
+/** Minimum visible grid rows so the canvas always shows a Square-style empty layout. */
+const MIN_GRID_ROWS = 8;
+
 /**
- * 4-column CSS grid that places POS display tiles.
+ * 4-column CSS grid that places POS display tiles, Square POS-style.
  *
- * - Each tile spans `col` × `row` cells according to its size (petit 1×1, large 2×1, grand 2×2).
- * - `grid-auto-flow: dense` allows smaller tiles to backfill gaps left by larger ones.
- * - Trailing `+` button opens the add-tile flow.
- * - Native HTML5 drag-and-drop handles reordering; the parent is responsible for
- *   updating the `tiles` array via `onReorder(from, to)`.
+ * - Each tile spans `col` × `row` cells according to its size.
+ * - `grid-auto-flow: dense` lets smaller tiles backfill gaps left by larger ones.
+ * - Every unoccupied cell renders an `+` placeholder that opens the add-tile flow.
+ * - Native HTML5 drag-and-drop handles reordering between existing tiles.
  */
 export function PosTileCanvas({
   tiles,
@@ -43,9 +45,20 @@ export function PosTileCanvas({
 }: PosTileCanvasProps) {
   const [dragFrom, setDragFrom] = React.useState<number | null>(null);
 
+  // Pad with empty cells so the grid always fills at least MIN_GRID_ROWS rows
+  // (plus one extra row of slack when tiles overflow), matching Square's
+  // always-visible placeholder grid.
+  const tileCells = tiles.reduce((sum, t) => {
+    const s = POS_TILE_SPANS[t.size];
+    return sum + s.col * s.row;
+  }, 0);
+  const overflowRows = Math.ceil(tileCells / POS_GRID_COLUMNS);
+  const totalRows = Math.max(MIN_GRID_ROWS, overflowRows + 1);
+  const emptyCount = Math.max(0, totalRows * POS_GRID_COLUMNS - tileCells);
+
   return (
     <div
-      className="grid gap-2.5"
+      className="grid gap-2"
       style={{
         gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 151px)`,
         gridAutoRows: '64px',
@@ -85,16 +98,17 @@ export function PosTileCanvas({
         );
       })}
 
-      {/* Trailing add-tile cell */}
-      <button
-        type="button"
-        onClick={onAdd}
-        aria-label="Ajouter une tuile"
-        className="grid place-items-center rounded-[14px] border border-dashed border-[var(--line)] text-[var(--fg-subtle)] hover:bg-[var(--surface-subtle)] transition"
-        style={{ minHeight: 64 }}
-      >
-        <Plus />
-      </button>
+      {Array.from({ length: emptyCount }, (_, i) => (
+        <button
+          key={`empty-${i}`}
+          type="button"
+          onClick={onAdd}
+          aria-label="Ajouter une tuile"
+          className="grid place-items-center rounded-md bg-white/[0.04] text-[var(--fg-subtle)] hover:bg-white/[0.08] transition"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      ))}
     </div>
   );
 }
