@@ -28,15 +28,14 @@ import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 
 type Range = 'today' | 'week' | 'month';
 
-const RANGE_LABELS: Record<Range | 'yesterday', string> = {
-  yesterday: 'Hier',
-  today: "Aujourd'hui",
-  week: '7 jours',
-  month: '30 jours',
+const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
+  en: 'en-US',
+  he: 'he-IL',
+  fr: 'fr-FR',
 };
 
-function fmtDate(d = new Date()) {
-  return d.toLocaleDateString('fr-FR', {
+function fmtDate(d = new Date(), locale = 'fr-FR') {
+  return d.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -56,7 +55,15 @@ export default function DashboardPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const dateLocale = DATE_LOCALES[locale];
+
+  const RANGE_LABELS: Record<Range | 'yesterday', string> = {
+    yesterday: t('yesterday'),
+    today: t('today'),
+    week: t('days7'),
+    month: t('days30'),
+  };
 
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [stats, setStats] = useState<TodayStats | null>(null);
@@ -101,7 +108,6 @@ export default function DashboardPage() {
 
   // Last 7 days vs the 7 days before, day-by-day.
   const weekBars = useMemo(() => {
-    const dayLabels = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
     if (dailySeries.length === 0) {
       return Array.from({ length: 7 }, () => ({ day: '', cur: 0, prev: 0, hasData: false }));
     }
@@ -109,13 +115,13 @@ export default function DashboardPage() {
     return dailySeries.map((d) => {
       const date = new Date(`${d.date}T00:00:00`);
       return {
-        day: dayLabels[date.getDay()],
+        day: date.toLocaleDateString(dateLocale, { weekday: 'short' }),
         cur: (d.net_sales / max) * 100,
         prev: 0,
         hasData: true,
       };
     });
-  }, [dailySeries]);
+  }, [dailySeries, dateLocale]);
 
   if (loading) {
     return (
@@ -125,8 +131,8 @@ export default function DashboardPage() {
     );
   }
 
-  const greeting = t('dashboardHome') || 'Tableau de bord';
-  const dateSub = fmtDate();
+  const greeting = t('dashboardHome') || 'Dashboard';
+  const dateSub = fmtDate(new Date(), dateLocale);
 
   return (
     <>
@@ -160,9 +166,9 @@ export default function DashboardPage() {
               })}
             </div>
             <Button variant="secondary" size="md">
-              <Calendar /> {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+              <Calendar /> {new Date().toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' })}
             </Button>
-            <Button variant="ghost" size="md" icon aria-label="Actualiser" onClick={load}>
+            <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
           </>
@@ -173,34 +179,34 @@ export default function DashboardPage() {
           the dashboard's chart + activity sections cover the mobile use case. */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
         <KpiWithSpark
-          label="Revenu brut"
+          label={t('grossRevenue')}
           value={fmtMoney(revenue)}
           delta={revChange}
-          sub="vs hier"
+          sub={t('vsYesterday')}
           trend={revChange >= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('revenue')}
         />
         <KpiWithSpark
-          label="Commandes"
+          label={t('orders')}
           value={String(orders)}
           delta={orderChange}
-          sub={`${orders} aujourd'hui`}
+          sub={`${orders} ${t('today').toLowerCase()}`}
           trend={orderChange >= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('orders')}
         />
         <KpiWithSpark
-          label="Ticket moyen"
+          label={t('avgTicket')}
           value={`₪${avgTicket.toFixed(1)}`}
           delta={ticketChange}
-          sub="vs période précédente"
+          sub={t('vsPreviousPeriod')}
           trend={ticketChange >= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('average-ticket')}
         />
         <KpiWithSpark
-          label="Main-d'œuvre"
+          label={t('labor')}
           value={`${laborPct.toFixed(1)}%`}
           delta={laborChange}
-          sub="cible 30%"
+          sub={t('targetThirty')}
           trend={laborChange <= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('labor')}
         />
@@ -214,37 +220,37 @@ export default function DashboardPage() {
       {/* Main row: chart + right rail */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--s-5)] mb-[var(--s-5)]">
         <Section
-          title="Rendement — 7 derniers jours"
-          desc="Ventes nettes, hors TVA"
+          title={t('performanceLast7Days')}
+          desc={t('netSalesExcludingVat')}
         >
-          <BarChart data={weekBars} />
+          <BarChart data={weekBars} emptyLabel={t('noSalesIn7Days')} />
         </Section>
 
         <div className="flex flex-col gap-[var(--s-4)]">
-          <Section title="Actions rapides">
+          <Section title={t('quickActions')}>
             <div className="-mx-[var(--s-2)]">
               <QuickAction
                 icon={<DollarSign />}
-                label="Accepter un paiement"
-                sub="Transaction manuelle"
+                label={t('acceptPayment')}
+                sub={t('manualTransaction')}
                 onClick={() => router.push(`/${rid}/orders/all`)}
               />
               <QuickAction
                 icon={<Edit />}
-                label="Modifier la carte"
-                sub="Mettre à jour les articles"
+                label={t('editMenuAction')}
+                sub={t('updateItemsLabel')}
                 onClick={() => router.push(`/${rid}/menu/menus`)}
               />
               <QuickAction
                 icon={<Plus />}
-                label="Ajouter un article"
-                sub="Nouveau produit"
+                label={t('addItemAction')}
+                sub={t('newProduct')}
                 onClick={() => router.push(`/${rid}/menu/items/new`)}
               />
               <QuickAction
                 icon={<Package />}
-                label="Réceptionner un arrivage"
-                sub="Mettre à jour le stock"
+                label={t('receiveDelivery')}
+                sub={t('updateStock')}
                 onClick={() => router.push(`/${rid}/kitchen/stock`)}
               />
             </div>
@@ -255,16 +261,16 @@ export default function DashboardPage() {
       {/* Lower row: Top items + Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--s-5)]">
         <Section
-          title="Articles les plus vendus"
+          title={t('bestSellingItems')}
           aside={
             <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/menu/items`)}>
-              Voir tout
+              {t('seeAll')}
             </Button>
           }
         >
           {topSellers.length === 0 ? (
             <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">
-              Aucune vente enregistrée.
+              {t('noSalesYet')}
             </p>
           ) : (
             <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
@@ -282,7 +288,7 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-fs-sm text-[var(--fg)] font-medium truncate">{s.name}</div>
                       <div className="text-fs-xs text-[var(--fg-muted)]">
-                        {s.quantity} ventes
+                        {s.quantity} {t('sales')}
                       </div>
                     </div>
                     <div className="w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
@@ -302,34 +308,34 @@ export default function DashboardPage() {
         </Section>
 
         <Section
-          title="Activité en direct"
+          title={t('liveActivity')}
           aside={
             <Badge tone="success" dot>
-              En ligne
+              {t('online')}
             </Badge>
           }
         >
           <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
             <ActivityRow
               color="var(--success-500)"
-              who={`${orders} commandes`}
-              what="enregistrées aujourd'hui"
+              who={`${orders} ${t('orders').toLowerCase()}`}
+              what={t('recordedToday')}
               amt={fmtMoney(revenue)}
-              when="Live"
+              when={t('liveLabel')}
             />
             {previous?.date && (
               <ActivityRow
                 color="var(--info-500)"
-                who="Comparaison"
-                what={`${new Date(previous.date).toLocaleDateString('fr-FR')} → ${new Date(current?.date ?? '').toLocaleDateString('fr-FR')}`}
+                who={t('comparison')}
+                what={`${new Date(previous.date).toLocaleDateString(dateLocale)} → ${new Date(current?.date ?? '').toLocaleDateString(dateLocale)}`}
                 when=""
               />
             )}
             {(current?.tips ?? 0) > 0 && (
               <ActivityRow
                 color="var(--warning-500)"
-                who="Pourboires"
-                what="collectés aujourd'hui"
+                who={t('tips')}
+                what={t('collectedToday')}
                 amt={`₪${(current?.tips ?? 0).toFixed(2)}`}
                 when=""
               />
@@ -337,8 +343,8 @@ export default function DashboardPage() {
             {(current?.discounts ?? 0) > 0 && (
               <ActivityRow
                 color="var(--danger-500)"
-                who="Remises"
-                what="appliquées"
+                who={t('discounts')}
+                what={t('discountsApplied')}
                 amt={`₪${(current?.discounts ?? 0).toFixed(2)}`}
                 when=""
               />
@@ -412,8 +418,10 @@ function Sparkline({ trend }: { trend: 'up' | 'down' }) {
 
 function BarChart({
   data,
+  emptyLabel,
 }: {
   data: { day: string; cur: number; prev: number; hasData: boolean }[];
+  emptyLabel: string;
 }) {
   const anyData = data.some((d) => d.hasData && d.cur > 0);
   if (!anyData) {
@@ -422,7 +430,7 @@ function BarChart({
         className="flex items-center justify-center text-fs-sm text-[var(--fg-subtle)]"
         style={{ height: 180 }}
       >
-        Aucune vente enregistrée sur les 7 derniers jours.
+        {emptyLabel}
       </div>
     );
   }

@@ -48,7 +48,7 @@ export function PosTileCanvas({
       className="grid gap-3"
       style={{
         gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 1fr)`,
-        gridAutoRows: '110px',
+        gridAutoRows: '64px',
         gridAutoFlow: 'dense',
       }}
     >
@@ -91,7 +91,7 @@ export function PosTileCanvas({
         onClick={onAdd}
         aria-label="Ajouter une tuile"
         className="grid place-items-center rounded-[14px] border border-dashed border-[var(--line)] text-[var(--fg-subtle)] hover:bg-[var(--surface-subtle)] transition"
-        style={{ minHeight: 110 }}
+        style={{ minHeight: 64 }}
       >
         <Plus />
       </button>

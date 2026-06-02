@@ -17,26 +17,28 @@ import { SearchShortcutProvider } from '@/lib/search-shortcut';
 import SearchModal from '@/components/search/SearchModal';
 import { getRestaurant, Restaurant } from '@/lib/api';
 
-const PAGE_NAMES: Record<string, string> = {
-  dashboard: 'Dashboard',
-  menu: 'Menu',
-  kitchen: 'Kitchen',
-  orders: 'Orders',
-  staff: 'Staff',
-  roles: 'Roles',
-  customers: 'Customers',
-  analytics: 'Analytics',
-  settings: 'Settings',
-  website: 'Website',
-  billing: 'Billing',
-};
+// Slugs that map to an existing translation key in i18n.tsx. Anything not listed
+// here falls back to a title-cased version of the slug.
+const PAGE_SLUGS = [
+  'dashboard',
+  'menu',
+  'kitchen',
+  'orders',
+  'staff',
+  'roles',
+  'customers',
+  'analytics',
+  'settings',
+  'website',
+  'billing',
+] as const;
 
 function RestaurantGuard({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, loading, restaurantIds } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams();
-  const { direction } = useI18n();
+  const { direction, t } = useI18n();
   const restaurantId = Number(params.restaurantId);
   const isFullscreen = pathname.endsWith('/website');
   const isWideLayout = pathname.includes('/orders');
@@ -53,7 +55,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   // Derive current page name from pathname
   const segments = pathname.split('/');
   const pageSlug = segments[2] || 'dashboard';
-  const pageName = PAGE_NAMES[pageSlug] || pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);
+  const pageName = (PAGE_SLUGS as readonly string[]).includes(pageSlug)
+    ? t(pageSlug)
+    : pageSlug.charAt(0).toUpperCase() + pageSlug.slice(1);
 
   const toggleSidebar = useCallback(() => setSidebarOpen((prev) => !prev), []);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);

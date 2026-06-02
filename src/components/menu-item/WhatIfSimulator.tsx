@@ -772,9 +772,11 @@ export default function WhatIfSimulator({
               )}
             </div>
 
-            {/* Gauge bar */}
+            {/* Gauge bar — pinned to LTR so the fill (grows from physical left)
+                stays aligned with the 0% / target / max labels below. */}
             <div
               className="relative mt-[var(--s-3)]"
+              dir="ltr"
               style={{
                 height: 8,
                 background: 'var(--surface-2)',
@@ -815,7 +817,10 @@ export default function WhatIfSimulator({
                 }}
               />
             </div>
-            <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--fg-subtle)]">
+            <div
+              className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--fg-subtle)]"
+              dir="ltr"
+            >
               <span>0%</span>
               <span style={{ color: 'var(--success-500)', fontWeight: 600 }}>
                 {' ● '}
@@ -1007,8 +1012,12 @@ function Lever({
       </div>
 
       {/* Slider — visual track + thumb on top of an invisible <input range>
-          for accessibility & keyboard support. */}
-      <div className="relative" style={{ height: 32, marginTop: 8 }}>
+          for accessibility & keyboard support. dir="ltr" is required: in RTL
+          documents browsers reverse the native range (drag right = decrease)
+          while the visual track + thumb use physical `left`/`width`, so the
+          two would run opposite each other. Pinning the slider to LTR keeps
+          drag-right = increase and matches the fill direction. */}
+      <div className="relative" style={{ height: 32, marginTop: 8 }} dir="ltr">
         <input
           type="range"
           min={min}
@@ -1065,8 +1074,12 @@ function Lever({
         />
       </div>
 
-      {/* tick labels */}
-      <div className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--fg-subtle)]">
+      {/* tick labels — pinned to LTR to stay aligned with the slider's
+          physical fill direction (min on the left, max on the right). */}
+      <div
+        className="flex items-center justify-between mt-1.5 text-[10px] text-[var(--fg-subtle)]"
+        dir="ltr"
+      >
         {ticks.map((tk) => {
           const isBase = !!tk.base;
           return (

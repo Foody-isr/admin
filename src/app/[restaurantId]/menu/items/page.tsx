@@ -422,12 +422,14 @@ export default function ItemLibraryPage() {
   const selectionCount = selected.size;
 
   // Category pills — the top-level quick filter (single-select pattern from Figma).
-  // "Tous" clears the category filter. Any category pill toggles that single category.
-  const pillCategories = ['Tous', ...categoryOptions.map((c) => c.name)];
+  // The "all" pill (sentinel value below) clears the category filter; any other pill toggles that single category.
+  const ALL_PILL = '__all__';
+  const allLabel = t('all');
+  const pillCategories = [ALL_PILL, ...categoryOptions.map((c) => c.name)];
   const activePillName =
-    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : 'Tous';
+    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ALL_PILL;
   const selectPill = (name: string) => {
-    if (name === 'Tous') setSelectedCategories(new Set());
+    if (name === ALL_PILL) setSelectedCategories(new Set());
     else setSelectedCategories(new Set([name]));
   };
 
@@ -435,7 +437,7 @@ export default function ItemLibraryPage() {
     <div className="flex flex-col">
       <PageHead
         title={t('itemLibrary')}
-        desc={`${allItems.length} articles · ${categories.length} catégories`}
+        desc={`${allItems.length} ${t('articlesUnit')} · ${categories.length} ${t('categoriesCount')}`}
         actions={
           <>
             <Button
@@ -633,6 +635,7 @@ export default function ItemLibraryPage() {
         <div className="flex flex-wrap gap-[var(--s-2)] mb-[var(--s-4)]">
           {pillCategories.map((name) => {
             const active = activePillName === name;
+            const label = name === ALL_PILL ? allLabel : name;
             return (
               <button
                 key={name}
@@ -645,7 +648,7 @@ export default function ItemLibraryPage() {
                     : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                 }`}
               >
-                {name}
+                {label}
               </button>
             );
           })}

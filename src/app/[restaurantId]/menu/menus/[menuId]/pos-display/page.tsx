@@ -427,7 +427,7 @@ function PreviewGrid({
       className="grid gap-3"
       style={{
         gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 1fr)`,
-        gridAutoRows: '110px',
+        gridAutoRows: '64px',
         gridAutoFlow: 'dense',
       }}
     >

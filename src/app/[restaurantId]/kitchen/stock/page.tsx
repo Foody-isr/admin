@@ -351,12 +351,14 @@ export default function StockPage() {
     0,
   );
 
-  // Figma pill categories: Tous + real categories
-  const pillCategories = ['Tous', ...categories.map((c) => c.name)];
+  // Pill categories: an "all" sentinel + real category names.
+  const ALL_PILL = '__all__';
+  const allLabel = t('all');
+  const pillCategories = [ALL_PILL, ...categories.map((c) => c.name)];
   const activePill =
-    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : 'Tous';
+    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ALL_PILL;
   const selectPill = (name: string) => {
-    if (name === 'Tous') setSelectedCategories(new Set());
+    if (name === ALL_PILL) setSelectedCategories(new Set());
     else setSelectedCategories(new Set([name]));
   };
 
@@ -562,6 +564,7 @@ export default function StockPage() {
         <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
           {pillCategories.map((name) => {
             const active = activePill === name;
+            const label = name === ALL_PILL ? allLabel : name;
             return (
               <button
                 key={name}
@@ -574,7 +577,7 @@ export default function StockPage() {
                     : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                 }`}
               >
-                {name}
+                {label}
               </button>
             );
           })}
