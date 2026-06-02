@@ -151,6 +151,19 @@ export default function PosDisplayEditorPage() {
   const selectedTile =
     selectedIndex != null ? currentTiles[selectedIndex] ?? null : null;
 
+  // Image URL already attached to the linked group/item, offered as a one-click
+  // pick in the inspector so users don't need to paste a URL by hand.
+  const selectedLinkedImageUrl = React.useMemo<string | undefined>(() => {
+    if (!selectedTile) return undefined;
+    if (selectedTile.tile_type === 'group' && selectedTile.ref_group_id != null) {
+      return groupMap.get(selectedTile.ref_group_id)?.image_url || undefined;
+    }
+    if (selectedTile.tile_type === 'item' && selectedTile.ref_item_id != null) {
+      return itemMap.get(selectedTile.ref_item_id)?.image_url || undefined;
+    }
+    return undefined;
+  }, [selectedTile, groupMap, itemMap]);
+
   // ── Handlers ──
   const onSelect = (i: number) => setSelectedIndex(i);
 
@@ -406,6 +419,7 @@ export default function PosDisplayEditorPage() {
           <aside className="w-[360px] shrink-0 overflow-auto border-s border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
             <PosTileInspector
               tile={selectedTile}
+              linkedImageUrl={selectedLinkedImageUrl}
               onSort={applySort}
               onSizeChange={(size: PosTileSize) => updateSelectedTile({ size })}
               onBgTypeChange={(bg: PosBgType) => updateSelectedTile({ bg_type: bg })}

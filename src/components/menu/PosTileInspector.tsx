@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronRight, Image as ImageIcon, Palette, Trash2, Pencil } from 'lucide-react';
+import {
+  Check,
+  ChevronRight,
+  Image as ImageIcon,
+  Palette,
+  Trash2,
+  Pencil,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   POS_PALETTE,
@@ -30,6 +37,8 @@ const SIZE_OPTIONS: { key: PosTileSize; label: string }[] = [
 export interface PosTileInspectorProps {
   /** Selected tile, or null when nothing is selected (shows sort options). */
   tile: PosDisplayTile | null;
+  /** Image URL already set on the referenced group / item, offered as a one-click pick. */
+  linkedImageUrl?: string;
   // ── Sort actions (no selection) ──
   onSort: (key: PosSortKey) => void;
   // ── Tile actions (selection) ──
@@ -59,6 +68,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
  */
 export function PosTileInspector({
   tile,
+  linkedImageUrl,
   onSort,
   onSizeChange,
   onBgTypeChange,
@@ -167,12 +177,26 @@ export function PosTileInspector({
             ))}
           </div>
         ) : (
-          <input
-            value={tile.image_url}
-            onChange={(e) => onImageUrlChange(e.target.value)}
-            placeholder="https://…/image.jpg"
-            className="w-full h-9 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--line-strong)]"
-          />
+          <div className="space-y-[var(--s-2)]">
+            {linkedImageUrl && (
+              <LinkedImagePick
+                url={linkedImageUrl}
+                selected={tile.image_url === linkedImageUrl}
+                label={
+                  isGroup
+                    ? "Utiliser l'image du groupe"
+                    : "Utiliser l'image de l'article"
+                }
+                onPick={() => onImageUrlChange(linkedImageUrl)}
+              />
+            )}
+            <input
+              value={tile.image_url}
+              onChange={(e) => onImageUrlChange(e.target.value)}
+              placeholder="https://…/image.jpg"
+              className="w-full h-9 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-fs-sm text-[var(--fg)] placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--line-strong)]"
+            />
+          </div>
         )}
       </section>
 
@@ -211,5 +235,42 @@ export function PosTileInspector({
         </div>
       </section>
     </div>
+  );
+}
+
+/** Thumbnail + label row that copies a known image URL onto the tile. */
+function LinkedImagePick({
+  url,
+  selected,
+  label,
+  onPick,
+}: {
+  url: string;
+  selected: boolean;
+  label: string;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className={cn(
+        'w-full flex items-center gap-[var(--s-3)] rounded-md p-[var(--s-2)] text-start transition-colors',
+        selected
+          ? 'bg-[color-mix(in_oklab,var(--brand-500)_12%,transparent)] ring-1 ring-[var(--brand-500)]'
+          : 'bg-[var(--surface-subtle)] hover:bg-[var(--surface-hover)]',
+      )}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt=""
+        className="w-10 h-10 rounded object-cover shrink-0 bg-[var(--surface)]"
+      />
+      <span className="flex-1 text-fs-sm text-[var(--fg)]">{label}</span>
+      {selected && (
+        <Check className="w-4 h-4 text-[var(--brand-500)] shrink-0" />
+      )}
+    </button>
   );
 }
