@@ -45,9 +45,9 @@ export function PosTileCanvas({
 
   return (
     <div
-      className="grid gap-3"
+      className="grid gap-2.5"
       style={{
-        gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 1fr)`,
+        gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 151px)`,
         gridAutoRows: '64px',
         gridAutoFlow: 'dense',
       }}

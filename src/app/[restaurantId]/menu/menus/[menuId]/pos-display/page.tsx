@@ -108,7 +108,16 @@ export default function PosDisplayEditorPage() {
   }, [rid, mid]);
 
   // ── Current container ──
-  const currentTiles = level === 'menu' ? tiles : (groupTiles[String(level)] ?? []);
+  // Inside a group, fall back to synthesized item tiles when no layout is
+  // saved (or it was saved empty). Mirrors the Flutter POS fallback so the
+  // editor never opens onto a blank group when items exist.
+  const currentTiles = React.useMemo<PosDisplayTile[]>(() => {
+    if (level === 'menu') return tiles;
+    const saved = groupTiles[String(level)];
+    if (saved && saved.length > 0) return saved;
+    const items = groupMap.get(level)?.items ?? [];
+    return seedGroupTiles(items);
+  }, [level, tiles, groupTiles, groupMap]);
 
   const setCurrentTiles = React.useCallback(
     (next: PosDisplayTile[]) => {
@@ -145,11 +154,6 @@ export default function PosDisplayEditorPage() {
     const tile = currentTiles[i];
     if (tile?.tile_type !== 'group' || tile.ref_group_id == null) return;
     const gid = tile.ref_group_id;
-    setGroupTiles((prev) => {
-      if (prev[String(gid)]) return prev;
-      const items = groupMap.get(gid)?.items ?? [];
-      return { ...prev, [String(gid)]: seedGroupTiles(items) };
-    });
     setLevel(gid);
     setSelectedIndex(null);
   };
@@ -439,9 +443,9 @@ function PreviewGrid({
 }) {
   return (
     <div
-      className="grid gap-3"
+      className="grid gap-2.5"
       style={{
-        gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 1fr)`,
+        gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 151px)`,
         gridAutoRows: '64px',
         gridAutoFlow: 'dense',
       }}
