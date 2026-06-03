@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   listSections,
@@ -49,7 +50,7 @@ export default function PrintQrCardsPage() {
         const flat: { table: RestaurantTableRef; sectionName: string }[] = [];
         for (const s of sections) {
           for (const tbl of s.tables ?? []) {
-            if (tbl.active) flat.push({ table: tbl, sectionName: s.name });
+            flat.push({ table: tbl, sectionName: s.name });
           }
         }
 
@@ -80,13 +81,39 @@ export default function PrintQrCardsPage() {
 
   if (loading || !config) {
     return (
-      <div style={{ padding: 32, fontFamily: 'sans-serif' }}>{t('preparingPrint')}</div>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 32,
+          background: '#fff',
+          color: '#111',
+          fontFamily: 'sans-serif',
+        }}
+      >
+        {t('preparingPrint')}
+      </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: 32, color: '#c33', fontFamily: 'sans-serif' }}>{error}</div>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 32,
+          background: '#fff',
+          color: '#c33',
+          fontFamily: 'sans-serif',
+        }}
+      >
+        {error}
+      </div>
     );
   }
 
@@ -155,7 +182,35 @@ export default function PrintQrCardsPage() {
       </div>
 
       {items.length === 0 ? (
-        <div style={{ padding: 32 }}>{t('noTablesYet')}</div>
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            padding: 32,
+            color: '#111',
+            textAlign: 'center',
+          }}
+        >
+          <p style={{ margin: 0, maxWidth: 420 }}>{t('noTablesYet')}</p>
+          <Link
+            href={`/${rid}/restaurant/table-qr`}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 6,
+              border: '1px solid #ccc',
+              background: '#fff',
+              color: '#111',
+              textDecoration: 'none',
+              fontSize: 13,
+            }}
+          >
+            {t('close')}
+          </Link>
+        </div>
       ) : (
         pages.map((page, pi) => (
           <div key={pi} className="print-page">
