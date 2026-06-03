@@ -9,6 +9,14 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { SparklesIcon } from 'lucide-react';
 
+type LangMode = 'original' | 'translate';
+
+const LOCALE_NAME_KEY: Record<string, string> = {
+  en: 'languageEnglish',
+  fr: 'languageFrench',
+  he: 'languageHebrew',
+};
+
 export default function AIImportPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -20,13 +28,18 @@ export default function AIImportPage() {
   const [error, setError] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [langMode, setLangMode] = useState<LangMode>('original');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const localeName = t(LOCALE_NAME_KEY[locale] ?? 'languageEnglish');
+  const translateLabel = t('importLanguageTranslate').replace('{lang}', localeName);
 
   const handleFile = async (file: File) => {
     setError('');
     setExtracting(true);
     try {
-      const result = await importMenuAI(rid, file, locale);
+      const langArg = langMode === 'translate' ? locale : undefined;
+      const result = await importMenuAI(rid, file, langArg);
       setExtraction(result);
       setStep('review');
     } catch (err) {
@@ -58,6 +71,34 @@ export default function AIImportPage() {
           <p className="text-sm text-fg-secondary">
             {t('uploadMenuAI')}
           </p>
+
+          <fieldset className="space-y-2" disabled={extracting}>
+            <legend className="text-sm font-medium text-fg-primary mb-2">
+              {t('importLanguageLabel')}
+            </legend>
+            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+              <input
+                type="radio"
+                name="importLangMode"
+                value="original"
+                checked={langMode === 'original'}
+                onChange={() => setLangMode('original')}
+                className="accent-brand-500"
+              />
+              {t('importLanguageOriginal')}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+              <input
+                type="radio"
+                name="importLangMode"
+                value="translate"
+                checked={langMode === 'translate'}
+                onChange={() => setLangMode('translate')}
+                className="accent-brand-500"
+              />
+              {translateLabel}
+            </label>
+          </fieldset>
 
           <div
             className="flex flex-col items-center justify-center py-16 rounded-card cursor-pointer hover:bg-[var(--surface-subtle)] transition-colors"
@@ -124,7 +165,7 @@ export default function AIImportPage() {
           )}
 
           <div className="flex gap-3">
-            <button className="btn-secondary" onClick={() => { setStep('upload'); setExtraction(null); }}>
+            <button className="btn-secondary" onClick={() => { setStep('upload'); setExtraction(null); setLangMode('original'); }}>
               {t('reUpload')}
             </button>
             <button className="btn-primary" onClick={handleConfirm} disabled={confirming}>

@@ -508,6 +508,9 @@ const translations: Record<Locale, Record<string, string>> = {
     reUpload: 'Re-upload',
     creating: 'Creating...',
     importItems: 'Import {count} items',
+    importLanguageLabel: 'Import language',
+    importLanguageOriginal: 'Original language of the document',
+    importLanguageTranslate: 'Translate to {lang}',
 
     // ── Orders ──
     allOrders: 'All orders',
@@ -3085,6 +3088,9 @@ const translations: Record<Locale, Record<string, string>> = {
     reUpload: 'העלה מחדש',
     creating: 'יוצר...',
     importItems: 'ייבא {count} פריטים',
+    importLanguageLabel: 'שפת ייבוא',
+    importLanguageOriginal: 'השפה המקורית של המסמך',
+    importLanguageTranslate: 'תרגם ל{lang}',
 
     // ── Orders ──
     allOrders: 'כל ההזמנות',
@@ -5642,6 +5648,9 @@ const translations: Record<Locale, Record<string, string>> = {
     reUpload: 'Re-télécharger',
     creating: 'Création...',
     importItems: 'Importer {count} articles',
+    importLanguageLabel: "Langue d'import",
+    importLanguageOriginal: 'Langue originale du document',
+    importLanguageTranslate: 'Traduire en {lang}',
 
     // ── Orders ──
     allOrders: 'Toutes les commandes',
