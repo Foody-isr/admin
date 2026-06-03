@@ -2877,6 +2877,26 @@ export async function uploadRestaurantBackground(restaurantId: number, file: Fil
   return data.image_url;
 }
 
+export async function uploadQrHeroImage(restaurantId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/qr-hero`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
+}
+
 export async function uploadSectionImage(restaurantId: number, file: File): Promise<string> {
   const token = getToken();
   const formData = new FormData();
@@ -4432,7 +4452,7 @@ export async function generateTableQr(
 
 // ─── QR Card Customization ────────────────────────────────────────────────────
 
-export type QrCardTemplate = 'compact' | 'wide' | 'tall';
+export type QrCardTemplate = 'compact' | 'wide' | 'tall' | 'round';
 export type QrCardBrandMode = 'text' | 'logo';
 export type QrCardLocale = 'en' | 'he' | 'fr';
 
@@ -4455,6 +4475,8 @@ export interface QrCardConfig {
   background_color: string;
   text_color: string;
   brand_mode: QrCardBrandMode;
+  /** Background photo for the round template. Empty for other templates. */
+  hero_image_url?: string;
   /** Locale code (en/he/fr) → text content. */
   texts: Partial<Record<QrCardLocale, QrCardTexts>>;
   created_at?: string;

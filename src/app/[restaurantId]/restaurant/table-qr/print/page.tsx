@@ -168,6 +168,7 @@ export default function PrintQrCardsPage() {
         }
         .print-page:last-child { page-break-after: auto; }
         .print-cell { display: flex; align-items: center; justify-content: center; }
+        .qr-card { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
         @media print {
           body { background: #fff; }
           .print-toolbar { display: none !important; }

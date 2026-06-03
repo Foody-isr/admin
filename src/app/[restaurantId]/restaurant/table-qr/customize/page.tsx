@@ -8,6 +8,7 @@ import {
   getQrCardConfig,
   updateQrCardConfig,
   getRestaurant,
+  uploadQrHeroImage,
   QR_CARD_LOCALES,
   type QrCardConfig,
   type QrCardLocale,
@@ -21,12 +22,13 @@ import { QrCard, contrastRatio, TEMPLATE_SIZES } from '@/components/qr/QrCard';
 
 const TEMPLATE_OPTIONS: {
   id: QrCardTemplate;
-  labelKey: 'qrTplCompact' | 'qrTplWide' | 'qrTplTall';
-  sizeKey: 'qrSizeCompact' | 'qrSizeWide' | 'qrSizeTall';
+  labelKey: 'qrTplCompact' | 'qrTplWide' | 'qrTplTall' | 'qrTplRound';
+  sizeKey: 'qrSizeCompact' | 'qrSizeWide' | 'qrSizeTall' | 'qrSizeRound';
 }[] = [
   { id: 'compact', labelKey: 'qrTplCompact', sizeKey: 'qrSizeCompact' },
   { id: 'wide', labelKey: 'qrTplWide', sizeKey: 'qrSizeWide' },
   { id: 'tall', labelKey: 'qrTplTall', sizeKey: 'qrSizeTall' },
+  { id: 'round', labelKey: 'qrTplRound', sizeKey: 'qrSizeRound' },
 ];
 
 const LOCALE_LABELS: Record<QrCardLocale, string> = {
@@ -49,6 +51,7 @@ export default function CustomizeQrCardPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
 
   // Per-locale i18n defaults for empty fields, applied at first load if missing.
   const defaultsByLocale = useMemo<Record<QrCardLocale, QrCardTexts>>(
@@ -137,6 +140,25 @@ export default function CustomizeQrCardPage() {
     });
   };
 
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingHero(true);
+    try {
+      const url = await uploadQrHeroImage(rid, file);
+      const saved = await updateQrCardConfig(rid, { hero_image_url: url });
+      setDraft((prev) => (prev ? { ...prev, hero_image_url: saved.hero_image_url } : prev));
+    } finally {
+      setUploadingHero(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveHero = async () => {
+    const saved = await updateQrCardConfig(rid, { hero_image_url: '' });
+    setDraft((prev) => (prev ? { ...prev, hero_image_url: saved.hero_image_url } : prev));
+  };
+
   const handleSave = async () => {
     if (!draft) return;
     setSaving(true);
@@ -146,6 +168,7 @@ export default function CustomizeQrCardPage() {
         background_color: draft.background_color,
         text_color: draft.text_color,
         brand_mode: draft.brand_mode,
+        hero_image_url: draft.hero_image_url ?? '',
         texts: draft.texts,
       });
       // Merge with existing filled defaults so the editor doesn't show blanks
@@ -226,7 +249,7 @@ export default function CustomizeQrCardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-[var(--s-5)]">
         <div className="card p-[var(--s-5)] space-y-[var(--s-4)]">
           <Field label={t('template')}>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {TEMPLATE_OPTIONS.map((opt) => {
                 const active = draft.template === opt.id;
                 return (
@@ -291,6 +314,50 @@ export default function CustomizeQrCardPage() {
               })}
             </div>
           </Field>
+
+          {draft.template === 'round' && (
+            <Field label={t('qrHeroImage')}>
+              <div className="flex items-center gap-3">
+                {draft.hero_image_url ? (
+                  <img
+                    src={draft.hero_image_url}
+                    alt=""
+                    className="w-14 h-14 rounded-md object-cover border border-[var(--line)] shrink-0"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-md border border-dashed border-[var(--line)] flex items-center justify-center text-[10px] text-fg-secondary shrink-0">
+                    {t('qrHeroImage')}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <label
+                    className={
+                      'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--line)] text-fs-xs font-medium cursor-pointer hover:bg-[var(--surface-hover)] transition ' +
+                      (uploadingHero ? 'opacity-50 pointer-events-none' : 'text-fg-primary')
+                    }
+                  >
+                    {uploadingHero ? '…' : draft.hero_image_url ? t('change') : t('uploadAction')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleHeroUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {draft.hero_image_url && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveHero}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-300 text-fs-xs font-medium text-red-600 hover:bg-red-50 transition"
+                    >
+                      {t('remove')}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">{t('qrHeroImageHint')}</p>
+            </Field>
+          )}
 
           {/* Language tabs */}
           <div>
@@ -387,7 +454,7 @@ export default function CustomizeQrCardPage() {
             locale={activeLocale}
             restaurantDefaultLocale={restaurantLocale}
             labels={{ poweredBy: t('poweredByFoody') }}
-            width={draft.template === 'wide' ? 440 : 300}
+            width={draft.template === 'wide' ? 440 : draft.template === 'round' ? 320 : 300}
           />
           <div className="text-fs-xs text-fg-secondary">
             {TEMPLATE_SIZES[draft.template].wMm} × {TEMPLATE_SIZES[draft.template].hMm} mm

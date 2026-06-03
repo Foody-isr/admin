@@ -72,11 +72,13 @@ export function resolveTexts(
  *   compact = 4.25"×5.5" (portrait, fits 4 per A4)
  *   wide    = 7"×5"     (landscape, fits 2 stacked per A4)
  *   tall    = 5"×7"     (portrait, fits 1 per A4)
+ *   round   = 90mm circle inside a 100mm guide-cut square (fits 4 per A4)
  */
 export const TEMPLATE_SIZES: Record<QrCardTemplate, { wMm: number; hMm: number }> = {
   compact: { wMm: 108, hMm: 140 },
   wide: { wMm: 178, hMm: 127 },
   tall: { wMm: 127, hMm: 178 },
+  round: { wMm: 90, hMm: 90 },
 };
 
 /**
@@ -90,6 +92,7 @@ export const PRINT_LAYOUT: Record<
   compact: { perPage: 4, cols: 2, rows: 2 },
   wide: { perPage: 2, cols: 1, rows: 2 },
   tall: { perPage: 1, cols: 1, rows: 1 },
+  round: { perPage: 4, cols: 2, rows: 2 },
 };
 
 export function QrCard(props: QrCardProps) {
@@ -99,6 +102,7 @@ export function QrCard(props: QrCardProps) {
   const sharedProps = { ...props, resolved, isRtl };
   if (tpl === 'wide') return <WideCard {...sharedProps} />;
   if (tpl === 'tall') return <TallCard {...sharedProps} />;
+  if (tpl === 'round') return <RoundCard {...sharedProps} />;
   return <CompactCard {...sharedProps} />;
 }
 
@@ -420,6 +424,132 @@ function TallCard(props: RenderProps) {
       )}
 
       <Foot label={labels.poweredBy} size={width} />
+    </div>
+  );
+}
+
+// ── Template 4: Round sticker with hero photo (90mm circle) ──────────────────
+
+function RoundCard(props: RenderProps) {
+  const { config, url, tableLabel, logoUrl, resolved, isRtl, width = 320 } = props;
+  const size = width;
+  const pad = size * 0.06;
+  const qrSize = size * 0.26;
+  const heroH = size * 0.5;
+  const heroUrl = config.hero_image_url;
+  // tableLabel arrives as "Section · TableName" upstream; the badge only has
+  // room for the short name, so strip the section prefix when present.
+  const shortLabel = tableLabel.includes(' · ')
+    ? (tableLabel.split(' · ').pop() ?? tableLabel)
+    : tableLabel;
+
+  return (
+    <div
+      className="qr-card"
+      dir={isRtl ? 'rtl' : undefined}
+      style={{
+        ...baseCardStyle(props, size, size),
+        borderRadius: '50%',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: heroH,
+          background: heroUrl
+            ? `url(${heroUrl}) center/cover no-repeat`
+            : tintPanel(config.background_color || '#ffffff', config.text_color || '#1a1a1a'),
+        }}
+      />
+
+      {resolved.subtitle && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingTop: size * 0.06,
+            paddingBottom: size * 0.045,
+            paddingInline: size * 0.14,
+            color: '#fff',
+            fontSize: size * 0.036,
+            fontWeight: 600,
+            textAlign: 'center',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))',
+          }}
+        >
+          {resolved.subtitle}
+        </div>
+      )}
+
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          padding: `${pad * 1.5}px ${pad * 1.5}px ${pad * 1.2}px`,
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+        }}
+      >
+        <BrandBlock config={config} texts={resolved} logoUrl={logoUrl} size={size * 0.5} />
+        {resolved.title && (
+          <div
+            style={{
+              fontSize: size * 0.075,
+              fontWeight: 800,
+              lineHeight: 1.05,
+              marginTop: pad * 0.4,
+            }}
+          >
+            {resolved.title}
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: pad,
+            width: '100%',
+            paddingInline: pad * 0.4,
+            marginBottom: size * 0.08,
+          }}
+        >
+          <QrSquare url={url} size={qrSize} />
+          <div
+            style={{
+              background: '#111',
+              color: '#fff',
+              padding: `${pad * 0.55}px ${pad * 0.75}px`,
+              borderRadius: 8,
+              textAlign: 'center',
+              fontWeight: 800,
+              lineHeight: 1,
+              fontSize: size * 0.085,
+              textTransform: 'uppercase',
+              letterSpacing: '0.02em',
+              minWidth: size * 0.22,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+            }}
+          >
+            {shortLabel}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
