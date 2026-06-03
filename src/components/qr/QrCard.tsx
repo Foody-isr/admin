@@ -434,7 +434,7 @@ function RoundCard(props: RenderProps) {
   const { config, url, tableLabel, logoUrl, resolved, isRtl, width = 320 } = props;
   const size = width;
   const pad = size * 0.06;
-  const qrSize = size * 0.26;
+  const qrSize = size * 0.23;
   const heroH = size * 0.5;
   const heroUrl = config.hero_image_url;
   // tableLabel arrives as "Section · TableName" upstream; the badge only has
@@ -525,7 +525,7 @@ function RoundCard(props: RenderProps) {
             justifyContent: 'space-between',
             gap: pad,
             width: '100%',
-            paddingInline: pad * 0.4,
+            paddingInline: pad * 1.6,
             marginBottom: size * 0.08,
           }}
         >
