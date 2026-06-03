@@ -502,7 +502,7 @@ function RoundCard(props: RenderProps) {
           textAlign: 'center',
         }}
       >
-        <BrandBlock config={config} texts={resolved} logoUrl={logoUrl} size={size * 0.5} />
+        <BrandBlock config={config} texts={resolved} logoUrl={logoUrl} size={size * 1.2} />
         {resolved.title && (
           <div
             style={{
