@@ -36,6 +36,7 @@ type PreviewMessage = {
   logoSize: number;
   hideNavbarName: boolean;
   hideHeroLogo: boolean;
+  customPalette: WebsiteConfig['custom_palette'] | null;
   faviconURL: string;
   direction: 'ltr' | 'rtl';
 };
@@ -266,6 +267,7 @@ export default function WebsitePage() {
       logoSize: next.logo_size,
       hideNavbarName: next.hide_navbar_name,
       hideHeroLogo: next.hide_hero_logo,
+      customPalette: next.custom_palette ?? null,
       faviconURL: next.favicon_url || '',
       direction: 'ltr',
     };
@@ -412,6 +414,7 @@ export default function WebsitePage() {
           logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
           hide_navbar_name: stateConfig.hide_navbar_name || false,
           hide_hero_logo: stateConfig.hide_hero_logo || false,
+          custom_palette: stateConfig.custom_palette ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           landing_enabled: stateConfig.landing_enabled ?? true,
@@ -509,6 +512,7 @@ export default function WebsitePage() {
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
         hide_hero_logo: config?.hide_hero_logo ?? false,
+        custom_palette: config?.custom_palette ?? null,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
         landing_enabled: landingEnabled,

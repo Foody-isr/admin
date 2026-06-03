@@ -487,6 +487,13 @@ export interface WebsiteConfig {
   logo_size: number;
   hide_navbar_name: boolean;
   hide_hero_logo: boolean;
+  custom_palette?: {
+    mode: 'light' | 'dark';
+    bg: string;
+    surface: string;
+    accent: string;
+    ink: string;
+  } | null;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   landing_enabled: boolean;
