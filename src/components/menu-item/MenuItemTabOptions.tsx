@@ -1,10 +1,13 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type {
   MenuItem,
   ModifierSet,
+  ModifierSetItemOverrideRow,
+  ModifierSetItemOverridesInput,
   OptionSet,
   ItemOptionOverride,
 } from '@/lib/api';
@@ -17,10 +20,15 @@ import { Badge } from '@/components/ds';
 interface Props {
   item: MenuItem;
   attachedModifierSets: ModifierSet[];
+  /** Reference list of ALL modifier sets in the restaurant — used to look up
+   *  the unmodified set defaults so the override editor can show "Inherit (N)"
+   *  next to each override field. */
+  allModifierSets?: ModifierSet[];
   attachedOptionSets: OptionSet[];
   itemOptionOverrides: ItemOptionOverride[];
   onAddModifierSet: () => void;
   onDetachModifierSet: (id: number) => void;
+  onSaveModifierSetOverrides?: (setId: number, input: ModifierSetItemOverridesInput) => Promise<void> | void;
   onDeleteModifier: (id: number) => void;
   onAddVariantGroup: () => void;
   onEditVariantGroup: (id: number) => void;
@@ -37,10 +45,12 @@ interface Props {
 export default function MenuItemTabOptions({
   item,
   attachedModifierSets,
+  allModifierSets,
   attachedOptionSets,
   itemOptionOverrides,
   onAddModifierSet,
   onDetachModifierSet,
+  onSaveModifierSetOverrides,
   onDeleteModifier,
   onAddVariantGroup,
   onEditVariantGroup,
@@ -53,6 +63,11 @@ export default function MenuItemTabOptions({
   const { t } = useI18n();
   const modifiers = item.modifiers ?? [];
   const variantGroups = item.variant_groups ?? [];
+  const modSetOverrideRows: ModifierSetItemOverrideRow[] = item.modifier_set_overrides ?? [];
+  const modSetOverrideFor = (setId: number): ModifierSetItemOverrideRow | undefined =>
+    modSetOverrideRows.find((r) => r.modifier_set_id === setId);
+  const modSetDefaults = (setId: number): ModifierSet | undefined =>
+    (allModifierSets ?? []).find((s) => s.id === setId);
 
   const overrideFor = (optionId: number): ItemOptionOverride | undefined =>
     itemOptionOverrides.find((ov) => ov.option_id === optionId);
@@ -92,36 +107,21 @@ export default function MenuItemTabOptions({
 
         {attachedModifierSets.length > 0 && (
           <div className="flex flex-col gap-[var(--s-2)] mb-[var(--s-3)]">
-            {attachedModifierSets.map((set) => {
-              const meta =
-                set.is_required || (set.min_selections ?? 0) > 0 || (set.max_selections ?? 0) > 0
-                  ? `${set.is_required ? `${t('required') || 'Obligatoire'} · ` : ''}min ${set.min_selections ?? 0} · max ${set.max_selections ?? 0}`
-                  : null;
-              return (
-                <div
-                  key={set.id}
-                  className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] shadow-1 p-[var(--s-3)_var(--s-4)] flex items-center gap-[var(--s-3)]"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-fs-sm font-medium text-[var(--fg)]">
-                      {set.name}
-                    </div>
-                    {meta && (
-                      <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
-                        {meta}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onDetachModifierSet(set.id)}
-                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                  >
-                    {t('detach') || 'Détacher'}
-                  </button>
-                </div>
-              );
-            })}
+            {attachedModifierSets.map((set) => (
+              <ModifierSetCard
+                key={set.id}
+                set={set}
+                overrideRow={modSetOverrideFor(set.id)}
+                setDefaults={modSetDefaults(set.id)}
+                canEditOverrides={!!onSaveModifierSetOverrides}
+                onSaveOverrides={
+                  onSaveModifierSetOverrides
+                    ? (input) => onSaveModifierSetOverrides(set.id, input)
+                    : undefined
+                }
+                onDetach={() => onDetachModifierSet(set.id)}
+              />
+            ))}
           </div>
         )}
 
@@ -328,6 +328,185 @@ export default function MenuItemTabOptions({
       </div>
       )}
       </section>
+    </div>
+  );
+}
+
+// ─── Modifier set card with inline per-item override editor ────────────────
+// Effective values shown on the card are what the server stamped onto the
+// item (set defaults with overrides applied). The expandable editor lets the
+// operator pin min/max/required for THIS item or reset to inherit.
+interface ModifierSetCardProps {
+  set: ModifierSet;
+  overrideRow: ModifierSetItemOverrideRow | undefined;
+  setDefaults: ModifierSet | undefined;
+  canEditOverrides: boolean;
+  onSaveOverrides?: (input: ModifierSetItemOverridesInput) => Promise<void> | void;
+  onDetach: () => void;
+}
+
+function ModifierSetCard({
+  set,
+  overrideRow,
+  setDefaults,
+  canEditOverrides,
+  onSaveOverrides,
+  onDetach,
+}: ModifierSetCardProps) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Track which fields are currently overridden (null = inherit, value = pinned).
+  const [minOverride, setMinOverride] = useState<number | null>(
+    overrideRow?.min_selections_override ?? null,
+  );
+  const [maxOverride, setMaxOverride] = useState<number | null>(
+    overrideRow?.max_selections_override ?? null,
+  );
+  const [requiredOverride, setRequiredOverride] = useState<boolean | null>(
+    overrideRow?.is_required_override ?? null,
+  );
+
+  const isOverridden =
+    (overrideRow?.min_selections_override ?? null) !== null ||
+    (overrideRow?.max_selections_override ?? null) !== null ||
+    (overrideRow?.is_required_override ?? null) !== null;
+
+  // Effective values shown in the subtitle — server already substituted these.
+  const effectiveMeta =
+    set.is_required || (set.min_selections ?? 0) > 0 || (set.max_selections ?? 0) > 0
+      ? `${set.is_required ? `${t('required') || 'Obligatoire'} · ` : ''}min ${set.min_selections ?? 0} · max ${set.max_selections ?? 0}`
+      : null;
+
+  const defaultsLabel = (n: number | undefined) =>
+    `${t('inherit') || 'Inherit'}${n !== undefined ? ` (${n})` : ''}`;
+
+  const save = async () => {
+    if (!onSaveOverrides) return;
+    setSaving(true);
+    try {
+      await onSaveOverrides({
+        min_selections: minOverride,
+        max_selections: maxOverride,
+        is_required: requiredOverride,
+      });
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reset = () => {
+    setMinOverride(null);
+    setMaxOverride(null);
+    setRequiredOverride(null);
+  };
+
+  return (
+    <div className="bg-[var(--surface)] rounded-r-md border border-[var(--line)] shadow-1">
+      <div className="p-[var(--s-3)_var(--s-4)] flex items-center gap-[var(--s-3)]">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-[var(--s-2)]">
+            <span className="text-fs-sm font-medium text-[var(--fg)]">{set.name}</span>
+            {isOverridden && (
+              <Badge tone="brand">{t('overridden') || 'Overridden'}</Badge>
+            )}
+          </div>
+          {effectiveMeta && (
+            <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">{effectiveMeta}</div>
+          )}
+        </div>
+        {canEditOverrides && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors inline-flex items-center gap-1"
+          >
+            {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {t('override') || 'Override'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onDetach}
+          className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+        >
+          {t('detach') || 'Détacher'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="border-t border-[var(--line)] p-[var(--s-3)_var(--s-4)] bg-[var(--surface-2)] grid grid-cols-1 sm:grid-cols-3 gap-[var(--s-3)]">
+          <label className="flex flex-col gap-1">
+            <span className="text-fs-xs font-medium text-[var(--fg-muted)]">
+              {t('minSelections') || 'Min'}
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={minOverride ?? ''}
+              onChange={(e) =>
+                setMinOverride(e.target.value === '' ? null : Number(e.target.value))
+              }
+              placeholder={defaultsLabel(setDefaults?.min_selections)}
+              className="h-8 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-2)] text-fs-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-fs-xs font-medium text-[var(--fg-muted)]">
+              {t('maxSelections') || 'Max'}
+            </span>
+            <input
+              type="number"
+              min={0}
+              value={maxOverride ?? ''}
+              onChange={(e) =>
+                setMaxOverride(e.target.value === '' ? null : Number(e.target.value))
+              }
+              placeholder={defaultsLabel(setDefaults?.max_selections)}
+              className="h-8 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-2)] text-fs-sm"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-fs-xs font-medium text-[var(--fg-muted)]">
+              {t('required') || 'Required'}
+            </span>
+            <select
+              value={requiredOverride === null ? '' : requiredOverride ? 'yes' : 'no'}
+              onChange={(e) => {
+                const v = e.target.value;
+                setRequiredOverride(v === '' ? null : v === 'yes');
+              }}
+              className="h-8 rounded-r-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-2)] text-fs-sm"
+            >
+              <option value="">
+                {defaultsLabel(undefined)}
+                {setDefaults ? ` (${setDefaults.is_required ? (t('yes') || 'Yes') : (t('no') || 'No')})` : ''}
+              </option>
+              <option value="yes">{t('yes') || 'Yes'}</option>
+              <option value="no">{t('no') || 'No'}</option>
+            </select>
+          </label>
+          <div className="sm:col-span-3 flex items-center justify-end gap-[var(--s-2)] pt-[var(--s-1)]">
+            <button
+              type="button"
+              onClick={reset}
+              className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)] transition-colors"
+            >
+              {t('resetToInherit') || 'Reset to inherit'}
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="px-[var(--s-4)] h-7 rounded-r-md text-fs-xs font-semibold bg-[var(--brand-500)] text-white hover:bg-[var(--brand-600)] disabled:opacity-60 transition-colors"
+            >
+              {saving ? (t('saving') || 'Saving…') : (t('save') || 'Save')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

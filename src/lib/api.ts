@@ -352,6 +352,24 @@ export interface MenuItem {
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
   availability_bottleneck?: string;
+  /** Per-item overrides on attached modifier sets — present only for sets
+   *  with at least one non-null override. The values in `modifier_sets`
+   *  are already effective (set defaults with overrides applied). */
+  modifier_set_overrides?: ModifierSetItemOverrideRow[];
+}
+
+export interface ModifierSetItemOverrideRow {
+  modifier_set_id: number;
+  menu_item_id: number;
+  min_selections_override?: number | null;
+  max_selections_override?: number | null;
+  is_required_override?: boolean | null;
+}
+
+export interface ModifierSetItemOverridesInput {
+  min_selections?: number | null;
+  max_selections?: number | null;
+  is_required?: boolean | null;
 }
 
 export interface OrderItemModifier {
@@ -1937,6 +1955,19 @@ export async function detachModifierSetFromItem(restaurantId: number, setId: num
   await apiFetch<void>(
     `/api/v1/menu/modifier-sets/${setId}/items/${menuItemId}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
+  );
+}
+
+export async function setModifierSetItemOverrides(
+  restaurantId: number,
+  setId: number,
+  menuItemId: number,
+  input: ModifierSetItemOverridesInput,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/items/${menuItemId}/overrides?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
   );
 }
 
