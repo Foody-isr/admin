@@ -169,6 +169,10 @@ export default function CustomizeQrCardPage() {
         text_color: draft.text_color,
         brand_mode: draft.brand_mode,
         hero_image_url: draft.hero_image_url ?? '',
+        hero_x: draft.hero_x ?? 0,
+        hero_y: draft.hero_y ?? 50,
+        hero_width: draft.hero_width ?? 100,
+        hero_height: draft.hero_height ?? 50,
         texts: draft.texts,
       });
       // Merge with existing filled defaults so the editor doesn't show blanks
@@ -201,6 +205,10 @@ export default function CustomizeQrCardPage() {
       background_color: '#ffffff',
       text_color: '#1a1a1a',
       brand_mode: 'text',
+      hero_x: 0,
+      hero_y: 50,
+      hero_width: 100,
+      hero_height: 50,
       texts: {
         en: { ...defaultsByLocale.en },
         he: { ...defaultsByLocale.he },
@@ -361,14 +369,15 @@ export default function CustomizeQrCardPage() {
                   <div className="text-fs-xs text-fg-secondary mb-1.5">
                     {t('qrHeroPosition')}
                   </div>
-                  <HeroPositionPicker
+                  <HeroBoxPicker
                     imageUrl={draft.hero_image_url}
-                    x={draft.hero_position_x ?? 50}
-                    y={draft.hero_position_y ?? 50}
-                    onChange={(x, y) => {
-                      setDraft((prev) =>
-                        prev ? { ...prev, hero_position_x: x, hero_position_y: y } : prev,
-                      );
+                    bgColor={draft.background_color}
+                    x={draft.hero_x ?? 0}
+                    y={draft.hero_y ?? 50}
+                    width={draft.hero_width ?? 100}
+                    height={draft.hero_height ?? 50}
+                    onChange={(box) => {
+                      setDraft((prev) => (prev ? { ...prev, ...box } : prev));
                     }}
                   />
                   <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">
@@ -485,83 +494,139 @@ export default function CustomizeQrCardPage() {
   );
 }
 
-function HeroPositionPicker({
+interface HeroBox {
+  hero_x: number;
+  hero_y: number;
+  hero_width: number;
+  hero_height: number;
+}
+
+function HeroBoxPicker({
   imageUrl,
+  bgColor,
   x,
   y,
+  width,
+  height,
   onChange,
 }: {
   imageUrl: string;
+  bgColor: string;
   x: number;
   y: number;
-  onChange: (x: number, y: number) => void;
+  width: number;
+  height: number;
+  onChange: (box: HeroBox) => void;
 }) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
+  const { t } = useI18n();
+  const PREVIEW = 200;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ originX: number; originY: number; startX: number; startY: number } | null>(null);
 
-  const updateFromEvent = (clientX: number, clientY: number) => {
-    const el = boxRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const nx = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const ny = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
-    onChange(Math.round(nx), Math.round(ny));
-  };
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    draggingRef.current = true;
-    (e.target as HTMLDivElement).setPointerCapture?.(e.pointerId);
-    updateFromEvent(e.clientX, e.clientY);
+    (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = {
+      originX: e.clientX,
+      originY: e.clientY,
+      startX: x,
+      startY: y,
+    };
+    e.preventDefault();
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draggingRef.current) return;
-    updateFromEvent(e.clientX, e.clientY);
+    const drag = dragRef.current;
+    const el = containerRef.current;
+    if (!drag || !el) return;
+    const rect = el.getBoundingClientRect();
+    const dxPct = ((e.clientX - drag.originX) / rect.width) * 100;
+    const dyPct = ((e.clientY - drag.originY) / rect.height) * 100;
+    const nx = clamp(Math.round(drag.startX + dxPct), 0, 100);
+    const ny = clamp(Math.round(drag.startY + dyPct), 0, 100);
+    onChange({ hero_x: nx, hero_y: ny, hero_width: width, hero_height: height });
   };
   const onPointerUp = () => {
-    draggingRef.current = false;
+    dragRef.current = null;
+  };
+
+  const setSize = (next: Partial<HeroBox>) => {
+    const w = next.hero_width ?? width;
+    const h = next.hero_height ?? height;
+    onChange({
+      hero_x: clamp(x, 0, 100),
+      hero_y: clamp(y, 0, 100),
+      hero_width: clamp(w, 1, 100),
+      hero_height: clamp(h, 1, 100),
+    });
   };
 
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 flex-wrap">
       <div
-        ref={boxRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        className="relative w-40 h-40 rounded-md overflow-hidden border border-[var(--line)] cursor-crosshair touch-none select-none"
-        style={{ backgroundColor: 'var(--bg-subtle)' }}
+        ref={containerRef}
+        className="relative overflow-hidden border border-[var(--line)] shrink-0 touch-none select-none"
+        style={{
+          width: PREVIEW,
+          height: PREVIEW,
+          borderRadius: '50%',
+          background: bgColor || '#ffffff',
+        }}
       >
-        <img
-          src={imageUrl}
-          alt=""
-          draggable={false}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-          style={{ objectPosition: `${x}% ${y}%` }}
-        />
         <div
-          className="absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full border-2 border-white shadow-md pointer-events-none"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className="absolute cursor-move outline outline-2 outline-white/70"
           style={{
             left: `${x}%`,
             top: `${y}%`,
-            background: 'rgba(0,0,0,0.5)',
-            boxShadow: '0 0 0 1px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3)',
+            width: `${width}%`,
+            height: `${height}%`,
+            background: `url(${imageUrl}) center/cover no-repeat`,
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.25)',
           }}
         />
       </div>
-      <div className="flex flex-col gap-1.5 pt-1">
-        <div className="text-fs-xs font-mono text-fg-secondary">
-          X: {Math.round(x)}%
-          <br />
-          Y: {Math.round(y)}%
+      <div className="flex flex-col gap-2 min-w-[180px]">
+        <div>
+          <div className="flex items-center justify-between text-fs-xs text-fg-secondary mb-0.5">
+            <span>{t('qrHeroWidth')}</span>
+            <span className="font-mono">{Math.round(width)}%</span>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            step={1}
+            value={width}
+            onChange={(e) => setSize({ hero_width: Number(e.target.value) })}
+            className="w-full"
+          />
+        </div>
+        <div>
+          <div className="flex items-center justify-between text-fs-xs text-fg-secondary mb-0.5">
+            <span>{t('qrHeroHeight')}</span>
+            <span className="font-mono">{Math.round(height)}%</span>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            step={1}
+            value={height}
+            onChange={(e) => setSize({ hero_height: Number(e.target.value) })}
+            className="w-full"
+          />
         </div>
         <button
           type="button"
-          onClick={() => onChange(50, 50)}
-          className="inline-flex items-center px-2 py-1 rounded border border-[var(--line)] text-fs-xs hover:bg-[var(--surface-hover)] transition"
+          onClick={() => onChange({ hero_x: 0, hero_y: 50, hero_width: 100, hero_height: 50 })}
+          className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded border border-[var(--line)] text-fs-xs hover:bg-[var(--surface-hover)] transition w-full"
         >
-          <RotateCcw className="w-3 h-3 mr-1" />
-          Reset
+          <RotateCcw className="w-3 h-3" />
+          {t('resetToDefaults')}
         </button>
       </div>
     </div>

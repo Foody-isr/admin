@@ -1918,6 +1918,14 @@ export async function deleteModifierSet(restaurantId: number, id: number): Promi
   );
 }
 
+export async function duplicateModifierSet(restaurantId: number, id: number): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets/${id}/duplicate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data.modifier_set;
+}
+
 export async function attachModifierSetToItems(restaurantId: number, setId: number, menuItemIds: number[]): Promise<void> {
   await apiFetch<void>(
     `/api/v1/menu/modifier-sets/${setId}/items?restaurant_id=${restaurantId}`, restaurantId,
@@ -4485,10 +4493,14 @@ export interface QrCardConfig {
   brand_mode: QrCardBrandMode;
   /** Background photo for the round template. Empty for other templates. */
   hero_image_url?: string;
-  /** Focal point X for the hero photo, 0-100 (%). 50 = center. */
-  hero_position_x?: number;
-  /** Focal point Y for the hero photo, 0-100 (%). 50 = center. */
-  hero_position_y?: number;
+  /** Photo box left edge, % of sticker width. Default 0. */
+  hero_x?: number;
+  /** Photo box top edge, % of sticker height. Default 50 (anchored at vertical midpoint). */
+  hero_y?: number;
+  /** Photo box width, % of sticker width. Default 100 (full width). */
+  hero_width?: number;
+  /** Photo box height, % of sticker height. Default 50 (bottom half). */
+  hero_height?: number;
   /** Locale code (en/he/fr) → text content. */
   texts: Partial<Record<QrCardLocale, QrCardTexts>>;
   created_at?: string;
