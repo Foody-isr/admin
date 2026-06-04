@@ -226,6 +226,8 @@ export interface MenuItemModifier {
   prep_item_id?: number;
   quantity?: number;
   unit?: string;
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface ModifierSet {
@@ -243,6 +245,8 @@ export interface ModifierSet {
   modifiers: MenuItemModifier[];
   menu_items?: { id: number; name: string }[];
   created_at: string;
+  /** Per-locale display_name overrides. Source-locale value lives in `display_name`. */
+  translations?: TranslationMap;
 }
 
 export interface MenuItemVariant {
@@ -1884,6 +1888,7 @@ export interface ModifierInSetInput {
   prep_item_id?: number | null;
   quantity?: number;
   unit?: string;
+  translations?: TranslationMap;
 }
 
 export interface ModifierSetInput {
@@ -1897,6 +1902,7 @@ export interface ModifierSetInput {
   use_conversational?: boolean;
   sort_order?: number;
   modifiers?: ModifierInSetInput[];
+  translations?: TranslationMap;
 }
 
 export async function listModifierSets(restaurantId: number): Promise<ModifierSet[]> {
@@ -2008,6 +2014,8 @@ export interface OptionSetOption {
    *  True when this option is combo-only on the surrounding item — should be
    *  excluded from à la carte price ranges and cost summaries. */
   is_combo_only?: boolean;
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface OptionSet {
@@ -2017,6 +2025,8 @@ export interface OptionSet {
   sort_order: number;
   options?: OptionSetOption[];
   menu_items?: MenuItem[];
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface OptionInSetInput {
@@ -2026,12 +2036,14 @@ export interface OptionInSetInput {
   sku?: string;
   is_active: boolean;
   sort_order: number;
+  translations?: TranslationMap;
 }
 
 export interface OptionSetInput {
   name: string;
   sort_order?: number;
   options?: OptionInSetInput[];
+  translations?: TranslationMap;
 }
 
 export async function listOptionSets(restaurantId: number): Promise<OptionSet[]> {
@@ -2163,6 +2175,7 @@ export interface VariantSyncInput {
   is_active: boolean;
   is_combo_only?: boolean;
   sort_order: number;
+  translations?: TranslationMap;
 }
 
 export interface VariantGroupSyncInput {
@@ -2170,6 +2183,7 @@ export interface VariantGroupSyncInput {
   name: string;
   sort_order: number;
   variants: VariantSyncInput[];
+  translations?: TranslationMap;
 }
 
 export interface ItemVariantsSyncInput {

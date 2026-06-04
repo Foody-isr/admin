@@ -4,12 +4,37 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getOptionSet, updateOptionSet, createOptionInSet, updateOptionInSet, deleteOptionInSet, deleteOptionSet,
-  OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput,
+  getRestaurant,
+  OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput, TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+
+const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
+
+function setLocaleOverride(
+  prev: TranslationMap | undefined,
+  field: string,
+  locale: Locale,
+  value: string,
+): TranslationMap {
+  const next: TranslationMap = { ...(prev ?? {}) };
+  const fieldMap = { ...(next[field] ?? {}) };
+  if (value === '') {
+    delete fieldMap[locale];
+  } else {
+    fieldMap[locale] = value;
+  }
+  if (Object.keys(fieldMap).length === 0) {
+    delete next[field];
+  } else {
+    next[field] = fieldMap;
+  }
+  return next;
+}
 
 // Edit Option Set page — Figma-style full-screen modal. Option rows are
 // inline-editable (auto-persist on blur), and the header "Save" persists
@@ -26,27 +51,47 @@ export default function OptionSetDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
+  const [setTranslations, setSetTranslations] = useState<TranslationMap>({});
   const [newOptionName, setNewOptionName] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState(0);
   const [newOptionSku, setNewOptionSku] = useState('');
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
+  const [activeLocale, setActiveLocale] = useState<Locale>('en');
+  const isSourceTab = activeLocale === sourceLocale;
 
   const loadData = useCallback(async () => {
     try {
       const os = await getOptionSet(rid, osid);
       setOptionSet(os);
       setName(os.name);
+      setSetTranslations(os.translations ?? {});
     } finally {
       setLoading(false);
     }
   }, [rid, osid]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    getRestaurant(rid)
+      .then((r) => {
+        const loc = r.default_locale;
+        if (loc === 'en' || loc === 'he' || loc === 'fr') {
+          setSourceLocale(loc);
+          setActiveLocale(loc);
+        }
+      })
+      .catch(() => {});
+  }, [rid]);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const input: OptionSetInput = { name: name.trim(), sort_order: optionSet?.sort_order ?? 0 };
+      const input: OptionSetInput = {
+        name: name.trim(),
+        sort_order: optionSet?.sort_order ?? 0,
+        translations: setTranslations,
+      };
       await updateOptionSet(rid, osid, input);
       router.push(`/${rid}/menu/options`);
     } catch (err) {
@@ -127,15 +172,56 @@ export default function OptionSetDetailPage() {
               {t('details') || 'Details'}
             </h3>
           </div>
-          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
-              {t('optionSetName')}
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
-            />
+          <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <LocaleTabs
+                locales={SUPPORTED_LOCALES}
+                source={sourceLocale}
+                active={activeLocale}
+                onChange={setActiveLocale}
+                missing={Object.fromEntries(
+                  SUPPORTED_LOCALES.filter((l) => l !== sourceLocale).map((l) => [
+                    l,
+                    !setTranslations?.name?.[l],
+                  ]),
+                )}
+              />
+              {!isSourceTab && (
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {t('languageEditingTranslation') ||
+                    'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
+                </span>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+                {t('optionSetName')}
+              </label>
+              {isSourceTab ? (
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                />
+              ) : (
+                <>
+                  <input
+                    value={setTranslations?.name?.[activeLocale] ?? ''}
+                    onChange={(e) =>
+                      setSetTranslations((prev) =>
+                        setLocaleOverride(prev, 'name', activeLocale, e.target.value),
+                      )
+                    }
+                    placeholder={name || t('optionSetName')}
+                    className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                  />
+                  <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                    {(t('languageSourceLabel') || 'Source') + ': '}
+                    <span className="text-neutral-500 dark:text-neutral-400">{name || '—'}</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </section>
 
@@ -160,7 +246,16 @@ export default function OptionSetDetailPage() {
             </div>
 
             {(optionSet.options ?? []).map((opt) => (
-              <OptionRow key={opt.id} rid={rid} setId={osid} option={opt} onUpdated={loadData} t={t} />
+              <OptionRow
+                key={opt.id}
+                rid={rid}
+                setId={osid}
+                option={opt}
+                onUpdated={loadData}
+                t={t}
+                activeLocale={activeLocale}
+                sourceLocale={sourceLocale}
+              />
             ))}
 
             {/* Add-option row */}
@@ -222,17 +317,22 @@ export default function OptionSetDetailPage() {
 
 // ─── Editable option row ─────────────────────────────────────────────
 
-function OptionRow({ rid, setId, option, onUpdated, t }: {
+function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocale }: {
   rid: number;
   setId: number;
   option: OptionSetOption;
   onUpdated: () => void;
   t: (key: string) => string;
+  activeLocale: Locale;
+  sourceLocale: Locale;
 }) {
   const [name, setName] = useState(option.name);
   const [price, setPrice] = useState(option.price);
   const [sku, setSku] = useState(option.sku ?? '');
   const [isActive, setIsActive] = useState(option.is_active);
+  const [translations, setTranslations] = useState<TranslationMap>(option.translations ?? {});
+  const isSourceTab = activeLocale === sourceLocale;
+  const translatedName = translations?.name?.[activeLocale] ?? '';
 
   const persist = async (patch: Partial<OptionInSetInput>) => {
     const payload: OptionInSetInput = {
@@ -241,6 +341,7 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
       sku: patch.sku ?? (sku.trim() || undefined),
       is_active: patch.is_active ?? isActive,
       sort_order: option.sort_order,
+      translations: patch.translations ?? translations,
     };
     try {
       await updateOptionInSet(rid, setId, option.id, payload);
@@ -257,6 +358,15 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
       return;
     }
     persist({ name: trimmed });
+  };
+
+  const handleTranslatedNameBlur = () => {
+    const trimmed = translatedName.trim();
+    const previous = option.translations?.name?.[activeLocale] ?? '';
+    if (trimmed === previous) return;
+    const nextMap = setLocaleOverride(translations, 'name', activeLocale, trimmed);
+    setTranslations(nextMap);
+    persist({ translations: nextMap });
   };
 
   const handlePriceBlur = () => {
@@ -290,13 +400,28 @@ function OptionRow({ rid, setId, option, onUpdated, t }: {
       className="grid items-center gap-2 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 last:border-b-0 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
       style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
     >
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={handleNameBlur}
-        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-        className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
-      />
+      {isSourceTab ? (
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleNameBlur}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+        />
+      ) : (
+        <input
+          value={translatedName}
+          onChange={(e) =>
+            setTranslations((prev) =>
+              setLocaleOverride(prev, 'name', activeLocale, e.target.value),
+            )
+          }
+          onBlur={handleTranslatedNameBlur}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          placeholder={name || t('variantName')}
+          className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2 italic"
+        />
+      )}
       <input
         value={sku}
         onChange={(e) => setSku(e.target.value)}
