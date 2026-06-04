@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Check, RotateCcw, AlertTriangle } from 'lucide-react';
@@ -356,6 +356,26 @@ export default function CustomizeQrCardPage() {
                 </div>
               </div>
               <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">{t('qrHeroImageHint')}</p>
+              {draft.hero_image_url && (
+                <div className="mt-3">
+                  <div className="text-fs-xs text-fg-secondary mb-1.5">
+                    {t('qrHeroPosition')}
+                  </div>
+                  <HeroPositionPicker
+                    imageUrl={draft.hero_image_url}
+                    x={draft.hero_position_x ?? 50}
+                    y={draft.hero_position_y ?? 50}
+                    onChange={(x, y) => {
+                      setDraft((prev) =>
+                        prev ? { ...prev, hero_position_x: x, hero_position_y: y } : prev,
+                      );
+                    }}
+                  />
+                  <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">
+                    {t('qrHeroPositionHint')}
+                  </p>
+                </div>
+              )}
             </Field>
           )}
 
@@ -460,6 +480,89 @@ export default function CustomizeQrCardPage() {
             {TEMPLATE_SIZES[draft.template].wMm} × {TEMPLATE_SIZES[draft.template].hMm} mm
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function HeroPositionPicker({
+  imageUrl,
+  x,
+  y,
+  onChange,
+}: {
+  imageUrl: string;
+  x: number;
+  y: number;
+  onChange: (x: number, y: number) => void;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const updateFromEvent = (clientX: number, clientY: number) => {
+    const el = boxRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const nx = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const ny = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    onChange(Math.round(nx), Math.round(ny));
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    draggingRef.current = true;
+    (e.target as HTMLDivElement).setPointerCapture?.(e.pointerId);
+    updateFromEvent(e.clientX, e.clientY);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    updateFromEvent(e.clientX, e.clientY);
+  };
+  const onPointerUp = () => {
+    draggingRef.current = false;
+  };
+
+  return (
+    <div className="flex items-start gap-3">
+      <div
+        ref={boxRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className="relative w-40 h-40 rounded-md overflow-hidden border border-[var(--line)] cursor-crosshair touch-none select-none"
+        style={{ backgroundColor: 'var(--bg-subtle)' }}
+      >
+        <img
+          src={imageUrl}
+          alt=""
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{ objectPosition: `${x}% ${y}%` }}
+        />
+        <div
+          className="absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full border-2 border-white shadow-md pointer-events-none"
+          style={{
+            left: `${x}%`,
+            top: `${y}%`,
+            background: 'rgba(0,0,0,0.5)',
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3)',
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5 pt-1">
+        <div className="text-fs-xs font-mono text-fg-secondary">
+          X: {Math.round(x)}%
+          <br />
+          Y: {Math.round(y)}%
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(50, 50)}
+          className="inline-flex items-center px-2 py-1 rounded border border-[var(--line)] text-fs-xs hover:bg-[var(--surface-hover)] transition"
+        >
+          <RotateCcw className="w-3 h-3 mr-1" />
+          Reset
+        </button>
       </div>
     </div>
   );

@@ -4485,6 +4485,10 @@ export interface QrCardConfig {
   brand_mode: QrCardBrandMode;
   /** Background photo for the round template. Empty for other templates. */
   hero_image_url?: string;
+  /** Focal point X for the hero photo, 0-100 (%). 50 = center. */
+  hero_position_x?: number;
+  /** Focal point Y for the hero photo, 0-100 (%). 50 = center. */
+  hero_position_y?: number;
   /** Locale code (en/he/fr) → text content. */
   texts: Partial<Record<QrCardLocale, QrCardTexts>>;
   created_at?: string;

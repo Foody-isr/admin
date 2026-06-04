@@ -437,6 +437,8 @@ function RoundCard(props: RenderProps) {
   const qrSize = size * 0.23;
   const heroH = size * 0.5;
   const heroUrl = config.hero_image_url;
+  const heroX = clampPercent(config.hero_position_x, 50);
+  const heroY = clampPercent(config.hero_position_y, 50);
   // tableLabel arrives as "Section · TableName" upstream; the badge only has
   // room for the short name, so strip the section prefix when present.
   const shortLabel = tableLabel.includes(' · ')
@@ -463,7 +465,7 @@ function RoundCard(props: RenderProps) {
           bottom: 0,
           height: heroH,
           background: heroUrl
-            ? `url(${heroUrl}) center/cover no-repeat`
+            ? `url(${heroUrl}) ${heroX}% ${heroY}%/cover no-repeat`
             : tintPanel(config.background_color || '#ffffff', config.text_color || '#1a1a1a'),
         }}
       />
@@ -552,6 +554,13 @@ function RoundCard(props: RenderProps) {
       </div>
     </div>
   );
+}
+
+function clampPercent(v: number | undefined, fallback: number): number {
+  if (v == null || Number.isNaN(v)) return fallback;
+  if (v < 0) return 0;
+  if (v > 100) return 100;
+  return v;
 }
 
 /**
