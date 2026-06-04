@@ -72,12 +72,38 @@ export default function PrintQrCardsPage() {
     };
   }, [rid]);
 
+  // Auto-print only AFTER hero/logo images are fully loaded. Otherwise Chrome's
+  // "Save as PDF" can hang at "Saving…" waiting for in-flight image requests
+  // (the hero image is a CSS background, so the browser would have no idea
+  // when it's ready). Falls through after 5s if an image never resolves.
   useEffect(() => {
-    if (!loading && !error && items.length > 0) {
-      const id = window.setTimeout(() => window.print(), 400);
-      return () => window.clearTimeout(id);
-    }
-  }, [loading, error, items.length]);
+    if (loading || error || items.length === 0) return;
+    let cancelled = false;
+    const urls = [logoUrl, config?.hero_image_url].filter(
+      (u): u is string => !!u && u.length > 0,
+    );
+    const preload = (url: string) =>
+      new Promise<void>((resolve) => {
+        const img = new Image();
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        img.onload = done;
+        img.onerror = done;
+        window.setTimeout(done, 5000);
+        img.src = url;
+      });
+    Promise.all(urls.map(preload)).then(() => {
+      if (cancelled) return;
+      window.setTimeout(() => window.print(), 100);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, error, items.length, logoUrl, config?.hero_image_url]);
 
   if (loading || !config) {
     return (
