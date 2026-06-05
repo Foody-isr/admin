@@ -59,6 +59,8 @@ export default function ScheduledOrdersSettingsPage() {
 
   const [mode, setMode] = useState<Mode>('off');
   const [requirePrepayment, setRequirePrepayment] = useState(true);
+  const [openDay, setOpenDay] = useState(3); // Wednesday
+  const [openTime, setOpenTime] = useState('22:00');
   const [cutoffDay, setCutoffDay] = useState(3); // Wednesday
   const [cutoffTime, setCutoffTime] = useState('22:00');
   const [days, setDays] = useState<BatchFulfillmentDay[]>([]);
@@ -70,6 +72,8 @@ export default function ScheduledOrdersSettingsPage() {
         // Slot-based scheduling lives on the orders/settings page; here we
         // only deal with batch (every-Friday-style) pre-orders.
         setMode(s.batch_fulfillment_enabled ? 'batch' : 'off');
+        setOpenDay(s.batch_order_open_day ?? s.batch_cutoff_day ?? 3);
+        setOpenTime(s.batch_order_open_time || s.batch_cutoff_time || '22:00');
         setCutoffDay(s.batch_cutoff_day ?? 3);
         setCutoffTime(s.batch_cutoff_time || '22:00');
         setDays(s.batch_fulfillment_days ?? []);
@@ -97,6 +101,8 @@ export default function ScheduledOrdersSettingsPage() {
         batch_fulfillment_enabled: isBatch,
         batch_cutoff_day: cutoffDay,
         batch_cutoff_time: cutoffTime,
+        batch_order_open_day: openDay,
+        batch_order_open_time: openTime,
         batch_fulfillment_days: days,
         batch_require_prepayment: requirePrepayment,
       });
@@ -169,6 +175,38 @@ export default function ScheduledOrdersSettingsPage() {
 
       {isBatch && (
         <>
+          <Section
+            title={t('batchOrderOpens') || 'Ouverture des commandes'}
+            desc={
+              t('batchOrderOpensDesc') ||
+              'Date et heure auxquelles le carnet de commandes du prochain lot s’ouvre aux clients.'
+            }
+          >
+            <div className="flex flex-wrap gap-[var(--s-4)]">
+              <Field label={t('batchOrderOpenDay') || 'Jour d’ouverture'}>
+                <Select
+                  value={String(openDay)}
+                  onChange={(e) => setOpenDay(Number(e.target.value))}
+                >
+                  {WEEKDAYS_FR.map((label, i) => (
+                    <option key={i} value={i}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t('batchOrderOpenTime') || 'Heure d’ouverture'}>
+                <Input
+                  type="time"
+                  value={openTime}
+                  onChange={(e) => setOpenTime(e.target.value)}
+                  className="font-mono text-center"
+                  style={{ width: 120 }}
+                />
+              </Field>
+            </div>
+          </Section>
+
           <Section
             title={t('batchFulfillmentCutoff') || 'Clôture des commandes'}
             desc={

@@ -12,6 +12,7 @@ import {
   MenuGroupMembership,
   TranslationMap,
 } from '@/lib/api';
+import { isMembershipActiveOn } from '@/lib/membership';
 import { useI18n } from '@/lib/i18n';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
@@ -25,14 +26,8 @@ const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ─── Week helpers (weekly rotation editor) ───────────────────────────────────
-
-/** True when the membership window covers `day` (both bounds inclusive,
- *  null/undefined = open-ended). */
-function isMembershipActiveOn(m: MenuGroupMembership, day: string): boolean {
-  if (m.effective_from && m.effective_from > day) return false;
-  if (m.effective_until && m.effective_until < day) return false;
-  return true;
-}
+// `isMembershipActiveOn` lives in @/lib/membership and is shared with the
+// carte detail page's batch-aware filtering.
 
 // ─── Modal types ────────────────────────────────────────────────────────────
 
