@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   getAllCategories, updateMenuItem, deleteModifier, uploadMenuItemImage,
-  detachModifierSetFromItem,
+  detachModifierSetFromItem, setModifierSetItemOverrides,
   listMenus, addItemsToGroup, removeItemFromGroup,
   listModifierSets, attachModifierSetToItems,
   listOptionSets, getItemOptionPrices,
@@ -13,6 +13,7 @@ import {
   getRestaurant,
   retranslateMenuItem,
   MenuCategory, MenuItem, ModifierSet, Menu,
+  ModifierSetItemOverridesInput,
   OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
   StockItem, PrepItem, MenuItemIngredient,
   TranslationMap,
@@ -631,12 +632,17 @@ export default function EditItemPage() {
                   <MenuItemTabOptions
                     item={item}
                     attachedModifierSets={item.modifier_sets ?? []}
+                    allModifierSets={allModifierSets}
                     attachedOptionSets={attachedOptionSets}
                     itemOptionOverrides={itemOptionOverrides}
                     onAddModifierSet={() => setModifierModalOpen(true)}
                     onDetachModifierSet={async (id) => {
                       if (!confirm('Unlink this modifier set from item?')) return;
                       await detachModifierSetFromItem(rid, id, iid);
+                      loadData();
+                    }}
+                    onSaveModifierSetOverrides={async (setId: number, input: ModifierSetItemOverridesInput) => {
+                      await setModifierSetItemOverrides(rid, setId, iid, input);
                       loadData();
                     }}
                     onDeleteModifier={handleDeleteModifier}

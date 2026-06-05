@@ -73,6 +73,51 @@ const MIN_ITEM_SIZE = 3; // percent
 const MAX_ITEM_SIZE = 60; // percent
 const SNAP_THRESHOLD = 1.2; // percent — within this distance, edges/centers snap together
 
+// Default size + spacing used when click-placing tables from the sidebar.
+// Tables auto-fill the canvas row-by-row in a regular grid; the picker
+// skips slots that overlap anything the user has already placed/moved.
+const DEFAULT_TABLE_SIZE = 6;       // %
+const AUTO_PLACE_GAP = 2;           // % — gap between adjacent auto-placed tables
+const AUTO_PLACE_MARGIN = 4;        // % — margin from canvas edges
+
+function rectsOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+) {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  );
+}
+
+/**
+ * Finds the next empty grid slot for an auto-placed table, walking row-major
+ * from the top-left and skipping any slot that overlaps an existing placement
+ * or decoration. Falls back to the top-left corner if the canvas is full —
+ * the user can manually rearrange from there.
+ */
+function nextAutoSlot(
+  placements: CanvasPlacement[],
+  decorations: CanvasDecoration[],
+): { x: number; y: number } {
+  const occupied = [
+    ...placements.map((p) => ({ x: p.x, y: p.y, width: p.width, height: p.height })),
+    ...decorations.map((d) => ({ x: d.x, y: d.y, width: d.width, height: d.height })),
+  ];
+  const stride = DEFAULT_TABLE_SIZE + AUTO_PLACE_GAP;
+  for (let y = AUTO_PLACE_MARGIN; y + DEFAULT_TABLE_SIZE <= 100 - AUTO_PLACE_MARGIN; y += stride) {
+    for (let x = AUTO_PLACE_MARGIN; x + DEFAULT_TABLE_SIZE <= 100 - AUTO_PLACE_MARGIN; x += stride) {
+      const slot = { x, y, width: DEFAULT_TABLE_SIZE, height: DEFAULT_TABLE_SIZE };
+      if (!occupied.some((o) => rectsOverlap(slot, o))) {
+        return { x, y };
+      }
+    }
+  }
+  return { x: AUTO_PLACE_MARGIN, y: AUTO_PLACE_MARGIN };
+}
+
 interface SnapBox {
   x: number;
   y: number;
@@ -1477,11 +1522,8 @@ export default function FloorPlanEditorPage() {
                         draggable
                         onDragStart={() => { dropState.current = { tableId: tbl.id, tableName: tbl.name }; }}
                         onClick={() => {
-                          // Place at a staggered position so multiple clicks don't stack
-                          const offset = placements.length * 2;
-                          const x = Math.min(10 + offset, 60);
-                          const y = Math.min(10 + offset, 60);
-                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: 6, height: 6, shape: 'square', rotation: 0 }]);
+                          const { x, y } = nextAutoSlot(placements, decorations);
+                          setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: DEFAULT_TABLE_SIZE, height: DEFAULT_TABLE_SIZE, shape: 'square', rotation: 0 }]);
                           setSelection([{ type: 'table', id: tbl.id }]);
                         }}
                         className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"

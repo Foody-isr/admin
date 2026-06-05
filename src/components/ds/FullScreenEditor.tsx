@@ -50,13 +50,13 @@ export function FullScreenEditor({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
           className={cn(
-            // Edge-to-edge fullscreen on mobile, inset modal at md+ (centered
-            // horizontally via transform — immune to scrollbar-gutter
-            // reservation that Radix applies to <html> on open).
+            // Edge-to-edge fullscreen on mobile, inset modal at md+ via
+            // symmetric left/right insets so centering is direction-agnostic.
+            // (left:50% + width:calc inverts in RTL — over-constrained CSS
+            // makes right: win, and translateX(-50%) shifts off-screen.)
             'fixed z-50 inset-0',
             'md:top-[32px] md:bottom-[24px]',
-            'md:left-1/2 md:-translate-x-1/2',
-            'md:w-[calc(100%-48px)]',
+            'md:left-[24px] md:right-[24px]',
             'flex flex-col overflow-hidden',
             'bg-[var(--bg)] text-[var(--fg)]',
             'md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3',

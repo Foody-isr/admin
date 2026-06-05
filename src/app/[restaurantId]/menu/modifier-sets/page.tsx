@@ -3,10 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listModifierSets, deleteModifierSet, migrateLegacyModifiers, ModifierSet,
+  listModifierSets, deleteModifierSet, duplicateModifierSet, migrateLegacyModifiers, ModifierSet,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Plus, Trash2, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { Copy, Plus, Trash2, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 
 export default function ModifierSetsPage() {
@@ -29,6 +29,11 @@ export default function ModifierSetsPage() {
     if (!confirm(`${t('delete')} "${name}"?`)) return;
     await deleteModifierSet(rid, id);
     reload();
+  };
+
+  const handleDuplicate = async (id: number) => {
+    const set = await duplicateModifierSet(rid, id);
+    router.push(`/${rid}/menu/modifier-sets/${set.id}`);
   };
 
   const handleMigrate = async () => {
@@ -123,6 +128,13 @@ export default function ModifierSetsPage() {
               <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
                 {(set.menu_items ?? []).length} {(t('items') || 'articles').toLowerCase()}
               </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDuplicate(set.id); }}
+                className="size-9 rounded-lg flex items-center justify-center text-neutral-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors shrink-0"
+                title={t('duplicate') || 'Duplicate'}
+              >
+                <Copy size={16} />
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleDelete(set.id, set.name); }}
                 className="size-9 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"

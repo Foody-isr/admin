@@ -35,6 +35,8 @@ type PreviewMessage = {
   layoutDefault: 'compact' | 'magazine';
   logoSize: number;
   hideNavbarName: boolean;
+  hideHeroLogo: boolean;
+  customPalette: WebsiteConfig['custom_palette'] | null;
   faviconURL: string;
   direction: 'ltr' | 'rtl';
 };
@@ -264,6 +266,8 @@ export default function WebsitePage() {
       layoutDefault: next.layout_default,
       logoSize: next.logo_size,
       hideNavbarName: next.hide_navbar_name,
+      hideHeroLogo: next.hide_hero_logo,
+      customPalette: next.custom_palette ?? null,
       faviconURL: next.favicon_url || '',
       direction: 'ltr',
     };
@@ -409,6 +413,8 @@ export default function WebsitePage() {
           navbar_color: stateConfig.navbar_color || '',
           logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
           hide_navbar_name: stateConfig.hide_navbar_name || false,
+          hide_hero_logo: stateConfig.hide_hero_logo || false,
+          custom_palette: stateConfig.custom_palette ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           landing_enabled: stateConfig.landing_enabled ?? true,
@@ -505,6 +511,8 @@ export default function WebsitePage() {
         navbar_color: navbarColor,
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
+        hide_hero_logo: config?.hide_hero_logo ?? false,
+        custom_palette: config?.custom_palette ?? null,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
         landing_enabled: landingEnabled,
@@ -838,11 +846,7 @@ export default function WebsitePage() {
               config={config}
               themeCatalog={themeCatalog}
               onConfigUpdate={handleMenuConfigUpdate}
-              logoSize={logoSize}
-              hideNavbarName={hideNavbarName}
               heroNameFont={heroNameFont}
-              onLogoSizeChange={setLogoSize}
-              onHideNavbarNameChange={setHideNavbarName}
               onHeroNameFontChange={setHeroNameFont}
               restaurantId={restaurantId}
               restaurant={restaurant}
@@ -1154,17 +1158,13 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
   );
 }
 
-function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, logoSize, hideNavbarName, heroNameFont, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, heroNameFont, onHeroNameFontChange, restaurantId, restaurant, onRestaurantUpdate }: {
   subMode: 'colors' | 'typography' | 'logo';
   onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
   config: WebsiteConfig | null;
   themeCatalog: ThemeCatalog | null;
   onConfigUpdate: (patch: Partial<WebsiteConfig>) => void;
-  logoSize: number;
-  hideNavbarName: boolean;
   heroNameFont: string;
-  onLogoSizeChange: (n: number) => void;
-  onHideNavbarNameChange: (v: boolean) => void;
   onHeroNameFontChange: (f: string) => void;
   restaurantId: number;
   restaurant: Restaurant | null;
@@ -1219,38 +1219,13 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
             </div>
           </div>
         ) : (
-          <div className="space-y-5">
-            <BrandingPanel
-              config={config}
-              onUpdate={onConfigUpdate}
-              restaurantId={restaurantId}
-              restaurant={restaurant}
-              onRestaurantUpdate={onRestaurantUpdate}
-            />
-            <div className="border-t border-divider pt-4 space-y-3">
-              <div>
-                <label className="flex items-center justify-between text-xs font-medium text-fg-primary mb-1.5">
-                  <span>Taille du logo (navbar)</span>
-                  <span className="text-fg-secondary">{logoSize}px</span>
-                </label>
-                <input
-                  type="range" min={24} max={80}
-                  value={logoSize}
-                  onChange={(e) => onLogoSizeChange(Number(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hideNavbarName}
-                  onChange={(e) => onHideNavbarNameChange(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <span>Masquer le nom du restaurant dans la navbar</span>
-              </label>
-            </div>
-          </div>
+          <BrandingPanel
+            config={config}
+            onUpdate={onConfigUpdate}
+            restaurantId={restaurantId}
+            restaurant={restaurant}
+            onRestaurantUpdate={onRestaurantUpdate}
+          />
         )}
       </div>
     </div>
@@ -1695,489 +1670,6 @@ function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, second
   );
 }
 
-function StyleSettingsPanel({ restaurantId, restaurant, tagline, themeMode, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, onTaglineChange, onThemeModeChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onNavbarStyleChange, onNavbarColorChange, onLogoSizeChange, onHideNavbarNameChange, onHeroNameFontChange, onCategoryBannerStyleChange, onRestaurantUpdate, onReset }: {
-  restaurantId: number;
-  restaurant: Restaurant | null;
-  tagline: string;
-  themeMode: 'light' | 'dark';
-  showAddress: boolean;
-  showPhone: boolean;
-  showHours: boolean;
-  navbarStyle: string;
-  navbarColor: string;
-  logoSize: number;
-  hideNavbarName: boolean;
-  heroNameFont: string;
-  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
-  onTaglineChange: (v: string) => void;
-  onThemeModeChange: (v: 'light' | 'dark') => void;
-  onShowAddressChange: (v: boolean) => void;
-  onShowPhoneChange: (v: boolean) => void;
-  onShowHoursChange: (v: boolean) => void;
-  onNavbarStyleChange: (v: string) => void;
-  onNavbarColorChange: (v: string) => void;
-  onLogoSizeChange: (v: number) => void;
-  onHideNavbarNameChange: (v: boolean) => void;
-  onHeroNameFontChange: (v: string) => void;
-  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
-  onRestaurantUpdate: (r: Restaurant) => void;
-  onReset: () => void;
-}) {
-  const { t } = useI18n();
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [pickerColor, setPickerColor] = useState(restaurant?.background_color || '#EB5204');
-
-  const coverMode = restaurant?.cover_display_mode || 'cover';
-
-  // Load the selected hero name font so the inline preview renders correctly.
-  useEffect(() => {
-    if (!heroNameFont || typeof document === 'undefined') return;
-    const id = `gf-${heroNameFont.replace(/\s+/g, '-')}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement('link');
-    link.id = id;
-    link.rel = 'stylesheet';
-    const family = heroNameFont.replace(/\s+/g, '+');
-    link.href = `https://fonts.googleapis.com/css2?family=${family}:wght@400;600;700;800&display=swap`;
-    document.head.appendChild(link);
-  }, [heroNameFont]);
-
-  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingLogo(true);
-    try {
-      const imageUrl = await uploadRestaurantLogo(restaurantId, file);
-      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, logo_url: imageUrl } as Partial<Restaurant>);
-      onRestaurantUpdate(updated);
-    } catch {
-      // Error is shown at parent level
-    } finally {
-      setUploadingLogo(false);
-    }
-  }
-
-  async function handleRemoveLogo() {
-    try {
-      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, logo_url: '' } as Partial<Restaurant>);
-      onRestaurantUpdate(updated);
-    } catch { /* */ }
-  }
-
-  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingCover(true);
-    try {
-      const imageUrl = await uploadRestaurantBackground(restaurantId, file);
-      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, cover_url: imageUrl } as Partial<Restaurant>);
-      onRestaurantUpdate(updated);
-    } catch {
-      // Error is shown at parent level
-    } finally {
-      setUploadingCover(false);
-    }
-  }
-
-  async function handleRemoveCover() {
-    try {
-      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, cover_url: '', background_color: '' } as Partial<Restaurant>);
-      onRestaurantUpdate(updated);
-    } catch { /* */ }
-  }
-
-  async function handleSetDisplayMode(mode: string) {
-    try {
-      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, cover_display_mode: mode } as Partial<Restaurant>);
-      onRestaurantUpdate(updated);
-    } catch { /* */ }
-  }
-
-  async function handleSetBackgroundColor(hex: string) {
-    try {
-      const updated = await updateRestaurant(restaurantId, { name: restaurant?.name, background_color: hex, cover_url: '' } as Partial<Restaurant>);
-      onRestaurantUpdate(updated);
-    } catch { /* */ }
-  }
-
-  // Debounced focal-point save: drag fires many onChange events, but we only
-  // want one network round-trip per drag. Optimistic update keeps the marker
-  // tracking the pointer in real time.
-  const focalSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  async function handleFocalChange(x: number, y: number) {
-    if (!restaurant) return;
-    onRestaurantUpdate({ ...restaurant, cover_focal_x: x, cover_focal_y: y });
-    if (focalSaveTimer.current) clearTimeout(focalSaveTimer.current);
-    focalSaveTimer.current = setTimeout(async () => {
-      try {
-        const updated = await updateRestaurant(restaurantId, {
-          name: restaurant.name,
-          cover_focal_x: x,
-          cover_focal_y: y,
-        } as Partial<Restaurant>);
-        onRestaurantUpdate(updated);
-      } catch (err) {
-        console.error('Failed to save focal point', err);
-      }
-    }, 400);
-  }
-
-  const DISPLAY_MODES = [
-    { value: 'cover', label: 'Fill', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>) },
-    { value: 'contain', label: 'Fit', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" /></svg>) },
-    { value: 'repeat', label: 'Repeat', icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>) },
-  ];
-
-  const PRESET_COLORS = [
-    '#F44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
-    '#2196F3', '#03A9F4', '#009688', '#4CAF50', '#8BC34A',
-    '#FF9800', '#FF5722', '#795548', '#607D8B', '#212121',
-  ];
-
-  return (
-    <div className="max-w-xl space-y-6">
-      {/* Branding */}
-      <div>
-        <h2 className="text-lg font-semibold text-fg-primary mb-1">Branding</h2>
-        <p className="text-xs text-fg-secondary mb-4">Customize your online menu appearance. Customers will see your logo and background image.</p>
-        <div className="space-y-6">
-          {/* Logo */}
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-2">Logo</label>
-            <div className="flex items-center gap-3">
-              {restaurant?.logo_url ? (
-                <img src={restaurant.logo_url} alt="Logo" className="w-20 h-20 rounded-full object-cover border-2 border-[var(--divider)]" />
-              ) : (
-                <div className="w-20 h-20 rounded-full border-2 border-dashed border-[var(--divider)] flex items-center justify-center text-fg-secondary">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-              )}
-              <div className="flex flex-col gap-2">
-                <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--divider)] text-xs font-medium cursor-pointer hover:bg-[var(--surface-hover)] transition ${uploadingLogo ? 'opacity-50 pointer-events-none' : 'text-fg-primary'}`}>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                  {uploadingLogo ? 'Uploading...' : (restaurant?.logo_url ? 'Change' : 'Upload')}
-                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                </label>
-                {restaurant?.logo_url && (
-                  <button onClick={handleRemoveLogo} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-600 hover:bg-red-50 transition">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Background */}
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-2">Background</label>
-
-            {/* Preview */}
-            <div className="relative rounded-lg overflow-hidden border border-[var(--divider)] mb-3" style={{ height: 180 }}>
-              {restaurant?.cover_url ? (
-                coverMode === 'repeat' ? (
-                  <div className="absolute inset-0" style={{ backgroundImage: `url(${restaurant.cover_url})`, backgroundRepeat: 'repeat', backgroundSize: 'auto 50%', backgroundPosition: 'left top' }} />
-                ) : (
-                  <img src={restaurant.cover_url} alt="Cover" className={`w-full h-full ${coverMode === 'contain' ? 'object-contain' : 'object-cover'}`} />
-                )
-              ) : restaurant?.background_color ? (
-                <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: restaurant.background_color }}>
-                  <div className="text-center text-white/80">
-                    <svg className="w-8 h-8 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" /></svg>
-                    <span className="text-xs font-medium">{restaurant.background_color}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-hover)]">
-                  <div className="text-center text-fg-secondary">
-                    <svg className="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <span className="text-xs">No background set</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Status */}
-            {restaurant?.cover_url && (
-              <p className="text-xs text-fg-secondary mb-2">Using uploaded image</p>
-            )}
-            {!restaurant?.cover_url && restaurant?.background_color && (
-              <p className="text-xs text-fg-secondary mb-2">Using solid color</p>
-            )}
-
-            {/* Display Mode (only when cover image is set) */}
-            {restaurant?.cover_url && (
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-fg-secondary mb-2">Display Mode</label>
-                <div className="flex gap-2">
-                  {DISPLAY_MODES.map(m => (
-                    <button
-                      key={m.value}
-                      onClick={() => handleSetDisplayMode(m.value)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition ${
-                        coverMode === m.value
-                          ? 'border-brand-500 bg-brand-500/10 text-brand-600'
-                          : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/40'
-                      }`}
-                    >
-                      {m.icon}
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Focal point picker — only meaningful for "cover" display mode */}
-            {restaurant?.cover_url && coverMode === 'cover' && (
-              <div className="mb-3">
-                <CoverFocalPicker
-                  src={restaurant.cover_url}
-                  focalX={typeof restaurant.cover_focal_x === 'number' ? restaurant.cover_focal_x : 50}
-                  focalY={typeof restaurant.cover_focal_y === 'number' ? restaurant.cover_focal_y : 50}
-                  onChange={handleFocalChange}
-                />
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2">
-              <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-500 text-white text-xs font-medium cursor-pointer hover:bg-brand-600 transition ${uploadingCover ? 'opacity-50 pointer-events-none' : ''}`}>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                {uploadingCover ? 'Uploading...' : 'Upload Image'}
-                <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" disabled={uploadingCover} />
-              </label>
-              <button onClick={() => { setPickerColor(restaurant?.background_color || '#EB5204'); setShowColorPicker(true); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--divider)] text-xs font-medium text-fg-primary hover:bg-[var(--surface-hover)] transition">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" /></svg>
-                Pick Color
-              </button>
-              {(restaurant?.cover_url || restaurant?.background_color) && (
-                <button onClick={handleRemoveCover} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-300 text-xs font-medium text-red-600 hover:bg-red-50 transition">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Color Picker Modal */}
-      {showColorPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowColorPicker(false)}>
-          <div className="bg-[var(--surface)] rounded-xl shadow-xl p-5 w-80" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-fg-primary mb-3">Pick Background Color</h3>
-            <div className="grid grid-cols-5 gap-2 mb-4">
-              {PRESET_COLORS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setPickerColor(c)}
-                  className={`w-10 h-10 rounded-lg border-2 transition ${pickerColor === c ? 'border-brand-500 scale-110' : 'border-transparent hover:scale-105'}`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mb-4">
-              <input type="color" value={pickerColor} onChange={e => setPickerColor(e.target.value)} className="w-10 h-10 rounded border border-[var(--divider)] cursor-pointer" />
-              <input type="text" value={pickerColor} onChange={e => setPickerColor(e.target.value)} className="flex-1 text-sm border border-[var(--divider)] rounded-lg px-3 py-2 bg-[var(--surface)] text-fg-primary font-mono" placeholder="#000000" />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowColorPicker(false)} className="flex-1 px-3 py-2 rounded-lg border border-[var(--divider)] text-xs font-medium text-fg-secondary hover:bg-[var(--surface-hover)] transition">{t('cancel')}</button>
-              <button onClick={() => { handleSetBackgroundColor(pickerColor); setShowColorPicker(false); }} className="flex-1 px-3 py-2 rounded-lg bg-brand-500 text-white text-xs font-medium hover:bg-brand-600 transition">Apply</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <hr className="border-divider" />
-
-      <div>
-        <h2 className="text-lg font-semibold text-fg-primary mb-4">Global Settings</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-1">Tagline</label>
-            <input type="text" value={tagline} onChange={e => onTaglineChange(e.target.value)} className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary" placeholder="Fresh food, fast delivery" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-1">Restaurant name font</label>
-            <p className="text-xs text-fg-secondary mb-2">Font used for the restaurant name overlay on the order-page hero.</p>
-            <select
-              value={heroNameFont}
-              onChange={e => onHeroNameFontChange(e.target.value)}
-              className="w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary"
-              style={heroNameFont ? { fontFamily: `"${heroNameFont}", sans-serif` } : undefined}
-            >
-              <option value="">Default (theme font)</option>
-              {FONT_OPTIONS.map(f => (
-                <option key={f} value={f} style={{ fontFamily: `"${f}", sans-serif` }}>{f}</option>
-              ))}
-            </select>
-            {heroNameFont && restaurant?.name && (
-              <div className="mt-3 p-3 rounded-lg bg-[var(--surface-subtle)] border border-[var(--divider)]">
-                <span className="text-xs text-fg-secondary block mb-1">Preview</span>
-                <span className="text-2xl font-bold text-fg-primary" style={{ fontFamily: `"${heroNameFont}", serif` }}>
-                  {restaurant.name}
-                </span>
-              </div>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-primary mb-1">Category section style</label>
-            <p className="text-xs text-fg-secondary mb-2">How the category dividers appear on the order page. Image banners fall back to a text heading when a category has no image.</p>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { value: 'image-overlay', label: 'Image banner', desc: 'Full-width image with category name overlay' },
-                { value: 'text-block', label: 'Text only', desc: 'Large text heading with underline' },
-                { value: 'striped-rule', label: 'Text with rules', desc: 'Centered text between two lines' },
-                { value: 'none', label: 'No divider', desc: 'Items flow continuously' },
-              ] as const).map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => onCategoryBannerStyleChange(opt.value)}
-                  className={`text-left p-3 rounded-lg border-2 transition ${
-                    categoryBannerStyle === opt.value
-                      ? 'border-brand-500 bg-brand-500/10'
-                      : 'border-[var(--divider)] hover:border-fg-secondary/30'
-                  }`}
-                >
-                  <div className="text-sm font-medium text-fg-primary">{opt.label}</div>
-                  <div className="text-xs text-fg-secondary mt-0.5">{opt.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Theme Mode */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Site Theme</h3>
-        <div className="flex gap-3">
-          <button
-            onClick={() => onThemeModeChange('light')}
-            className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${
-              themeMode === 'light'
-                ? 'border-brand-500 bg-brand-500/10'
-                : 'border-[var(--divider)] hover:border-fg-secondary/30'
-            }`}
-          >
-            <div className="w-10 h-10 rounded-full bg-white border border-gray-200 mx-auto mb-2 flex items-center justify-center">
-              <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" />
-                <path d="M18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
-              </svg>
-            </div>
-            <span className="text-sm font-medium text-fg-primary">Light</span>
-          </button>
-          <button
-            onClick={() => onThemeModeChange('dark')}
-            className={`flex-1 p-4 rounded-xl border-2 text-center transition-all ${
-              themeMode === 'dark'
-                ? 'border-brand-500 bg-brand-500/10'
-                : 'border-[var(--divider)] hover:border-fg-secondary/30'
-            }`}
-          >
-            <div className="w-10 h-10 rounded-full bg-gray-900 border border-gray-700 mx-auto mb-2 flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-300" fill="currentColor" viewBox="0 0 24 24">
-                <path fillRule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <span className="text-sm font-medium text-fg-primary">Dark</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Navbar Style */}
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Navigation Bar</h3>
-        <div className="flex gap-2 mb-3">
-          {[
-            { value: 'solid', label: 'Solid' },
-            { value: 'transparent', label: 'Transparent' },
-            { value: 'custom', label: 'Custom' },
-            { value: 'hidden', label: 'Hidden' },
-          ].map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => onNavbarStyleChange(opt.value)}
-              className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
-                navbarStyle === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {navbarStyle === 'custom' && (
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-fg-secondary w-20">Color</label>
-            <input type="color" value={navbarColor || '#1f2937'} onChange={e => onNavbarColorChange(e.target.value)} className="w-7 h-7 rounded border border-[var(--divider)] cursor-pointer" />
-            <input type="text" value={navbarColor || '#1f2937'} onChange={e => onNavbarColorChange(e.target.value)} className="flex-1 text-xs border border-[var(--divider)] rounded px-2 py-1 bg-[var(--surface)] text-fg-primary" />
-          </div>
-        )}
-        {/* Logo size */}
-        <div className="mt-3">
-          <label className="text-xs text-fg-secondary block mb-1">Logo Size ({logoSize}px)</label>
-          <input
-            type="range"
-            min={20}
-            max={120}
-            step={4}
-            value={logoSize}
-            onChange={e => onLogoSizeChange(Number(e.target.value))}
-            className="w-full accent-brand-500"
-          />
-          <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
-            <span>20px</span>
-            <span>120px</span>
-          </div>
-        </div>
-        {/* Hide restaurant name */}
-        <label className="flex items-center justify-between py-2 mt-1">
-          <span className="text-sm text-fg-primary">Hide Restaurant Name</span>
-          <button type="button" onClick={() => onHideNavbarNameChange(!hideNavbarName)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideNavbarName ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideNavbarName ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-        </label>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold text-fg-secondary mb-3">Visibility</h3>
-        {[
-          { label: 'Show Address', value: showAddress, setter: onShowAddressChange },
-          { label: 'Show Phone', value: showPhone, setter: onShowPhoneChange },
-          { label: 'Show Hours', value: showHours, setter: onShowHoursChange },
-        ].map(t => (
-          <label key={t.label} className="flex items-center justify-between py-2">
-            <span className="text-sm text-fg-primary">{t.label}</span>
-            <button type="button" onClick={() => t.setter(!t.value)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${t.value ? 'bg-brand-500' : 'bg-[var(--divider)]'}`}>
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${t.value ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
-          </label>
-        ))}
-      </div>
-
-      {/* Reset to Default */}
-      <div className="mt-6 pt-4 border-t border-divider">
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm('Reset all site settings to default? This cannot be undone.')) {
-              onReset();
-            }
-          }}
-          className="w-full px-4 py-2 rounded-lg border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors"
-        >
-          Reset to Default
-        </button>
-      </div>
-
-    </div>
-  );
-}
 
 function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisibility }: {
   sections: WebsiteSection[];

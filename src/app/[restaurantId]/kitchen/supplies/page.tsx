@@ -163,9 +163,11 @@ export default function SuppliesPage() {
   }
 
   // ── Pills row (All / supplier names) — same as Stock page
-  const pillSuppliers = ['Tous', ...supplierNames];
-  const activePill = supplierFilter || 'Tous';
-  const selectPill = (name: string) => setSupplierFilter(name === 'Tous' ? '' : name);
+  const ALL_PILL = '__all__';
+  const allLabel = t('all');
+  const pillSuppliers = [ALL_PILL, ...supplierNames];
+  const activePill = supplierFilter || ALL_PILL;
+  const selectPill = (name: string) => setSupplierFilter(name === ALL_PILL ? '' : name);
 
   return (
     <div className="flex flex-col">
@@ -275,6 +277,7 @@ export default function SuppliesPage() {
         <div className="mb-[var(--s-4)] flex flex-wrap gap-[var(--s-2)]">
           {pillSuppliers.map((name) => {
             const active = activePill === name;
+            const label = name === ALL_PILL ? allLabel : name;
             return (
               <button
                 key={name}
@@ -287,7 +290,7 @@ export default function SuppliesPage() {
                     : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                 }`}
               >
-                {name}
+                {label}
               </button>
             );
           })}

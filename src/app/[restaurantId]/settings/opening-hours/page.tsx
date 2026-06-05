@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Calendar, CalendarDays, Plus, Trash2 } from 'lucide-react';
+import { Calendar, CalendarDays, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
   getRestaurant,
   updateRestaurant,
@@ -20,7 +20,18 @@ type Day = typeof DAYS[number];
 
 // Indexed by JS Date.getDay() so the chip picker matches the same convention
 // the rest of the codebase uses for the `workdays` array (Sun=0 … Sat=6).
-const DAY_SHORT_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Each entry is an i18n key — resolved at render time so the labels respect
+// the user's selected locale.
+const DAY_SHORT_KEYS = [
+  'sundayShort',
+  'mondayShort',
+  'tuesdayShort',
+  'wednesdayShort',
+  'thursdayShort',
+  'fridayShort',
+  'saturdayShort',
+];
+const DAY_SHORT_FALLBACKS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ORDER_TYPES = ['pickup', 'dine_in', 'delivery'] as const;
 type OrderType = typeof ORDER_TYPES[number];
@@ -58,15 +69,15 @@ export default function OpeningHoursPage() {
   const [dineInEnabled, setDineInEnabled] = useState(true);
 
   // ── Week settings (separate save flow from the hour grid below) ───────────
-  // `weekMode` mirrors the API: "auto" stores [] (derive from hours), "custom"
-  // stores the explicit workdays array. We keep both in state so toggling
-  // doesn't drop the operator's manual selection mid-session.
+  // Workdays is always stored explicitly. "Seed from opening hours" pre-fills
+  // the chips from a derivation when the operator wants a starting point,
+  // but the saved state is always whatever the chips show. This sidesteps a
+  // class of confusing edge cases where the live derivation across the three
+  // service types produces a union the operator didn't expect.
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
   const [savedWeekStartDay, setSavedWeekStartDay] = useState<WeekStartDay>(1);
-  const [weekMode, setWeekMode] = useState<'auto' | 'custom'>('auto');
-  const [savedWeekMode, setSavedWeekMode] = useState<'auto' | 'custom'>('auto');
-  const [customWorkdays, setCustomWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
-  const [savedCustomWorkdays, setSavedCustomWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [workdaysSelection, setWorkdaysSelection] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [savedWorkdays, setSavedWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [savingWeek, setSavingWeek] = useState(false);
   const [weekFlash, setWeekFlash] = useState(false);
   const [weekError, setWeekError] = useState<string | null>(null);
@@ -93,13 +104,13 @@ export default function OpeningHoursPage() {
         setWeekStartDay(wsd);
         setSavedWeekStartDay(wsd);
         const explicit = Array.isArray(r.workdays) && r.workdays.length > 0;
-        const mode: 'auto' | 'custom' = explicit ? 'custom' : 'auto';
-        setWeekMode(mode);
-        setSavedWeekMode(mode);
-        if (explicit) {
-          setCustomWorkdays(r.workdays!);
-          setSavedCustomWorkdays(r.workdays!);
-        }
+        // Empty workdays = never customized. Seed the chips from a derivation
+        // (respecting which services are enabled) so the operator sees a
+        // sensible starting point on first visit. The value isn't persisted
+        // until they hit Save.
+        const initial = explicit ? r.workdays! : getEffectiveWorkdays(r);
+        setWorkdaysSelection(initial);
+        setSavedWorkdays(explicit ? r.workdays! : []);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -118,28 +129,58 @@ export default function OpeningHoursPage() {
     }
   };
 
-  // Workdays the picker would resolve to under the current (unsaved) config —
-  // shown beneath the "Auto" radio so the owner sees what's about to apply
-  // without having to read the opening-hours grid below.
-  const autoDerivedWorkdays = useMemo(
-    () => getEffectiveWorkdays({ opening_hours_config: config }),
-    [config],
-  );
-  const toggleCustomWorkday = (d: number) => {
-    setCustomWorkdays((prev) => {
+  // Toggles a day in/out of the chip selection. Sorted ascending so the
+  // wire format (and saved state comparisons) is deterministic.
+  const toggleWorkday = (d: number) => {
+    setWorkdaysSelection((prev) => {
       const next = prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d];
       return next.sort((a, b) => a - b);
     });
   };
 
-  const workdaysToPersist = weekMode === 'custom' ? customWorkdays : [];
+  // Per-service preview — open days for each *enabled* service that has any
+  // closed day. Disabled services are hidden because they don't contribute
+  // to the operator's reality (you can't take dine-in orders if dine-in
+  // isn't enabled), and unconfigured services would just show "all 7 days"
+  // and create noise.
+  const perServicePreview = useMemo(() => {
+    const enabledMap: Record<OrderType, boolean> = {
+      pickup: pickupEnabled,
+      dine_in: dineInEnabled,
+      delivery: deliveryEnabled,
+    };
+    const labelFor = (ot: OrderType): string => {
+      if (ot === 'pickup') return t('pickup') || 'Pickup';
+      if (ot === 'dine_in') return t('dineIn') || 'Dine-in';
+      return t('delivery') || 'Delivery';
+    };
+    const out: { key: OrderType; label: string; days: number[] }[] = [];
+    for (const ot of ORDER_TYPES) {
+      if (!enabledMap[ot]) continue;
+      const week = config[ot];
+      const hasClosedDay = week && Object.values(week).some((d) => d?.closed);
+      if (!hasClosedDay) continue;
+      const single: OpeningHoursConfig = { [ot]: week } as OpeningHoursConfig;
+      out.push({ key: ot, label: labelFor(ot), days: getEffectiveWorkdays({ opening_hours_config: single }) });
+    }
+    return out;
+  }, [config, pickupEnabled, dineInEnabled, deliveryEnabled, t]);
+
+  const seedFromOpeningHours = () => {
+    setWorkdaysSelection(
+      getEffectiveWorkdays({
+        opening_hours_config: config,
+        pickup_enabled: pickupEnabled,
+        dine_in_enabled: dineInEnabled,
+        delivery_enabled: deliveryEnabled,
+      }),
+    );
+  };
+
   const sameArray = (a: number[], b: number[]) =>
     a.length === b.length && a.every((v, i) => v === b[i]);
-  const savedWorkdaysToPersist = savedWeekMode === 'custom' ? savedCustomWorkdays : [];
   const weekChanged =
-    weekStartDay !== savedWeekStartDay ||
-    weekMode !== savedWeekMode ||
-    (weekMode === 'custom' && !sameArray(customWorkdays, savedCustomWorkdays));
+    weekStartDay !== savedWeekStartDay || !sameArray(workdaysSelection, savedWorkdays);
 
   const handleSaveWeek = async () => {
     setSavingWeek(true);
@@ -147,11 +188,10 @@ export default function OpeningHoursPage() {
     try {
       await updateRestaurant(rid, {
         week_start_day: weekStartDay,
-        workdays: workdaysToPersist,
+        workdays: workdaysSelection,
       } as Partial<Restaurant>);
       setSavedWeekStartDay(weekStartDay);
-      setSavedWeekMode(weekMode);
-      setSavedCustomWorkdays(workdaysToPersist.length > 0 ? workdaysToPersist : customWorkdays);
+      setSavedWorkdays(workdaysSelection);
       setWeekFlash(true);
       setTimeout(() => setWeekFlash(false), 2500);
     } catch (e) {
@@ -245,82 +285,81 @@ export default function OpeningHoursPage() {
           'Controls how every weekly editor (menu group rotation, orders date picker) interprets a "week" for this restaurant.'
         }
       >
-        <Field label={t('weekStartFieldLabel') || 'First day of the week'}>
-          <Select
-            value={String(weekStartDay)}
-            onChange={(e) => setWeekStartDay(clampWeekStartDay(Number(e.target.value)))}
-            disabled={savingWeek}
+        {/* Two stacked fields. Premier jour stays compact; the workday strip
+            gets the full width so the day cells can breathe. */}
+        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-x-[var(--s-5)] gap-y-[var(--s-4)] items-start">
+          <Field label={t('weekStartFieldLabel') || 'First day of the week'}>
+            <Select
+              value={String(weekStartDay)}
+              onChange={(e) => setWeekStartDay(clampWeekStartDay(Number(e.target.value)))}
+              disabled={savingWeek}
+            >
+              <option value="0">{t('weekDaySunday') || 'Sunday'}</option>
+              <option value="1">{t('weekDayMonday') || 'Monday'}</option>
+              <option value="6">{t('weekDaySaturday') || 'Saturday'}</option>
+            </Select>
+          </Field>
+
+          <Field
+            label={
+              <div className="flex items-center justify-between gap-2">
+                <span>{t('workdaysFieldLabel') || 'Work days'}</span>
+                <button
+                  type="button"
+                  onClick={seedFromOpeningHours}
+                  disabled={savingWeek}
+                  className="inline-flex items-center gap-1 text-fs-xs text-[var(--fg-muted)] hover:text-[var(--brand-500)] transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  {t('workdaysSeedAction') || 'Auto from hours'}
+                </button>
+              </div>
+            }
           >
-            <option value="0">{t('weekDaySunday') || 'Sunday'}</option>
-            <option value="1">{t('weekDayMonday') || 'Monday'}</option>
-            <option value="6">{t('weekDaySaturday') || 'Saturday'}</option>
-          </Select>
-        </Field>
+            {/* Calendar-style 7-cell strip — equal-width tiles read more
+                like a row of days than a free-floating pill row. */}
+            <div className="grid grid-cols-7 gap-1 rounded-r-md p-1" style={{ background: 'var(--surface-2)' }}>
+              {DAY_SHORT_KEYS.map((key, idx) => {
+                const active = workdaysSelection.includes(idx);
+                const label = t(key) || DAY_SHORT_FALLBACKS[idx];
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => toggleWorkday(idx)}
+                    disabled={savingWeek}
+                    aria-pressed={active}
+                    className={`relative h-10 rounded-r-sm text-fs-sm font-medium transition-all duration-fast ${
+                      active
+                        ? 'bg-[var(--brand-500)] text-white shadow-1'
+                        : 'text-[var(--fg-muted)] hover:bg-[var(--surface)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
 
-        <Field label={t('workdaysFieldLabel') || 'Work days'}>
-          <div className="flex flex-col gap-[var(--s-3)]">
-            <label className="flex items-start gap-2 cursor-pointer text-fs-sm">
-              <input
-                type="radio"
-                name="workdays-mode"
-                checked={weekMode === 'auto'}
-                onChange={() => setWeekMode('auto')}
-                disabled={savingWeek}
-                className="mt-1"
-              />
-              <div>
-                <div className="font-medium text-[var(--fg)]">
-                  {t('workdaysModeAuto') || 'Auto from opening hours'}
+            {perServicePreview.length > 0 && (
+              <details className="mt-[var(--s-3)] text-fs-xs text-[var(--fg-muted)]">
+                <summary className="cursor-pointer select-none hover:text-[var(--fg)] transition-colors">
+                  {t('workdaysBreakdownToggle') || 'Per-service breakdown'}
+                </summary>
+                <div className="mt-[var(--s-2)] pl-[var(--s-3)] space-y-0.5 border-l-2 border-[var(--line)]">
+                  {perServicePreview.map(({ key, label, days }) => (
+                    <div key={key} className="flex gap-[var(--s-3)]">
+                      <span className="font-medium text-[var(--fg-subtle)] min-w-[5rem]">{label}</span>
+                      <span>{days.map((d) => t(DAY_SHORT_KEYS[d]) || DAY_SHORT_FALLBACKS[d]).join(', ') || '—'}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-fs-xs text-[var(--fg-muted)]">
-                  {(t('workdaysAutoPreview') || 'Currently: {days}').replace(
-                    '{days}',
-                    autoDerivedWorkdays.map((d) => DAY_SHORT_LABELS[d]).join(', ') || '—',
-                  )}
-                </div>
-              </div>
-            </label>
+              </details>
+            )}
+          </Field>
+        </div>
 
-            <label className="flex items-start gap-2 cursor-pointer text-fs-sm">
-              <input
-                type="radio"
-                name="workdays-mode"
-                checked={weekMode === 'custom'}
-                onChange={() => setWeekMode('custom')}
-                disabled={savingWeek}
-                className="mt-1"
-              />
-              <div className="flex-1">
-                <div className="font-medium text-[var(--fg)]">
-                  {t('workdaysModeCustom') || 'Custom'}
-                </div>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {DAY_SHORT_LABELS.map((label, idx) => {
-                    const active = customWorkdays.includes(idx);
-                    const disabled = weekMode !== 'custom' || savingWeek;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => toggleCustomWorkday(idx)}
-                        disabled={disabled}
-                        className={`px-3 py-1.5 rounded-full text-fs-xs font-medium border transition-colors ${
-                          active
-                            ? 'bg-[var(--brand-500)] text-white border-[var(--brand-500)]'
-                            : 'bg-[var(--surface)] text-[var(--fg-muted)] border-[var(--line)] hover:text-[var(--fg)]'
-                        } ${disabled && !active ? 'opacity-50' : ''}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </label>
-          </div>
-        </Field>
-
-        <div className="mt-[var(--s-4)] flex items-center gap-3">
+        <div className="mt-[var(--s-5)] flex items-center gap-3">
           <Button
             variant="primary"
             onClick={handleSaveWeek}

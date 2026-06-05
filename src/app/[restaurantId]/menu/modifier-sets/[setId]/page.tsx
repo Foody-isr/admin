@@ -7,12 +7,38 @@ import {
   deleteModifier, createModifierInSet, reorderModifierSetModifiers,
   deleteModifierSet,
   listStockItems, listPrepItems,
-  ModifierSetInput, StockItem, PrepItem,
+  getRestaurant,
+  ModifierSetInput, StockItem, PrepItem, TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+
+const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
+
+/** Apply or clear a single locale's override on a translations map. */
+function setLocaleOverride(
+  prev: TranslationMap | undefined,
+  field: string,
+  locale: Locale,
+  value: string,
+): TranslationMap {
+  const next: TranslationMap = { ...(prev ?? {}) };
+  const fieldMap = { ...(next[field] ?? {}) };
+  if (value === '') {
+    delete fieldMap[locale];
+  } else {
+    fieldMap[locale] = value;
+  }
+  if (Object.keys(fieldMap).length === 0) {
+    delete next[field];
+  } else {
+    next[field] = fieldMap;
+  }
+  return next;
+}
 
 interface ModifierRow {
   id?: number;
@@ -30,6 +56,8 @@ interface ModifierRow {
   prep_item_id?: number | null;
   quantity: number;
   unit: string;
+  /** Per-locale name overrides — `{ name: { he: "..." } }`. */
+  translations?: TranslationMap;
   isNew?: boolean;
 }
 
@@ -62,6 +90,7 @@ export default function ModifierSetEditorPage() {
 
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [setTranslations, setSetTranslations] = useState<TranslationMap>({});
   const [isRequired, setIsRequired] = useState(false);
   const [allowMultiple, setAllowMultiple] = useState(false);
   const [minSelections, setMinSelections] = useState(1);
@@ -72,6 +101,9 @@ export default function ModifierSetEditorPage() {
   const [rows, setRows] = useState<ModifierRow[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
+  const [activeLocale, setActiveLocale] = useState<Locale>('en');
+  const isSourceTab = activeLocale === sourceLocale;
   // Inventory sources for the per-row stock picker.
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [prepItems, setPrepItems] = useState<PrepItem[]>([]);
@@ -85,6 +117,7 @@ export default function ModifierSetEditorPage() {
     const set = await getModifierSet(rid, Number(setId));
     setName(set.name);
     setDisplayName(set.display_name);
+    setSetTranslations(set.translations ?? {});
     setIsRequired(set.is_required);
     setAllowMultiple(set.allow_multiple);
     const hasCustomQuantities = set.min_selections > 1 || set.max_selections > 0;
@@ -107,11 +140,24 @@ export default function ModifierSetEditorPage() {
       prep_item_id: m.prep_item_id ?? null,
       quantity: m.quantity ?? 0,
       unit: m.unit || 'g',
+      translations: m.translations ?? {},
     })));
     setLoading(false);
   }, [rid, setId, isNew]);
 
   useEffect(() => { loadSet(); }, [loadSet]);
+  // Source locale comes from the restaurant — same pattern as the item editor.
+  useEffect(() => {
+    getRestaurant(rid)
+      .then((r) => {
+        const loc = r.default_locale;
+        if (loc === 'en' || loc === 'he' || loc === 'fr') {
+          setSourceLocale(loc);
+          setActiveLocale(loc);
+        }
+      })
+      .catch(() => {});
+  }, [rid]);
   useEffect(() => {
     Promise.all([listStockItems(rid), listPrepItems(rid)])
       .then(([s, p]) => { setStockItems(s); setPrepItems(p); })
@@ -158,18 +204,26 @@ export default function ModifierSetEditorPage() {
         max_selections: (allowMultiple && allowQuantities) ? maxSelections : 0,
         hide_on_receipt: hideOnReceipt,
         use_conversational: useConversational,
+        translations: setTranslations,
       };
 
       if (isNew) {
         const newRows = finalRows.filter((r) => r.name.trim());
-        input.modifiers = newRows.map((r, i) => ({ ...r, sort_order: i }));
+        input.modifiers = newRows.map((r, i) => ({
+          ...r,
+          sort_order: i,
+          translations: r.translations ?? {},
+        }));
         await createModifierSet(rid, input);
       } else {
         const setID = Number(setId);
         await updateModifierSet(rid, setID, input);
         const newRows = finalRows.filter((r) => r.isNew && r.name.trim());
         for (const row of newRows) {
-          await createModifierInSet(rid, setID, row);
+          await createModifierInSet(rid, setID, {
+            ...row,
+            translations: row.translations ?? {},
+          });
         }
         const existingIds = finalRows.filter((r) => r.id).map((r) => r.id as number);
         if (existingIds.length > 0) {
@@ -219,28 +273,69 @@ export default function ModifierSetEditorPage() {
         {/* Details */}
         <Section title={t('details') || 'Details'}>
           <div className="bg-white dark:bg-[#111111] rounded-xl border border-neutral-200 dark:border-neutral-700 p-5 space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
-                {(t('internalName') || 'Internal name') + ' *'}
-              </label>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Toppings"
-                className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+            <div className="flex items-center gap-3 flex-wrap">
+              <LocaleTabs
+                locales={SUPPORTED_LOCALES}
+                source={sourceLocale}
+                active={activeLocale}
+                onChange={setActiveLocale}
+                missing={Object.fromEntries(
+                  SUPPORTED_LOCALES.filter((l) => l !== sourceLocale).map((l) => [
+                    l,
+                    !setTranslations?.display_name?.[l] && !!displayName.trim(),
+                  ]),
+                )}
               />
+              {!isSourceTab && (
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {t('languageEditingTranslation') ||
+                    'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
+                </span>
+              )}
             </div>
+            {isSourceTab && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
+                  {(t('internalName') || 'Internal name') + ' *'}
+                </label>
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Toppings"
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">
                 {t('displayName') || 'Display name'}
               </label>
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={t('displayNamePlaceholder') || 'Shown to customers (leave blank to use internal name)'}
-                className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
-              />
+              {isSourceTab ? (
+                <input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder={t('displayNamePlaceholder') || 'Shown to customers (leave blank to use internal name)'}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                />
+              ) : (
+                <>
+                  <input
+                    value={setTranslations?.display_name?.[activeLocale] ?? ''}
+                    onChange={(e) =>
+                      setSetTranslations((prev) =>
+                        setLocaleOverride(prev, 'display_name', activeLocale, e.target.value),
+                      )
+                    }
+                    placeholder={displayName || (t('displayNamePlaceholder') || 'Shown to customers')}
+                    className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-colors"
+                  />
+                  <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                    {(t('languageSourceLabel') || 'Source') + ': '}
+                    <span className="text-neutral-500 dark:text-neutral-400">{displayName || '—'}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </Section>
@@ -271,12 +366,30 @@ export default function ModifierSetEditorPage() {
                   className="grid items-center gap-2 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-[#1a1a1a] transition-colors"
                   style={{ gridTemplateColumns: ROW_GRID }}
                 >
-                  <input
-                    value={row.name}
-                    onChange={(e) => updateRow(i, { name: e.target.value })}
-                    placeholder={t('modifierName') || 'New modifier'}
-                    className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
-                  />
+                  {isSourceTab ? (
+                    <input
+                      value={row.name}
+                      onChange={(e) => updateRow(i, { name: e.target.value })}
+                      placeholder={t('modifierName') || 'New modifier'}
+                      className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
+                    />
+                  ) : (
+                    <input
+                      value={row.translations?.name?.[activeLocale] ?? ''}
+                      onChange={(e) =>
+                        updateRow(i, {
+                          translations: setLocaleOverride(
+                            row.translations,
+                            'name',
+                            activeLocale,
+                            e.target.value,
+                          ),
+                        })
+                      }
+                      placeholder={row.name || (t('modifierName') || 'New modifier')}
+                      className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2 italic"
+                    />
+                  )}
                   <input
                     value={row.kitchen_name}
                     onChange={(e) => updateRow(i, { kitchen_name: e.target.value })}

@@ -226,6 +226,8 @@ export interface MenuItemModifier {
   prep_item_id?: number;
   quantity?: number;
   unit?: string;
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface ModifierSet {
@@ -243,6 +245,8 @@ export interface ModifierSet {
   modifiers: MenuItemModifier[];
   menu_items?: { id: number; name: string }[];
   created_at: string;
+  /** Per-locale display_name overrides. Source-locale value lives in `display_name`. */
+  translations?: TranslationMap;
 }
 
 export interface MenuItemVariant {
@@ -352,6 +356,24 @@ export interface MenuItem {
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
   availability_bottleneck?: string;
+  /** Per-item overrides on attached modifier sets — present only for sets
+   *  with at least one non-null override. The values in `modifier_sets`
+   *  are already effective (set defaults with overrides applied). */
+  modifier_set_overrides?: ModifierSetItemOverrideRow[];
+}
+
+export interface ModifierSetItemOverrideRow {
+  modifier_set_id: number;
+  menu_item_id: number;
+  min_selections_override?: number | null;
+  max_selections_override?: number | null;
+  is_required_override?: boolean | null;
+}
+
+export interface ModifierSetItemOverridesInput {
+  min_selections?: number | null;
+  max_selections?: number | null;
+  is_required?: boolean | null;
 }
 
 export interface OrderItemModifier {
@@ -486,6 +508,14 @@ export interface WebsiteConfig {
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
+  hide_hero_logo: boolean;
+  custom_palette?: {
+    mode: 'light' | 'dark';
+    bg: string;
+    surface: string;
+    accent: string;
+    ink: string;
+  } | null;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   landing_enabled: boolean;
@@ -1858,6 +1888,7 @@ export interface ModifierInSetInput {
   prep_item_id?: number | null;
   quantity?: number;
   unit?: string;
+  translations?: TranslationMap;
 }
 
 export interface ModifierSetInput {
@@ -1871,6 +1902,7 @@ export interface ModifierSetInput {
   use_conversational?: boolean;
   sort_order?: number;
   modifiers?: ModifierInSetInput[];
+  translations?: TranslationMap;
 }
 
 export async function listModifierSets(restaurantId: number): Promise<ModifierSet[]> {
@@ -1910,6 +1942,14 @@ export async function deleteModifierSet(restaurantId: number, id: number): Promi
   );
 }
 
+export async function duplicateModifierSet(restaurantId: number, id: number): Promise<ModifierSet> {
+  const data = await apiFetch<{ modifier_set: ModifierSet }>(
+    `/api/v1/menu/modifier-sets/${id}/duplicate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data.modifier_set;
+}
+
 export async function attachModifierSetToItems(restaurantId: number, setId: number, menuItemIds: number[]): Promise<void> {
   await apiFetch<void>(
     `/api/v1/menu/modifier-sets/${setId}/items?restaurant_id=${restaurantId}`, restaurantId,
@@ -1921,6 +1961,19 @@ export async function detachModifierSetFromItem(restaurantId: number, setId: num
   await apiFetch<void>(
     `/api/v1/menu/modifier-sets/${setId}/items/${menuItemId}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
+  );
+}
+
+export async function setModifierSetItemOverrides(
+  restaurantId: number,
+  setId: number,
+  menuItemId: number,
+  input: ModifierSetItemOverridesInput,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/menu/modifier-sets/${setId}/items/${menuItemId}/overrides?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
   );
 }
 
@@ -1961,6 +2014,8 @@ export interface OptionSetOption {
    *  True when this option is combo-only on the surrounding item — should be
    *  excluded from à la carte price ranges and cost summaries. */
   is_combo_only?: boolean;
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface OptionSet {
@@ -1970,6 +2025,8 @@ export interface OptionSet {
   sort_order: number;
   options?: OptionSetOption[];
   menu_items?: MenuItem[];
+  /** Per-locale name overrides. Source-locale value lives in `name`. */
+  translations?: TranslationMap;
 }
 
 export interface OptionInSetInput {
@@ -1979,12 +2036,14 @@ export interface OptionInSetInput {
   sku?: string;
   is_active: boolean;
   sort_order: number;
+  translations?: TranslationMap;
 }
 
 export interface OptionSetInput {
   name: string;
   sort_order?: number;
   options?: OptionInSetInput[];
+  translations?: TranslationMap;
 }
 
 export async function listOptionSets(restaurantId: number): Promise<OptionSet[]> {
@@ -2116,6 +2175,7 @@ export interface VariantSyncInput {
   is_active: boolean;
   is_combo_only?: boolean;
   sort_order: number;
+  translations?: TranslationMap;
 }
 
 export interface VariantGroupSyncInput {
@@ -2123,6 +2183,7 @@ export interface VariantGroupSyncInput {
   name: string;
   sort_order: number;
   variants: VariantSyncInput[];
+  translations?: TranslationMap;
 }
 
 export interface ItemVariantsSyncInput {
@@ -2862,6 +2923,26 @@ export async function uploadRestaurantBackground(restaurantId: number, file: Fil
   const formData = new FormData();
   formData.append('image', file);
   const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/background`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return data.image_url;
+}
+
+export async function uploadQrHeroImage(restaurantId: number, file: File): Promise<string> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('image', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/qr-hero`, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -4432,7 +4513,7 @@ export async function generateTableQr(
 
 // ─── QR Card Customization ────────────────────────────────────────────────────
 
-export type QrCardTemplate = 'compact' | 'wide' | 'tall';
+export type QrCardTemplate = 'compact' | 'wide' | 'tall' | 'round';
 export type QrCardBrandMode = 'text' | 'logo';
 export type QrCardLocale = 'en' | 'he' | 'fr';
 
@@ -4455,6 +4536,16 @@ export interface QrCardConfig {
   background_color: string;
   text_color: string;
   brand_mode: QrCardBrandMode;
+  /** Background photo for the round template. Empty for other templates. */
+  hero_image_url?: string;
+  /** Photo box left edge, % of sticker width. Default 0. */
+  hero_x?: number;
+  /** Photo box top edge, % of sticker height. Default 50 (anchored at vertical midpoint). */
+  hero_y?: number;
+  /** Photo box width, % of sticker width. Default 100 (full width). */
+  hero_width?: number;
+  /** Photo box height, % of sticker height. Default 50 (bottom half). */
+  hero_height?: number;
   /** Locale code (en/he/fr) → text content. */
   texts: Partial<Record<QrCardLocale, QrCardTexts>>;
   created_at?: string;

@@ -49,14 +49,15 @@ export default function MenuItemShell({
         onClick={onClose}
       />
 
-      {/* Inset container — 32px top, 24px bottom, centered horizontally with
-          48px total side gap on desktop; full-screen edge-to-edge on mobile.
-          Using transform centering (not inset-x-24) keeps the modal visually
-          symmetric regardless of page scrollbar gutter reservation.
+      {/* Inset container — 32px top, 24px bottom, 24px each side on desktop;
+          full-screen edge-to-edge on mobile. Symmetric left/right insets
+          (no transform centering) keeps the modal correctly centered in
+          RTL as well as LTR — left:50% + width:calc would over-constrain
+          and get inverted by the RTL containing-block rules.
           Entrance animation (fade-in + subtle zoom) matches the Radix-powered
           FullScreenEditor used by Stock / Prep editors. */}
       <div
-        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-1/2 md:-translate-x-1/2 md:w-[calc(100%-48px)] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
+        className="absolute inset-0 md:top-[32px] md:bottom-[24px] md:left-[24px] md:right-[24px] flex flex-col overflow-hidden bg-[var(--bg)] text-[var(--fg)] md:border md:border-[var(--line)] md:rounded-r-xl md:shadow-3 animate-in fade-in-0 zoom-in-[0.98] duration-200 ease-out"
       >
         {/* Head — 60px, close-left · centered title · save/cancel right.
             Cancel button hides on mobile (X already cancels). */}

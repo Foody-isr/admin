@@ -19,6 +19,19 @@ import {
   type PosDisplayTile,
   type PosTileSize,
 } from '@/lib/posDisplay';
+
+/** Build the default item tiles for a group, mirroring the POS fallback. */
+function seedGroupTiles(items: MenuItem[]): PosDisplayTile[] {
+  return items.map((item, idx) => ({
+    tile_type: 'item',
+    ref_item_id: item.id,
+    size: 'petit',
+    bg_type: 'color',
+    color: POS_PALETTE[idx % POS_PALETTE.length],
+    image_url: '',
+    position: idx,
+  }));
+}
 import {
   getPosDisplay,
   listAllItems,
@@ -95,7 +108,16 @@ export default function PosDisplayEditorPage() {
   }, [rid, mid]);
 
   // ── Current container ──
-  const currentTiles = level === 'menu' ? tiles : (groupTiles[String(level)] ?? []);
+  // Inside a group, fall back to synthesized item tiles when no layout is
+  // saved (or it was saved empty). Mirrors the Flutter POS fallback so the
+  // editor never opens onto a blank group when items exist.
+  const currentTiles = React.useMemo<PosDisplayTile[]>(() => {
+    if (level === 'menu') return tiles;
+    const saved = groupTiles[String(level)];
+    if (saved && saved.length > 0) return saved;
+    const items = groupMap.get(level)?.items ?? [];
+    return seedGroupTiles(items);
+  }, [level, tiles, groupTiles, groupMap]);
 
   const setCurrentTiles = React.useCallback(
     (next: PosDisplayTile[]) => {
@@ -114,7 +136,11 @@ export default function PosDisplayEditorPage() {
     (tile: PosDisplayTile): PosTileRef => {
       if (tile.tile_type === 'group') {
         const g = tile.ref_group_id != null ? groupMap.get(tile.ref_group_id) : undefined;
-        return { name: g?.name ?? 'Groupe', imageUrl: g?.image_url };
+        return {
+          name: g?.name ?? 'Groupe',
+          imageUrl: g?.image_url,
+          itemCount: g?.items?.length,
+        };
       }
       const it = tile.ref_item_id != null ? itemMap.get(tile.ref_item_id) : undefined;
       return { name: it?.name ?? 'Article', price: it?.price, imageUrl: it?.image_url };
@@ -125,6 +151,19 @@ export default function PosDisplayEditorPage() {
   const selectedTile =
     selectedIndex != null ? currentTiles[selectedIndex] ?? null : null;
 
+  // Image URL already attached to the linked group/item, offered as a one-click
+  // pick in the inspector so users don't need to paste a URL by hand.
+  const selectedLinkedImageUrl = React.useMemo<string | undefined>(() => {
+    if (!selectedTile) return undefined;
+    if (selectedTile.tile_type === 'group' && selectedTile.ref_group_id != null) {
+      return groupMap.get(selectedTile.ref_group_id)?.image_url || undefined;
+    }
+    if (selectedTile.tile_type === 'item' && selectedTile.ref_item_id != null) {
+      return itemMap.get(selectedTile.ref_item_id)?.image_url || undefined;
+    }
+    return undefined;
+  }, [selectedTile, groupMap, itemMap]);
+
   // ── Handlers ──
   const onSelect = (i: number) => setSelectedIndex(i);
 
@@ -132,9 +171,6 @@ export default function PosDisplayEditorPage() {
     const tile = currentTiles[i];
     if (tile?.tile_type !== 'group' || tile.ref_group_id == null) return;
     const gid = tile.ref_group_id;
-    setGroupTiles((prev) =>
-      prev[String(gid)] ? prev : { ...prev, [String(gid)]: [] },
-    );
     setLevel(gid);
     setSelectedIndex(null);
   };
@@ -383,6 +419,7 @@ export default function PosDisplayEditorPage() {
           <aside className="w-[360px] shrink-0 overflow-auto border-s border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
             <PosTileInspector
               tile={selectedTile}
+              linkedImageUrl={selectedLinkedImageUrl}
               onSort={applySort}
               onSizeChange={(size: PosTileSize) => updateSelectedTile({ size })}
               onBgTypeChange={(bg: PosBgType) => updateSelectedTile({ bg_type: bg })}
@@ -424,10 +461,10 @@ function PreviewGrid({
 }) {
   return (
     <div
-      className="grid gap-3"
+      className="grid gap-2 mx-auto w-fit"
       style={{
-        gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 1fr)`,
-        gridAutoRows: '110px',
+        gridTemplateColumns: `repeat(${POS_GRID_COLUMNS}, 151px)`,
+        gridAutoRows: '64px',
         gridAutoFlow: 'dense',
       }}
     >
@@ -444,7 +481,7 @@ function PreviewGrid({
             <PosTile
               tile={t}
               refData={resolve(t)}
-              onDrill={t.tile_type === 'group' ? () => onDrill(i) : undefined}
+              onClick={t.tile_type === 'group' ? () => onDrill(i) : undefined}
             />
           </div>
         );

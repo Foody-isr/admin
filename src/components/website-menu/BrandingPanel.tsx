@@ -172,6 +172,29 @@ export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRe
         </button>
       </section>
 
+      {/* Hide hero logo */}
+      <section className="rounded-lg border border-[var(--divider)] p-3 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-semibold mb-0.5">{t('hideHeroLogo')}</h3>
+          <p className="text-[11px] text-fg-secondary leading-snug">{t('hideHeroLogoHelp')}</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={config.hide_hero_logo}
+          onClick={() => onUpdate({ hide_hero_logo: !config.hide_hero_logo })}
+          className={`relative w-9 h-5 rounded-full shrink-0 transition-colors ${
+            config.hide_hero_logo ? 'bg-brand-500' : 'bg-[var(--divider)]'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+              config.hide_hero_logo ? 'translate-x-[18px]' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </section>
+
       {/* Favicon */}
       <section className="rounded-lg border border-[var(--divider)] p-3">
         <div className="mb-2">

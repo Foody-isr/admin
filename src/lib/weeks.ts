@@ -71,9 +71,14 @@ const DAY_INDEX_BY_KEY: Record<string, number> = {
 };
 
 /** Minimal shape this module needs from a restaurant. Kept structural so it
- *  works with both the full `Restaurant` API type and partial fetches. */
+ *  works with both the full `Restaurant` API type and partial fetches.
+ *  Pass the service-enabled flags to filter the derivation — a disabled
+ *  service shouldn't contribute days to the workdays union. */
 export interface WorkdaysSource {
   workdays?: number[] | null;
+  pickup_enabled?: boolean;
+  dine_in_enabled?: boolean;
+  delivery_enabled?: boolean;
   opening_hours_config?: {
     dine_in?: Record<string, { closed?: boolean }>;
     pickup?: Record<string, { closed?: boolean }>;
@@ -84,9 +89,15 @@ export interface WorkdaysSource {
 /**
  * Resolves the workdays a restaurant should display:
  *   - Explicit `workdays` if the owner pinned them (length > 0).
- *   - Otherwise the union of days marked "open" across every configured
- *     service type in opening hours.
+ *   - Otherwise the union of "open" days across every *configured* service
+ *     in opening hours — see `looksConfigured` for the heuristic.
  *   - Otherwise every day of the week (safe default — never returns []).
+ *
+ * "Configured" requires at least one day marked `closed: true`. The settings
+ * page pre-fills unvisited service tabs with an "open every day 09:00-22:00"
+ * default; without this filter every restaurant with all 3 service types
+ * enabled would auto-derive to Sun-Sat regardless of what they actually
+ * configured. Real-world 24/7 restaurants can use Custom mode.
  *
  * The returned array is sorted ascending (Sun=0 first) and deduped.
  */
@@ -96,10 +107,19 @@ export function getEffectiveWorkdays(source: WorkdaysSource): number[] {
   }
   const cfg = source.opening_hours_config;
   if (cfg) {
+    // When enabled flags are present, treat `undefined` as "unknown — assume
+    // enabled" to keep callers that only pass opening_hours_config working
+    // unchanged. When a flag is explicitly false, the service is skipped.
+    const services: Array<[Record<string, { closed?: boolean }> | undefined, boolean]> = [
+      [cfg.dine_in, source.dine_in_enabled !== false],
+      [cfg.pickup, source.pickup_enabled !== false],
+      [cfg.delivery, source.delivery_enabled !== false],
+    ];
     const days = new Set<number>();
-    for (const service of [cfg.dine_in, cfg.pickup, cfg.delivery]) {
-      if (!service) continue;
-      for (const [key, day] of Object.entries(service)) {
+    for (const [service, enabled] of services) {
+      if (!enabled) continue;
+      if (!looksConfigured(service)) continue;
+      for (const [key, day] of Object.entries(service!)) {
         if (day && !day.closed && key in DAY_INDEX_BY_KEY) {
           days.add(DAY_INDEX_BY_KEY[key]);
         }
@@ -108,6 +128,16 @@ export function getEffectiveWorkdays(source: WorkdaysSource): number[] {
     if (days.size > 0) return Array.from(days).sort((a, b) => a - b);
   }
   return [0, 1, 2, 3, 4, 5, 6];
+}
+
+function looksConfigured(
+  service: Record<string, { closed?: boolean }> | undefined,
+): boolean {
+  if (!service) return false;
+  for (const day of Object.values(service)) {
+    if (day && day.closed) return true;
+  }
+  return false;
 }
 
 /** True when the given JS-style weekday (0=Sun … 6=Sat) is a workday. */

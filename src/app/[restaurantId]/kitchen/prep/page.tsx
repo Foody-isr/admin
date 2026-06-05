@@ -260,12 +260,14 @@ export default function PrepPage() {
     setSelectedStatuses(status ? new Set([status]) : new Set());
   };
 
-  // Category pill list — "Tous" first, then distinct names alphabetically.
-  const pillCategories = ['Tous', ...[...categoryNames].sort()];
+  // Category pill list — an "all" sentinel first, then distinct names alphabetically.
+  const ALL_PILL = '__all__';
+  const allLabel = t('all');
+  const pillCategories = [ALL_PILL, ...[...categoryNames].sort()];
   const activePill =
-    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : 'Tous';
+    selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ALL_PILL;
   const selectPill = (name: string) => {
-    if (name === 'Tous') setSelectedCategories(new Set());
+    if (name === ALL_PILL) setSelectedCategories(new Set());
     else setSelectedCategories(new Set([name]));
   };
 
@@ -429,7 +431,7 @@ export default function PrepPage() {
                     : 'bg-[var(--surface-2)] text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--fg)]'
                 }`}
               >
-                {name === 'Tous' ? t('all') || 'Tous' : name}
+                {name === ALL_PILL ? allLabel : name}
               </button>
             );
           })}
