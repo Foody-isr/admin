@@ -1449,7 +1449,7 @@ export async function getBatchFulfillmentConfig(
   restaurantId: number
 ): Promise<BatchFulfillmentConfigResponse> {
   return apiFetch<BatchFulfillmentConfigResponse>(
-    `/api/v1/public/batch-fulfillment-config/${restaurantId}`,
+    `/api/v1/public/restaurants/${restaurantId}/batch-fulfillment-config`,
     restaurantId,
   );
 }

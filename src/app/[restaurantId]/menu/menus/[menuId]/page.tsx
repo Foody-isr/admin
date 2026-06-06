@@ -493,10 +493,13 @@ export default function MenuDetailPage() {
               onChange={setSelectedCycleIndex}
             />
           )}
-          {isRotating && batchConfig === null && (
-            <span className="text-xs text-[var(--text-muted)] italic">
+          {isRotating && cycles.length === 0 && (
+            <button
+              onClick={() => router.push(`/${rid}/settings/scheduled-orders`)}
+              className="text-xs text-[var(--text-muted)] italic underline hover:text-[var(--text-primary)] transition-colors"
+            >
               {t('configureBatchFirst') || 'Configurez les commandes anticipées dans les paramètres'}
-            </span>
+            </button>
           )}
           <button
             className="btn-secondary rounded-full flex items-center gap-2"
