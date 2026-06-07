@@ -29,6 +29,7 @@ export default function MenuEditPage() {
   const [posEnabled, setPosEnabled] = useState(true);
   const [webEnabled, setWebEnabled] = useState(true);
   const [followsRestaurantHours, setFollowsRestaurantHours] = useState(true);
+  const [isWeeklyRotating, setIsWeeklyRotating] = useState(false);
   const [hours, setHours] = useState<MenuAvailabilityHour[]>([]);
 
   // Locations
@@ -58,6 +59,7 @@ export default function MenuEditPage() {
         setPosEnabled(found.pos_enabled);
         setWebEnabled(found.web_enabled);
         setFollowsRestaurantHours(found.follows_restaurant_hours);
+        setIsWeeklyRotating(found.is_weekly_rotating ?? false);
         if (!found.follows_restaurant_hours) {
           getMenuHours(rid, found.id).then(setHours).catch(() => null);
         }
@@ -76,6 +78,7 @@ export default function MenuEditPage() {
         pos_enabled: posEnabled,
         web_enabled: webEnabled,
         follows_restaurant_hours: followsRestaurantHours,
+        is_weekly_rotating: isWeeklyRotating,
       });
       if (!followsRestaurantHours) {
         await setMenuHours(rid, mid, hours.map(({ day_of_week, open_time, close_time, is_closed }) => ({
@@ -240,6 +243,31 @@ export default function MenuEditPage() {
                 </label>
               </div>
             )}
+          </div>
+
+          {/* Carte tournante — gates the batch-aware picker on the carte page */}
+          <div className="py-4 border-t border-[var(--divider)]">
+            <label className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-fg-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-fg-primary">
+                    {t('rotatingCarte') || 'Carte tournante'}
+                  </p>
+                  <p className="text-xs text-fg-tertiary mt-0.5 max-w-md">
+                    {t('rotatingCarteDesc') || 'Les articles changent par lot de livraison. Active le sélecteur de semaine sur la page de la carte.'}
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isWeeklyRotating}
+                onChange={(e) => setIsWeeklyRotating(e.target.checked)}
+                className="rounded shrink-0"
+              />
+            </label>
           </div>
 
           {/* Heures */}

@@ -109,6 +109,10 @@ export interface RestaurantSettings {
   batch_fulfillment_enabled?: boolean;
   batch_cutoff_day?: number; // 0=Sun..6=Sat
   batch_cutoff_time?: string; // "HH:MM"
+  // When the next batch's ordering window opens. Defaults match cutoff
+  // (zero-gap) on legacy data; set explicitly to introduce a switchover gap.
+  batch_order_open_day?: number; // 0=Sun..6=Sat
+  batch_order_open_time?: string; // "HH:MM"
   batch_fulfillment_days?: BatchFulfillmentDay[];
   batch_require_prepayment?: boolean;
   // OTP mode for guest checkout (pickup/delivery):
@@ -153,6 +157,9 @@ export interface Menu {
   pos_enabled: boolean;
   web_enabled: boolean;
   follows_restaurant_hours: boolean;
+  // Gates the batch-aware UX on the carte detail page (week picker + per-batch
+  // item filtering). Unrelated to ItemCategory.is_weekly_rotating.
+  is_weekly_rotating?: boolean;
   availability_hours?: MenuAvailabilityHour[];
   groups?: MenuGroup[];
   categories?: MenuCategory[]; // Deprecated: use groups
@@ -1397,6 +1404,54 @@ export async function updateRestaurantSettings(
     { method: 'PUT', body: JSON.stringify(input) }
   );
   return data.settings;
+}
+
+// ─── Batch fulfillment config (public-shape) ────────────────────────────────
+// Mirrors the foodyserver response from GET /api/v1/public/batch-fulfillment-config/:idOrSlug.
+// foodyadmin reads this to drive the carte-page batch picker.
+
+export interface BatchFulfillmentWindow {
+  start: string; // "HH:MM"
+  end: string;   // "HH:MM"
+}
+
+export interface BatchFulfillmentDayInfo {
+  date: string;     // "YYYY-MM-DD"
+  day_name: string; // e.g. "Friday"
+  pickup_window?: BatchFulfillmentWindow;
+  delivery_window?: BatchFulfillmentWindow;
+}
+
+export interface BatchCycleSummary {
+  open_at: string;   // ISO 8601 datetime
+  cutoff_at: string; // ISO 8601 datetime
+  fulfillment_days: BatchFulfillmentDayInfo[];
+}
+
+export interface BatchFulfillmentConfigResponse {
+  enabled: boolean;
+  ordering_open: boolean;
+  current_batch_open_at: string;  // ISO 8601 datetime
+  current_batch_cutoff: string;   // ISO 8601 datetime
+  cutoff_day_name: string;
+  cutoff_time: string;
+  open_day_name: string;
+  open_time: string;
+  fulfillment_days: BatchFulfillmentDayInfo[];
+  next_batch_open_at: string;
+  next_batch_cutoff: string;
+  next_fulfillment_days: BatchFulfillmentDayInfo[];
+  upcoming_cycles: BatchCycleSummary[];
+  require_prepayment: boolean;
+}
+
+export async function getBatchFulfillmentConfig(
+  restaurantId: number
+): Promise<BatchFulfillmentConfigResponse> {
+  return apiFetch<BatchFulfillmentConfigResponse>(
+    `/api/v1/public/restaurants/${restaurantId}/batch-fulfillment-config`,
+    restaurantId,
+  );
 }
 
 // ─── Menu translations backfill ──────────────────────────────────────────────

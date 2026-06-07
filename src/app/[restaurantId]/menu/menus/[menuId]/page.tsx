@@ -7,8 +7,12 @@ import {
   listMenus, getRestaurant, deleteGroup, deleteMenu, reorderGroups,
   reorderGroupItems,
   listAllItems, addItemsToGroup, removeItemFromGroup,
+  listGroupMemberships, getBatchFulfillmentConfig,
   Menu, MenuGroup, MenuItem, Restaurant,
+  MenuGroupMembership, BatchFulfillmentConfigResponse, GroupItemScope,
 } from '@/lib/api';
+import { isMembershipActiveOn } from '@/lib/membership';
+import { BatchPicker } from '@/components/menu/BatchPicker';
 import { useI18n } from '@/lib/i18n';
 import {
   ArrowLeftIcon,
@@ -92,10 +96,19 @@ export default function MenuDetailPage() {
   // the source group so we know which selection to move and which group to
   // exclude from the target list.
   const [moveModalSourceGroupId, setMoveModalSourceGroupId] = useState<number | null>(null);
+  // Batch-aware state (only populated when the carte has is_weekly_rotating).
+  // batchConfig.upcoming_cycles drives the BatchPicker dropdown.
+  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
+  // Memberships fetched per group; used to determine which items are active
+  // for the selected batch cycle.
+  const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
+  // Which groups have the "N items not in this batch" expander open.
+  const [showInactiveByGroup, setShowInactiveByGroup] = useState<Set<number>>(new Set());
 
   const reload = useCallback(() => {
     setLoading(true);
-    Promise.all([listMenus(rid), listAllItems(rid)]).then(([menus, items]) => {
+    Promise.all([listMenus(rid), listAllItems(rid)]).then(async ([menus, items]) => {
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       setAllMenus(menus);
@@ -105,6 +118,21 @@ export default function MenuDetailPage() {
       setSelectedItemsByGroup(new Map());
       if (found?.groups) {
         setExpanded(new Set(found.groups.map((g) => g.id)));
+      }
+      // Batch-aware extras: only fired when the menu has the rotating flag.
+      if (found?.is_weekly_rotating) {
+        const groupList = found.groups ?? [];
+        const [config, ...memberships] = await Promise.all([
+          getBatchFulfillmentConfig(rid).catch(() => null),
+          ...groupList.map((g) => listGroupMemberships(rid, g.id).catch(() => [])),
+        ]);
+        setBatchConfig(config);
+        const next = new Map<number, MenuGroupMembership[]>();
+        groupList.forEach((g, idx) => next.set(g.id, memberships[idx] ?? []));
+        setMembershipsByGroup(next);
+      } else {
+        setBatchConfig(null);
+        setMembershipsByGroup(new Map());
       }
     }).finally(() => setLoading(false));
   }, [rid, mid]);
@@ -180,6 +208,60 @@ export default function MenuDetailPage() {
     return ordered;
   };
 
+  // ── Batch-aware derived state ────────────────────────────────────────────
+  // When the menu rotates weekly, items are split into active/inactive based on
+  // their MenuGroupItem.effective_from/until window vs the selected cycle's
+  // fulfilment date. When not rotating, all items are "active" and this is a
+  // no-op (zero overhead).
+  const isRotating = !!menu?.is_weekly_rotating;
+  const cycles = batchConfig?.upcoming_cycles ?? [];
+  const selectedCycle = cycles[Math.min(selectedCycleIndex, cycles.length - 1)] ?? null;
+  // selectedDay: the ISO date used for membership filtering. Prefers the cycle's
+  // primary fulfilment day; falls back to the cutoff date if no fulfilment day.
+  const selectedDay = (selectedCycle?.fulfillment_days?.[0]?.date)
+    ?? (selectedCycle?.cutoff_at ? selectedCycle.cutoff_at.slice(0, 10) : null);
+  const isCurrentCycle = selectedCycleIndex === 0;
+  // When adding to a non-current cycle, scope to that cycle's open/cutoff dates.
+  // Current cycle = empty scope so items persist into future cycles (always-on).
+  const currentBatchScope: GroupItemScope = isCurrentCycle ? {} : {
+    effective_from: selectedCycle?.open_at?.slice(0, 10),
+    effective_until: selectedCycle?.cutoff_at?.slice(0, 10),
+  };
+
+  const splitForBatch = (group: MenuGroup, items: MenuItem[]): { active: MenuItem[]; inactive: MenuItem[] } => {
+    if (!isRotating || !selectedDay) return { active: items, inactive: [] };
+    const memberships = membershipsByGroup.get(group.id) ?? [];
+    const memberByItemId = new Map(memberships.map((m) => [m.menu_item_id, m] as const));
+    const active: MenuItem[] = [];
+    const inactive: MenuItem[] = [];
+    for (const item of items) {
+      const m = memberByItemId.get(item.id);
+      // Items without a matching membership row default to active (defensive
+      // fallback for legacy data where the join row may not have been backfilled).
+      if (!m || isMembershipActiveOn(m, selectedDay)) {
+        active.push(item);
+      } else {
+        inactive.push(item);
+      }
+    }
+    return { active, inactive };
+  };
+
+  const toggleInactiveExpanded = (groupId: number) => {
+    setShowInactiveByGroup((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
+      return next;
+    });
+  };
+
+  // Quick "Add to this batch" — used by the inactive expander to re-activate
+  // a single item for the selected cycle without going through the modal.
+  const addItemToCurrentBatch = async (groupId: number, itemId: number) => {
+    await addItemsToGroup(rid, groupId, [itemId], currentBatchScope);
+    reload();
+  };
+
   // ── Item drag-and-drop within a group ─────────────────────────────────────
   const handleItemDragStart = (e: React.DragEvent<HTMLElement>, groupId: number, itemId: number) => {
     e.stopPropagation();
@@ -196,7 +278,9 @@ export default function MenuDetailPage() {
     if (draggingItem.itemId === itemId) return;
     const group = groups.find((g) => g.id === groupId);
     if (!group) return;
-    const currentOrder = itemsForGroup(group).map((i) => i.id);
+    // Drag operates on the VISIBLE (active) items only. Inactive items aren't
+    // rendered, so they can't participate; their sort_order stays untouched.
+    const currentOrder = splitForBatch(group, itemsForGroup(group)).active.map((i) => i.id);
     const fromIdx = currentOrder.indexOf(draggingItem.itemId);
     const toIdx = currentOrder.indexOf(itemId);
     if (fromIdx === -1 || toIdx === -1) return;
@@ -401,7 +485,22 @@ export default function MenuDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          {isRotating && cycles.length > 0 && (
+            <BatchPicker
+              cycles={cycles}
+              selectedIndex={selectedCycleIndex}
+              onChange={setSelectedCycleIndex}
+            />
+          )}
+          {isRotating && cycles.length === 0 && (
+            <button
+              onClick={() => router.push(`/${rid}/settings/scheduled-orders`)}
+              className="text-xs text-[var(--text-muted)] italic underline hover:text-[var(--text-primary)] transition-colors"
+            >
+              {t('configureBatchFirst') || 'Configurez les commandes anticipées dans les paramètres'}
+            </button>
+          )}
           <button
             className="btn-secondary rounded-full flex items-center gap-2"
             onClick={() => router.push(`/${rid}/menu/menus/${mid}/pos-display`)}
@@ -446,9 +545,11 @@ export default function MenuDetailPage() {
         )}
 
         {groups.map((group) => {
-          const items = itemsForGroup(group);
+          const allItemsInGroup = itemsForGroup(group);
+          const { active: items, inactive: inactiveItems } = splitForBatch(group, allItemsInGroup);
           const itemIds = items.map((i) => i.id);
           const selected = selectedInGroup(group.id);
+          const inactiveExpanded = showInactiveByGroup.has(group.id);
           const allSelected = items.length > 0 && selected.size === items.length;
           const someSelected = selected.size > 0 && !allSelected;
           const isExpanded = expanded.has(group.id);
@@ -595,6 +696,41 @@ export default function MenuDetailPage() {
                     <div className="hidden md:block" />
                     <div className="hidden md:block" />
                   </button>
+
+                  {/* Inactive items expander — only shown for rotating cartes
+                      when the selected batch has items currently filtered out. */}
+                  {isRotating && inactiveItems.length > 0 && (
+                    <div className="border-t border-[var(--divider)]">
+                      <button
+                        onClick={() => toggleInactiveExpanded(group.id)}
+                        className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors"
+                      >
+                        {inactiveExpanded
+                          ? <ChevronUpIcon className="w-4 h-4" />
+                          : <ChevronDownIcon className="w-4 h-4" />
+                        }
+                        {(t('nItemsNotInThisBatch') || '{n} articles hors de cette série').replace('{n}', String(inactiveItems.length))}
+                      </button>
+                      {inactiveExpanded && (
+                        <div className="px-4 pb-3 flex flex-col gap-1">
+                          {inactiveItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 py-2 text-sm text-[var(--text-secondary)]"
+                            >
+                              <span className="flex-1 truncate">{item.name}</span>
+                              <button
+                                onClick={() => addItemToCurrentBatch(group.id, item.id)}
+                                className="text-xs font-medium px-3 py-1 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors"
+                              >
+                                {t('addToThisBatch') || 'Ajouter à cette série'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -621,6 +757,7 @@ export default function MenuDetailPage() {
           groupId={itemPickerGroupId}
           allItems={allItems}
           groupItems={groups.find((g) => g.id === itemPickerGroupId)?.items ?? []}
+          addScope={currentBatchScope}
           onClose={() => setItemPickerGroupId(null)}
           onDone={() => { setItemPickerGroupId(null); reload(); }}
           onCreateNew={() => { setItemPickerGroupId(null); router.push(`/${rid}/menu/items/new`); }}
@@ -644,12 +781,15 @@ export default function MenuDetailPage() {
 
 // ─── Add/Remove Items Modal ──────────────────────────────────────────────────
 
-function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, onDone, onCreateNew }: {
+function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, onClose, onDone, onCreateNew }: {
   t: TFn;
   rid: number;
   groupId: number;
   allItems: MenuItem[];
   groupItems: MenuItem[];
+  /** When set (non-empty), newly added items are scoped to the given date
+   *  window. Used by the carte page when a non-current batch is selected. */
+  addScope?: GroupItemScope;
   onClose: () => void;
   onDone: () => void;
   onCreateNew: () => void;
@@ -685,7 +825,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, onClose, o
       const toRemove = Array.from(originalIds).filter((id) => !checked.has(id));
 
       if (toAdd.length > 0) {
-        await addItemsToGroup(rid, groupId, toAdd);
+        await addItemsToGroup(rid, groupId, toAdd, addScope ?? {});
       }
       for (const id of toRemove) {
         await removeItemFromGroup(rid, groupId, id);
