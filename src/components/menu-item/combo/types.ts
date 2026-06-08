@@ -46,11 +46,15 @@ export interface ComboStepDraft {
   items: ComboStepDraftItem[];
   /** "explicit" (default) — items[] is the source of truth, listed manually.
    *  "category"            — items[] is ignored; the server auto-includes all
-   *  active items from `source_category_id` at read time. */
-  source_type: 'explicit' | 'category';
+   *  active items from `source_category_id` at read time.
+   *  "group"               — items[] is ignored; the server auto-includes the
+   *  current members of menu group `source_group_id` (the carte section). */
+  source_type: 'explicit' | 'category' | 'group';
   /** Required when source_type === 'category'. */
   source_category_id?: number;
-  /** Category mode only: pin every resolved item to the variant whose name
+  /** Required when source_type === 'group'. */
+  source_group_id?: number;
+  /** Category/group mode: pin every resolved item to the variant whose name
    *  matches this label (e.g. "250g"). undefined = no pin (whole items).
    *  Items without a matching variant are excluded by the server. */
   source_variant_label?: string;
@@ -73,8 +77,9 @@ export interface ComboStepDraft {
    *  label. Without this, every fixed → choice round-trip silently dropped
    *  the operator back into "Liste manuelle" with min=1/max=N defaults. */
   _stashedChoice?: {
-    source_type: 'explicit' | 'category';
+    source_type: 'explicit' | 'category' | 'group';
     source_category_id?: number;
+    source_group_id?: number;
     source_variant_label?: string;
     min_picks: number;
     max_picks: number;
@@ -91,7 +96,7 @@ export interface ComboStepDraft {
  *  Anything else (multi-option with a smaller pick count, optional steps,
  *  category mode) is a choice step. */
 export function deriveStepKind(s: Pick<ComboStepDraft, 'source_type' | 'items' | 'min_picks' | 'max_picks'>): 'fixed' | 'choice' {
-  if (s.source_type === 'category') return 'choice';
+  if (s.source_type === 'category' || s.source_type === 'group') return 'choice';
   if (s.items.length === 0) return 'choice';
   if (s.min_picks <= 0) return 'choice';
   if (s.min_picks !== s.max_picks) return 'choice';
@@ -177,47 +182,6 @@ export function getSourceVariants(item: Pick<MenuItem, 'variant_groups' | 'optio
   return [...fromGroups, ...fromOptions]
     .filter((v) => v.is_active)
     .sort((a, b) => a.sort_order - b.sort_order);
-}
-
-export interface CategoryZones {
-  /** Resolvable + matches the variant filter — the customer will see these. */
-  available: string[];
-  /** On at least one carte but missing a variant matching `source_variant_label`. */
-  excludedBySize: string[];
-  /** Active in the category but not on any non-hidden carte — silently dropped
-   *  by the server resolver at order time. */
-  notOnAnyCarte: string[];
-}
-
-/** Classify a category-mode step's resolvable items into the three zones the
- *  operator-facing preview surfaces. Mirrors the server resolver's filter so
- *  the "parmi N" count on the step hint and the "N article(s) disponible(s)"
- *  badge in the panel stay in lockstep. */
-export function classifyCategoryItems(
-  categoryId: number | undefined,
-  variantLabel: string | undefined,
-  itemsById: Map<number, MenuItem>,
-  anyCarteItemIds: Set<number>,
-): CategoryZones {
-  if (!categoryId) return { available: [], excludedBySize: [], notOnAnyCarte: [] };
-
-  const want = (variantLabel ?? '').trim().toLowerCase();
-  const available: string[] = [];
-  const excludedBySize: string[] = [];
-  const notOnAnyCarte: string[] = [];
-
-  for (const it of Array.from(itemsById.values())) {
-    if (it.category_id !== categoryId || !it.is_active) continue;
-    if (!anyCarteItemIds.has(it.id)) {
-      notOnAnyCarte.push(it.name);
-      continue;
-    }
-    const matchesSize =
-      !want || getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want);
-    if (!matchesSize) excludedBySize.push(it.name);
-    else available.push(it.name);
-  }
-  return { available, excludedBySize, notOnAnyCarte };
 }
 
 /** Group a step's draft items into options. For each `menu_item_id`, look up

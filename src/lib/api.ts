@@ -292,7 +292,7 @@ export interface ComboStepItem {
   menu_item?: MenuItem;
 }
 
-export type ComboStepSourceType = 'explicit' | 'category';
+export type ComboStepSourceType = 'explicit' | 'category' | 'group';
 
 export interface ComboStep {
   id?: number;
@@ -306,6 +306,7 @@ export interface ComboStep {
   fixed_modifier_name?: string;
   source_type?: ComboStepSourceType;
   source_category_id?: number | null;
+  source_group_id?: number | null;
   source_variant_label?: string | null;
   items: ComboStepItem[];
 }
@@ -319,6 +320,7 @@ export interface ComboStepInput {
   fixed_modifier_name?: string;
   source_type?: ComboStepSourceType;
   source_category_id?: number | null;
+  source_group_id?: number | null;
   source_variant_label?: string | null;
   items: {
     menu_item_id: number;
@@ -1528,6 +1530,34 @@ export async function listAllItems(restaurantId: number): Promise<MenuItem[]> {
     `/api/v1/menu/items?restaurant_id=${restaurantId}`, restaurantId
   );
   return data.items ?? [];
+}
+
+export interface ComboStepPreviewItem {
+  menu_item_id: number;
+  name: string;
+  option_id?: number;
+}
+
+/** Runs the server's combo resolver for a draft dynamic step (category or
+ *  group) and returns the items a customer would currently see. Source of truth
+ *  for the combo editor's "N article(s) disponible(s)" preview — it can never
+ *  drift from checkout the way the old client-side estimate did. */
+export async function resolveComboStepPreview(
+  restaurantId: number,
+  params: { sourceType: 'category' | 'group'; sourceId: number; variantLabel?: string },
+): Promise<{ items: ComboStepPreviewItem[]; count: number }> {
+  const qs = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    source_type: params.sourceType,
+    source_id: String(params.sourceId),
+  });
+  if (params.variantLabel && params.variantLabel.trim()) {
+    qs.set('variant_label', params.variantLabel.trim());
+  }
+  const data = await apiFetch<{ items: ComboStepPreviewItem[]; count: number }>(
+    `/api/v1/menu/combo/resolve-preview?${qs.toString()}`, restaurantId,
+  );
+  return { items: data.items ?? [], count: data.count ?? 0 };
 }
 
 export async function listMenus(restaurantId: number): Promise<Menu[]> {

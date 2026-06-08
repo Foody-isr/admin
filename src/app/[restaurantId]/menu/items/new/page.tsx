@@ -10,7 +10,7 @@ import {
   syncItemVariants,
   getRestaurantSettings,
   MenuCategory, Menu, MenuItem, ModifierSet, OptionSet,
-  ItemType, ComboStepInput,
+  ItemType,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -29,6 +29,7 @@ import CompositionTab from '@/components/menu-item/combo/CompositionTab';
 import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item/combo/TypeSwitchConfirm';
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
+import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
 import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import VariantsEditor, {
@@ -204,24 +205,7 @@ export default function NewItemPage() {
         category_id: categoryId || categories[0]?.id,
       };
       if (itemType === 'combo' && comboSteps.length > 0) {
-        (createPayload as Record<string, unknown>).combo_steps = comboSteps.map((s, i): ComboStepInput => ({
-          name: s.name || `Choice ${i + 1}`,
-          description: s.description || '',
-          min_picks: s.min_picks,
-          max_picks: s.max_picks,
-          sort_order: i,
-          source_type: s.source_type,
-          source_category_id: s.source_type === 'category' ? s.source_category_id : undefined,
-          source_variant_label: s.source_type === 'category' ? (s.source_variant_label || null) : null,
-          items: s.source_type === 'category'
-            ? []
-            : s.items.map((si) => ({
-                menu_item_id: si.menu_item_id,
-                option_id: si.variant_id || undefined,
-                price_delta: si.price_delta,
-                force_off_carte: si.force_off_carte ?? true,
-              })),
-        }));
+        (createPayload as Record<string, unknown>).combo_steps = toComboStepInputs(comboSteps);
       }
       const item = await createMenuItem(rid, createPayload);
       if (pendingImage) {
@@ -492,6 +476,7 @@ export default function NewItemPage() {
                 onStepsChange={setComboSteps}
                 categories={categories}
                 menus={menus}
+                restaurantId={rid}
                 onShowSavingsDetail={() => setSavingsModalOpen(true)}
               />
             )}

@@ -14,7 +14,7 @@ import {
   retranslateMenuItem,
   MenuCategory, MenuItem, ModifierSet, Menu,
   ModifierSetItemOverridesInput,
-  OptionSet, ItemOptionOverride, ItemType, ComboStepInput,
+  OptionSet, ItemOptionOverride, ItemType,
   StockItem, PrepItem, MenuItemIngredient,
   TranslationMap,
 } from '@/lib/api';
@@ -41,6 +41,7 @@ import TypeSwitchConfirm, { TypeSwitchLossSummary } from '@/components/menu-item
 import ComboSavingsBreakdownModal from '@/components/menu-item/combo/ComboSavingsBreakdownModal';
 import type { ComboStepDraft } from '@/components/menu-item/combo/types';
 import { deriveStepKind } from '@/components/menu-item/combo/types';
+import { toComboStepInputs } from '@/components/menu-item/combo/serialize';
 import { computeComboSavings, computeComboSavingsBreakdown } from '@/components/menu-item/combo/pricing';
 import { Badge } from '@/components/ds';
 import { Boxes } from 'lucide-react';
@@ -206,6 +207,7 @@ export default function EditItemPage() {
                 max_picks: s.max_picks,
                 source_type: s.source_type ?? 'explicit',
                 source_category_id: s.source_category_id ?? undefined,
+                source_group_id: s.source_group_id ?? undefined,
                 source_variant_label: s.source_variant_label ?? undefined,
                 items: s.items.map((si) => ({
                   menu_item_id: si.menu_item_id,
@@ -345,24 +347,7 @@ export default function EditItemPage() {
         translations,
       };
       if (itemType === 'combo') {
-        updatePayload.combo_steps = comboSteps.map((s, i): ComboStepInput => ({
-          name: s.name || `Choice ${i + 1}`,
-          description: s.description || '',
-          min_picks: s.min_picks,
-          max_picks: s.max_picks,
-          sort_order: i,
-          source_type: s.source_type,
-          source_category_id: s.source_type === 'category' ? s.source_category_id : undefined,
-          source_variant_label: s.source_type === 'category' ? (s.source_variant_label || null) : null,
-          items: s.source_type === 'category'
-            ? []
-            : s.items.map((si) => ({
-                menu_item_id: si.menu_item_id,
-                option_id: si.variant_id || undefined,
-                price_delta: si.price_delta,
-                force_off_carte: si.force_off_carte ?? true,
-              })),
-        }));
+        updatePayload.combo_steps = toComboStepInputs(comboSteps);
       }
       const updated = await updateMenuItem(rid, iid, updatePayload as Parameters<typeof updateMenuItem>[2]);
       setItem((prev) => prev ? { ...prev, ...updated } : prev);
@@ -675,6 +660,7 @@ export default function EditItemPage() {
                 onStepsChange={setComboSteps}
                 categories={categories}
                 menus={menus}
+                restaurantId={rid}
                 onShowSavingsDetail={() => setSavingsModalOpen(true)}
               />
             )}

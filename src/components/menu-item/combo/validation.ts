@@ -18,6 +18,7 @@ interface I18nFns {
   stepRange: (stepName: string) => string;
   stepNoVariants: (stepName: string, itemName: string) => string;
   stepNoCategory: (stepName: string) => string;
+  stepNoGroup: (stepName: string) => string;
   stepSizeNoMatch: (stepName: string, size: string) => string;
 }
 
@@ -36,16 +37,21 @@ export function validateCombo(
   for (const step of steps) {
     const stepName = step.name || '?';
 
-    if (step.source_type === 'category') {
-      if (!step.source_category_id) {
+    if (step.source_type === 'category' || step.source_type === 'group') {
+      if (step.source_type === 'category' && !step.source_category_id) {
         errors.push({ stepKey: step.key, message: i18n.stepNoCategory(stepName) });
+      }
+      if (step.source_type === 'group' && !step.source_group_id) {
+        errors.push({ stepKey: step.key, message: i18n.stepNoGroup(stepName) });
       }
       if (step.max_picks > 0 && step.max_picks < step.min_picks) {
         errors.push({ stepKey: step.key, message: i18n.stepRange(stepName) });
       }
       // A pinned size that matches no item in the category would leave the step
-      // empty (every item excluded) — block it.
-      if (step.source_variant_label && step.source_category_id) {
+      // empty (every item excluded) — block it. (Category mode only: the size
+      // candidates are derived from the item library by category. Group mode
+      // relies on the server preview to surface an empty result instead.)
+      if (step.source_type === 'category' && step.source_variant_label && step.source_category_id) {
         const want = step.source_variant_label.trim().toLowerCase();
         const anyMatch = Array.from(itemsById.values()).some(
           (it) =>
@@ -57,7 +63,7 @@ export function validateCombo(
           errors.push({ stepKey: step.key, message: i18n.stepSizeNoMatch(stepName, step.source_variant_label) });
         }
       }
-      continue; // category mode bypasses explicit-item checks
+      continue; // dynamic mode bypasses explicit-item checks
     }
 
     if (step.items.length === 0) {
