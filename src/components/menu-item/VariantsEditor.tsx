@@ -15,6 +15,8 @@ export interface VariantRowState {
   optionId?: number;
   name: string;
   price: number;
+  /** Serving-size label for this size, shown next to it in guest apps (e.g. "250g"). */
+  portion: string;
   isActive: boolean;
   isComboOnly: boolean;
 }
@@ -31,6 +33,7 @@ export function newVariantRow(defaultPrice = 0): VariantRowState {
     key: crypto.randomUUID(),
     name: '',
     price: defaultPrice,
+    portion: '',
     isActive: true,
     isComboOnly: false,
   };
@@ -74,6 +77,8 @@ export function variantGroupsFromOptionSets(
           optionId: opt.id,
           name: opt.name,
           price: ov?.price ?? opt.price,
+          // Portion lives on the shared OptionSetOption, not the per-item override.
+          portion: opt.portion ?? '',
           isActive: ov?.is_active ?? opt.is_active,
           isComboOnly: ov?.is_combo_only ?? false,
         };
@@ -106,6 +111,7 @@ export function toVariantSyncPayload(
         option_id: r.optionId ?? null,
         name: r.name.trim(),
         price: r.price,
+        portion: r.portion.trim(),
         is_active: r.isActive,
         is_combo_only: r.isComboOnly,
         sort_order: vi,
@@ -209,6 +215,7 @@ export default function VariantsEditor({
         optionId: opt.id,
         name: opt.name,
         price: opt.price,
+        portion: opt.portion ?? '',
         isActive: opt.is_active,
         isComboOnly: false,
       })),
@@ -274,7 +281,7 @@ export default function VariantsEditor({
           <div>
             <div
               className="grid text-fs-xs font-semibold text-[var(--fg-muted)] uppercase tracking-[.06em] px-[var(--s-3)] py-[var(--s-2)] bg-[var(--surface-2)] border-b border-[var(--line)]"
-              style={{ gridTemplateColumns: '32px 1fr 110px 120px 130px 36px' }}
+              style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 130px 36px' }}
             >
               <span />
               <span>{t('variantName')}</span>
@@ -293,6 +300,9 @@ export default function VariantsEditor({
                   </span>
                 )}
               </span>
+              <span title="Taille / portion affichée sous le titre côté client (ex : 250g).">
+                {t('portion') || 'Portion'}
+              </span>
               <span>{t('status')}</span>
               <span title="Variantes destinées uniquement aux combos (ex : Pour Table 8). Cachées de la fiche article côté client.">
                 Combo seulement
@@ -304,7 +314,7 @@ export default function VariantsEditor({
               <div
                 key={row.key}
                 className="grid items-center gap-2 px-[var(--s-3)] py-[var(--s-2)] border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)] transition-colors"
-                style={{ gridTemplateColumns: '32px 1fr 110px 120px 130px 36px' }}
+                style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 130px 36px' }}
               >
                 <div className="flex flex-col items-center justify-center -my-1 text-[var(--fg-muted)]">
                   <button
@@ -338,6 +348,12 @@ export default function VariantsEditor({
                   onChange={(n) => updateRow(g.key, row.key, { price: n })}
                   placeholder="0.00"
                   className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] text-end pe-1"
+                />
+                <input
+                  value={row.portion}
+                  onChange={(e) => updateRow(g.key, row.key, { portion: e.target.value })}
+                  placeholder={t('portionSizePlaceholder')}
+                  className="text-fs-sm bg-transparent border-0 outline-none text-[var(--fg)] pe-2"
                 />
                 <select
                   value={row.isActive ? 'active' : 'inactive'}

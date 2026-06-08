@@ -57,6 +57,7 @@ export default function NewItemPage() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState<number>(0);
   const [description, setDescription] = useState('');
+  const [portion, setPortion] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
@@ -103,6 +104,7 @@ export default function NewItemPage() {
     name,
     price,
     description,
+    portion,
     categoryId,
     isActive,
     itemType,
@@ -111,7 +113,7 @@ export default function NewItemPage() {
     selectedModifierSetIds: Array.from(selectedModifierSetIds),
     variantGroups,
     activeTab,
-  }), [name, price, description, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, activeTab]);
+  }), [name, price, description, portion, categoryId, isActive, itemType, comboSteps, selectedGroupIds, selectedModifierSetIds, variantGroups, activeTab]);
 
   // First meaningful edit while the banner is up = "starting fresh."
   // Auto-dismiss the banner and turn autosave on so the new typing is captured.
@@ -134,6 +136,7 @@ export default function NewItemPage() {
     setName(bannerDraft.name);
     setPrice(bannerDraft.price);
     setDescription(bannerDraft.description);
+    setPortion(bannerDraft.portion ?? '');
     setCategoryId(bannerDraft.categoryId);
     setIsActive(bannerDraft.isActive);
     setItemType(bannerDraft.itemType);
@@ -194,6 +197,7 @@ export default function NewItemPage() {
       const createPayload: Parameters<typeof createMenuItem>[1] = {
         name: name.trim(),
         description,
+        portion,
         price: effectivePrice,
         is_active: isActive,
         item_type: itemType,
@@ -456,6 +460,8 @@ export default function NewItemPage() {
                 setPrice={setPrice}
                 description={description}
                 setDescription={setDescription}
+                portion={portion}
+                setPortion={setPortion}
                 categoryId={categoryId}
                 setCategoryId={setCategoryId}
                 isActive={isActive}
