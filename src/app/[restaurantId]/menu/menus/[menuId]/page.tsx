@@ -221,11 +221,20 @@ export default function MenuDetailPage() {
   const selectedDay = (selectedCycle?.fulfillment_days?.[0]?.date)
     ?? (selectedCycle?.cutoff_at ? selectedCycle.cutoff_at.slice(0, 10) : null);
   const isCurrentCycle = selectedCycleIndex === 0;
-  // When adding to a non-current cycle, scope to that cycle's open/cutoff dates.
+  // When adding to a non-current cycle, scope the membership to that cycle's
+  // FULFILMENT day(s) — the same axis the series filter uses (selectedDay) — not
+  // the earlier ordering window (open_at/cutoff_at). Using open_at/cutoff_at made
+  // an item added for a future Shabbat active during the prior ordering week, so
+  // it showed under the *current* series and not the one it was added to.
   // Current cycle = empty scope so items persist into future cycles (always-on).
+  const cycleFulfilmentDates = (selectedCycle?.fulfillment_days ?? [])
+    .map((d) => d.date)
+    .filter((d): d is string => !!d)
+    .sort();
   const currentBatchScope: GroupItemScope = isCurrentCycle ? {} : {
-    effective_from: selectedCycle?.open_at?.slice(0, 10),
-    effective_until: selectedCycle?.cutoff_at?.slice(0, 10),
+    effective_from: cycleFulfilmentDates[0] ?? selectedDay ?? selectedCycle?.cutoff_at?.slice(0, 10),
+    effective_until:
+      cycleFulfilmentDates[cycleFulfilmentDates.length - 1] ?? selectedDay ?? selectedCycle?.cutoff_at?.slice(0, 10),
   };
 
   const splitForBatch = (group: MenuGroup, items: MenuItem[]): { active: MenuItem[]; inactive: MenuItem[] } => {
