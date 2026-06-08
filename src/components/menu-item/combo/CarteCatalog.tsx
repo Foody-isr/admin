@@ -27,10 +27,9 @@ interface Props {
    *  from the active step, so opening a step auto-expands the categories
    *  the operator needs to see (and leaves the rest collapsed). */
   itemsById: Map<number, MenuItem>;
-  /** The step the operator is currently composing. Item rows show a ✓ when
-   *  the item is already in this step's items[]; the category row highlights
-   *  when it's the step's source_category_id. Null disables the highlighting
-   *  but still allows clicks (CompositionTab will create a fresh step). */
+  /** The step the operator is currently composing. Item rows show a ✓ when the
+   *  item is already in this step's items[]. Null still allows clicks
+   *  (CompositionTab will create a fresh step). */
   activeStep: ComboStepDraft | null;
   /** Items reachable through any non-hidden, channel-enabled group on any
    *  carte. Items outside this set are tagged "hors carte" — combo will
@@ -121,9 +120,6 @@ export default function CarteCatalog({
       const item = itemsById.get(di.menu_item_id);
       if (item) expand.add(item.category_id);
     }
-    if (activeStep.source_type === 'category' && activeStep.source_category_id != null) {
-      expand.add(activeStep.source_category_id);
-    }
     if (expand.size === 0) return;
     setExpandedCats((prev) => {
       const next = new Set(prev);
@@ -152,8 +148,6 @@ export default function CarteCatalog({
     if (!activeStep) return new Set<number>();
     return new Set(activeStep.items.map((it) => it.menu_item_id));
   }, [activeStep]);
-  const activeCategoryId =
-    activeStep?.source_type === 'category' ? activeStep.source_category_id : undefined;
 
   return (
     <div className="flex flex-col gap-[var(--s-3)] min-h-0">
@@ -196,20 +190,15 @@ export default function CarteCatalog({
               // hunting for an item by name, hiding matches behind a
               // chevron defeats the point.
               const expanded = expandedCats.has(cat.id) || search.trim().length > 0;
-              const isActiveCat = activeCategoryId === cat.id;
               return (
                 <div
                   key={cat.id}
-                  className={`rounded-r-md border ${
-                    isActiveCat
-                      ? 'border-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_5%,transparent)]'
-                      : 'border-[var(--line)] bg-[var(--surface)]'
-                  } overflow-hidden`}
+                  className="rounded-r-md border border-[var(--line)] bg-[var(--surface)] overflow-hidden"
                 >
                   {/* Category header — chevron toggles expansion, "tout
-                      ajouter" sets the active step to category mode bound
-                      to this cat. The whole header is clickable for the
-                      chevron; "tout ajouter" is a sibling button. */}
+                      ajouter" bulk-adds this category's items to the active
+                      step as explicit entries. The whole header is clickable
+                      for the chevron; "tout ajouter" is a sibling button. */}
                   <div className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-b border-[var(--line)] bg-[var(--surface-2)]">
                     <button
                       type="button"
@@ -231,11 +220,7 @@ export default function CarteCatalog({
                     <button
                       type="button"
                       onClick={() => onSetCategory(cat.id)}
-                      className={`inline-flex items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors ${
-                        isActiveCat
-                          ? 'bg-[var(--brand-500)] text-white'
-                          : 'text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]'
-                      }`}
+                      className="inline-flex items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]"
                       title={t('catalogAddAllTooltip')}
                     >
                       <Plus className="w-3 h-3" /> {t('catalogAddAll')}

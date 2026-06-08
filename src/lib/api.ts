@@ -292,7 +292,7 @@ export interface ComboStepItem {
   menu_item?: MenuItem;
 }
 
-export type ComboStepSourceType = 'explicit' | 'category' | 'group';
+export type ComboStepSourceType = 'explicit' | 'group';
 
 export interface ComboStep {
   id?: number;
@@ -305,7 +305,6 @@ export interface ComboStep {
   sort_order: number;
   fixed_modifier_name?: string;
   source_type?: ComboStepSourceType;
-  source_category_id?: number | null;
   source_group_id?: number | null;
   source_variant_label?: string | null;
   items: ComboStepItem[];
@@ -319,7 +318,6 @@ export interface ComboStepInput {
   sort_order: number;
   fixed_modifier_name?: string;
   source_type?: ComboStepSourceType;
-  source_category_id?: number | null;
   source_group_id?: number | null;
   source_variant_label?: string | null;
   items: {
@@ -1544,7 +1542,7 @@ export interface ComboStepPreviewItem {
  *  drift from checkout the way the old client-side estimate did. */
 export async function resolveComboStepPreview(
   restaurantId: number,
-  params: { sourceType: 'category' | 'group'; sourceId: number; variantLabel?: string },
+  params: { sourceType: 'group'; sourceId: number; variantLabel?: string },
 ): Promise<{ items: ComboStepPreviewItem[]; count: number }> {
   const qs = new URLSearchParams({
     restaurant_id: String(restaurantId),

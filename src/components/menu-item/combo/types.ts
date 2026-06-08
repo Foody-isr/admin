@@ -45,18 +45,14 @@ export interface ComboStepDraft {
   max_picks: number;
   items: ComboStepDraftItem[];
   /** "explicit" (default) — items[] is the source of truth, listed manually.
-   *  "category"            — items[] is ignored; the server auto-includes all
-   *  active items from `source_category_id` at read time.
    *  "group"               — items[] is ignored; the server auto-includes the
    *  current members of menu group `source_group_id` (the carte section). */
-  source_type: 'explicit' | 'category' | 'group';
-  /** Required when source_type === 'category'. */
-  source_category_id?: number;
+  source_type: 'explicit' | 'group';
   /** Required when source_type === 'group'. */
   source_group_id?: number;
-  /** Category/group mode: pin every resolved item to the variant whose name
-   *  matches this label (e.g. "250g"). undefined = no pin (whole items).
-   *  Items without a matching variant are excluded by the server. */
+  /** Group mode: pin every resolved item to the variant whose name matches this
+   *  label (e.g. "250g"). undefined = no pin (whole items). Items without a
+   *  matching variant are excluded by the server. */
   source_variant_label?: string;
   /** UI-only intent flag. Not sent to the server.
    *
@@ -71,14 +67,13 @@ export interface ComboStepDraft {
   /** UI-only round-trip stash. Not sent to the server (whitelist serializer).
    *
    *  When the operator flips a choice step to fixed via KindToggle, the
-   *  prior choice metadata (source_type, category binding, min/max) is
-   *  saved here so that flipping back to choice restores the EXACT prior
-   *  state — including "Catégorie dynamique" mode and any pinned variant
-   *  label. Without this, every fixed → choice round-trip silently dropped
-   *  the operator back into "Liste manuelle" with min=1/max=N defaults. */
+   *  prior choice metadata (source_type, group binding, min/max) is saved
+   *  here so that flipping back to choice restores the EXACT prior state —
+   *  including "Carte (groupe)" mode and any pinned variant label. Without
+   *  this, every fixed → choice round-trip silently dropped the operator
+   *  back into "Liste manuelle" with min=1/max=N defaults. */
   _stashedChoice?: {
-    source_type: 'explicit' | 'category' | 'group';
-    source_category_id?: number;
+    source_type: 'explicit' | 'group';
     source_group_id?: number;
     source_variant_label?: string;
     min_picks: number;
@@ -94,9 +89,9 @@ export interface ComboStepDraft {
  *    • bundle of N items × 1 each: items.length === min_picks === max_picks
  *
  *  Anything else (multi-option with a smaller pick count, optional steps,
- *  category mode) is a choice step. */
+ *  group mode) is a choice step. */
 export function deriveStepKind(s: Pick<ComboStepDraft, 'source_type' | 'items' | 'min_picks' | 'max_picks'>): 'fixed' | 'choice' {
-  if (s.source_type === 'category' || s.source_type === 'group') return 'choice';
+  if (s.source_type === 'group') return 'choice';
   if (s.items.length === 0) return 'choice';
   if (s.min_picks <= 0) return 'choice';
   if (s.min_picks !== s.max_picks) return 'choice';

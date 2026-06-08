@@ -16,7 +16,7 @@
 
 import { Check, ChevronDown, GripVertical, ListChecks, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
+import type { Menu, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
@@ -25,10 +25,10 @@ import type { StepPreview } from './useComboStepPreviews';
 import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
 
-/** True for steps whose options are auto-resolved by the server (category or
- *  group) rather than listed explicitly. */
+/** True for steps whose options are auto-resolved by the server (group mode)
+ *  rather than listed explicitly. */
 function isDynamicStep(s: Pick<ComboStepDraft, 'source_type'>): boolean {
-  return s.source_type === 'category' || s.source_type === 'group';
+  return s.source_type === 'group';
 }
 
 /** Flat menu-group list for the group-source dropdown, grouped by menu. */
@@ -50,15 +50,8 @@ function groupItemIds(menus: Menu[], groupId: number): Set<number> {
   return ids;
 }
 
-/** Human label for a dynamic step's bound source (category or group name). */
-function dynamicSourceName(
-  step: ComboStepDraft,
-  categories: MenuCategory[],
-  menus: Menu[],
-): string | null {
-  if (step.source_type === 'category' && step.source_category_id != null) {
-    return categories.find((c) => c.id === step.source_category_id)?.name ?? '…';
-  }
+/** Human label for a group-sourced step's bound menu group. */
+function dynamicSourceName(step: ComboStepDraft, menus: Menu[]): string | null {
   if (step.source_type === 'group' && step.source_group_id != null) {
     for (const m of menus) {
       const g = (m.groups ?? []).find((gr) => gr.id === step.source_group_id);
@@ -168,11 +161,10 @@ interface Props {
   step: ComboStepDraft;
   index: number;
   basePrice: number;
-  categories: MenuCategory[];
   menus: Menu[];
   itemsById: Map<number, MenuItem>;
   anyCarteItemIds: Set<number>;
-  /** Server-resolved preview for this step (dynamic steps only). */
+  /** Server-resolved preview for this step (group steps only). */
   preview?: StepPreview;
   isActive: boolean;
   onActivate: () => void;
@@ -181,7 +173,7 @@ interface Props {
 }
 
 export default function StepCard({
-  step, index, basePrice, categories, menus, itemsById, anyCarteItemIds, preview,
+  step, index, basePrice, menus, itemsById, anyCarteItemIds, preview,
   isActive, onActivate, onChange, onRemove,
 }: Props) {
   const { t } = useI18n();
@@ -252,9 +244,9 @@ export default function StepCard({
               <ListChecks className="w-3 h-3 text-[var(--brand-500)]" />
               {ruleSummary(step, optionsCount, t)}
             </span>
-            {dynamic && dynamicSourceName(step, categories, menus) != null && (
+            {dynamic && dynamicSourceName(step, menus) != null && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)] font-medium">
-                {dynamicSourceName(step, categories, menus)}
+                {dynamicSourceName(step, menus)}
                 {step.source_variant_label ? ` · ${step.source_variant_label}` : ''}
               </span>
             )}
@@ -367,7 +359,6 @@ export default function StepCard({
                 onChange({
                   ...step,
                   source_type: 'explicit',
-                  source_category_id: undefined,
                   source_group_id: undefined,
                   source_variant_label: undefined,
                 })
@@ -378,26 +369,17 @@ export default function StepCard({
               active={step.source_type === 'group'}
               onClick={() => {
                 if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
-                onChange({ ...step, source_type: 'group', source_category_id: undefined, items: [] });
+                onChange({ ...step, source_type: 'group', items: [] });
               }}
-              label={t('composeStepModeGroup') || 'Carte (groupe)'}
-            />
-            <SourceSeg
-              active={step.source_type === 'category'}
-              onClick={() => {
-                if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
-                onChange({ ...step, source_type: 'category', source_group_id: undefined, items: [] });
-              }}
-              label={t('composeStepModeCategory')}
+              label={t('composeStepModeGroup')}
             />
           </div>
         </div>
 
-        {/* Content — items list (explicit) or the dynamic source panel */}
+        {/* Content — items list (explicit) or the group source panel */}
         {dynamic ? (
           <DynamicModePanel
             step={step}
-            categories={categories}
             menus={menus}
             itemsById={itemsById}
             preview={preview}
@@ -457,39 +439,33 @@ function SourceSeg({ active, onClick, label }: { active: boolean; onClick: () =>
   );
 }
 
-// ── Dynamic-source sub-panel (category or group) ──────────────────────────
+// ── Group-source sub-panel ────────────────────────────────────────────────
 
 function DynamicModePanel({
   step,
-  categories,
   menus,
   itemsById,
   preview,
   onChange,
 }: {
   step: ComboStepDraft;
-  categories: MenuCategory[];
   menus: Menu[];
   itemsById: Map<number, MenuItem>;
   preview?: StepPreview;
   onChange: (next: ComboStepDraft) => void;
 }) {
   const { t } = useI18n();
-  const isGroup = step.source_type === 'group';
-  const selectedId = (isGroup ? step.source_group_id : step.source_category_id) ?? 0;
+  const selectedId = step.source_group_id ?? 0;
 
-  // Candidate items for the size-label dropdown: every item in the chosen
-  // category/group (regardless of any current size pin), looked up in the
-  // global item library so variant info is available.
+  // Candidate items for the size-label dropdown: every item in the chosen group
+  // (regardless of any current size pin), looked up in the global item library
+  // so variant info is available.
   const candidateItems = useMemo(() => {
     if (!selectedId) return [] as MenuItem[];
-    if (isGroup) {
-      return Array.from(groupItemIds(menus, selectedId))
-        .map((id) => itemsById.get(id))
-        .filter((it): it is MenuItem => !!it && it.is_active);
-    }
-    return Array.from(itemsById.values()).filter((it) => it.category_id === selectedId && it.is_active);
-  }, [isGroup, selectedId, menus, itemsById]);
+    return Array.from(groupItemIds(menus, selectedId))
+      .map((id) => itemsById.get(id))
+      .filter((it): it is MenuItem => !!it && it.is_active);
+  }, [selectedId, menus, itemsById]);
 
   const sizeLabels = useMemo(() => {
     const seen = new Set<string>();
@@ -512,11 +488,7 @@ function DynamicModePanel({
   const availableNames = preview?.items.map((i) => i.name) ?? [];
 
   const onSelectSource = (id: number) =>
-    onChange(
-      isGroup
-        ? { ...step, source_group_id: id || undefined, source_variant_label: undefined }
-        : { ...step, source_category_id: id || undefined, source_variant_label: undefined },
-    );
+    onChange({ ...step, source_group_id: id || undefined, source_variant_label: undefined });
 
   return (
     <div className="flex flex-col gap-3">
@@ -525,22 +497,14 @@ function DynamicModePanel({
         onChange={(e) => onSelectSource(Number(e.target.value))}
         className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
       >
-        <option value={0}>
-          {isGroup
-            ? (t('composeStepGroupPlaceholder') || 'Choisir un groupe de carte…')
-            : t('composeStepCategoryPlaceholder')}
-        </option>
-        {isGroup
-          ? groups.map((m) => (
-              <optgroup key={m.menuName} label={m.menuName}>
-                {m.groups.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </optgroup>
-            ))
-          : categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+        <option value={0}>{t('composeStepGroupPlaceholder')}</option>
+        {groups.map((m) => (
+          <optgroup key={m.menuName} label={m.menuName}>
+            {m.groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
             ))}
+          </optgroup>
+        ))}
       </select>
 
       {selectedId > 0 && sizeLabels.length > 0 && (

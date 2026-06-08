@@ -19,14 +19,10 @@ export interface StepPreview {
   error?: string;
 }
 
-/** Stable cache key for a step's dynamic source. null = not a dynamic step. */
+/** Stable cache key for a step's group source. null = not a group step. */
 function sourceSignature(s: ComboStepDraft): string | null {
-  const label = s.source_variant_label ?? '';
-  if (s.source_type === 'category' && s.source_category_id) {
-    return `category:${s.source_category_id}:${label}`;
-  }
   if (s.source_type === 'group' && s.source_group_id) {
-    return `group:${s.source_group_id}:${label}`;
+    return `group:${s.source_group_id}:${s.source_variant_label ?? ''}`;
   }
   return null;
 }
@@ -50,13 +46,12 @@ export function useComboStepPreviews(
       seen.add(sig);
       if (cache.has(sig) || inFlight.current.has(sig)) continue;
 
-      const sourceType = s.source_type as 'category' | 'group';
-      const sourceId = (sourceType === 'category' ? s.source_category_id : s.source_group_id)!;
+      const sourceId = s.source_group_id!;
       const variantLabel = s.source_variant_label ?? undefined;
 
       inFlight.current.add(sig);
       setCache((prev) => new Map(prev).set(sig, { items: [], count: 0, loading: true }));
-      resolveComboStepPreview(restaurantId, { sourceType, sourceId, variantLabel })
+      resolveComboStepPreview(restaurantId, { sourceType: 'group', sourceId, variantLabel })
         .then((res) =>
           setCache((prev) => new Map(prev).set(sig, { items: res.items, count: res.count, loading: false })),
         )

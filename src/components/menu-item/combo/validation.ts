@@ -4,7 +4,7 @@
 
 import type { MenuItem } from '@/lib/api';
 import type { ComboStepDraft } from './types';
-import { buildOptions, getSourceVariants } from './types';
+import { buildOptions } from './types';
 
 export interface ComboValidationError {
   /** Empty when the error is global (e.g. "no steps"). */
@@ -17,9 +17,7 @@ interface I18nFns {
   stepNoOptions: (stepName: string) => string;
   stepRange: (stepName: string) => string;
   stepNoVariants: (stepName: string, itemName: string) => string;
-  stepNoCategory: (stepName: string) => string;
   stepNoGroup: (stepName: string) => string;
-  stepSizeNoMatch: (stepName: string, size: string) => string;
 }
 
 export function validateCombo(
@@ -37,33 +35,16 @@ export function validateCombo(
   for (const step of steps) {
     const stepName = step.name || '?';
 
-    if (step.source_type === 'category' || step.source_type === 'group') {
-      if (step.source_type === 'category' && !step.source_category_id) {
-        errors.push({ stepKey: step.key, message: i18n.stepNoCategory(stepName) });
-      }
-      if (step.source_type === 'group' && !step.source_group_id) {
+    if (step.source_type === 'group') {
+      if (!step.source_group_id) {
         errors.push({ stepKey: step.key, message: i18n.stepNoGroup(stepName) });
       }
       if (step.max_picks > 0 && step.max_picks < step.min_picks) {
         errors.push({ stepKey: step.key, message: i18n.stepRange(stepName) });
       }
-      // A pinned size that matches no item in the category would leave the step
-      // empty (every item excluded) — block it. (Category mode only: the size
-      // candidates are derived from the item library by category. Group mode
-      // relies on the server preview to surface an empty result instead.)
-      if (step.source_type === 'category' && step.source_variant_label && step.source_category_id) {
-        const want = step.source_variant_label.trim().toLowerCase();
-        const anyMatch = Array.from(itemsById.values()).some(
-          (it) =>
-            it.category_id === step.source_category_id &&
-            it.is_active &&
-            getSourceVariants(it).some((v) => v.name.trim().toLowerCase() === want),
-        );
-        if (!anyMatch) {
-          errors.push({ stepKey: step.key, message: i18n.stepSizeNoMatch(stepName, step.source_variant_label) });
-        }
-      }
-      continue; // dynamic mode bypasses explicit-item checks
+      // Group mode relies on the server preview to surface an empty result (e.g.
+      // a size pin matching nothing) rather than re-checking it client-side.
+      continue; // group mode bypasses explicit-item checks
     }
 
     if (step.items.length === 0) {

@@ -69,10 +69,7 @@ export default function CompositionTab({
       stepRange: (n) => t('comboValidStepRange').replace('{name}', n),
       stepNoVariants: (n, item) =>
         t('comboValidStepNoVariantsIncluded').replace('{name}', n).replace('{item}', item),
-      stepNoCategory: (n) => t('comboValidStepNoCategory').replace('{name}', n),
       stepNoGroup: (n) => t('comboValidStepNoGroup').replace('{name}', n),
-      stepSizeNoMatch: (n, size) =>
-        t('comboValidStepSizeNoMatch').replace('{name}', n).replace('{size}', size),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [steps, itemsById],
@@ -124,14 +121,13 @@ export default function CompositionTab({
 
   const handleAddItem = (menuItemId: number) => {
     const target = ensureActiveStep();
-    // If the active step is currently in a dynamic mode (category/group),
-    // adding an explicit item switches it to explicit mode (mixing the two has
-    // no coherent server semantic). Otherwise just append.
-    if (target.source_type === 'category' || target.source_type === 'group') {
+    // If the active step is group-sourced, adding an explicit item switches it
+    // to explicit mode (mixing the two has no coherent server semantic).
+    // Otherwise just append.
+    if (target.source_type === 'group') {
       updateStep(target.key, {
         ...target,
         source_type: 'explicit',
-        source_category_id: undefined,
         source_group_id: undefined,
         source_variant_label: undefined,
         items: [{ menu_item_id: menuItemId, price_delta: 0, pick_key: `item:${menuItemId}` }],
@@ -157,34 +153,28 @@ export default function CompositionTab({
   };
 
   const handleSetCategory = (categoryId: number) => {
-    // Active step in explicit mode → "tout ajouter" means "bulk-import these
-    // items as individual entries, stay in Liste manuelle". Skip items
-    // already present so repeated clicks are idempotent.
-    if (activeStep && activeStep.source_type === 'explicit') {
-      const cat = categories.find((c) => c.id === categoryId);
-      if (!cat) return;
-      const existing = new Set(activeStep.items.map((it) => it.menu_item_id));
-      const additions: ComboStepDraftItem[] = [];
-      for (const it of cat.items ?? []) {
-        if (!existing.has(it.id)) {
-          additions.push({ menu_item_id: it.id, price_delta: 0, pick_key: `item:${it.id}` });
-        }
-      }
-      if (additions.length === 0) return;
-      updateStep(activeStep.key, { ...activeStep, items: [...activeStep.items, ...additions] });
-      return;
-    }
-    // Otherwise (no active step, or active step already in category mode) →
-    // bind to a dynamic category. ensureActiveStep makes a fresh explicit
-    // step that we immediately convert — fine since the operator's click on
-    // "tout ajouter" on a category header signals category-mode intent.
+    // "tout ajouter" on a catalog category header bulk-imports that category's
+    // items as individual explicit entries. A group-sourced step is converted
+    // to explicit first (mixing has no coherent server semantic). Items already
+    // present are skipped so repeated clicks are idempotent.
     const target = ensureActiveStep();
+    const cat = categories.find((c) => c.id === categoryId);
+    if (!cat) return;
+    const baseItems = target.source_type === 'group' ? [] : target.items;
+    const existing = new Set(baseItems.map((it) => it.menu_item_id));
+    const additions: ComboStepDraftItem[] = [];
+    for (const it of cat.items ?? []) {
+      if (!existing.has(it.id)) {
+        additions.push({ menu_item_id: it.id, price_delta: 0, pick_key: `item:${it.id}` });
+      }
+    }
+    if (additions.length === 0 && target.source_type !== 'group') return;
     updateStep(target.key, {
       ...target,
-      source_type: 'category',
-      source_category_id: categoryId,
+      source_type: 'explicit',
+      source_group_id: undefined,
       source_variant_label: undefined,
-      items: [],
+      items: [...baseItems, ...additions],
     });
   };
 
@@ -242,7 +232,6 @@ export default function CompositionTab({
                 step={step}
                 index={i}
                 basePrice={basePrice}
-                categories={categories}
                 menus={menus}
                 itemsById={itemsById}
                 anyCarteItemIds={anyCarteItemIds}

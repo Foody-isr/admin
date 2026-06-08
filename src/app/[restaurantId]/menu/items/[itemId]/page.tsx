@@ -205,8 +205,9 @@ export default function EditItemPage() {
                 description: s.description ?? '',
                 min_picks: s.min_picks,
                 max_picks: s.max_picks,
-                source_type: s.source_type ?? 'explicit',
-                source_category_id: s.source_category_id ?? undefined,
+                // Legacy "category" steps are coerced to explicit (category mode
+                // was removed); the operator rebuilds them as group/explicit.
+                source_type: s.source_type === 'group' ? 'group' : 'explicit',
                 source_group_id: s.source_group_id ?? undefined,
                 source_variant_label: s.source_variant_label ?? undefined,
                 items: s.items.map((si) => ({

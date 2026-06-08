@@ -10,9 +10,7 @@ import type { ComboStepDraft } from './types';
 
 export function toComboStepInputs(steps: ComboStepDraft[]): ComboStepInput[] {
   return steps.map((s, i) => {
-    const isCategory = s.source_type === 'category';
     const isGroup = s.source_type === 'group';
-    const dynamic = isCategory || isGroup;
     return {
       name: s.name || `Choice ${i + 1}`,
       description: s.description || '',
@@ -20,10 +18,9 @@ export function toComboStepInputs(steps: ComboStepDraft[]): ComboStepInput[] {
       max_picks: s.max_picks,
       sort_order: i,
       source_type: s.source_type,
-      source_category_id: isCategory ? s.source_category_id : undefined,
       source_group_id: isGroup ? s.source_group_id : undefined,
-      source_variant_label: dynamic ? (s.source_variant_label || null) : null,
-      items: dynamic
+      source_variant_label: isGroup ? (s.source_variant_label || null) : null,
+      items: isGroup
         ? []
         : s.items.map((si) => ({
             menu_item_id: si.menu_item_id,
