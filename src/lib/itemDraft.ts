@@ -13,6 +13,7 @@ export interface ItemDraft {
   name: string;
   price: number;
   description: string;
+  portion: string;
   categoryId: number;
   isActive: boolean;
   itemType: ItemType;

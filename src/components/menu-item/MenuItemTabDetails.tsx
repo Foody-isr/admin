@@ -25,6 +25,11 @@ interface Props {
   setPrice: (v: number) => void;
   description: string;
   setDescription: (v: string) => void;
+  /** Item-level serving size shown under the title when the item has no size
+   *  options (e.g. "par personne"). Items WITH sizes derive their range from
+   *  the per-size portions in the VariantsEditor instead. */
+  portion: string;
+  setPortion: (v: string) => void;
   categoryId: number;
   setCategoryId: (v: number) => void;
   isActive: boolean;
@@ -80,6 +85,7 @@ export default function MenuItemTabDetails({
   name, setName,
   price, setPrice,
   description, setDescription,
+  portion, setPortion,
   categoryId, setCategoryId,
   isActive, setIsActive,
   vatRate,
@@ -102,10 +108,10 @@ export default function MenuItemTabDetails({
   // Track which field is currently being re-translated so we can show a spinner
   // and disable the button. `'all'` covers the strip-level "Re-translate all"
   // action; individual field names cover the per-field links.
-  const [retranslating, setRetranslating] = useState<null | 'all' | 'name' | 'description'>(null);
+  const [retranslating, setRetranslating] = useState<null | 'all' | 'name' | 'description' | 'portion'>(null);
   const [retranslateError, setRetranslateError] = useState<string | null>(null);
 
-  const runRetranslate = async (target: 'all' | 'name' | 'description') => {
+  const runRetranslate = async (target: 'all' | 'name' | 'description' | 'portion') => {
     if (!onRetranslate || !setTranslations) return;
     setRetranslating(target);
     setRetranslateError(null);
@@ -134,8 +140,9 @@ export default function MenuItemTabDetails({
   const isSourceTab = !i18nEnabled || activeLocale === effectiveSource;
   const nameTranslation = translations?.name?.[activeLocale] ?? '';
   const descriptionTranslation = translations?.description?.[activeLocale] ?? '';
+  const portionTranslation = translations?.portion?.[activeLocale] ?? '';
 
-  const setTranslatedField = (field: 'name' | 'description', value: string) => {
+  const setTranslatedField = (field: 'name' | 'description' | 'portion', value: string) => {
     if (!setTranslations) return;
     const next: TranslationMap = { ...(translations ?? {}) };
     const fieldMap = { ...(next[field] ?? {}) };
@@ -160,7 +167,8 @@ export default function MenuItemTabDetails({
     if (loc === effectiveSource) continue;
     const hasName = !!translations?.name?.[loc];
     const hasDesc = !!translations?.description?.[loc] || !description.trim();
-    missing[loc] = !hasName || !hasDesc;
+    const hasPortion = !!translations?.portion?.[loc] || !portion.trim();
+    missing[loc] = !hasName || !hasDesc || !hasPortion;
   }
 
   const priceLabel = isCombo
@@ -410,6 +418,52 @@ export default function MenuItemTabDetails({
                       aria-hidden
                     />
                     {retranslating === 'description'
+                      ? (t('languageRetranslateRunning') || 'Re-translating…')
+                      : (t('languageRetranslateField') || 'Re-translate this field')}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </Field>
+
+        {/* Portion / serving size — shown under the item title in guest apps.
+            Used when the item has no size options; items WITH sizes derive the
+            range from the per-size portions in the VariantsEditor below. */}
+        <Field
+          label={t('portion') || 'Portion'}
+          hint={t('portionHint') || 'Affichée sous le titre côté client. Pour les articles sans tailles (ex. « par personne »).'}
+        >
+          {isSourceTab ? (
+            <Input
+              value={portion}
+              onChange={(e) => setPortion(e.target.value)}
+              placeholder={t('portionPlaceholder') || 'ex. par personne'}
+            />
+          ) : (
+            <>
+              <Input
+                value={portionTranslation}
+                onChange={(e) => setTranslatedField('portion', e.target.value)}
+                placeholder={portion || (t('portionPlaceholder') || 'ex. par personne')}
+              />
+              <div className="flex items-center justify-between gap-[var(--s-3)] mt-1">
+                <div className="text-fs-xs text-[var(--fg-subtle)]">
+                  {(t('languageSourceLabel') || 'Source') + ': '}
+                  <span className="text-[var(--fg-muted)]">{portion || '—'}</span>
+                </div>
+                {onRetranslate && (
+                  <button
+                    type="button"
+                    onClick={() => runRetranslate('portion')}
+                    disabled={retranslating !== null}
+                    className="inline-flex items-center gap-1 text-fs-xs text-[var(--brand-500)] hover:underline disabled:opacity-60 disabled:cursor-not-allowed disabled:no-underline"
+                  >
+                    <RefreshCw
+                      className={`w-3 h-3 ${retranslating === 'portion' ? 'animate-spin' : ''}`}
+                      aria-hidden
+                    />
+                    {retranslating === 'portion'
                       ? (t('languageRetranslateRunning') || 'Re-translating…')
                       : (t('languageRetranslateField') || 'Re-translate this field')}
                   </button>

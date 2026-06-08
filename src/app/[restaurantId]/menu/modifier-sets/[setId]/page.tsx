@@ -98,6 +98,18 @@ export default function ModifierSetEditorPage() {
   const [allowQuantities, setAllowQuantities] = useState(false);
   const [hideOnReceipt, setHideOnReceipt] = useState(false);
   const [useConversational, setUseConversational] = useState(false);
+  const [enabledVerbs, setEnabledVerbs] = useState<string[]>([]);
+  const toggleVerb = (verb: string) => {
+    const allValues = VERB_OPTIONS.map((o) => o.value);
+    setEnabledVerbs((prev) => {
+      const current = prev.length === 0 ? allValues : prev;
+      const next = current.includes(verb)
+        ? current.filter((v) => v !== verb)
+        : [...current, verb];
+      // All selected (or none left) → store [] meaning "all verbs".
+      return next.length === allValues.length || next.length === 0 ? [] : next;
+    });
+  };
   const [rows, setRows] = useState<ModifierRow[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -126,6 +138,7 @@ export default function ModifierSetEditorPage() {
     setMaxSelections(set.max_selections);
     setHideOnReceipt(set.hide_on_receipt);
     setUseConversational(set.use_conversational);
+    setEnabledVerbs(set.enabled_verbs ?? []);
     setRows(set.modifiers.map((m) => ({
       id: m.id,
       name: m.name,
@@ -204,6 +217,7 @@ export default function ModifierSetEditorPage() {
         max_selections: (allowMultiple && allowQuantities) ? maxSelections : 0,
         hide_on_receipt: hideOnReceipt,
         use_conversational: useConversational,
+        enabled_verbs: enabledVerbs,
         translations: setTranslations,
       };
 
@@ -578,9 +592,39 @@ export default function ModifierSetEditorPage() {
             <ToggleRow
               checked={useConversational}
               onChange={setUseConversational}
-              label={t('useConversational') || 'Use conversational modifiers in POS'}
-              description={t('useConversationalDesc') || 'Show "Add", "Extra", "Remove" operators when displaying this group in the POS'}
+              label={t('useConversational') || 'Conversational verb palette'}
+              description={t('useConversationalDesc') || 'Show the verb palette (Ajouter, Suppléments, Sans, Allergie…) for this group in the POS and guest web. Modifier options act as neutral ingredients.'}
             />
+            {useConversational && (
+              <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-700">
+                <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                  {t('enabledVerbs') || 'Verbs shown'}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+                  {t('enabledVerbsDesc') || 'All verbs are shown by default. Tap to hide ones you don’t want.'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {VERB_OPTIONS.map((v) => {
+                    const active =
+                      enabledVerbs.length === 0 || enabledVerbs.includes(v.value);
+                    return (
+                      <button
+                        key={v.value}
+                        type="button"
+                        onClick={() => toggleVerb(v.value)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium border transition ${
+                          active
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-transparent text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600'
+                        }`}
+                      >
+                        {v.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </Section>
 
@@ -630,6 +674,17 @@ function PillToggle({ checked, onChange, size = 'md' }: {
     </button>
   );
 }
+
+// Conversational verbs offered by the palette (mirrors the server enum).
+const VERB_OPTIONS: { value: string; label: string }[] = [
+  { value: 'add', label: 'Ajouter' },
+  { value: 'extra', label: 'Suppléments' },
+  { value: 'side', label: 'Accompagnement' },
+  { value: 'replace', label: 'Remplacer' },
+  { value: 'light', label: 'Clair' },
+  { value: 'no', label: 'Sans' },
+  { value: 'allergy', label: 'Allergie' },
+];
 
 function ToggleRow({ checked, onChange, label, description, noBorder }: {
   checked: boolean;

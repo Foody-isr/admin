@@ -248,6 +248,8 @@ export interface ModifierSet {
   max_selections: number;
   hide_on_receipt: boolean;
   use_conversational: boolean;
+  /** Which conversational verbs the palette shows. Empty/absent = all verbs. */
+  enabled_verbs?: string[];
   sort_order: number;
   modifiers: MenuItemModifier[];
   menu_items?: { id: number; name: string }[];
@@ -339,6 +341,9 @@ export interface MenuItem {
   category_id: number;
   name: string;
   description: string;
+  /** Short serving-size label shown under the title when the item has no size
+   *  options (e.g. "par personne"). Translatable via the translations map. */
+  portion?: string;
   image_url: string;
   price: number;
   is_active: boolean;
@@ -1955,6 +1960,7 @@ export interface ModifierSetInput {
   max_selections?: number;
   hide_on_receipt?: boolean;
   use_conversational?: boolean;
+  enabled_verbs?: string[];
   sort_order?: number;
   modifiers?: ModifierInSetInput[];
   translations?: TranslationMap;
@@ -2063,6 +2069,9 @@ export interface OptionSetOption {
   price: number;
   online_price?: number | null;
   sku?: string;
+  /** Short serving-size label shown next to this option (e.g. "250g").
+   *  Shared across items using this set. Translatable via the translations map. */
+  portion?: string;
   is_active: boolean;
   sort_order: number;
   /** Per-item flag (carried via the override application pass on the server).
@@ -2227,6 +2236,8 @@ export interface VariantSyncInput {
   option_id?: number | null;
   name: string;
   price: number;
+  /** Short serving-size label for this option (e.g. "250g"). */
+  portion?: string;
   is_active: boolean;
   is_combo_only?: boolean;
   sort_order: number;
