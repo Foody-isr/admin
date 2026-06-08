@@ -748,8 +748,8 @@ export default function OrdersPage() {
                   checked={assignableOrders.length > 0 && selectedIds.size === assignableOrders.length}
                   onCheckedChange={toggleSelectAll}
                 />
+                <DataTableHeadCell>{t('orderNoColumn')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('name')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('source')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('date')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('status')}</DataTableHeadCell>
@@ -774,11 +774,11 @@ export default function OrdersPage() {
                         />
                       )}
                     </DataTableCell>
-                    <DataTableCell mobilePrimary>
-                      <span className="font-semibold text-fg-primary">{t('orderNumber').replace('{id}', String(order.id))}</span>
+                    <DataTableCell className="text-fg-secondary tabular-nums" mobileLabel={t('orderNoColumn')}>
+                      #{order.id}
                     </DataTableCell>
-                    <DataTableCell className="text-fg-secondary" mobileLabel={t('source')}>
-                      {localizeSource(order.order_source, t)}
+                    <DataTableCell mobilePrimary>
+                      <span className="font-semibold text-fg-primary">{order.customer_name || t('guestCustomer')}</span>
                     </DataTableCell>
                     <DataTableCell className="text-fg-secondary" mobileLabel={t('type')}>
                       {localizeOrderType(order.order_type, t)}
