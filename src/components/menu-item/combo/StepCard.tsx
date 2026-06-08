@@ -14,15 +14,60 @@
 // Only one step is "open" at a time — CompositionTab owns activeStepKey and
 // passes isActive down. Active === open === target of catalog actions.
 
-import { AlertTriangle, Check, ChevronDown, GripVertical, ListChecks, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, GripVertical, ListChecks, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { MenuCategory, MenuItem } from '@/lib/api';
+import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
-import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, getSourceVariants, classifyCategoryItems } from './types';
+import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, getSourceVariants } from './types';
+import type { StepPreview } from './useComboStepPreviews';
 import OptionRow from './OptionRow';
 import OptionRowWithVariants from './OptionRowWithVariants';
+
+/** True for steps whose options are auto-resolved by the server (category or
+ *  group) rather than listed explicitly. */
+function isDynamicStep(s: Pick<ComboStepDraft, 'source_type'>): boolean {
+  return s.source_type === 'category' || s.source_type === 'group';
+}
+
+/** Flat menu-group list for the group-source dropdown, grouped by menu. */
+function groupOptions(menus: Menu[]): { menuName: string; groups: { id: number; name: string }[] }[] {
+  return menus.map((m) => ({
+    menuName: m.name,
+    groups: (m.groups ?? []).map((g) => ({ id: g.id, name: g.name })),
+  })).filter((m) => m.groups.length > 0);
+}
+
+/** Item ids that are members of a given menu group, from the loaded menus. */
+function groupItemIds(menus: Menu[], groupId: number): Set<number> {
+  const ids = new Set<number>();
+  for (const m of menus) {
+    for (const g of m.groups ?? []) {
+      if (g.id === groupId) for (const it of g.items ?? []) ids.add(it.id);
+    }
+  }
+  return ids;
+}
+
+/** Human label for a dynamic step's bound source (category or group name). */
+function dynamicSourceName(
+  step: ComboStepDraft,
+  categories: MenuCategory[],
+  menus: Menu[],
+): string | null {
+  if (step.source_type === 'category' && step.source_category_id != null) {
+    return categories.find((c) => c.id === step.source_category_id)?.name ?? '…';
+  }
+  if (step.source_type === 'group' && step.source_group_id != null) {
+    for (const m of menus) {
+      const g = (m.groups ?? []).find((gr) => gr.id === step.source_group_id);
+      if (g) return g.name;
+    }
+    return '…';
+  }
+  return null;
+}
 
 // ── Inline helpers ─────────────────────────────────────────────────────────
 
@@ -124,8 +169,11 @@ interface Props {
   index: number;
   basePrice: number;
   categories: MenuCategory[];
+  menus: Menu[];
   itemsById: Map<number, MenuItem>;
   anyCarteItemIds: Set<number>;
+  /** Server-resolved preview for this step (dynamic steps only). */
+  preview?: StepPreview;
   isActive: boolean;
   onActivate: () => void;
   onChange: (next: ComboStepDraft) => void;
@@ -133,7 +181,7 @@ interface Props {
 }
 
 export default function StepCard({
-  step, index, basePrice, categories, itemsById, anyCarteItemIds,
+  step, index, basePrice, categories, menus, itemsById, anyCarteItemIds, preview,
   isActive, onActivate, onChange, onRemove,
 }: Props) {
   const { t } = useI18n();
@@ -145,14 +193,11 @@ export default function StepCard({
     return opts;
   }, [step.items, itemsById]);
 
-  const categoryAvailableCount = useMemo(
-    () =>
-      step.source_type === 'category'
-        ? classifyCategoryItems(step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds).available.length
-        : 0,
-    [step.source_type, step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds],
-  );
-  const optionsCount = step.source_type === 'category' ? categoryAvailableCount : options.length;
+  // For dynamic steps the authoritative option count is the server resolver's
+  // result (preview). Explicit steps count their listed options.
+  const dynamic = isDynamicStep(step);
+  const dynamicAvailableCount = preview?.count ?? 0;
+  const optionsCount = dynamic ? dynamicAvailableCount : options.length;
 
   // ── Mutation helpers ─────────────────────────────────────────────────
 
@@ -182,7 +227,7 @@ export default function StepCard({
   // ── Closed (summary) state ───────────────────────────────────────────
 
   if (!isActive) {
-    const itemCount = step.source_type === 'category' ? categoryAvailableCount : options.length;
+    const itemCount = dynamic ? dynamicAvailableCount : options.length;
     const stepName = step.name || t('composeStepDefaultName').replace('{n}', String(index + 1));
     return (
       <button
@@ -207,9 +252,9 @@ export default function StepCard({
               <ListChecks className="w-3 h-3 text-[var(--brand-500)]" />
               {ruleSummary(step, optionsCount, t)}
             </span>
-            {step.source_type === 'category' && step.source_category_id != null && (
+            {dynamic && dynamicSourceName(step, categories, menus) != null && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-r-sm bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)] text-[var(--brand-500)] font-medium">
-                {categories.find((c) => c.id === step.source_category_id)?.name ?? '…'}
+                {dynamicSourceName(step, categories, menus)}
                 {step.source_variant_label ? ` · ${step.source_variant_label}` : ''}
               </span>
             )}
@@ -317,30 +362,45 @@ export default function StepCard({
           </span>
           <div className="inline-flex items-center gap-0.5 rounded-r-sm bg-[var(--surface-2)] p-0.5 self-start">
             <SourceSeg
-              active={step.source_type !== 'category'}
+              active={step.source_type === 'explicit'}
               onClick={() =>
-                onChange({ ...step, source_type: 'explicit', source_category_id: undefined, source_variant_label: undefined })
+                onChange({
+                  ...step,
+                  source_type: 'explicit',
+                  source_category_id: undefined,
+                  source_group_id: undefined,
+                  source_variant_label: undefined,
+                })
               }
               label={t('composeStepModeExplicit')}
+            />
+            <SourceSeg
+              active={step.source_type === 'group'}
+              onClick={() => {
+                if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
+                onChange({ ...step, source_type: 'group', source_category_id: undefined, items: [] });
+              }}
+              label={t('composeStepModeGroup') || 'Carte (groupe)'}
             />
             <SourceSeg
               active={step.source_type === 'category'}
               onClick={() => {
                 if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
-                onChange({ ...step, source_type: 'category', items: [] });
+                onChange({ ...step, source_type: 'category', source_group_id: undefined, items: [] });
               }}
               label={t('composeStepModeCategory')}
             />
           </div>
         </div>
 
-        {/* Content — either the items list or the category panel */}
-        {step.source_type === 'category' ? (
-          <CategoryModePanel
+        {/* Content — items list (explicit) or the dynamic source panel */}
+        {dynamic ? (
+          <DynamicModePanel
             step={step}
             categories={categories}
+            menus={menus}
             itemsById={itemsById}
-            anyCarteItemIds={anyCarteItemIds}
+            preview={preview}
             onChange={onChange}
           />
         ) : options.length === 0 ? (
@@ -397,35 +457,44 @@ function SourceSeg({ active, onClick, label }: { active: boolean; onClick: () =>
   );
 }
 
-// ── Category-mode sub-panel ───────────────────────────────────────────────
+// ── Dynamic-source sub-panel (category or group) ──────────────────────────
 
-function CategoryModePanel({
+function DynamicModePanel({
   step,
   categories,
+  menus,
   itemsById,
-  anyCarteItemIds,
+  preview,
   onChange,
 }: {
   step: ComboStepDraft;
   categories: MenuCategory[];
+  menus: Menu[];
   itemsById: Map<number, MenuItem>;
-  anyCarteItemIds: Set<number>;
+  preview?: StepPreview;
   onChange: (next: ComboStepDraft) => void;
 }) {
   const { t } = useI18n();
-  const selectedId = step.source_category_id ?? 0;
+  const isGroup = step.source_type === 'group';
+  const selectedId = (isGroup ? step.source_group_id : step.source_category_id) ?? 0;
 
-  const catItems = useMemo(() => {
+  // Candidate items for the size-label dropdown: every item in the chosen
+  // category/group (regardless of any current size pin), looked up in the
+  // global item library so variant info is available.
+  const candidateItems = useMemo(() => {
     if (!selectedId) return [] as MenuItem[];
-    return Array.from(itemsById.values()).filter(
-      (it) => it.category_id === selectedId && it.is_active,
-    );
-  }, [selectedId, itemsById]);
+    if (isGroup) {
+      return Array.from(groupItemIds(menus, selectedId))
+        .map((id) => itemsById.get(id))
+        .filter((it): it is MenuItem => !!it && it.is_active);
+    }
+    return Array.from(itemsById.values()).filter((it) => it.category_id === selectedId && it.is_active);
+  }, [isGroup, selectedId, menus, itemsById]);
 
   const sizeLabels = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const it of catItems) {
+    for (const it of candidateItems) {
       for (const v of getSourceVariants(it)) {
         const name = v.name.trim();
         const key = name.toLowerCase();
@@ -436,35 +505,42 @@ function CategoryModePanel({
       }
     }
     return out.sort();
-  }, [catItems]);
+  }, [candidateItems]);
 
   const label = step.source_variant_label?.trim() ?? '';
+  const groups = useMemo(() => groupOptions(menus), [menus]);
+  const availableNames = preview?.items.map((i) => i.name) ?? [];
 
-  const zones = useMemo(
-    () => classifyCategoryItems(step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds),
-    [step.source_category_id, step.source_variant_label, itemsById, anyCarteItemIds],
-  );
-
-  const hasAnyZone =
-    zones.available.length + zones.excludedBySize.length + zones.notOnAnyCarte.length > 0;
+  const onSelectSource = (id: number) =>
+    onChange(
+      isGroup
+        ? { ...step, source_group_id: id || undefined, source_variant_label: undefined }
+        : { ...step, source_category_id: id || undefined, source_variant_label: undefined },
+    );
 
   return (
     <div className="flex flex-col gap-3">
       <select
         value={selectedId}
-        onChange={(e) =>
-          onChange({
-            ...step,
-            source_category_id: Number(e.target.value) || undefined,
-            source_variant_label: undefined,
-          })
-        }
+        onChange={(e) => onSelectSource(Number(e.target.value))}
         className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
       >
-        <option value={0}>{t('composeStepCategoryPlaceholder')}</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
+        <option value={0}>
+          {isGroup
+            ? (t('composeStepGroupPlaceholder') || 'Choisir un groupe de carte…')
+            : t('composeStepCategoryPlaceholder')}
+        </option>
+        {isGroup
+          ? groups.map((m) => (
+              <optgroup key={m.menuName} label={m.menuName}>
+                {m.groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </optgroup>
+            ))
+          : categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
       </select>
 
       {selectedId > 0 && sizeLabels.length > 0 && (
@@ -472,9 +548,7 @@ function CategoryModePanel({
           <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
           <select
             value={label}
-            onChange={(e) =>
-              onChange({ ...step, source_variant_label: e.target.value || undefined })
-            }
+            onChange={(e) => onChange({ ...step, source_variant_label: e.target.value || undefined })}
             className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
           >
             <option value="">{t('composeStepSizeAll')}</option>
@@ -485,40 +559,30 @@ function CategoryModePanel({
         </label>
       )}
 
-      {selectedId > 0 && !hasAnyZone && (
+      {selectedId > 0 && preview?.loading && (
+        <div className="inline-flex items-center gap-1.5 text-fs-xs text-[var(--fg-muted)]">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          {t('composeStepPreviewLoading') || 'Calcul des articles disponibles…'}
+        </div>
+      )}
+
+      {selectedId > 0 && !preview?.loading && preview?.error && (
+        <div className="text-fs-xs text-[var(--danger-500)]">
+          {t('composeStepPreviewError') || 'Aperçu indisponible.'}
+        </div>
+      )}
+
+      {selectedId > 0 && !preview?.loading && !preview?.error && availableNames.length === 0 && (
         <div className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepCategoryEmpty')}</div>
       )}
 
-      {selectedId > 0 && hasAnyZone && (
-        <div className="flex flex-col gap-1.5">
-          {zones.available.length > 0 && (
-            <CategoryZone
-              tone="ok"
-              icon={<Check className="w-3.5 h-3.5" />}
-              title={t('composeStepCategoryAvailable').replace('{n}', String(zones.available.length))}
-              items={zones.available}
-            />
-          )}
-          {zones.excludedBySize.length > 0 && (
-            <CategoryZone
-              tone="warn"
-              icon={<AlertTriangle className="w-3.5 h-3.5" />}
-              title={t('composeStepCategoryExcludedSize')
-                .replace('{n}', String(zones.excludedBySize.length))
-                .replace('{size}', label)}
-              items={zones.excludedBySize}
-            />
-          )}
-          {zones.notOnAnyCarte.length > 0 && (
-            <CategoryZone
-              tone="warn"
-              icon={<AlertTriangle className="w-3.5 h-3.5" />}
-              title={t('composeStepCategoryNotOnCarte').replace('{n}', String(zones.notOnAnyCarte.length))}
-              subtitle={t('composeStepCategoryNotOnCarteHint')}
-              items={zones.notOnAnyCarte}
-            />
-          )}
-        </div>
+      {selectedId > 0 && !preview?.loading && !preview?.error && availableNames.length > 0 && (
+        <CategoryZone
+          tone="ok"
+          icon={<Check className="w-3.5 h-3.5" />}
+          title={t('composeStepCategoryAvailable').replace('{n}', String(availableNames.length))}
+          items={availableNames}
+        />
       )}
     </div>
   );

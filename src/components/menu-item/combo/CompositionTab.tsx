@@ -23,6 +23,7 @@ import CarteCatalog from './CarteCatalog';
 import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
 import { buildAnyCarteItemIdSet } from './webCarte';
+import { useComboStepPreviews } from './useComboStepPreviews';
 
 interface Props {
   comboName: string;
@@ -32,6 +33,7 @@ interface Props {
   onStepsChange: (next: ComboStepDraft[]) => void;
   categories: MenuCategory[];
   menus: Menu[];
+  restaurantId: number;
   onShowSavingsDetail?: () => void;
 }
 
@@ -40,9 +42,15 @@ export default function CompositionTab({
   steps, onStepsChange,
   categories,
   menus,
+  restaurantId,
   onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
+
+  // Server-resolved preview per dynamic step — the authoritative "available to
+  // customer" set, replacing the old client-side estimate that ignored the
+  // carte date window.
+  const stepPreviews = useComboStepPreviews(restaurantId, steps);
 
   const itemsById = useMemo(() => {
     const m = new Map<number, MenuItem>();
@@ -62,6 +70,7 @@ export default function CompositionTab({
       stepNoVariants: (n, item) =>
         t('comboValidStepNoVariantsIncluded').replace('{name}', n).replace('{item}', item),
       stepNoCategory: (n) => t('comboValidStepNoCategory').replace('{name}', n),
+      stepNoGroup: (n) => t('comboValidStepNoGroup').replace('{name}', n),
       stepSizeNoMatch: (n, size) =>
         t('comboValidStepSizeNoMatch').replace('{name}', n).replace('{size}', size),
     }),
@@ -115,14 +124,15 @@ export default function CompositionTab({
 
   const handleAddItem = (menuItemId: number) => {
     const target = ensureActiveStep();
-    // If the active step is currently in category mode, adding an explicit
-    // item switches it to explicit mode (mixing the two has no coherent
-    // server semantic). Otherwise just append.
-    if (target.source_type === 'category') {
+    // If the active step is currently in a dynamic mode (category/group),
+    // adding an explicit item switches it to explicit mode (mixing the two has
+    // no coherent server semantic). Otherwise just append.
+    if (target.source_type === 'category' || target.source_type === 'group') {
       updateStep(target.key, {
         ...target,
         source_type: 'explicit',
         source_category_id: undefined,
+        source_group_id: undefined,
         source_variant_label: undefined,
         items: [{ menu_item_id: menuItemId, price_delta: 0, pick_key: `item:${menuItemId}` }],
       });
@@ -233,8 +243,10 @@ export default function CompositionTab({
                 index={i}
                 basePrice={basePrice}
                 categories={categories}
+                menus={menus}
                 itemsById={itemsById}
                 anyCarteItemIds={anyCarteItemIds}
+                preview={stepPreviews.get(step.key)}
                 isActive={isActive}
                 onActivate={() => setActiveStepKey(isActive ? null : step.key)}
                 onChange={(next) => updateStep(step.key, next)}
