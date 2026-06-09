@@ -530,6 +530,7 @@ export interface WebsiteConfig {
   } | null;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  category_banner_overlay: number;
   landing_enabled: boolean;
   checkout_config?: CheckoutConfig | null;
   // Draft / publish workflow (added in v2)

@@ -38,6 +38,8 @@ type PreviewMessage = {
   hideHeroLogo: boolean;
   customPalette: WebsiteConfig['custom_palette'] | null;
   faviconURL: string;
+  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerOverlay: number;
   direction: 'ltr' | 'rtl';
 };
 
@@ -230,6 +232,7 @@ export default function WebsitePage() {
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
+  const [categoryBannerOverlay, setCategoryBannerOverlay] = useState<number>(40);
   const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
@@ -269,10 +272,22 @@ export default function WebsitePage() {
       hideHeroLogo: next.hide_hero_logo,
       customPalette: next.custom_palette ?? null,
       faviconURL: next.favicon_url || '',
+      // Banner style + overlay live in dedicated state (not `config`), so they
+      // ride along here to live-update the menu preview as the admin edits them.
+      categoryBannerStyle,
+      categoryBannerOverlay,
       direction: 'ltr',
     };
     win.postMessage(message, '*');
-  }, []);
+  }, [categoryBannerStyle, categoryBannerOverlay]);
+
+  // Re-post the menu preview whenever the banner controls change so the iframe
+  // reflects them live (these fields are not part of `config`, so the config
+  // autosave effect below would not otherwise trigger a re-post).
+  useEffect(() => {
+    if (config) postMenuPreview(config);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryBannerStyle, categoryBannerOverlay]);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
     // Local-state-only — the global autosave effect persists to the draft.
@@ -349,6 +364,7 @@ export default function WebsitePage() {
     setHideNavbarName(stateConfig.hide_navbar_name || false);
     setHeroNameFont(stateConfig.hero_name_font || '');
     setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
+    setCategoryBannerOverlay(stateConfig.category_banner_overlay ?? 40);
     const landingOn = stateConfig.landing_enabled ?? true;
     setLandingEnabled(landingOn);
     // If landing is disabled, the page switcher hides "Landing"; make sure the
@@ -417,6 +433,7 @@ export default function WebsitePage() {
           custom_palette: stateConfig.custom_palette ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
+          category_banner_overlay: stateConfig.category_banner_overlay ?? 40,
           landing_enabled: stateConfig.landing_enabled ?? true,
           ...(stateConfig.checkout_config != null ? { checkout_config: stateConfig.checkout_config } : {}),
         },
@@ -515,6 +532,7 @@ export default function WebsitePage() {
         custom_palette: config?.custom_palette ?? null,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
+        category_banner_overlay: categoryBannerOverlay,
         landing_enabled: landingEnabled,
         ...(checkoutConfig != null ? { checkout_config: checkoutConfig } : {}),
       },
@@ -533,7 +551,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, landingEnabled, checkoutConfig, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, landingEnabled, checkoutConfig, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -832,8 +850,10 @@ export default function WebsitePage() {
               onAddSection={() => setShowAddModal(true)}
               menuLayout={config?.layout_default || 'magazine'}
               categoryBannerStyle={categoryBannerStyle}
+              categoryBannerOverlay={categoryBannerOverlay}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
+              onCategoryBannerOverlayChange={setCategoryBannerOverlay}
               restaurantId={restaurantId}
               restaurant={restaurant}
               onRestaurantUpdate={setRestaurant}
@@ -905,7 +925,14 @@ export default function WebsitePage() {
               subTab={checkoutSubTab}
               checkoutConfig={checkoutConfig}
             />
-          ) : editorMode === 'pages' && activePage === 'menu' ? (
+          ) : (editorMode === 'pages' && activePage === 'menu') || editorMode === 'theme' ? (
+            // The Thème tab (colors/typography/logo) and the Page de commande
+            // both preview against the order page. Theme CSS vars are only
+            // applied on order routes (see foodyweb useResolvedTheme), and live
+            // edits arrive via `foody-theme-preview` messages posted to
+            // menuIframeRef — so this iframe (the only one carrying that ref)
+            // must be mounted whenever the user is editing the theme. Rendering
+            // LiveHomePreviewIframe here would drop every theme edit on the floor.
             <MenuPreviewIframe
               ref={menuIframeRef}
               mode={previewMode}
@@ -1029,7 +1056,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, onMenuLayoutChange, onCategoryBannerStyleChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, categoryBannerOverlay, onMenuLayoutChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1041,8 +1068,10 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
   onAddSection: () => void;
   menuLayout: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerOverlay: number;
   onMenuLayoutChange: (v: string) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
+  onCategoryBannerOverlayChange: (v: number) => void;
   restaurantId: number;
   restaurant: Restaurant | null;
   onRestaurantUpdate: (r: Restaurant) => void;
@@ -1120,6 +1149,27 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
               <option value="striped-rule">Ligne rayée minimale</option>
               <option value="none">Sans bannière</option>
             </select>
+            {/* Overlay darkness only affects the image-overlay style, so the
+                slider is shown only for that style. 0 removes the veil entirely. */}
+            {(categoryBannerStyle || 'image-overlay') === 'image-overlay' && (
+              <div className="mt-3">
+                <label className="text-[11px] text-fg-secondary block mb-1">
+                  Voile sombre ({categoryBannerOverlay}%)
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={categoryBannerOverlay}
+                  onChange={(e) => onCategoryBannerOverlayChange(Number(e.target.value))}
+                  className="w-full accent-brand-500"
+                />
+                <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
+                  <span>Aucun</span><span>Sombre</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
