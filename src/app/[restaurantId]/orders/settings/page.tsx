@@ -22,6 +22,7 @@ export default function FulfillmentSettingsPage() {
     service_mode: 'table',
     scheduling_enabled: false,
     tips_enabled: true,
+    allow_item_notes: true,
     rush_mode: false,
   });
 
@@ -34,6 +35,7 @@ export default function FulfillmentSettingsPage() {
         service_mode: s.service_mode,
         scheduling_enabled: s.scheduling_enabled,
         tips_enabled: s.tips_enabled,
+        allow_item_notes: s.allow_item_notes ?? true,
         rush_mode: s.rush_mode ?? false,
       });
     }).finally(() => setLoading(false));
@@ -79,6 +81,7 @@ export default function FulfillmentSettingsPage() {
       {[
         { label: t('autoSendToKitchen'), key: 'auto_send_to_kitchen' as const, desc: t('autoSendDesc') },
         { label: t('enableTips'), key: 'tips_enabled' as const, desc: t('enableTipsDesc') },
+        { label: t('allowItemNotes'), key: 'allow_item_notes' as const, desc: t('allowItemNotesDesc') },
         { label: t('scheduledOrders'), key: 'scheduling_enabled' as const, desc: t('scheduledOrdersDesc') },
         { label: t('rushMode'), key: 'rush_mode' as const, desc: t('rushModeDesc') },
       ].map(({ label, key, desc }) => (

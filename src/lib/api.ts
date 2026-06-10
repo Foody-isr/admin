@@ -93,6 +93,9 @@ export interface RestaurantSettings {
   service_mode: string;
   scheduling_enabled: boolean;
   tips_enabled: boolean;
+  // Restaurant-wide default for the guest item "special instructions" field.
+  // Per-item MenuItem.allow_notes overrides it. Guest web only (POS unaffected).
+  allow_item_notes: boolean;
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
@@ -347,6 +350,10 @@ export interface MenuItem {
   image_url: string;
   price: number;
   is_active: boolean;
+  /** Per-item override for the guest "special instructions" field.
+   *  null/undefined = inherit RestaurantSettings.allow_item_notes; true/false = force.
+   *  On update, send explicit null to clear back to inherit. */
+  allow_notes?: boolean | null;
   item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
@@ -531,12 +538,33 @@ export interface WebsiteConfig {
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   category_banner_overlay: number;
+  /** Per-role typography overrides for the order/menu page. Opaque blob (camelCase keys) read verbatim by foodyweb. */
+  typography?: TypographyOverrides | null;
   landing_enabled: boolean;
   checkout_config?: CheckoutConfig | null;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;
   published_at?: string | null;
+}
+
+// ─── Typography overrides ────────────────────────────────────────────────
+// Stored as an opaque JSON blob on WebsiteConfig.typography (the server never
+// inspects its internals). foodyweb reads the SAME camelCase shape verbatim in
+// lib/themes/typography.ts — keep the two in sync.
+export type TypographyRoleKey = 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription';
+
+export interface TypographyRoleOverride {
+  /** Curated font family. Empty/absent = inherit the pairing's font. */
+  font?: string;
+  /** Size multiplier relative to the role's base size. 1 = unchanged. */
+  sizeMult?: number;
+}
+
+export interface TypographyOverrides {
+  /** Overall menu text size multiplier. 1 = unchanged. */
+  sizeScale?: number;
+  roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
 }
 
 // ─── Checkout-form builder ──────────────────────────────────────────────

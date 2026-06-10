@@ -18,6 +18,20 @@ const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 // `TypePickerCards` — a segmented two-card picker. For combos, a callout at
 // the bottom links to the Composition tab.
 
+/** Per-item override mode for the guest "special instructions" field. */
+export type ItemNotesMode = 'inherit' | 'on' | 'off';
+
+/** Maps the API's nullable boolean (null = inherit) to the UI tri-state. */
+export function allowNotesToMode(v?: boolean | null): ItemNotesMode {
+  return v == null ? 'inherit' : v ? 'on' : 'off';
+}
+
+/** Maps the UI tri-state back to the API value. 'inherit' sends null so the
+ *  server clears the per-item override and falls back to the restaurant default. */
+export function modeToAllowNotes(m: ItemNotesMode): boolean | null {
+  return m === 'inherit' ? null : m === 'on';
+}
+
 interface Props {
   name: string;
   setName: (v: string) => void;
@@ -34,6 +48,14 @@ interface Props {
   setCategoryId: (v: number) => void;
   isActive: boolean;
   setIsActive: (v: boolean) => void;
+  /** Tri-state per-item override for the guest "special instructions" field:
+   *  'inherit' follows the restaurant default, 'on'/'off' force it. The control
+   *  only renders when setNotesMode is provided (e.g. omitted on callers that
+   *  don't manage it). */
+  notesMode?: ItemNotesMode;
+  setNotesMode?: (v: ItemNotesMode) => void;
+  /** Restaurant-wide default, used to label what "Default" resolves to. */
+  restaurantAllowItemNotes?: boolean;
   vatRate: number;
   categories: MenuCategory[];
   // Foody-specific: menu attachment (kept below the reference fields).
@@ -88,6 +110,7 @@ export default function MenuItemTabDetails({
   portion, setPortion,
   categoryId, setCategoryId,
   isActive, setIsActive,
+  notesMode, setNotesMode, restaurantAllowItemNotes = true,
   vatRate,
   categories,
   menus,
@@ -383,6 +406,46 @@ export default function MenuItemTabDetails({
             </button>
           </Field>
         </div>
+
+        {/* Special-instructions (notes) override — guest web only. Tri-state:
+            Default follows the restaurant setting, On/Off force it per item. */}
+        {setNotesMode && (
+          <Field label={t('itemNotesFieldLabel') || 'Special instructions field'}>
+            <div className="flex items-center gap-[var(--s-1)] p-0.5 rounded-lg bg-[var(--bg-subtle)] w-fit">
+              {(['inherit', 'on', 'off'] as const).map((mode) => {
+                const active = (notesMode ?? 'inherit') === mode;
+                const label =
+                  mode === 'inherit'
+                    ? `${t('itemNotesDefault') || 'Default'} (${(restaurantAllowItemNotes ? (t('itemNotesOn') || 'On') : (t('itemNotesOff') || 'Off')).toLowerCase()})`
+                    : mode === 'on'
+                      ? (t('itemNotesOn') || 'On')
+                      : (t('itemNotesOff') || 'Off');
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setNotesMode(mode)}
+                    aria-pressed={active}
+                    className={`px-3 h-8 rounded-md text-fs-sm font-medium transition ${
+                      active
+                        ? 'bg-[var(--surface)] text-[var(--fg)] shadow-sm'
+                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+              {(notesMode ?? 'inherit') === 'inherit'
+                ? (t('itemNotesFieldHelpInherit') || 'Follows the restaurant default')
+                : (notesMode === 'on'
+                  ? (t('itemNotesFieldHelpOn') || 'Guests can add a note to this item')
+                  : (t('itemNotesFieldHelpOff') || 'Hidden for this item'))}
+            </p>
+          </Field>
+        )}
 
         {/* Description */}
         <Field label={t('description') || 'Description'}>
