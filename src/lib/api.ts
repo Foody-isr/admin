@@ -2442,10 +2442,70 @@ export async function importMenuAI(restaurantId: number, file: File, lang?: stri
   return data.extraction;
 }
 
-export async function confirmMenuImport(restaurantId: number, extraction: MenuExtraction): Promise<MenuCategory[]> {
+// ─── Wolt menu import (rich) ─────────────────────────────────────────────────
+// A RichExtraction is a superset of MenuExtraction: items carry an optional photo
+// and option/modifier groups, and the venue logo/cover can be imported. The Wolt
+// importer produces it; the photo/PDF importer produces the plain subset.
+
+export interface RichOptionValue {
+  name: string;
+  price: number; // absolute
+}
+
+export interface RichOptionSet {
+  name: string;
+  default_option_name?: string;
+  options: RichOptionValue[];
+}
+
+export interface RichModifier {
+  name: string;
+  price_delta: number;
+}
+
+export interface RichModifierSet {
+  name: string;
+  is_required: boolean;
+  min_selections: number;
+  max_selections: number;
+  modifiers: RichModifier[];
+}
+
+export interface RichItem {
+  name: string;
+  description: string;
+  price: number;
+  image_url?: string;
+  option_sets?: RichOptionSet[];
+  modifier_sets?: RichModifierSet[];
+}
+
+export interface RichCategory {
+  name: string;
+  items: RichItem[];
+}
+
+export interface RichExtraction {
+  categories: RichCategory[];
+  restaurant_logo_url?: string;
+  restaurant_cover_url?: string;
+}
+
+export async function importMenuFromWolt(restaurantId: number, url: string, lang?: string): Promise<RichExtraction> {
+  return apiFetch<RichExtraction>(
+    `/api/v1/menu/import/url?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ url, lang: lang ?? '' }) }
+  );
+}
+
+export async function confirmMenuImport(
+  restaurantId: number,
+  extraction: RichExtraction,
+  importBranding = false
+): Promise<MenuCategory[]> {
   const data = await apiFetch<{ categories: MenuCategory[] }>(
     `/api/v1/menu/import/confirm?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'POST', body: JSON.stringify(extraction) }
+    { method: 'POST', body: JSON.stringify({ ...extraction, import_branding: importBranding }) }
   );
   return data.categories;
 }
