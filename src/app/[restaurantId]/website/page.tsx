@@ -43,6 +43,8 @@ type PreviewMessage = {
   faviconURL: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
+  // Order-page info — posted in foodyweb shape (modalText, not modal_text).
+  orderPageInfo: { bar: OrderPageInfo['bar']; modal: OrderPageInfo['modal']; modalText: string } | null;
   direction: 'ltr' | 'rtl';
   typography?: WebsiteConfig['typography'] | null;
 };
@@ -291,11 +293,14 @@ export default function WebsitePage() {
       // ride along here to live-update the menu preview as the admin edits them.
       categoryBannerStyle,
       categoryBannerOverlay,
+      orderPageInfo: orderPageInfo
+        ? { bar: orderPageInfo.bar, modal: orderPageInfo.modal, modalText: orderPageInfo.modal_text ?? '' }
+        : null,
       direction: 'ltr',
       typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
-  }, [categoryBannerStyle, categoryBannerOverlay]);
+  }, [categoryBannerStyle, categoryBannerOverlay, orderPageInfo]);
 
   // Re-post the menu preview whenever the banner controls change so the iframe
   // reflects them live (these fields are not part of `config`, so the config
@@ -303,7 +308,7 @@ export default function WebsitePage() {
   useEffect(() => {
     if (config) postMenuPreview(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryBannerStyle, categoryBannerOverlay]);
+  }, [categoryBannerStyle, categoryBannerOverlay, orderPageInfo]);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
     // Local-state-only — the global autosave effect persists to the draft.
