@@ -22,7 +22,8 @@ import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
-import type { CheckoutConfig } from '@/lib/api';
+import { OrderPageInfoEditor } from '@/components/website/OrderPageInfoEditor';
+import type { CheckoutConfig, OrderPageInfo } from '@/lib/api';
 import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
@@ -131,7 +132,7 @@ export default function WebsitePage() {
   // The old "Site Settings"/"Section Settings" duality is gone.
   type EditorMode = 'pages' | 'theme' | 'checkout' | 'settings';
   type ThemeSubMode = 'colors' | 'typography' | 'logo';
-  type SettingsSubMode = 'general' | 'contact' | 'social' | 'seo';
+  type SettingsSubMode = 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   const [editorMode, setEditorMode] = useState<EditorMode>('pages');
   const [themeSubMode, setThemeSubMode] = useState<ThemeSubMode>('colors');
   const [settingsSubMode, setSettingsSubMode] = useState<SettingsSubMode>('general');
@@ -241,6 +242,9 @@ export default function WebsitePage() {
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
+  // Order-page info placement (metadata bar per mode + Plus modal). Null until
+  // the owner edits it; foodyweb falls back to its default item set.
+  const [orderPageInfo, setOrderPageInfo] = useState<OrderPageInfo | null>(null);
   // Which sub-tab is active in the Commande editor (delivery / pickup /
   // confirmation). Lifted up so the preview iframe URL stays in sync with the
   // section the owner is editing.
@@ -382,6 +386,7 @@ export default function WebsitePage() {
     // editor isn't sitting on a page that's no longer reachable.
     if (!landingOn) setActivePage('menu');
     setCheckoutConfig((stateConfig.checkout_config ?? null) as CheckoutConfig | null);
+    setOrderPageInfo((stateConfig.order_page_info ?? null) as OrderPageInfo | null);
 
     // Sections: assign synthetic negative ids to tmp_id-only sections so
     // existing UI keeps working with a numeric `id` field. The tmp_id is
@@ -450,6 +455,7 @@ export default function WebsitePage() {
           pages: Array.isArray(stateConfig.pages) ? stateConfig.pages : [],
           landing_enabled: stateConfig.landing_enabled ?? true,
           ...(stateConfig.checkout_config != null ? { checkout_config: stateConfig.checkout_config } : {}),
+          ...(stateConfig.order_page_info != null ? { order_page_info: stateConfig.order_page_info } : {}),
         },
         sections: sections.map((s) => {
           const tmp = tmpIdMap.get(s.id);
@@ -554,6 +560,7 @@ export default function WebsitePage() {
         pages,
         landing_enabled: landingEnabled,
         ...(checkoutConfig != null ? { checkout_config: checkoutConfig } : {}),
+        ...(orderPageInfo != null ? { order_page_info: orderPageInfo } : {}),
       },
       sections: sections.map((s) => {
         const tmpId = newSectionTmpIds.current.get(s.id);
@@ -570,7 +577,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, pages, landingEnabled, checkoutConfig, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -1038,6 +1045,8 @@ export default function WebsitePage() {
                 if (!v && activePage === 'home') setActivePage('menu');
               }}
               onSocialLinksChange={(links) => setConfig((c) => (c ? ({ ...c, social_links: links } as WebsiteConfig) : c))}
+              orderPageInfo={orderPageInfo}
+              onOrderPageInfoChange={setOrderPageInfo}
             />
           )}
         </div>
@@ -1496,9 +1505,9 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange }: {
-  subMode: 'general' | 'contact' | 'social' | 'seo';
-  onSubModeChange: (m: 'general' | 'contact' | 'social' | 'seo') => void;
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange }: {
+  subMode: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
+  onSubModeChange: (m: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo') => void;
   restaurant: Restaurant | null;
   tagline: string;
   navbarStyle: string;
@@ -1516,11 +1525,14 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
   onShowHoursChange: (v: boolean) => void;
   onLandingEnabledChange: (v: boolean) => void;
   onSocialLinksChange: (links: Record<string, string>) => void;
+  orderPageInfo: OrderPageInfo | null;
+  onOrderPageInfoChange: (v: OrderPageInfo) => void;
 }) {
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'general', label: 'Général' },
     { id: 'contact', label: 'Contact' },
     { id: 'social', label: 'Réseaux sociaux' },
+    { id: 'orderInfo', label: 'Infos commande' },
     { id: 'seo', label: 'SEO' },
   ];
   return (
@@ -1644,6 +1656,17 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
                 />
               </div>
             ))}
+            {/* WhatsApp — a phone number (turned into a wa.me link), not a URL. */}
+            <div>
+              <label className="block text-xs font-medium text-fg-primary mb-1.5">WhatsApp</label>
+              <input
+                type="tel"
+                value={socialLinks.whatsapp || ''}
+                onChange={(e) => onSocialLinksChange({ ...socialLinks, whatsapp: e.target.value })}
+                placeholder="+972 50 123 4567"
+                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              />
+            </div>
             {/* Email — separate input because it's a mailto link, not a URL.
                 Surfaces in the foodyweb "À propos" panel under Contact. */}
             <div>
@@ -1702,6 +1725,9 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
               </div>
             </div>
           </>
+        )}
+        {subMode === 'orderInfo' && (
+          <OrderPageInfoEditor value={orderPageInfo} onChange={onOrderPageInfoChange} />
         )}
         {subMode === 'seo' && (
           <p className="text-[12px] text-fg-secondary leading-relaxed">

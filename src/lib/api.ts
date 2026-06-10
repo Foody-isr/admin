@@ -496,6 +496,25 @@ export interface SubscriptionDetail extends Subscription {
   events: SubscriptionEvent[];
 }
 
+// ─── Order-page info placement ────────────────────────────────────────
+// Which restaurant-info items appear in the order page's metadata bar (per
+// order mode) vs the "Plus" modal. Mirrors order_page_info on the server and
+// the OrderPageInfo type in foodyweb. Stored snake_case.
+export type OrderPageBarItem =
+  | 'batch_week' | 'hours' | 'min_order' | 'fulfilment_time' | 'wifi'
+  | 'instagram' | 'whatsapp' | 'facebook' | 'tiktok';
+export type OrderPageModalSection =
+  | 'about' | 'hours' | 'address' | 'contact' | 'social' | 'custom_text';
+export interface OrderPageInfo {
+  bar: {
+    pickup: OrderPageBarItem[];
+    delivery: OrderPageBarItem[];
+    dine_in: OrderPageBarItem[];
+  };
+  modal: OrderPageModalSection[];
+  modal_text?: string;
+}
+
 export interface WebsiteConfig {
   id: number;
   restaurant_id: number;
@@ -542,6 +561,7 @@ export interface WebsiteConfig {
   pages?: WebsitePageMeta[] | null;
   landing_enabled: boolean;
   checkout_config?: CheckoutConfig | null;
+  order_page_info?: OrderPageInfo | null;
   // Draft / publish workflow (added in v2)
   draft_dirty?: boolean;
   draft_saved_at?: string | null;
