@@ -23,6 +23,7 @@ import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionO
 import CheckoutEditor from '@/components/website/CheckoutEditor';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import type { CheckoutConfig } from '@/lib/api';
+import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
 type MenuSubTab = 'themes' | 'typography' | 'branding';
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
@@ -39,16 +40,15 @@ type PreviewMessage = {
   customPalette: WebsiteConfig['custom_palette'] | null;
   faviconURL: string;
   direction: 'ltr' | 'rtl';
+  typography?: WebsiteConfig['typography'] | null;
 };
 
 // ─── Constants ──────────────────────────────────────────────────────
 
-const FONT_OPTIONS = [
-  'Nunito Sans', 'Inter', 'Poppins', 'Rubik', 'Open Sans',
-  'Playfair Display', 'Cinzel Decorative', 'Cormorant Garamond',
-  'Lora', 'Montserrat', 'Oswald', 'Raleway', 'Dancing Script',
-  'Great Vibes', 'Merriweather', 'Bitter', 'Crimson Text', 'Eros',
-];
+// Font choices for the hero-name and section font pickers. Sourced from the
+// shared curated library (kept in sync with foodyweb's loader) so all pickers
+// offer the same expanded set.
+const FONT_OPTIONS = WEBSITE_FONT_FAMILIES;
 
 const SECTION_TYPE_META: Record<string, { labelKey: string; icon: string; descKey: string }> = {
   hero_banner:     { labelKey: 'heroBanner',      icon: '\u{1F5BC}\u{FE0F}', descKey: 'heroBannerDesc' },
@@ -270,6 +270,7 @@ export default function WebsitePage() {
       customPalette: next.custom_palette ?? null,
       faviconURL: next.favicon_url || '',
       direction: 'ltr',
+      typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
   }, []);
@@ -417,6 +418,7 @@ export default function WebsitePage() {
           custom_palette: stateConfig.custom_palette ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
+          typography: stateConfig.typography ?? null,
           landing_enabled: stateConfig.landing_enabled ?? true,
           ...(stateConfig.checkout_config != null ? { checkout_config: stateConfig.checkout_config } : {}),
         },
@@ -515,6 +517,7 @@ export default function WebsitePage() {
         custom_palette: config?.custom_palette ?? null,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
+        typography: config?.typography ?? null,
         landing_enabled: landingEnabled,
         ...(checkoutConfig != null ? { checkout_config: checkoutConfig } : {}),
       },

@@ -22,7 +22,7 @@ import {
 } from '@/lib/itemDraft';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
-import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
+import MenuItemTabDetails, { type ItemNotesMode, modeToAllowNotes } from '@/components/menu-item/MenuItemTabDetails';
 import MenuItemSummaryRail from '@/components/menu-item/MenuItemSummaryRail';
 import MenuItemShell from '@/components/menu-item/MenuItemShell';
 import CompositionTab from '@/components/menu-item/combo/CompositionTab';
@@ -61,6 +61,8 @@ export default function NewItemPage() {
   const [portion, setPortion] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
+  const [notesMode, setNotesMode] = useState<ItemNotesMode>('inherit');
+  const [restaurantAllowItemNotes, setRestaurantAllowItemNotes] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -173,6 +175,7 @@ export default function NewItemPage() {
       setAllModifierSets(ms ?? []);
       setAllOptionSets(os ?? []);
       setVatRate(settings.vat_rate ?? 18);
+      setRestaurantAllowItemNotes(settings.allow_item_notes ?? true);
     }).finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
@@ -201,6 +204,7 @@ export default function NewItemPage() {
         portion,
         price: effectivePrice,
         is_active: isActive,
+        allow_notes: modeToAllowNotes(notesMode),
         item_type: itemType,
         category_id: categoryId || categories[0]?.id,
       };
@@ -450,6 +454,9 @@ export default function NewItemPage() {
                 setCategoryId={setCategoryId}
                 isActive={isActive}
                 setIsActive={setIsActive}
+                notesMode={notesMode}
+                setNotesMode={setNotesMode}
+                restaurantAllowItemNotes={restaurantAllowItemNotes}
                 vatRate={vatRate}
                 categories={categories}
                 menus={menus}

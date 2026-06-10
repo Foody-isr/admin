@@ -23,7 +23,7 @@ import type { Locale } from '@/components/i18n/LocaleTabs';
 import { useI18n } from '@/lib/i18n';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
-import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
+import MenuItemTabDetails, { type ItemNotesMode, allowNotesToMode, modeToAllowNotes } from '@/components/menu-item/MenuItemTabDetails';
 import MenuItemTabOptions from '@/components/menu-item/MenuItemTabOptions';
 import VariantsEditor, {
   VariantGroupState,
@@ -103,6 +103,8 @@ export default function EditItemPage() {
   const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
+  const [notesMode, setNotesMode] = useState<ItemNotesMode>(() => allowNotesToMode(item?.allow_notes));
+  const [restaurantAllowItemNotes, setRestaurantAllowItemNotes] = useState(true);
   const [itemType, setItemType] = useState<ItemType>(
     () => (item?.item_type as ItemType) || 'food_and_beverage',
   );
@@ -195,6 +197,7 @@ export default function EditItemPage() {
           setTranslations(found.translations ?? {});
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
+          setNotesMode(allowNotesToMode(found.allow_notes));
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
           if (found.item_type === 'combo' && found.combo_steps) {
@@ -246,7 +249,10 @@ export default function EditItemPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => {
-    getRestaurantSettings(rid).then((s) => setVatRate(s.vat_rate ?? 18)).catch(() => {});
+    getRestaurantSettings(rid).then((s) => {
+      setVatRate(s.vat_rate ?? 18);
+      setRestaurantAllowItemNotes(s.allow_item_notes ?? true);
+    }).catch(() => {});
   }, [rid]);
 
   const allMenuItems = categories.flatMap((c) =>
@@ -341,6 +347,7 @@ export default function EditItemPage() {
         portion,
         price: effectivePrice,
         is_active: isActive,
+        allow_notes: modeToAllowNotes(notesMode),
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
@@ -574,6 +581,9 @@ export default function EditItemPage() {
                   setCategoryId={setCategoryId}
                   isActive={isActive}
                   setIsActive={setIsActive}
+                  notesMode={notesMode}
+                  setNotesMode={setNotesMode}
+                  restaurantAllowItemNotes={restaurantAllowItemNotes}
                   vatRate={vatRate}
                   categories={categories}
                   menus={menus}
