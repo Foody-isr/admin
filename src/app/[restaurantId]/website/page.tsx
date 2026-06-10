@@ -1052,6 +1052,7 @@ export default function WebsitePage() {
               onSocialLinksChange={(links) => setConfig((c) => (c ? ({ ...c, social_links: links } as WebsiteConfig) : c))}
               orderPageInfo={orderPageInfo}
               onOrderPageInfoChange={setOrderPageInfo}
+              lockOrderType={!!checkoutConfig?.lock_order_type}
             />
           )}
         </div>
@@ -1510,7 +1511,7 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange }: {
+function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
   subMode: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   onSubModeChange: (m: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo') => void;
   restaurant: Restaurant | null;
@@ -1532,6 +1533,7 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
   onSocialLinksChange: (links: Record<string, string>) => void;
   orderPageInfo: OrderPageInfo | null;
   onOrderPageInfoChange: (v: OrderPageInfo) => void;
+  lockOrderType: boolean;
 }) {
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'general', label: 'Général' },
@@ -1732,7 +1734,16 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
           </>
         )}
         {subMode === 'orderInfo' && (
-          <OrderPageInfoEditor value={orderPageInfo} onChange={onOrderPageInfoChange} />
+          <OrderPageInfoEditor
+            value={orderPageInfo}
+            onChange={onOrderPageInfoChange}
+            availableModes={[
+              ...(restaurant?.pickup_enabled ? (['pickup'] as const) : []),
+              ...(restaurant?.delivery_enabled ? (['delivery'] as const) : []),
+              ...(restaurant?.dine_in_enabled ? (['dine_in'] as const) : []),
+            ]}
+            locked={lockOrderType}
+          />
         )}
         {subMode === 'seo' && (
           <p className="text-[12px] text-fg-secondary leading-relaxed">

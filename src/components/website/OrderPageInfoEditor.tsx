@@ -17,11 +17,11 @@ const DEFAULT_INFO: OrderPageInfo = {
   modal_text: '',
 };
 
-const MODES: { key: Mode; label: string }[] = [
-  { key: 'pickup', label: 'Retrait' },
-  { key: 'delivery', label: 'Livraison' },
-  { key: 'dine_in', label: 'Sur place' },
-];
+const MODE_LABEL: Record<Mode, string> = {
+  pickup: 'Retrait',
+  delivery: 'Livraison',
+  dine_in: 'Sur place',
+};
 
 const SHARED_BAR: { key: OrderPageBarItem; label: string }[] = [
   { key: 'batch_week', label: 'Pré-commande / semaine' },
@@ -92,17 +92,32 @@ function Row({ label, on, onToggle }: { label: string; on: boolean; onToggle: ()
 export function OrderPageInfoEditor({
   value,
   onChange,
+  availableModes,
+  locked,
 }: {
   value: OrderPageInfo | null;
   onChange: (v: OrderPageInfo) => void;
+  /** Order modes the restaurant enables, pickup-first (the menu-page default). */
+  availableModes: Mode[];
+  /** True when the order type is chosen at checkout (the menu page shows one
+   *  fixed default bar, so per-mode tabs don't apply). */
+  locked: boolean;
 }) {
-  const [mode, setMode] = useState<Mode>('pickup');
+  const modes = availableModes.length ? availableModes : (['pickup'] as Mode[]);
+  // One fixed bar when the customer can't switch mode on the page (locked) or
+  // only one mode exists — otherwise tabs for each switchable mode.
+  const single = locked || modes.length <= 1;
+  const [selected, setSelected] = useState<Mode>(modes[0]);
+  const mode: Mode = single ? modes[0] : modes.includes(selected) ? selected : modes[0];
   const v = value ?? DEFAULT_INFO;
 
   const toggleBar = (key: OrderPageBarItem) => {
     const list = v.bar[mode];
     const next = list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
-    onChange({ ...v, bar: { ...v.bar, [mode]: next } });
+    // When the bar is fixed (single), keep all modes in sync so it shows the
+    // same thing whichever mode foodyweb defaults to.
+    const bar = single ? { pickup: next, delivery: next, dine_in: next } : { ...v.bar, [mode]: next };
+    onChange({ ...v, bar });
   };
   const toggleModal = (key: OrderPageModalSection) => {
     const next = v.modal.includes(key) ? v.modal.filter((k) => k !== key) : [...v.modal, key];
@@ -111,30 +126,40 @@ export function OrderPageInfoEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Metadata bar — per mode */}
+      {/* Metadata bar */}
       <section className="rounded-lg border border-[var(--divider)] p-3">
         <div className="mb-2">
-          <h3 className="text-xs font-semibold mb-0.5">Barre d&apos;infos · par mode</h3>
+          <h3 className="text-xs font-semibold mb-0.5">
+            Barre d&apos;infos{single ? '' : ' · par mode'}
+          </h3>
           <p className="text-[11px] text-fg-secondary leading-snug">
-            Choisissez ce qui s&apos;affiche sous le titre, pour chaque mode. Un élément n&apos;apparaît que si la donnée existe.
+            Choisissez ce qui s&apos;affiche sous le titre. Un élément n&apos;apparaît que si la donnée existe.
           </p>
         </div>
-        <div className="flex gap-1.5 mb-2">
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMode(m.key)}
-              className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors ${
-                mode === m.key
-                  ? 'bg-brand-500/10 text-brand-600 ring-1 ring-brand-500'
-                  : 'text-fg-secondary hover:bg-[var(--surface-hover)]'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        {single ? (
+          locked && (
+            <p className="text-[11px] text-fg-secondary bg-[var(--surface-subtle)] rounded-md px-2.5 py-1.5 mb-2 leading-snug">
+              Le client choisit le mode au paiement, donc la page affiche une seule barre (mode «&nbsp;{MODE_LABEL[mode]}&nbsp;» par défaut).
+            </p>
+          )
+        ) : (
+          <div className="flex gap-1.5 mb-2">
+            {modes.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setSelected(m)}
+                className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors ${
+                  mode === m
+                    ? 'bg-brand-500/10 text-brand-600 ring-1 ring-brand-500'
+                    : 'text-fg-secondary hover:bg-[var(--surface-hover)]'
+                }`}
+              >
+                {MODE_LABEL[m]}
+              </button>
+            ))}
+          </div>
+        )}
         <div>
           {BAR_ITEMS[mode].map((item) => (
             <Row
