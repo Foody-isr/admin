@@ -524,6 +524,8 @@ export interface WebsiteConfig {
   logo_size: number;
   hide_navbar_name: boolean;
   hide_hero_logo: boolean;
+  /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
+  hero_logo_bg: 'white' | 'black';
   custom_palette?: {
     mode: 'light' | 'dark';
     bg: string;

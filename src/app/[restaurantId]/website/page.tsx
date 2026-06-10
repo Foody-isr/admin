@@ -37,6 +37,7 @@ type PreviewMessage = {
   logoSize: number;
   hideNavbarName: boolean;
   hideHeroLogo: boolean;
+  heroLogoBg: 'white' | 'black';
   customPalette: WebsiteConfig['custom_palette'] | null;
   faviconURL: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
@@ -279,6 +280,7 @@ export default function WebsitePage() {
       logoSize: next.logo_size,
       hideNavbarName: next.hide_navbar_name,
       hideHeroLogo: next.hide_hero_logo,
+      heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
       customPalette: next.custom_palette ?? null,
       faviconURL: next.favicon_url || '',
       // Banner style + overlay live in dedicated state (not `config`), so they
@@ -439,6 +441,7 @@ export default function WebsitePage() {
           logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
           hide_navbar_name: stateConfig.hide_navbar_name || false,
           hide_hero_logo: stateConfig.hide_hero_logo || false,
+          hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           custom_palette: stateConfig.custom_palette ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
@@ -542,6 +545,7 @@ export default function WebsitePage() {
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
         hide_hero_logo: config?.hide_hero_logo ?? false,
+        hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         custom_palette: config?.custom_palette ?? null,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,

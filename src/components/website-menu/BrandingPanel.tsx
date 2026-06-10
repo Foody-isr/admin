@@ -129,24 +129,39 @@ export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRe
         </div>
       </section>
 
-      {/* Logo size */}
+      {/* Logo background — the logo sits in a rounded square on the order-page
+          hero (Wolt-style). This picks the box background. */}
       <section className="rounded-lg border border-[var(--divider)] p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h3 className="text-xs font-semibold">{t('logoSize')}</h3>
-            <p className="text-[11px] text-fg-secondary leading-snug">{t('logoSizeHelp')}</p>
-          </div>
-          <span className="text-xs font-mono text-fg-secondary">{config.logo_size}px</span>
+        <div className="mb-2">
+          <h3 className="text-xs font-semibold mb-0.5">{t('logoBackground')}</h3>
+          <p className="text-[11px] text-fg-secondary leading-snug">{t('logoBackgroundHelp')}</p>
         </div>
-        <input
-          type="range"
-          min={24}
-          max={96}
-          step={4}
-          value={config.logo_size}
-          onChange={(e) => onUpdate({ logo_size: Number(e.target.value) })}
-          className="w-full accent-brand-500"
-        />
+        <div className="grid grid-cols-2 gap-1.5">
+          {(['white', 'black'] as const).map((value) => {
+            const selected = (config.hero_logo_bg || 'white') === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onUpdate({ hero_logo_bg: value })}
+                className={`flex items-center gap-2 px-2.5 py-2 rounded-md border text-start transition-colors ${
+                  selected
+                    ? 'border-brand-500 bg-brand-500/5 ring-1 ring-brand-500'
+                    : 'border-[var(--divider)] hover:border-fg-tertiary'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-md border border-[var(--divider)] shrink-0 ${
+                    value === 'white' ? 'bg-white' : 'bg-black'
+                  }`}
+                />
+                <span className="text-xs font-medium">
+                  {value === 'white' ? t('logoBgWhite') : t('logoBgBlack')}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* Hide navbar name */}
@@ -167,29 +182,6 @@ export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRe
           <span
             className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
               config.hide_navbar_name ? 'translate-x-[18px]' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
-      </section>
-
-      {/* Hide hero logo */}
-      <section className="rounded-lg border border-[var(--divider)] p-3 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-xs font-semibold mb-0.5">{t('hideHeroLogo')}</h3>
-          <p className="text-[11px] text-fg-secondary leading-snug">{t('hideHeroLogoHelp')}</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={config.hide_hero_logo}
-          onClick={() => onUpdate({ hide_hero_logo: !config.hide_hero_logo })}
-          className={`relative w-9 h-5 rounded-full shrink-0 transition-colors ${
-            config.hide_hero_logo ? 'bg-brand-500' : 'bg-[var(--divider)]'
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-              config.hide_hero_logo ? 'translate-x-[18px]' : 'translate-x-0.5'
             }`}
           />
         </button>
