@@ -1066,21 +1066,26 @@ export default function WebsitePage() {
               postMessage={postMenuPreview}
             />
           ) : editorMode === 'pages' && activePage !== 'home' ? (
-            // Custom pages and the site footer have no live preview iframe yet —
-            // show an honest placeholder instead of the (wrong) landing preview.
-            <div className="max-w-md mx-auto my-auto px-8 py-10 text-center">
-              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-brand-500/10 grid place-items-center text-brand-500">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-6h6v6m-9 4h12a2 2 0 002-2V7l-5-4H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              </div>
-              <p className="text-sm font-semibold text-fg-primary mb-1">
-                {activePage === '_site' ? 'Pied de page du site' : 'Aperçu après publication'}
-              </p>
-              <p className="text-[13px] text-fg-secondary leading-relaxed">
-                {activePage === '_site'
-                  ? 'Modifiez le pied de page dans le panneau de droite. Il apparaît en bas de toutes les pages du site.'
-                  : 'Ajoutez vos sections à gauche, puis cliquez sur « Voir le site » ou publiez pour voir cette page en direct.'}
-              </p>
-            </div>
+            // The site footer (_site) previews against the order page — the
+            // footer renders at the bottom of every page — while custom pages
+            // preview against their own route. Both receive the full draft via
+            // foody-draft-state and reflect edits live, just like the landing.
+            <LiveHomePreviewIframe
+              mode={previewMode}
+              slug={restaurant?.slug}
+              path={activePage === '_site' ? '/order' : `/${activePage}`}
+              draftPayload={buildDraftPayload()}
+              onSectionClick={(id) => {
+                if (typeof id === 'number') setSelectedSectionId(id);
+                else {
+                  let local: number | null = null;
+                  newSectionTmpIds.current.forEach((tmp, sid) => { if (tmp === id) local = sid; });
+                  if (local !== null) setSelectedSectionId(local);
+                }
+              }}
+              onBoundsUpdate={handleBoundsUpdate}
+              onIframeRectUpdate={handleIframeRectUpdate}
+            />
           ) : (
             <LiveHomePreviewIframe
               mode={previewMode}
@@ -1707,10 +1712,14 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
-function LiveHomePreviewIframe({ mode, slug, draftPayload, onSectionClick, onBoundsUpdate, onIframeRectUpdate }: {
+function LiveHomePreviewIframe({ mode, slug, draftPayload, path = '', onSectionClick, onBoundsUpdate, onIframeRectUpdate }: {
   mode: 'mobile' | 'desktop';
   slug: string | undefined;
   draftPayload: DraftStatePayload;
+  /** Sub-path after /r/<slug> so one component previews the landing (''),
+   *  the order page ('/order') for the site footer, or a custom page
+   *  ('/<slug>'). Every variant receives the full draft via foody-draft-state. */
+  path?: string;
   onSectionClick: (id: number | string) => void;
   onBoundsUpdate: (bounds: SectionBounds[], scrollY: number) => void;
   onIframeRectUpdate: (rect: { top: number; left: number; width: number; height: number } | null) => void;
@@ -1804,7 +1813,7 @@ function LiveHomePreviewIframe({ mode, slug, draftPayload, onSectionClick, onBou
     >
       <iframe
         ref={iframeRef}
-        src={`${WEB_URL}/r/${slug}?preview=1`}
+        src={`${WEB_URL}/r/${slug}${path}?preview=1`}
         title="Live preview"
         className="w-full h-full"
         style={{ border: 'none' }}
