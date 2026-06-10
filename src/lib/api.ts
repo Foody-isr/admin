@@ -93,9 +93,6 @@ export interface RestaurantSettings {
   service_mode: string;
   scheduling_enabled: boolean;
   tips_enabled: boolean;
-  // Restaurant-wide default for the guest item "special instructions" field.
-  // Per-item MenuItem.allow_notes overrides it. Guest web only (POS unaffected).
-  allow_item_notes: boolean;
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
@@ -350,9 +347,8 @@ export interface MenuItem {
   image_url: string;
   price: number;
   is_active: boolean;
-  /** Per-item override for the guest "special instructions" field.
-   *  null/undefined = inherit RestaurantSettings.allow_item_notes; true/false = force.
-   *  On update, send explicit null to clear back to inherit. */
+  /** Per-item toggle for the guest "special instructions" field (guest web only).
+   *  null/undefined = default (shown); true = shown; false = hidden. */
   allow_notes?: boolean | null;
   item_type: ItemType;
   sort_order: number;
