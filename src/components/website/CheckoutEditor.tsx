@@ -208,6 +208,22 @@ export default function CheckoutEditor({ value, onChange, placesAvailable, subTa
         </div>
       </div>
 
+      {/* Global checkout behaviour — applies to all order types. When on, the
+          guest order page's fulfilment chip is read-only (no "Modifier" button
+          or arrow) and the customer picks pickup vs delivery only here at
+          checkout. Takes effect after Publier. */}
+      <div className="px-4 pt-4">
+        <Row
+          title="Choix du mode au paiement uniquement"
+          description="Sur la page du menu, le sélecteur (à emporter / livraison) devient non cliquable, sans bouton Modifier. Le client choisit son mode à l'étape paiement."
+        >
+          <Toggle
+            checked={!!value?.lock_order_type}
+            onChange={(b) => onChange({ ...(value ?? {}), lock_order_type: b })}
+          />
+        </Row>
+      </div>
+
       {subTab === 'confirmation' ? (
         <div className="flex-1 overflow-y-auto">
           <ConfirmationEditor

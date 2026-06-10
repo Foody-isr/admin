@@ -12,7 +12,7 @@ import {
   getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
   DraftStatePayload, DraftSectionPayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
-  ThemeCatalog,
+  ThemeCatalog, WebsitePageMeta,
 } from '@/lib/api';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
@@ -219,6 +219,9 @@ export default function WebsitePage() {
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
+  // Custom pages (beyond the built-in home + menu). Each renders at
+  // /r/<slug>/<page.slug> on foodyweb and appears in the hamburger nav.
+  const [pages, setPages] = useState<WebsitePageMeta[]>([]);
 
   // Config form state — landing-page concerns only.
   // Menu/order page styling lives under /website/menu/{themes,typography,branding}.
@@ -243,6 +246,12 @@ export default function WebsitePage() {
   const [checkoutSubTab, setCheckoutSubTab] = useState<'delivery' | 'pickup' | 'confirmation'>('delivery');
 
   const selectedSection = sections.find(s => s.id === selectedSectionId) || null;
+  // The site-wide footer (prefer the canonical "_site" one; fall back to any
+  // footer for pre-migration data).
+  const footerSection =
+    sections.find((s) => s.section_type === 'footer' && s.page === '_site') ||
+    sections.find((s) => s.section_type === 'footer') ||
+    null;
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 
   // Menu-tab state: theme catalog + sub-tab + iframe ref + debounced save
@@ -329,8 +338,6 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  const pages: string[] = ['home', 'menu'];
-
   // Filter sections by active page, footer always last
   const filteredSections = sections
     .filter(s => (s.page || 'home') === activePage)
@@ -366,6 +373,7 @@ export default function WebsitePage() {
     setHeroNameFont(stateConfig.hero_name_font || '');
     setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
     setCategoryBannerOverlay(stateConfig.category_banner_overlay ?? 40);
+    setPages(Array.isArray(stateConfig.pages) ? stateConfig.pages : []);
     const landingOn = stateConfig.landing_enabled ?? true;
     setLandingEnabled(landingOn);
     // If landing is disabled, the page switcher hides "Landing"; make sure the
@@ -436,6 +444,7 @@ export default function WebsitePage() {
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           category_banner_overlay: stateConfig.category_banner_overlay ?? 40,
           typography: stateConfig.typography ?? null,
+          pages: Array.isArray(stateConfig.pages) ? stateConfig.pages : [],
           landing_enabled: stateConfig.landing_enabled ?? true,
           ...(stateConfig.checkout_config != null ? { checkout_config: stateConfig.checkout_config } : {}),
         },
@@ -474,8 +483,10 @@ export default function WebsitePage() {
         const existingTypes = new Set((draft.state.sections || []).map((s) => s.section_type));
         const missing: DraftSectionPayload[] = [];
         if (!existingTypes.has('footer')) {
+          // The footer is site-wide (page "_site") — it renders at the bottom of
+          // every page, independent of the landing toggle.
           missing.push({
-            tmp_id: `tmp_${Date.now()}_footer`, section_type: 'footer', page: 'home',
+            tmp_id: `tmp_${Date.now()}_footer`, section_type: 'footer', page: '_site',
             is_visible: true, layout: 'columns', sort_order: 99,
             content: getDefaultContent('footer'), settings: { color_style: 'dark' },
           });
@@ -536,6 +547,7 @@ export default function WebsitePage() {
         category_banner_style: categoryBannerStyle,
         category_banner_overlay: categoryBannerOverlay,
         typography: config?.typography ?? null,
+        pages,
         landing_enabled: landingEnabled,
         ...(checkoutConfig != null ? { checkout_config: checkoutConfig } : {}),
       },
@@ -554,7 +566,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, landingEnabled, checkoutConfig, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, pages, landingEnabled, checkoutConfig, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -637,6 +649,109 @@ export default function WebsitePage() {
       setError(err.message || 'Failed to reset');
     }
   }, [restaurantId, hydrateFromDraft]);
+
+  // ─── Custom page CRUD ───────────────────────────────────────────
+  // Custom pages are metadata (slug + label + order) in `pages`; their content
+  // is the set of sections whose `page` equals the slug. All local-state only;
+  // the autosave effect persists, Publier promotes.
+
+  const reservedSlugs = new Set(['home', 'menu', 'order', 'orders', 'table', 'payment', 'pickup', 'delivery', 't', '_site']);
+
+  function slugifyPage(label: string): string {
+    // NFD splits accented letters into base + combining mark; stripping
+    // non-ASCII then drops the marks (é -> e) without a combining-char regex.
+    const base = label
+      .normalize('NFD').replace(/[^\x00-\x7F]/g, '')
+      .toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'page';
+    let slug = base;
+    let n = 2;
+    const taken = new Set<string>(pages.map((p) => p.slug));
+    reservedSlugs.forEach((s) => taken.add(s));
+    while (taken.has(slug)) slug = `${base}-${n++}`;
+    return slug;
+  }
+
+  function handleAddPage() {
+    const slug = slugifyPage('page');
+    const label = `Nouvelle page ${pages.length + 1}`;
+    setPages((prev) => [...prev, { slug, label, sort_order: prev.length }]);
+    setActivePage(slug);
+    setSelectedSectionId(null);
+  }
+
+  function handleRenamePage(slug: string, label: string) {
+    setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, label } : p)));
+  }
+
+  function handleDeletePage(slug: string) {
+    // Drop the page and queue its sections for deletion on publish.
+    const owned = sections.filter((s) => s.page === slug);
+    const realIds = owned.map((s) => s.id).filter((id) => id > 0);
+    if (realIds.length > 0) setDeletedIds((prev) => [...prev, ...realIds]);
+    owned.forEach((s) => newSectionTmpIds.current.delete(s.id));
+    setSections((prev) => prev.filter((s) => s.page !== slug));
+    setPages((prev) => prev.filter((p) => p.slug !== slug).map((p, i) => ({ ...p, sort_order: i })));
+    if (activePage === slug) setActivePage(landingEnabled ? 'home' : 'menu');
+  }
+
+  function handleReorderPage(slug: string, dir: 'up' | 'down') {
+    setPages((prev) => {
+      const idx = prev.findIndex((p) => p.slug === slug);
+      if (idx < 0) return prev;
+      const swap = dir === 'up' ? idx - 1 : idx + 1;
+      if (swap < 0 || swap >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swap]] = [next[swap], next[idx]];
+      return next.map((p, i) => ({ ...p, sort_order: i }));
+    });
+  }
+
+  // The site-wide footer is a single section at page "_site". Select it to edit
+  // in the right panel; create one on first use.
+  function handleSelectFooter() {
+    const footers = sections.filter((s) => s.section_type === 'footer');
+    if (footers.length > 0) {
+      // Consolidate to a single canonical footer at page "_site"; queue any
+      // duplicates (legacy footers on home/menu) for deletion on publish.
+      const keep = footers.find((f) => f.page === '_site') || footers[0];
+      const others = footers.filter((f) => f.id !== keep.id);
+      if (others.length > 0 || keep.page !== '_site') {
+        const otherRealIds = others.map((o) => o.id).filter((id) => id > 0);
+        others.forEach((o) => newSectionTmpIds.current.delete(o.id));
+        if (otherRealIds.length > 0) setDeletedIds((prev) => [...prev, ...otherRealIds]);
+        setSections((prev) =>
+          prev
+            .filter((s) => s.section_type !== 'footer' || s.id === keep.id)
+            .map((s) => (s.id === keep.id ? { ...s, page: '_site' } : s)),
+        );
+      }
+      setActivePage('_site');
+      setSelectedSectionId(keep.id);
+      return;
+    }
+    const tmpId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    let syntheticId = -1;
+    newSectionTmpIds.current.forEach((_, k) => { if (k <= syntheticId) syntheticId = k - 1; });
+    newSectionTmpIds.current.set(syntheticId, tmpId);
+    const newFooter: WebsiteSection = {
+      id: syntheticId,
+      restaurant_id: restaurantId,
+      section_type: 'footer',
+      page: '_site',
+      sort_order: 0,
+      is_visible: true,
+      layout: 'columns',
+      content: getDefaultContent('footer'),
+      settings: { color_style: 'dark' },
+      created_at: '',
+      updated_at: '',
+    };
+    setSections((prev) => [...prev, newFooter]);
+    setActivePage('_site');
+    setSelectedSectionId(syntheticId);
+  }
 
   // ─── Section CRUD ───────────────────────────────────────────────
 
@@ -845,6 +960,13 @@ export default function WebsitePage() {
               activePage={activePage}
               onActivePageChange={setActivePage}
               landingEnabled={landingEnabled}
+              pages={pages}
+              onAddPage={handleAddPage}
+              onRenamePage={handleRenamePage}
+              onDeletePage={handleDeletePage}
+              onReorderPage={handleReorderPage}
+              footerExists={footerSection !== null}
+              onSelectFooter={handleSelectFooter}
               sections={filteredSections}
               selectedId={selectedSectionId}
               onSelect={setSelectedSectionId}
@@ -943,6 +1065,22 @@ export default function WebsitePage() {
               config={config}
               postMessage={postMenuPreview}
             />
+          ) : editorMode === 'pages' && activePage !== 'home' ? (
+            // Custom pages and the site footer have no live preview iframe yet —
+            // show an honest placeholder instead of the (wrong) landing preview.
+            <div className="max-w-md mx-auto my-auto px-8 py-10 text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-brand-500/10 grid place-items-center text-brand-500">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-6h6v6m-9 4h12a2 2 0 002-2V7l-5-4H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </div>
+              <p className="text-sm font-semibold text-fg-primary mb-1">
+                {activePage === '_site' ? 'Pied de page du site' : 'Aperçu après publication'}
+              </p>
+              <p className="text-[13px] text-fg-secondary leading-relaxed">
+                {activePage === '_site'
+                  ? 'Modifiez le pied de page dans le panneau de droite. Il apparaît en bas de toutes les pages du site.'
+                  : 'Ajoutez vos sections à gauche, puis cliquez sur « Voir le site » ou publiez pour voir cette page en direct.'}
+              </p>
+            </div>
           ) : (
             <LiveHomePreviewIframe
               mode={previewMode}
@@ -964,12 +1102,12 @@ export default function WebsitePage() {
         </div>
 
         {/* Right panel — section settings (Pages mode, home page, section selected) */}
-        {editorMode === 'pages' && activePage === 'home' && selectedSection && (
+        {editorMode === 'pages' && activePage !== 'menu' && selectedSection && (
           <div className="border-l border-divider flex-shrink-0 flex flex-col overflow-y-auto" style={{ width: 340, background: 'var(--surface)' }}>
             <div className="flex items-start justify-between px-4 py-3 border-b border-divider sticky top-0 z-10" style={{ background: 'var(--surface)' }}>
               <div className="flex flex-col leading-tight">
                 <span className="text-[9px] uppercase tracking-[0.12em] text-fg-secondary">
-                  Pages › {activePage === 'home' ? 'Landing' : 'Order'}
+                  Pages › {activePage === 'home' ? 'Accueil' : activePage === '_site' ? 'Pied de page' : (pages.find((p) => p.slug === activePage)?.label ?? activePage)}
                 </span>
                 <span className="text-sm font-semibold text-fg-primary">{sectionLabel(selectedSection)}</span>
               </div>
@@ -1059,10 +1197,17 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, categoryBannerOverlay, onMenuLayoutChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, categoryBannerOverlay, onMenuLayoutChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
+  pages: WebsitePageMeta[];
+  onAddPage: () => void;
+  onRenamePage: (slug: string, label: string) => void;
+  onDeletePage: (slug: string) => void;
+  onReorderPage: (slug: string, dir: 'up' | 'down') => void;
+  footerExists: boolean;
+  onSelectFooter: () => void;
   sections: WebsiteSection[];
   selectedId: number | null;
   onSelect: (id: number) => void;
@@ -1079,30 +1224,85 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
   restaurant: Restaurant | null;
   onRestaurantUpdate: (r: Restaurant) => void;
 }) {
+  const activeCustom = pages.find((p) => p.slug === activePage) || null;
+  const isFooter = activePage === '_site';
+  const showSectionList = !isFooter && activePage !== 'menu';
+  const sectionLabel = activePage === 'home' ? 'Sections' : activeCustom ? `Sections — ${activeCustom.label}` : 'Sections';
+
+  const rowCls = (active: boolean) =>
+    `group flex items-center rounded-lg transition ${active ? 'bg-brand-500/10 ring-1 ring-brand-500/40' : 'hover:bg-surface-subtle'}`;
+  const rowBtnCls = (active: boolean) =>
+    `flex-1 min-w-0 text-left px-3 py-2 text-[13px] truncate ${active ? 'text-fg-primary font-semibold' : 'text-fg-secondary'}`;
+
   return (
     <div className="flex flex-col h-full">
-      {/* Page switcher. If landing is disabled, only the menu page is offered;
-          the user can re-enable landing in Paramètres → Général. */}
-      <div className="px-4 pt-4 pb-3 border-b border-divider">
-        <label className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-1.5">Page</label>
-        {landingEnabled ? (
-          <select
-            value={activePage}
-            onChange={(e) => onActivePageChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-          >
-            <option value="home">Landing</option>
-            <option value="menu">Page de commande</option>
-          </select>
-        ) : (
-          <div className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary">
-            Page de commande
-            <div className="text-[10px] text-fg-secondary mt-0.5">
-              La page d&apos;accueil est désactivée. Activez-la dans Paramètres → Général.
+      {/* Pages list — built-in (Accueil/Commande) + custom pages + the site
+          footer. Works regardless of the landing toggle; custom pages appear in
+          the customer hamburger menu. */}
+      <div className="px-3 pt-4 pb-3 border-b border-divider">
+        <div className="flex items-center justify-between px-1 mb-2">
+          <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">Pages</span>
+          <button onClick={onAddPage} className="text-[11px] font-medium text-brand-500 hover:text-brand-600">+ Nouvelle page</button>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {landingEnabled && (
+            <div className={rowCls(activePage === 'home')}>
+              <button onClick={() => onActivePageChange('home')} className={rowBtnCls(activePage === 'home')}>Accueil</button>
             </div>
+          )}
+          <div className={rowCls(activePage === 'menu')}>
+            <button onClick={() => onActivePageChange('menu')} className={rowBtnCls(activePage === 'menu')}>Page de commande</button>
           </div>
-        )}
+          {pages.map((p, i) => (
+            <div key={p.slug} className={rowCls(activePage === p.slug)}>
+              <button onClick={() => onActivePageChange(p.slug)} className={rowBtnCls(activePage === p.slug)}>{p.label}</button>
+              <div className="flex items-center pe-1 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button title="Monter" disabled={i === 0} onClick={() => onReorderPage(p.slug, 'up')} className="w-6 h-6 grid place-items-center rounded text-fg-tertiary hover:text-fg-primary disabled:opacity-30">↑</button>
+                <button title="Descendre" disabled={i === pages.length - 1} onClick={() => onReorderPage(p.slug, 'down')} className="w-6 h-6 grid place-items-center rounded text-fg-tertiary hover:text-fg-primary disabled:opacity-30">↓</button>
+                <button title="Supprimer la page" onClick={() => { if (typeof window === 'undefined' || window.confirm(`Supprimer la page « ${p.label} » et ses sections ?`)) onDeletePage(p.slug); }} className="w-6 h-6 grid place-items-center rounded text-fg-tertiary hover:text-red-500">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Site-wide footer entry */}
+        <div className="mt-2 pt-2 border-t border-divider">
+          <div className={rowCls(isFooter)}>
+            <button onClick={onSelectFooter} className={`${rowBtnCls(isFooter)} flex items-center gap-2`}>
+              <svg className="w-3.5 h-3.5 shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 18h16M7 12h10" /></svg>
+              Pied de page (tout le site)
+            </button>
+            {!footerExists && <span className="pe-3 text-[10px] text-brand-500">+ créer</span>}
+          </div>
+        </div>
       </div>
+
+      {/* Custom page rename */}
+      {activeCustom && (
+        <div className="px-4 py-3 border-b border-divider">
+          <label className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-1.5">Nom de la page</label>
+          <input
+            value={activeCustom.label}
+            onChange={(e) => onRenamePage(activeCustom.slug, e.target.value)}
+            placeholder="Nom de la page"
+            className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+          />
+          <p className="mt-1.5 text-[10px] text-fg-secondary leading-relaxed">
+            Adresse : <span className="text-fg-primary">/{activeCustom.slug}</span> · apparaît dans le menu hamburger.
+          </p>
+        </div>
+      )}
+
+      {/* Footer scope hint */}
+      {isFooter && (
+        <div className="px-4 py-3 border-b border-divider">
+          <p className="text-[11px] text-fg-secondary leading-relaxed">
+            Le pied de page s&apos;affiche en bas de <span className="text-fg-primary">toutes les pages</span> (commande, accueil et pages personnalisées). Sélectionnez-le ci-dessous pour le modifier.
+          </p>
+        </div>
+      )}
 
       {/* Menu-page-specific options: cover image, layout, category banner style.
           Only shown on the Page de commande because they only affect the menu
@@ -1177,36 +1377,38 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, section
         </div>
       )}
 
-      {/* Section list — sections scoped to the active page. The order page can
-          have its own banners/promos around the auto-rendered menu grid. */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">
-          {activePage === 'home' ? 'Sections' : 'Sections (autour du menu)'}
-        </span>
-        <button
-          onClick={onAddSection}
-          className="text-[11px] font-medium text-brand-500 hover:text-brand-600 flex items-center gap-1"
-        >
-          + Ajouter
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-4">
-        {sections.length > 0 ? (
-          <SectionListPanel
-            sections={sections}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onMove={onMove}
-            onToggleVisibility={onToggleVisibility}
-          />
-        ) : (
-          <div className="px-3 py-4 text-[11px] text-fg-secondary leading-relaxed">
-            {activePage === 'home'
-              ? 'Aucune section. Cliquez sur + Ajouter pour commencer.'
-              : 'Aucune section additionnelle. Vous pouvez ajouter une bannière promotionnelle, un bandeau de texte ou un pied de page propre à la page de commande.'}
+      {/* Section list — only for content pages (home + custom). The order page
+          is a pure menu; the footer is edited via its own entry. */}
+      {showSectionList && (
+        <>
+          <div className="flex items-center justify-between px-4 pt-3 pb-2">
+            <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">{sectionLabel}</span>
+            <button
+              onClick={onAddSection}
+              className="text-[11px] font-medium text-brand-500 hover:text-brand-600 flex items-center gap-1"
+            >
+              + Ajouter
+            </button>
           </div>
-        )}
-      </div>
+          <div className="flex-1 overflow-y-auto px-2 pb-4">
+            {sections.length > 0 ? (
+              <SectionListPanel
+                sections={sections}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                onMove={onMove}
+                onToggleVisibility={onToggleVisibility}
+              />
+            ) : (
+              <div className="px-3 py-4 text-[11px] text-fg-secondary leading-relaxed">
+                {activePage === 'home'
+                  ? 'Aucune section. Cliquez sur + Ajouter pour commencer.'
+                  : 'Page vide. Cliquez sur + Ajouter pour y placer du contenu (texte, image, galerie…).'}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -3010,7 +3212,7 @@ function AddSectionModal({ onAdd, onClose }: { onAdd: (type: string) => void; on
       <div className="rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto" style={{ background: 'var(--surface)' }} onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-bold text-fg-primary mb-4">Add Section</h2>
         <div className="grid grid-cols-2 gap-3">
-          {Object.entries(SECTION_TYPE_META).map(([type, meta]) => (
+          {Object.entries(SECTION_TYPE_META).filter(([type]) => type !== 'footer').map(([type, meta]) => (
             <button
               key={type}
               onClick={() => onAdd(type)}

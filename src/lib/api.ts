@@ -536,6 +536,8 @@ export interface WebsiteConfig {
   category_banner_overlay: number;
   /** Per-role typography overrides for the order/menu page. Opaque blob (camelCase keys) read verbatim by foodyweb. */
   typography?: TypographyOverrides | null;
+  /** Custom pages beyond home + menu. Each renders at /r/<slug>/<page.slug> and shows in the nav. */
+  pages?: WebsitePageMeta[] | null;
   landing_enabled: boolean;
   checkout_config?: CheckoutConfig | null;
   // Draft / publish workflow (added in v2)
@@ -561,6 +563,14 @@ export interface TypographyOverrides {
   /** Overall menu text size multiplier. 1 = unchanged. */
   sizeScale?: number;
   roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
+}
+
+// Custom website page metadata. Stored on WebsiteConfig.pages; the page's
+// content is the set of WebsiteSection rows whose `page` equals the slug.
+export interface WebsitePageMeta {
+  slug: string;
+  label: string;
+  sort_order: number;
 }
 
 // ─── Checkout-form builder ──────────────────────────────────────────────
@@ -606,6 +616,10 @@ export interface CheckoutConfig {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  // When true, the guest order page's fulfilment chip is read-only (no
+  // "Modifier" affordance) and the customer picks pickup/delivery only at
+  // checkout. Mirrors foodyserver CheckoutConfig.LockOrderType.
+  lock_order_type?: boolean;
 }
 
 export interface ConfirmationAction {
