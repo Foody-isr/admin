@@ -2,6 +2,14 @@
 
 **Date**: 2026-06-11 · **Status**: approved (design validated in session)
 
+> **v2 (same day)**: simplified to a Canva-style flow after user feedback. The
+> separate "Bibliothèque de polices" block and `FontLibraryBrowser` modal were
+> removed. `FontSelect` now searches the full catalog inline; picking a
+> non-curated font auto-persists it to `typography.extraFonts`, and entries no
+> section references anymore are auto-pruned on commit (the library is implicit).
+> The pairing cards collapsed into a "Style général du site" accordion and the
+> hero name font moved into the unified "Polices par section" list.
+
 ## Goal
 
 Let each restaurant search the full Google Fonts catalog (~1,900 families) from the

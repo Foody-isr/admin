@@ -1481,34 +1481,14 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
         ) : subMode === 'colors' ? (
           <ThemesPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
         ) : subMode === 'typography' ? (
-          <div className="space-y-4">
-            <TypographyPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
-            <div className="border-t border-divider pt-4">
-              <label className="block text-xs font-medium text-fg-primary mb-1.5">Police du nom du restaurant (hero)</label>
-              <select
-                value={heroNameFont}
-                onChange={(e) => onHeroNameFontChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-              >
-                <option value="">Par défaut (typographie du thème)</option>
-                {(config.typography?.extraFonts ?? []).length > 0 && (
-                  <optgroup label="Mes polices">
-                    {(config.typography?.extraFonts ?? []).map((f) => (
-                      <option key={f.family} value={f.family}>{f.family}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {FONT_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-                {heroNameFont &&
-                  !FONT_OPTIONS.includes(heroNameFont) &&
-                  !(config.typography?.extraFonts ?? []).some((f) => f.family === heroNameFont) && (
-                    <option value={heroNameFont}>{heroNameFont} (retirée de la bibliothèque)</option>
-                  )}
-              </select>
-            </div>
-          </div>
+          <TypographyPanel
+            config={config}
+            catalog={themeCatalog}
+            onUpdate={onConfigUpdate}
+            heroNameFont={heroNameFont}
+            onHeroNameFontChange={onHeroNameFontChange}
+            heroSample={restaurant?.name}
+          />
         ) : (
           <BrandingPanel
             config={config}
