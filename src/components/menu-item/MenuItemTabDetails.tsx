@@ -1,7 +1,9 @@
 'use client';
 
-import { ChevronDown, Boxes, ArrowRight, RefreshCw } from 'lucide-react';
+import { ChevronDown, Boxes, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
@@ -164,6 +166,16 @@ export default function MenuItemTabDetails({
     setTranslations(next);
   };
 
+  // Source-language sanity check: the source text lives in name/description/
+  // portion (the translation tabs bind the translations map, so these props
+  // always hold the source-locale value). If that text is Hebrew-script while
+  // the restaurant's source language is set to something else, every auto-
+  // translation comes back as a Hebrew pass-through (AWS Translate is told the
+  // wrong source language) — warn and link to the Language settings.
+  const { restaurantId } = useParams();
+  const sourceLooksHebrew = /[\u0590-\u05FF]/.test(`${name} ${description} ${portion}`);
+  const localeMismatch = i18nEnabled && effectiveSource !== 'he' && sourceLooksHebrew;
+
   // Highlight tabs where a non-source translation is missing, so the owner
   // can see at a glance which locales still need attention. The source tab
   // is never marked missing — its content lives in `name` / `description`.
@@ -238,6 +250,42 @@ export default function MenuItemTabDetails({
             {retranslateError && (
               <span className="text-fs-xs text-[var(--danger-500)]">{retranslateError}</span>
             )}
+          </div>
+        )}
+
+        {/* Source-language mismatch warning — the item text is Hebrew but the
+            restaurant's source language says otherwise, so auto-translations
+            are pass-through garbage until the setting is corrected. */}
+        {localeMismatch && (
+          <div
+            className="flex items-center gap-[var(--s-3)] rounded-r-lg border p-[var(--s-3)]"
+            style={{
+              background: 'color-mix(in oklab, var(--warning-500) 6%, var(--surface))',
+              borderColor: 'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+            }}
+          >
+            <AlertTriangle
+              className="w-4 h-4 shrink-0"
+              style={{ color: 'var(--warning-500)' }}
+              aria-hidden
+            />
+            <span className="flex-1 text-fs-xs text-[var(--fg)]">
+              {(
+                t('languageMismatchWarning') ||
+                'This item is written in Hebrew, but your menu source language is set to {lang}. Auto-translations will be wrong until you fix it.'
+              ).replace(
+                '{lang}',
+                effectiveSource === 'en'
+                  ? (t('languageEnglish') || 'English')
+                  : (t('languageFrench') || 'French'),
+              )}
+            </span>
+            <Link
+              href={`/${restaurantId}/settings/language`}
+              className="text-fs-xs font-medium text-[var(--brand-500)] hover:underline whitespace-nowrap"
+            >
+              {t('languageMismatchCta') || 'Fix in Language settings'}
+            </Link>
           </div>
         )}
 

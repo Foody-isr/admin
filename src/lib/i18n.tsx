@@ -2370,6 +2370,9 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateField: 'Re-translate this field',
     languageRetranslateRunning: 'Re-translating…',
     languageRetranslateFailed: 'Re-translation failed. Try again.',
+    languageMismatchWarning:
+      'This item is written in Hebrew, but your menu source language is set to {lang}. Auto-translations will be wrong until you fix it.',
+    languageMismatchCta: 'Fix in Language settings',
 
     // ── Opening Hours ──
     openingHours: 'Opening Hours',
@@ -4982,6 +4985,9 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateField: 'תרגם שדה זה מחדש',
     languageRetranslateRunning: 'מתרגם…',
     languageRetranslateFailed: 'התרגום מחדש נכשל. נסה שוב.',
+    languageMismatchWarning:
+      'הפריט כתוב בעברית, אבל שפת המקור של התפריט מוגדרת כ-{lang}. התרגומים האוטומטיים יהיו שגויים עד שתתקנו זאת.',
+    languageMismatchCta: 'תיקון בהגדרות השפה',
 
     openingHours: 'שעות פתיחה',
     openingHoursDesc: 'הגדר שעות פתיחה לפי סוג הזמנה ויום בשבוע.',
@@ -7606,6 +7612,9 @@ const translations: Record<Locale, Record<string, string>> = {
     languageRetranslateField: 'Retraduire ce champ',
     languageRetranslateRunning: 'Traduction en cours…',
     languageRetranslateFailed: 'Échec de la retraduction. Réessayez.',
+    languageMismatchWarning:
+      'Cet article est rédigé en hébreu, mais la langue source du menu est définie sur {lang}. Les traductions automatiques seront erronées tant que ce réglage n\'est pas corrigé.',
+    languageMismatchCta: 'Corriger dans les réglages de langue',
 
     openingHours: 'Horaires d\'ouverture',
     openingHoursDesc: 'Définissez vos horaires par type de commande et jour de la semaine.',
