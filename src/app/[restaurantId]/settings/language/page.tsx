@@ -6,11 +6,14 @@ import { Languages, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   getRestaurant,
   updateRestaurant,
-  backfillTranslations,
+  retranslatePreview,
+  applyTranslations,
   Restaurant,
+  TranslationReviewEntry,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Button, Field, PageHead, Section, Select } from '@/components/ds';
+import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
 
 const SUPPORTED_LOCALES: { value: 'en' | 'he' | 'fr'; labelKey: string; nativeLabel: string }[] = [
   { value: 'en', labelKey: 'languageEnglish', nativeLabel: 'English' },
@@ -41,7 +44,9 @@ export default function LanguageSettingsPage() {
   const [retranslating, setRetranslating] = useState(false);
   const [retranslateResult, setRetranslateResult] = useState<string | null>(null);
   const [retranslateError, setRetranslateError] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reviewEntries, setReviewEntries] = useState<TranslationReviewEntry[] | null>(null);
+  const [reviewSourceLocale, setReviewSourceLocale] = useState('');
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => {
     getRestaurant(rid)
@@ -72,23 +77,52 @@ export default function LanguageSettingsPage() {
     }
   };
 
-  const handleRetranslate = async () => {
-    setConfirmOpen(false);
+  // Step 1: compute fresh translations for the whole catalog. Writes nothing —
+  // the user reviews and edits them in the table before applying.
+  const handleOpenReview = async () => {
     setRetranslating(true);
     setRetranslateError(null);
     setRetranslateResult(null);
     try {
-      const res = await backfillTranslations(rid, true);
-      const total =
-        res.items + res.groups + res.modifier_sets + res.modifiers + res.variant_groups + res.variants;
-      setRetranslateResult(
-        t('languageRetranslateSummary')?.replace('{count}', String(total)) ||
-          `Re-translated ${total} entities (items: ${res.items}, groups: ${res.groups}, modifier sets: ${res.modifier_sets}, modifiers: ${res.modifiers}, variant groups: ${res.variant_groups}, variants: ${res.variants}).`,
-      );
+      const { sourceLocale, entries } = await retranslatePreview(rid);
+      setReviewSourceLocale(sourceLocale);
+      setReviewEntries(entries);
     } catch (e) {
       setRetranslateError(e instanceof Error ? e.message : 'Re-translate failed');
     } finally {
       setRetranslating(false);
+    }
+  };
+
+  const handleTranslationEdit = (text: string, localeKey: string, value: string) => {
+    setReviewEntries((prev) =>
+      prev?.map((e) =>
+        e.text === text ? { ...e, translations: { ...e.translations, [localeKey]: value } } : e,
+      ) ?? prev,
+    );
+  };
+
+  // Step 2: write the reviewed values onto every matching entity.
+  const handleApply = async () => {
+    if (!reviewEntries) return;
+    setApplying(true);
+    setRetranslateError(null);
+    try {
+      const res = await applyTranslations(
+        rid,
+        Object.fromEntries(reviewEntries.map((e) => [e.text, e.translations])),
+      );
+      const total =
+        res.items + res.groups + res.modifier_sets + res.modifiers + res.variant_groups + res.variants;
+      setRetranslateResult(
+        t('languageRetranslateSummary')?.replace('{count}', String(total)) ||
+          `Re-translated ${total} entities.`,
+      );
+      setReviewEntries(null);
+    } catch (e) {
+      setRetranslateError(e instanceof Error ? e.message : 'Apply failed');
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -199,47 +233,38 @@ export default function LanguageSettingsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            disabled={retranslating}
-            variant="secondary"
-          >
-            {retranslating
-              ? t('languageRetranslating') || 'Re-translating…'
-              : t('languageRetranslateAction') || 'Re-translate everything'}
-          </Button>
-          {retranslateResult && (
-            <span className="text-fs-sm text-[var(--success-500)]">{retranslateResult}</span>
-          )}
-          {retranslateError && (
-            <span className="text-fs-sm text-[var(--danger-500)]">{retranslateError}</span>
-          )}
-        </div>
-
-        {confirmOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-[var(--surface)] rounded-r-lg shadow-2xl max-w-[440px] w-full p-[var(--s-5)]">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-[var(--warning-500)] mt-1 shrink-0" />
-                <div className="flex-1">
-                  <h3 className="text-fs-md font-semibold mb-2">
-                    {t('languageRetranslateConfirmTitle') || 'Re-translate everything?'}
-                  </h3>
-                  <p className="text-fs-sm text-[var(--fg-muted)]">
-                    {t('languageRetranslateConfirmBody')?.replace('{lang}', restaurant?.default_locale || locale) ||
-                      `All current translations on every menu item, group, modifier and variant will be erased and regenerated from your default menu language (${restaurant?.default_locale || locale}). This cannot be undone except by editing items individually.`}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-[var(--s-5)] flex justify-end gap-2">
-                <Button onClick={() => setConfirmOpen(false)} variant="ghost">
-                  {t('cancel') || 'Cancel'}
-                </Button>
-                <Button onClick={handleRetranslate} variant="primary">
-                  {t('languageRetranslateConfirmAction') || 'Re-translate everything'}
-                </Button>
-              </div>
+        {reviewEntries === null ? (
+          <div className="flex items-center gap-3">
+            <Button onClick={handleOpenReview} disabled={retranslating} variant="secondary">
+              {retranslating
+                ? t('languageRetranslating') || 'Re-translating…'
+                : t('languageRetranslateAction') || 'Re-translate everything'}
+            </Button>
+            {retranslateResult && (
+              <span className="text-fs-sm text-[var(--success-500)]">{retranslateResult}</span>
+            )}
+            {retranslateError && (
+              <span className="text-fs-sm text-[var(--danger-500)]">{retranslateError}</span>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-fs-sm text-[var(--fg-muted)]">{t('trReviewIntro')}</p>
+            <TranslationReviewTable
+              entries={reviewEntries}
+              sourceLocale={reviewSourceLocale}
+              onEdit={handleTranslationEdit}
+            />
+            {retranslateError && (
+              <span className="text-fs-sm text-[var(--danger-500)]">{retranslateError}</span>
+            )}
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setReviewEntries(null)} variant="ghost" disabled={applying}>
+                {t('cancel') || 'Cancel'}
+              </Button>
+              <Button onClick={handleApply} variant="primary" disabled={applying}>
+                {applying ? t('saving') || 'Saving…' : t('trReviewApply')}
+              </Button>
             </div>
           </div>
         )}

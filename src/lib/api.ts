@@ -1572,6 +1572,54 @@ export async function backfillTranslations(
   );
 }
 
+// ─── Translation review (preview / edit / apply) ─────────────────────────────
+
+/** One unique source text in a review table: where it is used + its translations. */
+export interface TranslationReviewEntry {
+  text: string;
+  /** kind -> occurrence count, e.g. {item_name: 2, option: 1} */
+  usage: Record<string, number>;
+  /** locale -> machine translation (source locale excluded) */
+  translations: Record<string, string>;
+}
+
+/** Machine-translate unique texts into the supported locales. Writes nothing. */
+export async function previewTranslations(
+  restaurantId: number,
+  texts: string[]
+): Promise<{ sourceLocale: string; translations: Record<string, Record<string, string>> }> {
+  const data = await apiFetch<{ source_locale: string; translations: Record<string, Record<string, string>> }>(
+    `/api/v1/menu/translations/preview?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ texts }) }
+  );
+  return { sourceLocale: data.source_locale, translations: data.translations ?? {} };
+}
+
+/** Gather every catalog text with usage counts + fresh translations. Writes nothing. */
+export async function retranslatePreview(
+  restaurantId: number
+): Promise<{ sourceLocale: string; entries: TranslationReviewEntry[] }> {
+  const data = await apiFetch<{ source_locale: string; entries: TranslationReviewEntry[] }>(
+    `/api/v1/menu/translations/retranslate-preview?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return { sourceLocale: data.source_locale, entries: data.entries ?? [] };
+}
+
+/**
+ * Apply reviewed translations (text -> locale -> value) to every catalog
+ * entity whose text matches. An empty value removes that translation.
+ */
+export async function applyTranslations(
+  restaurantId: number,
+  entries: Record<string, Record<string, string>>
+): Promise<BackfillResult> {
+  return apiFetch<BackfillResult>(
+    `/api/v1/menu/translations/apply?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ entries }) }
+  );
+}
+
 // ─── Menu ─────────────────────────────────────────────────────────────────────
 
 export async function getMenu(restaurantId: number): Promise<Menu[]> {
@@ -2552,6 +2600,12 @@ export interface ConfirmMenuImportOptions {
   carteName?: string;
   /** Fill en/he/fr translations in the background after the import. */
   autoTranslate?: boolean;
+  /**
+   * User-reviewed translations (source text -> locale -> value). When set,
+   * entities are created with exactly these translations and the background
+   * backfill is skipped.
+   */
+  translations?: Record<string, Record<string, string>>;
 }
 
 export interface ConfirmMenuImportResult {
@@ -2575,6 +2629,7 @@ export async function confirmMenuImport(
         create_carte: options.createCarte ?? false,
         carte_name: options.carteName ?? '',
         auto_translate: options.autoTranslate ?? false,
+        translations: options.translations ?? undefined,
       }),
     }
   );

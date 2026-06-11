@@ -1,13 +1,49 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  importMenuAI, importMenuFromWolt, confirmMenuImport,
-  RichExtraction,
+  importMenuAI, importMenuFromWolt, confirmMenuImport, previewTranslations,
+  RichExtraction, TranslationReviewEntry,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { SparklesIcon, LinkIcon, ImageIcon } from 'lucide-react';
+import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
+
+/**
+ * Flattens an extraction into unique translatable texts with usage kinds —
+ * the same dedup the server applies, so editing one row covers every
+ * occurrence of that text.
+ */
+function collectReviewEntries(extraction: RichExtraction): TranslationReviewEntry[] {
+  const index = new Map<string, TranslationReviewEntry>();
+  const add = (kind: string, raw?: string) => {
+    const text = raw?.trim();
+    if (!text) return;
+    let e = index.get(text);
+    if (!e) {
+      e = { text, usage: {}, translations: {} };
+      index.set(text, e);
+    }
+    e.usage[kind] = (e.usage[kind] ?? 0) + 1;
+  };
+  for (const cat of extraction.categories) {
+    add('group_name', cat.name);
+    for (const item of cat.items) {
+      add('item_name', item.name);
+      add('item_description', item.description);
+      for (const os of item.option_sets ?? []) {
+        add('option_set', os.name);
+        for (const o of os.options) add('option', o.name);
+      }
+      for (const ms of item.modifier_sets ?? []) {
+        add('modifier_set', ms.name);
+        for (const m of ms.modifiers) add('modifier', m.name);
+      }
+    }
+  }
+  return Array.from(index.values());
+}
 
 type ImportSource = 'photo' | 'wolt';
 
@@ -18,7 +54,7 @@ export default function MenuImportPage() {
   const { t } = useI18n();
 
   const [source, setSource] = useState<ImportSource>('photo');
-  const [step, setStep] = useState<'upload' | 'review'>('upload');
+  const [step, setStep] = useState<'upload' | 'review' | 'translations'>('upload');
   const [extraction, setExtraction] = useState<RichExtraction | null>(null);
   const [error, setError] = useState('');
   const [extracting, setExtracting] = useState(false);
@@ -28,7 +64,37 @@ export default function MenuImportPage() {
   const [createCarte, setCreateCarte] = useState(true);
   const [carteName, setCarteName] = useState('');
   const [autoTranslate, setAutoTranslate] = useState(true);
+  const [trEntries, setTrEntries] = useState<TranslationReviewEntry[] | null>(null);
+  const [trLoading, setTrLoading] = useState(false);
+  const [sourceLocale, setSourceLocale] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Pre-compute translations while the user is still checking the extracted
+  // items, so the translation review step opens instantly.
+  useEffect(() => {
+    if (!extraction || !autoTranslate || trEntries !== null || trLoading) return;
+    const entries = collectReviewEntries(extraction);
+    if (entries.length === 0) {
+      setTrEntries([]);
+      return;
+    }
+    setTrLoading(true);
+    previewTranslations(rid, entries.map((e) => e.text))
+      .then(({ sourceLocale: src, translations }) => {
+        setSourceLocale(src);
+        setTrEntries(entries.map((e) => ({ ...e, translations: translations[e.text] ?? {} })));
+      })
+      .catch(() => setTrEntries(entries))
+      .finally(() => setTrLoading(false));
+  }, [extraction, autoTranslate, trEntries, trLoading, rid]);
+
+  const handleTranslationEdit = (text: string, locale: string, value: string) => {
+    setTrEntries((prev) =>
+      prev?.map((e) =>
+        e.text === text ? { ...e, translations: { ...e.translations, [locale]: value } } : e,
+      ) ?? prev,
+    );
+  };
 
   const handleFile = async (file: File) => {
     setError('');
@@ -63,11 +129,16 @@ export default function MenuImportPage() {
     if (!extraction) return;
     setConfirming(true);
     try {
+      const translations =
+        autoTranslate && trEntries
+          ? Object.fromEntries(trEntries.map((e) => [e.text, e.translations]))
+          : undefined;
       const result = await confirmMenuImport(rid, extraction, {
         importBranding,
         createCarte,
         carteName: carteName.trim() || t('importCarteNameDefault'),
         autoTranslate,
+        translations,
       });
       if (createCarte && result.carteId) {
         router.push(`/${restaurantId}/menu/menus/${result.carteId}`);
@@ -88,6 +159,8 @@ export default function MenuImportPage() {
     setCreateCarte(true);
     setCarteName('');
     setAutoTranslate(true);
+    setTrEntries(null);
+    setSourceLocale('');
   };
 
   const totalItems = extraction?.categories.reduce((sum, c) => sum + c.items.length, 0) ?? 0;
@@ -289,6 +362,46 @@ export default function MenuImportPage() {
           <div className="flex gap-3">
             <button className="btn-secondary" onClick={resetToUpload}>
               {t('reUpload')}
+            </button>
+            {autoTranslate ? (
+              <button
+                className="btn-primary flex items-center gap-2"
+                onClick={() => setStep('translations')}
+                disabled={trLoading}
+              >
+                {trLoading && (
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                )}
+                {trLoading ? t('trReviewTranslating') : t('trReviewContinue')}
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={handleConfirm} disabled={confirming}>
+                {confirming ? t('creating') : t('importItems').replace('{count}', String(totalItems))}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === 'translations' && trEntries && (
+        <div className="space-y-4">
+          <p className="text-sm text-fg-secondary">{t('trReviewIntro')}</p>
+
+          <TranslationReviewTable
+            entries={trEntries}
+            sourceLocale={sourceLocale}
+            onEdit={handleTranslationEdit}
+          />
+
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button className="btn-secondary" onClick={() => setStep('review')}>
+              {t('back')}
             </button>
             <button className="btn-primary" onClick={handleConfirm} disabled={confirming}>
               {confirming ? t('creating') : t('importItems').replace('{count}', String(totalItems))}
