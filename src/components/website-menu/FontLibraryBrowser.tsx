@@ -2,30 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ExtraFont } from '@/lib/api';
-import { CATEGORY_LABELS, isCuratedFont, type FontCategory } from '@/lib/website-fonts';
+import {
+  CATEGORY_LABELS, isCuratedFont, loadFontPreview,
+  FONT_PREVIEW_LATIN, FONT_PREVIEW_HEBREW, type FontCategory,
+} from '@/lib/website-fonts';
 
 // Catalog entry shape written by scripts/fetch-google-fonts-catalog.mjs
 // (short keys keep the lazy chunk small).
 type CatalogEntry = { f: string; c: FontCategory; w: number[]; h: boolean; p: number };
 
 const PAGE_SIZE = 60;
-const LATIN_SAMPLE = 'Tonight’s Menu · Salade 35';
-const HEBREW_SAMPLE = ' תפריט הערב';
-
-// One observer for every row; rows register their font-load callback on mount.
-// Previews fetch a text-subset stylesheet (weight 400 only) so scrolling the
-// whole catalog stays cheap; the full weights load only when a font is added.
-function loadPreviewFont(entry: CatalogEntry) {
-  if (typeof document === 'undefined') return;
-  const id = `gf-preview-${entry.f.replace(/\s+/g, '-')}`;
-  if (document.getElementById(id)) return;
-  const text = entry.f + LATIN_SAMPLE + (entry.h ? HEBREW_SAMPLE : '');
-  const link = document.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(entry.f)}&text=${encodeURIComponent(text)}&display=swap`;
-  document.head.appendChild(link);
-}
 
 function FontRow({
   entry, added, curated, onAdd, onRemove,
@@ -56,7 +42,7 @@ function FontRow({
   }, []);
 
   useEffect(() => {
-    if (visible) loadPreviewFont(entry);
+    if (visible) loadFontPreview(entry.f, entry.h);
   }, [visible, entry]);
 
   return (
@@ -80,8 +66,8 @@ function FontRow({
           className="text-lg text-fg-primary truncate mt-0.5"
           style={{ fontFamily: visible ? `"${entry.f}", system-ui, sans-serif` : undefined }}
         >
-          {LATIN_SAMPLE}
-          {entry.h && <span dir="rtl">{HEBREW_SAMPLE}</span>}
+          {FONT_PREVIEW_LATIN}
+          {entry.h && <span dir="rtl">{FONT_PREVIEW_HEBREW}</span>}
         </div>
       </div>
       {curated ? (

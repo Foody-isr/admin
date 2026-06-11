@@ -18,6 +18,7 @@ import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
+import { FontSelect } from '@/components/website-menu/FontSelect';
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
@@ -1485,28 +1486,12 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
             <TypographyPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
             <div className="border-t border-divider pt-4">
               <label className="block text-xs font-medium text-fg-primary mb-1.5">Police du nom du restaurant (hero)</label>
-              <select
+              <FontSelect
                 value={heroNameFont}
-                onChange={(e) => onHeroNameFontChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-              >
-                <option value="">Par défaut (typographie du thème)</option>
-                {(config.typography?.extraFonts ?? []).length > 0 && (
-                  <optgroup label="Mes polices">
-                    {(config.typography?.extraFonts ?? []).map((f) => (
-                      <option key={f.family} value={f.family}>{f.family}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {FONT_OPTIONS.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-                {heroNameFont &&
-                  !FONT_OPTIONS.includes(heroNameFont) &&
-                  !(config.typography?.extraFonts ?? []).some((f) => f.family === heroNameFont) && (
-                    <option value={heroNameFont}>{heroNameFont} (retirée de la bibliothèque)</option>
-                  )}
-              </select>
+                onChange={onHeroNameFontChange}
+                extraFonts={config.typography?.extraFonts ?? []}
+                defaultLabel="Par défaut (typographie du thème)"
+              />
             </div>
           </div>
         ) : (

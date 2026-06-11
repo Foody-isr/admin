@@ -94,6 +94,25 @@ export function isCuratedFont(family: string): boolean {
   return Boolean(FONT_BY_FAMILY[family]);
 }
 
+/** Sample strings rendered by font previews (pickers + Google Fonts browser). */
+export const FONT_PREVIEW_LATIN = 'Tonight’s Menu · Salade 35';
+export const FONT_PREVIEW_HEBREW = ' תפריט הערב';
+
+/** Inject a tiny text-subset stylesheet (weight 400, family name + samples) so
+ *  preview rows render in their own face — cheap enough for long scrolling
+ *  lists. All call sites share the same subset so the link is loaded once. */
+export function loadFontPreview(family: string, hebrew: boolean): void {
+  if (typeof document === 'undefined' || !family) return;
+  const id = `gf-preview-${family.replace(/\s+/g, '-')}`;
+  if (document.getElementById(id)) return;
+  const text = family + FONT_PREVIEW_LATIN + (hebrew ? FONT_PREVIEW_HEBREW : '');
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&text=${encodeURIComponent(text)}&display=swap`;
+  document.head.appendChild(link);
+}
+
 /** Inject a Google Fonts stylesheet for a family (idempotent) — used for live
  *  previews inside the builder. Curated families load their declared weights;
  *  for extra fonts pass the weights stored on the restaurant's ExtraFont entry

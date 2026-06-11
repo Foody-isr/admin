@@ -6,8 +6,9 @@ import type {
   WebsiteConfig, ThemeCatalog, TypographyPairingEntry,
   TypographyOverrides, TypographyRoleKey, ExtraFont,
 } from '@/lib/api';
-import { fontsByCategory, CATEGORY_LABELS, loadWebsiteFont, isCuratedFont } from '@/lib/website-fonts';
+import { loadWebsiteFont } from '@/lib/website-fonts';
 import { FontLibraryBrowser } from './FontLibraryBrowser';
+import { FontSelect } from './FontSelect';
 
 function loadGoogleFont(family: string, weights: number[]) {
   if (typeof document === 'undefined') return;
@@ -162,9 +163,13 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-fg-secondary leading-relaxed">
-        {t('typographyIntro')}
-      </p>
+      <div>
+        <label className="block text-xs font-medium text-fg-primary mb-1">Style général du site</label>
+        <p className="text-[10px] text-fg-tertiary leading-relaxed">
+          Le point de départ : cette association définit les polices de tout le site
+          (titres, textes, boutons, menu). {t('typographyIntro')}
+        </p>
+      </div>
 
       <div className="flex flex-col gap-2">
         {catalog.typography_pairings.map((p) => {
@@ -303,36 +308,12 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
                     {r.sample}
                   </span>
                 </div>
-                <select
+                <FontSelect
                   value={o.font ?? ''}
-                  onChange={(e) => setRole(r.key, { font: e.target.value })}
-                  className="w-full px-2.5 py-1.5 rounded-lg border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-                >
-                  <option value="">
-                    {themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
-                  </option>
-                  {extraFonts.length > 0 && (
-                    <optgroup label="Mes polices">
-                      {extraFonts.map((f) => (
-                        <option key={f.family} value={f.family}>
-                          {f.family}{f.supportsHebrew ? ' (hébreu)' : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {fontsByCategory().map((group) => (
-                    <optgroup key={group.category} label={CATEGORY_LABELS[group.category]}>
-                      {group.fonts.map((f) => (
-                        <option key={f.family} value={f.family}>
-                          {f.family}{f.supportsHebrew ? ' (hébreu)' : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {o.font && !isCuratedFont(o.font) && !extraFonts.some((f) => f.family === o.font) && (
-                    <option value={o.font}>{o.font} (retirée de la bibliothèque)</option>
-                  )}
-                </select>
+                  onChange={(family) => setRole(r.key, { font: family })}
+                  extraFonts={extraFonts}
+                  defaultLabel={themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
+                />
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[10px] text-fg-tertiary shrink-0">Taille</span>
                   <input
