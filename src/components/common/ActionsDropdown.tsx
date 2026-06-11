@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, ReactNode } from 'react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDownIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { useDropdownPosition } from '@/lib/use-dropdown-position';
+
+// Keep in sync with the w-56 class on the menu below.
+const MENU_WIDTH = 224;
 
 export interface ActionItem {
   label: string;
@@ -25,9 +29,9 @@ export default function ActionsDropdown({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pos = useDropdownPosition(buttonRef, open, MENU_WIDTH);
 
   useEffect(() => {
     if (!open) return;
@@ -39,26 +43,6 @@ export default function ActionsDropdown({
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open || !buttonRef.current) return;
-    const compute = () => {
-      const btn = buttonRef.current;
-      if (!btn) return;
-      const rect = btn.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + 4,
-        right: window.innerWidth - rect.right,
-      });
-    };
-    compute();
-    window.addEventListener('scroll', compute, true);
-    window.addEventListener('resize', compute);
-    return () => {
-      window.removeEventListener('scroll', compute, true);
-      window.removeEventListener('resize', compute);
-    };
   }, [open]);
 
   useEffect(() => {
@@ -88,7 +72,7 @@ export default function ActionsDropdown({
             <div
               ref={menuRef}
               role="menu"
-              style={{ position: 'fixed', top: pos.top, right: pos.right }}
+              style={{ position: 'fixed', top: pos.top, left: pos.left }}
               className="w-56 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl overflow-hidden z-[100]"
               onClick={(e) => e.stopPropagation()}
             >
@@ -100,7 +84,7 @@ export default function ActionsDropdown({
                     setOpen(false);
                     action.onClick();
                   }}
-                  className={`flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${
+                  className={`flex items-center gap-2 w-full text-start px-4 py-3 text-sm text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${
                     i > 0 ? 'border-t border-neutral-200 dark:border-neutral-700' : ''
                   }`}
                 >

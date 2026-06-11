@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, ReactNode } from 'react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontalIcon } from 'lucide-react';
+import { useDropdownPosition } from '@/lib/use-dropdown-position';
+
+// Keep in sync with the w-48 class on the menu below.
+const MENU_WIDTH = 192;
 
 export interface RowAction {
   label: string;
@@ -24,9 +28,9 @@ export interface RowAction {
 // pinned to the button as the user scrolls or the viewport changes size.
 export default function RowActionsMenu({ actions }: { actions: RowAction[] }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pos = useDropdownPosition(buttonRef, open, MENU_WIDTH);
 
   // Close on outside click — guard both the button and the portal-rendered
   // menu so clicking inside the menu doesn't immediately dismiss it.
@@ -40,28 +44,6 @@ export default function RowActionsMenu({ actions }: { actions: RowAction[] }) {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  // Position the menu under-and-right-aligned with the button. useLayoutEffect
-  // so the first frame is correctly placed (no flash of mispositioned menu).
-  useLayoutEffect(() => {
-    if (!open || !buttonRef.current) return;
-    const compute = () => {
-      const btn = buttonRef.current;
-      if (!btn) return;
-      const rect = btn.getBoundingClientRect();
-      setPos({
-        top: rect.bottom + 4,
-        right: window.innerWidth - rect.right,
-      });
-    };
-    compute();
-    window.addEventListener('scroll', compute, true);
-    window.addEventListener('resize', compute);
-    return () => {
-      window.removeEventListener('scroll', compute, true);
-      window.removeEventListener('resize', compute);
-    };
   }, [open]);
 
   // Close on Escape so the menu is keyboard-friendly.
@@ -93,7 +75,7 @@ export default function RowActionsMenu({ actions }: { actions: RowAction[] }) {
             <div
               ref={menuRef}
               role="menu"
-              style={{ position: 'fixed', top: pos.top, right: pos.right }}
+              style={{ position: 'fixed', top: pos.top, left: pos.left }}
               className="w-48 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-2xl overflow-hidden z-[100]"
               onClick={(e) => e.stopPropagation()}
             >
@@ -108,7 +90,7 @@ export default function RowActionsMenu({ actions }: { actions: RowAction[] }) {
                       setOpen(false);
                       action.onClick();
                     }}
-                    className={`w-full text-left px-4 py-3 text-sm font-medium flex items-center gap-2 transition-colors ${
+                    className={`w-full text-start px-4 py-3 text-sm font-medium flex items-center gap-2 transition-colors ${
                       isDanger
                         ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
                         : 'text-neutral-800 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800'
