@@ -18,7 +18,6 @@ import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
 import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackgroundEditor';
-import { FontSelect } from '@/components/website-menu/FontSelect';
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
@@ -1482,18 +1481,14 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
         ) : subMode === 'colors' ? (
           <ThemesPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
         ) : subMode === 'typography' ? (
-          <div className="space-y-4">
-            <TypographyPanel config={config} catalog={themeCatalog} onUpdate={onConfigUpdate} />
-            <div className="border-t border-divider pt-4">
-              <label className="block text-xs font-medium text-fg-primary mb-1.5">Police du nom du restaurant (hero)</label>
-              <FontSelect
-                value={heroNameFont}
-                onChange={onHeroNameFontChange}
-                extraFonts={config.typography?.extraFonts ?? []}
-                defaultLabel="Par défaut (typographie du thème)"
-              />
-            </div>
-          </div>
+          <TypographyPanel
+            config={config}
+            catalog={themeCatalog}
+            onUpdate={onConfigUpdate}
+            heroNameFont={heroNameFont}
+            onHeroNameFontChange={onHeroNameFontChange}
+            heroSample={restaurant?.name}
+          />
         ) : (
           <BrandingPanel
             config={config}
