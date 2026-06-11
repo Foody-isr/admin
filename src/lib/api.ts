@@ -2542,16 +2542,37 @@ export async function importMenuFromWolt(restaurantId: number, url: string, lang
   );
 }
 
+export interface ConfirmMenuImportOptions {
+  importBranding?: boolean;
+  /** Also create a carte whose groups mirror the imported categories. */
+  createCarte?: boolean;
+  carteName?: string;
+}
+
+export interface ConfirmMenuImportResult {
+  categories: MenuCategory[];
+  /** ID of the created carte when createCarte was requested. */
+  carteId?: number;
+}
+
 export async function confirmMenuImport(
   restaurantId: number,
   extraction: RichExtraction,
-  importBranding = false
-): Promise<MenuCategory[]> {
-  const data = await apiFetch<{ categories: MenuCategory[] }>(
+  options: ConfirmMenuImportOptions = {}
+): Promise<ConfirmMenuImportResult> {
+  const data = await apiFetch<{ categories: MenuCategory[]; carte_id?: number }>(
     `/api/v1/menu/import/confirm?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'POST', body: JSON.stringify({ ...extraction, import_branding: importBranding }) }
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        ...extraction,
+        import_branding: options.importBranding ?? false,
+        create_carte: options.createCarte ?? false,
+        carte_name: options.carteName ?? '',
+      }),
+    }
   );
-  return data.categories;
+  return { categories: data.categories, carteId: data.carte_id };
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────────

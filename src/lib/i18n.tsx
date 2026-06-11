@@ -519,6 +519,9 @@ const translations: Record<Locale, Record<string, string>> = {
     importWoltHint: 'We read your published Wolt menu: categories, items, prices, photos and options.',
     importWoltError: 'Could not read this Wolt link. Check the URL and try again.',
     importBrandingLabel: 'Also import the restaurant logo and cover photo',
+    importCreateCarteLabel: 'Also create a menu with these categories as sections',
+    importCarteNameLabel: 'Menu name',
+    importCarteNameDefault: 'Menu',
     importOptionsBadge: '{count} options',
     importAddonsBadge: '{count} add-ons',
 
@@ -3146,6 +3149,9 @@ const translations: Record<Locale, Record<string, string>> = {
     importWoltHint: 'נקרא את התפריט שלכם בוולט: קטגוריות, פריטים, מחירים, תמונות ואפשרויות.',
     importWoltError: 'לא הצלחנו לקרוא את קישור וולט. בדקו את הכתובת ונסו שוב.',
     importBrandingLabel: 'ייבא גם את הלוגו ותמונת הרקע של המסעדה',
+    importCreateCarteLabel: 'צור גם תפריט עם הקטגוריות האלה כמדורים',
+    importCarteNameLabel: 'שם התפריט',
+    importCarteNameDefault: 'תפריט',
     importOptionsBadge: '{count} אפשרויות',
     importAddonsBadge: '{count} תוספות',
 
@@ -5753,6 +5759,9 @@ const translations: Record<Locale, Record<string, string>> = {
     importWoltHint: 'Nous lisons votre menu Wolt publié : catégories, articles, prix, photos et options.',
     importWoltError: 'Impossible de lire ce lien Wolt. Vérifiez l\'URL et réessayez.',
     importBrandingLabel: 'Importer aussi le logo et la photo de couverture du restaurant',
+    importCreateCarteLabel: 'Créer aussi une carte avec ces catégories comme sections',
+    importCarteNameLabel: 'Nom de la carte',
+    importCarteNameDefault: 'Carte',
     importOptionsBadge: '{count} options',
     importAddonsBadge: '{count} suppléments',
 

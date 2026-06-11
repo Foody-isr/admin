@@ -33,6 +33,8 @@ export default function MenuImportPage() {
   const [langMode, setLangMode] = useState<LangMode>('original');
   const [woltUrl, setWoltUrl] = useState('');
   const [importBranding, setImportBranding] = useState(false);
+  const [createCarte, setCreateCarte] = useState(true);
+  const [carteName, setCarteName] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const localeName = t(LOCALE_NAME_KEY[locale] ?? 'languageEnglish');
@@ -72,8 +74,16 @@ export default function MenuImportPage() {
     if (!extraction) return;
     setConfirming(true);
     try {
-      await confirmMenuImport(rid, extraction, importBranding);
-      router.push(`/${restaurantId}/menu/items`);
+      const result = await confirmMenuImport(rid, extraction, {
+        importBranding,
+        createCarte,
+        carteName: carteName.trim() || t('importCarteNameDefault'),
+      });
+      if (createCarte && result.carteId) {
+        router.push(`/${restaurantId}/menu/menus/${result.carteId}`);
+      } else {
+        router.push(`/${restaurantId}/menu/items`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create menu');
     } finally {
@@ -86,6 +96,8 @@ export default function MenuImportPage() {
     setExtraction(null);
     setLangMode('original');
     setImportBranding(false);
+    setCreateCarte(true);
+    setCarteName('');
   };
 
   const totalItems = extraction?.categories.reduce((sum, c) => sum + c.items.length, 0) ?? 0;
@@ -261,6 +273,28 @@ export default function MenuImportPage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createCarte}
+                onChange={(e) => setCreateCarte(e.target.checked)}
+                className="accent-brand-500"
+              />
+              {t('importCreateCarteLabel')}
+            </label>
+            {createCarte && (
+              <input
+                type="text"
+                value={carteName}
+                onChange={(e) => setCarteName(e.target.value)}
+                placeholder={t('importCarteNameDefault')}
+                aria-label={t('importCarteNameLabel')}
+                className="w-full px-4 py-2 rounded-standard bg-[var(--surface-subtle)] border border-[var(--divider)] text-sm text-fg-primary placeholder:text-fg-secondary focus:outline-none focus:border-brand-500"
+              />
+            )}
           </div>
 
           {hasBranding && (
