@@ -104,7 +104,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
 
   const base = `/${restaurantId}`;
   const isRtl = direction === 'rtl';
-  const BackArrow = isRtl ? ArrowRight : ArrowLeft;
+  // Sidebar is always pinned left regardless of RTL — only content flows RTL.
+  const BackArrow = ArrowLeft;
 
   function toggleKey(key: string) {
     setExpandedKeys((prev) => {
@@ -304,9 +305,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
           ${sidebarWidth}
           transition-[width,transform] duration-200 ease-in-out
           lg:translate-x-0
-          ${isRtl ? 'right-0 border-l' : 'left-0 border-r'}
+          left-0 border-r
           border-[var(--line)]
-          ${isOpen ? 'translate-x-0' : isRtl ? 'translate-x-full' : '-translate-x-full'}
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         {/* Brand / restaurant header — height matches --topbar-h so it aligns
@@ -572,8 +573,8 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         className={`
           fixed top-0 bottom-0 z-50 w-80 max-w-[85vw] flex flex-col bg-[var(--sidebar-bg)]
           transition-transform duration-200 ease-in-out border-[var(--line)]
-          ${isRtl ? 'left-0 border-r' : 'right-0 border-l'}
-          ${profileOpen ? 'translate-x-0' : isRtl ? '-translate-x-full' : 'translate-x-full'}
+          right-0 border-l
+          ${profileOpen ? 'translate-x-0' : 'translate-x-full'}
         `}
       >
         {/* Drawer header */}

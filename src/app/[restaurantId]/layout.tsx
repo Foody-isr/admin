@@ -169,13 +169,10 @@ function RestaurantShell({
   const { collapsed } = useSidebar();
   // Sidebar widths come from tokens (260 / 72) — keep these arbitrary classes
   // in sync with --sidebar-w / --sidebar-w-collapsed in globals.css.
+  // Sidebar is always on the left — margin is always left regardless of RTL.
   const marginClass = collapsed
-    ? isRtl
-      ? 'lg:mr-[var(--sidebar-w-collapsed)]'
-      : 'lg:ml-[var(--sidebar-w-collapsed)]'
-    : isRtl
-      ? 'lg:mr-[var(--sidebar-w)]'
-      : 'lg:ml-[var(--sidebar-w)]';
+    ? 'lg:ml-[var(--sidebar-w-collapsed)]'
+    : 'lg:ml-[var(--sidebar-w)]';
   return (
     <div className="h-screen flex">
       <div className="flex flex-1 min-w-0">

@@ -30,7 +30,8 @@ interface TopBarProps {
 export default function TopBar({ restaurantName, pageName, onToggleSidebar, orderCount }: TopBarProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
+  const isRtl = direction === 'rtl';
   const pathname = usePathname();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -70,7 +71,7 @@ export default function TopBar({ restaurantName, pageName, onToggleSidebar, orde
       <div className="flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] min-w-0">
         {crumbs.map((c, i) => (
           <span key={`${c}-${i}`} className="flex items-center gap-[var(--s-2)] min-w-0">
-            {i > 0 && <ChevronRightIcon className="w-3 h-3 text-[var(--fg-subtle)] shrink-0" />}
+            {i > 0 && <ChevronRightIcon className={`w-3 h-3 text-[var(--fg-subtle)] shrink-0 ${isRtl ? 'rotate-180' : ''}`} />}
             <span
               className={`${i === crumbs.length - 1 ? 'text-[var(--fg)] font-medium' : ''} truncate`}
             >
