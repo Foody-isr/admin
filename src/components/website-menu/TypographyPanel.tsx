@@ -6,7 +6,7 @@ import type {
   WebsiteConfig, ThemeCatalog, TypographyPairingEntry,
   TypographyOverrides, TypographyRoleKey, ExtraFont,
 } from '@/lib/api';
-import { loadWebsiteFont } from '@/lib/website-fonts';
+import { loadWebsiteFont, curatedFontWeights, WEIGHT_LABELS } from '@/lib/website-fonts';
 import { FontSelect } from './FontSelect';
 
 function loadGoogleFont(family: string, weights: number[]) {
@@ -73,18 +73,46 @@ function normalizeTypography(t: TypographyOverrides): TypographyOverrides | null
   for (const r of ROLES) {
     const o = t.roles?.[r.key];
     if (!o) continue;
-    const clean: { font?: string; sizeMult?: number } = {};
+    const clean: { font?: string; sizeMult?: number; weight?: number } = {};
     if (o.font) clean.font = o.font;
     if (typeof o.sizeMult === 'number' && o.sizeMult !== 1) clean.sizeMult = o.sizeMult;
-    if (clean.font || clean.sizeMult !== undefined) roles[r.key] = clean;
+    if (typeof o.weight === 'number') clean.weight = o.weight;
+    if (Object.keys(clean).length > 0) roles[r.key] = clean;
   }
   if (Object.keys(roles).length > 0) out.roles = roles;
   if (t.extraFonts && t.extraFonts.length > 0) out.extraFonts = t.extraFonts;
+  if (typeof t.heroWeight === 'number') out.heroWeight = t.heroWeight;
   return Object.keys(out).length > 0 ? out : null;
 }
 
 function pct(mult: number): string {
   return `${Math.round(mult * 100)}%`;
+}
+
+/** Weight (style) picker for one section — only offers weights the effective
+ *  family actually ships ("Auto" keeps the section's built-in weight). */
+function WeightSelect({
+  value, weights, onChange,
+}: {
+  value?: number;
+  weights: number[];
+  onChange: (w?: number) => void;
+}) {
+  return (
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+      className="w-[104px] shrink-0 px-2 py-1.5 rounded-lg border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+      style={value ? { fontWeight: value } : undefined}
+    >
+      <option value="">Auto</option>
+      {weights.map((w) => (
+        <option key={w} value={w} style={{ fontWeight: w }}>
+          {WEIGHT_LABELS[w] ?? w}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 type Props = {
@@ -162,12 +190,29 @@ export function TypographyPanel({
       : extraFonts;
   }
 
+  /** Weights the effective family of a section actually ships — drives the
+   *  style (weight) picker so we never request a weight the family lacks. */
+  function availableWeights(family: string, roleFamily: 'display' | 'body', picked?: ExtraFont): number[] {
+    if (family) {
+      return curatedFontWeights(family) ?? picked?.weights ?? extraWeights(family) ?? [400, 700];
+    }
+    const def = roleFamily === 'display'
+      ? selectedPairing?.pairing.displayLatin
+      : selectedPairing?.pairing.bodyLatin;
+    return def?.weights ?? [400, 700];
+  }
+
   function setRoleFont(key: TypographyRoleKey, family: string, picked?: ExtraFont) {
     if (family) loadWebsiteFont(family, picked?.weights ?? extraWeights(family));
+    const role = ROLES.find((r) => r.key === key)!;
+    const cur = typo.roles?.[key] ?? {};
+    // A weight the new family doesn't ship falls back to Auto.
+    const avail = availableWeights(family, role.family, picked);
+    const weight = cur.weight !== undefined && avail.includes(cur.weight) ? cur.weight : undefined;
     commit({
       ...typo,
       extraFonts: withExtra(picked),
-      roles: { ...typo.roles, [key]: { ...typo.roles?.[key], font: family } },
+      roles: { ...typo.roles, [key]: { ...cur, font: family, weight } },
     });
   }
 
@@ -178,10 +223,25 @@ export function TypographyPanel({
     });
   }
 
+  function setRoleWeight(key: TypographyRoleKey, weight?: number) {
+    commit({
+      ...typo,
+      roles: { ...typo.roles, [key]: { ...typo.roles?.[key], weight } },
+    });
+  }
+
   function setHeroFont(family: string, picked?: ExtraFont) {
     if (family) loadWebsiteFont(family, picked?.weights ?? extraWeights(family));
     onHeroNameFontChange(family);
-    commit({ ...typo, extraFonts: withExtra(picked) }, family);
+    const avail = availableWeights(family, 'display', picked);
+    const heroWeight = typo.heroWeight !== undefined && avail.includes(typo.heroWeight)
+      ? typo.heroWeight
+      : undefined;
+    commit({ ...typo, extraFonts: withExtra(picked), heroWeight }, family);
+  }
+
+  function setHeroWeight(weight?: number) {
+    commit({ ...typo, heroWeight: weight });
   }
 
   return (
@@ -302,18 +362,30 @@ export function TypographyPanel({
               <span className="text-[11px] font-medium text-fg-primary">Nom du restaurant</span>
               <span
                 className="text-[12px] text-fg-secondary truncate max-w-[45%] text-end"
-                style={{ fontFamily: heroNameFont ? `"${heroNameFont}"` : 'inherit' }}
+                style={{
+                  fontFamily: heroNameFont ? `"${heroNameFont}"` : 'inherit',
+                  fontWeight: typo.heroWeight,
+                }}
                 title={heroSample}
               >
                 {heroSample || 'Nom du restaurant'}
               </span>
             </div>
-            <FontSelect
-              value={heroNameFont}
-              onChange={setHeroFont}
-              extraFonts={extraFonts}
-              defaultLabel="Police du style général"
-            />
+            <div className="flex gap-1.5">
+              <div className="flex-1 min-w-0">
+                <FontSelect
+                  value={heroNameFont}
+                  onChange={setHeroFont}
+                  extraFonts={extraFonts}
+                  defaultLabel="Police du style général"
+                />
+              </div>
+              <WeightSelect
+                value={typo.heroWeight}
+                weights={availableWeights(heroNameFont, 'display')}
+                onChange={setHeroWeight}
+              />
+            </div>
           </div>
 
           {ROLES.map((r) => {
@@ -330,19 +402,31 @@ export function TypographyPanel({
                   <span className="text-[11px] font-medium text-fg-primary">{r.label}</span>
                   <span
                     className="text-[12px] text-fg-secondary truncate max-w-[45%] text-end"
-                    style={{ fontFamily: o.font ? `"${o.font}"` : 'inherit' }}
+                    style={{
+                      fontFamily: o.font ? `"${o.font}"` : 'inherit',
+                      fontWeight: o.weight,
+                    }}
                     dir={r.key === 'itemPrice' ? 'ltr' : undefined}
                     title={r.sample}
                   >
                     {r.sample}
                   </span>
                 </div>
-                <FontSelect
-                  value={o.font ?? ''}
-                  onChange={(family, picked) => setRoleFont(r.key, family, picked)}
-                  extraFonts={extraFonts}
-                  defaultLabel={themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
-                />
+                <div className="flex gap-1.5">
+                  <div className="flex-1 min-w-0">
+                    <FontSelect
+                      value={o.font ?? ''}
+                      onChange={(family, picked) => setRoleFont(r.key, family, picked)}
+                      extraFonts={extraFonts}
+                      defaultLabel={themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
+                    />
+                  </div>
+                  <WeightSelect
+                    value={o.weight}
+                    weights={availableWeights(o.font ?? '', r.family)}
+                    onChange={(w) => setRoleWeight(r.key, w)}
+                  />
+                </div>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[10px] text-fg-tertiary shrink-0">Taille</span>
                   <input

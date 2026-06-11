@@ -67,6 +67,19 @@ const FONT_BY_FAMILY: Record<string, CuratedFont> = Object.fromEntries(
   WEBSITE_FONTS.map((f) => [f.family, f]),
 );
 
+/** Standard type-style names for the numeric font weights (Google Fonts naming). */
+export const WEIGHT_LABELS: Record<number, string> = {
+  100: 'Thin',
+  200: 'ExtraLight',
+  300: 'Light',
+  400: 'Regular',
+  500: 'Medium',
+  600: 'SemiBold',
+  700: 'Bold',
+  800: 'ExtraBold',
+  900: 'Black',
+};
+
 export const CATEGORY_LABELS: Record<FontCategory, string> = {
   sans: 'Sans Serif',
   serif: 'Serif',
@@ -92,6 +105,11 @@ export function fontSupportsHebrew(family: string): boolean {
  *  own Google Fonts addition stored in typography.extraFonts). */
 export function isCuratedFont(family: string): boolean {
   return Boolean(FONT_BY_FAMILY[family]);
+}
+
+/** Declared weights for a curated family, undefined for non-curated ones. */
+export function curatedFontWeights(family: string): number[] | undefined {
+  return FONT_BY_FAMILY[family]?.weights;
 }
 
 /** Sample strings rendered by font previews (pickers + Google Fonts browser). */

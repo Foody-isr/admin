@@ -579,6 +579,8 @@ export interface TypographyRoleOverride {
   font?: string;
   /** Size multiplier relative to the role's base size. 1 = unchanged. */
   sizeMult?: number;
+  /** Font weight (100-900). Absent = keep the section's default weight. */
+  weight?: number;
 }
 
 /** A Google Fonts family the restaurant added to its own library via the
@@ -597,6 +599,8 @@ export interface TypographyOverrides {
   roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
   /** Restaurant-curated Google Fonts additions, offered alongside the curated list. */
   extraFonts?: ExtraFont[];
+  /** Font weight for the hero restaurant name. Absent = hero's default weight. */
+  heroWeight?: number;
 }
 
 // Custom website page metadata. Stored on WebsiteConfig.pages; the page's
