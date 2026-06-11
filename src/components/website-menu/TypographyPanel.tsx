@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type {
   WebsiteConfig, ThemeCatalog, TypographyPairingEntry,
-  TypographyOverrides, TypographyRoleKey,
+  TypographyOverrides, TypographyRoleKey, ExtraFont,
 } from '@/lib/api';
-import { fontsByCategory, CATEGORY_LABELS, loadWebsiteFont } from '@/lib/website-fonts';
+import { fontsByCategory, CATEGORY_LABELS, loadWebsiteFont, isCuratedFont } from '@/lib/website-fonts';
+import { FontLibraryBrowser } from './FontLibraryBrowser';
 
 function loadGoogleFont(family: string, weights: number[]) {
   if (typeof document === 'undefined') return;
@@ -78,6 +79,7 @@ function normalizeTypography(t: TypographyOverrides): TypographyOverrides | null
     if (clean.font || clean.sizeMult !== undefined) roles[r.key] = clean;
   }
   if (Object.keys(roles).length > 0) out.roles = roles;
+  if (t.extraFonts && t.extraFonts.length > 0) out.extraFonts = t.extraFonts;
   return Object.keys(out).length > 0 ? out : null;
 }
 
@@ -95,7 +97,9 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
   const { t } = useI18n();
   const typo: TypographyOverrides = config.typography ?? {};
   const sizeScale = typo.sizeScale ?? 1;
+  const extraFonts = useMemo(() => typo.extraFonts ?? [], [typo.extraFonts]);
   const selectedPairing = catalog.typography_pairings.find((p) => p.id === config.pairing_id);
+  const [browserOpen, setBrowserOpen] = useState(false);
 
   const fontsToLoad = useMemo(() => {
     const set = new Map<string, number[]>();
@@ -112,14 +116,23 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
     fontsToLoad.forEach(([family, weights]) => loadGoogleFont(family, weights));
   }, [fontsToLoad]);
 
+  function extraWeights(family: string): number[] | undefined {
+    return extraFonts.find((f) => f.family === family)?.weights;
+  }
+
   // Load the fonts currently selected per role so the in-panel samples render
   // in the chosen face.
   useEffect(() => {
     for (const r of ROLES) {
       const f = typo.roles?.[r.key]?.font;
-      if (f) loadWebsiteFont(f);
+      if (f) loadWebsiteFont(f, extraFonts.find((x) => x.family === f)?.weights);
     }
-  }, [typo.roles]);
+  }, [typo.roles, extraFonts]);
+
+  // Load the library's fonts so the chip list renders each in its own face.
+  useEffect(() => {
+    for (const f of extraFonts) loadWebsiteFont(f.family, f.weights);
+  }, [extraFonts]);
 
   function commit(next: TypographyOverrides) {
     onUpdate({ typography: normalizeTypography(next) });
@@ -130,11 +143,21 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
   }
 
   function setRole(key: TypographyRoleKey, patch: { font?: string; sizeMult?: number }) {
-    if (patch.font) loadWebsiteFont(patch.font);
+    if (patch.font) loadWebsiteFont(patch.font, extraWeights(patch.font));
     commit({
       ...typo,
       roles: { ...typo.roles, [key]: { ...typo.roles?.[key], ...patch } },
     });
+  }
+
+  function addExtraFont(font: ExtraFont) {
+    if (extraFonts.some((f) => f.family === font.family)) return;
+    loadWebsiteFont(font.family, font.weights);
+    commit({ ...typo, extraFonts: [...extraFonts, font] });
+  }
+
+  function removeExtraFont(family: string) {
+    commit({ ...typo, extraFonts: extraFonts.filter((f) => f.family !== family) });
   }
 
   return (
@@ -215,6 +238,42 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
         )}
       </div>
 
+      {/* Restaurant font library (Google Fonts additions) */}
+      <div className="border-t border-[var(--divider)] pt-4">
+        <label className="block text-xs font-medium text-fg-primary mb-1">Bibliothèque de polices</label>
+        <p className="text-[10px] text-fg-tertiary mb-2 leading-relaxed">
+          Ajoutez des polices Google Fonts pour les retrouver dans tous les choix de polices ci-dessous.
+        </p>
+        {extraFonts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {extraFonts.map((f) => (
+              <span
+                key={f.family}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--divider)] pl-2.5 pr-1.5 py-1 text-[11px] text-fg-primary"
+                style={{ fontFamily: `"${f.family}"` }}
+              >
+                {f.family}
+                <button
+                  type="button"
+                  onClick={() => removeExtraFont(f.family)}
+                  className="text-fg-tertiary hover:text-red-500 leading-none text-sm"
+                  aria-label={`Retirer ${f.family}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setBrowserOpen(true)}
+          className="w-full px-3 py-2 rounded-lg border border-dashed border-[var(--divider)] text-xs text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-colors"
+        >
+          + Parcourir Google Fonts
+        </button>
+      </div>
+
       {/* Per-section (role) font + size */}
       <div className="border-t border-[var(--divider)] pt-4">
         <label className="block text-xs font-medium text-fg-primary mb-1">Polices par section</label>
@@ -252,6 +311,15 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
                   <option value="">
                     {themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
                   </option>
+                  {extraFonts.length > 0 && (
+                    <optgroup label="Mes polices">
+                      {extraFonts.map((f) => (
+                        <option key={f.family} value={f.family}>
+                          {f.family}{f.supportsHebrew ? ' (hébreu)' : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                   {fontsByCategory().map((group) => (
                     <optgroup key={group.category} label={CATEGORY_LABELS[group.category]}>
                       {group.fonts.map((f) => (
@@ -261,6 +329,9 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
                       ))}
                     </optgroup>
                   ))}
+                  {o.font && !isCuratedFont(o.font) && !extraFonts.some((f) => f.family === o.font) && (
+                    <option value={o.font}>{o.font} (retirée de la bibliothèque)</option>
+                  )}
                 </select>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[10px] text-fg-tertiary shrink-0">Taille</span>
@@ -283,6 +354,15 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
           La taille de chaque section se combine avec la taille générale du menu ci-dessus.
         </p>
       </div>
+
+      {browserOpen && (
+        <FontLibraryBrowser
+          extraFonts={extraFonts}
+          onAdd={addExtraFont}
+          onRemove={removeExtraFont}
+          onClose={() => setBrowserOpen(false)}
+        />
+      )}
     </div>
   );
 }

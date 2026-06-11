@@ -5,7 +5,7 @@
 // runtime loading on the public site; this one owns the admin picker UI. Same
 // families, same weights. Custom-uploaded fonts (future) are handled separately.
 
-export type FontCategory = 'sans' | 'serif' | 'display' | 'handwriting';
+export type FontCategory = 'sans' | 'serif' | 'display' | 'handwriting' | 'mono';
 
 export interface CuratedFont {
   family: string;
@@ -72,6 +72,7 @@ export const CATEGORY_LABELS: Record<FontCategory, string> = {
   serif: 'Serif',
   display: 'Display',
   handwriting: 'Manuscrites',
+  mono: 'Monospace',
 };
 
 /** Fonts grouped by category, preserving the declared order — for <optgroup> menus. */
@@ -87,17 +88,25 @@ export function fontSupportsHebrew(family: string): boolean {
   return FONT_BY_FAMILY[family]?.supportsHebrew ?? false;
 }
 
-/** Inject a Google Fonts stylesheet for a curated family (idempotent) — used for
- *  live previews inside the builder. */
-export function loadWebsiteFont(family: string): void {
+/** True when the family is part of the shared curated list (vs a restaurant's
+ *  own Google Fonts addition stored in typography.extraFonts). */
+export function isCuratedFont(family: string): boolean {
+  return Boolean(FONT_BY_FAMILY[family]);
+}
+
+/** Inject a Google Fonts stylesheet for a family (idempotent) — used for live
+ *  previews inside the builder. Curated families load their declared weights;
+ *  for extra fonts pass the weights stored on the restaurant's ExtraFont entry
+ *  (the css2 endpoint 400s when asked for a weight a family lacks). */
+export function loadWebsiteFont(family: string, weights?: number[]): void {
   if (typeof document === 'undefined' || !family) return;
   const def = FONT_BY_FAMILY[family];
   const id = `gf-builder-${family.replace(/\s+/g, '-')}`;
   if (document.getElementById(id)) return;
   const base = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}`;
-  const weights = def?.weights ?? [];
-  const href = weights.length
-    ? `${base}:wght@${[...weights].sort((a, b) => a - b).join(';')}&display=swap`
+  const w = def?.weights ?? weights ?? [];
+  const href = w.length
+    ? `${base}:wght@${[...w].sort((a, b) => a - b).join(';')}&display=swap`
     : `${base}&display=swap`;
   const link = document.createElement('link');
   link.id = id;
