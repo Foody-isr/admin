@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
   listMenus, getRestaurant, deleteGroup, deleteMenu, reorderGroups,
   reorderGroupItems,
@@ -12,6 +12,7 @@ import {
   MenuGroupMembership, BatchFulfillmentConfigResponse, GroupItemScope,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
+import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -69,13 +70,29 @@ export default function MenuDetailPage() {
   const rid = Number(restaurantId);
   const mid = Number(menuId);
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useI18n();
 
-  const [menu, setMenu] = useState<Menu | null>(null);
-  const [allMenus, setAllMenus] = useState<Menu[]>([]);
+  // Last-known data for this carte, kept across route round-trips (e.g.
+  // carte → article editor → back) so the page renders instantly instead of
+  // flashing a full spinner. A silent refetch reconciles on every mount.
+  const cacheKey = `menu.carte.${rid}.${mid}`;
+  const cached = getPageCache<{ menus: Menu[]; items: MenuItem[] }>(cacheKey);
+
+  const [menu, setMenu] = useState<Menu | null>(() => cached?.menus.find((m) => m.id === mid) ?? null);
+  const [allMenus, setAllMenus] = useState<Menu[]>(() => cached?.menus ?? []);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // Full-page spinner only when there is no data at all (true first visit).
+  // Subsequent reloads are silent: the list stays mounted, `syncing` drives a
+  // small inline indicator, and scroll position is never lost.
+  const [loading, setLoading] = useState(() => !cached);
+  const [syncing, setSyncing] = useState(false);
+  const [expanded, setExpanded] = useState<Set<number>>(
+    () => new Set((cached?.menus.find((m) => m.id === mid)?.groups ?? []).map((g) => g.id)),
+  );
+  // Groups start expanded on first load only — reloads must not stomp the
+  // user's collapsed/expanded choices.
+  const expandInitializedRef = useRef(!!cached);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   const [headerDropdownOpen, setHeaderDropdownOpen] = useState(false);
   const [groupDropdown, setGroupDropdown] = useState<number | null>(null);
@@ -107,8 +124,9 @@ export default function MenuDetailPage() {
   const [showInactiveByGroup, setShowInactiveByGroup] = useState<Set<number>>(new Set());
 
   const reload = useCallback(() => {
-    setLoading(true);
+    setSyncing(true);
     Promise.all([listMenus(rid), listAllItems(rid)]).then(async ([menus, items]) => {
+      setPageCache(cacheKey, { menus, items });
       const found = menus.find((m) => m.id === mid);
       setMenu(found ?? null);
       setAllMenus(menus);
@@ -116,8 +134,9 @@ export default function MenuDetailPage() {
       setOrderedGroupIds(null);
       setItemOrderByGroup(new Map());
       setSelectedItemsByGroup(new Map());
-      if (found?.groups) {
+      if (!expandInitializedRef.current && found?.groups) {
         setExpanded(new Set(found.groups.map((g) => g.id)));
+        expandInitializedRef.current = true;
       }
       // Batch-aware extras: only fired when the menu has the rotating flag.
       if (found?.is_weekly_rotating) {
@@ -134,15 +153,47 @@ export default function MenuDetailPage() {
         setBatchConfig(null);
         setMembershipsByGroup(new Map());
       }
-    }).finally(() => setLoading(false));
-  }, [rid, mid]);
+    }).finally(() => { setLoading(false); setSyncing(false); });
+  }, [rid, mid, cacheKey]);
 
   useEffect(() => { reload(); getRestaurant(rid).then(setRestaurant).catch(() => null); }, [reload, rid]);
+
+  // Returning from the article editor: put the user back on the exact row
+  // they left. The offset was saved by openItem() below.
+  useEffect(() => {
+    if (loading) return;
+    requestAnimationFrame(() => restoreScroll(cacheKey));
+  }, [loading, cacheKey]);
+
+  // Apply a local change to one group's items so the UI responds instantly;
+  // the silent reload() that follows reconciles with the server.
+  const patchGroupItems = (groupId: number, updater: (items: MenuItem[]) => MenuItem[]) => {
+    setMenu((prev) => prev ? {
+      ...prev,
+      groups: prev.groups?.map((g) => g.id === groupId ? { ...g, items: updater(g.items ?? []) } : g),
+    } : prev);
+  };
+
+  // Navigate to the article editor with a return address: the editor's Back
+  // and post-save navigation honor `from`, landing the user back on this
+  // carte. The item is stashed so the editor opens populated (same pattern
+  // as the library's openEditor), and the scroll offset is saved for the
+  // restore effect above.
+  const openItem = (item: MenuItem) => {
+    try {
+      sessionStorage.setItem(`foody.menuItem.${item.id}`, JSON.stringify(item));
+    } catch {
+      /* quota or SSR — fall through */
+    }
+    saveScroll(cacheKey);
+    router.push(`/${rid}/menu/items/${item.id}?from=${encodeURIComponent(pathname)}`);
+  };
 
   const handleDeleteGroup = async (group: MenuGroup) => {
     if (!confirm(`${t('delete')} "${group.name}"?`)) return;
     await deleteGroup(rid, group.id);
     setGroupDropdown(null);
+    setMenu((prev) => prev ? { ...prev, groups: prev.groups?.filter((g) => g.id !== group.id) } : prev);
     reload();
   };
 
@@ -362,6 +413,7 @@ export default function MenuDetailPage() {
       await removeItemFromGroup(rid, groupId, itemId);
     }
     clearGroupSelection(groupId);
+    patchGroupItems(groupId, (items) => items.filter((i) => !ids.includes(i.id)));
     reload();
   };
 
@@ -379,6 +431,20 @@ export default function MenuDetailPage() {
     }
     clearGroupSelection(sourceGroupId);
     setMoveModalSourceGroupId(null);
+    // Local patch covers same-menu moves; cross-menu targets reconcile via
+    // the silent reload.
+    const moved = (menu?.groups?.find((g) => g.id === sourceGroupId)?.items ?? []).filter((i) => ids.includes(i.id));
+    setMenu((prev) => prev ? {
+      ...prev,
+      groups: prev.groups?.map((g) => {
+        if (g.id === sourceGroupId) return { ...g, items: (g.items ?? []).filter((i) => !ids.includes(i.id)) };
+        if (g.id === targetGroupId) {
+          const existing = (g.items ?? []).filter((i) => !ids.includes(i.id));
+          return { ...g, items: [...existing, ...moved] };
+        }
+        return g;
+      }),
+    } : prev);
     reload();
   };
 
@@ -419,6 +485,12 @@ export default function MenuDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-[var(--text-primary)]">{menu.name}</h1>
+              {syncing && (
+                <div
+                  className="animate-spin w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full shrink-0"
+                  aria-label={t('loading')}
+                />
+              )}
               <div className="relative">
                 <button
                   onClick={() => setHeaderDropdownOpen(!headerDropdownOpen)}
@@ -599,7 +671,7 @@ export default function MenuDetailPage() {
                   {groupDropdown === group.id && (
                     <div className="absolute right-0 top-9 z-30 w-48 bg-[var(--surface-elevated,var(--surface))] border border-[var(--divider)] rounded-xl shadow-lg overflow-hidden">
                       <button
-                        onClick={(e) => { e.stopPropagation(); setGroupDropdown(null); router.push(`/${rid}/menu/menus/${mid}/group/${group.id}`); }}
+                        onClick={(e) => { e.stopPropagation(); setGroupDropdown(null); saveScroll(cacheKey); router.push(`/${rid}/menu/menus/${mid}/group/${group.id}`); }}
                         className="w-full text-left px-4 py-2.5 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
                       >
                         {t('edit')}
@@ -685,7 +757,11 @@ export default function MenuDetailPage() {
                       onItemDragOver={(e) => handleItemDragOver(e, group.id, item.id)}
                       onItemDrop={(e) => handleItemDrop(e, group.id)}
                       onItemDragEnd={() => setDraggingItem(null)}
-                      onUpdate={reload}
+                      onOpen={() => openItem(item)}
+                      onRemoved={() => {
+                        patchGroupItems(group.id, (items) => items.filter((i) => i.id !== item.id));
+                        reload();
+                      }}
                     />
                   ))}
 
@@ -768,7 +844,15 @@ export default function MenuDetailPage() {
           groupItems={groups.find((g) => g.id === itemPickerGroupId)?.items ?? []}
           addScope={currentBatchScope}
           onClose={() => setItemPickerGroupId(null)}
-          onDone={() => { setItemPickerGroupId(null); reload(); }}
+          onDone={(added, removed) => {
+            const groupId = itemPickerGroupId;
+            setItemPickerGroupId(null);
+            patchGroupItems(groupId, (items) => [
+              ...items.filter((i) => !removed.includes(i.id)),
+              ...allItems.filter((i) => added.includes(i.id) && !items.some((g) => g.id === i.id)),
+            ]);
+            reload();
+          }}
           onCreateNew={() => { setItemPickerGroupId(null); router.push(`/${rid}/menu/items/new`); }}
         />
       )}
@@ -800,7 +884,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, 
    *  window. Used by the carte page when a non-current batch is selected. */
   addScope?: GroupItemScope;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (added: number[], removed: number[]) => void;
   onCreateNew: () => void;
 }) {
   const [search, setSearch] = useState('');
@@ -839,7 +923,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, 
       for (const id of toRemove) {
         await removeItemFromGroup(rid, groupId, id);
       }
-      onDone();
+      onDone(toAdd, toRemove);
     } finally {
       setSaving(false);
     }
@@ -1040,7 +1124,7 @@ function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick 
 // ─── Item Row (CSS Grid) ─────────────────────────────────────────────────────
 
 function ItemRow({
-  item, restaurantName, menu, t, rid, groupId, onUpdate,
+  item, restaurantName, menu, t, rid, groupId, onOpen, onRemoved,
   isSelected, onToggleSelected,
   isDragging, onItemDragStart, onItemDragOver, onItemDrop, onItemDragEnd,
 }: {
@@ -1050,7 +1134,8 @@ function ItemRow({
   t: TFn;
   rid: number;
   groupId: number;
-  onUpdate: () => void;
+  onOpen: () => void;
+  onRemoved: () => void;
   isSelected: boolean;
   onToggleSelected: () => void;
   isDragging: boolean;
@@ -1059,7 +1144,6 @@ function ItemRow({
   onItemDrop: (e: React.DragEvent<HTMLElement>) => void;
   onItemDragEnd: () => void;
 }) {
-  const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -1094,7 +1178,7 @@ function ItemRow({
     setDropdownOpen(false);
     if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
     await removeItemFromGroup(rid, groupId, item.id);
-    onUpdate();
+    onRemoved();
   };
 
   return (
@@ -1105,7 +1189,7 @@ function ItemRow({
       onDrop={onItemDrop}
       onDragEnd={onItemDragEnd}
       className={`relative flex flex-col gap-2 ${GRID_COLS_DESKTOP} md:gap-0 px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer ${isDragging ? 'opacity-40' : ''}`}
-      onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
+      onClick={onOpen}
     >
       {/* Checkbox + drag handle — desktop only; cards collapse on mobile */}
       <div className="hidden md:flex md:items-center md:gap-1.5" onClick={(e) => e.stopPropagation()}>
@@ -1176,7 +1260,7 @@ function ItemRow({
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => { setDropdownOpen(false); router.push(`/${rid}/menu/items/${item.id}`); }}
+                onClick={() => { setDropdownOpen(false); onOpen(); }}
                 className="w-full text-left px-4 py-3 text-sm hover:bg-[var(--surface-subtle)] transition-colors"
               >
                 {t('editItemDetails')}

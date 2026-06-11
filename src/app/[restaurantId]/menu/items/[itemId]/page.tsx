@@ -91,6 +91,15 @@ export default function EditItemPage() {
   const initialTab = remapLegacyTab(searchParams.get('tab')) ?? 'details';
   const [activeTab, setActiveTab] = useState<MenuItemSection>(initialTab);
 
+  // Return address. Pages that open the editor (e.g. a carte detail page)
+  // pass ?from=<path> so Back and post-save land where the user came from.
+  // Only internal absolute paths are honored; everything else falls back to
+  // the item library.
+  const fromParam = searchParams.get('from');
+  const backTarget = fromParam && fromParam.startsWith('/') && !fromParam.startsWith('//')
+    ? fromParam
+    : `/${rid}/menu/items`;
+
   // Form state — seeded from the hydrated MenuItem (if present) so the
   // Details tab shows populated fields immediately on modal open, matching
   // the stock-editor UX. Background fetch below overwrites with fresh values.
@@ -371,7 +380,7 @@ export default function EditItemPage() {
       for (const groupId of removedGroups) {
         await removeItemFromGroup(rid, groupId, iid);
       }
-      router.push(`/${rid}/menu/items`);
+      router.push(backTarget);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save');
     } finally {
@@ -395,7 +404,7 @@ export default function EditItemPage() {
     loadData();
   };
 
-  const goBack = () => router.push(`/${rid}/menu/items`);
+  const goBack = () => router.push(backTarget);
 
   const costSummary = useMemo(() => {
     if (!item || ingredients.length === 0) return null;

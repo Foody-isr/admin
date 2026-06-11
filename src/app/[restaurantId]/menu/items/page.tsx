@@ -8,6 +8,7 @@ import {
   AvailabilityOverride, MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import {
   Search,
   Plus,
@@ -73,6 +74,8 @@ const PAGE_SIZE = 25;
  * The edit page hydrates from this cache on first render so the modal opens
  * populated instantly — mirrors the stock-editor UX which passes StockItem
  * inline without a fetch. Background refresh still runs for freshness.
+ * The scroll offset is saved too, so closing the editor returns the user to
+ * the exact row they left (restored by the effect in the page below).
  */
 function openEditor(item: FlatItem, rid: number, router: ReturnType<typeof useRouter>) {
   try {
@@ -80,6 +83,7 @@ function openEditor(item: FlatItem, rid: number, router: ReturnType<typeof useRo
   } catch {
     /* quota or SSR — fall through */
   }
+  saveScroll(`menu.items.${rid}`);
   router.push(`/${rid}/menu/items/${item.id}`);
 }
 
@@ -89,8 +93,14 @@ export default function ItemLibraryPage() {
   const router = useRouter();
   const { t } = useI18n();
 
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Last-known data, kept across route round-trips (list → editor → back) so
+  // the table renders instantly at the user's place instead of flashing a
+  // full spinner. A silent refetch reconciles on every mount.
+  const CACHE_KEY = `menu.items.${rid}`;
+  const [categories, setCategories] = useState<MenuCategory[]>(
+    () => getPageCache<MenuCategory[]>(CACHE_KEY) ?? [],
+  );
+  const [loading, setLoading] = useState(() => !getPageCache(CACHE_KEY));
 
   // Filter state — persisted to sessionStorage so navigating to the item
   // editor and back doesn't reset the user's search/filter/page. Only live
@@ -228,10 +238,20 @@ export default function ItemLibraryPage() {
   // ─── Data loading ─────────────────────────────────────────────────
 
   const reload = useCallback(() => {
-    return getAllCategories(rid).then(setCategories).finally(() => setLoading(false));
+    return getAllCategories(rid).then((cats) => {
+      setPageCache(`menu.items.${rid}`, cats);
+      setCategories(cats);
+    }).finally(() => setLoading(false));
   }, [rid]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Returning from the item editor: put the user back on the exact row they
+  // left. The offset was saved by openEditor() above.
+  useEffect(() => {
+    if (loading) return;
+    requestAnimationFrame(() => restoreScroll(CACHE_KEY));
+  }, [loading, CACHE_KEY]);
 
   // ─── Derived data ─────────────────────────────────────────────────
 
@@ -963,6 +983,7 @@ export default function ItemLibraryPage() {
                                     // before publishing. The clone landed
                                     // inactive; saving from the editor
                                     // (with isActive toggled on) publishes it.
+                                    saveScroll(CACHE_KEY);
                                     router.push(`/${rid}/menu/items/${created.id}`);
                                   } catch (err) {
                                     alert(err instanceof Error ? err.message : 'Failed to duplicate');
@@ -989,7 +1010,10 @@ export default function ItemLibraryPage() {
                           <tr
                             key={`${item.id}-v-${v.id}`}
                             className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#0f0f0f]"
-                            onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=details`)}
+                            onClick={() => {
+                              saveScroll(CACHE_KEY);
+                              router.push(`/${rid}/menu/items/${item.id}?tab=details`);
+                            }}
                           >
                             <td className="p-3" />
                             <td className="p-3 pl-16">
