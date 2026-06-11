@@ -9,9 +9,9 @@ type Mode = 'pickup' | 'delivery' | 'dine_in';
 // same item set the customer page falls back to when nothing is configured.
 const DEFAULT_INFO: OrderPageInfo = {
   bar: {
-    pickup: ['batch_week', 'hours', 'min_order', 'fulfilment_time'],
-    delivery: ['batch_week', 'hours', 'min_order', 'fulfilment_time'],
-    dine_in: ['batch_week', 'hours', 'wifi'],
+    pickup: ['batch_week', 'hours', 'min_order', 'fulfilment_time', 'more'],
+    delivery: ['batch_week', 'hours', 'min_order', 'fulfilment_time', 'more'],
+    dine_in: ['batch_week', 'hours', 'wifi', 'more'],
   },
   modal: ['about', 'hours', 'address', 'contact', 'social'],
   modal_text: '',
@@ -33,6 +33,10 @@ const SOCIAL_BAR: { key: OrderPageBarItem; label: string }[] = [
   { key: 'facebook', label: 'Facebook' },
   { key: 'tiktok', label: 'TikTok' },
 ];
+// The "Plus" button (opens the modal) — offered for every mode, shown last.
+const MORE_BAR: { key: OrderPageBarItem; label: string }[] = [
+  { key: 'more', label: 'Bouton « Plus » (ouvre la fenêtre)' },
+];
 // Only the items that actually render for each mode are offered.
 const BAR_ITEMS: Record<Mode, { key: OrderPageBarItem; label: string }[]> = {
   pickup: [
@@ -40,14 +44,16 @@ const BAR_ITEMS: Record<Mode, { key: OrderPageBarItem; label: string }[]> = {
     { key: 'min_order', label: 'Commande minimum' },
     { key: 'fulfilment_time', label: 'Délai de préparation' },
     ...SOCIAL_BAR,
+    ...MORE_BAR,
   ],
   delivery: [
     ...SHARED_BAR,
     { key: 'min_order', label: 'Commande minimum' },
     { key: 'fulfilment_time', label: 'Délai de livraison' },
     ...SOCIAL_BAR,
+    ...MORE_BAR,
   ],
-  dine_in: [...SHARED_BAR, { key: 'wifi', label: 'WiFi' }, ...SOCIAL_BAR],
+  dine_in: [...SHARED_BAR, { key: 'wifi', label: 'WiFi' }, ...SOCIAL_BAR, ...MORE_BAR],
 };
 
 const MODAL_SECTIONS: { key: OrderPageModalSection; label: string }[] = [

@@ -502,7 +502,7 @@ export interface SubscriptionDetail extends Subscription {
 // the OrderPageInfo type in foodyweb. Stored snake_case.
 export type OrderPageBarItem =
   | 'batch_week' | 'hours' | 'min_order' | 'fulfilment_time' | 'wifi'
-  | 'instagram' | 'whatsapp' | 'facebook' | 'tiktok';
+  | 'instagram' | 'whatsapp' | 'facebook' | 'tiktok' | 'more';
 export type OrderPageModalSection =
   | 'about' | 'hours' | 'address' | 'contact' | 'social' | 'custom_text';
 export interface OrderPageInfo {
