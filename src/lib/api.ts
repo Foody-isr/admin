@@ -2468,12 +2468,11 @@ export interface MenuExtraction {
   categories: ExtractedCategory[];
 }
 
-export async function importMenuAI(restaurantId: number, file: File, lang?: string): Promise<MenuExtraction> {
+export async function importMenuAI(restaurantId: number, file: File): Promise<MenuExtraction> {
   const token = getToken();
   const formData = new FormData();
   formData.append('file', file);
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  if (lang) params.set('lang', lang);
   const res = await fetch(`${API_URL}/api/v1/menu/import?${params}`, {
     method: 'POST',
     headers: {
@@ -2539,10 +2538,10 @@ export interface RichExtraction {
   restaurant_cover_url?: string;
 }
 
-export async function importMenuFromWolt(restaurantId: number, url: string, lang?: string): Promise<RichExtraction> {
+export async function importMenuFromWolt(restaurantId: number, url: string): Promise<RichExtraction> {
   return apiFetch<RichExtraction>(
     `/api/v1/menu/import/url?restaurant_id=${restaurantId}`, restaurantId,
-    { method: 'POST', body: JSON.stringify({ url, lang: lang ?? '' }) }
+    { method: 'POST', body: JSON.stringify({ url }) }
   );
 }
 
@@ -2551,6 +2550,8 @@ export interface ConfirmMenuImportOptions {
   /** Also create a carte whose groups mirror the imported categories. */
   createCarte?: boolean;
   carteName?: string;
+  /** Fill en/he/fr translations in the background after the import. */
+  autoTranslate?: boolean;
 }
 
 export interface ConfirmMenuImportResult {
@@ -2573,6 +2574,7 @@ export async function confirmMenuImport(
         import_branding: options.importBranding ?? false,
         create_carte: options.createCarte ?? false,
         carte_name: options.carteName ?? '',
+        auto_translate: options.autoTranslate ?? false,
       }),
     }
   );

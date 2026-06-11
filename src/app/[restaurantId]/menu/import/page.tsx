@@ -9,20 +9,13 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { SparklesIcon, LinkIcon, ImageIcon } from 'lucide-react';
 
-type LangMode = 'original' | 'translate';
 type ImportSource = 'photo' | 'wolt';
-
-const LOCALE_NAME_KEY: Record<string, string> = {
-  en: 'languageEnglish',
-  fr: 'languageFrench',
-  he: 'languageHebrew',
-};
 
 export default function MenuImportPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const router = useRouter();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
   const [source, setSource] = useState<ImportSource>('photo');
   const [step, setStep] = useState<'upload' | 'review'>('upload');
@@ -30,22 +23,18 @@ export default function MenuImportPage() {
   const [error, setError] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [langMode, setLangMode] = useState<LangMode>('original');
   const [woltUrl, setWoltUrl] = useState('');
   const [importBranding, setImportBranding] = useState(false);
   const [createCarte, setCreateCarte] = useState(true);
   const [carteName, setCarteName] = useState('');
+  const [autoTranslate, setAutoTranslate] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const localeName = t(LOCALE_NAME_KEY[locale] ?? 'languageEnglish');
-  const translateLabel = t('importLanguageTranslate').replace('{lang}', localeName);
-  const langArg = langMode === 'translate' ? locale : undefined;
 
   const handleFile = async (file: File) => {
     setError('');
     setExtracting(true);
     try {
-      const result = await importMenuAI(rid, file, langArg);
+      const result = await importMenuAI(rid, file);
       setExtraction(result);
       setStep('review');
     } catch (err) {
@@ -60,7 +49,7 @@ export default function MenuImportPage() {
     setError('');
     setExtracting(true);
     try {
-      const result = await importMenuFromWolt(rid, woltUrl.trim(), langArg);
+      const result = await importMenuFromWolt(rid, woltUrl.trim());
       setExtraction(result);
       setStep('review');
     } catch {
@@ -78,6 +67,7 @@ export default function MenuImportPage() {
         importBranding,
         createCarte,
         carteName: carteName.trim() || t('importCarteNameDefault'),
+        autoTranslate,
       });
       if (createCarte && result.carteId) {
         router.push(`/${restaurantId}/menu/menus/${result.carteId}`);
@@ -94,10 +84,10 @@ export default function MenuImportPage() {
   const resetToUpload = () => {
     setStep('upload');
     setExtraction(null);
-    setLangMode('original');
     setImportBranding(false);
     setCreateCarte(true);
     setCarteName('');
+    setAutoTranslate(true);
   };
 
   const totalItems = extraction?.categories.reduce((sum, c) => sum + c.items.length, 0) ?? 0;
@@ -134,35 +124,6 @@ export default function MenuImportPage() {
           <p className="text-sm text-fg-secondary">
             {source === 'photo' ? t('uploadMenuAI') : t('importWoltHint')}
           </p>
-
-          {/* Language choice (shared by both sources) */}
-          <fieldset className="space-y-2" disabled={extracting}>
-            <legend className="text-sm font-medium text-fg-primary mb-2">
-              {t('importLanguageLabel')}
-            </legend>
-            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
-              <input
-                type="radio"
-                name="importLangMode"
-                value="original"
-                checked={langMode === 'original'}
-                onChange={() => setLangMode('original')}
-                className="accent-brand-500"
-              />
-              {t('importLanguageOriginal')}
-            </label>
-            <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
-              <input
-                type="radio"
-                name="importLangMode"
-                value="translate"
-                checked={langMode === 'translate'}
-                onChange={() => setLangMode('translate')}
-                className="accent-brand-500"
-              />
-              {translateLabel}
-            </label>
-          </fieldset>
 
           {source === 'photo' ? (
             <div
@@ -296,6 +257,16 @@ export default function MenuImportPage() {
               />
             )}
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoTranslate}
+              onChange={(e) => setAutoTranslate(e.target.checked)}
+              className="accent-brand-500"
+            />
+            {t('importAutoTranslateLabel')}
+          </label>
 
           {hasBranding && (
             <label className="flex items-center gap-2 text-sm text-fg-primary cursor-pointer">
