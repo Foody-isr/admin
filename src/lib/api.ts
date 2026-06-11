@@ -581,10 +581,22 @@ export interface TypographyRoleOverride {
   sizeMult?: number;
 }
 
+/** A Google Fonts family the restaurant added to its own library via the
+ *  font browser. Weights are stored so foodyweb can load the real axes
+ *  (the css2 fallback for unknown families only fetches weight 400). */
+export interface ExtraFont {
+  family: string;
+  category: 'sans' | 'serif' | 'display' | 'handwriting' | 'mono';
+  weights: number[];
+  supportsHebrew: boolean;
+}
+
 export interface TypographyOverrides {
   /** Overall menu text size multiplier. 1 = unchanged. */
   sizeScale?: number;
   roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
+  /** Restaurant-curated Google Fonts additions, offered alongside the curated list. */
+  extraFonts?: ExtraFont[];
 }
 
 // Custom website page metadata. Stored on WebsiteConfig.pages; the page's
