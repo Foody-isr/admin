@@ -95,6 +95,7 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
   const { t } = useI18n();
   const typo: TypographyOverrides = config.typography ?? {};
   const sizeScale = typo.sizeScale ?? 1;
+  const selectedPairing = catalog.typography_pairings.find((p) => p.id === config.pairing_id);
 
   const fontsToLoad = useMemo(() => {
     const set = new Map<string, number[]>();
@@ -216,11 +217,20 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
 
       {/* Per-section (role) font + size */}
       <div className="border-t border-[var(--divider)] pt-4">
-        <label className="block text-xs font-medium text-fg-primary mb-2">Polices par section</label>
+        <label className="block text-xs font-medium text-fg-primary mb-1">Polices par section</label>
+        <p className="text-[10px] text-fg-tertiary mb-2 leading-relaxed">
+          Optionnel : remplace la police du thème pour certaines parties du menu uniquement.
+          Le reste du site continue d&apos;utiliser l&apos;association choisie ci-dessus.
+        </p>
         <div className="flex flex-col gap-3">
           {ROLES.map((r) => {
             const o = typo.roles?.[r.key] ?? {};
             const roleMult = o.sizeMult ?? 1;
+            const themeFont = selectedPairing
+              ? (r.family === 'display'
+                  ? selectedPairing.pairing.displayLatin.family
+                  : selectedPairing.pairing.bodyLatin.family)
+              : null;
             return (
               <div key={r.key} className="rounded-lg border border-[var(--divider)] p-2.5">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -239,7 +249,9 @@ export function TypographyPanel({ config, catalog, onUpdate }: Props) {
                   onChange={(e) => setRole(r.key, { font: e.target.value })}
                   className="w-full px-2.5 py-1.5 rounded-lg border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                 >
-                  <option value="">Police du thème (par défaut)</option>
+                  <option value="">
+                    {themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
+                  </option>
                   {fontsByCategory().map((group) => (
                     <optgroup key={group.category} label={CATEGORY_LABELS[group.category]}>
                       {group.fonts.map((f) => (
