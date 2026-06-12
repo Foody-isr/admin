@@ -523,6 +523,8 @@ export interface WebsiteConfig {
   pairing_id: string;
   brand_color: string | null;
   layout_default: 'compact' | 'magazine';
+  /** Initial menu layout on phones. Empty = follow layout_default. */
+  layout_default_mobile: '' | 'compact' | 'magazine';
   // Landing-page concerns
   hero_layout: string;
   welcome_text: string;
