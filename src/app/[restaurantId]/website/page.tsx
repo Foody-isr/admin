@@ -35,6 +35,7 @@ type PreviewMessage = {
   pairingId: string;
   brandColor: string | null;
   layoutDefault: 'compact' | 'magazine';
+  layoutDefaultMobile: '' | 'compact' | 'magazine';
   logoSize: number;
   hideNavbarName: boolean;
   hideHeroLogo: boolean;
@@ -283,6 +284,7 @@ export default function WebsitePage() {
       pairingId: next.pairing_id,
       brandColor: next.brand_color,
       layoutDefault: next.layout_default,
+      layoutDefaultMobile: next.layout_default_mobile || '',
       logoSize: next.logo_size,
       hideNavbarName: next.hide_navbar_name,
       hideHeroLogo: next.hide_hero_logo,
@@ -432,6 +434,7 @@ export default function WebsitePage() {
           pairing_id: stateConfig.pairing_id || 'modern-sans',
           brand_color: stateConfig.brand_color ?? null,
           layout_default: stateConfig.layout_default || 'magazine',
+          layout_default_mobile: stateConfig.layout_default_mobile || '',
           hero_layout: stateConfig.hero_layout || 'standard',
           welcome_text: stateConfig.welcome_text || '',
           tagline: stateConfig.tagline || '',
@@ -537,6 +540,7 @@ export default function WebsitePage() {
         pairing_id: config?.pairing_id || 'modern-sans',
         brand_color: config?.brand_color ?? null,
         layout_default: config?.layout_default || 'magazine',
+        layout_default_mobile: config?.layout_default_mobile || '',
         hero_layout: config?.hero_layout || 'standard',
         welcome_text: config?.welcome_text || '',
         tagline,
@@ -990,9 +994,11 @@ export default function WebsitePage() {
               onToggleVisibility={(id, visible) => handleUpdateSection(id, { is_visible: visible })}
               onAddSection={() => setShowAddModal(true)}
               menuLayout={config?.layout_default || 'magazine'}
+              menuLayoutMobile={config?.layout_default_mobile || ''}
               categoryBannerStyle={categoryBannerStyle}
               categoryBannerOverlay={categoryBannerOverlay}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
+              onMenuLayoutMobileChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default_mobile: v as '' | 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
               onCategoryBannerOverlayChange={setCategoryBannerOverlay}
               restaurantId={restaurantId}
@@ -1221,7 +1227,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, categoryBannerStyle, categoryBannerOverlay, onMenuLayoutChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, categoryBannerStyle, categoryBannerOverlay, onMenuLayoutChange, onMenuLayoutMobileChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1239,9 +1245,11 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   onToggleVisibility: (id: number, visible: boolean) => void;
   onAddSection: () => void;
   menuLayout: string;
+  menuLayoutMobile: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
   onMenuLayoutChange: (v: string) => void;
+  onMenuLayoutMobileChange: (v: string) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
   restaurantId: number;
@@ -1340,28 +1348,42 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
           />
           <div className="pt-2 border-t border-divider">
             <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Mise en page du menu</span>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { v: 'magazine', label: 'Magazine', hint: 'Grandes vignettes' },
-                { v: 'compact', label: 'Compact', hint: 'Liste dense' },
-              ] as const).map((opt) => {
-                const active = menuLayout === opt.v;
-                return (
-                  <button
-                    key={opt.v}
-                    onClick={() => onMenuLayoutChange(opt.v)}
-                    className={`text-left px-3 py-2 rounded-lg border text-sm transition ${
-                      active
-                        ? 'border-brand-500 bg-brand-500/5 text-fg-primary'
-                        : 'border-divider text-fg-secondary hover:border-fg-secondary'
-                    }`}
-                  >
-                    <div className="font-medium text-[13px]">{opt.label}</div>
-                    <div className="text-[10px] opacity-70 mt-0.5">{opt.hint}</div>
-                  </button>
-                );
-              })}
-            </div>
+            {/* One picker per device. The choice is the layout customers land
+                on; they can still switch via the toggle on the site. Mobile
+                follows the desktop choice until set explicitly. */}
+            {([
+              { device: 'desktop', label: 'Ordinateur', value: menuLayout, onChange: onMenuLayoutChange },
+              { device: 'mobile', label: 'Mobile', value: menuLayoutMobile || menuLayout, onChange: onMenuLayoutMobileChange },
+            ] as const).map((row) => (
+              <div key={row.device} className="mb-2 last:mb-0">
+                <span className="block text-[11px] text-fg-secondary mb-1">{row.label}</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { v: 'magazine', label: 'Magazine', hint: 'Grandes vignettes' },
+                    { v: 'compact', label: 'Compact', hint: 'Liste dense' },
+                  ] as const).map((opt) => {
+                    const active = row.value === opt.v;
+                    return (
+                      <button
+                        key={opt.v}
+                        onClick={() => row.onChange(opt.v)}
+                        className={`text-left px-3 py-2 rounded-lg border text-sm transition ${
+                          active
+                            ? 'border-brand-500 bg-brand-500/5 text-fg-primary'
+                            : 'border-divider text-fg-secondary hover:border-fg-secondary'
+                        }`}
+                      >
+                        <div className="font-medium text-[13px]">{opt.label}</div>
+                        <div className="text-[10px] opacity-70 mt-0.5">{opt.hint}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <p className="text-[10px] text-fg-secondary opacity-70 mt-1.5 leading-relaxed">
+              Affichage initial pour vos clients. Ils peuvent toujours changer la vue depuis le menu.
+            </p>
           </div>
 
           <div>
