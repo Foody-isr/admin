@@ -119,6 +119,11 @@ export interface RestaurantSettings {
   //   "required" — ask phone + send a code, customer types it back (default)
   //   "skip"     — skip the code entirely, phone is optional (notifications only)
   otp_mode?: 'required' | 'skip';
+  // AI ordering assistant (guest-facing concierge on foodyweb)
+  ai_assistant_enabled?: boolean;
+  ai_assistant_upsell?: boolean;
+  ai_assistant_auto_order?: boolean;
+  ai_assistant_guidance?: string;
 }
 
 export interface MenuAvailabilityHour {
