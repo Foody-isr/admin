@@ -106,6 +106,7 @@ export default function EditItemPage() {
   const [name, setName] = useState(() => item?.name ?? '');
   const [price, setPrice] = useState<number>(() => item?.price ?? 0);
   const [description, setDescription] = useState(() => item?.description ?? '');
+  const [aiContext, setAiContext] = useState(() => item?.ai_context ?? '');
   const [portion, setPortion] = useState(() => item?.portion ?? '');
   const [translations, setTranslations] = useState<TranslationMap>(() => item?.translations ?? {});
   // The restaurant's source language. Loaded with the categories below.
@@ -201,6 +202,7 @@ export default function EditItemPage() {
           setName(found.name);
           setPrice(found.price ?? 0);
           setDescription(found.description ?? '');
+          setAiContext(found.ai_context ?? '');
           setPortion(found.portion ?? '');
           setTranslations(found.translations ?? {});
           setCategoryId(found.category_id);
@@ -350,6 +352,7 @@ export default function EditItemPage() {
       const updatePayload: Record<string, unknown> = {
         name: name.trim(),
         description,
+        ai_context: aiContext,
         portion,
         price: effectivePrice,
         is_active: isActive,
@@ -581,6 +584,8 @@ export default function EditItemPage() {
                   setPrice={setPrice}
                   description={description}
                   setDescription={setDescription}
+                  aiContext={aiContext}
+                  setAiContext={setAiContext}
                   portion={portion}
                   setPortion={setPortion}
                   categoryId={categoryId}

@@ -355,6 +355,8 @@ export interface MenuItem {
   category_id: number;
   name: string;
   description: string;
+  /** Private staff guidance for the AI ordering assistant (never shown to guests). */
+  ai_context?: string;
   /** Short serving-size label shown under the title when the item has no size
    *  options (e.g. "par personne"). Translatable via the translations map. */
   portion?: string;

@@ -58,6 +58,7 @@ export default function NewItemPage() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState<number>(0);
   const [description, setDescription] = useState('');
+  const [aiContext, setAiContext] = useState('');
   const [portion, setPortion] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
@@ -199,6 +200,7 @@ export default function NewItemPage() {
       const createPayload: Parameters<typeof createMenuItem>[1] = {
         name: name.trim(),
         description,
+        ai_context: aiContext,
         portion,
         price: effectivePrice,
         is_active: isActive,
@@ -446,6 +448,8 @@ export default function NewItemPage() {
                 setPrice={setPrice}
                 description={description}
                 setDescription={setDescription}
+                aiContext={aiContext}
+                setAiContext={setAiContext}
                 portion={portion}
                 setPortion={setPortion}
                 categoryId={categoryId}
