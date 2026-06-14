@@ -33,6 +33,9 @@ export default function AIAssistantSettingsPage() {
   const [upsell, setUpsell] = useState(true);
   const [autoOrder, setAutoOrder] = useState(true);
   const [guidance, setGuidance] = useState('');
+  const [aliases, setAliases] = useState('');
+  const [pairings, setPairings] = useState('');
+  const [faq, setFaq] = useState('');
   const [trigger, setTrigger] = useState<TriggerMode>('manual');
   const [triggerDelay, setTriggerDelay] = useState(45);
 
@@ -43,6 +46,9 @@ export default function AIAssistantSettingsPage() {
         setUpsell(s.ai_assistant_upsell ?? true);
         setAutoOrder(s.ai_assistant_auto_order ?? true);
         setGuidance(s.ai_assistant_guidance ?? '');
+        setAliases(s.ai_assistant_aliases ?? '');
+        setPairings(s.ai_assistant_pairings ?? '');
+        setFaq(s.ai_assistant_faq ?? '');
         setTrigger((s.ai_assistant_trigger as TriggerMode) ?? 'manual');
         setTriggerDelay(s.ai_assistant_trigger_delay ?? 45);
       })
@@ -57,6 +63,9 @@ export default function AIAssistantSettingsPage() {
         ai_assistant_upsell: upsell,
         ai_assistant_auto_order: autoOrder,
         ai_assistant_guidance: guidance,
+        ai_assistant_aliases: aliases,
+        ai_assistant_pairings: pairings,
+        ai_assistant_faq: faq,
         ai_assistant_trigger: trigger,
         ai_assistant_trigger_delay: triggerDelay,
       });
@@ -142,6 +151,78 @@ export default function AIAssistantSettingsPage() {
               placeholder={
                 t('aiGuidancePlaceholder') ||
                 'e.g. Prioritise our signature pizzas and always suggest a drink.'
+              }
+            />
+          </Field>
+        </div>
+      </Section>
+
+      <Section
+        title={t('aiKnowledge') || 'Knowledge from past conversations'}
+        desc={
+          t('aiKnowledgeDesc') ||
+          'Teach the assistant your restaurant’s specifics — ideal for insights mined from years of past ordering chats (e.g. WhatsApp). The more you add here, the more accurate and relevant it gets.'
+        }
+      >
+        <div className={enabled ? '' : 'opacity-50 pointer-events-none'}>
+          <Field
+            grow
+            label={t('aiAliases') || 'What customers call things'}
+            hint={
+              t('aiAliasesHint') ||
+              'Map the names, slang, misspellings and other-language terms customers use to your real menu items — one per line, e.g. “the spicy chicken thing = Buffalo Wings”.'
+            }
+          >
+            <Textarea
+              rows={4}
+              value={aliases}
+              maxLength={4000}
+              onChange={(e) => setAliases(e.target.value)}
+              placeholder={
+                t('aiAliasesPlaceholder') ||
+                'shawarma plate = Shawarma Laffa\ncoke / cola / coca = Coca-Cola'
+              }
+            />
+          </Field>
+
+          <Field
+            grow
+            label={t('aiPairings') || 'Popular pairings'}
+            hint={
+              t('aiPairingsHint') ||
+              'Dishes commonly ordered together, so the assistant can suggest relevant add-ons. One per line.'
+            }
+            className="mt-[var(--s-5)]"
+          >
+            <Textarea
+              rows={4}
+              value={pairings}
+              maxLength={4000}
+              onChange={(e) => setPairings(e.target.value)}
+              placeholder={
+                t('aiPairingsPlaceholder') ||
+                'Burger → fries + a soft drink\nHummus → fresh pita, Israeli salad'
+              }
+            />
+          </Field>
+
+          <Field
+            grow
+            label={t('aiFaq') || 'Frequent questions & answers'}
+            hint={
+              t('aiFaqHint') ||
+              'Recurring customer questions and the answers the assistant should give (hours, delivery zones, allergens, substitutions…). One Q/A per line.'
+            }
+            className="mt-[var(--s-5)]"
+          >
+            <Textarea
+              rows={5}
+              value={faq}
+              maxLength={6000}
+              onChange={(e) => setFaq(e.target.value)}
+              placeholder={
+                t('aiFaqPlaceholder') ||
+                'Do you deliver to Ramat Gan? — Yes, orders over ₪80.\nIs the falafel gluten-free? — Yes, fried separately.'
               }
             />
           </Field>

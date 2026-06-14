@@ -124,6 +124,11 @@ export interface RestaurantSettings {
   ai_assistant_upsell?: boolean;
   ai_assistant_auto_order?: boolean;
   ai_assistant_guidance?: string;
+  // Restaurant-specific knowledge (e.g. mined from past WhatsApp orders) that
+  // sharpens the assistant: name synonyms, popular pairings, and FAQ answers.
+  ai_assistant_aliases?: string;
+  ai_assistant_pairings?: string;
+  ai_assistant_faq?: string;
   // How the assistant proactively offers help: only when tapped, immediately
   // on load, or after a delay (if the cart is still empty).
   ai_assistant_trigger?: 'manual' | 'immediate' | 'delay';
