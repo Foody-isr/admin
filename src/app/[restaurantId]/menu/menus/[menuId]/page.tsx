@@ -26,9 +26,14 @@ import {
   SearchIcon,
   GripVerticalIcon,
   MonitorSmartphoneIcon,
+  ExternalLinkIcon,
 } from 'lucide-react';
 
 type TFn = (k: string) => string;
+
+// Guest-facing foodyweb base URL — used to open the live order page for a
+// future-week preview. Matches the env contract used by the website editor.
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
 
 // Grid column template — applied at md+ only. On mobile each row collapses to a
 // stacked card with inline labels (see ItemRow below).
@@ -573,6 +578,25 @@ export default function MenuDetailPage() {
               selectedIndex={selectedCycleIndex}
               onChange={setSelectedCycleIndex}
             />
+          )}
+          {/* Preview the selected série on the live guest site (view-only). Opens
+              foodyweb with ?preview_date pinned to the cycle's fulfilment day, so
+              the operator sees exactly what customers will see that week. */}
+          {isRotating && selectedDay && restaurant?.slug && (
+            <button
+              className="btn-secondary rounded-full flex items-center gap-2"
+              onClick={() =>
+                window.open(
+                  `${WEB_URL}/r/${restaurant.slug}/order?preview_date=${selectedDay}`,
+                  '_blank',
+                  'noopener'
+                )
+              }
+              title={t('previewWeekHint') || 'Open the guest order page for this série (view-only)'}
+            >
+              <ExternalLinkIcon className="w-4 h-4" />
+              {t('previewOnWeb') || 'Preview on web'}
+            </button>
           )}
           {isRotating && cycles.length === 0 && (
             <button
