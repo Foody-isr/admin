@@ -905,6 +905,7 @@ export default function MenuDetailPage() {
           rid={rid}
           groupId={itemPickerGroupId}
           allItems={allItems}
+          allCats={allCats}
           groupItems={groups.find((g) => g.id === itemPickerGroupId)?.items ?? []}
           addScope={currentBatchScope}
           onClose={() => setItemPickerGroupId(null)}
@@ -959,11 +960,12 @@ export default function MenuDetailPage() {
 
 // ─── Add/Remove Items Modal ──────────────────────────────────────────────────
 
-function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, onClose, onDone, onCreateNew }: {
+function AddRemoveItemsModal({ t, rid, groupId, allItems, allCats, groupItems, addScope, onClose, onDone, onCreateNew }: {
   t: TFn;
   rid: number;
   groupId: number;
   allItems: MenuItem[];
+  allCats: MenuCategory[];
   groupItems: MenuItem[];
   /** When set (non-empty), newly added items are scoped to the given date
    *  window. Used by the carte page when a non-current batch is selected. */
@@ -973,16 +975,26 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, 
   onCreateNew: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [catFilter, setCatFilter] = useState<number | null>(null); // null = all categories
   const [saving, setSaving] = useState(false);
 
   // Track which items are checked — initialize with items already in the group
   const originalIds = useMemo(() => new Set(groupItems.map((i) => i.id)), [groupItems]);
   const [checked, setChecked] = useState<Set<number>>(() => new Set(groupItems.map((i) => i.id)));
 
+  // Categories that actually hold items, for the filter chips.
+  const categories = useMemo(
+    () => allCats.filter((c) => (c.items?.length ?? 0) > 0),
+    [allCats],
+  );
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return allItems.filter((item) => !q || item.name.toLowerCase().includes(q));
-  }, [allItems, search]);
+    return allItems.filter((item) =>
+      (catFilter == null || item.category_id === catFilter) &&
+      (!q || item.name.toLowerCase().includes(q))
+    );
+  }, [allItems, catFilter, search]);
 
   const selectedCount = checked.size;
 
@@ -1040,7 +1052,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, 
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4">{t('addOrRemoveItems')}</h2>
 
           {/* Search */}
-          <div className="relative">
+          <div className="relative mb-4">
             <SearchIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               className="input w-full pl-12 rounded-full"
@@ -1048,6 +1060,25 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, groupItems, addScope, 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+          </div>
+
+          {/* Category filter chips */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            <button
+              onClick={() => setCatFilter(null)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter == null ? 'bg-[var(--text-primary)] text-[var(--surface)] border-[var(--text-primary)]' : 'border-[var(--divider)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'}`}
+            >
+              {t('allCategoriesFilter')}
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCatFilter(c.id)}
+                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${catFilter === c.id ? 'bg-[var(--text-primary)] text-[var(--surface)] border-[var(--text-primary)]' : 'border-[var(--divider)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'}`}
+              >
+                {c.name}
+              </button>
+            ))}
           </div>
         </div>
 
