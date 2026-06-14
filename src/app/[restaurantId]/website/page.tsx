@@ -44,7 +44,7 @@ type PreviewMessage = {
   faviconURL: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
-  categoryBannerFit: 'cover' | 'contain';
+  categoryBannerFit: 'cover' | 'contain' | 'natural';
   // Order-page info — posted in foodyweb shape (modalText, not modal_text).
   orderPageInfo: { bar: OrderPageInfo['bar']; modal: OrderPageInfo['modal']; modalText: string } | null;
   direction: 'ltr' | 'rtl';
@@ -242,7 +242,7 @@ export default function WebsitePage() {
   const [heroNameFont, setHeroNameFont] = useState<string>('');
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
   const [categoryBannerOverlay, setCategoryBannerOverlay] = useState<number>(40);
-  const [categoryBannerFit, setCategoryBannerFit] = useState<'cover' | 'contain'>('cover');
+  const [categoryBannerFit, setCategoryBannerFit] = useState<'cover' | 'contain' | 'natural'>('cover');
   const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
@@ -389,7 +389,7 @@ export default function WebsitePage() {
     setHeroNameFont(stateConfig.hero_name_font || '');
     setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
     setCategoryBannerOverlay(stateConfig.category_banner_overlay ?? 40);
-    setCategoryBannerFit(stateConfig.category_banner_fit === 'contain' ? 'contain' : 'cover');
+    setCategoryBannerFit(stateConfig.category_banner_fit === 'contain' || stateConfig.category_banner_fit === 'natural' ? stateConfig.category_banner_fit : 'cover');
     setPages(Array.isArray(stateConfig.pages) ? stateConfig.pages : []);
     const landingOn = stateConfig.landing_enabled ?? true;
     setLandingEnabled(landingOn);
@@ -463,7 +463,7 @@ export default function WebsitePage() {
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           category_banner_overlay: stateConfig.category_banner_overlay ?? 40,
-          category_banner_fit: stateConfig.category_banner_fit === 'contain' ? 'contain' : 'cover',
+          category_banner_fit: stateConfig.category_banner_fit === 'contain' || stateConfig.category_banner_fit === 'natural' ? stateConfig.category_banner_fit : 'cover',
           typography: stateConfig.typography ?? null,
           pages: Array.isArray(stateConfig.pages) ? stateConfig.pages : [],
           landing_enabled: stateConfig.landing_enabled ?? true,
@@ -1256,12 +1256,12 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   menuLayoutMobile: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
-  categoryBannerFit: 'cover' | 'contain';
+  categoryBannerFit: 'cover' | 'contain' | 'natural';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
-  onCategoryBannerFitChange: (v: 'cover' | 'contain') => void;
+  onCategoryBannerFitChange: (v: 'cover' | 'contain' | 'natural') => void;
   restaurantId: number;
   restaurant: Restaurant | null;
   onRestaurantUpdate: (r: Restaurant) => void;
@@ -1428,29 +1428,28 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
                   <span>Aucun</span><span>Sombre</span>
                 </div>
                 {/* Image fit: "cover" crops to fill the banner box (legacy
-                    default); "contain" shows the whole image with a blurred
-                    fill so wide desktop banners aren't cropped. */}
+                    default); "contain" centres the whole image with a blurred
+                    side-fill; "natural" lets the banner follow the image's own
+                    aspect ratio so nothing is cropped on wide desktop. */}
                 <div className="mt-3">
                   <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image</span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onCategoryBannerFitChange('cover')}
-                      className={`px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${categoryBannerFit === 'cover' ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
-                    >
-                      Remplir (rogné)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onCategoryBannerFitChange('contain')}
-                      className={`px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${categoryBannerFit === 'contain' ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
-                    >
-                      Image entière
-                    </button>
+                  <div className="flex flex-col gap-1.5">
+                    {([
+                      { value: 'cover', label: 'Remplir (rogné)', hint: 'Recadre l’image pour remplir la bannière.' },
+                      { value: 'contain', label: 'Image entière, fond flou', hint: 'Affiche toute l’image, avec un fond flou sur les côtés.' },
+                      { value: 'natural', label: 'Image entière, hauteur auto', hint: 'La bannière suit les proportions de l’image — rien n’est rogné.' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onCategoryBannerFitChange(opt.value)}
+                        className={`px-3 py-2 rounded-lg border text-left transition-colors ${categoryBannerFit === opt.value ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
+                      >
+                        <span className="block text-[11px] font-medium">{opt.label}</span>
+                        <span className="block text-[10px] opacity-70 leading-snug mt-0.5">{opt.hint}</span>
+                      </button>
+                    ))}
                   </div>
-                  <p className="text-[10px] text-fg-secondary opacity-70 mt-1 leading-relaxed">
-                    « Image entière » affiche toute l&apos;image sans la rogner sur grand écran, avec un fond flou sur les côtés.
-                  </p>
                 </div>
               </div>
             )}

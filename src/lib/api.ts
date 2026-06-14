@@ -573,7 +573,7 @@ export interface WebsiteConfig {
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   category_banner_overlay: number;
-  category_banner_fit: '' | 'cover' | 'contain';
+  category_banner_fit: '' | 'cover' | 'contain' | 'natural';
   /** Per-role typography overrides for the order/menu page. Opaque blob (camelCase keys) read verbatim by foodyweb. */
   typography?: TypographyOverrides | null;
   /** Custom pages beyond home + menu. Each renders at /r/<slug>/<page.slug> and shows in the nav. */
