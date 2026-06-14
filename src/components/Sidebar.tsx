@@ -260,6 +260,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'scheduled', href: `${base}/settings/scheduled-orders`, labelKey: 'scheduledOrders', icon: CalendarClock },
+        { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
       ],
     },
     {
