@@ -44,6 +44,7 @@ type PreviewMessage = {
   faviconURL: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
+  categoryBannerFit: 'cover' | 'contain';
   // Order-page info — posted in foodyweb shape (modalText, not modal_text).
   orderPageInfo: { bar: OrderPageInfo['bar']; modal: OrderPageInfo['modal']; modalText: string } | null;
   direction: 'ltr' | 'rtl';
@@ -241,6 +242,7 @@ export default function WebsitePage() {
   const [heroNameFont, setHeroNameFont] = useState<string>('');
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
   const [categoryBannerOverlay, setCategoryBannerOverlay] = useState<number>(40);
+  const [categoryBannerFit, setCategoryBannerFit] = useState<'cover' | 'contain'>('cover');
   const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
@@ -295,6 +297,7 @@ export default function WebsitePage() {
       // ride along here to live-update the menu preview as the admin edits them.
       categoryBannerStyle,
       categoryBannerOverlay,
+      categoryBannerFit,
       orderPageInfo: orderPageInfo
         ? { bar: orderPageInfo.bar, modal: orderPageInfo.modal, modalText: orderPageInfo.modal_text ?? '' }
         : null,
@@ -302,7 +305,7 @@ export default function WebsitePage() {
       typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
-  }, [categoryBannerStyle, categoryBannerOverlay, orderPageInfo]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, orderPageInfo]);
 
   // Re-post the menu preview whenever the banner controls change so the iframe
   // reflects them live (these fields are not part of `config`, so the config
@@ -310,7 +313,7 @@ export default function WebsitePage() {
   useEffect(() => {
     if (config) postMenuPreview(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryBannerStyle, categoryBannerOverlay, orderPageInfo]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, orderPageInfo]);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
     // Local-state-only — the global autosave effect persists to the draft.
@@ -386,6 +389,7 @@ export default function WebsitePage() {
     setHeroNameFont(stateConfig.hero_name_font || '');
     setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
     setCategoryBannerOverlay(stateConfig.category_banner_overlay ?? 40);
+    setCategoryBannerFit(stateConfig.category_banner_fit === 'contain' ? 'contain' : 'cover');
     setPages(Array.isArray(stateConfig.pages) ? stateConfig.pages : []);
     const landingOn = stateConfig.landing_enabled ?? true;
     setLandingEnabled(landingOn);
@@ -459,6 +463,7 @@ export default function WebsitePage() {
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           category_banner_overlay: stateConfig.category_banner_overlay ?? 40,
+          category_banner_fit: stateConfig.category_banner_fit === 'contain' ? 'contain' : 'cover',
           typography: stateConfig.typography ?? null,
           pages: Array.isArray(stateConfig.pages) ? stateConfig.pages : [],
           landing_enabled: stateConfig.landing_enabled ?? true,
@@ -565,6 +570,7 @@ export default function WebsitePage() {
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
         category_banner_overlay: categoryBannerOverlay,
+        category_banner_fit: categoryBannerFit,
         typography: config?.typography ?? null,
         pages,
         landing_enabled: landingEnabled,
@@ -586,7 +592,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -997,10 +1003,12 @@ export default function WebsitePage() {
               menuLayoutMobile={config?.layout_default_mobile || ''}
               categoryBannerStyle={categoryBannerStyle}
               categoryBannerOverlay={categoryBannerOverlay}
+              categoryBannerFit={categoryBannerFit}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onMenuLayoutMobileChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default_mobile: v as '' | 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
               onCategoryBannerOverlayChange={setCategoryBannerOverlay}
+              onCategoryBannerFitChange={setCategoryBannerFit}
               restaurantId={restaurantId}
               restaurant={restaurant}
               onRestaurantUpdate={setRestaurant}
@@ -1227,7 +1235,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, categoryBannerStyle, categoryBannerOverlay, onMenuLayoutChange, onMenuLayoutMobileChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, onMenuLayoutChange, onMenuLayoutMobileChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1248,10 +1256,12 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   menuLayoutMobile: string;
   categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
+  categoryBannerFit: 'cover' | 'contain';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
+  onCategoryBannerFitChange: (v: 'cover' | 'contain') => void;
   restaurantId: number;
   restaurant: Restaurant | null;
   onRestaurantUpdate: (r: Restaurant) => void;
@@ -1416,6 +1426,31 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
                 />
                 <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
                   <span>Aucun</span><span>Sombre</span>
+                </div>
+                {/* Image fit: "cover" crops to fill the banner box (legacy
+                    default); "contain" shows the whole image with a blurred
+                    fill so wide desktop banners aren't cropped. */}
+                <div className="mt-3">
+                  <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image</span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onCategoryBannerFitChange('cover')}
+                      className={`px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${categoryBannerFit === 'cover' ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
+                    >
+                      Remplir (rogné)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onCategoryBannerFitChange('contain')}
+                      className={`px-2 py-1.5 rounded-lg border text-[11px] transition-colors ${categoryBannerFit === 'contain' ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
+                    >
+                      Image entière
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-fg-secondary opacity-70 mt-1 leading-relaxed">
+                    « Image entière » affiche toute l&apos;image sans la rogner sur grand écran, avec un fond flou sur les côtés.
+                  </p>
                 </div>
               </div>
             )}
