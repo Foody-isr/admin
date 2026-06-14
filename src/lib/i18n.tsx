@@ -2368,6 +2368,13 @@ const translations: Record<Locale, Record<string, string>> = {
     noUngroupedItems: 'No ungrouped items available',
     clear: 'Clear',
 
+    // ── Replace items (carte/group step-by-step swap) ──
+    replace: 'Replace',
+    replaceSelectFor: 'Select an item to replace "{name}"',
+    replaceStepProgress: 'Step {current} of {total}',
+    allCategoriesFilter: 'All categories',
+    itemsSelectedCount: '{count} selected',
+
     // ── Language settings ──
     languageSettings: 'Language',
     languageSettingsDesc: "Choose the language you type your menu in. We'll automatically translate to other languages so guests can read your menu in their preferred language.",
@@ -5018,6 +5025,13 @@ const translations: Record<Locale, Record<string, string>> = {
     noGroupsInMenu: 'אין עדיין קבוצות בתפריט הזה',
     noUngroupedItems: 'אין פריטים ללא קבוצה',
     clear: 'נקה',
+
+    // ── Replace items (carte/group step-by-step swap) ──
+    replace: 'החלף',
+    replaceSelectFor: 'בחר פריט שיחליף את "{name}"',
+    replaceStepProgress: 'שלב {current} מתוך {total}',
+    allCategoriesFilter: 'כל הקטגוריות',
+    itemsSelectedCount: '{count} נבחרו',
 
     // ── Opening Hours ──
     // ── Language settings ──
@@ -7682,6 +7696,13 @@ const translations: Record<Locale, Record<string, string>> = {
     noGroupsInMenu: 'Aucun groupe dans cette carte pour le moment',
     noUngroupedItems: 'Aucun article sans groupe disponible',
     clear: 'Effacer',
+
+    // ── Replace items (carte/group step-by-step swap) ──
+    replace: 'Remplacer',
+    replaceSelectFor: 'Choisissez un article pour remplacer « {name} »',
+    replaceStepProgress: 'Étape {current} sur {total}',
+    allCategoriesFilter: 'Toutes les catégories',
+    itemsSelectedCount: '{count} sélectionnés',
 
     // ── Opening Hours ──
     // ── Language settings ──
