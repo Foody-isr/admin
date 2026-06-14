@@ -124,6 +124,10 @@ export interface RestaurantSettings {
   ai_assistant_upsell?: boolean;
   ai_assistant_auto_order?: boolean;
   ai_assistant_guidance?: string;
+  // How the assistant proactively offers help: only when tapped, immediately
+  // on load, or after a delay (if the cart is still empty).
+  ai_assistant_trigger?: 'manual' | 'immediate' | 'delay';
+  ai_assistant_trigger_delay?: number; // seconds
 }
 
 export interface MenuAvailabilityHour {
