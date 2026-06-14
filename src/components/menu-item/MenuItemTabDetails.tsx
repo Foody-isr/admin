@@ -27,6 +27,10 @@ interface Props {
   setPrice: (v: number) => void;
   description: string;
   setDescription: (v: string) => void;
+  /** Private staff guidance about this item for the AI ordering assistant only
+   *  (never shown to customers). */
+  aiContext?: string;
+  setAiContext?: (v: string) => void;
   /** Item-level serving size shown under the title when the item has no size
    *  options (e.g. "par personne"). Items WITH sizes derive their range from
    *  the per-size portions in the VariantsEditor instead. */
@@ -91,6 +95,7 @@ export default function MenuItemTabDetails({
   name, setName,
   price, setPrice,
   description, setDescription,
+  aiContext, setAiContext,
   portion, setPortion,
   categoryId, setCategoryId,
   isActive, setIsActive,
@@ -505,6 +510,28 @@ export default function MenuItemTabDetails({
             </>
           )}
         </Field>
+
+        {/* AI assistant context — private staff guidance, never shown to guests. */}
+        {setAiContext && (
+          <Field
+            label={t('aiItemContext') || 'AI assistant context'}
+            hint={
+              t('aiItemContextHint') ||
+              'Private notes that help the AI assistant describe this dish accurately. Never shown to customers.'
+            }
+          >
+            <Textarea
+              value={aiContext || ''}
+              onChange={(e) => setAiContext(e.target.value)}
+              placeholder={
+                t('aiItemContextPlaceholder') ||
+                'e.g. Braided Shabbat bread, served as bread — not a dessert.'
+              }
+              rows={3}
+              maxLength={1000}
+            />
+          </Field>
+        )}
 
         {/* Portion / serving size — shown under the item title in guest apps.
             Used when the item has no size options; items WITH sizes derive the
