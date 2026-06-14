@@ -16,7 +16,9 @@ import {
   RestaurantSettings,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { Button, Field, PageHead, Section, Textarea } from '@/components/ds';
+import { Button, Field, NumberField, PageHead, Section, Select, Textarea } from '@/components/ds';
+
+type TriggerMode = 'manual' | 'immediate' | 'delay';
 
 export default function AIAssistantSettingsPage() {
   const { restaurantId } = useParams();
@@ -31,6 +33,8 @@ export default function AIAssistantSettingsPage() {
   const [upsell, setUpsell] = useState(true);
   const [autoOrder, setAutoOrder] = useState(true);
   const [guidance, setGuidance] = useState('');
+  const [trigger, setTrigger] = useState<TriggerMode>('manual');
+  const [triggerDelay, setTriggerDelay] = useState(45);
 
   useEffect(() => {
     getRestaurantSettings(rid)
@@ -39,6 +43,8 @@ export default function AIAssistantSettingsPage() {
         setUpsell(s.ai_assistant_upsell ?? true);
         setAutoOrder(s.ai_assistant_auto_order ?? true);
         setGuidance(s.ai_assistant_guidance ?? '');
+        setTrigger((s.ai_assistant_trigger as TriggerMode) ?? 'manual');
+        setTriggerDelay(s.ai_assistant_trigger_delay ?? 45);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -51,6 +57,8 @@ export default function AIAssistantSettingsPage() {
         ai_assistant_upsell: upsell,
         ai_assistant_auto_order: autoOrder,
         ai_assistant_guidance: guidance,
+        ai_assistant_trigger: trigger,
+        ai_assistant_trigger_delay: triggerDelay,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -137,6 +145,47 @@ export default function AIAssistantSettingsPage() {
               }
             />
           </Field>
+        </div>
+      </Section>
+
+      <Section
+        title={t('aiTrigger') || 'When it appears'}
+        desc={
+          t('aiTriggerDesc') ||
+          'Choose whether the assistant waits to be tapped or proactively offers help.'
+        }
+      >
+        <div className={enabled ? '' : 'opacity-50 pointer-events-none'}>
+          <div className="flex flex-wrap gap-[var(--s-4)] items-end">
+            <Field grow label={t('aiTriggerMode') || 'Behaviour'}>
+              <Select
+                value={trigger}
+                onChange={(e) => setTrigger(e.target.value as TriggerMode)}
+              >
+                <option value="manual">{t('aiTriggerManual') || 'Only when the guest taps the button'}</option>
+                <option value="immediate">{t('aiTriggerImmediate') || 'Pop up right away'}</option>
+                <option value="delay">{t('aiTriggerDelay') || 'Pop up after a delay'}</option>
+              </Select>
+            </Field>
+            {trigger === 'delay' && (
+              <Field
+                label={t('aiTriggerDelaySeconds') || 'Delay (seconds)'}
+                hint={
+                  t('aiTriggerDelayHint') ||
+                  'Only shows if the guest hasn’t added anything to their cart yet.'
+                }
+              >
+                <NumberField
+                  min={0}
+                  max={600}
+                  value={triggerDelay}
+                  onChange={setTriggerDelay}
+                  className="font-mono tabular-nums text-right"
+                  style={{ width: 100 }}
+                />
+              </Field>
+            )}
+          </div>
         </div>
       </Section>
 
