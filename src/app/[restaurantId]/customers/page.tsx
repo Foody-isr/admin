@@ -7,7 +7,10 @@ import {
   listTrustedCustomers,
   addTrustedCustomer,
   removeTrustedCustomer,
+  getCustomerProfile,
+  updateCustomerProfile,
   CustomerListResult,
+  CustomerProfile,
   TrustedCustomer,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -66,13 +69,22 @@ export default function CustomersPage() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
-  // Edit modal (toggle cash for an existing customer)
+  // Edit modal (toggle cash + edit profile for an existing customer)
   const [editRow, setEditRow] = useState<CustomerRow | null>(null);
   const [editCash, setEditCash] = useState(false);
   const [editName, setEditName] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Profile (address/apartment/floor) lives on the customer's account.
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [editAddress, setEditAddress] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editFloor, setEditFloor] = useState('');
+  const [editApt, setEditApt] = useState('');
+  const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
 
   const canManage = user?.role === 'owner' || user?.role === 'manager' || user?.role === 'superadmin';
 
@@ -140,13 +152,37 @@ export default function CustomersPage() {
 
   const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString() : t('never'));
 
-  const openEdit = (row: CustomerRow) => {
+  const openEdit = async (row: CustomerRow) => {
     if (!canManage) return;
     setEditRow(row);
     setEditCash(!!row.trusted);
     setEditName(row.name || row.trusted?.name || '');
     setEditNotes(row.trusted?.notes || '');
     setEditError('');
+    // Reset profile fields, then load the saved account profile (falling back to
+    // the customer's latest delivery order to pre-fill anything not yet saved).
+    setProfile(null);
+    setEditAddress('');
+    setEditCity('');
+    setEditFloor('');
+    setEditApt('');
+    setEditDeliveryNotes('');
+    setProfileLoading(true);
+    try {
+      const p = await getCustomerProfile(rid, row.phone);
+      setProfile(p);
+      const seed = p.last_delivery;
+      setEditName(p.name || row.name || row.trusted?.name || '');
+      setEditAddress(p.address || seed?.address || '');
+      setEditCity(p.city || seed?.city || '');
+      setEditFloor(p.floor || seed?.floor || '');
+      setEditApt(p.apt || seed?.apt || '');
+      setEditDeliveryNotes(p.delivery_notes || seed?.delivery_notes || '');
+    } catch {
+      // Non-fatal: the cash toggle still works even if the profile can't load.
+    } finally {
+      setProfileLoading(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -154,6 +190,18 @@ export default function CustomersPage() {
     setSaving(true);
     setEditError('');
     try {
+      // Persist the profile (name + address) onto the account when one exists.
+      if (profile?.has_account) {
+        await updateCustomerProfile(rid, editRow.phone, {
+          name: editName,
+          address: editAddress,
+          city: editCity,
+          floor: editFloor,
+          apt: editApt,
+          delivery_notes: editDeliveryNotes,
+        });
+      }
+
       const tc = editRow.trusted;
       const wasTrusted = !!tc;
       if (editCash && !wasTrusted) {
@@ -340,7 +388,72 @@ export default function CustomersPage() {
               />
             </div>
 
-            <label className="flex items-start justify-between gap-3 cursor-pointer">
+            {/* Delivery details — stored on the customer's account. */}
+            <div className="space-y-3 pt-1 border-t border-fg-tertiary/10">
+              <div className="flex items-center justify-between pt-3">
+                <span className="block text-sm font-medium text-fg-primary">{t('deliveryDetails')}</span>
+                {profileLoading && (
+                  <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
+
+              {!profileLoading && profile && !profile.has_account && (
+                <div className="text-fs-xs text-fg-secondary">{t('customerNoAccountHint')}</div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('address')}</label>
+                <input
+                  className="input"
+                  value={editAddress}
+                  disabled={!profile?.has_account}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('city')}</label>
+                <input
+                  className="input"
+                  value={editCity}
+                  disabled={!profile?.has_account}
+                  onChange={(e) => setEditCity(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('floor')}</label>
+                  <input
+                    className="input"
+                    value={editFloor}
+                    disabled={!profile?.has_account}
+                    onChange={(e) => setEditFloor(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('apartment')}</label>
+                  <input
+                    className="input"
+                    value={editApt}
+                    disabled={!profile?.has_account}
+                    onChange={(e) => setEditApt(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('deliveryNotesOptional')}</label>
+                <input
+                  className="input"
+                  value={editDeliveryNotes}
+                  disabled={!profile?.has_account}
+                  onChange={(e) => setEditDeliveryNotes(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <label className="flex items-start justify-between gap-3 cursor-pointer pt-1 border-t border-fg-tertiary/10">
               <span>
                 <span className="block text-sm font-medium text-fg-primary">{t('allowCashPayment')}</span>
                 <span className="block text-fs-xs text-fg-secondary mt-0.5">{t('allowCashPaymentDesc')}</span>

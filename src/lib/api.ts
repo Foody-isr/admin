@@ -4297,6 +4297,64 @@ export async function removeTrustedCustomer(restaurantId: number, customerId: nu
   );
 }
 
+// ─── Customer profile (address/apartment/floor, account-backed) ───────────────
+
+export interface CustomerDeliverySeed {
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  delivery_notes: string;
+}
+
+export interface CustomerProfile {
+  account_id: number | null;
+  has_account: boolean;
+  name: string;
+  phone: string;
+  email?: string;
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  delivery_notes: string;
+  /** Latest delivery order, used to pre-fill the editor when nothing is saved yet. */
+  last_delivery?: CustomerDeliverySeed | null;
+}
+
+export interface CustomerProfileInput {
+  name: string;
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  delivery_notes: string;
+}
+
+export async function getCustomerProfile(
+  restaurantId: number,
+  phone: string
+): Promise<CustomerProfile> {
+  const data = await apiFetch<{ profile: CustomerProfile }>(
+    `/api/v1/restaurants/${restaurantId}/customers/profile?phone=${encodeURIComponent(phone)}`,
+    restaurantId
+  );
+  return data.profile;
+}
+
+export async function updateCustomerProfile(
+  restaurantId: number,
+  phone: string,
+  input: CustomerProfileInput
+): Promise<CustomerProfile> {
+  const data = await apiFetch<{ profile: CustomerProfile }>(
+    `/api/v1/restaurants/${restaurantId}/customers/profile?phone=${encodeURIComponent(phone)}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.profile;
+}
+
 // ─── RBAC: Roles & Permissions ────────────────────────────────────────────────
 
 export interface RolePermission {
