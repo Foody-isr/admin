@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
@@ -21,7 +22,7 @@ import {
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
   ChevronDownIcon, XIcon, PrinterIcon,
   CreditCardIcon, CheckCircle2Icon,
-  CheckIcon, ClockIcon, GlobeIcon, EditIcon,
+  CheckIcon, ClockIcon, GlobeIcon, EditIcon, PlusIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
@@ -531,6 +532,12 @@ export default function OrdersPage() {
           desc={`${total} ${t('orders').toLowerCase()} · ${activeCount} ${t('shown') || 'shown'}`}
           actions={
             <>
+              <Button variant="primary" size="md" asChild>
+                <Link href={`/${rid}/orders/new`}>
+                  <PlusIcon />
+                  {t('newOrder')}
+                </Link>
+              </Button>
               {wsStatus === 'connected' && (
                 <Badge tone="success" dot>
                   {t('live')}
