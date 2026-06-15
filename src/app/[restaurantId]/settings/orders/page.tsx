@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { Calendar, CalendarDays, PauseCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Calendar, CalendarDays, Info, PauseCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
   getRestaurant,
   updateRestaurant,
@@ -720,6 +720,7 @@ export default function OrdersAvailabilityPage() {
               label={t('slotRequirePrepayment') || 'Paiement requis à la réservation'}
               sub={t('slotRequirePrepaymentDesc') || 'Le client paie en réservant son créneau.'}
             />
+            {slotPrepayment && <CashNote t={t} />}
           </div>
         )}
 
@@ -831,6 +832,7 @@ export default function OrdersAvailabilityPage() {
                 'Les clients doivent payer immédiatement lors d’une pré-commande.'
               }
             />
+            {batchPrepayment && <CashNote t={t} />}
           </div>
         )}
       </Section>
@@ -842,41 +844,45 @@ export default function OrdersAvailabilityPage() {
       >
         <div className="flex flex-col gap-[var(--s-4)]">
           <div className="flex flex-wrap gap-[var(--s-4)]">
-            <Field
-              label={
-                <span className="inline-flex items-center gap-2">
-                  {t('serviceMode') || 'Mode de service'}
-                  <ScopeTag>{t('dineIn') || 'Sur place'}</ScopeTag>
-                </span>
-              }
-              hint={
-                t('serviceModeHint') ||
-                'Concerne uniquement les commandes sur place (QR à table).'
-              }
-            >
-              <Select value={serviceMode} onChange={(e) => setServiceMode(e.target.value)}>
-                <option value="table">{t('tableService') || 'Service à table'}</option>
-                <option value="counter">{t('counterService') || 'Service au comptoir'}</option>
-              </Select>
-            </Field>
-            <Field
-              label={
-                <span className="inline-flex items-center gap-2">
-                  {t('pickupPrepTime') || 'Temps de préparation par défaut'}
-                  <ScopeTag>{t('pickup') || 'À emporter'}</ScopeTag>
-                </span>
-              }
-            >
-              <Input
-                type="number"
-                min={0}
-                max={240}
-                value={prepTime}
-                onChange={(e) => setPrepTime(Number(e.target.value))}
-                className="font-mono"
-                style={{ width: 120 }}
-              />
-            </Field>
+            {dineInEnabled && (
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    {t('serviceMode') || 'Mode de service'}
+                    <ScopeTag>{t('dineIn') || 'Sur place'}</ScopeTag>
+                  </span>
+                }
+                hint={
+                  t('serviceModeHint') ||
+                  'Concerne uniquement les commandes sur place (QR à table).'
+                }
+              >
+                <Select value={serviceMode} onChange={(e) => setServiceMode(e.target.value)}>
+                  <option value="table">{t('tableService') || 'Service à table'}</option>
+                  <option value="counter">{t('counterService') || 'Service au comptoir'}</option>
+                </Select>
+              </Field>
+            )}
+            {pickupEnabled && (
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    {t('pickupPrepTime') || 'Temps de préparation par défaut'}
+                    <ScopeTag>{t('pickup') || 'À emporter'}</ScopeTag>
+                  </span>
+                }
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={240}
+                  value={prepTime}
+                  onChange={(e) => setPrepTime(Number(e.target.value))}
+                  className="font-mono"
+                  style={{ width: 120 }}
+                />
+              </Field>
+            )}
           </div>
           <RuleToggle
             checked={autoSendToKitchen}
@@ -922,6 +928,27 @@ function ScopeTag({ children }: { children: ReactNode }) {
     >
       {children}
     </span>
+  );
+}
+
+// Reminder that the cash-payment exemption (trusted customers, pickup/delivery)
+// still applies even when prepayment is required — so the two don't silently
+// contradict each other for the operator.
+function CashNote({ t }: { t: (key: string) => string }) {
+  return (
+    <div
+      className="flex items-start gap-2 px-[var(--s-3)] py-[var(--s-2)] rounded-r-md text-fs-xs"
+      style={{
+        background: 'color-mix(in oklab, var(--info-500) 10%, transparent)',
+        color: 'var(--fg-muted)',
+      }}
+    >
+      <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--info-500)' }} />
+      <span>
+        {t('cashPrepaymentNote') ||
+          'Les clients autorisés à payer en espèces (clients de confiance, retrait/livraison) restent exemptés : ils paient à la réception, même si le paiement est requis ici.'}
+      </span>
+    </div>
   );
 }
 

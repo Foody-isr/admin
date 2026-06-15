@@ -8,7 +8,7 @@ import {
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery,
   assignCourier, bulkAssignCourier, listCouriers,
-  getRestaurant,
+  getRestaurant, getRestaurantSettings, updateRestaurantSettings,
   Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
@@ -23,6 +23,7 @@ import {
   ChevronDownIcon, XIcon, PrinterIcon,
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon, PlusIcon,
+  PauseIcon, PlayIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
@@ -309,6 +310,34 @@ export default function OrdersPage() {
       .catch(() => {});
   }, [rid]);
 
+  // Online-ordering pause — same kill switch as Settings → Commandes &
+  // disponibilité, surfaced here so staff can pause mid-service without leaving
+  // the order board.
+  const [paused, setPaused] = useState(false);
+  const [pauseSaving, setPauseSaving] = useState(false);
+  useEffect(() => {
+    if (!rid) return;
+    getRestaurantSettings(rid)
+      .then((s) => setPaused(s.orders_paused ?? false))
+      .catch(() => {});
+  }, [rid]);
+
+  const togglePause = async (next: boolean) => {
+    setPauseSaving(true);
+    setPaused(next); // optimistic
+    try {
+      await updateRestaurantSettings(rid, {
+        orders_paused: next,
+        orders_paused_until: '',
+        rush_mode: false,
+      });
+    } catch {
+      setPaused(!next); // revert on failure
+    } finally {
+      setPauseSaving(false);
+    }
+  };
+
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
 
   useEffect(() => {
@@ -538,6 +567,28 @@ export default function OrdersPage() {
                   {t('newOrder')}
                 </Link>
               </Button>
+              {paused ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => togglePause(false)}
+                  disabled={pauseSaving}
+                  style={{ background: 'var(--danger-500)', color: '#fff' }}
+                  title={t('resumeOrders') || 'Reprendre les commandes'}
+                >
+                  <PlayIcon /> {t('resumeOrders') || 'Reprendre'}
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => togglePause(true)}
+                  disabled={pauseSaving}
+                  title={t('pauseOnlineOrders') || 'Mettre en pause les commandes en ligne'}
+                >
+                  <PauseIcon /> {t('pauseOrders') || 'Pause'}
+                </Button>
+              )}
               {wsStatus === 'connected' && (
                 <Badge tone="success" dot>
                   {t('live')}
@@ -605,6 +656,36 @@ export default function OrdersPage() {
             </>
           }
         />
+
+        {paused && (
+          <div
+            className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] rounded-r-md"
+            style={{
+              background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)',
+              border: '1px solid color-mix(in oklab, var(--danger-500) 35%, var(--line))',
+            }}
+          >
+            <div className="flex items-center gap-[var(--s-2)] min-w-0">
+              <PauseIcon className="w-4 h-4 shrink-0" style={{ color: 'var(--danger-500)' }} />
+              <span className="text-fs-sm font-medium" style={{ color: 'var(--danger-500)' }}>
+                {t('ordersPausedBadge') || 'Commandes en pause'}
+              </span>
+              <span className="text-fs-xs text-[var(--fg-muted)] truncate">
+                {t('ordersPausedBannerDesc') ||
+                  'Les clients ne peuvent pas commander en ligne. Reprenez quand vous êtes prêt.'}
+              </span>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => togglePause(false)}
+              disabled={pauseSaving}
+              className="shrink-0"
+            >
+              <PlayIcon /> {t('resumeOrders') || 'Reprendre'}
+            </Button>
+          </div>
+        )}
 
         <FeatureIntro feature="orders" />
 
