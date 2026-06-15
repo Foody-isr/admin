@@ -546,6 +546,15 @@ export interface OrderPageInfo {
   modal_text?: string;
 }
 
+/** Optional per-section color overrides (hex strings). Any omitted section or
+ *  field falls back to the global theme token for that color. */
+export interface SectionColors {
+  navbar?: { bg?: string; text?: string };
+  hero?: { bg?: string; text?: string };
+  metadata?: { bg?: string; text?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string };
+}
+
 export interface WebsiteConfig {
   id: number;
   restaurant_id: number;
@@ -585,6 +594,8 @@ export interface WebsiteConfig {
     accent: string;
     ink: string;
   } | null;
+  /** Optional per-section color overrides; omitted section/field inherits the theme. */
+  section_colors?: SectionColors | null;
   hero_name_font: string;
   category_banner_style: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   category_banner_overlay: number;

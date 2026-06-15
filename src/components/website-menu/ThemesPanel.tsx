@@ -190,6 +190,131 @@ export function ThemesPanel({ config, catalog, onUpdate }: Props) {
           )}
         </div>
       </div>
+
+      <SectionColorsEditor config={config} onUpdate={onUpdate} />
+    </div>
+  );
+}
+
+/* ─────────────────────── Per-section color overrides ─────────────────────── */
+
+type SectionKey = 'navbar' | 'hero' | 'metadata' | 'categoryBar';
+type SectionField = 'bg' | 'text' | 'accent';
+
+// Each section exposes Background + Text; the category bar adds an Active-pill
+// (accent) color. Labels are French to match the rest of the builder UI.
+const SECTION_DEFS: { key: SectionKey; label: string; fields: { field: SectionField; label: string }[] }[] = [
+  { key: 'navbar', label: 'En-tête (barre du haut)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
+  { key: 'hero', label: 'Hero (bandeau du resto)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
+  { key: 'metadata', label: 'Infos (pré-commande, min…)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
+  { key: 'categoryBar', label: 'Barre de catégories', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }, { field: 'accent', label: 'Pastille active' }] },
+];
+
+type SectionMap = Record<string, Record<string, string | undefined> | undefined>;
+
+function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUpdate: (patch: Partial<WebsiteConfig>) => void }) {
+  const sc = (config.section_colors ?? {}) as SectionMap;
+
+  const commit = (next: SectionMap) => {
+    onUpdate({ section_colors: (Object.keys(next).length ? next : null) as WebsiteConfig['section_colors'] });
+  };
+
+  const toggleSection = (key: SectionKey, on: boolean) => {
+    const next: SectionMap = { ...sc };
+    if (on) next[key] = next[key] ?? {};
+    else delete next[key];
+    commit(next);
+  };
+
+  const setField = (key: SectionKey, field: SectionField, value: string | undefined) => {
+    const section: Record<string, string | undefined> = { ...(sc[key] ?? {}) };
+    if (value) section[field] = value;
+    else delete section[field];
+    commit({ ...sc, [key]: section });
+  };
+
+  return (
+    <div className="rounded-lg border border-[var(--divider)] p-3 flex flex-col gap-3">
+      <div>
+        <h3 className="text-xs font-semibold mb-0.5">Couleurs par section</h3>
+        <p className="text-[11px] text-fg-secondary leading-snug">
+          Surchargez les couleurs d&apos;une section précise. Laissez vide pour hériter de la couleur du thème.
+        </p>
+      </div>
+
+      {SECTION_DEFS.map((def) => {
+        const active = !!sc[def.key];
+        return (
+          <div key={def.key} className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0">
+            <label className="flex items-center justify-between gap-2 cursor-pointer">
+              <span className="text-[11px] font-medium text-fg-primary">{def.label}</span>
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => toggleSection(def.key, e.target.checked)}
+                className="accent-brand-500"
+              />
+            </label>
+            {active && (
+              <div className="mt-2 flex flex-col gap-2">
+                {def.fields.map(({ field, label }) => (
+                  <OptionalColorRow
+                    key={field}
+                    label={label}
+                    value={sc[def.key]?.[field]}
+                    onChange={(v) => setField(def.key, field, v)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function OptionalColorRow({ label, value, onChange }: { label: string; value?: string; onChange: (v: string | undefined) => void }) {
+  const [draft, setDraft] = useState(value ?? '');
+  useEffect(() => {
+    setDraft(value ?? '');
+  }, [value]);
+  const commit = () => {
+    const v = draft.trim();
+    if (v === '') return onChange(undefined);
+    if (PALETTE_HEX_RE.test(v)) onChange(v);
+    else setDraft(value ?? '');
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-fg-primary w-24 shrink-0">{label}</span>
+      <input
+        type="color"
+        value={value || '#ffffff'}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-8 h-8 rounded cursor-pointer border border-[var(--divider)] shrink-0"
+        aria-label={label}
+      />
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        placeholder="Hériter"
+        className="flex-1 px-2 py-1.5 text-xs rounded-md border border-[var(--divider)] bg-surface focus:border-brand-500 outline-none font-mono"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          className="text-fg-secondary hover:text-fg-primary shrink-0"
+          aria-label="Réinitialiser"
+          title="Hériter du thème"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }

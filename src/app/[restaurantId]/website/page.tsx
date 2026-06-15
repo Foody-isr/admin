@@ -41,6 +41,7 @@ type PreviewMessage = {
   hideHeroLogo: boolean;
   heroLogoBg: 'white' | 'black';
   customPalette: WebsiteConfig['custom_palette'] | null;
+  sectionColors: WebsiteConfig['section_colors'] | null;
   faviconURL: string;
   categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
@@ -295,6 +296,7 @@ export default function WebsitePage() {
       hideHeroLogo: next.hide_hero_logo,
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
       customPalette: next.custom_palette ?? null,
+      sectionColors: next.section_colors ?? null,
       faviconURL: next.favicon_url || '',
       // Banner style + overlay live in dedicated state (not `config`), so they
       // ride along here to live-update the menu preview as the admin edits them.
@@ -481,6 +483,7 @@ export default function WebsitePage() {
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           custom_palette: stateConfig.custom_palette ?? null,
+          section_colors: stateConfig.section_colors ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           category_banner_overlay: stateConfig.category_banner_overlay ?? 40,
@@ -589,6 +592,7 @@ export default function WebsitePage() {
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         custom_palette: config?.custom_palette ?? null,
+        section_colors: config?.section_colors ?? null,
         hero_name_font: heroNameFont,
         category_banner_style: categoryBannerStyle,
         category_banner_overlay: categoryBannerOverlay,
