@@ -677,6 +677,7 @@ const translations: Record<Locale, Record<string, string>> = {
     inviting: 'Inviting...',
     invite: 'Invite',
     failedToInvite: 'Failed to invite',
+    invitationSent: 'Invitation email sent to {email}',
 
     // ── Roles ──
     rolesAndPermissions: 'Roles & Permissions',
@@ -3398,6 +3399,7 @@ const translations: Record<Locale, Record<string, string>> = {
     inviting: 'מזמין...',
     invite: 'הזמן',
     failedToInvite: 'ההזמנה נכשלה',
+    invitationSent: 'הזמנה נשלחה בדוא"ל אל {email}',
 
     // ── Roles ──
     rolesAndPermissions: 'תפקידים והרשאות',
@@ -6099,6 +6101,7 @@ const translations: Record<Locale, Record<string, string>> = {
     inviting: 'Invitation en cours...',
     invite: 'Inviter',
     failedToInvite: "Échec de l'invitation",
+    invitationSent: "E-mail d'invitation envoyé à {email}",
 
     // ── Roles ──
     rolesAndPermissions: 'Rôles et permissions',

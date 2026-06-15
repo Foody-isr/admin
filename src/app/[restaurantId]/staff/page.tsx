@@ -43,6 +43,7 @@ export default function StaffPage() {
   });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const reload = () => {
     Promise.all([listStaff(rid), listRoles(rid)])
@@ -71,6 +72,7 @@ export default function StaffPage() {
         role_id: form.role_id,
       });
       setInviteOpen(false);
+      setSuccessMsg(t('invitationSent').replace('{email}', form.email));
       setForm({ full_name: '', email: '', phone: '', password: '', role_id: roles[0]?.id || 0 });
       reload();
     } catch (err: unknown) {
@@ -125,6 +127,22 @@ export default function StaffPage() {
           )
         }
       />
+
+      {successMsg && (
+        <div
+          className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between"
+          role="status"
+        >
+          <span>{successMsg}</span>
+          <button
+            onClick={() => setSuccessMsg('')}
+            className="text-green-700 hover:text-green-900 font-medium"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <DataTable>
         <DataTableHead>
