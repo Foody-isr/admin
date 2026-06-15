@@ -92,10 +92,22 @@ export interface RestaurantSettings {
   require_dine_in_prepayment: boolean;
   service_mode: string;
   scheduling_enabled: boolean;
+  // Slot-based scheduling detail (mutually exclusive with batch fulfillment).
+  scheduling_min_days_ahead?: number;
+  scheduling_max_days_ahead?: number;
+  scheduling_slot_duration_minutes?: number;
+  scheduling_require_prepayment?: boolean;
   tips_enabled: boolean;
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
+  // One-click online ordering pause. When orders_paused is true (and
+  // orders_paused_until is null or still in the future) all online ordering is
+  // blocked, overriding opening hours and both pre-order modes. Send
+  // orders_paused_until as an RFC3339 string, or "" to clear it (pause until
+  // manually reopened).
+  orders_paused?: boolean;
+  orders_paused_until?: string | null;
   floor_plan_color_indicators: boolean;
   table_yellow_after_minutes: number;
   table_red_after_minutes: number;
