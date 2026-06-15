@@ -45,6 +45,7 @@ type PreviewMessage = {
   categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
+  categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
   // Order-page info — posted in foodyweb shape (modalText, not modal_text).
   orderPageInfo: { bar: OrderPageInfo['bar']; modal: OrderPageInfo['modal']; modalText: string } | null;
   direction: 'ltr' | 'rtl';
@@ -243,6 +244,8 @@ export default function WebsitePage() {
   const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
   const [categoryBannerOverlay, setCategoryBannerOverlay] = useState<number>(40);
   const [categoryBannerFit, setCategoryBannerFit] = useState<'cover' | 'contain' | 'natural'>('cover');
+  // Mobile fit override: '' means "inherit the desktop value".
+  const [categoryBannerFitMobile, setCategoryBannerFitMobile] = useState<'' | 'cover' | 'contain' | 'natural'>('');
   const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
   // CheckoutConfig is null until the owner opens the Checkout tab and saves —
   // null/undefined sentinels keep existing restaurants on the legacy flow.
@@ -298,6 +301,7 @@ export default function WebsitePage() {
       categoryBannerStyle,
       categoryBannerOverlay,
       categoryBannerFit,
+      categoryBannerFitMobile,
       orderPageInfo: orderPageInfo
         ? { bar: orderPageInfo.bar, modal: orderPageInfo.modal, modalText: orderPageInfo.modal_text ?? '' }
         : null,
@@ -305,7 +309,7 @@ export default function WebsitePage() {
       typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
-  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, orderPageInfo]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo]);
 
   // Re-post the menu preview whenever the banner controls change so the iframe
   // reflects them live (these fields are not part of `config`, so the config
@@ -313,7 +317,7 @@ export default function WebsitePage() {
   useEffect(() => {
     if (config) postMenuPreview(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, orderPageInfo]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo]);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
     // Local-state-only — the global autosave effect persists to the draft.
@@ -390,6 +394,7 @@ export default function WebsitePage() {
     setCategoryBannerStyle((stateConfig.category_banner_style as typeof categoryBannerStyle) || 'image-overlay');
     setCategoryBannerOverlay(stateConfig.category_banner_overlay ?? 40);
     setCategoryBannerFit(stateConfig.category_banner_fit === 'contain' || stateConfig.category_banner_fit === 'natural' ? stateConfig.category_banner_fit : 'cover');
+    setCategoryBannerFitMobile(stateConfig.category_banner_fit_mobile === 'cover' || stateConfig.category_banner_fit_mobile === 'contain' || stateConfig.category_banner_fit_mobile === 'natural' ? stateConfig.category_banner_fit_mobile : '');
     setPages(Array.isArray(stateConfig.pages) ? stateConfig.pages : []);
     const landingOn = stateConfig.landing_enabled ?? true;
     setLandingEnabled(landingOn);
@@ -464,6 +469,7 @@ export default function WebsitePage() {
           category_banner_style: stateConfig.category_banner_style || 'image-overlay',
           category_banner_overlay: stateConfig.category_banner_overlay ?? 40,
           category_banner_fit: stateConfig.category_banner_fit === 'contain' || stateConfig.category_banner_fit === 'natural' ? stateConfig.category_banner_fit : 'cover',
+          category_banner_fit_mobile: stateConfig.category_banner_fit_mobile === 'cover' || stateConfig.category_banner_fit_mobile === 'contain' || stateConfig.category_banner_fit_mobile === 'natural' ? stateConfig.category_banner_fit_mobile : '',
           typography: stateConfig.typography ?? null,
           pages: Array.isArray(stateConfig.pages) ? stateConfig.pages : [],
           landing_enabled: stateConfig.landing_enabled ?? true,
@@ -571,6 +577,7 @@ export default function WebsitePage() {
         category_banner_style: categoryBannerStyle,
         category_banner_overlay: categoryBannerOverlay,
         category_banner_fit: categoryBannerFit,
+        category_banner_fit_mobile: categoryBannerFitMobile,
         typography: config?.typography ?? null,
         pages,
         landing_enabled: landingEnabled,
@@ -592,7 +599,7 @@ export default function WebsitePage() {
       }),
       deleted_section_ids: deletedIds,
     };
-  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
+  }, [config, tagline, showAddress, showPhone, showHours, navbarStyle, navbarColor, logoSize, hideNavbarName, heroNameFont, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, pages, landingEnabled, checkoutConfig, orderPageInfo, sections, deletedIds]);
 
   // ─── Autosave: persist the entire draft on any local change ──────
 
@@ -1004,11 +1011,13 @@ export default function WebsitePage() {
               categoryBannerStyle={categoryBannerStyle}
               categoryBannerOverlay={categoryBannerOverlay}
               categoryBannerFit={categoryBannerFit}
+              categoryBannerFitMobile={categoryBannerFitMobile}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onMenuLayoutMobileChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default_mobile: v as '' | 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
               onCategoryBannerOverlayChange={setCategoryBannerOverlay}
               onCategoryBannerFitChange={setCategoryBannerFit}
+              onCategoryBannerFitMobileChange={setCategoryBannerFitMobile}
               restaurantId={restaurantId}
               restaurant={restaurant}
               onRestaurantUpdate={setRestaurant}
@@ -1235,7 +1244,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, onMenuLayoutChange, onMenuLayoutMobileChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1257,11 +1266,13 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
+  categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
   onCategoryBannerFitChange: (v: 'cover' | 'contain' | 'natural') => void;
+  onCategoryBannerFitMobileChange: (v: '' | 'cover' | 'contain' | 'natural') => void;
   restaurantId: number;
   restaurant: Restaurant | null;
   onRestaurantUpdate: (r: Restaurant) => void;
@@ -1270,6 +1281,17 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   const isFooter = activePage === '_site';
   const showSectionList = !isFooter && activePage !== 'menu';
   const sectionLabel = activePage === 'home' ? 'Sections' : activeCustom ? `Sections — ${activeCustom.label}` : 'Sections';
+
+  // Category banner: the style is shared across devices; only the fit (Cadrage)
+  // is configured per device, with the mobile value inheriting desktop when
+  // unset. "Image" styles (overlay/only) expose the fit controls.
+  const bannerStyle = categoryBannerStyle || 'image-overlay';
+  const bannerIsImage = bannerStyle === 'image-overlay' || bannerStyle === 'image-only';
+  const bannerFitOptions = [
+    { value: 'cover', label: 'Remplir (rogné)', hint: 'Recadre l’image pour remplir la bannière.' },
+    { value: 'contain', label: 'Image entière, fond flou', hint: 'Affiche toute l’image, avec un fond flou sur les côtés.' },
+    { value: 'natural', label: 'Image entière, hauteur auto', hint: 'La bannière suit les proportions de l’image — rien n’est rogné.' },
+  ] as const;
 
   const rowCls = (active: boolean) =>
     `group flex items-center rounded-lg transition ${active ? 'bg-brand-500/10 ring-1 ring-brand-500/40' : 'hover:bg-surface-subtle'}`;
@@ -1399,7 +1421,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
           <div>
             <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Bannière de catégorie</span>
             <select
-              value={categoryBannerStyle || 'image-overlay'}
+              value={bannerStyle}
               onChange={(e) => onCategoryBannerStyleChange(e.target.value as typeof categoryBannerStyle)}
               className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
@@ -1411,7 +1433,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
             </select>
             {/* Overlay darkness only affects the overlaid title, so the slider
                 is shown only for the image-overlay style. 0 removes the veil. */}
-            {(categoryBannerStyle || 'image-overlay') === 'image-overlay' && (
+            {bannerStyle === 'image-overlay' && (
               <div className="mt-3">
                 <label className="text-[11px] text-fg-secondary block mb-1">
                   Voile sombre ({categoryBannerOverlay}%)
@@ -1430,31 +1452,46 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
                 </div>
               </div>
             )}
-            {/* Image fit applies to any image banner — overlaid title or not.
-                "cover" crops to fill the box (legacy default); "contain" centres
-                the whole image with a blurred side-fill; "natural" lets the
-                banner follow the image's own aspect ratio so nothing is cropped. */}
-            {((categoryBannerStyle || 'image-overlay') === 'image-overlay' || categoryBannerStyle === 'image-only') && (
-              <div className="mt-3">
-                <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image</span>
-                <div className="flex flex-col gap-1.5">
-                  {([
-                    { value: 'cover', label: 'Remplir (rogné)', hint: 'Recadre l’image pour remplir la bannière.' },
-                    { value: 'contain', label: 'Image entière, fond flou', hint: 'Affiche toute l’image, avec un fond flou sur les côtés.' },
-                    { value: 'natural', label: 'Image entière, hauteur auto', hint: 'La bannière suit les proportions de l’image — rien n’est rogné.' },
-                  ] as const).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => onCategoryBannerFitChange(opt.value)}
-                      className={`px-3 py-2 rounded-lg border text-left transition-colors ${categoryBannerFit === opt.value ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
-                    >
-                      <span className="block text-[11px] font-medium">{opt.label}</span>
-                      <span className="block text-[10px] opacity-70 leading-snug mt-0.5">{opt.hint}</span>
-                    </button>
-                  ))}
+            {/* Image fit (Cadrage) is configured per device — overlaid title or
+                not. "cover" crops to fill (legacy default); "contain" centres
+                the whole image with a blurred side-fill; "natural" follows the
+                image's own aspect ratio so nothing is cropped. Mobile inherits
+                desktop when left on "Identique à l'ordinateur". */}
+            {bannerIsImage && (
+              <>
+                <div className="mt-3">
+                  <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image — Ordinateur</span>
+                  <div className="flex flex-col gap-1.5">
+                    {bannerFitOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onCategoryBannerFitChange(opt.value)}
+                        className={`px-3 py-2 rounded-lg border text-left transition-colors ${categoryBannerFit === opt.value ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
+                      >
+                        <span className="block text-[11px] font-medium">{opt.label}</span>
+                        <span className="block text-[10px] opacity-70 leading-snug mt-0.5">{opt.hint}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+                <div className="mt-3">
+                  <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image — Mobile</span>
+                  <div className="flex flex-col gap-1.5">
+                    {([{ value: '', label: 'Identique à l’ordinateur', hint: 'Utilise le cadrage de l’ordinateur.' }, ...bannerFitOptions] as const).map((opt) => (
+                      <button
+                        key={opt.value || 'inherit'}
+                        type="button"
+                        onClick={() => onCategoryBannerFitMobileChange(opt.value)}
+                        className={`px-3 py-2 rounded-lg border text-left transition-colors ${categoryBannerFitMobile === opt.value ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
+                      >
+                        <span className="block text-[11px] font-medium">{opt.label}</span>
+                        <span className="block text-[10px] opacity-70 leading-snug mt-0.5">{opt.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
