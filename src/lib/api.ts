@@ -202,6 +202,32 @@ export interface GroupAvailabilityHour {
   is_closed: boolean;
 }
 
+/** One image placed on a "color-title" category banner. Position is the sticker
+ *  CENTER as a percent of the banner box; width is a percent of the banner width. */
+export interface BannerSticker {
+  id: string;
+  imageUrl: string;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  rotationDeg: number;
+}
+
+export interface BannerTitleDesign {
+  text?: string;
+  font?: string;
+  size?: number;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+/** Per-category "color + title" banner design (category banner style 'color-title'). */
+export interface BannerDesign {
+  bgColor?: string;
+  title?: BannerTitleDesign;
+  stickers?: BannerSticker[];
+}
+
 export interface MenuGroup {
   id: number;
   restaurant_id: number;
@@ -212,6 +238,8 @@ export interface MenuGroup {
   /** Banner image focal point (0-100, percent from left/top) → CSS object-position. */
   banner_focal_x?: number;
   banner_focal_y?: number;
+  /** Per-category "color + title" banner design. */
+  banner_design?: BannerDesign | null;
   sort_order: number;
   pos_enabled: boolean;
   web_enabled: boolean;
@@ -597,7 +625,7 @@ export interface WebsiteConfig {
   /** Optional per-section color overrides; omitted section/field inherits the theme. */
   section_colors?: SectionColors | null;
   hero_name_font: string;
-  category_banner_style: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
+  category_banner_style: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   category_banner_overlay: number;
   category_banner_fit: '' | 'cover' | 'contain' | 'natural';
   category_banner_fit_mobile: '' | 'cover' | 'contain' | 'natural';
