@@ -42,7 +42,7 @@ type PreviewMessage = {
   heroLogoBg: 'white' | 'black';
   customPalette: WebsiteConfig['custom_palette'] | null;
   faviconURL: string;
-  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
   // Order-page info — posted in foodyweb shape (modalText, not modal_text).
@@ -240,7 +240,7 @@ export default function WebsitePage() {
   const [logoSize, setLogoSize] = useState<number>(40);
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
-  const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
+  const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
   const [categoryBannerOverlay, setCategoryBannerOverlay] = useState<number>(40);
   const [categoryBannerFit, setCategoryBannerFit] = useState<'cover' | 'contain' | 'natural'>('cover');
   const [landingEnabled, setLandingEnabled] = useState<boolean>(true);
@@ -1254,12 +1254,12 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   onAddSection: () => void;
   menuLayout: string;
   menuLayoutMobile: string;
-  categoryBannerStyle: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
-  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'text-block' | 'striped-rule' | 'none') => void;
+  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
   onCategoryBannerFitChange: (v: 'cover' | 'contain' | 'natural') => void;
   restaurantId: number;
@@ -1404,12 +1404,13 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
               className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             >
               <option value="image-overlay">Image avec titre superposé</option>
+              <option value="image-only">Image seule (sans titre)</option>
               <option value="text-block">Bloc de texte uniquement</option>
               <option value="striped-rule">Ligne rayée minimale</option>
               <option value="none">Sans bannière</option>
             </select>
-            {/* Overlay darkness only affects the image-overlay style, so the
-                slider is shown only for that style. 0 removes the veil entirely. */}
+            {/* Overlay darkness only affects the overlaid title, so the slider
+                is shown only for the image-overlay style. 0 removes the veil. */}
             {(categoryBannerStyle || 'image-overlay') === 'image-overlay' && (
               <div className="mt-3">
                 <label className="text-[11px] text-fg-secondary block mb-1">
@@ -1427,29 +1428,31 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
                 <div className="flex justify-between text-[10px] text-fg-secondary mt-0.5">
                   <span>Aucun</span><span>Sombre</span>
                 </div>
-                {/* Image fit: "cover" crops to fill the banner box (legacy
-                    default); "contain" centres the whole image with a blurred
-                    side-fill; "natural" lets the banner follow the image's own
-                    aspect ratio so nothing is cropped on wide desktop. */}
-                <div className="mt-3">
-                  <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image</span>
-                  <div className="flex flex-col gap-1.5">
-                    {([
-                      { value: 'cover', label: 'Remplir (rogné)', hint: 'Recadre l’image pour remplir la bannière.' },
-                      { value: 'contain', label: 'Image entière, fond flou', hint: 'Affiche toute l’image, avec un fond flou sur les côtés.' },
-                      { value: 'natural', label: 'Image entière, hauteur auto', hint: 'La bannière suit les proportions de l’image — rien n’est rogné.' },
-                    ] as const).map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onCategoryBannerFitChange(opt.value)}
-                        className={`px-3 py-2 rounded-lg border text-left transition-colors ${categoryBannerFit === opt.value ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
-                      >
-                        <span className="block text-[11px] font-medium">{opt.label}</span>
-                        <span className="block text-[10px] opacity-70 leading-snug mt-0.5">{opt.hint}</span>
-                      </button>
-                    ))}
-                  </div>
+              </div>
+            )}
+            {/* Image fit applies to any image banner — overlaid title or not.
+                "cover" crops to fill the box (legacy default); "contain" centres
+                the whole image with a blurred side-fill; "natural" lets the
+                banner follow the image's own aspect ratio so nothing is cropped. */}
+            {((categoryBannerStyle || 'image-overlay') === 'image-overlay' || categoryBannerStyle === 'image-only') && (
+              <div className="mt-3">
+                <span className="text-[11px] text-fg-secondary block mb-1">Cadrage de l&apos;image</span>
+                <div className="flex flex-col gap-1.5">
+                  {([
+                    { value: 'cover', label: 'Remplir (rogné)', hint: 'Recadre l’image pour remplir la bannière.' },
+                    { value: 'contain', label: 'Image entière, fond flou', hint: 'Affiche toute l’image, avec un fond flou sur les côtés.' },
+                    { value: 'natural', label: 'Image entière, hauteur auto', hint: 'La bannière suit les proportions de l’image — rien n’est rogné.' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => onCategoryBannerFitChange(opt.value)}
+                      className={`px-3 py-2 rounded-lg border text-left transition-colors ${categoryBannerFit === opt.value ? 'border-brand-500 bg-brand-500/10 text-fg-primary' : 'border-divider bg-[var(--surface)] text-fg-secondary'}`}
+                    >
+                      <span className="block text-[11px] font-medium">{opt.label}</span>
+                      <span className="block text-[10px] opacity-70 leading-snug mt-0.5">{opt.hint}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
