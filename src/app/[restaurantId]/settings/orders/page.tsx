@@ -118,7 +118,6 @@ export default function OrdersAvailabilityPage() {
   const [prepTime, setPrepTime] = useState(20);
   const [autoSendToKitchen, setAutoSendToKitchen] = useState(true);
   const [tipsEnabled, setTipsEnabled] = useState(true);
-  const [rushMode, setRushMode] = useState(false);
 
   useEffect(() => {
     Promise.all([getRestaurant(rid), getRestaurantSettings(rid)])
@@ -141,7 +140,9 @@ export default function OrdersAvailabilityPage() {
         const explicit = Array.isArray(r.workdays) && r.workdays.length > 0;
         setWorkdays(explicit ? r.workdays! : getEffectiveWorkdays(r));
         // Pause
-        setPaused(s.orders_paused ?? false);
+        // The legacy rush_mode field did the same thing (hard-block all online
+        // orders); fold it into the single Pause control so there's one source.
+        setPaused((s.orders_paused ?? false) || (s.rush_mode ?? false));
         if (s.orders_paused_until) {
           setPauseUntilMode('time');
           setPauseUntil(toLocalInput(s.orders_paused_until));
@@ -163,7 +164,6 @@ export default function OrdersAvailabilityPage() {
         setPrepTime(s.pickup_prep_time_minutes ?? 20);
         setAutoSendToKitchen(s.auto_send_to_kitchen ?? true);
         setTipsEnabled(s.tips_enabled ?? true);
-        setRushMode(s.rush_mode ?? false);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -208,6 +208,8 @@ export default function OrdersAvailabilityPage() {
       await updateRestaurantSettings(rid, {
         orders_paused: nextPaused,
         orders_paused_until: until,
+        // Retire the legacy rush_mode field — Pause is now the single control.
+        rush_mode: false,
       });
     } catch {
       // leave the toggle where the operator put it; the next save will retry
@@ -274,7 +276,6 @@ export default function OrdersAvailabilityPage() {
         pickup_prep_time_minutes: prepTime,
         auto_send_to_kitchen: autoSendToKitchen,
         tips_enabled: tipsEnabled,
-        rush_mode: rushMode,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -888,15 +889,6 @@ export default function OrdersAvailabilityPage() {
             onChange={setTipsEnabled}
             label={t('enableTips') || 'Pourboires'}
             sub={t('enableTipsDesc') || 'Proposer une étape pourboire au client.'}
-          />
-          <RuleToggle
-            checked={rushMode}
-            onChange={setRushMode}
-            label={t('rushModeRelabel') || 'Mode rush (bloquer temporairement la cuisine)'}
-            sub={
-              t('rushModeDesc') ||
-              'Bloque les nouvelles commandes quand la cuisine est débordée. Différent de la pause ci-dessus.'
-            }
           />
         </div>
       </Section>
