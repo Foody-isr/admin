@@ -2841,6 +2841,59 @@ export async function updateOrderPaymentStatus(
   return data.order;
 }
 
+// ─── Manual order creation (staff-built orders) ──────────────────────────────
+
+/** One applied modifier on a manually-built order line. `operator` is omitted
+ *  — the server derives the conversational verb from the modifier's action. */
+export interface CreateOrderModifierInput {
+  modifier_id: number;
+  applied: boolean;
+}
+
+/** One line on a manually-built order. Price is recomputed server-side from the
+ *  menu item, selected variant, and modifiers — the client value is ignored. */
+export interface CreateOrderItemInput {
+  menu_item_id: number;
+  quantity: number;
+  selected_variant_id?: number;
+  notes?: string;
+  modifiers?: CreateOrderModifierInput[];
+}
+
+export interface CreateOrderInput {
+  order_type: 'pickup' | 'delivery';
+  customer_name: string;
+  customer_phone: string;
+  payment_method?: string;
+  /** Initial payment status. Defaults to "unpaid" server-side. Set "paid" when
+   *  staff already collected cash/card in person. Ignored when
+   *  payment_required is true (the order is then held "pending"). */
+  payment_status?: PaymentStatus;
+  /** When true the server holds the order pending payment and returns a
+   *  payment_url to forward to the customer. */
+  payment_required?: boolean;
+  // Delivery-only address fields.
+  delivery_address?: string;
+  delivery_city?: string;
+  delivery_floor?: string;
+  delivery_apt?: string;
+  delivery_notes?: string;
+  items: CreateOrderItemInput[];
+}
+
+/** Creates an order manually from the admin (POS-style). Mirrors the staff
+ *  `POST /api/v1/orders` endpoint; `order_source` defaults to "manual". */
+export async function createOrder(
+  restaurantId: number,
+  input: CreateOrderInput,
+): Promise<{ order: Order; payment_url?: string }> {
+  return apiFetch<{ order: Order; payment_url?: string }>(
+    `/api/v1/orders?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
 // ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
 
 export interface KitchenPlanModifierBreakdown {
