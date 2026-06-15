@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import { Calendar, CalendarDays, PauseCircle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import {
@@ -841,13 +841,31 @@ export default function OrdersAvailabilityPage() {
       >
         <div className="flex flex-col gap-[var(--s-4)]">
           <div className="flex flex-wrap gap-[var(--s-4)]">
-            <Field label={t('serviceMode') || 'Mode de service'}>
+            <Field
+              label={
+                <span className="inline-flex items-center gap-2">
+                  {t('serviceMode') || 'Mode de service'}
+                  <ScopeTag>{t('dineIn') || 'Sur place'}</ScopeTag>
+                </span>
+              }
+              hint={
+                t('serviceModeHint') ||
+                'Concerne uniquement les commandes sur place (QR à table).'
+              }
+            >
               <Select value={serviceMode} onChange={(e) => setServiceMode(e.target.value)}>
                 <option value="table">{t('tableService') || 'Service à table'}</option>
                 <option value="counter">{t('counterService') || 'Service au comptoir'}</option>
               </Select>
             </Field>
-            <Field label={t('pickupPrepTime') || 'Temps de préparation (retrait)'}>
+            <Field
+              label={
+                <span className="inline-flex items-center gap-2">
+                  {t('pickupPrepTime') || 'Temps de préparation par défaut'}
+                  <ScopeTag>{t('pickup') || 'À emporter'}</ScopeTag>
+                </span>
+              }
+            >
               <Input
                 type="number"
                 min={0}
@@ -896,6 +914,22 @@ export default function OrdersAvailabilityPage() {
         {saveError && <span className="text-fs-sm text-[var(--danger-500)] font-medium">{saveError}</span>}
       </div>
     </div>
+  );
+}
+
+// A small pill marking which service a setting applies to — so it's obvious
+// that "Mode de service" and the prep time aren't global rules.
+function ScopeTag({ children }: { children: ReactNode }) {
+  return (
+    <span
+      className="inline-flex items-center h-[18px] px-[6px] rounded-r-full text-fs-micro font-medium normal-case tracking-normal"
+      style={{
+        background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+        color: 'var(--brand-600)',
+      }}
+    >
+      {children}
+    </span>
   );
 }
 
