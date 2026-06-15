@@ -634,7 +634,7 @@ export default function MenuDetailPage() {
           )}
           {isRotating && cycles.length === 0 && (
             <button
-              onClick={() => router.push(`/${rid}/settings/scheduled-orders`)}
+              onClick={() => router.push(`/${rid}/settings/orders`)}
               className="text-xs text-[var(--text-muted)] italic underline hover:text-[var(--text-primary)] transition-colors"
             >
               {t('configureBatchFirst') || 'Configurez les commandes anticipées dans les paramètres'}
