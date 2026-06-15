@@ -678,6 +678,9 @@ const translations: Record<Locale, Record<string, string>> = {
     invite: 'Invite',
     failedToInvite: 'Failed to invite',
     invitationSent: 'Invitation email sent to {email}',
+    invitationEmailNotConfigured: 'Member added. Email isn’t configured, so no invite was sent to {email}.',
+    invitationEmailFailed: 'Member added, but the invite email to {email} failed to send.',
+    memberAdded: 'Member added.',
 
     // ── Roles ──
     rolesAndPermissions: 'Roles & Permissions',
@@ -3406,6 +3409,9 @@ const translations: Record<Locale, Record<string, string>> = {
     invite: 'הזמן',
     failedToInvite: 'ההזמנה נכשלה',
     invitationSent: 'הזמנה נשלחה בדוא"ל אל {email}',
+    invitationEmailNotConfigured: 'חבר הצוות נוסף. הדוא"ל אינו מוגדר, ולכן לא נשלחה הזמנה אל {email}.',
+    invitationEmailFailed: 'חבר הצוות נוסף, אך שליחת ההזמנה בדוא"ל אל {email} נכשלה.',
+    memberAdded: 'חבר הצוות נוסף.',
 
     // ── Roles ──
     rolesAndPermissions: 'תפקידים והרשאות',
@@ -6114,6 +6120,9 @@ const translations: Record<Locale, Record<string, string>> = {
     invite: 'Inviter',
     failedToInvite: "Échec de l'invitation",
     invitationSent: "E-mail d'invitation envoyé à {email}",
+    invitationEmailNotConfigured: "Membre ajouté. L'e-mail n'est pas configuré, aucune invitation n'a été envoyée à {email}.",
+    invitationEmailFailed: "Membre ajouté, mais l'envoi de l'e-mail d'invitation à {email} a échoué.",
+    memberAdded: 'Membre ajouté.',
 
     // ── Roles ──
     rolesAndPermissions: 'Rôles et permissions',

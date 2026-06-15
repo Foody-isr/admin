@@ -3180,6 +3180,9 @@ export async function listCouriers(restaurantId: number): Promise<StaffMember[]>
   return staff.filter(isCourier);
 }
 
+/** Outcome of the invite-email send, reported by the server. */
+export type InviteEmailStatus = 'sent' | 'not_configured' | 'failed' | 'skipped';
+
 export async function inviteStaff(restaurantId: number, input: {
   full_name: string;
   email: string;
@@ -3187,12 +3190,12 @@ export async function inviteStaff(restaurantId: number, input: {
   password: string;
   role?: Role;
   role_id?: number;
-}): Promise<StaffMember> {
-  const data = await apiFetch<{ staff_member: StaffMember }>(
+}): Promise<{ member: StaffMember; emailStatus: InviteEmailStatus }> {
+  const data = await apiFetch<{ staff_member: StaffMember; email_status?: InviteEmailStatus }>(
     `/api/v1/restaurants/${restaurantId}/staff/invite`, restaurantId,
     { method: 'POST', body: JSON.stringify(input) }
   );
-  return data.staff_member;
+  return { member: data.staff_member, emailStatus: data.email_status ?? 'skipped' };
 }
 
 export async function updateStaffRole(
