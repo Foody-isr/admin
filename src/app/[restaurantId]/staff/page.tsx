@@ -64,7 +64,7 @@ export default function StaffPage() {
     setFormError('');
     setFormLoading(true);
     try {
-      await inviteStaff(rid, {
+      const { emailStatus } = await inviteStaff(rid, {
         full_name: form.full_name,
         email: form.email,
         phone: form.phone || undefined,
@@ -72,7 +72,14 @@ export default function StaffPage() {
         role_id: form.role_id,
       });
       setInviteOpen(false);
-      setSuccessMsg(t('invitationSent').replace('{email}', form.email));
+      // Report the real email outcome, not just API success.
+      const email = form.email;
+      const msgKey =
+        emailStatus === 'sent' ? 'invitationSent'
+        : emailStatus === 'not_configured' ? 'invitationEmailNotConfigured'
+        : emailStatus === 'failed' ? 'invitationEmailFailed'
+        : 'memberAdded';
+      setSuccessMsg(t(msgKey).replace('{email}', email));
       setForm({ full_name: '', email: '', phone: '', password: '', role_id: roles[0]?.id || 0 });
       reload();
     } catch (err: unknown) {
