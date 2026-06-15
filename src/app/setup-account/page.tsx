@@ -29,8 +29,6 @@ function SetupAccountContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
 
-  const STEPS = [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')] as const;
-
   const [inviteData, setInviteData] = useState<ValidateInviteResponse | null>(null);
   const [validating, setValidating] = useState(true);
   const [tokenError, setTokenError] = useState('');
@@ -58,6 +56,14 @@ function SetupAccountContent() {
   const [success, setSuccess] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState('/login');
   const [posDownloads, setPosDownloads] = useState<POSDownloads>({});
+
+  // A staff invite has no owned restaurant in the validate response. Staff only
+  // set a password + their info — they must not configure the restaurant or POS
+  // (that's the owner's). Owners keep the full 4-step wizard.
+  const isStaff = !!inviteData && !inviteData.restaurant;
+  const STEPS = isStaff
+    ? [t('stepPassword'), t('stepYourInfo')]
+    : [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')];
 
   // Validate token on mount
   useEffect(() => {
@@ -121,11 +127,12 @@ function SetupAccountContent() {
         password,
         full_name: fullName || undefined,
         phone: phone || undefined,
-        restaurant_name: restaurantName || undefined,
-        restaurant_slug: restaurantSlug || undefined,
-        restaurant_address: restaurantAddress || undefined,
-        restaurant_phone: restaurantPhone || undefined,
-        pos_platform: posPlatform,
+        // Staff invites carry no restaurant/POS setup — only owners do.
+        restaurant_name: isStaff ? undefined : restaurantName || undefined,
+        restaurant_slug: isStaff ? undefined : restaurantSlug || undefined,
+        restaurant_address: isStaff ? undefined : restaurantAddress || undefined,
+        restaurant_phone: isStaff ? undefined : restaurantPhone || undefined,
+        pos_platform: isStaff ? undefined : posPlatform,
       });
 
       // Determine where to redirect when user clicks "Go to Dashboard"
