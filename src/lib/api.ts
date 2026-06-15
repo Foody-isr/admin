@@ -209,6 +209,9 @@ export interface MenuGroup {
   parent_id?: number;
   name: string;
   image_url: string;
+  /** Banner image focal point (0-100, percent from left/top) → CSS object-position. */
+  banner_focal_x?: number;
+  banner_focal_y?: number;
   sort_order: number;
   pos_enabled: boolean;
   web_enabled: boolean;

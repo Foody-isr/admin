@@ -12,7 +12,7 @@ import {
   getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
   DraftStatePayload, DraftSectionPayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
-  ThemeCatalog, WebsitePageMeta,
+  ThemeCatalog, WebsitePageMeta, updateGroup,
 } from '@/lib/api';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
@@ -342,16 +342,32 @@ export default function WebsitePage() {
     }
   }, [selectedSectionId]);
 
-  // Listen for section clicks from inside the iframe
+  // Listen for section clicks + banner focal edits from inside the iframe
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
       if (e.data?.type === 'foody-select-section' && typeof e.data.sectionId === 'number') {
         setSelectedSectionId(e.data.sectionId);
+      } else if (
+        e.data?.type === 'foody-banner-focal' &&
+        e.data.groupId != null &&
+        typeof e.data.x === 'number' &&
+        typeof e.data.y === 'number'
+      ) {
+        // The customer dragged the focal dot on a category banner in the
+        // preview. Persist it live to the group (banner images live outside the
+        // website draft, so the focal point does too). Fire-and-forget.
+        const groupId = Number(e.data.groupId);
+        if (Number.isFinite(groupId)) {
+          updateGroup(restaurantId, groupId, {
+            banner_focal_x: e.data.x,
+            banner_focal_y: e.data.y,
+          }).catch(() => {});
+        }
       }
     }
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [restaurantId]);
 
   function closeSettings() {
     setShowSettingsPanel(false);
