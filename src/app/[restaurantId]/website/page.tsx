@@ -12,8 +12,10 @@ import {
   getWebsiteDraft, saveWebsiteDraft, publishWebsiteDraft, discardWebsiteDraft,
   DraftStatePayload, DraftSectionPayload,
   WebsiteConfig, WebsiteSection, SiteStylePreset, Restaurant, MenuCategory, MenuItem,
-  ThemeCatalog, WebsitePageMeta, updateGroup,
+  ThemeCatalog, WebsitePageMeta, updateGroup, uploadGroupImage,
 } from '@/lib/api';
+import type { BannerDesign } from '@/lib/api';
+import { BannerDesignerPanel } from '@/components/website-menu/BannerDesignerPanel';
 import { ThemesPanel } from '@/components/website-menu/ThemesPanel';
 import { TypographyPanel } from '@/components/website-menu/TypographyPanel';
 import { BrandingPanel } from '@/components/website-menu/BrandingPanel';
@@ -43,7 +45,7 @@ type PreviewMessage = {
   customPalette: WebsiteConfig['custom_palette'] | null;
   sectionColors: WebsiteConfig['section_colors'] | null;
   faviconURL: string;
-  categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
   categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
@@ -225,6 +227,10 @@ export default function WebsitePage() {
   const [sections, setSections] = useState<WebsiteSection[]>([]);
   const [siteStyles, setSiteStyles] = useState<SiteStylePreset[]>([]);
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
+  // "Couleur + titre" banner designer: which category banner is selected in the
+  // preview, plus its working design. Populated when the user clicks a banner.
+  const [selectedBanner, setSelectedBanner] = useState<{ groupId: number; design: BannerDesign } | null>(null);
+  const bannerSaveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [activePage, setActivePage] = useState('home');
   // Custom pages (beyond the built-in home + menu). Each renders at
@@ -242,7 +248,7 @@ export default function WebsitePage() {
   const [logoSize, setLogoSize] = useState<number>(40);
   const [hideNavbarName, setHideNavbarName] = useState<boolean>(false);
   const [heroNameFont, setHeroNameFont] = useState<string>('');
-  const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none'>('image-overlay');
+  const [categoryBannerStyle, setCategoryBannerStyle] = useState<'' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none'>('image-overlay');
   const [categoryBannerOverlay, setCategoryBannerOverlay] = useState<number>(40);
   const [categoryBannerFit, setCategoryBannerFit] = useState<'cover' | 'contain' | 'natural'>('cover');
   // Mobile fit override: '' means "inherit the desktop value".
@@ -365,11 +371,38 @@ export default function WebsitePage() {
             banner_focal_y: e.data.y,
           }).catch(() => {});
         }
+      } else if (e.data?.type === 'foody-select-banner' && e.data.groupId != null) {
+        // User clicked a "color-title" banner in the preview — open its designer.
+        setSelectedBanner({ groupId: Number(e.data.groupId), design: (e.data.design ?? {}) as BannerDesign });
+      } else if (e.data?.type === 'foody-banner-design-change' && e.data.groupId != null) {
+        // User dragged a sticker in the preview — sync the design and persist it.
+        const groupId = Number(e.data.groupId);
+        const design = (e.data.design ?? {}) as BannerDesign;
+        setSelectedBanner((prev) => (prev && prev.groupId === groupId ? { groupId, design } : prev));
+        persistBannerDesign(groupId, design);
       }
     }
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId]);
+
+  // Persist a banner design to the group (debounced per group). Banner designs
+  // live on the group like the image/focal point, so they save live.
+  const persistBannerDesign = useCallback((groupId: number, design: BannerDesign) => {
+    clearTimeout(bannerSaveTimers.current[groupId]);
+    bannerSaveTimers.current[groupId] = setTimeout(() => {
+      updateGroup(restaurantId, groupId, { banner_design: design }).catch(() => {});
+    }, 400);
+  }, [restaurantId]);
+
+  // Apply a design edit from the admin panel: update local state, push it to the
+  // preview iframe for a live update, and persist it.
+  const applyBannerDesign = useCallback((groupId: number, design: BannerDesign) => {
+    setSelectedBanner({ groupId, design });
+    menuIframeRef.current?.contentWindow?.postMessage({ type: 'foody-banner-design', groupId, design }, '*');
+    persistBannerDesign(groupId, design);
+  }, [persistBannerDesign]);
 
   function closeSettings() {
     setShowSettingsPanel(false);
@@ -1166,6 +1199,18 @@ export default function WebsitePage() {
               onIframeRectUpdate={handleIframeRectUpdate}
             />
           )}
+
+          {/* Banner designer — floats over the preview when a "color-title"
+              banner is selected. Edits push live to the iframe + persist. */}
+          {categoryBannerStyle === 'color-title' && selectedBanner && (
+            <BannerDesignerPanel
+              restaurantId={restaurantId}
+              groupId={selectedBanner.groupId}
+              design={selectedBanner.design}
+              onChange={(d) => applyBannerDesign(selectedBanner.groupId, d)}
+              onClose={() => setSelectedBanner(null)}
+            />
+          )}
         </div>
 
         {/* Right panel — section settings (Pages mode, home page, section selected) */}
@@ -1283,13 +1328,13 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   onAddSection: () => void;
   menuLayout: string;
   menuLayoutMobile: string;
-  categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
   categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
-  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none') => void;
+  onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
   onCategoryBannerFitChange: (v: 'cover' | 'contain' | 'natural') => void;
   onCategoryBannerFitMobileChange: (v: '' | 'cover' | 'contain' | 'natural') => void;
@@ -1449,8 +1494,14 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
               <option value="image-only">Image seule (sans titre)</option>
               <option value="text-block">Bloc de texte uniquement</option>
               <option value="striped-rule">Ligne rayée minimale</option>
+              <option value="color-title">Couleur + titre (personnalisé)</option>
               <option value="none">Sans bannière</option>
             </select>
+            {bannerStyle === 'color-title' && (
+              <p className="mt-2 text-[11px] text-fg-secondary leading-snug">
+                Cliquez une bannière dans l&apos;aperçu pour modifier sa couleur, son titre et ajouter des stickers.
+              </p>
+            )}
             {/* Overlay darkness only affects the overlaid title, so the slider
                 is shown only for the image-overlay style. 0 removes the veil. */}
             {bannerStyle === 'image-overlay' && (
