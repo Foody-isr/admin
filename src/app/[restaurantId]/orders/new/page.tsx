@@ -15,6 +15,7 @@ import {
 import {
   NewOrderCheckoutDrawer, type CheckoutData,
 } from '@/components/orders/NewOrderCheckoutDrawer';
+import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
   ArrowLeftIcon, SearchIcon, PlusIcon, MinusIcon, Trash2Icon,
   CopyIcon, CheckIcon, ShoppingBagIcon, XIcon,
@@ -50,6 +51,7 @@ export default function NewOrderPage() {
 
   const [lines, setLines] = useState<NewOrderLine[]>([]);
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [comboItem, setComboItem] = useState<MenuItem | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +97,7 @@ export default function NewOrderPage() {
         seenGroup.add(group.id);
         const items = (group.items ?? [])
           .map((gi) => itemMap.get(gi.id) ?? gi)
-          .filter((it) => it.is_active && it.item_type !== 'combo')
+          .filter((it) => it.is_active)
           .filter((it) => !q || it.name.toLowerCase().includes(q));
         if (items.length > 0) out.push({ id: group.id, name: group.name, items });
       }
@@ -129,6 +131,10 @@ export default function NewOrderPage() {
 
   function handleTile(it: MenuItem) {
     const full = itemMap.get(it.id) ?? it;
+    if (full.item_type === 'combo') {
+      setComboItem(full);
+      return;
+    }
     if (hasOptions(full)) {
       setModalItem(full);
       return;
@@ -188,13 +194,30 @@ export default function NewOrderPage() {
               delivery_notes: data.deliveryNotes.trim() || undefined,
             }
           : {}),
-        items: lines.map((l) => ({
-          menu_item_id: l.item.id,
-          quantity: l.quantity,
-          selected_variant_id: l.selectedVariantId,
-          notes: l.notes || undefined,
-          modifiers: l.modifiers.map((m) => ({ modifier_id: m.id, applied: true })),
-        })),
+        items: lines
+          .filter((l) => l.comboItemId == null)
+          .map((l) => ({
+            menu_item_id: l.item.id,
+            quantity: l.quantity,
+            selected_variant_id: l.selectedVariantId,
+            notes: l.notes || undefined,
+            modifiers: l.modifiers.map((m) => ({ modifier_id: m.id, applied: true })),
+          })),
+        // A combo line carries no server-side quantity, so N× the same combo is
+        // sent as N separate combo entries (each becomes its own combo_group).
+        combos: lines
+          .filter((l) => l.comboItemId != null)
+          .flatMap((l) =>
+            Array.from({ length: l.quantity }, () => ({
+              combo_item_id: l.comboItemId as number,
+              selections: (l.comboSelections ?? []).map((s) => ({
+                step_id: s.stepId,
+                menu_item_id: s.menuItemId,
+                option_id: s.optionId ?? undefined,
+                quantity: s.quantity,
+              })),
+            })),
+          ),
       });
 
       if (res.payment_url) {
@@ -321,9 +344,16 @@ export default function NewOrderPage() {
                             </span>
                           )}
                           <span className="line-clamp-2 pe-6 text-fs-sm font-medium leading-tight">{it.name}</span>
-                          <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)]">
-                            ₪{it.price.toFixed(2)}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)]">
+                              ₪{it.price.toFixed(2)}
+                            </span>
+                            {it.item_type === 'combo' && (
+                              <span className="rounded-full bg-[var(--brand-500)]/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-600)]">
+                                {t('comboLabel')}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -371,6 +401,16 @@ export default function NewOrderPage() {
                         <p className="truncate text-fs-sm font-medium">{l.item.name}</p>
                         {l.selectedVariantName && (
                           <p className="text-fs-xs text-[var(--fg-muted)]">{l.selectedVariantName}</p>
+                        )}
+                        {l.comboSelections && l.comboSelections.length > 0 && (
+                          <ul className="mt-0.5 flex flex-col gap-0.5">
+                            {l.comboSelections.map((s, i) => (
+                              <li key={`${s.stepId}-${s.menuItemId}-${i}`} className="text-fs-xs text-[var(--fg-subtle)]">
+                                · {s.quantity > 1 ? `${s.quantity}× ` : ''}{s.menuItemName}
+                                {s.priceDelta > 0 ? ` (+₪${s.priceDelta.toFixed(2)})` : ''}
+                              </li>
+                            ))}
+                          </ul>
                         )}
                         {l.modifiers.length > 0 && (
                           <p className="text-fs-xs text-[var(--fg-subtle)]">{l.modifiers.map((m) => m.name).join(', ')}</p>
@@ -423,6 +463,14 @@ export default function NewOrderPage() {
         item={modalItem}
         open={modalItem !== null}
         onClose={() => setModalItem(null)}
+        onAdd={addLine}
+      />
+
+      <NewOrderComboModal
+        combo={comboItem}
+        restaurantId={restaurantId}
+        open={comboItem !== null}
+        onClose={() => setComboItem(null)}
         onAdd={addLine}
       />
 
