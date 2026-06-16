@@ -4,10 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder,
+  getBatchFulfillmentConfig, listGroupMemberships,
   type Menu, type MenuItem, type PaymentStatus,
+  type BatchFulfillmentConfigResponse, type MenuGroupMembership,
 } from '@/lib/api';
+import { isMembershipActiveOn } from '@/lib/membership';
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button } from '@/components/ds';
+import { BatchPicker } from '@/components/menu/BatchPicker';
 import { cn } from '@/lib/utils';
 import {
   NewOrderItemModal, lineUnitPrice, lineTotal, type NewOrderLine,
@@ -61,6 +65,12 @@ export default function NewOrderPage() {
 
   // Category filter: 'all' shows every section, otherwise a single group id.
   const [activeSection, setActiveSection] = useState<number | 'all'>('all');
+  // Selected carte (menu). null until menus load.
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+  // Weekly-rotating carte state (only populated when the active carte rotates).
+  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
+  const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -76,6 +86,9 @@ export default function NewOrderPage() {
         if (cancelled) return;
         setMenus(menuList);
         setItemMap(new Map(items.map((it) => [it.id, it])));
+        // Default to the first POS-enabled carte (fall back to the first carte).
+        const firstCarte = menuList.find((m) => m.pos_enabled !== false) ?? menuList[0];
+        setActiveMenuId((prev) => prev ?? firstCarte?.id ?? null);
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -85,25 +98,71 @@ export default function NewOrderPage() {
     return () => { cancelled = true; };
   }, [restaurantId]);
 
-  // Customer-facing, orderable sections: visible POS groups with active items.
+  // POS-orderable cartes (menus). Drives the carte selector.
+  const cartes = useMemo(() => menus.filter((m) => m.pos_enabled !== false), [menus]);
+  const activeMenu = useMemo(() => menus.find((m) => m.id === activeMenuId) ?? null, [menus, activeMenuId]);
+
+  // Weekly-rotation context for the active carte.
+  const isRotating = !!activeMenu?.is_weekly_rotating;
+  const cycles = batchConfig?.upcoming_cycles ?? [];
+  const selectedCycle = cycles[Math.min(selectedCycleIndex, Math.max(cycles.length - 1, 0))] ?? null;
+  // The ISO day used to filter rotating items: the cycle's primary fulfilment
+  // day, falling back to its cutoff date.
+  const selectedDay =
+    selectedCycle?.fulfillment_days?.[0]?.date ??
+    (selectedCycle?.cutoff_at ? selectedCycle.cutoff_at.slice(0, 10) : null);
+
+  // When the active carte rotates, load its batch cycles + per-group memberships
+  // so items can be filtered to the selected week. Mirrors the carte detail page.
+  useEffect(() => {
+    if (!activeMenu?.is_weekly_rotating) {
+      setBatchConfig(null);
+      setMembershipsByGroup(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const groupList = activeMenu.groups ?? [];
+      const [config, ...memberships] = await Promise.all([
+        getBatchFulfillmentConfig(restaurantId).catch(() => null),
+        ...groupList.map((g) => listGroupMemberships(restaurantId, g.id).catch(() => [] as MenuGroupMembership[])),
+      ]);
+      if (cancelled) return;
+      setBatchConfig(config);
+      setSelectedCycleIndex(0);
+      const next = new Map<number, MenuGroupMembership[]>();
+      groupList.forEach((g, idx) => next.set(g.id, memberships[idx] ?? []));
+      setMembershipsByGroup(next);
+    })();
+    return () => { cancelled = true; };
+  }, [activeMenu, restaurantId]);
+
+  // Customer-facing, orderable sections for the active carte: visible POS groups
+  // with active items, filtered to the selected week when the carte rotates.
   const sections = useMemo<Section[]>(() => {
     const q = search.trim().toLowerCase();
     const out: Section[] = [];
-    const seenGroup = new Set<number>();
-    for (const menu of menus) {
-      for (const group of menu.groups ?? []) {
-        if (group.is_hidden || group.pos_enabled === false) continue;
-        if (seenGroup.has(group.id)) continue;
-        seenGroup.add(group.id);
-        const items = (group.items ?? [])
-          .map((gi) => itemMap.get(gi.id) ?? gi)
-          .filter((it) => it.is_active)
-          .filter((it) => !q || it.name.toLowerCase().includes(q));
-        if (items.length > 0) out.push({ id: group.id, name: group.name, items });
-      }
+    if (!activeMenu) return out;
+    for (const group of activeMenu.groups ?? []) {
+      if (group.is_hidden || group.pos_enabled === false) continue;
+      const memberByItem =
+        isRotating && selectedDay
+          ? new Map((membershipsByGroup.get(group.id) ?? []).map((m) => [m.menu_item_id, m] as const))
+          : null;
+      const items = (group.items ?? [])
+        .map((gi) => itemMap.get(gi.id) ?? gi)
+        .filter((it) => it.is_active)
+        .filter((it) => {
+          if (!memberByItem) return true;
+          const m = memberByItem.get(it.id);
+          // Items with no membership row default to active (legacy/defensive).
+          return !m || isMembershipActiveOn(m, selectedDay as string);
+        })
+        .filter((it) => !q || it.name.toLowerCase().includes(q));
+      if (items.length > 0) out.push({ id: group.id, name: group.name, items });
     }
     return out;
-  }, [menus, itemMap, search]);
+  }, [activeMenu, itemMap, search, isRotating, selectedDay, membershipsByGroup]);
 
   // Drop the category filter if the active section disappears (e.g. cleared by
   // a search), so the grid never ends up showing nothing unexpectedly.
@@ -278,6 +337,26 @@ export default function NewOrderPage() {
               </Button>
               <h1 className="text-fs-md font-semibold">{t('newOrder')}</h1>
             </div>
+            {cartes.length > 1 && (
+              <div className="-mx-[var(--s-4)] mb-2 flex gap-1 overflow-x-auto border-b border-[var(--line)] px-[var(--s-4)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {cartes.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setActiveMenuId(m.id)}
+                    className={cn(
+                      'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-2 text-fs-sm font-medium transition-colors',
+                      activeMenuId === m.id ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+                    )}
+                  >
+                    {m.name}
+                    {activeMenuId === m.id && (
+                      <span className="absolute inset-x-[var(--s-2)] -bottom-px h-0.5 rounded-full bg-[var(--brand-500)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="relative mb-2">
               <SearchIcon className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
               <input
@@ -287,6 +366,11 @@ export default function NewOrderPage() {
                 className="h-10 w-full rounded-md border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-fs-sm outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-ring"
               />
             </div>
+            {isRotating && cycles.length > 0 && (
+              <div className="mb-2">
+                <BatchPicker cycles={cycles} selectedIndex={selectedCycleIndex} onChange={setSelectedCycleIndex} />
+              </div>
+            )}
             {sections.length > 0 && (
               <div className="-mx-[var(--s-4)] flex gap-1.5 overflow-x-auto px-[var(--s-4)] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {[{ id: 'all' as const, name: t('all') }, ...sections].map((s) => (
