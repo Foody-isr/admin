@@ -170,6 +170,7 @@ const translations: Record<Locale, Record<string, string>> = {
     orders: 'Orders',
     // Manual order creation
     newOrderDesc: 'Build an order for a customer',
+    checkout: 'Checkout',
     backToOrders: 'Back to orders',
     orderItems: 'Order items',
     emptyCartHint: 'Tap menu items to add them to the order',
@@ -2932,6 +2933,7 @@ const translations: Record<Locale, Record<string, string>> = {
     orders: 'הזמנות',
     // Manual order creation
     newOrderDesc: 'יצירת הזמנה עבור לקוח',
+    checkout: 'תשלום',
     backToOrders: 'חזרה להזמנות',
     orderItems: 'פריטים בהזמנה',
     emptyCartHint: 'הקש על פריטים מהתפריט כדי להוסיף אותם להזמנה',
@@ -5674,6 +5676,7 @@ const translations: Record<Locale, Record<string, string>> = {
     orders: 'Commandes',
     // Manual order creation
     newOrderDesc: 'Créer une commande pour un client',
+    checkout: 'Encaisser',
     backToOrders: 'Retour aux commandes',
     orderItems: 'Articles de la commande',
     emptyCartHint: 'Touchez les articles du menu pour les ajouter à la commande',
