@@ -14,6 +14,8 @@ interface StepOption {
   menuItemId: number;
   optionId: number | null;
   name: string;
+  /** Pinned portion/size label for this option (e.g. "250 g"), if any. */
+  portion?: string;
   priceDelta: number;
 }
 
@@ -21,26 +23,51 @@ function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `combo-${Date.now()}`;
 }
 
-function optionsFromStep(step: ComboStep, groupItems: StepOption[] | undefined): StepOption[] {
+// Resolve the label of a pinned variant/option (e.g. "250 g") from the full
+// catalog item — combos pin the portion via option_id, they don't let the
+// customer choose it.
+function portionLabel(item: MenuItem | undefined, optionId: number | null | undefined): string | undefined {
+  if (!item || optionId == null) return undefined;
+  for (const g of item.variant_groups ?? []) {
+    const v = (g.variants ?? []).find((x) => x.id === optionId);
+    if (v) return v.name;
+  }
+  for (const os of item.option_sets ?? []) {
+    const o = (os.options ?? []).find((x) => x.id === optionId);
+    if (o) return o.portion || o.name;
+  }
+  return undefined;
+}
+
+function optionsFromStep(
+  step: ComboStep,
+  groupItems: StepOption[] | undefined,
+  itemMap: Map<number, MenuItem>,
+): StepOption[] {
   if (step.source_type === 'group') return groupItems ?? [];
-  return (step.items ?? []).map((si) => ({
-    key: `${si.menu_item_id}:${si.option_id ?? ''}`,
-    menuItemId: si.menu_item_id,
-    optionId: si.option_id ?? null,
-    name: si.menu_item?.name ?? `#${si.menu_item_id}`,
-    priceDelta: si.price_delta ?? 0,
-  }));
+  return (step.items ?? []).map((si) => {
+    const full = itemMap.get(si.menu_item_id) ?? si.menu_item;
+    return {
+      key: `${si.menu_item_id}:${si.option_id ?? ''}`,
+      menuItemId: si.menu_item_id,
+      optionId: si.option_id ?? null,
+      name: full?.name ?? `#${si.menu_item_id}`,
+      portion: portionLabel(full, si.option_id),
+      priceDelta: si.price_delta ?? 0,
+    };
+  });
 }
 
 interface NewOrderComboModalProps {
   combo: MenuItem | null;
   restaurantId: number;
+  itemMap: Map<number, MenuItem>;
   open: boolean;
   onClose: () => void;
   onAdd: (line: NewOrderLine) => void;
 }
 
-export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }: NewOrderComboModalProps) {
+export function NewOrderComboModal({ combo, restaurantId, itemMap, open, onClose, onAdd }: NewOrderComboModalProps) {
   const { t } = useI18n();
   const steps = useMemo(() => (combo?.combo_steps ?? []).filter((s) => s.id != null), [combo]);
 
@@ -75,6 +102,8 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
               menuItemId: it.menu_item_id,
               optionId: it.option_id ?? null,
               name: it.name,
+              // Group steps pin the size via the step's variant label.
+              portion: step.source_variant_label ?? portionLabel(itemMap.get(it.menu_item_id), it.option_id),
               priceDelta: 0,
             }));
           } catch {
@@ -85,7 +114,7 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
       if (!cancelled) setGroupItems(resolved);
     })();
     return () => { cancelled = true; };
-  }, [combo, open, steps, restaurantId]);
+  }, [combo, open, steps, restaurantId, itemMap]);
 
   if (!combo) return null;
   const activeCombo = combo;
@@ -122,7 +151,7 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
   const allComplete = steps.every((s) => stepCount(s.id as number) >= (s.min_picks ?? 0));
 
   const extraDelta = steps.reduce((sum, step) => {
-    const opts = optionsFromStep(step, groupItems[step.id as number]);
+    const opts = optionsFromStep(step, groupItems[step.id as number], itemMap);
     const byKey = picks[step.id as number] ?? {};
     return sum + opts.reduce((s, o) => s + (byKey[o.key] ?? 0) * o.priceDelta, 0);
   }, 0);
@@ -131,7 +160,7 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
   function handleAdd() {
     const selections: ComboSelection[] = [];
     for (const step of steps) {
-      const opts = optionsFromStep(step, groupItems[step.id as number]);
+      const opts = optionsFromStep(step, groupItems[step.id as number], itemMap);
       const byKey = picks[step.id as number] ?? {};
       for (const [key, qty] of Object.entries(byKey)) {
         const opt = opts.find((o) => o.key === key);
@@ -140,7 +169,8 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
           stepId: step.id as number,
           stepName: step.name,
           menuItemId: opt.menuItemId,
-          menuItemName: opt.name,
+          // Carry the pinned portion into the label so the receipt shows it too.
+          menuItemName: opt.portion ? `${opt.name} · ${opt.portion}` : opt.name,
           optionId: opt.optionId,
           quantity: qty,
           priceDelta: opt.priceDelta,
@@ -174,7 +204,7 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
       <div className="flex flex-col gap-[var(--s-5)]">
         {steps.map((step) => {
           const stepId = step.id as number;
-          const opts = optionsFromStep(step, groupItems[stepId]);
+          const opts = optionsFromStep(step, groupItems[stepId], itemMap);
           const count = stepCount(stepId);
           const min = step.min_picks ?? 0;
           const max = step.max_picks ?? 0;
@@ -219,6 +249,11 @@ export function NewOrderComboModal({ combo, restaurantId, open, onClose, onAdd }
                           <span className={cn('size-3.5 shrink-0 rounded-full border', selected ? 'border-[var(--brand-500)] bg-[var(--brand-500)]' : 'border-[var(--line-strong)]')} />
                         )}
                         <span>{opt.name}</span>
+                        {opt.portion && (
+                          <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-fs-xs font-medium text-[var(--fg-muted)]">
+                            {opt.portion}
+                          </span>
+                        )}
                         {opt.priceDelta > 0 && (
                           <span className="text-fs-xs text-[var(--fg-muted)]">+₪{opt.priceDelta.toFixed(2)}</span>
                         )}
