@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   getMenu, listAllItems, createOrder,
@@ -57,9 +57,8 @@ export default function NewOrderPage() {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [activeSection, setActiveSection] = useState<number | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  // Category filter: 'all' shows every section, otherwise a single group id.
+  const [activeSection, setActiveSection] = useState<number | 'all'>('all');
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -104,25 +103,19 @@ export default function NewOrderPage() {
     return out;
   }, [menus, itemMap, search]);
 
-  // Scroll-spy: highlight the category whose section is at the top of the list.
+  // Drop the category filter if the active section disappears (e.g. cleared by
+  // a search), so the grid never ends up showing nothing unexpectedly.
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root || sections.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) {
-          const id = Number((visible[0].target as HTMLElement).dataset.sectionId);
-          if (!Number.isNaN(id)) setActiveSection(id);
-        }
-      },
-      { root, rootMargin: '0px 0px -70% 0px', threshold: 0 },
-    );
-    sectionRefs.current.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [sections]);
+    if (activeSection !== 'all' && !sections.some((s) => s.id === activeSection)) {
+      setActiveSection('all');
+    }
+  }, [sections, activeSection]);
+
+  // Sections actually rendered: a single category when one is picked, else all.
+  const displaySections = useMemo(
+    () => (activeSection === 'all' ? sections : sections.filter((s) => s.id === activeSection)),
+    [sections, activeSection],
+  );
 
   const subtotal = lines.reduce((sum, l) => sum + lineTotal(l), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -133,11 +126,6 @@ export default function NewOrderPage() {
     for (const l of lines) m.set(l.item.id, (m.get(l.item.id) ?? 0) + l.quantity);
     return m;
   }, [lines]);
-
-  function jumpToSection(id: number) {
-    setActiveSection(id);
-    sectionRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 
   function handleTile(it: MenuItem) {
     const full = itemMap.get(it.id) ?? it;
@@ -278,11 +266,11 @@ export default function NewOrderPage() {
             </div>
             {sections.length > 0 && (
               <div className="-mx-[var(--s-4)] flex gap-1.5 overflow-x-auto px-[var(--s-4)] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {sections.map((s) => (
+                {[{ id: 'all' as const, name: t('all') }, ...sections].map((s) => (
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => jumpToSection(s.id)}
+                    onClick={() => setActiveSection(s.id)}
                     className={cn(
                       'shrink-0 rounded-full border px-[var(--s-3)] py-1.5 text-fs-xs font-medium transition-colors',
                       activeSection === s.id
@@ -298,7 +286,7 @@ export default function NewOrderPage() {
           </div>
 
           {/* Scrollable item grid */}
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-[var(--s-4)]">
+          <div className="min-h-0 flex-1 overflow-y-auto p-[var(--s-4)]">
             {loading && <p className="text-fs-sm text-[var(--fg-muted)]">{t('loading')}…</p>}
             {loadError && <p className="text-fs-sm text-[var(--danger-500)]">{loadError}</p>}
             {!loading && !loadError && sections.length === 0 && (
@@ -306,15 +294,10 @@ export default function NewOrderPage() {
             )}
 
             <div className="flex flex-col gap-[var(--s-5)]">
-              {sections.map((section) => (
+              {displaySections.map((section) => (
                 <div
                   key={section.id}
-                  data-section-id={section.id}
-                  ref={(el) => {
-                    if (el) sectionRefs.current.set(section.id, el);
-                    else sectionRefs.current.delete(section.id);
-                  }}
-                  className="flex scroll-mt-2 flex-col gap-2"
+                  className="flex flex-col gap-2"
                 >
                   <h2 className="text-fs-sm font-semibold text-[var(--fg)]">{section.name}</h2>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
