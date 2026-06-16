@@ -469,6 +469,7 @@ export default function NewOrderPage() {
       <NewOrderComboModal
         combo={comboItem}
         restaurantId={restaurantId}
+        itemMap={itemMap}
         open={comboItem !== null}
         onClose={() => setComboItem(null)}
         onAdd={addLine}
