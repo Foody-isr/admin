@@ -2927,6 +2927,21 @@ export async function createOrder(
   );
 }
 
+/** (Re)generates a payment link for an existing unpaid/pending order so staff
+ *  can copy/share it again. The URL is not persisted server-side — it's minted
+ *  on demand by the provider — so each call returns a fresh link. Wraps the
+ *  public payment-init endpoint (also used by the guest "retry payment" flow). */
+export async function initOrderPaymentLink(
+  restaurantId: number,
+  orderId: number,
+): Promise<{ payment_url?: string }> {
+  return apiFetch<{ payment_url?: string }>(
+    `/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
 // ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
 
 export interface KitchenPlanModifierBreakdown {
