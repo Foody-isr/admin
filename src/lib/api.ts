@@ -3243,7 +3243,7 @@ export async function inviteStaff(restaurantId: number, input: {
   full_name: string;
   email: string;
   phone?: string;
-  password: string;
+  password?: string; // optional — staff set their own password via the email invite link
   role?: Role;
   role_id?: number;
 }): Promise<{ member: StaffMember; emailStatus: InviteEmailStatus }> {
