@@ -86,8 +86,12 @@ export default function RolesPage() {
       const perms = Array.from(selectedPerms);
       if (editingRole) {
         const updated = await updateRole(rid, editingRole.id, {
+          // Default roles are system-managed: only their permissions are
+          // editable. Name/description are display-only (translated in the UI),
+          // so never persist them back — that would overwrite the canonical
+          // English with a localized string.
           name: editingRole.is_system_default ? undefined : name,
-          description,
+          description: editingRole.is_system_default ? undefined : description,
           permissions: perms,
         });
         setRoles((prev) => prev.map((r) => (r.id === updated.id ? { ...updated, user_count: r.user_count } : r)));
@@ -203,7 +207,7 @@ export default function RolesPage() {
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('name')}</label>
               <input
                 className="input w-full"
-                value={name}
+                value={editingRole?.is_system_default ? roleDisplayName(t, editingRole.name, true) : name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={!canManage || editingRole?.is_system_default}
                 placeholder={t('roleNamePlaceholder')}
@@ -218,17 +222,32 @@ export default function RolesPage() {
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('description')}</label>
               <input
                 className="input w-full"
-                value={description}
+                value={editingRole?.is_system_default ? roleDisplayDescription(t, editingRole.name, editingRole.description, true) : description}
                 onChange={(e) => setDescription(e.target.value)}
-                disabled={!canManage}
+                disabled={!canManage || editingRole?.is_system_default}
                 placeholder={t('briefDescription')}
               />
             </div>
 
             {/* Permissions */}
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>{t('permissions')}</label>
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t('permissions')}</label>
+                {canManage && permissionGroups.length > 0 && (() => {
+                  const allKeys = permissionGroups.flatMap((g) => g.permissions.map((p) => p.key));
+                  const allOn = allKeys.every((k) => selectedPerms.has(k));
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPerms(allOn ? new Set() : new Set(allKeys))}
+                      className="text-xs font-medium text-brand-500 hover:text-brand-600"
+                    >
+                      {allOn ? t('deselectAll') : t('selectAll')}
+                    </button>
+                  );
+                })()}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[55vh] overflow-y-auto pr-1">
                 {permissionGroups.map((group) => {
                   const allKeys = group.permissions.map((p) => p.key);
                   const allSelected = allKeys.every((k) => selectedPerms.has(k));
