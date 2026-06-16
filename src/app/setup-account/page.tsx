@@ -240,28 +240,6 @@ function SetupAccountContent() {
             </div>
 
             <div className="space-y-3 mb-6">
-              {(posPlatform === 'ipad' || posPlatform === 'both') && posDownloads.ipad && (
-                <a
-                  href={posDownloads.ipad.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-700 hover:border-blue-500 transition"
-                >
-                  <div className="w-11 h-11 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-fg-primary">{t('downloadIPad')}</p>
-                    <p className="text-xs text-fg-secondary">{posDownloads.ipad.name}</p>
-                  </div>
-                  <svg className="w-5 h-5 text-fg-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              )}
-
               {(posPlatform === 'macos' || posPlatform === 'both') && posDownloads.macos && (
                 <a
                   href={posDownloads.macos.url}
