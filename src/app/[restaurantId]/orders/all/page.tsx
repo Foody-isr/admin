@@ -9,6 +9,7 @@ import {
   markOrderServed, markOrderDelivered, markOrderOutForDelivery,
   assignCourier, bulkAssignCourier, listCouriers,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings,
+  initOrderPaymentLink,
   Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
@@ -24,7 +25,7 @@ import {
   ChevronDownIcon, XIcon, PrinterIcon,
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon, PlusIcon,
-  PauseIcon, PlayIcon,
+  PauseIcon, PlayIcon, CopyIcon, MessageCircleIcon, LinkIcon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
@@ -1038,10 +1039,53 @@ function OrderDetailDrawer({
 }) {
   const { t } = useI18n();
 
+  // Payment-link retrieval (for orders awaiting online payment). The link is
+  // regenerated on demand — not stored — so staff can re-share it any time.
+  const [payLink, setPayLink] = useState<string | null>(null);
+  const [payLinkLoading, setPayLinkLoading] = useState(false);
+  const [payLinkError, setPayLinkError] = useState<string | null>(null);
+  const [payLinkCopied, setPayLinkCopied] = useState(false);
+
+  // Reset the fetched link whenever a different order is opened in this drawer.
+  useEffect(() => {
+    setPayLink(null);
+    setPayLinkError(null);
+    setPayLinkCopied(false);
+  }, [order?.id]);
+
   if (!order) {
     // Still render a closed Drawer so the transition works cleanly when toggling.
     return <Drawer open={false} onOpenChange={(v) => { if (!v) onClose(); }} title="" width={1060}> </Drawer>;
   }
+
+  const fetchPayLink = async () => {
+    setPayLinkLoading(true);
+    setPayLinkError(null);
+    try {
+      const res = await initOrderPaymentLink(order.restaurant_id, order.id);
+      if (res.payment_url) setPayLink(res.payment_url);
+      else setPayLinkError(t('noPaymentUrl') || 'No payment link available');
+    } catch (err) {
+      setPayLinkError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPayLinkLoading(false);
+    }
+  };
+
+  const copyPayLink = async () => {
+    if (!payLink) return;
+    try {
+      await navigator.clipboard.writeText(payLink);
+      setPayLinkCopied(true);
+      setTimeout(() => setPayLinkCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable — link stays visible for manual copy */
+    }
+  };
+
+  const payLinkWhatsApp = payLink
+    ? `https://wa.me/${(order.customer_phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${payLink}`)}`
+    : '';
 
   const currentStep = statusIndex(order.status);
   const isCancelled = order.status === 'rejected';
@@ -1494,6 +1538,43 @@ function OrderDetailDrawer({
                   })()}
                 </Badge>
               </div>
+
+              {/* Payment link — for orders awaiting online payment. Lets staff
+                  re-fetch and re-share the link any time. */}
+              {order.payment_status === 'pending' && (
+                <div className="mt-[var(--s-2)] flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
+                  <span className="flex items-center gap-1.5 text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+                    <LinkIcon className="size-3.5" /> {t('paymentLink')}
+                  </span>
+                  {payLink ? (
+                    <>
+                      <div className="flex items-center gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)]">
+                        <span className="flex-1 truncate font-mono text-fs-xs">{payLink}</span>
+                        <Button variant="secondary" size="sm" onClick={copyPayLink}>
+                          {payLinkCopied ? <CheckIcon /> : <CopyIcon />}
+                          {payLinkCopied ? t('copied') : t('copyLink')}
+                        </Button>
+                      </div>
+                      {(order.customer_phone || '').replace(/\D/g, '') && (
+                        <a
+                          href={payLinkWhatsApp}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                        >
+                          <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    <Button variant="secondary" size="sm" onClick={fetchPayLink} disabled={payLinkLoading}>
+                      <LinkIcon />
+                      {payLinkLoading ? `${t('loading')}…` : t('getPaymentLink')}
+                    </Button>
+                  )}
+                  {payLinkError && <span className="text-fs-xs text-[var(--danger-500)]">{payLinkError}</span>}
+                </div>
+              )}
             </div>
           </Section>
 
