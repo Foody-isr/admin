@@ -2351,6 +2351,7 @@ const translations: Record<Locale, Record<string, string>> = {
     addItemToStep: '+ Add item...',
     comboChoice: 'Combo choice',
     deselectAll: 'Deselect all',
+    selectAll: 'Select all',
     // ── Phase 1 redesign keys ──
     cuisineGroup: 'Kitchen',
     articlesSubtitle: 'Manage your product catalog',
@@ -5221,6 +5222,7 @@ const translations: Record<Locale, Record<string, string>> = {
     addItemToStep: '+ הוסף פריט...',
     comboChoice: 'בחירת קומבו',
     deselectAll: 'בטל הכל',
+    selectAll: 'בחר הכל',
     // ── Phase 1 redesign keys ──
     cuisineGroup: 'מטבח',
     articlesSubtitle: 'נהל את קטלוג המוצרים שלך',
@@ -8089,6 +8091,7 @@ const translations: Record<Locale, Record<string, string>> = {
     addItemToStep: '+ Ajouter un article...',
     comboChoice: 'Choix du combo',
     deselectAll: 'Tout désélectionner',
+    selectAll: 'Tout sélectionner',
     // ── Phase 1 redesign keys ──
     cuisineGroup: 'Cuisine',
     articlesSubtitle: 'Gérez votre catalogue de produits',
