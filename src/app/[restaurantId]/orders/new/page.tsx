@@ -269,7 +269,7 @@ export default function NewOrderPage() {
     <div className="flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-lg border border-[var(--line)] lg:grid-cols-[1fr_minmax(340px,400px)]">
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
-        <div className="flex min-h-0 flex-col border-[var(--line)] lg:border-e">
+        <div className="flex min-h-0 min-w-0 flex-col border-[var(--line)] lg:border-e">
           {/* Header: back + title + search + category pills */}
           <div className="shrink-0 border-b border-[var(--line)] bg-[var(--bg)] px-[var(--s-4)] pt-[var(--s-3)]">
             <div className="mb-2 flex items-center gap-2">
@@ -365,7 +365,7 @@ export default function NewOrderPage() {
         </div>
 
         {/* ─── Ticket / receipt ─────────────────────────────────────────── */}
-        <aside className="flex min-h-0 flex-col bg-[var(--surface)]">
+        <aside className="flex min-h-0 min-w-0 flex-col bg-[var(--surface)]">
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
             <div className="flex items-center gap-2">
@@ -390,7 +390,7 @@ export default function NewOrderPage() {
             {lines.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 py-[var(--s-10)] text-center">
                 <ShoppingBagIcon className="size-8 text-[var(--fg-subtle)]" />
-                <p className="text-fs-sm text-[var(--fg-subtle)]">{t('emptyCartHint')}</p>
+                <p className="max-w-[220px] text-fs-sm text-[var(--fg-subtle)]">{t('emptyCartHint')}</p>
               </div>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--line)]">
