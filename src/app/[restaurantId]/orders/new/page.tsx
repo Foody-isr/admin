@@ -89,8 +89,11 @@ export default function NewOrderPage() {
         if (cancelled) return;
         setMenus(menuList);
         setItemMap(new Map(items.map((it) => [it.id, it])));
-        // Default to the first POS-enabled carte (fall back to the first carte).
-        const firstCarte = menuList.find((m) => m.pos_enabled !== false) ?? menuList[0];
+        // Default to the first POS carte in sort_order (matches the Cartes page).
+        const firstCarte =
+          [...menuList]
+            .filter((m) => m.pos_enabled !== false)
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id)[0] ?? menuList[0];
         setActiveMenuId((prev) => prev ?? firstCarte?.id ?? null);
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err));
@@ -101,8 +104,15 @@ export default function NewOrderPage() {
     return () => { cancelled = true; };
   }, [restaurantId]);
 
-  // POS-orderable cartes (menus). Drives the carte selector.
-  const cartes = useMemo(() => menus.filter((m) => m.pos_enabled !== false), [menus]);
+  // POS-orderable cartes (menus), in the same order as the Cartes page
+  // (sort_order, set via "Réorganiser"). Drives the carte selector.
+  const cartes = useMemo(
+    () =>
+      menus
+        .filter((m) => m.pos_enabled !== false)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id),
+    [menus],
+  );
   const activeMenu = useMemo(() => menus.find((m) => m.id === activeMenuId) ?? null, [menus, activeMenuId]);
 
   // Weekly-rotation context for the active carte.
