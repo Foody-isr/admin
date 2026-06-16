@@ -24,12 +24,22 @@ import { NewOrderComboModal } from '@/components/orders/NewOrderComboModal';
 import {
   ArrowLeftIcon, SearchIcon, PlusIcon, MinusIcon, Trash2Icon,
   CopyIcon, CheckIcon, ShoppingBagIcon, XIcon,
+  LayoutGridIcon, CreditCardIcon,
 } from 'lucide-react';
 
 interface Section { id: number; name: string; items: MenuItem[] }
 
 function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `l-${Date.now()}-${Math.random()}`;
+}
+
+// Categorical palette (from design tokens) used to colour-code sections in the
+// grid — colour the section header, the per-tile accent edge and the chip dot
+// so staff can scan the catalog by category the way a real POS does.
+const CAT_TOKENS = ['--cat-1', '--cat-2', '--cat-3', '--cat-4', '--cat-5', '--cat-6', '--cat-7', '--cat-8'];
+function catColor(index: number): string {
+  const i = ((index % CAT_TOKENS.length) + CAT_TOKENS.length) % CAT_TOKENS.length;
+  return `var(${CAT_TOKENS[i]})`;
 }
 
 // An item opens the config modal only when it actually has choices to make;
@@ -191,6 +201,13 @@ export default function NewOrderPage() {
     [sections, activeSection],
   );
 
+  // Stable category colour per visible section (keyed by group id) so a tile's
+  // accent colour stays the same whether "all" or a single category is shown.
+  const sectionColorById = useMemo(
+    () => new Map(sections.map((s, i) => [s.id, catColor(i)] as const)),
+    [sections],
+  );
+
   const subtotal = lines.reduce((sum, l) => sum + lineTotal(l), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
 
@@ -319,164 +336,233 @@ export default function NewOrderPage() {
   // ─── Post-create payment-link screen ───────────────────────────────────────
   if (paymentUrl) {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-[var(--s-5)] py-[var(--s-10)] text-center">
-        <Badge tone="success" dot>{t('orderCreated')}</Badge>
-        <h1 className="text-fs-lg font-semibold">{t('paymentLinkReady')}</h1>
-        <p className="text-fs-sm text-[var(--fg-muted)]">{t('paymentLinkHint')}</p>
-        <div className="flex w-full items-center gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-3)]">
-          <span className="flex-1 truncate text-start font-mono text-fs-xs">{paymentUrl}</span>
-          <Button variant="secondary" size="sm" onClick={copyPaymentUrl}>
-            {copied ? <CheckIcon /> : <CopyIcon />}
-            {copied ? t('copied') : t('copyLink')}
+      <div className="flex items-center justify-center py-[var(--s-12)]">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center gap-[var(--s-5)] rounded-xl border border-[var(--line)] bg-[var(--surface)] p-[var(--s-8)] text-center shadow-2 duration-300 animate-in fade-in zoom-in-95">
+          <span className="flex size-12 items-center justify-center rounded-full bg-[var(--success-50)] text-[var(--success-500)]">
+            <CheckIcon className="size-6" />
+          </span>
+          <div className="flex flex-col items-center gap-[var(--s-2)]">
+            <Badge tone="success" dot>{t('orderCreated')}</Badge>
+            <h1 className="text-fs-xl font-semibold">{t('paymentLinkReady')}</h1>
+            <p className="text-fs-sm text-[var(--fg-muted)]">{t('paymentLinkHint')}</p>
+          </div>
+          <div className="flex w-full items-center gap-2 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-2)] p-[var(--s-2)] ps-[var(--s-3)]">
+            <span className="flex-1 truncate text-start font-mono text-fs-xs text-[var(--fg-muted)]">{paymentUrl}</span>
+            <Button variant="secondary" size="sm" onClick={copyPaymentUrl}>
+              {copied ? <CheckIcon /> : <CopyIcon />}
+              {copied ? t('copied') : t('copyLink')}
+            </Button>
+          </div>
+          <Button variant="primary" size="lg" className="w-full justify-center" onClick={() => router.push(`/${restaurantId}/orders/all`)}>
+            {t('goToOrders')}
           </Button>
         </div>
-        <Button variant="primary" size="md" onClick={() => router.push(`/${restaurantId}/orders/all`)}>
-          {t('goToOrders')}
-        </Button>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 120px)' }}>
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-lg border border-[var(--line)] lg:grid-cols-[1fr_minmax(340px,400px)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg)] shadow-1 lg:grid-cols-[1fr_minmax(360px,420px)]">
         {/* ─── Catalog ──────────────────────────────────────────────────── */}
         <div className="flex min-h-0 min-w-0 flex-col border-[var(--line)] lg:border-e">
-          {/* Header: back + title + search + category pills */}
-          <div className="shrink-0 border-b border-[var(--line)] bg-[var(--bg)] px-[var(--s-4)] pt-[var(--s-3)]">
-            <div className="mb-2 flex items-center gap-2">
+          {/* Header: back + title + carte tabs + search + category chips */}
+          <div className="shrink-0 border-b border-[var(--line)] bg-[var(--surface)] px-[var(--s-4)] pt-[var(--s-3)]">
+            <div className="mb-[var(--s-3)] flex items-center gap-[var(--s-3)]">
               <Button variant="ghost" size="sm" icon onClick={() => router.push(`/${restaurantId}/orders/all`)} aria-label={t('backToOrders')}>
                 <ArrowLeftIcon />
               </Button>
-              <h1 className="text-fs-md font-semibold">{t('newOrder')}</h1>
+              <div className="min-w-0">
+                <h1 className="truncate text-fs-lg font-semibold leading-tight">{t('newOrder')}</h1>
+                {activeMenu && (
+                  <p className="truncate text-fs-xs text-[var(--fg-muted)]">{activeMenu.name}</p>
+                )}
+              </div>
             </div>
             {cartes.length > 1 && (
-              <div className="-mx-[var(--s-4)] mb-2 flex gap-1 overflow-x-auto border-b border-[var(--line)] px-[var(--s-4)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {cartes.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setActiveMenuId(m.id)}
-                    className={cn(
-                      'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-2 text-fs-sm font-medium transition-colors',
-                      activeMenuId === m.id ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-                    )}
-                  >
-                    {m.name}
-                    {activeMenuId === m.id && (
-                      <span className="absolute inset-x-[var(--s-2)] -bottom-px h-0.5 rounded-full bg-[var(--brand-500)]" />
-                    )}
-                  </button>
-                ))}
+              <div className="no-scrollbar -mx-[var(--s-4)] mb-[var(--s-3)] flex gap-[var(--s-1)] overflow-x-auto border-b border-[var(--line)] px-[var(--s-4)]">
+                {cartes.map((m) => {
+                  const active = activeMenuId === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setActiveMenuId(m.id)}
+                      className={cn(
+                        'relative shrink-0 whitespace-nowrap px-[var(--s-2)] pb-[var(--s-2)] text-fs-sm font-medium transition-colors',
+                        active ? 'text-[var(--brand-600)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+                      )}
+                    >
+                      {m.name}
+                      {active && (
+                        <span className="absolute inset-x-[var(--s-2)] -bottom-px h-[2px] rounded-full bg-[var(--brand-500)]" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
-            <div className="relative mb-2">
-              <SearchIcon className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('searchItems')}
-                className="h-10 w-full rounded-md border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 text-fs-sm outline-none placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-ring"
-              />
-            </div>
-            {isRotating && cycles.length > 0 && (
-              <div className="mb-2">
+            <div className="mb-[var(--s-3)] flex flex-col gap-[var(--s-2)] sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <SearchIcon className="pointer-events-none absolute start-[var(--s-3)] top-1/2 size-4 -translate-y-1/2 text-[var(--fg-subtle)]" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t('searchItems')}
+                  className="h-11 w-full rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-9 text-fs-sm outline-none transition-shadow placeholder:text-[var(--fg-subtle)] focus:border-[var(--brand-500)] focus:shadow-ring"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    aria-label={t('clearAll')}
+                    className="absolute end-[var(--s-2)] top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-[var(--fg-subtle)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]"
+                  >
+                    <XIcon className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              {isRotating && cycles.length > 0 && (
                 <BatchPicker cycles={cycles} selectedIndex={selectedCycleIndex} onChange={setSelectedCycleIndex} />
-              </div>
-            )}
+              )}
+            </div>
             {sections.length > 0 && (
-              <div className="-mx-[var(--s-4)] flex gap-1.5 overflow-x-auto px-[var(--s-4)] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {[{ id: 'all' as const, name: t('all') }, ...sections].map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setActiveSection(s.id)}
-                    className={cn(
-                      'shrink-0 rounded-full border px-[var(--s-3)] py-1.5 text-fs-xs font-medium transition-colors',
-                      activeSection === s.id
-                        ? 'border-[var(--brand-500)] bg-[var(--brand-500)] text-white'
-                        : 'border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--fg-subtle)]',
-                    )}
-                  >
-                    {s.name}
-                  </button>
-                ))}
+              <div className="no-scrollbar -mx-[var(--s-4)] flex gap-[var(--s-2)] overflow-x-auto px-[var(--s-4)] pb-[var(--s-3)]">
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('all')}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-[var(--s-2)] rounded-full border px-[var(--s-3)] py-1.5 text-fs-xs font-semibold transition-colors',
+                    activeSection === 'all'
+                      ? 'border-transparent bg-[var(--brand-500)] text-white shadow-1'
+                      : 'border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--fg-subtle)] hover:text-[var(--fg)]',
+                  )}
+                >
+                  <LayoutGridIcon className="size-3.5" />
+                  {t('all')}
+                </button>
+                {sections.map((s) => {
+                  const active = activeSection === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setActiveSection(s.id)}
+                      className={cn(
+                        'inline-flex shrink-0 items-center gap-[var(--s-2)] rounded-full border px-[var(--s-3)] py-1.5 text-fs-xs font-semibold transition-colors',
+                        active
+                          ? 'border-transparent bg-[var(--brand-500)] text-white shadow-1'
+                          : 'border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--fg-subtle)] hover:text-[var(--fg)]',
+                      )}
+                    >
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: active ? 'rgba(255,255,255,.85)' : sectionColorById.get(s.id) }}
+                      />
+                      {s.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Scrollable item grid */}
-          <div className="min-h-0 flex-1 overflow-y-auto p-[var(--s-4)]">
-            {loading && <p className="text-fs-sm text-[var(--fg-muted)]">{t('loading')}…</p>}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--bg)] p-[var(--s-4)]">
+            {loading && (
+              <div className="grid grid-cols-2 gap-[var(--s-2)] sm:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-[100px] animate-pulse rounded-lg border border-[var(--line)] bg-[var(--surface-2)]" />
+                ))}
+              </div>
+            )}
             {loadError && <p className="text-fs-sm text-[var(--danger-500)]">{loadError}</p>}
             {!loading && !loadError && sections.length === 0 && (
-              <p className="text-fs-sm text-[var(--fg-muted)]">{t('noItemsFound')}</p>
+              <div className="flex flex-col items-center justify-center gap-[var(--s-2)] py-[var(--s-12)] text-center">
+                <SearchIcon className="size-7 text-[var(--fg-subtle)]" />
+                <p className="text-fs-sm text-[var(--fg-muted)]">{t('noItemsFound')}</p>
+              </div>
             )}
 
-            <div className="flex flex-col gap-[var(--s-5)]">
-              {displaySections.map((section) => (
-                <div
-                  key={section.id}
-                  className="flex flex-col gap-2"
-                >
-                  <h2 className="text-fs-sm font-semibold text-[var(--fg)]">{section.name}</h2>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-                    {section.items.map((it) => {
-                      const qty = qtyByItem.get(it.id) ?? 0;
-                      return (
-                        <button
-                          key={`${section.id}-${it.id}`}
-                          type="button"
-                          onClick={() => handleTile(it)}
-                          className={cn(
-                            'relative flex h-[88px] flex-col justify-between rounded-lg border bg-[var(--surface)] p-[var(--s-3)] text-start transition-all active:scale-[0.98]',
-                            qty > 0
-                              ? 'border-[var(--brand-500)] shadow-1'
-                              : 'border-[var(--line)] hover:border-[var(--brand-500)] hover:shadow-1',
-                          )}
-                        >
-                          {qty > 0 && (
-                            <span className="absolute end-2 top-2 flex min-w-5 items-center justify-center rounded-full bg-[var(--brand-500)] px-1.5 text-fs-xs font-semibold text-white">
-                              {qty}
-                            </span>
-                          )}
-                          <span className="line-clamp-2 pe-6 text-fs-sm font-medium leading-tight">{it.name}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)]">
-                              ₪{it.price.toFixed(2)}
-                            </span>
-                            {it.item_type === 'combo' && (
-                              <span className="rounded-full bg-[var(--brand-500)]/12 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--brand-600)]">
-                                {t('comboLabel')}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {!loading && (
+              <div className="flex flex-col gap-[var(--s-6)]">
+                {displaySections.map((section) => {
+                  const color = sectionColorById.get(section.id);
+                  return (
+                    <section key={section.id} className="flex flex-col gap-[var(--s-3)]">
+                      <div className="flex items-center gap-[var(--s-2)]">
+                        <span className="h-[15px] w-[3px] rounded-full" style={{ backgroundColor: color }} />
+                        <h2 className="text-fs-sm font-semibold text-[var(--fg)]">{section.name}</h2>
+                        <span className="text-fs-xs font-medium text-[var(--fg-subtle)]">{section.items.length}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-[var(--s-2)] sm:grid-cols-3 xl:grid-cols-4">
+                        {section.items.map((it) => {
+                          const qty = qtyByItem.get(it.id) ?? 0;
+                          const selected = qty > 0;
+                          return (
+                            <button
+                              key={`${section.id}-${it.id}`}
+                              type="button"
+                              onClick={() => handleTile(it)}
+                              className={cn(
+                                'group relative flex h-[100px] flex-col justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] ps-[var(--s-4)] text-start transition-all duration-fast ease-out active:scale-[0.97]',
+                                selected
+                                  ? 'border-[var(--brand-500)] shadow-1 ring-1 ring-[var(--brand-500)]'
+                                  : 'border-[var(--line)] hover:-translate-y-px hover:border-[var(--brand-300)] hover:shadow-2',
+                              )}
+                            >
+                              {/* category accent edge */}
+                              <span
+                                className="absolute inset-y-[var(--s-2)] start-0 w-[3px] rounded-full"
+                                style={{ backgroundColor: selected ? 'var(--brand-500)' : color }}
+                              />
+                              {selected ? (
+                                <span className="absolute end-[var(--s-2)] top-[var(--s-2)] flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-500)] px-1.5 text-fs-xs font-bold text-white duration-200 animate-in zoom-in-50">
+                                  {qty}
+                                </span>
+                              ) : (
+                                <span className="absolute end-[var(--s-2)] top-[var(--s-2)] flex size-5 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--fg-subtle)] opacity-0 transition-opacity group-hover:opacity-100">
+                                  <PlusIcon className="size-3.5" />
+                                </span>
+                              )}
+                              <span className="line-clamp-2 pe-6 text-fs-sm font-semibold leading-tight text-[var(--fg)]">{it.name}</span>
+                              <div className="flex flex-wrap items-center gap-x-[var(--s-2)] gap-y-1">
+                                <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
+                                  ₪{it.price.toFixed(2)}
+                                </span>
+                                {it.item_type === 'combo' && (
+                                  <Badge tone="brand" className="h-[18px] px-1.5 text-[10px] uppercase tracking-wide">
+                                    {t('comboLabel')}
+                                  </Badge>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
         {/* ─── Ticket / receipt ─────────────────────────────────────────── */}
         <aside className="flex min-h-0 min-w-0 flex-col bg-[var(--surface)]">
           {/* Header */}
-          <div className="flex shrink-0 items-center justify-between border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
-            <div className="flex items-center gap-2">
-              <ShoppingBagIcon className="size-4 text-[var(--fg-muted)]" />
-              <h2 className="text-fs-sm font-semibold">{t('orderItems')}</h2>
-              {itemCount > 0 && <Badge tone="neutral">{itemCount}</Badge>}
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] px-[var(--s-4)] py-[var(--s-3)]">
+            <div className="flex items-center gap-[var(--s-2)]">
+              <h2 className="text-fs-md font-semibold">{t('orderItems')}</h2>
+              {itemCount > 0 && <Badge tone="brand">{itemCount}</Badge>}
             </div>
             {lines.length > 0 && (
               <button
                 type="button"
                 onClick={() => setLines([])}
-                className="flex items-center gap-1 text-fs-xs text-[var(--fg-muted)] hover:text-[var(--danger-500)]"
+                className="inline-flex items-center gap-1 rounded-full px-[var(--s-2)] py-1 text-fs-xs font-medium text-[var(--fg-muted)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]"
               >
-                <XIcon className="size-3.5" />
+                <Trash2Icon className="size-3.5" />
                 {t('clearAll')}
               </button>
             )}
@@ -485,17 +571,19 @@ export default function NewOrderPage() {
           {/* Lines */}
           <div className="min-h-0 flex-1 overflow-y-auto px-[var(--s-4)]">
             {lines.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 py-[var(--s-10)] text-center">
-                <ShoppingBagIcon className="size-8 text-[var(--fg-subtle)]" />
+              <div className="flex h-full flex-col items-center justify-center gap-[var(--s-3)] py-[var(--s-10)] text-center">
+                <span className="flex size-14 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--fg-subtle)]">
+                  <ShoppingBagIcon className="size-6" />
+                </span>
                 <p className="max-w-[220px] text-fs-sm text-[var(--fg-subtle)]">{t('emptyCartHint')}</p>
               </div>
             ) : (
               <ul className="flex flex-col divide-y divide-[var(--line)]">
                 {lines.map((l) => (
-                  <li key={l.uid} className="flex flex-col gap-1.5 py-[var(--s-3)]">
+                  <li key={l.uid} className="flex flex-col gap-[var(--s-2)] py-[var(--s-3)] duration-200 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-fs-sm font-medium">{l.item.name}</p>
+                        <p className="truncate text-fs-sm font-semibold">{l.item.name}</p>
                         {l.selectedVariantName && (
                           <p className="text-fs-xs text-[var(--fg-muted)]">{l.selectedVariantName}</p>
                         )}
@@ -514,20 +602,20 @@ export default function NewOrderPage() {
                         )}
                         {l.notes && <p className="text-fs-xs italic text-[var(--fg-subtle)]">“{l.notes}”</p>}
                       </div>
-                      <span className="shrink-0 font-mono tabular-nums text-fs-sm font-medium">₪{lineTotal(l).toFixed(2)}</span>
+                      <span className="shrink-0 font-mono tabular-nums text-fs-sm font-semibold">₪{lineTotal(l).toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center rounded-md border border-[var(--line-strong)]">
-                        <button type="button" onClick={() => changeQty(l.uid, -1)} aria-label={t('decrease')} className="flex size-7 items-center justify-center text-[var(--fg-muted)] hover:text-[var(--fg)]">
+                    <div className="flex items-center gap-[var(--s-2)]">
+                      <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line-strong)]">
+                        <button type="button" onClick={() => changeQty(l.uid, -1)} aria-label={t('decrease')} className="flex size-8 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
                           <MinusIcon className="size-4" />
                         </button>
-                        <span className="w-7 text-center font-mono tabular-nums text-fs-sm">{l.quantity}</span>
-                        <button type="button" onClick={() => changeQty(l.uid, 1)} aria-label={t('increase')} className="flex size-7 items-center justify-center text-[var(--fg-muted)] hover:text-[var(--fg)]">
+                        <span className="w-8 text-center font-mono tabular-nums text-fs-sm font-semibold">{l.quantity}</span>
+                        <button type="button" onClick={() => changeQty(l.uid, 1)} aria-label={t('increase')} className="flex size-8 items-center justify-center text-[var(--fg-muted)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--fg)]">
                           <PlusIcon className="size-4" />
                         </button>
                       </div>
                       <span className="text-fs-xs text-[var(--fg-subtle)]">₪{lineUnitPrice(l).toFixed(2)}</span>
-                      <button type="button" onClick={() => removeLine(l.uid)} aria-label={t('remove')} className="ms-auto flex size-7 items-center justify-center text-[var(--fg-subtle)] hover:text-[var(--danger-500)]">
+                      <button type="button" onClick={() => removeLine(l.uid)} aria-label={t('remove')} className="ms-auto flex size-8 items-center justify-center rounded-lg text-[var(--fg-subtle)] transition-colors hover:bg-[var(--danger-50)] hover:text-[var(--danger-500)]">
                         <Trash2Icon className="size-4" />
                       </button>
                     </div>
@@ -539,19 +627,25 @@ export default function NewOrderPage() {
 
           {/* Footer: total + checkout (always visible) */}
           <div className="shrink-0 border-t border-[var(--line)] bg-[var(--surface)] p-[var(--s-4)]">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-[var(--s-3)] flex items-end justify-between">
               <span className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('total')}</span>
-              <span className="font-mono tabular-nums text-fs-lg font-semibold">₪{subtotal.toFixed(2)}</span>
+              <span className="font-mono tabular-nums text-fs-2xl font-bold">₪{subtotal.toFixed(2)}</span>
             </div>
             {canManage && (
               <Button
                 variant="primary"
                 size="lg"
-                className="h-12 w-full justify-center text-fs-md"
+                className="h-[52px] w-full text-fs-md font-semibold"
                 disabled={lines.length === 0}
                 onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
               >
-                {t('checkout')}
+                <span className="flex w-full items-center justify-between">
+                  <span className="inline-flex items-center gap-[var(--s-2)]">
+                    <CreditCardIcon />
+                    {t('checkout')}
+                  </span>
+                  <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
+                </span>
               </Button>
             )}
           </div>
