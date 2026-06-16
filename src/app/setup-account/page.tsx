@@ -57,10 +57,12 @@ function SetupAccountContent() {
   const [dashboardUrl, setDashboardUrl] = useState('/login');
   const [posDownloads, setPosDownloads] = useState<POSDownloads>({});
 
-  // A staff invite has no owned restaurant in the validate response. Staff only
-  // set a password + their info — they must not configure the restaurant or POS
-  // (that's the owner's). Owners keep the full 4-step wizard.
-  const isStaff = !!inviteData && !inviteData.restaurant;
+  // Staff only set a password + their info — they must not configure the
+  // restaurant or POS (that's the owner's). Owners keep the full 4-step wizard.
+  // Branch on the invite's explicit `kind`; a staff member may already own a
+  // restaurant elsewhere, so the presence of `restaurant` is not reliable.
+  // Fall back to the legacy heuristic for older servers that omit `kind`.
+  const isStaff = !!inviteData && (inviteData.kind ? inviteData.kind === 'staff_setup' : !inviteData.restaurant);
   const STEPS = isStaff
     ? [t('stepPassword'), t('stepYourInfo')]
     : [t('stepPassword'), t('stepYourInfo'), t('stepRestaurant'), t('stepPOS')];
