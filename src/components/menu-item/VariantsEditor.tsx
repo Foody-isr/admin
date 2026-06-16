@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type {
   OptionSet,
@@ -139,6 +140,8 @@ export default function VariantsEditor({
   itemBasePrice,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [dropdownGroupIdx, setDropdownGroupIdx] = useState<number | null>(null);
 
   const updateGroup = (key: string, patch: Partial<VariantGroupState>) => {
@@ -317,24 +320,28 @@ export default function VariantsEditor({
                 style={{ gridTemplateColumns: '32px 1fr 110px 110px 120px 130px 36px' }}
               >
                 <div className="flex flex-col items-center justify-center -my-1 text-[var(--fg-muted)]">
-                  <button
-                    type="button"
-                    onClick={() => moveRow(g.key, ri, 'up')}
-                    disabled={ri === 0}
-                    title="Monter"
-                    className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
-                  >
-                    <ChevronUp size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveRow(g.key, ri, 'down')}
-                    disabled={ri === g.rows.length - 1}
-                    title="Descendre"
-                    className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
-                  >
-                    <ChevronDown size={14} />
-                  </button>
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => moveRow(g.key, ri, 'up')}
+                        disabled={ri === 0}
+                        title="Monter"
+                        className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveRow(g.key, ri, 'down')}
+                        disabled={ri === g.rows.length - 1}
+                        title="Descendre"
+                        className="size-5 flex items-center justify-center rounded-r-sm hover:bg-[var(--surface)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </>
+                  )}
                 </div>
                 <input
                   value={row.name}
@@ -376,47 +383,57 @@ export default function VariantsEditor({
                   />
                   Combo seul
                 </label>
-                <button
-                  type="button"
-                  onClick={() => removeRow(g.key, row.key)}
-                  className="size-7 flex items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                  title={t('delete')}
-                >
-                  <Trash2 size={14} />
-                </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(g.key, row.key)}
+                    className="size-7 flex items-center justify-center rounded-r-md text-[var(--fg-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                    title={t('delete')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                ) : (
+                  <span />
+                )}
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={() => addRow(g.key)}
-              className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors border-t border-[var(--line)]"
-            >
-              <Plus size={16} />
-              {t('addVariant')}
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => addRow(g.key)}
+                className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 transition-colors border-t border-[var(--line)]"
+              >
+                <Plus size={16} />
+                {t('addVariant')}
+              </button>
+            )}
           </div>
 
-          <div className="p-[var(--s-3)] border-t border-[var(--line)]">
-            <button
-              type="button"
-              onClick={() => removeGroup(g.key)}
-              className="text-fs-sm font-medium text-red-500 hover:underline"
-            >
-              {t('remove')}
-            </button>
-          </div>
+          {canEdit && (
+            <div className="p-[var(--s-3)] border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => removeGroup(g.key)}
+                className="text-fs-sm font-medium text-red-500 hover:underline"
+              >
+                {t('remove')}
+              </button>
+            </div>
+          )}
         </section>
       ))}
 
-      <button
-        type="button"
-        onClick={addGroup}
-        className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 rounded-r-md transition-colors border-2 border-dashed border-[var(--line)] hover:border-[var(--brand-500)]/50 w-full justify-center"
-      >
-        <Plus size={16} />
-        {t('addAnotherSet')}
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={addGroup}
+          className="flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:bg-[var(--brand-500)]/5 rounded-r-md transition-colors border-2 border-dashed border-[var(--line)] hover:border-[var(--brand-500)]/50 w-full justify-center"
+        >
+          <Plus size={16} />
+          {t('addAnotherSet')}
+        </button>
+      )}
     </div>
   );
 }

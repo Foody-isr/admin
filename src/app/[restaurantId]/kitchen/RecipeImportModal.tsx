@@ -12,6 +12,7 @@ import {
   AlertTriangleIcon, InfoIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import SearchableSelect from '@/components/SearchableSelect';
 import { NumberInput } from '@/components/ui/NumberInput';
 import StockQuantityForm, {
@@ -41,6 +42,8 @@ interface RecipeImportModalProps {
 
 export default function RecipeImportModal({ rid, stockItems, mode, onClose, onImported }: RecipeImportModalProps) {
   const { t, locale, direction } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const [step, setStep] = useState<'input' | 'review'>('input');
   const [tab, setTab] = useState<'text' | 'upload'>('text');
   const [file, setFile] = useState<File | null>(null);
@@ -263,17 +266,19 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
 
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-              <button
-                onClick={handleExtract}
-                disabled={loading || (tab === 'text' ? !text.trim() : !file)}
-                className="btn-primary text-sm flex items-center gap-2"
-              >
-                {loading ? (
-                  <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> {t('extracting')}</>
-                ) : (
-                  <><SparklesIcon className="w-4 h-4" /> {t('extractRecipe')}</>
-                )}
-              </button>
+              {canManage && (
+                <button
+                  onClick={handleExtract}
+                  disabled={loading || (tab === 'text' ? !text.trim() : !file)}
+                  className="btn-primary text-sm flex items-center gap-2"
+                >
+                  {loading ? (
+                    <><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" /> {t('extracting')}</>
+                  ) : (
+                    <><SparklesIcon className="w-4 h-4" /> {t('extractRecipe')}</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -305,13 +310,15 @@ export default function RecipeImportModal({ rid, stockItems, mode, onClose, onIm
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setStep('input'); setExtraction(null); }} className="btn-secondary text-sm">{t('back')}</button>
-          <button
-            onClick={handleConfirm}
-            disabled={loading || editedIngredients.length === 0 || (mode.kind === 'prep' && !mode.prepItem && !editedName.trim())}
-            className="btn-primary text-sm"
-          >
-            {loading ? t('saving') : t('confirmImport')}
-          </button>
+          {canManage && (
+            <button
+              onClick={handleConfirm}
+              disabled={loading || editedIngredients.length === 0 || (mode.kind === 'prep' && !mode.prepItem && !editedName.trim())}
+              className="btn-primary text-sm"
+            >
+              {loading ? t('saving') : t('confirmImport')}
+            </button>
+          )}
           <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
         </div>
       </div>

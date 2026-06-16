@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { labGetDraft, labCommitDraft, labDiscardDraft } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { useDraftQueue } from './hooks/useDraftQueue';
 import { applyPatches } from './hooks/useDraftPatches';
 import { DraftInputRail } from './components/DraftInputRail';
@@ -34,6 +35,8 @@ export default function RecipeLabPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = parseInt(params.restaurantId, 10);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const { refetch: refetchQueue } = useDraftQueue(restaurantId);
 
@@ -140,7 +143,7 @@ export default function RecipeLabPage() {
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
         <h1 className="text-xl font-semibold text-[var(--fg)]">✨ {t('labTitle')}</h1>
-        <FoodCostTargetSetting restaurantId={restaurantId} />
+        <FoodCostTargetSetting restaurantId={restaurantId} canManage={canManage} />
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -149,6 +152,7 @@ export default function RecipeLabPage() {
           <DraftInputRail
             restaurantId={restaurantId}
             onAfterGenerate={refetchQueue}
+            canManage={canManage}
           />
 
           <div>
@@ -215,9 +219,10 @@ export default function RecipeLabPage() {
               <CostSummaryHeader
                 payload={payload}
                 onSellingPriceChange={handleSellingPriceChange}
+                canManage={canManage}
               />
 
-              <RecipeTree payload={payload} onChange={setPayload} />
+              <RecipeTree payload={payload} onChange={setPayload} canManage={canManage} />
 
               {/* Sticky action footer */}
               <div
@@ -233,57 +238,63 @@ export default function RecipeLabPage() {
                   alignItems: 'center',
                 }}
               >
-                <button
-                  onClick={() => setRefineOpen(true)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 6,
-                    border: '1px solid var(--line)',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    color: 'var(--fg)',
-                  }}
-                >
-                  {t('labRefineTitle')}
-                </button>
+                {canManage && (
+                  <button
+                    onClick={() => setRefineOpen(true)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 6,
+                      border: '1px solid var(--line)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      color: 'var(--fg)',
+                    }}
+                  >
+                    {t('labRefineTitle')}
+                  </button>
+                )}
 
                 <div style={{ flex: 1 }} />
 
-                <button
-                  onClick={handleDiscard}
-                  disabled={submitting}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 6,
-                    border: '1px solid var(--line)',
-                    background: 'transparent',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    fontSize: 14,
-                    opacity: submitting ? 0.5 : 1,
-                    color: 'var(--fg)',
-                  }}
-                >
-                  {t('labDiscard')}
-                </button>
+                {canManage && (
+                  <button
+                    onClick={handleDiscard}
+                    disabled={submitting}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 6,
+                      border: '1px solid var(--line)',
+                      background: 'transparent',
+                      cursor: submitting ? 'not-allowed' : 'pointer',
+                      fontSize: 14,
+                      opacity: submitting ? 0.5 : 1,
+                      color: 'var(--fg)',
+                    }}
+                  >
+                    {t('labDiscard')}
+                  </button>
+                )}
 
-                <button
-                  onClick={handleSave}
-                  disabled={submitting}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 6,
-                    background: 'rgb(22,163,74)',
-                    color: 'white',
-                    border: 'none',
-                    cursor: submitting ? 'not-allowed' : 'pointer',
-                    fontSize: 14,
-                    fontWeight: 500,
-                    opacity: submitting ? 0.5 : 1,
-                  }}
-                >
-                  {submitting ? t('labSaving') : t('labSaveRecipe')}
-                </button>
+                {canManage && (
+                  <button
+                    onClick={handleSave}
+                    disabled={submitting}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 6,
+                      background: 'rgb(22,163,74)',
+                      color: 'white',
+                      border: 'none',
+                      cursor: submitting ? 'not-allowed' : 'pointer',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      opacity: submitting ? 0.5 : 1,
+                    }}
+                  >
+                    {submitting ? t('labSaving') : t('labSaveRecipe')}
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -293,7 +304,7 @@ export default function RecipeLabPage() {
       <RefineDrawer
         restaurantId={restaurantId}
         draftId={activeDraftId}
-        open={refineOpen}
+        open={refineOpen && canManage}
         onClose={() => setRefineOpen(false)}
         onPatches={(patches) => {
           if (payload) setPayload(applyPatches(payload, patches));

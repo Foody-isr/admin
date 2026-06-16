@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Search } from 'lucide-react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Select, InputGroup } from '@/components/ds';
 import type { ComboStepDraft } from './types';
 
@@ -51,6 +52,8 @@ export default function CarteCatalog({
   onSetCategory,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Carte selector — defaults to the first menu, persists across sessions so
   // operators don't reselect on every composer open.
@@ -217,14 +220,16 @@ export default function CarteCatalog({
                         · {(cat.items ?? []).length}
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onSetCategory(cat.id)}
-                      className="inline-flex items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]"
-                      title={t('catalogAddAllTooltip')}
-                    >
-                      <Plus className="w-3 h-3" /> {t('catalogAddAll')}
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => onSetCategory(cat.id)}
+                        className="inline-flex items-center gap-1 text-fs-xs font-medium px-1.5 py-0.5 rounded-r-sm shrink-0 transition-colors text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_10%,transparent)]"
+                        title={t('catalogAddAllTooltip')}
+                      >
+                        <Plus className="w-3 h-3" /> {t('catalogAddAll')}
+                      </button>
+                    )}
                   </div>
 
                   {expanded && (
@@ -236,8 +241,12 @@ export default function CarteCatalog({
                           <button
                             key={it.id}
                             type="button"
-                            onClick={() => (isIn ? onRemoveItem(it.id) : onAddItem(it.id))}
-                            className={`w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] text-start text-fs-sm transition-colors ${
+                            disabled={!canEdit}
+                            onClick={() => {
+                              if (!canEdit) return;
+                              isIn ? onRemoveItem(it.id) : onAddItem(it.id);
+                            }}
+                            className={`w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-2)] border-t border-[var(--line)] text-start text-fs-sm transition-colors disabled:cursor-default ${
                               isIn
                                 ? 'bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] text-[var(--fg)]'
                                 : 'hover:bg-[var(--surface-2)] text-[var(--fg)]'

@@ -16,6 +16,7 @@ import {
   type PosDisplayTile,
   type PosTileSize,
 } from '@/lib/posDisplay';
+import { usePermissions } from '@/lib/permissions-context';
 
 /** Available "Trier par" strategies shown when no tile is selected. */
 export type PosSortKey = 'menu' | 'az' | 'color' | 'type' | 'color_type';
@@ -78,6 +79,8 @@ export function PosTileInspector({
   onDrill,
   onRemove,
 }: PosTileInspectorProps) {
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   // ── Empty state: sort options ──
   if (!tile) {
     return (
@@ -105,6 +108,7 @@ export function PosTileInspector({
   return (
     <div className="space-y-[var(--s-6)]">
       {/* ── Taille ── */}
+      {canEdit && (
       <section>
         <SectionLabel>Taille</SectionLabel>
         <div className="grid grid-cols-3 gap-[var(--s-1)] rounded-md bg-[var(--surface-subtle)] p-[var(--s-1)]">
@@ -125,8 +129,10 @@ export function PosTileInspector({
           ))}
         </div>
       </section>
+      )}
 
       {/* ── Arrière-plan ── */}
+      {canEdit && (
       <section>
         <SectionLabel>Arrière-plan</SectionLabel>
         <div className="grid grid-cols-2 gap-[var(--s-1)] rounded-md bg-[var(--surface-subtle)] p-[var(--s-1)] mb-[var(--s-3)]">
@@ -199,6 +205,7 @@ export function PosTileInspector({
           </div>
         )}
       </section>
+      )}
 
       {/* ── Options ── */}
       <section>
@@ -206,14 +213,16 @@ export function PosTileInspector({
         <div className="space-y-[var(--s-1)]">
           {isGroup && (
             <>
-              <button
-                type="button"
-                onClick={onRenameGroup}
-                className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
-              >
-                <Pencil className="w-4 h-4 text-[var(--fg-subtle)]" />
-                Modifier le nom du groupe de menus
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={onRenameGroup}
+                  className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--fg)] hover:bg-[var(--surface-subtle)] transition-colors"
+                >
+                  <Pencil className="w-4 h-4 text-[var(--fg-subtle)]" />
+                  Modifier le nom du groupe de menus
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onDrill}
@@ -224,14 +233,16 @@ export function PosTileInspector({
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={onRemove}
-            className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--danger-500)] hover:bg-[color-mix(in_oklab,var(--danger-500)_10%,transparent)] transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            Retirer de la présentation
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="w-full flex items-center gap-[var(--s-3)] rounded-md px-[var(--s-3)] py-[var(--s-2)] text-start text-fs-sm text-[var(--danger-500)] hover:bg-[color-mix(in_oklab,var(--danger-500)_10%,transparent)] transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Retirer de la présentation
+            </button>
+          )}
         </div>
       </section>
     </div>

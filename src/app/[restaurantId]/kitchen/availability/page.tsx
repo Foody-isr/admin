@@ -15,6 +15,7 @@ import {
 import { Badge, Button, Drawer, Field, Input, NumberField, PageHead, Section, Select } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 
 const BLANK: AvailabilityRuleInput = {
@@ -31,6 +32,8 @@ export default function AvailabilityRulesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,9 +117,11 @@ export default function AvailabilityRulesPage() {
       <PageHead
         title={t('availabilityRulesTitle')}
         actions={
-          <Button onClick={openNew}>
-            <PlusIcon className="size-4" /> {t('availabilityNewRule')}
-          </Button>
+          canManage ? (
+            <Button onClick={openNew}>
+              <PlusIcon className="size-4" /> {t('availabilityNewRule')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -167,16 +172,18 @@ export default function AvailabilityRulesPage() {
                     {t('availabilityRuleDeprecated')}
                   </div>
                 )}
-                <div className="mt-auto flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(rule)}>
-                    <PencilIcon className="size-3.5" /> {t('edit')}
-                  </Button>
-                  {!rule.is_default && (
-                    <Button size="sm" variant="ghost" onClick={() => remove(rule)}>
-                      <TrashIcon className="size-3.5" /> {t('delete')}
+                {canManage && (
+                  <div className="mt-auto flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(rule)}>
+                      <PencilIcon className="size-3.5" /> {t('edit')}
                     </Button>
-                  )}
-                </div>
+                    {!rule.is_default && (
+                      <Button size="sm" variant="ghost" onClick={() => remove(rule)}>
+                        <TrashIcon className="size-3.5" /> {t('delete')}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -188,7 +195,7 @@ export default function AvailabilityRulesPage() {
         onOpenChange={setDrawerOpen}
         title={editingId == null ? t('availabilityNewRule') : t('availabilityEditRule')}
         width={460}
-        onSave={save}
+        onSave={canManage ? save : undefined}
         saveLabel={t('save')}
         saveDisabled={saving}
       >

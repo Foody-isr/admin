@@ -8,6 +8,7 @@ import {
   OptionSet, OptionSetOption, OptionInSetInput, OptionSetInput, TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -46,6 +47,8 @@ export default function OptionSetDetailPage() {
   const osid = Number(optionSetId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [optionSet, setOptionSet] = useState<OptionSet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,7 +162,7 @@ export default function OptionSetDetailPage() {
     <CenteredModalShell
       title={optionSet.name}
       onClose={goBack}
-      onSave={handleSave}
+      onSave={canEdit ? handleSave : undefined}
       saving={saving}
       saveDisabled={!name.trim()}
     >
@@ -255,10 +258,12 @@ export default function OptionSetDetailPage() {
                 t={t}
                 activeLocale={activeLocale}
                 sourceLocale={sourceLocale}
+                canEdit={canEdit}
               />
             ))}
 
             {/* Add-option row */}
+            {canEdit && (
             <div
               className="grid items-center gap-2 px-4 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-[#0a0a0a]"
               style={{ gridTemplateColumns: '1fr 140px 110px 100px 36px' }}
@@ -300,16 +305,19 @@ export default function OptionSetDetailPage() {
                 <span />
               )}
             </div>
+            )}
           </div>
         </section>
 
         {/* Destructive */}
-        <button
-          onClick={handleDelete}
-          className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"
-        >
-          {t('delete')} {t('options').toLowerCase()}
-        </button>
+        {canEdit && (
+          <button
+            onClick={handleDelete}
+            className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"
+          >
+            {t('delete')} {t('options').toLowerCase()}
+          </button>
+        )}
       </div>
     </CenteredModalShell>
   );
@@ -317,7 +325,7 @@ export default function OptionSetDetailPage() {
 
 // ─── Editable option row ─────────────────────────────────────────────
 
-function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocale }: {
+function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocale, canEdit }: {
   rid: number;
   setId: number;
   option: OptionSetOption;
@@ -325,6 +333,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
   t: (key: string) => string;
   activeLocale: Locale;
   sourceLocale: Locale;
+  canEdit: boolean;
 }) {
   const [name, setName] = useState(option.name);
   const [price, setPrice] = useState(option.price);
@@ -406,6 +415,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
           onChange={(e) => setName(e.target.value)}
           onBlur={handleNameBlur}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          readOnly={!canEdit}
           className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2"
         />
       ) : (
@@ -418,6 +428,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
           }
           onBlur={handleTranslatedNameBlur}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          readOnly={!canEdit}
           placeholder={name || t('variantName')}
           className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white pr-2 italic"
         />
@@ -427,6 +438,7 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
         onChange={(e) => setSku(e.target.value)}
         onBlur={handleSkuBlur}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        readOnly={!canEdit}
         placeholder="—"
         className="text-sm bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
       />
@@ -436,24 +448,30 @@ function OptionRow({ rid, setId, option, onUpdated, t, activeLocale, sourceLocal
         onChange={setPrice}
         onBlur={handlePriceBlur}
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        readOnly={!canEdit}
         placeholder="0.00"
         className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
       />
       <select
         value={isActive ? 'active' : 'inactive'}
         onChange={(e) => handleActiveChange(e.target.value === 'active')}
+        disabled={!canEdit}
         className="text-xs bg-transparent border-0 outline-none text-neutral-700 dark:text-neutral-300"
       >
         <option value="active">{t('available')}</option>
         <option value="inactive">{t('unavailable')}</option>
       </select>
-      <button
-        onClick={handleDelete}
-        className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-        title={t('delete')}
-      >
-        <Trash2 size={14} />
-      </button>
+      {canEdit ? (
+        <button
+          onClick={handleDelete}
+          className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          title={t('delete')}
+        >
+          <Trash2 size={14} />
+        </button>
+      ) : (
+        <span />
+      )}
     </div>
   );
 }

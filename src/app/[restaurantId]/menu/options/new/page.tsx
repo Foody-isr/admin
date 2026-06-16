@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createOptionSet, OptionSetInput } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -34,6 +35,8 @@ export default function NewOptionSetPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [name, setName] = useState('');
   const [options, setOptions] = useState<LocalOption[]>([newOption()]);
@@ -78,7 +81,7 @@ export default function NewOptionSetPage() {
     <CenteredModalShell
       title={t('createOptionSet')}
       onClose={goBack}
-      onSave={handleSave}
+      onSave={canEdit ? handleSave : undefined}
       saving={saving}
       saveDisabled={!name.trim()}
     >
@@ -149,7 +152,7 @@ export default function NewOptionSetPage() {
                   placeholder="0.00"
                   className="text-sm bg-transparent border-0 outline-none text-neutral-900 dark:text-white text-right pr-1"
                 />
-                {options.length > 1 ? (
+                {canEdit && options.length > 1 ? (
                   <button
                     onClick={() => removeOption(opt.key)}
                     className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -163,13 +166,15 @@ export default function NewOptionSetPage() {
               </div>
             ))}
 
-            <button
-              onClick={addOption}
-              className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-t border-neutral-200 dark:border-neutral-700"
-            >
-              <Plus size={16} />
-              {t('addVariant') || 'Add option'}
-            </button>
+            {canEdit && (
+              <button
+                onClick={addOption}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-t border-neutral-200 dark:border-neutral-700"
+              >
+                <Plus size={16} />
+                {t('addVariant') || 'Add option'}
+              </button>
+            )}
           </div>
         </section>
       </div>

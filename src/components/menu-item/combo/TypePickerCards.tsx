@@ -7,6 +7,7 @@
 import { Box, Boxes, Check } from 'lucide-react';
 import type { ItemType } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 
 interface Props {
   value: ItemType;
@@ -15,6 +16,8 @@ interface Props {
 
 export default function TypePickerCards({ value, onChange }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--s-3)]">
       <TypeCard
@@ -23,7 +26,7 @@ export default function TypePickerCards({ value, onChange }: Props) {
         icon={<Box className="w-4 h-4" />}
         title={t('typeArticle')}
         tagline={t('typeArticleTagline')}
-        onClick={() => value !== 'food_and_beverage' && onChange('food_and_beverage')}
+        onClick={() => canEdit && value !== 'food_and_beverage' && onChange('food_and_beverage')}
       />
       <TypeCard
         selected={value === 'combo'}
@@ -31,7 +34,7 @@ export default function TypePickerCards({ value, onChange }: Props) {
         icon={<Boxes className="w-4 h-4" />}
         title={t('typeCombo')}
         tagline={t('typeComboTagline')}
-        onClick={() => value !== 'combo' && onChange('combo')}
+        onClick={() => canEdit && value !== 'combo' && onChange('combo')}
       />
     </div>
   );

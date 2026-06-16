@@ -13,7 +13,7 @@ import {
   CustomerProfile,
   TrustedCustomer,
 } from '@/lib/api';
-import { useAuth } from '@/lib/auth-context';
+import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
 import { PlusIcon, SearchIcon, ChevronRightIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
@@ -53,7 +53,7 @@ type CustomerRow = {
 export default function CustomersPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { user } = useAuth();
+  const { hasAnyPermission } = usePermissions();
   const { t } = useI18n();
 
   const [data, setData] = useState<CustomerListResult | null>(null);
@@ -86,7 +86,7 @@ export default function CustomersPage() {
   const [editApt, setEditApt] = useState('');
   const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
 
-  const canManage = user?.role === 'owner' || user?.role === 'manager' || user?.role === 'superadmin';
+  const canManage = hasAnyPermission('customers.manage');
 
   const reload = useCallback(async () => {
     setLoading(true);

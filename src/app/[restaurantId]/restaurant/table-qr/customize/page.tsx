@@ -17,6 +17,7 @@ import {
   type QrCardTexts,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Input, PageHead, Field } from '@/components/ds';
 import { QrCard, contrastRatio, TEMPLATE_SIZES } from '@/components/qr/QrCard';
 
@@ -43,6 +44,8 @@ export default function CustomizeQrCardPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [draft, setDraft] = useState<QrCardConfig | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
@@ -242,14 +245,18 @@ export default function CustomizeQrCardPage() {
                 {t('back')}
               </Button>
             </Link>
-            <Button variant="secondary" size="md" onClick={handleReset}>
-              <RotateCcw />
-              {t('resetToDefaults')}
-            </Button>
-            <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-              {savedAt && Date.now() - savedAt < 2000 ? <Check /> : null}
-              {saving ? t('saving') : t('save')}
-            </Button>
+            {canManage && (
+              <>
+                <Button variant="secondary" size="md" onClick={handleReset}>
+                  <RotateCcw />
+                  {t('resetToDefaults')}
+                </Button>
+                <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
+                  {savedAt && Date.now() - savedAt < 2000 ? <Check /> : null}
+                  {saving ? t('saving') : t('save')}
+                </Button>
+              </>
+            )}
           </>
         }
       />
@@ -337,31 +344,33 @@ export default function CustomizeQrCardPage() {
                     {t('qrHeroImage')}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <label
-                    className={
-                      'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--line)] text-fs-xs font-medium cursor-pointer hover:bg-[var(--surface-hover)] transition ' +
-                      (uploadingHero ? 'opacity-50 pointer-events-none' : 'text-fg-primary')
-                    }
-                  >
-                    {uploadingHero ? '…' : draft.hero_image_url ? t('change') : t('uploadAction')}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleHeroUpload}
-                      className="hidden"
-                    />
-                  </label>
-                  {draft.hero_image_url && (
-                    <button
-                      type="button"
-                      onClick={handleRemoveHero}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-300 text-fs-xs font-medium text-red-600 hover:bg-red-50 transition"
+                {canManage && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <label
+                      className={
+                        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--line)] text-fs-xs font-medium cursor-pointer hover:bg-[var(--surface-hover)] transition ' +
+                        (uploadingHero ? 'opacity-50 pointer-events-none' : 'text-fg-primary')
+                      }
                     >
-                      {t('remove')}
-                    </button>
-                  )}
-                </div>
+                      {uploadingHero ? '…' : draft.hero_image_url ? t('change') : t('uploadAction')}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleHeroUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {draft.hero_image_url && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveHero}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-red-300 text-fs-xs font-medium text-red-600 hover:bg-red-50 transition"
+                      >
+                        {t('remove')}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">{t('qrHeroImageHint')}</p>
               {draft.hero_image_url && (

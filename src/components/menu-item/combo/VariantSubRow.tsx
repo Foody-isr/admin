@@ -8,6 +8,7 @@
 
 import { Check, MoreHorizontal, Pin } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 
 interface Props {
@@ -30,6 +31,8 @@ export default function VariantSubRow({
   onToggleIncluded, onUpchargeChange, onSetDefault,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const comboPrice = basePrice + (included ? upcharge : 0);
   const upchargeWarn = included && upcharge > 0;
 
@@ -43,9 +46,10 @@ export default function VariantSubRow({
       {/* Checkbox */}
       <button
         type="button"
-        onClick={onToggleIncluded}
+        onClick={() => canEdit && onToggleIncluded()}
+        disabled={!canEdit}
         aria-pressed={included}
-        className={`w-[18px] h-[18px] rounded-r-xs flex items-center justify-center ${
+        className={`w-[18px] h-[18px] rounded-r-xs flex items-center justify-center disabled:cursor-default ${
           included
             ? 'bg-[var(--brand-500)] border border-[var(--brand-500)] text-white'
             : 'bg-[var(--surface)] border border-[var(--line-strong)]'
@@ -92,7 +96,7 @@ export default function VariantSubRow({
           <NumberInput
             min={0}
             value={upcharge}
-            disabled={!included}
+            disabled={!included || !canEdit}
             onChange={onUpchargeChange}
             className={`w-full bg-transparent border-none outline-none text-end text-fs-sm tabular-nums ${
               upchargeWarn ? 'font-semibold text-[var(--brand-500)]' : 'text-[var(--fg)]'
@@ -119,7 +123,7 @@ export default function VariantSubRow({
       <button
         type="button"
         onClick={onSetDefault}
-        disabled={!included}
+        disabled={!included || !canEdit}
         title={t('composeSetDefault')}
         className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] disabled:opacity-30 disabled:cursor-not-allowed"
       >

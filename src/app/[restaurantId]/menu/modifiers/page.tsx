@@ -7,6 +7,7 @@ import {
   MenuCategory, MenuItem, MenuItemModifier, ModifierInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   PlusIcon, TrashIcon,
 } from 'lucide-react';
@@ -41,6 +42,8 @@ export default function ModifiersPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,10 +78,12 @@ export default function ModifiersPage() {
         title={t('modifiers') || 'Modifiers'}
         desc={t('modifiersDesc') || 'Modificateurs par article'}
         actions={
-          <Button variant="primary" size="md" onClick={() => setCreateModal(true)}>
-            <PlusIcon />
-            {t('createModifier')}
-          </Button>
+          canEdit ? (
+            <Button variant="primary" size="md" onClick={() => setCreateModal(true)}>
+              <PlusIcon />
+              {t('createModifier')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -89,12 +94,14 @@ export default function ModifiersPage() {
           <p className="text-sm text-fg-secondary max-w-sm text-center">
             {t('noModifiersForItem')}
           </p>
-          <button
-            onClick={() => setCreateModal(true)}
-            className="btn-primary mt-2"
-          >
-            {t('createModifier')}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setCreateModal(true)}
+              className="btn-primary mt-2"
+            >
+              {t('createModifier')}
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
@@ -123,12 +130,14 @@ export default function ModifiersPage() {
                           : '—'}
                       </DataTableCell>
                       <DataTableCell>
-                        <button
-                          onClick={() => handleDeleteModifier(mod.id)}
-                          className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleDeleteModifier(mod.id)}
+                            className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        )}
                       </DataTableCell>
                     </DataTableRow>
                   ))}

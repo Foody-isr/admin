@@ -8,6 +8,7 @@ import {
   MenuCategory, MenuItem, RotationSchedule,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { PencilIcon, TrashIcon, PlusIcon, CheckIcon, XIcon } from 'lucide-react';
 import { clampWeekStartDay, getWeekStart, isoDate, type WeekStartDay } from '@/lib/weeks';
 
@@ -45,6 +46,8 @@ export default function RotationPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [schedules, setSchedules] = useState<RotationSchedule[]>([]);
@@ -181,17 +184,19 @@ export default function RotationPage() {
           <h1 className="text-xl font-bold text-fg-primary">{t('weeklyRotation')}</h1>
           <p className="text-sm text-fg-secondary mt-1">{t('weeklyRotationDesc')}</p>
         </div>
-        <button
-          onClick={() => setCreatingGroup(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          {t('newGroup')}
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setCreatingGroup(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <PlusIcon className="w-4 h-4" />
+            {t('newGroup')}
+          </button>
+        )}
       </div>
 
       {/* Create group inline form */}
-      {creatingGroup && (
+      {canEdit && creatingGroup && (
         <div className="card flex items-center gap-3">
           <input
             autoFocus
@@ -219,7 +224,7 @@ export default function RotationPage() {
         <div key={group.name} className="card space-y-4">
           {/* Group header */}
           <div className="flex items-center gap-3">
-            {editingGroup === group.name ? (
+            {canEdit && editingGroup === group.name ? (
               <form
                 className="flex items-center gap-2 flex-1"
                 onSubmit={(e) => { e.preventDefault(); handleRenameGroup(group.name, newGroupName); }}
@@ -240,20 +245,24 @@ export default function RotationPage() {
             ) : (
               <>
                 <h2 className="text-base font-semibold text-fg-primary flex-1">{group.name}</h2>
-                <button
-                  onClick={() => { setEditingGroup(group.name); setNewGroupName(group.name); }}
-                  className="p-1.5 rounded hover:bg-[var(--surface-subtle)]"
-                  title={t('renameGroup')}
-                >
-                  <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                </button>
-                <button
-                  onClick={() => handleDeleteGroup(group.name)}
-                  className="p-1.5 rounded hover:bg-red-500/10 text-red-400"
-                  title={t('deleteGroup')}
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={() => { setEditingGroup(group.name); setNewGroupName(group.name); }}
+                      className="p-1.5 rounded hover:bg-[var(--surface-subtle)]"
+                      title={t('renameGroup')}
+                    >
+                      <PencilIcon className="w-4 h-4 text-fg-secondary" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGroup(group.name)}
+                      className="p-1.5 rounded hover:bg-red-500/10 text-red-400"
+                      title={t('deleteGroup')}
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -271,15 +280,18 @@ export default function RotationPage() {
                   style={{ background: 'var(--surface-subtle)', color: 'var(--text-primary)' }}
                 >
                   {item.name}
-                  <button
-                    onClick={() => handleRemoveItemFromGroup(item)}
-                    className="text-fg-secondary hover:text-red-400"
-                  >
-                    <XIcon className="w-3.5 h-3.5" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => handleRemoveItemFromGroup(item)}
+                      className="text-fg-secondary hover:text-red-400"
+                    >
+                      <XIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))}
               {/* Add item to group */}
+              {canEdit && (
               <div className="relative">
                 <button
                   onClick={() => setAddingItems(addingItems === group.name ? null : group.name)}
@@ -311,6 +323,7 @@ export default function RotationPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
 
@@ -340,7 +353,7 @@ export default function RotationPage() {
                       <span className="text-xs font-semibold text-fg-secondary">
                         {isCurrentWeek ? `${t('thisWeek')} ·` : ''} {formatWeekLabel(weekStart)}
                       </span>
-                      {scheduled && (
+                      {canEdit && scheduled && (
                         <button
                           onClick={() => handleClearSchedule(scheduled.id)}
                           className="text-fg-secondary hover:text-red-400"
@@ -354,6 +367,7 @@ export default function RotationPage() {
                     {/* Item selector */}
                     <select
                       className="input w-full text-xs py-1"
+                      disabled={!canEdit}
                       value={scheduled?.menu_item_id ?? ''}
                       onChange={(e) => {
                         const val = e.target.value;

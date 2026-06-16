@@ -8,6 +8,7 @@ import {
   AvailabilityOverride, MenuCategory, MenuItem,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import {
   Search,
@@ -92,6 +93,8 @@ export default function ItemLibraryPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Last-known data, kept across route round-trips (list → editor → back) so
   // the table renders instantly at the user's place instead of flashing a
@@ -471,14 +474,16 @@ export default function ItemLibraryPage() {
             >
               {showKpis ? <ChevronUp /> : <ChevronDown />}
             </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => router.push(`/${rid}/menu/items/new`)}
-            >
-              <Plus />
-              {t('createItem')}
-            </Button>
+            {canEdit && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => router.push(`/${rid}/menu/items/new`)}
+              >
+                <Plus />
+                {t('createItem')}
+              </Button>
+            )}
           </>
         }
       />
@@ -503,7 +508,7 @@ export default function ItemLibraryPage() {
         )}
 
         {/* Bulk selection toolbar — Figma App.tsx:497-523 */}
-        {selectionCount > 0 && (
+        {canEdit && selectionCount > 0 && (
           <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <span className="font-semibold text-orange-900 dark:text-orange-300">
@@ -634,16 +639,20 @@ export default function ItemLibraryPage() {
 
           <ActionsDropdown
             actions={[
-              {
-                label: t('importMenuWithAI'),
-                icon: <Sparkles size={16} />,
-                onClick: () => router.push(`/${rid}/menu/import`),
-              },
-              {
-                label: t('importCsv'),
-                icon: <ListPlus size={16} />,
-                onClick: () => setCsvImportOpen(true),
-              },
+              ...(canEdit
+                ? [
+                    {
+                      label: t('importMenuWithAI'),
+                      icon: <Sparkles size={16} />,
+                      onClick: () => router.push(`/${rid}/menu/import`),
+                    },
+                    {
+                      label: t('importCsv'),
+                      icon: <ListPlus size={16} />,
+                      onClick: () => setCsvImportOpen(true),
+                    },
+                  ]
+                : []),
               { label: t('refresh'), onClick: reload },
             ]}
           />
@@ -692,7 +701,7 @@ export default function ItemLibraryPage() {
           <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
             {allItems.length === 0 ? t('addFirstMenuItem') : t('tryAdjustingFilters')}
           </p>
-          {allItems.length === 0 && (
+          {allItems.length === 0 && canEdit && (
             <button
               onClick={() => router.push(`/${rid}/menu/items/new`)}
               className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
@@ -731,7 +740,7 @@ export default function ItemLibraryPage() {
             </DataTableHead>
             <DataTableBody>
               {/* Quick create */}
-              {!quickCreateOpen ? (
+              {canEdit && (!quickCreateOpen ? (
                 <tr
                   className="cursor-pointer hover:bg-orange-50/50 dark:hover:bg-orange-900/20 transition-colors border-b border-neutral-100 dark:border-neutral-800"
                   onClick={() => {
@@ -806,7 +815,7 @@ export default function ItemLibraryPage() {
                     </div>
                   </td>
                 </tr>
-              )}
+              ))}
 
               {paged.map((item, rowIdx) => {
                 const variantOpts = (item.variant_groups ?? []).flatMap((g) =>
@@ -967,6 +976,7 @@ export default function ItemLibraryPage() {
                           >
                             <Eye size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-orange-500" />
                           </button>
+                          {canEdit && (
                           <RowActionsMenu
                             actions={[
                               {
@@ -997,6 +1007,7 @@ export default function ItemLibraryPage() {
                               },
                             ]}
                           />
+                          )}
                         </div>
                       </DataTableCell>
                     </DataTableRow>

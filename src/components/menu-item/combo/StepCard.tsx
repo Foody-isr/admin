@@ -18,6 +18,7 @@ import { Check, ChevronDown, GripVertical, ListChecks, Loader2, Pencil, Trash2 }
 import { useMemo, useState } from 'react';
 import type { Menu, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 import type { ComboStepDraft, ComboOptionView, VariantView } from './types';
 import { buildOptions, toDraftItems, promoteDefaultOption, promoteDefaultVariant, getSourceVariants } from './types';
@@ -177,6 +178,8 @@ export default function StepCard({
   isActive, onActivate, onChange, onRemove,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const options = useMemo<ComboOptionView[]>(() => {
     const opts = buildOptions(step.items, itemsById);
@@ -257,14 +260,16 @@ export default function StepCard({
         <span className="text-fs-xs text-[var(--fg-subtle)] opacity-0 group-hover/step:opacity-100 transition-opacity shrink-0">
           {t('composeStepSummaryEditCta')}
         </span>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)] shrink-0"
-          aria-label={t('composeStepDelete')}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)] shrink-0"
+            aria-label={t('composeStepDelete')}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </button>
     );
   }
@@ -299,14 +304,16 @@ export default function StepCard({
             <ChevronDown className="w-3.5 h-3.5" />
             {t('composeStepClose')}
           </button>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
-            aria-label={t('composeStepDelete')}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[color-mix(in_oklab,var(--danger-500)_15%,transparent)] hover:text-[var(--danger-500)]"
+              aria-label={t('composeStepDelete')}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -355,19 +362,21 @@ export default function StepCard({
           <div className="inline-flex items-center gap-0.5 rounded-r-sm bg-[var(--surface-2)] p-0.5 self-start">
             <SourceSeg
               active={step.source_type === 'explicit'}
-              onClick={() =>
+              onClick={() => {
+                if (!canEdit) return;
                 onChange({
                   ...step,
                   source_type: 'explicit',
                   source_group_id: undefined,
                   source_variant_label: undefined,
-                })
-              }
+                });
+              }}
               label={t('composeStepModeExplicit')}
             />
             <SourceSeg
               active={step.source_type === 'group'}
               onClick={() => {
+                if (!canEdit) return;
                 if (step.items.length > 0 && !confirm(t('composeStepModeSwitchConfirm'))) return;
                 onChange({ ...step, source_type: 'group', items: [] });
               }}

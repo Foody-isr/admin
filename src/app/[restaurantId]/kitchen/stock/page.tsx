@@ -58,6 +58,7 @@ import {
 } from '@/components/data-table';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import {
   getPackaging,
@@ -77,6 +78,8 @@ export default function StockPage() {
   const pathname = usePathname();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const deepLinkAppliedRef = useRef(false);
 
   const [items, setItems] = useState<StockItem[]>([]);
@@ -380,22 +383,26 @@ export default function StockPage() {
             >
               {showKpis ? <ChevronUpIcon /> : <ChevronDownIcon />}
             </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => setImportModal(true)}
-            >
-              <DownloadIcon />
-              {t('importDelivery') || 'Importer'}
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => setItemModal({ open: true })}
-            >
-              <PlusIcon />
-              {t('addItem')}
-            </Button>
+            {canManage && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setImportModal(true)}
+                >
+                  <DownloadIcon />
+                  {t('importDelivery') || 'Importer'}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setItemModal({ open: true })}
+                >
+                  <PlusIcon />
+                  {t('addItem')}
+                </Button>
+              </>
+            )}
           </>
         }
       />
@@ -445,7 +452,7 @@ export default function StockPage() {
         )}
 
         {/* Bulk toolbar — Figma-style orange banner when rows are selected. */}
-        {selected.size > 0 && (
+        {canManage && selected.size > 0 && (
           <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <span className="font-semibold text-orange-900 dark:text-orange-300">
@@ -539,16 +546,18 @@ export default function StockPage() {
                 onClick: toggleVatDisplay,
                 icon: <ArrowRightLeftIcon className="w-4 h-4" />,
               },
-              {
-                label: t('importDelivery'),
-                onClick: () => { setImportDraftId(undefined); setImportModal(true); },
-                icon: <SparklesIcon className="w-4 h-4" />,
-              },
-              {
-                label: t('importCsv'),
-                onClick: () => setCsvImportOpen(true),
-                icon: <UploadIcon className="w-4 h-4" />,
-              },
+              ...(canManage ? [
+                {
+                  label: t('importDelivery'),
+                  onClick: () => { setImportDraftId(undefined); setImportModal(true); },
+                  icon: <SparklesIcon className="w-4 h-4" />,
+                },
+                {
+                  label: t('importCsv'),
+                  onClick: () => setCsvImportOpen(true),
+                  icon: <UploadIcon className="w-4 h-4" />,
+                },
+              ] : []),
               {
                 label: t('refresh'),
                 onClick: reload,
@@ -594,7 +603,7 @@ export default function StockPage() {
           <p className="text-base text-neutral-600 dark:text-neutral-400 text-center max-w-md">
             {items.length === 0 ? t('addFirstStockItem') : t('tryAdjustingFilters')}
           </p>
-          {items.length === 0 && (
+          {items.length === 0 && canManage && (
             <button
               onClick={() => setItemModal({ open: true })}
               className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 flex items-center gap-2 font-medium"
@@ -791,9 +800,11 @@ export default function StockPage() {
                       <RowActionsMenu
                         actions={[
                           { label: t('stockHistory'), onClick: () => setHistoryItem(item), icon: <ClockIcon className="w-4 h-4" /> },
-                          { label: t('receiveStock'), onClick: () => setTxModal({ open: true, item, type: 'receive' }), icon: <DownloadIcon className="w-4 h-4" /> },
-                          { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
-                          { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
+                          ...(canManage ? [
+                            { label: t('receiveStock'), onClick: () => setTxModal({ open: true, item, type: 'receive' as StockTransactionType }), icon: <DownloadIcon className="w-4 h-4" /> },
+                            { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
+                            { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger' as const, icon: <TrashIcon className="w-4 h-4" /> },
+                          ] : []),
                         ]}
                       />
                     </DataTableCell>
@@ -975,6 +986,8 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
   rid: number; editing?: StockItem; categories: string[]; suppliers: Supplier[]; vatRate: number; vatDisplayMode: 'ex' | 'inc'; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   // Shared quantity/packaging/price form state
   const [qty, setQty] = useState<StockInput>(() =>
@@ -1131,10 +1144,10 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
       {/* Product image tile */}
       <div className="relative">
         <div
-          className="w-full aspect-square rounded-r-lg overflow-hidden cursor-pointer group grid place-items-center bg-[var(--surface-2)] border border-[var(--line)]"
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
+          className="w-full aspect-square rounded-r-lg overflow-hidden group grid place-items-center bg-[var(--surface-2)] border border-[var(--line)]"
+          onClick={canManage ? () => fileInputRef.current?.click() : undefined}
+          onDragOver={canManage ? (e) => e.preventDefault() : undefined}
+          onDrop={canManage ? handleDrop : undefined}
         >
           {displayImage ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1159,28 +1172,30 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
             e.target.value = '';
           }}
         />
-        <div className="absolute bottom-2 end-2 flex gap-1">
-          <button
-            type="button"
-            onClick={() => setIconPickerOpen(true)}
-            className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
-            style={{ background: 'rgba(0,0,0,.6)' }}
-            aria-label={t('pickFromLibrary') || 'Pick from icon library'}
-            title={t('pickFromLibrary') || 'Pick from icon library'}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
-            style={{ background: 'rgba(0,0,0,.6)' }}
-            aria-label={t('editImage') || 'Upload photo'}
-            title={t('editImage') || 'Upload photo'}
-          >
-            <Camera className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {canManage && (
+          <div className="absolute bottom-2 end-2 flex gap-1">
+            <button
+              type="button"
+              onClick={() => setIconPickerOpen(true)}
+              className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
+              style={{ background: 'rgba(0,0,0,.6)' }}
+              aria-label={t('pickFromLibrary') || 'Pick from icon library'}
+              title={t('pickFromLibrary') || 'Pick from icon library'}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-8 h-8 rounded-r-sm grid place-items-center text-white"
+              style={{ background: 'rgba(0,0,0,.6)' }}
+              aria-label={t('editImage') || 'Upload photo'}
+              title={t('editImage') || 'Upload photo'}
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
         <div className="absolute top-2 start-2">
           <Badge tone={isActive ? 'success' : 'neutral'} dot>
             {isActive ? t('active') : t('inactive')}
@@ -1269,7 +1284,7 @@ function StockItemModal({ rid, editing, categories, suppliers, vatRate, vatDispl
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={editing ? t('editStockItem') : t('addStockItem')}
       subtitle={editing ? `${t('editingItem') || 'Modification'} · ${editing.name}` : undefined}
-      onSave={handleSubmit}
+      onSave={canManage ? handleSubmit : undefined}
       saveLabel={editing ? t('update') : t('create')}
       saveDisabled={!name.trim() || saving}
       cancelLabel={t('cancel')}

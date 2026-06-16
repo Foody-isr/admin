@@ -19,6 +19,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, Chip, PageHead, Section } from '@/components/ds';
 
 interface PrinterDraft {
@@ -79,6 +80,8 @@ const SAMPLE_KDS: KdsScreen[] = [
 
 export default function PrintersSettingsPage() {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
   const [printers, setPrinters] = useState<PrinterDraft[]>(SAMPLE_PRINTERS);
   const [kds] = useState<KdsScreen[]>(SAMPLE_KDS);
 
@@ -101,10 +104,12 @@ export default function PrintersSettingsPage() {
         title={t('printersAndKds') || 'Imprimantes & KDS'}
         desc={t('printersDescNew') || 'Routage des tickets vers les imprimantes et écrans de cuisine.'}
         actions={
-          <Button variant="primary" size="md" onClick={addPrinter}>
-            <Plus />
-            {t('add') || 'Ajouter'}
-          </Button>
+          canEdit && (
+            <Button variant="primary" size="md" onClick={addPrinter}>
+              <Plus />
+              {t('add') || 'Ajouter'}
+            </Button>
+          )
         }
       />
 
@@ -140,38 +145,44 @@ export default function PrintersSettingsPage() {
                       {t('offline') || 'Hors ligne'}
                     </Badge>
                   )}
-                  <Button variant="ghost" size="sm">
-                    {t('test') || 'Test'}
-                  </Button>
-                  <button
-                    type="button"
-                    className="h-8 w-8 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
-                    aria-label={t('moreActions') || 'Plus'}
-                  >
-                    <MoreHorizontal className="w-3.5 h-3.5" />
-                  </button>
+                  {canEdit && (
+                    <>
+                      <Button variant="ghost" size="sm">
+                        {t('test') || 'Test'}
+                      </Button>
+                      <button
+                        type="button"
+                        className="h-8 w-8 grid place-items-center rounded-r-md text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                        aria-label={t('moreActions') || 'Plus'}
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-1">
                 {p.jobs.map((j) => (
                   <Chip key={j}>{j}</Chip>
                 ))}
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] border border-dashed border-[var(--line-strong)] hover:text-[var(--fg)] hover:border-[var(--fg-subtle)]"
-                  onClick={() => {
-                    const job = window.prompt(t('addJobPrompt') || 'Nom du flux :');
-                    if (!job) return;
-                    setPrinters((prev) =>
-                      prev.map((x) =>
-                        x.id === p.id ? { ...x, jobs: [...x.jobs, job] } : x,
-                      ),
-                    );
-                  }}
-                >
-                  <Plus className="w-2.5 h-2.5" />
-                  {t('add') || 'Ajouter'}
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 h-[22px] px-2 rounded-r-sm text-fs-xs text-[var(--fg-muted)] border border-dashed border-[var(--line-strong)] hover:text-[var(--fg)] hover:border-[var(--fg-subtle)]"
+                    onClick={() => {
+                      const job = window.prompt(t('addJobPrompt') || 'Nom du flux :');
+                      if (!job) return;
+                      setPrinters((prev) =>
+                        prev.map((x) =>
+                          x.id === p.id ? { ...x, jobs: [...x.jobs, job] } : x,
+                        ),
+                      );
+                    }}
+                  >
+                    <Plus className="w-2.5 h-2.5" />
+                    {t('add') || 'Ajouter'}
+                  </button>
+                )}
               </div>
             </div>
           ))}

@@ -20,10 +20,12 @@ export function PrepNode({
   c,
   onChange,
   onRemove,
+  canManage,
 }: {
   c: Component;
   onChange: (next: Component) => void;
   onRemove: () => void;
+  canManage: boolean;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -67,47 +69,55 @@ export function PrepNode({
         </span>
 
         {/* Quantity input */}
-        <input
-          type="number"
-          value={c.qty}
-          min={0}
-          step="any"
-          onChange={(e) =>
-            onChange({ ...c, qty: parseFloat(e.target.value) || 0 })
-          }
-          style={{
-            width: 80,
-            padding: '4px 6px',
-            borderRadius: 6,
-            border: '1px solid var(--line)',
-            fontSize: 13,
-            background: 'var(--surface-2,#fff)',
-            color: 'var(--fg)',
-          }}
-          aria-label="Quantity"
-        />
+        {canManage ? (
+          <input
+            type="number"
+            value={c.qty}
+            min={0}
+            step="any"
+            onChange={(e) =>
+              onChange({ ...c, qty: parseFloat(e.target.value) || 0 })
+            }
+            style={{
+              width: 80,
+              padding: '4px 6px',
+              borderRadius: 6,
+              border: '1px solid var(--line)',
+              fontSize: 13,
+              background: 'var(--surface-2,#fff)',
+              color: 'var(--fg)',
+            }}
+            aria-label="Quantity"
+          />
+        ) : (
+          <span style={{ width: 80, textAlign: 'right', fontSize: 13 }}>{c.qty}</span>
+        )}
 
         {/* Unit select */}
-        <select
-          value={c.unit}
-          onChange={(e) => onChange({ ...c, unit: e.target.value })}
-          style={{
-            width: 70,
-            padding: '4px 6px',
-            borderRadius: 6,
-            border: '1px solid var(--line)',
-            fontSize: 13,
-            background: 'var(--surface-2,#fff)',
-            color: 'var(--fg)',
-          }}
-          aria-label="Unit"
-        >
-          {UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </select>
+        {canManage ? (
+          <select
+            value={c.unit}
+            onChange={(e) => onChange({ ...c, unit: e.target.value })}
+            style={{
+              width: 70,
+              padding: '4px 6px',
+              borderRadius: 6,
+              border: '1px solid var(--line)',
+              fontSize: 13,
+              background: 'var(--surface-2,#fff)',
+              color: 'var(--fg)',
+            }}
+            aria-label="Unit"
+          >
+            {UNITS.map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span style={{ width: 70, fontSize: 13 }}>{c.unit}</span>
+        )}
 
         {/* Line cost */}
         <span
@@ -123,21 +133,23 @@ export function PrepNode({
         </span>
 
         {/* Remove button */}
-        <button
-          onClick={onRemove}
-          aria-label={t('labRemoveIngredient')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--fg-muted)',
-            fontSize: 18,
-            padding: '0 6px',
-            lineHeight: 1,
-          }}
-        >
-          ×
-        </button>
+        {canManage && (
+          <button
+            onClick={onRemove}
+            aria-label={t('labRemoveIngredient')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--fg-muted)',
+              fontSize: 18,
+              padding: '0 6px',
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {/* Expanded body: batch info + nested ingredient rows */}
@@ -175,6 +187,7 @@ export function PrepNode({
                   const newIngs = ings.filter((_, i) => i !== idx);
                   onChange({ ...c, ingredients: newIngs });
                 }}
+                canManage={canManage}
               />
             ))}
           </div>

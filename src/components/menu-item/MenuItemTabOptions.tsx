@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import type {
   MenuItem,
   ModifierSet,
@@ -61,6 +62,8 @@ export default function MenuItemTabOptions({
   hideVariantsSection = false,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const modifiers = item.modifiers ?? [];
   const variantGroups = item.variant_groups ?? [];
   const modSetOverrideRows: ModifierSetItemOverrideRow[] = item.modifier_set_overrides ?? [];
@@ -95,14 +98,16 @@ export default function MenuItemTabOptions({
             {t('modifiersDesc') ||
               'Options ajoutées à la commande (sans coriandre, sauce à part…).'}
           </p>
-          <button
-            type="button"
-            onClick={onAddModifierSet}
-            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('add') || 'Ajouter'}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onAddModifierSet}
+              className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('add') || 'Ajouter'}
+            </button>
+          )}
         </div>
 
         {attachedModifierSets.length > 0 && (
@@ -144,13 +149,15 @@ export default function MenuItemTabOptions({
                     ₪{mod.price_delta.toFixed(2)}
                   </span>
                 )}
-                <button
-                  type="button"
-                  onClick={() => onDeleteModifier(mod.id)}
-                  className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                >
-                  {t('delete') || 'Supprimer'}
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteModifier(mod.id)}
+                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                  >
+                    {t('delete') || 'Supprimer'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -176,14 +183,16 @@ export default function MenuItemTabOptions({
                 'Tailles ou options liées (Normal, Grand…). Le prix du variant remplace le prix de base.'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onAddVariantGroup}
-            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('add') || 'Ajouter'}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onAddVariantGroup}
+              className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t('add') || 'Ajouter'}
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col gap-[var(--s-4)]">
@@ -200,22 +209,24 @@ export default function MenuItemTabOptions({
                     {(group.variants ?? []).length} {t('options') || 'options'}
                   </div>
                 </div>
-                <div className="flex items-center gap-[var(--s-2)]">
-                  <button
-                    type="button"
-                    onClick={() => onEditVariantGroup(group.id)}
-                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
-                  >
-                    {t('edit') || 'Modifier'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteVariantGroup(group.id)}
-                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                  >
-                    {t('delete') || 'Supprimer'}
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="flex items-center gap-[var(--s-2)]">
+                    <button
+                      type="button"
+                      onClick={() => onEditVariantGroup(group.id)}
+                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+                    >
+                      {t('edit') || 'Modifier'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteVariantGroup(group.id)}
+                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                    >
+                      {t('delete') || 'Supprimer'}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-[var(--s-2)]">
                 {(group.variants ?? []).map((v) => {
@@ -259,22 +270,24 @@ export default function MenuItemTabOptions({
                     {(set.options ?? []).length} {t('options') || 'options'}
                   </div>
                 </div>
-                <div className="flex items-center gap-[var(--s-2)]">
-                  <button
-                    type="button"
-                    onClick={() => onEditOptionSet(set.id)}
-                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
-                  >
-                    {t('edit') || 'Modifier'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDetachOptionSet(set.id)}
-                    className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                  >
-                    {t('detach') || 'Détacher'}
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="flex items-center gap-[var(--s-2)]">
+                    <button
+                      type="button"
+                      onClick={() => onEditOptionSet(set.id)}
+                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--fg-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--fg)] transition-colors"
+                    >
+                      {t('edit') || 'Modifier'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDetachOptionSet(set.id)}
+                      className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                    >
+                      {t('detach') || 'Détacher'}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-[var(--s-2)]">
                 {(set.options ?? []).map((o) => {
@@ -314,7 +327,7 @@ export default function MenuItemTabOptions({
             </div>
           ))}
 
-          {variantGroups.length === 0 && attachedOptionSets.length === 0 && (
+          {canEdit && variantGroups.length === 0 && attachedOptionSets.length === 0 && (
             <button
               type="button"
               onClick={onAddOptionSet}
@@ -354,6 +367,8 @@ function ModifierSetCard({
   onDetach,
 }: ModifierSetCardProps) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -417,7 +432,7 @@ function ModifierSetCard({
             <div className="text-fs-xs text-[var(--fg-muted)] mt-0.5">{effectiveMeta}</div>
           )}
         </div>
-        {canEditOverrides && (
+        {canEdit && canEditOverrides && (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -427,13 +442,15 @@ function ModifierSetCard({
             {t('override') || 'Override'}
           </button>
         )}
-        <button
-          type="button"
-          onClick={onDetach}
-          className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-        >
-          {t('detach') || 'Détacher'}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onDetach}
+            className="px-[var(--s-3)] h-7 rounded-r-md text-fs-xs font-medium text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+          >
+            {t('detach') || 'Détacher'}
+          </button>
+        )}
       </div>
 
       {open && (

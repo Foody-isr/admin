@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 
 export default function FloorPlanSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,12 +131,14 @@ export default function FloorPlanSettingsPage() {
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
-        </button>
-        {saved && <span className="text-sm text-status-ready font-medium">Enregistré ✓</span>}
-      </div>
+      {canManage && (
+        <div className="flex items-center gap-3">
+          <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+          {saved && <span className="text-sm text-status-ready font-medium">Enregistré ✓</span>}
+        </div>
+      )}
     </div>
   );
 }

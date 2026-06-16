@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, logout } from '@/lib/api';
+import { getStoredRestaurantIds, getStoredUser, getRestaurant, Restaurant, isAuthenticated, canAccessAdmin, logout } from '@/lib/api';
 import { StoreIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
@@ -18,12 +18,12 @@ export default function SelectRestaurantPage() {
       return;
     }
     const user = getStoredUser();
-    if (!user || (user.role !== 'owner' && user.role !== 'manager')) {
+    const rids = getStoredRestaurantIds();
+    if (!canAccessAdmin(user, rids)) {
       logout();
       router.replace('/login');
       return;
     }
-    const rids = getStoredRestaurantIds();
     if (rids.length === 1) {
       router.replace(`/${rids[0]}/dashboard`);
       return;

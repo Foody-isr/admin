@@ -8,6 +8,7 @@ import {
   Menu, MenuAvailabilityHour, Restaurant,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   PlusIcon,
   SearchIcon,
@@ -77,6 +78,8 @@ export default function MenusPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [menus, setMenus] = useState<Menu[]>([]);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -152,22 +155,24 @@ export default function MenusPage() {
         title={t('menus')}
         desc={t('carteDescription')}
         actions={
-          <>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={() => {
-                setIsReordering(!isReordering);
-                if (!isReordering) setViewMode('grid');
-              }}
-            >
-              {isReordering ? t('doneReordering') : t('reorder')}
-            </Button>
-            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-              <PlusIcon />
-              {t('createMenu')}
-            </Button>
-          </>
+          canEdit ? (
+            <>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => {
+                  setIsReordering(!isReordering);
+                  if (!isReordering) setViewMode('grid');
+                }}
+              >
+                {isReordering ? t('doneReordering') : t('reorder')}
+              </Button>
+              <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
+                <PlusIcon />
+                {t('createMenu')}
+              </Button>
+            </>
+          ) : null
         }
       />
 
@@ -235,9 +240,11 @@ export default function MenusPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
           </svg>
           <p className="text-base text-fg-secondary text-center max-w-md">{t('noMenusYet')}</p>
-          <button onClick={() => setEditModal({ open: true })} className="btn-primary mt-2 rounded-full">
-            {t('createMenu')}
-          </button>
+          {canEdit && (
+            <button onClick={() => setEditModal({ open: true })} className="btn-primary mt-2 rounded-full">
+              {t('createMenu')}
+            </button>
+          )}
         </div>
       )}
 
@@ -297,7 +304,7 @@ export default function MenusPage() {
                 </div>
               </div>
               {/* Dropdown */}
-              {!isReordering && (
+              {!isReordering && canEdit && (
                 <MenuDropdown
                   menu={m}
                   isOpen={openDropdown === m.id}
@@ -341,6 +348,7 @@ export default function MenusPage() {
                 <DataTableCell mobileLabel={t('pointOfSale')} className="text-fg-secondary">{restaurant?.name ?? '—'}</DataTableCell>
                 <DataTableCell mobileLabel={t('salesChannels')} className="text-fg-secondary">{channelsSummary(m, t)}</DataTableCell>
                 <DataTableCell>
+                  {canEdit && (
                   <MenuDropdown
                     menu={m}
                     isOpen={openDropdown === m.id}
@@ -350,6 +358,7 @@ export default function MenusPage() {
                     onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
                     t={t}
                   />
+                  )}
                 </DataTableCell>
               </DataTableRow>
             ))}

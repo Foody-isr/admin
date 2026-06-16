@@ -7,6 +7,7 @@ import {
   FloorPlan,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { PlusIcon, MenuIcon, TrashIcon } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 
@@ -15,6 +16,8 @@ export default function FloorPlansListPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [plans, setPlans] = useState<FloorPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,14 +70,16 @@ export default function FloorPlansListPage() {
         title={t('floorPlans')}
         desc={t('noFloorPlansDesc')}
         actions={
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
-          >
-            <PlusIcon />
-            {t('createFloorPlan')}
-          </Button>
+          canManage ? (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
+            >
+              <PlusIcon />
+              {t('createFloorPlan')}
+            </Button>
+          ) : null
         }
       />
 
@@ -82,33 +87,37 @@ export default function FloorPlansListPage() {
       {plans.length === 0 ? (
         <div className="card flex flex-col items-center py-16 space-y-4">
           <p className="text-fg-secondary">{t('noFloorPlans')}</p>
-          <button
-            onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
-            className="btn-primary"
-          >
-            {t('createFloorPlan')}
-          </button>
+          {canManage && (
+            <button
+              onClick={() => router.push(`/${rid}/restaurant/floor-plans/new`)}
+              className="btn-primary"
+            >
+              {t('createFloorPlan')}
+            </button>
+          )}
         </div>
       ) : (
         <div className="card p-0 divide-y" style={{ borderColor: 'var(--divider)' }}>
           {plans.map((plan) => (
             <div
               key={plan.id}
-              draggable
-              onDragStart={() => handleDragStart(plan.id)}
-              onDragOver={(e) => handleDragOver(e, plan.id)}
-              onDragEnd={handleDragEnd}
+              draggable={canManage}
+              onDragStart={canManage ? () => handleDragStart(plan.id) : undefined}
+              onDragOver={canManage ? (e) => handleDragOver(e, plan.id) : undefined}
+              onDragEnd={canManage ? handleDragEnd : undefined}
               className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-subtle)] transition-colors cursor-pointer"
               onClick={() => router.push(`/${rid}/restaurant/floor-plans/${plan.id}`)}
             >
               <MenuIcon className="w-5 h-5 text-fg-secondary cursor-grab flex-shrink-0" />
               <span className="flex-1 font-medium text-fg-primary">{plan.name}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDelete(plan); }}
-                className="p-1.5 rounded-md hover:bg-red-500/10 text-fg-secondary hover:text-red-400 transition-colors"
-              >
-                <TrashIcon className="w-4 h-4" />
-              </button>
+              {canManage && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(plan); }}
+                  className="p-1.5 rounded-md hover:bg-red-500/10 text-fg-secondary hover:text-red-400 transition-colors"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>

@@ -13,6 +13,7 @@ import {
   ItemType,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   loadItemDraft,
   saveItemDraft,
@@ -46,6 +47,8 @@ export default function NewItemPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, locale } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const defaultCatId = searchParams.get('category') ? Number(searchParams.get('category')) : 0;
 
@@ -370,7 +373,7 @@ export default function NewItemPage() {
       comboSummary={railComboSummary}
       onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
       placeholderLabel={t('createItem')}
-      onImageClick={() => fileInputRef.current?.click()}
+      onImageClick={canEdit ? () => fileInputRef.current?.click() : undefined}
     />
   );
 
@@ -387,9 +390,9 @@ export default function NewItemPage() {
       <MenuItemShell
         title={t('createItem')}
         onClose={goBack}
-        onSave={handleSave}
+        onSave={canEdit ? handleSave : () => {}}
         saving={saving}
-        saveDisabled={!name.trim() || effectivePrice <= 0}
+        saveDisabled={!canEdit || !name.trim() || effectivePrice <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -524,13 +527,15 @@ export default function NewItemPage() {
                       <p className="text-sm text-neutral-600 dark:text-neutral-400">
                         {t('modifiersDescription')}
                       </p>
-                      <button
-                        onClick={() => setModifierModalOpen(true)}
-                        className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        {t('add')}
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => setModifierModalOpen(true)}
+                          className="px-4 py-2 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors font-medium text-sm flex items-center gap-2"
+                        >
+                          <PlusIcon className="w-4 h-4" />
+                          {t('add')}
+                        </button>
+                      )}
                     </div>
                     {selectedModifierSetIds.size > 0 && (
                       <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
@@ -542,10 +547,12 @@ export default function NewItemPage() {
                                 {(ms.modifiers ?? []).map((m) => m.name).join(', ')}
                               </span>
                             </div>
-                            <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
-                              className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
-                              {t('remove')}
-                            </button>
+                            {canEdit && (
+                              <button onClick={() => { const n = new Set(selectedModifierSetIds); n.delete(ms.id); setSelectedModifierSetIds(n); }}
+                                className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                                {t('remove')}
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>

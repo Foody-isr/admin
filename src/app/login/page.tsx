@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { login, isAuthenticated, getStoredRestaurantIds, getStoredUser, logout } from '@/lib/api';
+import { login, isAuthenticated, getStoredRestaurantIds, getStoredUser, canAccessAdmin, logout } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 
 export default function LoginPage() {
@@ -17,11 +17,11 @@ export default function LoginPage() {
   useEffect(() => {
     if (isAuthenticated()) {
       const user = getStoredUser();
-      if (!user || (user.role !== 'owner' && user.role !== 'manager')) {
+      const rids = getStoredRestaurantIds();
+      if (!canAccessAdmin(user, rids)) {
         logout();
         return;
       }
-      const rids = getStoredRestaurantIds();
       if (rids.length === 1) {
         router.replace(`/${rids[0]}/dashboard`);
       } else if (rids.length > 1) {

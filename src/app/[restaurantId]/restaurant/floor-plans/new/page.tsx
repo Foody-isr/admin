@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createFloorPlan } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { XIcon } from 'lucide-react';
 
 export default function NewFloorPlanPage() {
@@ -11,6 +12,8 @@ export default function NewFloorPlanPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -58,13 +61,15 @@ export default function NewFloorPlanPage() {
           <button onClick={handleCancel} className="btn-secondary px-4">
             {t('cancel')}
           </button>
-          <button
-            onClick={handleCreate}
-            disabled={saving || !name.trim()}
-            className="btn-primary px-6 disabled:opacity-50"
-          >
-            {saving ? t('saving') : t('done')}
-          </button>
+          {canManage && (
+            <button
+              onClick={handleCreate}
+              disabled={saving || !name.trim()}
+              className="btn-primary px-6 disabled:opacity-50"
+            >
+              {saving ? t('saving') : t('done')}
+            </button>
+          )}
         </div>
       </div>
     </div>

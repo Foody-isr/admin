@@ -21,6 +21,7 @@ import {
 import { getRestaurantSettings } from '@/lib/api';
 import type { Locale } from '@/components/i18n/LocaleTabs';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import type { MenuItemSection } from '@/components/menu-item/TabBar';
 import MenuItemTabBar, { TabBarItem } from '@/components/menu-item/MenuItemTabBar';
 import MenuItemTabDetails from '@/components/menu-item/MenuItemTabDetails';
@@ -67,6 +68,8 @@ export default function EditItemPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   // Hydrate from sessionStorage cache set by the list page's openEditor helper.
@@ -520,8 +523,8 @@ export default function EditItemPage() {
       costSummary={itemType === 'combo' ? null : costSummary}
       comboSummary={railComboSummary}
       onShowComboSavingsDetail={itemType === 'combo' ? () => setSavingsModalOpen(true) : undefined}
-      onImageClick={() => fileInputRef.current?.click()}
-      onAiImageClick={() => setAiModalOpen(true)}
+      onImageClick={canEdit ? () => fileInputRef.current?.click() : undefined}
+      onAiImageClick={canEdit ? () => setAiModalOpen(true) : undefined}
     />
   );
 
@@ -555,9 +558,9 @@ export default function EditItemPage() {
       <MenuItemShell
         title={t('editItem')}
         onClose={goBack}
-        onSave={handleSave}
+        onSave={canEdit ? handleSave : () => {}}
         saving={saving}
-        saveDisabled={!name.trim() || effectivePrice <= 0}
+        saveDisabled={!canEdit || !name.trim() || effectivePrice <= 0}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
@@ -645,17 +648,17 @@ export default function EditItemPage() {
                     allModifierSets={allModifierSets}
                     attachedOptionSets={attachedOptionSets}
                     itemOptionOverrides={itemOptionOverrides}
-                    onAddModifierSet={() => setModifierModalOpen(true)}
-                    onDetachModifierSet={async (id) => {
+                    onAddModifierSet={canEdit ? () => setModifierModalOpen(true) : () => {}}
+                    onDetachModifierSet={canEdit ? async (id) => {
                       if (!confirm('Unlink this modifier set from item?')) return;
                       await detachModifierSetFromItem(rid, id, iid);
                       loadData();
-                    }}
-                    onSaveModifierSetOverrides={async (setId: number, input: ModifierSetItemOverridesInput) => {
+                    } : () => {}}
+                    onSaveModifierSetOverrides={canEdit ? async (setId: number, input: ModifierSetItemOverridesInput) => {
                       await setModifierSetItemOverrides(rid, setId, iid, input);
                       loadData();
-                    }}
-                    onDeleteModifier={handleDeleteModifier}
+                    } : undefined}
+                    onDeleteModifier={canEdit ? handleDeleteModifier : () => {}}
                     // Variants render in their own section just above, so these
                     // handlers are no-ops kept to satisfy the prop contract.
                     onAddVariantGroup={() => {}}
@@ -699,7 +702,7 @@ export default function EditItemPage() {
                     .filter((r) => r.isActive && r.optionId != null && r.name.trim())
                     .map((r) => ({ option_id: r.optionId!, name: r.name })),
                 )}
-                onAddIngredient={async (input) => {
+                onAddIngredient={canEdit ? async (input) => {
                   const next = [
                     ...ingredients.map((ing) => ({
                       stock_item_id: ing.stock_item_id,
@@ -713,8 +716,8 @@ export default function EditItemPage() {
                   ];
                   const saved = await setMenuItemIngredients(rid, iid, next);
                   setIngredients(saved);
-                }}
-                onDeleteIngredient={async (id) => {
+                } : async () => {}}
+                onDeleteIngredient={canEdit ? async (id) => {
                   if (!confirm(t('delete') + '?')) return;
                   const next = ingredients.filter((i) => i.id !== id);
                   const saved = await setMenuItemIngredients(
@@ -730,8 +733,8 @@ export default function EditItemPage() {
                     })),
                   );
                   setIngredients(saved);
-                }}
-                onUpdateIngredient={async (id, patch) => {
+                } : () => {}}
+                onUpdateIngredient={canEdit ? async (id, patch) => {
                   const next = ingredients.map((i) =>
                     i.id === id ? { ...i, ...patch } : i,
                   );
@@ -748,7 +751,7 @@ export default function EditItemPage() {
                     })),
                   );
                   setIngredients(saved);
-                }}
+                } : async () => {}}
                 onRefreshLists={async () => {
                   // Re-fetch only the lists the composer searches over —
                   // cheaper than full loadData() on every inline create.

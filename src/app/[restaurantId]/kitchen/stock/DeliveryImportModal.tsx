@@ -10,6 +10,7 @@ import {
 
 import { SparklesIcon, FileTextIcon, SendHorizonalIcon, MicIcon, ScanIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import SearchableSelect from '@/components/SearchableSelect';
 import { FoodySpinner } from '@/components/FoodySpinner';
 import VoiceRecorder from '@/components/VoiceRecorder';
@@ -169,6 +170,8 @@ interface DeliveryImportModalProps {
 
 export default function DeliveryImportModal({ rid, stockItems, draftId, onClose, onImported }: DeliveryImportModalProps) {
   const { t, locale, direction } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -729,19 +732,21 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 )}
                 <div className="flex justify-end gap-2">
                   <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-                  <button
-                    onClick={handleUpload}
-                    disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
-                    className="btn-primary text-sm inline-flex items-center gap-2"
-                  >
-                    {loading && <FoodySpinner size={14} className="opacity-90" />}
-                    {loading ? t('analyzing') : t('uploadAndAnalyze')}
-                  </button>
+                  {canManage && (
+                    <button
+                      onClick={handleUpload}
+                      disabled={!file || loading || (!selectedSupplierId && !newSupplierName.trim()) || (selectedSupplierId === -1 && !newSupplierName.trim())}
+                      className="btn-primary text-sm inline-flex items-center gap-2"
+                    >
+                      {loading && <FoodySpinner size={14} className="opacity-90" />}
+                      {loading ? t('analyzing') : t('uploadAndAnalyze')}
+                    </button>
+                  )}
                 </div>
               </>
             )}
 
-            {importMode === 'voice' && (
+            {importMode === 'voice' && canManage && (
               <VoiceRecorder
                 t={t}
                 disabled={!selectedSupplierId && !newSupplierName.trim()}
@@ -820,26 +825,30 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
                 >
                   {t('back')}
                 </button>
-                <button
-                  onClick={handleSaveDraft}
-                  disabled={savingDraft || streaming}
-                  title={streaming ? t('waitingForScan') : undefined}
-                  className="btn-secondary text-sm"
-                >
-                  {savingDraft ? t('saving') : t('saveDraft')}
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={loading || unreviewedFlaggedCount > 0 || streaming}
-                  title={
-                    streaming ? t('waitingForScan') :
-                    unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
-                    undefined
-                  }
-                  className="btn-primary text-sm"
-                >
-                  {loading ? t('confirming') : t('confirmImport')}
-                </button>
+                {canManage && (
+                  <>
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={savingDraft || streaming}
+                      title={streaming ? t('waitingForScan') : undefined}
+                      className="btn-secondary text-sm"
+                    >
+                      {savingDraft ? t('saving') : t('saveDraft')}
+                    </button>
+                    <button
+                      onClick={handleConfirm}
+                      disabled={loading || unreviewedFlaggedCount > 0 || streaming}
+                      title={
+                        streaming ? t('waitingForScan') :
+                        unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
+                        undefined
+                      }
+                      className="btn-primary text-sm"
+                    >
+                      {loading ? t('confirming') : t('confirmImport')}
+                    </button>
+                  </>
+                )}
                 <button onClick={onClose} className="text-fg-secondary hover:text-fg-primary text-xl leading-none px-2">&times;</button>
               </div>
             </div>
@@ -1081,26 +1090,30 @@ export default function DeliveryImportModal({ rid, stockItems, draftId, onClose,
         >
           {t('back')}
         </button>
-        <button
-          onClick={handleSaveDraft}
-          disabled={savingDraft || streaming}
-          title={streaming ? t('waitingForScan') : undefined}
-          className="btn-secondary text-sm flex-1 min-w-0"
-        >
-          {savingDraft ? t('saving') : t('saveDraft')}
-        </button>
-        <button
-          onClick={handleConfirm}
-          disabled={loading || unreviewedFlaggedCount > 0 || streaming}
-          title={
-            streaming ? t('waitingForScan') :
-            unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
-            undefined
-          }
-          className="btn-primary text-sm flex-1 min-w-0"
-        >
-          {loading ? t('confirming') : t('confirmImport')}
-        </button>
+        {canManage && (
+          <>
+            <button
+              onClick={handleSaveDraft}
+              disabled={savingDraft || streaming}
+              title={streaming ? t('waitingForScan') : undefined}
+              className="btn-secondary text-sm flex-1 min-w-0"
+            >
+              {savingDraft ? t('saving') : t('saveDraft')}
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={loading || unreviewedFlaggedCount > 0 || streaming}
+              title={
+                streaming ? t('waitingForScan') :
+                unreviewedFlaggedCount > 0 ? t('reviewBlockedBanner').replace('{n}', String(unreviewedFlaggedCount)) :
+                undefined
+              }
+              className="btn-primary text-sm flex-1 min-w-0"
+            >
+              {loading ? t('confirming') : t('confirmImport')}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

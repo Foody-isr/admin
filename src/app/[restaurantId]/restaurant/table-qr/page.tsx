@@ -27,6 +27,7 @@ import {
   type QrCardConfig,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Drawer, PageHead } from '@/components/ds';
 import { QrCard } from '@/components/qr/QrCard';
 import { TableEditorModal } from '@/components/tables/TableEditorModal';
@@ -44,6 +45,8 @@ export default function TableQrPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [sections, setSections] = useState<TableSection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +128,7 @@ export default function TableQrPage() {
               key={section.id}
               section={section}
               restaurantId={rid}
+              canManage={canManage}
               onSelect={(table) => setSelected({ table, sectionName: section.name })}
               onEditTable={(table) => setEditState({ mode: 'edit', table })}
               onSectionChanged={reloadSections}
@@ -188,6 +192,7 @@ function localeBadge(lang?: string): string {
 function SectionBlock({
   section,
   restaurantId,
+  canManage,
   onSelect,
   onEditTable,
   onSectionChanged,
@@ -195,6 +200,7 @@ function SectionBlock({
 }: {
   section: TableSection;
   restaurantId: number;
+  canManage: boolean;
   onSelect: (table: RestaurantTableRef) => void;
   onEditTable: (table: RestaurantTableRef) => void;
   onSectionChanged: () => void;
@@ -251,20 +257,24 @@ function SectionBlock({
           <span className="text-fs-xs text-fg-secondary">
             · {tableCount} {labels.tablesCount}
           </span>
-          <button
-            onClick={handleRename}
-            title={labels.renameSection}
-            className="p-1 rounded text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={handleDelete}
-            title={labels.deleteSection}
-            className="p-1 rounded text-fg-secondary hover:text-red-500 hover:bg-[var(--surface-subtle)] transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {canManage && (
+            <>
+              <button
+                onClick={handleRename}
+                title={labels.renameSection}
+                className="p-1 rounded text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleDelete}
+                title={labels.deleteSection}
+                className="p-1 rounded text-fg-secondary hover:text-red-500 hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[var(--s-3)]">
@@ -273,16 +283,18 @@ function SectionBlock({
             key={table.id}
             className="card text-left p-[var(--s-4)] hover:border-[var(--brand-500)] hover:shadow transition-all flex flex-col gap-[var(--s-2)] relative group"
           >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditTable(table);
-              }}
-              className="absolute top-2 end-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--surface-subtle)] transition-opacity"
-              title={labels.edit}
-            >
-              <Pencil className="w-3.5 h-3.5 text-fg-secondary" />
-            </button>
+            {canManage && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditTable(table);
+                }}
+                className="absolute top-2 end-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--surface-subtle)] transition-opacity"
+                title={labels.edit}
+              >
+                <Pencil className="w-3.5 h-3.5 text-fg-secondary" />
+              </button>
+            )}
             <button
               onClick={() => onSelect(table)}
               className="text-left flex flex-col gap-[var(--s-2)]"

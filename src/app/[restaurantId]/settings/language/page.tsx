@@ -12,6 +12,7 @@ import {
   TranslationReviewEntry,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Field, PageHead, Section, Select } from '@/components/ds';
 import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
 
@@ -31,6 +32,8 @@ export default function LanguageSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [loading, setLoading] = useState(true);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -160,7 +163,7 @@ export default function LanguageSettingsPage() {
           <Select
             value={locale}
             onChange={(e) => setLocale(e.target.value as Locale)}
-            disabled={savingLocale}
+            disabled={savingLocale || !canEdit}
           >
             {SUPPORTED_LOCALES.map((l) => (
               <option key={l.value} value={l.value}>
@@ -188,13 +191,15 @@ export default function LanguageSettingsPage() {
         )}
 
         <div className="mt-[var(--s-4)] flex items-center gap-3">
-          <Button
-            onClick={handleSave}
-            disabled={!localeChanged || savingLocale}
-            variant="primary"
-          >
-            {savingLocale ? t('saving') || 'Saving…' : t('save') || 'Save'}
-          </Button>
+          {canEdit && (
+            <Button
+              onClick={handleSave}
+              disabled={!localeChanged || savingLocale}
+              variant="primary"
+            >
+              {savingLocale ? t('saving') || 'Saving…' : t('save') || 'Save'}
+            </Button>
+          )}
           {savedFlash && (
             <span className="text-fs-sm text-[var(--success-500)]">
               {t('saved') || 'Saved'}
@@ -235,11 +240,13 @@ export default function LanguageSettingsPage() {
 
         {reviewEntries === null ? (
           <div className="flex items-center gap-3">
-            <Button onClick={handleOpenReview} disabled={retranslating} variant="secondary">
-              {retranslating
-                ? t('languageRetranslating') || 'Re-translating…'
-                : t('languageRetranslateAction') || 'Re-translate everything'}
-            </Button>
+            {canEdit && (
+              <Button onClick={handleOpenReview} disabled={retranslating} variant="secondary">
+                {retranslating
+                  ? t('languageRetranslating') || 'Re-translating…'
+                  : t('languageRetranslateAction') || 'Re-translate everything'}
+              </Button>
+            )}
             {retranslateResult && (
               <span className="text-fs-sm text-[var(--success-500)]">{retranslateResult}</span>
             )}
@@ -262,9 +269,11 @@ export default function LanguageSettingsPage() {
               <Button onClick={() => setReviewEntries(null)} variant="ghost" disabled={applying}>
                 {t('cancel') || 'Cancel'}
               </Button>
-              <Button onClick={handleApply} variant="primary" disabled={applying}>
-                {applying ? t('saving') || 'Saving…' : t('trReviewApply')}
-              </Button>
+              {canEdit && (
+                <Button onClick={handleApply} variant="primary" disabled={applying}>
+                  {applying ? t('saving') || 'Saving…' : t('trReviewApply')}
+                </Button>
+              )}
             </div>
           </div>
         )}

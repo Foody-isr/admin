@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Search } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Drawer } from '@/components/ds';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -48,6 +49,8 @@ export default function AssignSetDrawer({
   onApplied,
 }: AssignSetDrawerProps) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [optionSets, setOptionSets] = useState<OptionSet[]>([]);
@@ -222,14 +225,16 @@ export default function AssignSetDrawer({
           >
             {manageLabel} →
           </Link>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={diff.length === 0 || processing}
-            className="px-4 h-10 rounded-r-lg bg-[var(--brand-500)] text-white text-fs-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : applyLabel}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={apply}
+              disabled={diff.length === 0 || processing}
+              className="px-4 h-10 rounded-r-lg bg-[var(--brand-500)] text-white text-fs-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : applyLabel}
+            </button>
+          )}
         </div>
       }
     >

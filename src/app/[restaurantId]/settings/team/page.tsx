@@ -23,6 +23,7 @@ import {
   RestaurantRole,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, PageHead, Section } from '@/components/ds';
 
 const AVATAR_PALETTE = [
@@ -47,6 +48,8 @@ export default function TeamSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('staff.manage', 'roles.manage');
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [roles, setRoles] = useState<RestaurantRole[]>([]);
@@ -168,7 +171,7 @@ export default function TeamSettingsPage() {
                     </Badge>
                   </span>
                   <span className="text-fs-xs text-[var(--fg-subtle)]">·</span>
-                  {courier ? (
+                  {courier && canManage ? (
                     <button
                       type="button"
                       onClick={() => toggleDefaultCourier(m)}
