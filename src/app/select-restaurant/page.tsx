@@ -28,8 +28,21 @@ export default function SelectRestaurantPage() {
       router.replace(`/${rids[0]}/dashboard`);
       return;
     }
-    Promise.all(rids.map((id) => getRestaurant(id)))
-      .then(setRestaurants)
+    // Resilient: a single failing restaurant fetch (expired token races, a
+    // transient API error, or an inactive-subscription 402) must not blank the
+    // whole chooser and trap the user. Load each independently and fall back to
+    // a minimal card (by id) for any that fail, so every restaurant stays
+    // reachable.
+    Promise.allSettled(rids.map((id) => getRestaurant(id)))
+      .then((results) => {
+        setRestaurants(
+          results.map((res, i) =>
+            res.status === 'fulfilled'
+              ? res.value
+              : ({ id: rids[i], name: `${t('restaurant')} #${rids[i]}`, address: '' } as Restaurant)
+          )
+        );
+      })
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -75,6 +88,13 @@ export default function SelectRestaurantPage() {
             </button>
           ))}
         </div>
+
+        <button
+          onClick={() => { logout(); router.replace('/login'); }}
+          className="mt-6 w-full text-center text-sm text-fg-secondary hover:text-fg-primary"
+        >
+          {t('signOut')}
+        </button>
       </div>
     </div>
   );
