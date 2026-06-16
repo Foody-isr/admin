@@ -11,6 +11,7 @@ import {
   MenuImagePrompt,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
 import {
@@ -27,6 +28,8 @@ export default function MenuImagePromptsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [prompts, setPrompts] = useState<MenuImagePrompt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,10 +70,12 @@ export default function MenuImagePromptsPage() {
         title="AI image prompts"
         desc={`${prompts.length} template${prompts.length === 1 ? '' : 's'} · used when generating images for menu items`}
         actions={
-          <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-            <PlusIcon />
-            New template
-          </Button>
+          canEdit ? (
+            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
+              <PlusIcon />
+              New template
+            </Button>
+          ) : undefined
         }
       />
 
@@ -84,10 +89,12 @@ export default function MenuImagePromptsPage() {
             <code className="text-xs px-1 py-0.5 rounded bg-[var(--surface-2)]">{'{{item_description}}'}</code>, or{' '}
             <code className="text-xs px-1 py-0.5 rounded bg-[var(--surface-2)]">{'{{category}}'}</code> as placeholders.
           </p>
-          <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-            <PlusIcon />
-            Create first template
-          </Button>
+          {canEdit && (
+            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
+              <PlusIcon />
+              Create first template
+            </Button>
+          )}
         </div>
       ) : (
         <DataTable>
@@ -111,22 +118,24 @@ export default function MenuImagePromptsPage() {
                   <div className="line-clamp-2 max-w-2xl">{p.prompt}</div>
                 </DataTableCell>
                 <DataTableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setEditModal({ open: true, editing: p })}
-                      className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
-                      aria-label="Edit"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p)}
-                      className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
-                      aria-label="Delete"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {canEdit && (
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setEditModal({ open: true, editing: p })}
+                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
+                        aria-label="Edit"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p)}
+                        className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
+                        aria-label="Delete"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </DataTableCell>
               </DataTableRow>
             ))}

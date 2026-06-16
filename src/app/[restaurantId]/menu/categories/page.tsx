@@ -7,6 +7,7 @@ import {
   MenuCategory,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { PlusIcon, PencilIcon, TrashIcon, ImageIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Button, PageHead } from '@/components/ds';
@@ -24,6 +25,8 @@ export default function CategoriesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +63,12 @@ export default function CategoriesPage() {
         title={t('categories') || 'Catégories'}
         desc={`${categories.length} ${t('categoriesCount') || 'catégories'}`}
         actions={
-          <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
-            <PlusIcon />
-            {t('createCategory')}
-          </Button>
+          canEdit ? (
+            <Button variant="primary" size="md" onClick={() => setEditModal({ open: true })}>
+              <PlusIcon />
+              {t('createCategory')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -74,12 +79,14 @@ export default function CategoriesPage() {
           <p className="text-sm text-fg-secondary max-w-sm text-center">
             {t('addFirstMenuItem')}
           </p>
-          <button
-            onClick={() => setEditModal({ open: true })}
-            className="btn-primary mt-2"
-          >
-            {t('createCategory')}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setEditModal({ open: true })}
+              className="btn-primary mt-2"
+            >
+              {t('createCategory')}
+            </button>
+          )}
         </div>
       ) : (
         <DataTable>
@@ -108,20 +115,22 @@ export default function CategoriesPage() {
                   {(cat.items ?? []).length}
                 </DataTableCell>
                 <DataTableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setEditModal({ open: true, editing: cat })}
-                      className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(cat)}
-                      className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {canEdit && (
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setEditModal({ open: true, editing: cat })}
+                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(cat)}
+                        className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </DataTableCell>
               </DataTableRow>
             ))}

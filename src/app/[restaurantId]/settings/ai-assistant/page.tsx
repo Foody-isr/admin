@@ -16,6 +16,7 @@ import {
   RestaurantSettings,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Field, NumberField, PageHead, Section, Select, Textarea } from '@/components/ds';
 
 type TriggerMode = 'manual' | 'immediate' | 'delay';
@@ -24,6 +25,8 @@ export default function AIAssistantSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -271,9 +274,11 @@ export default function AIAssistantSettingsPage() {
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)]">
-        <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-          {saving ? t('saving') : t('saveChanges')}
-        </Button>
+        {canEdit && (
+          <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
+            {saving ? t('saving') : t('saveChanges')}
+          </Button>
+        )}
         {saved && (
           <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
         )}

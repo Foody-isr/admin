@@ -17,6 +17,7 @@ import {
   TruckIcon, CheckCircleIcon, SendIcon, XCircleIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 import {
   DataTable,
@@ -230,6 +231,8 @@ function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDele
   onDetail: (s: Supplier) => void;
   t: (k: string) => string;
 }) {
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   return (
     <>
       <div className="flex items-center gap-3 flex-wrap">
@@ -244,9 +247,11 @@ function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDele
             style={{ background: 'var(--surface)', borderColor: 'var(--divider)', color: 'var(--text-primary)' }}
           />
         </div>
-        <button onClick={onAdd} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
-          <PlusIcon className="w-4 h-4" /> {t('addSupplier')}
-        </button>
+        {canManage && (
+          <button onClick={onAdd} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
+            <PlusIcon className="w-4 h-4" /> {t('addSupplier')}
+          </button>
+        )}
       </div>
 
       {suppliers.length === 0 ? (
@@ -279,14 +284,16 @@ function SuppliersTab({ suppliers, search, onSearchChange, onAdd, onEdit, onDele
                   </span>
                 </DataTableCell>
                 <DataTableCell>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => onEdit(s)} className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)]">
-                      <PencilIcon className="w-4 h-4 text-fg-secondary" />
-                    </button>
-                    <button onClick={() => { if (confirm('Delete this supplier?')) onDelete(s.id); }} className="p-1.5 rounded-md hover:bg-red-50">
-                      <TrashIcon className="w-4 h-4 text-red-500" />
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => onEdit(s)} className="p-1.5 rounded-md hover:bg-[var(--surface-subtle)]">
+                        <PencilIcon className="w-4 h-4 text-fg-secondary" />
+                      </button>
+                      <button onClick={() => { if (confirm('Delete this supplier?')) onDelete(s.id); }} className="p-1.5 rounded-md hover:bg-red-50">
+                        <TrashIcon className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  )}
                 </DataTableCell>
               </DataTableRow>
             ))}
@@ -309,15 +316,19 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
   onDelete: (id: number) => void;
   t: (k: string) => string;
 }) {
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const supplierName = (id: number) => suppliers.find((s) => s.id === id)?.name ?? '—';
 
   return (
     <>
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-fg-primary">{t('purchaseOrders')}</h3>
-        <button onClick={onNewOrder} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
-          <PlusIcon className="w-4 h-4" /> {t('newOrder')}
-        </button>
+        {canManage && (
+          <button onClick={onNewOrder} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
+            <PlusIcon className="w-4 h-4" /> {t('newOrder')}
+          </button>
+        )}
       </div>
 
       {orders.length === 0 ? (
@@ -347,28 +358,30 @@ function OrdersTab({ orders, suppliers, onNewOrder, onSend, onReceive, onCancel,
                 <DataTableCell mobileLabel={t('totalAmount')} className="text-fg-secondary">₪{o.total_amount.toFixed(2)}</DataTableCell>
                 <DataTableCell mobileLabel={t('items')} className="text-fg-secondary">{o.items?.length ?? 0}</DataTableCell>
                 <DataTableCell>
-                  <div className="flex gap-1">
-                    {o.status === 'draft' && (
-                      <>
-                        <button onClick={() => onSend(o.id)} title={t('markAsSent')} className="p-1.5 rounded-md hover:bg-blue-50">
-                          <SendIcon className="w-4 h-4 text-blue-500" />
-                        </button>
-                        <button onClick={() => { if (confirm('Delete this order?')) onDelete(o.id); }} className="p-1.5 rounded-md hover:bg-red-50">
-                          <TrashIcon className="w-4 h-4 text-red-500" />
-                        </button>
-                      </>
-                    )}
-                    {o.status === 'sent' && (
-                      <>
-                        <button onClick={() => onReceive(o)} title={t('receiveOrder')} className="p-1.5 rounded-md hover:bg-green-50">
-                          <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                        </button>
-                        <button onClick={() => { if (confirm('Cancel this order?')) onCancel(o.id); }} title={t('cancelled')} className="p-1.5 rounded-md hover:bg-red-50">
-                          <XCircleIcon className="w-4 h-4 text-red-500" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {canManage && (
+                    <div className="flex gap-1">
+                      {o.status === 'draft' && (
+                        <>
+                          <button onClick={() => onSend(o.id)} title={t('markAsSent')} className="p-1.5 rounded-md hover:bg-blue-50">
+                            <SendIcon className="w-4 h-4 text-blue-500" />
+                          </button>
+                          <button onClick={() => { if (confirm('Delete this order?')) onDelete(o.id); }} className="p-1.5 rounded-md hover:bg-red-50">
+                            <TrashIcon className="w-4 h-4 text-red-500" />
+                          </button>
+                        </>
+                      )}
+                      {o.status === 'sent' && (
+                        <>
+                          <button onClick={() => onReceive(o)} title={t('receiveOrder')} className="p-1.5 rounded-md hover:bg-green-50">
+                            <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                          </button>
+                          <button onClick={() => { if (confirm('Cancel this order?')) onCancel(o.id); }} title={t('cancelled')} className="p-1.5 rounded-md hover:bg-red-50">
+                            <XCircleIcon className="w-4 h-4 text-red-500" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </DataTableCell>
               </DataTableRow>
             ))}
@@ -434,6 +447,8 @@ function SupplierFormModal({ editing, onClose, onSave, t }: {
   const [address, setAddress] = useState(editing?.address ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [extractionHints, setExtractionHints] = useState(editing?.extraction_hints ?? '');
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   return (
     <Modal title={editing ? t('editSupplier') : t('addSupplier')} onClose={onClose}>
@@ -488,13 +503,15 @@ function SupplierFormModal({ editing, onClose, onSave, t }: {
           />
           <p className="text-xs text-fg-tertiary mt-1">{t('extractionHintsHelp')}</p>
         </div>
-        <button
-          disabled={!name.trim()}
-          onClick={() => onSave({ name, contact_name: contactName, phone, email, address, notes, extraction_hints: extractionHints })}
-          className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
-        >
-          {editing ? t('save') : t('addSupplier')}
-        </button>
+        {canManage && (
+          <button
+            disabled={!name.trim()}
+            onClick={() => onSave({ name, contact_name: contactName, phone, email, address, notes, extraction_hints: extractionHints })}
+            className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
+          >
+            {editing ? t('save') : t('addSupplier')}
+          </button>
+        )}
       </div>
     </Modal>
   );
@@ -512,6 +529,8 @@ function SupplierDetailModal({ supplier, rid, stockItems, onClose, onAddProduct,
   t: (k: string) => string;
 }) {
   const [products, setProducts] = useState<SupplierProduct[]>(supplier.products ?? []);
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   useEffect(() => {
     listSupplierProducts(rid, supplier.id).then(setProducts);
@@ -537,9 +556,11 @@ function SupplierDetailModal({ supplier, rid, stockItems, onClose, onAddProduct,
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-medium text-fg-primary">{t('supplierProducts')}</h4>
-            <button onClick={() => onAddProduct(supplier.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
-              <PlusIcon className="w-3 h-3" /> {t('addProduct')}
-            </button>
+            {canManage && (
+              <button onClick={() => onAddProduct(supplier.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors">
+                <PlusIcon className="w-3 h-3" /> {t('addProduct')}
+              </button>
+            )}
           </div>
           {products.length === 0 ? (
             <p className="text-sm text-fg-secondary py-4 text-center">{t('noSuppliers')}</p>
@@ -567,14 +588,16 @@ function SupplierDetailModal({ supplier, rid, stockItems, onClose, onAddProduct,
                         {p.stock_item ? p.stock_item.name : stockItems.find((si) => si.id === p.stock_item_id)?.name ?? '—'}
                       </td>
                       <td className="px-3 py-2">
-                        <div className="flex gap-1">
-                          <button onClick={() => onEditProduct(supplier.id, p)} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
-                            <PencilIcon className="w-3.5 h-3.5 text-fg-secondary" />
-                          </button>
-                          <button onClick={() => handleDelete(p.id)} className="p-1 rounded-md hover:bg-red-50">
-                            <TrashIcon className="w-3.5 h-3.5 text-red-500" />
-                          </button>
-                        </div>
+                        {canManage && (
+                          <div className="flex gap-1">
+                            <button onClick={() => onEditProduct(supplier.id, p)} className="p-1 rounded-md hover:bg-[var(--surface-subtle)]">
+                              <PencilIcon className="w-3.5 h-3.5 text-fg-secondary" />
+                            </button>
+                            <button onClick={() => handleDelete(p.id)} className="p-1 rounded-md hover:bg-red-50">
+                              <TrashIcon className="w-3.5 h-3.5 text-red-500" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -602,6 +625,8 @@ function ProductFormModal({ editing, stockItems, onClose, onSave, t }: {
   const [unit, setUnit] = useState<StockUnit>((editing?.unit as StockUnit) ?? 'unit');
   const [price, setPrice] = useState(editing?.price_per_unit ?? 0);
   const [stockItemId, setStockItemId] = useState<number | null>(editing?.stock_item_id ?? null);
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   return (
     <Modal title={editing ? t('editSupplier') : t('addProduct')} onClose={onClose}>
@@ -633,13 +658,15 @@ function ProductFormModal({ editing, stockItems, onClose, onSave, t }: {
             {stockItems.map((si) => <option key={si.id} value={si.id}>{si.name} ({si.unit})</option>)}
           </select>
         </div>
-        <button
-          disabled={!name.trim()}
-          onClick={() => onSave({ name, sku, unit, price_per_unit: price, stock_item_id: stockItemId })}
-          className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
-        >
-          {t('save')}
-        </button>
+        {canManage && (
+          <button
+            disabled={!name.trim()}
+            onClick={() => onSave({ name, sku, unit, price_per_unit: price, stock_item_id: stockItemId })}
+            className="w-full py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
+          >
+            {t('save')}
+          </button>
+        )}
       </div>
     </Modal>
   );
@@ -659,6 +686,8 @@ function NewOrderModal({ suppliers, rid, onClose, onCreated, t }: {
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [items, setItems] = useState<(PurchaseOrderItemInput & { _key: number })[]>([]);
   const [saving, setSaving] = useState(false);
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   useEffect(() => {
     if (!supplierId) return;
@@ -748,22 +777,26 @@ function NewOrderModal({ suppliers, rid, onClose, onCreated, t }: {
           </div>
 
           {/* Add manual item */}
-          <button
-            onClick={() => setItems([...items, { _key: Date.now(), name: '', unit: 'unit' as StockUnit, quantity: 1, price_per_unit: 0 }])}
-            className="text-sm text-brand-500 hover:text-brand-600 font-medium"
-          >
-            + {t('addItem')}
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setItems([...items, { _key: Date.now(), name: '', unit: 'unit' as StockUnit, quantity: 1, price_per_unit: 0 }])}
+              className="text-sm text-brand-500 hover:text-brand-600 font-medium"
+            >
+              + {t('addItem')}
+            </button>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--divider)', color: 'var(--text-primary)' }}>{t('cancel')}</button>
-            <button
-              disabled={saving || items.every((i) => i.quantity <= 0)}
-              onClick={handleSave}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
-            >
-              {t('save')}
-            </button>
+            {canManage && (
+              <button
+                disabled={saving || items.every((i) => i.quantity <= 0)}
+                onClick={handleSave}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
+              >
+                {t('save')}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -784,6 +817,8 @@ function ReceiveOrderModal({ order, rid, onClose, onReceived, t }: {
     (order.items ?? []).map((item) => ({ id: item.id, received_qty: item.quantity }))
   );
   const [saving, setSaving] = useState(false);
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const handleReceive = async () => {
     setSaving(true);
@@ -831,13 +866,15 @@ function ReceiveOrderModal({ order, rid, onClose, onReceived, t }: {
             </tbody>
           </table>
         </div>
-        <button
-          disabled={saving}
-          onClick={handleReceive}
-          className="w-full py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-        >
-          <TruckIcon className="w-4 h-4 inline mr-1" /> {t('markAsReceived')}
-        </button>
+        {canManage && (
+          <button
+            disabled={saving}
+            onClick={handleReceive}
+            className="w-full py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            <TruckIcon className="w-4 h-4 inline mr-1" /> {t('markAsReceived')}
+          </button>
+        )}
       </div>
     </Modal>
   );

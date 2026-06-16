@@ -18,10 +18,12 @@ export function IngredientRow({
   c,
   onChange,
   onRemove,
+  canManage,
 }: {
   c: Component;
   onChange: (next: Component) => void;
   onRemove: () => void;
+  canManage: boolean;
 }) {
   const { t } = useI18n();
   const isExisting = c.kind === 'stock_existing';
@@ -58,31 +60,39 @@ export function IngredientRow({
       </span>
 
       {/* Quantity input */}
-      <input
-        type="number"
-        value={c.qty}
-        min={0}
-        step="any"
-        onChange={(e) =>
-          onChange({ ...c, qty: parseFloat(e.target.value) || 0 })
-        }
-        style={inputStyle}
-        aria-label="Quantity"
-      />
+      {canManage ? (
+        <input
+          type="number"
+          value={c.qty}
+          min={0}
+          step="any"
+          onChange={(e) =>
+            onChange({ ...c, qty: parseFloat(e.target.value) || 0 })
+          }
+          style={inputStyle}
+          aria-label="Quantity"
+        />
+      ) : (
+        <span style={{ fontSize: 13, textAlign: 'right' }}>{c.qty}</span>
+      )}
 
       {/* Unit select */}
-      <select
-        value={c.unit}
-        onChange={(e) => onChange({ ...c, unit: e.target.value })}
-        style={inputStyle}
-        aria-label="Unit"
-      >
-        {UNITS.map((u) => (
-          <option key={u} value={u}>
-            {u}
-          </option>
-        ))}
-      </select>
+      {canManage ? (
+        <select
+          value={c.unit}
+          onChange={(e) => onChange({ ...c, unit: e.target.value })}
+          style={inputStyle}
+          aria-label="Unit"
+        >
+          {UNITS.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span style={{ fontSize: 13 }}>{c.unit}</span>
+      )}
 
       {/* Line cost */}
       <span style={{ textAlign: 'right', fontWeight: 500, fontSize: 13 }}>
@@ -99,21 +109,25 @@ export function IngredientRow({
       </span>
 
       {/* Remove button */}
-      <button
-        onClick={onRemove}
-        aria-label={t('labRemoveIngredient')}
-        style={{
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--fg-muted)',
-          fontSize: 18,
-          padding: '0 6px',
-          lineHeight: 1,
-        }}
-      >
-        ×
-      </button>
+      {canManage ? (
+        <button
+          onClick={onRemove}
+          aria-label={t('labRemoveIngredient')}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--fg-muted)',
+            fontSize: 18,
+            padding: '0 6px',
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      ) : (
+        <span />
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getRestaurantSettings, updateRestaurantSettings } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { PageHead } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 
@@ -11,6 +12,8 @@ export default function TableStatusPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,12 +131,14 @@ export default function TableStatusPage() {
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
-          {saving ? t('saving') : t('saveChanges')}
-        </button>
-        {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
-      </div>
+      {canManage && (
+        <div className="flex items-center gap-3">
+          <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-50">
+            {saving ? t('saving') : t('saveChanges')}
+          </button>
+          {saved && <span className="text-sm text-status-ready font-medium">{t('saved')}</span>}
+        </div>
+      )}
     </div>
   );
 }

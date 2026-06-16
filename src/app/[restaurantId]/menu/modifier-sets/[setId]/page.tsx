@@ -11,6 +11,7 @@ import {
   ModifierSetInput, StockItem, PrepItem, TranslationMap,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -87,6 +88,8 @@ export default function ModifierSetEditorPage() {
   const isNew = setId === 'new';
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -278,7 +281,7 @@ export default function ModifierSetEditorPage() {
     <CenteredModalShell
       title={title}
       onClose={goBack}
-      onSave={handleSave}
+      onSave={canEdit ? handleSave : undefined}
       saving={saving}
       saveDisabled={!name.trim()}
       maxWidth="max-w-5xl"
@@ -445,13 +448,17 @@ export default function ModifierSetEditorPage() {
                       {row.is_active ? (t('inStock') || 'In stock') : (t('outOfStock') || 'Out of stock')}
                     </span>
                   </div>
-                  <button
-                    onClick={() => removeRow(i)}
-                    className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors justify-self-end"
-                    title={t('delete')}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {canEdit ? (
+                    <button
+                      onClick={() => removeRow(i)}
+                      className="size-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors justify-self-end"
+                      title={t('delete')}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                 </div>
 
                 {/* Stock-consumption subrow — opt-in per modifier */}
@@ -470,6 +477,7 @@ export default function ModifierSetEditorPage() {
             ))}
 
             {/* Inline add row */}
+            {canEdit && (
             <div
               className="grid items-center gap-2 px-4 py-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-[#0a0a0a]"
               style={{ gridTemplateColumns: ROW_GRID }}
@@ -516,6 +524,7 @@ export default function ModifierSetEditorPage() {
                 <span />
               )}
             </div>
+            )}
           </div>
         </Section>
 
@@ -629,7 +638,7 @@ export default function ModifierSetEditorPage() {
         </Section>
 
         {/* Destructive */}
-        {!isNew && (
+        {!isNew && canEdit && (
           <button
             onClick={handleDeleteSet}
             className="text-sm font-medium text-red-500 hover:text-red-600 hover:underline"

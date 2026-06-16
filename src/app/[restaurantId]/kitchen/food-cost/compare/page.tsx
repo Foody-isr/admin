@@ -13,6 +13,7 @@ import {
   ItemOptionOverride,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { COST_THRESHOLD, computeItemCostSummary, ItemCostSummary } from '@/lib/cost-utils';
 import CostPctBreakdownModal from '@/components/food-cost/CostPctBreakdownModal';
 import FoodCostBreakdownModal from '@/components/food-cost/FoodCostBreakdownModal';
@@ -30,6 +31,8 @@ export default function CompareCostsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const ids = useMemo(() => {
     const raw = searchParams.get('ids') ?? '';
@@ -251,13 +254,15 @@ export default function CompareCostsPage() {
                   {s.activeVariant.name}
                 </span>
               )}
-              <button
-                onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
-                className="inline-flex items-center gap-[var(--s-1)] text-fs-xs text-[var(--brand-500)] hover:text-[var(--brand-600)] transition-colors w-fit"
-              >
-                {t('openItemCta') || 'Ouvrir l’article'}
-                <ExternalLink className="w-3 h-3" />
-              </button>
+              {canManage && (
+                <button
+                  onClick={() => router.push(`/${rid}/menu/items/${item.id}?tab=recipe`)}
+                  className="inline-flex items-center gap-[var(--s-1)] text-fs-xs text-[var(--brand-500)] hover:text-[var(--brand-600)] transition-colors w-fit"
+                >
+                  {t('openItemCta') || 'Ouvrir l’article'}
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -395,13 +400,15 @@ export default function CompareCostsPage() {
                             <span className="font-semibold">{prep.name}</span>
                             {': '}
                             <span className="text-[var(--fg-muted)]">{reason}.</span>{' '}
-                            <button
-                              onClick={() => router.push(`/${rid}/kitchen/prep?edit=${prep.id}`)}
-                              className="underline hover:no-underline"
-                              style={{ color: 'var(--warning-500)' }}
-                            >
-                              {t('fix') || 'Corriger'} →
-                            </button>
+                            {canManage && (
+                              <button
+                                onClick={() => router.push(`/${rid}/kitchen/prep?edit=${prep.id}`)}
+                                className="underline hover:no-underline"
+                                style={{ color: 'var(--warning-500)' }}
+                              >
+                                {t('fix') || 'Corriger'} →
+                              </button>
+                            )}
                           </span>
                         </li>
                       );

@@ -14,6 +14,7 @@ import {
 } from '@/lib/api';
 import { Field, Select } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
 import { LearnMore } from '@/components/help/LearnMore';
 
@@ -35,6 +36,8 @@ interface Props {
 //   the rule/override layers stop reading as two redundant controls.
 export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [ruleId, setRuleId] = useState<number>(item.availability_rule_id ?? 0); // 0 = inherit
   const [override, setOverride] = useState<AvailabilityOverride>(item.availability_override ?? 'auto');
@@ -208,8 +211,9 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
             <div key={m.value}>
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || !canEdit}
                 onClick={() => {
+                  if (!canEdit) return;
                   setOverride(m.value);
                   save({ override: m.value });
                 }}
@@ -219,6 +223,7 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                     ? 'border-[var(--brand-500)]'
                     : 'border-[var(--line)] hover:border-[var(--line-strong)]',
                   busy && 'opacity-60 cursor-not-allowed',
+                  !canEdit && 'cursor-default',
                 )}
                 style={{
                   background: selected
@@ -248,8 +253,9 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                     <Field label={t('availabilityRuleField')}>
                       <Select
                         value={String(ruleId)}
-                        disabled={busy}
+                        disabled={busy || !canEdit}
                         onChange={(e) => {
+                          if (!canEdit) return;
                           const v = Number(e.target.value);
                           setRuleId(v);
                           save({ ruleId: v });

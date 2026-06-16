@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { listOptionSets, deleteOptionSet, migrateVariantsToOptionSets, OptionSet } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Plus, Trash2, ChevronRight, Layers } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 
@@ -16,6 +17,8 @@ export default function OptionsPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [sets, setSets] = useState<OptionSet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,19 +60,21 @@ export default function OptionsPage() {
         title={t('options')}
         desc={t('optionsDescription')}
         actions={
-          <>
-            <Button variant="secondary" size="md" onClick={handleMigrate}>
-              {t('migrateLegacy') || 'Migrate variants'}
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => router.push(`/${rid}/menu/options/new`)}
-            >
-              <Plus />
-              {t('createOptionSet')}
-            </Button>
-          </>
+          canEdit ? (
+            <>
+              <Button variant="secondary" size="md" onClick={handleMigrate}>
+                {t('migrateLegacy') || 'Migrate variants'}
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => router.push(`/${rid}/menu/options/new`)}
+              >
+                <Plus />
+                {t('createOptionSet')}
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -85,13 +90,15 @@ export default function OptionsPage() {
           <p className="text-sm text-neutral-600 dark:text-neutral-400 text-center max-w-md mb-5">
             {t('optionsDescription')}
           </p>
-          <button
-            onClick={() => router.push(`/${rid}/menu/options/new`)}
-            className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
-          >
-            <Plus size={16} />
-            {t('createOptionSet')}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => router.push(`/${rid}/menu/options/new`)}
+              className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-lg shadow-lg shadow-orange-500/25 transition-all flex items-center gap-2"
+            >
+              <Plus size={16} />
+              {t('createOptionSet')}
+            </button>
+          )}
         </div>
       ) : (
         /* Card rows */
@@ -116,13 +123,15 @@ export default function OptionsPage() {
               <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
                 {(os.menu_items ?? []).length} {(t('items') || 'articles').toLowerCase()}
               </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDelete(os.id, os.name); }}
-                className="size-9 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
-                title={t('delete')}
-              >
-                <Trash2 size={16} />
-              </button>
+              {canEdit && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(os.id, os.name); }}
+                  className="size-9 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0"
+                  title={t('delete')}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
               <ChevronRight size={16} className="text-neutral-400 shrink-0 group-hover:text-orange-500 transition-colors" />
             </div>
           ))}

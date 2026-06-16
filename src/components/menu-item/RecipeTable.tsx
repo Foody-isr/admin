@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, FlaskConical, Package, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import RecipeUnitSelect from './RecipeUnitSelect';
 import {
   type IngredientInput,
@@ -168,6 +169,8 @@ export default function RecipeTable({
   onAddClick,
 }: RecipeTableProps) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Build initial row state from the API ingredients. We re-sync whenever
   // the parent passes a new list (after add/delete) but keep local edits
@@ -473,14 +476,16 @@ export default function RecipeTable({
               : 'Quantité pour 1 portion.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onAddClick}
-          className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          {t('addIngredient') || 'Ajouter un ingrédient'}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onAddClick}
+            className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t('addIngredient') || 'Ajouter un ingrédient'}
+          </button>
+        )}
       </div>
 
       {/* Multipliers strip — shown only when there are 2+ variants. The first
@@ -538,14 +543,16 @@ export default function RecipeTable({
                     </label>
                   );
                 })}
-                <button
-                  type="button"
-                  onClick={() => void applyMultipliers()}
-                  className="inline-flex items-center gap-1 h-8 px-[var(--s-3)] rounded-r-sm bg-[var(--brand-500)] text-white text-fs-xs font-semibold hover:opacity-90 transition-opacity"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Appliquer
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => void applyMultipliers()}
+                    className="inline-flex items-center gap-1 h-8 px-[var(--s-3)] rounded-r-sm bg-[var(--brand-500)] text-white text-fs-xs font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Appliquer
+                  </button>
+                )}
               </div>
               {applyHint && (
                 <div
@@ -732,6 +739,8 @@ function RecipeRow({
   onCommit,
   onDelete,
 }: RecipeRowProps) {
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   // Persist on blur — avoids saving on every keystroke. The change handler
   // updates the visible state immediately so input feels responsive; commit
   // pushes the latest snapshot to the server.
@@ -854,14 +863,16 @@ function RecipeRow({
       )}
 
       <td className="px-[var(--s-2)] py-[var(--s-2)] text-end">
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-          aria-label="Supprimer l'ingrédient"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+            aria-label="Supprimer l'ingrédient"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </td>
     </tr>
   );

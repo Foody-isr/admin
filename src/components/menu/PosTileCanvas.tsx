@@ -6,6 +6,7 @@ import {
   POS_TILE_SPANS,
   type PosDisplayTile,
 } from '@/lib/posDisplay';
+import { usePermissions } from '@/lib/permissions-context';
 import { PosTile, type PosTileRef } from './PosTile';
 
 export interface PosTileCanvasProps {
@@ -44,6 +45,8 @@ export function PosTileCanvas({
   onReorder,
 }: PosTileCanvasProps) {
   const [dragFrom, setDragFrom] = React.useState<number | null>(null);
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Pad with empty cells so the grid always fills at least MIN_GRID_ROWS rows
   // (plus one extra row of slack when tiles overflow), matching Square's
@@ -75,9 +78,10 @@ export function PosTileCanvas({
               gridRow: `span ${span.row}`,
             }}
             onDragOver={(e) => {
-              if (dragFrom !== null) e.preventDefault();
+              if (canEdit && dragFrom !== null) e.preventDefault();
             }}
             onDrop={() => {
+              if (!canEdit) return;
               if (dragFrom !== null && dragFrom !== i) {
                 onReorder(dragFrom, i);
               }
@@ -92,25 +96,32 @@ export function PosTileCanvas({
               onDoubleClick={
                 t.tile_type === 'group' ? () => onDrill(i) : undefined
               }
-              draggable
-              onDragStart={() => setDragFrom(i)}
-              onDragEnd={() => setDragFrom(null)}
+              draggable={canEdit}
+              onDragStart={canEdit ? () => setDragFrom(i) : undefined}
+              onDragEnd={canEdit ? () => setDragFrom(null) : undefined}
             />
           </div>
         );
       })}
 
-      {Array.from({ length: emptyCount }, (_, i) => (
-        <button
-          key={`empty-${i}`}
-          type="button"
-          onClick={onAdd}
-          aria-label="Ajouter une tuile"
-          className="grid place-items-center rounded-md bg-white/[0.04] text-[var(--fg-subtle)] hover:bg-white/[0.08] transition"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      ))}
+      {Array.from({ length: emptyCount }, (_, i) =>
+        canEdit ? (
+          <button
+            key={`empty-${i}`}
+            type="button"
+            onClick={onAdd}
+            aria-label="Ajouter une tuile"
+            className="grid place-items-center rounded-md bg-white/[0.04] text-[var(--fg-subtle)] hover:bg-white/[0.08] transition"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        ) : (
+          <div
+            key={`empty-${i}`}
+            className="rounded-md bg-white/[0.04]"
+          />
+        ),
+      )}
     </div>
   );
 }

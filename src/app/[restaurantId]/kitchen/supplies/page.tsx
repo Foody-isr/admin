@@ -26,6 +26,7 @@ import {
   TrashIcon, SparklesIcon, RefreshCwIcon, DownloadIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -52,6 +53,8 @@ export default function SuppliesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const [supplies, setSupplies] = useState<SupplySummary[]>([]);
   const [drafts, setDrafts] = useState<DeliveryImportDraft[]>([]);
@@ -332,24 +335,28 @@ export default function SuppliesPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteDraft(draft.id)}
-                    className="p-1 text-red-500 hover:text-red-400"
-                    aria-label={t('delete') || 'Supprimer'}
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
+                  {canManage && (
+                    <button
+                      onClick={() => handleDeleteDraft(draft.id)}
+                      className="p-1 text-red-500 hover:text-red-400"
+                      aria-label={t('delete') || 'Supprimer'}
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-                <Button
-                  variant="primary"
-                  size="md"
-                  className="w-full"
-                  onClick={() => {
-                    window.location.href = `/${rid}/kitchen/stock?draft=${draft.id}`;
-                  }}
-                >
-                  {t('resumeDraft') || 'Reprendre'}
-                </Button>
+                {canManage && (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    onClick={() => {
+                      window.location.href = `/${rid}/kitchen/stock?draft=${draft.id}`;
+                    }}
+                  >
+                    {t('resumeDraft') || 'Reprendre'}
+                  </Button>
+                )}
               </div>
             ))}
           </div>

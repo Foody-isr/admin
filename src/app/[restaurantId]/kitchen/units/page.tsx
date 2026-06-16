@@ -11,6 +11,7 @@ import {
 import Modal from '@/components/Modal';
 import { PlusIcon, TrashIcon, PencilIcon, RulerIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 
 // Units screen: manage the restaurant's library of custom measurement units
 // (e.g. "piece", "slice"). The concrete size of one custom unit is set per
@@ -19,6 +20,8 @@ export default function UnitsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const [units, setUnits] = useState<CustomUnit[]>([]);
   const [items, setItems] = useState<StockItem[]>([]);
@@ -72,12 +75,14 @@ export default function UnitsPage() {
             </Link>
           </p>
         </div>
-        <button
-          onClick={() => setModal({ open: true })}
-          className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors shrink-0"
-        >
-          <PlusIcon className="w-4 h-4" /> {t('addUnit')}
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setModal({ open: true })}
+            className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors shrink-0"
+          >
+            <PlusIcon className="w-4 h-4" /> {t('addUnit')}
+          </button>
+        )}
       </div>
 
       {units.length === 0 ? (
@@ -106,30 +111,32 @@ export default function UnitsPage() {
                   )}
                 </div>
                 <UnitUsageChip rid={rid} unit={u} items={usingItems} t={t} />
-                <div className="flex items-center gap-1 shrink-0 ms-2">
-                  <button
-                    onClick={() => setModal({ open: true, editing: u })}
-                    className="p-2 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                    aria-label={t('edit')}
-                  >
-                    <PencilIcon className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const inUseCount = usingItems.length;
-                      const confirmMsg = inUseCount > 0
-                        ? `${t('deleteUnitConfirm')}\n\n${t('unitsUsageCount').replace('{count}', String(inUseCount))}.`
-                        : t('deleteUnitConfirm');
-                      if (!window.confirm(confirmMsg)) return;
-                      await deleteCustomUnit(rid, u.id);
-                      reload();
-                    }}
-                    className="p-2 rounded-md text-fg-secondary hover:text-red-600 hover:bg-red-50 transition-colors"
-                    aria-label={t('delete')}
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
+                {canManage && (
+                  <div className="flex items-center gap-1 shrink-0 ms-2">
+                    <button
+                      onClick={() => setModal({ open: true, editing: u })}
+                      className="p-2 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
+                      aria-label={t('edit')}
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const inUseCount = usingItems.length;
+                        const confirmMsg = inUseCount > 0
+                          ? `${t('deleteUnitConfirm')}\n\n${t('unitsUsageCount').replace('{count}', String(inUseCount))}.`
+                          : t('deleteUnitConfirm');
+                        if (!window.confirm(confirmMsg)) return;
+                        await deleteCustomUnit(rid, u.id);
+                        reload();
+                      }}
+                      className="p-2 rounded-md text-fg-secondary hover:text-red-600 hover:bg-red-50 transition-colors"
+                      aria-label={t('delete')}
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

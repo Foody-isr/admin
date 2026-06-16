@@ -8,6 +8,7 @@
 import { AlertTriangle, ChevronDown, ChevronUp, HelpCircle, Layers, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import type { ComboOptionView, VariantView } from './types';
 import VariantSubRow from './VariantSubRow';
 import Thumb from './Thumb';
@@ -26,6 +27,8 @@ interface Props {
 
 export default function OptionRowWithVariants({ option, basePrice, comboOnly, onChange, onForceOffCarteToggle, onRemove }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [collapsed, setCollapsed] = useState(false);
 
   const updateVariant = (variantId: number, patch: Partial<VariantView>) => {
@@ -71,6 +74,7 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
               <input
                 type="checkbox"
                 checked={option.forceOffCarte}
+                disabled={!canEdit}
                 onChange={(e) => onForceOffCarteToggle(e.target.checked)}
                 className="w-3 h-3 accent-[var(--brand-500)]"
               />
@@ -97,14 +101,16 @@ export default function OptionRowWithVariants({ option, basePrice, comboOnly, on
         >
           {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--danger-500)]"
-          aria-label="Remove"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--danger-500)]"
+            aria-label="Remove"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Variant sub-rows */}

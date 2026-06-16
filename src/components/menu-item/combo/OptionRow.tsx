@@ -7,6 +7,7 @@
 import { AlertTriangle, GripVertical, HelpCircle, Pin, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import type { ComboOptionView } from './types';
 import { NumberInput } from '@/components/ui/NumberInput';
 import Thumb from './Thumb';
@@ -25,6 +26,8 @@ interface Props {
 
 export default function OptionRow({ option, comboOnly, onUpchargeChange, onForceOffCarteToggle, onRemove, onSetDefault }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [editing, setEditing] = useState(false);
 
   return (
@@ -60,6 +63,7 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
             <input
               type="checkbox"
               checked={option.forceOffCarte}
+              disabled={!canEdit}
               onChange={(e) => onForceOffCarteToggle(e.target.checked)}
               className="w-3 h-3 accent-[var(--brand-500)]"
             />
@@ -76,7 +80,7 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
       </div>
 
       {/* Upcharge: pill (collapsed) → inline number input (editing) */}
-      {editing ? (
+      {editing && canEdit ? (
         <div className="flex items-center h-7 px-2 rounded-r-sm border border-[var(--brand-500)] bg-[var(--surface)]">
           <NumberInput
             min={0}
@@ -92,8 +96,9 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
       ) : (
         <button
           type="button"
-          onClick={() => setEditing(true)}
-          className={`inline-flex items-center h-[22px] px-2 rounded-r-sm text-fs-xs font-medium transition-colors hover:bg-[var(--surface-3)] ${
+          onClick={() => canEdit && setEditing(true)}
+          disabled={!canEdit}
+          className={`inline-flex items-center h-[22px] px-2 rounded-r-sm text-fs-xs font-medium transition-colors disabled:cursor-default hover:bg-[var(--surface-3)] ${
             option.upcharge > 0
               ? 'bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)] text-[var(--brand-500)]'
               : 'text-[var(--fg-muted)]'
@@ -103,7 +108,7 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
         </button>
       )}
 
-      {!option.isDefault && (
+      {canEdit && !option.isDefault && (
         <button
           type="button"
           onClick={onSetDefault}
@@ -114,14 +119,16 @@ export default function OptionRow({ option, comboOnly, onUpchargeChange, onForce
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={onRemove}
-        className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--danger-500)]"
-        aria-label="Remove"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="w-7 h-7 grid place-items-center rounded-r-sm text-[var(--fg-muted)] hover:bg-[var(--surface-3)] hover:text-[var(--danger-500)]"
+          aria-label="Remove"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }

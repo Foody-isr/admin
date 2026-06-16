@@ -8,6 +8,7 @@ import {
   type PosDisplayTile,
 } from '@/lib/posDisplay';
 import type { Menu, MenuItem } from '@/lib/api';
+import { usePermissions } from '@/lib/permissions-context';
 
 export interface PosAddTileModalProps {
   open: boolean;
@@ -56,6 +57,8 @@ export function PosAddTileModal({
   onAdd,
 }: PosAddTileModalProps) {
   const [search, setSearch] = React.useState('');
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Reset the search field whenever the drawer opens.
   React.useEffect(() => {
@@ -77,11 +80,13 @@ export function PosAddTileModal({
   }, [items, search]);
 
   const addGroupTile = (groupId: number) => {
+    if (!canEdit) return;
     onAdd([{ ...baseTile(), tile_type: 'group', ref_group_id: groupId }]);
     onOpenChange(false);
   };
 
   const addItemTile = (itemId: number) => {
+    if (!canEdit) return;
     onAdd([{ ...baseTile(), tile_type: 'item', ref_item_id: itemId }]);
     onOpenChange(false);
   };

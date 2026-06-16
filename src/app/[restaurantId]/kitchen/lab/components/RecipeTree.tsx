@@ -15,9 +15,11 @@ import { PrepNode } from './PrepNode';
 export function RecipeTree({
   payload,
   onChange,
+  canManage,
 }: {
   payload: DraftPayload;
   onChange: (next: DraftPayload) => void;
+  canManage: boolean;
 }) {
   /** Replace component at `idx` with `next`. */
   const setComponentAt = (idx: number, next: Component) => {
@@ -51,6 +53,7 @@ export function RecipeTree({
             c={c}
             onChange={(next) => setComponentAt(idx, next)}
             onRemove={() => removeAt(idx)}
+            canManage={canManage}
           />
         ) : (
           <IngredientRow
@@ -58,6 +61,7 @@ export function RecipeTree({
             c={c}
             onChange={(next) => setComponentAt(idx, next)}
             onRemove={() => removeAt(idx)}
+            canManage={canManage}
           />
         );
       })}

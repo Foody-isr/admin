@@ -14,6 +14,7 @@ import {
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
 import {
@@ -43,6 +44,8 @@ export default function GroupPage() {
   const gid = isNew ? null : Number(groupId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [allCats, setAllCats] = useState<MenuCategory[]>([]);
   const [allMenus, setAllMenus] = useState<Menu[]>([]);
@@ -435,13 +438,15 @@ export default function GroupPage() {
           <XIcon className="w-6 h-6" />
         </button>
         <div className="flex-1" />
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors rounded-full px-7 py-3 text-base"
-        >
-          {saving ? t('saving') : t('save')}
-        </button>
+        {canEdit && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors rounded-full px-7 py-3 text-base"
+          >
+            {saving ? t('saving') : t('save')}
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -522,16 +527,16 @@ export default function GroupPage() {
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleImageUpload(file);
+            if (file && canEdit) handleImageUpload(file);
           }}
         />
         {imageUrl ? (
           <div
             className="relative rounded-xl overflow-hidden cursor-pointer group mb-8"
             style={{ border: '2px solid var(--divider)' }}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => canEdit && fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
+            onDrop={(e) => { if (canEdit) handleDrop(e); else e.preventDefault(); }}
           >
             <img src={imageUrl} alt={name} className="w-full h-52 object-cover" />
             {uploading && (
@@ -539,26 +544,30 @@ export default function GroupPage() {
                 <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
               </div>
             )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-              <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">
-                {t('changeImage')}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); handleImageRemove(); }}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-              aria-label="Remove image"
-            >
-              <XIcon className="w-4 h-4" />
-            </button>
+            {canEdit && (
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-base font-medium">
+                  {t('changeImage')}
+                </span>
+              </div>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleImageRemove(); }}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+                aria-label="Remove image"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ) : (
           <div
             className="border-2 border-dashed border-[var(--divider)] rounded-xl p-10 flex flex-col items-center gap-3 text-fg-tertiary mb-8 cursor-pointer hover:border-brand-500 hover:text-brand-500 transition-colors"
-            onClick={() => !isNew && fileInputRef.current?.click()}
+            onClick={() => canEdit && !isNew && fileInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
+            onDrop={(e) => { if (canEdit) handleDrop(e); else e.preventDefault(); }}
           >
             {uploading ? (
               <div className="animate-spin w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full" />
@@ -606,9 +615,11 @@ export default function GroupPage() {
               <p className="text-sm text-fg-tertiary">{t('parentGroupDesc')}</p>
             </div>
           </div>
-          <button onClick={() => setShowParent(!showParent)} className="text-base font-medium underline text-fg-primary shrink-0">
-            {t('edit')}
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowParent(!showParent)} className="text-base font-medium underline text-fg-primary shrink-0">
+              {t('edit')}
+            </button>
+          )}
         </div>
         {showParent && (
           <div className="pb-4">
@@ -646,7 +657,7 @@ export default function GroupPage() {
           )}
           {/* Selection action bar — appears once the operator ticks items in
               the list, offering the step-by-step Replace flow. */}
-          {selectedItemIds.size > 0 && (
+          {canEdit && selectedItemIds.size > 0 && (
             <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)]">
               <span className="text-sm font-medium text-fg-primary">
                 {t('itemsSelectedCount').replace('{count}', String(selectedItemIds.size))}
@@ -674,14 +685,16 @@ export default function GroupPage() {
                   className={`flex items-center gap-3 px-4 py-3.5 border-b border-[var(--divider)] last:border-b-0 transition-colors cursor-pointer ${selectedItemIds.has(item.id) ? 'bg-[color-mix(in_oklab,var(--brand-500)_6%,transparent)]' : 'hover:bg-[var(--surface-subtle)]'}`}
                   onClick={() => router.push(`/${rid}/menu/items/${item.id}`)}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedItemIds.has(item.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={() => toggleItemSelected(item.id)}
-                    className="w-5 h-5 rounded border-2 border-[var(--divider)] shrink-0"
-                    aria-label={item.name}
-                  />
+                  {canEdit && (
+                    <input
+                      type="checkbox"
+                      checked={selectedItemIds.has(item.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleItemSelected(item.id)}
+                      className="w-5 h-5 rounded border-2 border-[var(--divider)] shrink-0"
+                      aria-label={item.name}
+                    />
+                  )}
                   {item.image_url ? (
                     <img src={item.image_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                   ) : (
@@ -693,12 +706,14 @@ export default function GroupPage() {
                     <p className="text-base font-medium text-fg-primary truncate">{item.name}</p>
                     <p className="text-sm text-fg-tertiary">{item.price?.toFixed(2)} ₪</p>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleRemoveItem(item); }}
-                    className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                  >
-                    {t('removeFromGroupConfirm')}
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRemoveItem(item); }}
+                      className="text-sm text-red-500 hover:text-red-600 font-medium shrink-0 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                    >
+                      {t('removeFromGroupConfirm')}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -713,12 +728,14 @@ export default function GroupPage() {
                 <p className="text-sm text-fg-tertiary">{t('noItemsSelected')}</p>
               </div>
               <div className="flex-1" />
-              <button className="text-base font-medium underline text-fg-primary shrink-0" onClick={openAddArticle}>
-                {t('add')}
-              </button>
+              {canEdit && (
+                <button className="text-base font-medium underline text-fg-primary shrink-0" onClick={openAddArticle}>
+                  {t('add')}
+                </button>
+              )}
             </div>
           )}
-          {groupItems.length > 0 && (
+          {canEdit && groupItems.length > 0 && (
             <div className="mt-4">
               <button className="text-base font-medium underline text-fg-primary" onClick={openAddArticle}>
                 {t('addArticle')}
@@ -744,7 +761,9 @@ export default function GroupPage() {
                 <p className="text-sm text-fg-tertiary">{allMenus.find((m) => m.id === selectedMenuId)?.name ?? menu?.name ?? '—'}</p>
               </div>
             </div>
-            <button onClick={() => setShowMenuPicker(true)} className="text-base font-medium underline text-fg-primary">{t('edit')}</button>
+            {canEdit && (
+              <button onClick={() => setShowMenuPicker(true)} className="text-base font-medium underline text-fg-primary">{t('edit')}</button>
+            )}
           </div>
 
           {/* Hours */}
@@ -758,9 +777,11 @@ export default function GroupPage() {
                 <p className="text-sm text-fg-tertiary max-w-md">{followsMenuHours ? t('hoursDescription') : t('customHours')}</p>
               </div>
             </div>
-            <button onClick={() => setShowHoursEditor(true)} className="text-base font-medium underline text-fg-primary shrink-0">
-              {t('edit')}
-            </button>
+            {canEdit && (
+              <button onClick={() => setShowHoursEditor(true)} className="text-base font-medium underline text-fg-primary shrink-0">
+                {t('edit')}
+              </button>
+            )}
           </div>
 
           {/* Channels — controls where this group appears */}
@@ -776,11 +797,11 @@ export default function GroupPage() {
             </div>
             <div className="flex items-center gap-4 shrink-0">
               <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-primary">
-                <input type="checkbox" checked={posEnabled} onChange={(e) => setPosEnabled(e.target.checked)} className="rounded" />
+                <input type="checkbox" checked={posEnabled} onChange={(e) => setPosEnabled(e.target.checked)} disabled={!canEdit} className="rounded disabled:opacity-50" />
                 POS
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-primary">
-                <input type="checkbox" checked={webEnabled} onChange={(e) => setWebEnabled(e.target.checked)} className="rounded" />
+                <input type="checkbox" checked={webEnabled} onChange={(e) => setWebEnabled(e.target.checked)} disabled={!canEdit} className="rounded disabled:opacity-50" />
                 Web
               </label>
             </div>
@@ -799,8 +820,9 @@ export default function GroupPage() {
             </div>
             <button
               type="button"
-              onClick={() => setIsHidden(!isHidden)}
-              className={`relative w-11 h-7 rounded-full transition-colors shrink-0 ${isHidden ? 'bg-brand-500' : 'bg-gray-200'}`}
+              onClick={() => canEdit && setIsHidden(!isHidden)}
+              disabled={!canEdit}
+              className={`relative w-11 h-7 rounded-full transition-colors shrink-0 disabled:opacity-50 ${isHidden ? 'bg-brand-500' : 'bg-gray-200'}`}
             >
               <div className={`rounded-full bg-white shadow absolute top-0.5 transition-transform ${isHidden ? 'translate-x-[18px]' : 'translate-x-0.5'}`} style={{ width: 22, height: 22 }} />
             </button>

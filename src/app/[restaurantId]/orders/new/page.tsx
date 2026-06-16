@@ -7,6 +7,7 @@ import {
   type Menu, type MenuItem, type PaymentStatus,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
 import { cn } from '@/lib/utils';
 import {
@@ -38,6 +39,8 @@ function hasOptions(it: MenuItem): boolean {
 
 export default function NewOrderPage() {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('orders.manage');
   const params = useParams();
   const router = useRouter();
   const restaurantId = Number(params.restaurantId);
@@ -423,15 +426,17 @@ export default function NewOrderPage() {
               <span className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('total')}</span>
               <span className="font-mono tabular-nums text-fs-lg font-semibold">₪{subtotal.toFixed(2)}</span>
             </div>
-            <Button
-              variant="primary"
-              size="lg"
-              className="h-12 w-full justify-center text-fs-md"
-              disabled={lines.length === 0}
-              onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
-            >
-              {t('checkout')}
-            </Button>
+            {canManage && (
+              <Button
+                variant="primary"
+                size="lg"
+                className="h-12 w-full justify-center text-fs-md"
+                disabled={lines.length === 0}
+                onClick={() => { setSubmitError(null); setCheckoutOpen(true); }}
+              >
+                {t('checkout')}
+              </Button>
+            )}
           </div>
         </aside>
       </div>

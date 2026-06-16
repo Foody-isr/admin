@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronLeft, Eye, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ds/Button';
+import { usePermissions } from '@/lib/permissions-context';
 import { PosTile } from '@/components/menu/PosTile';
 import { PosTileCanvas } from '@/components/menu/PosTileCanvas';
 import { PosAddTileModal } from '@/components/menu/PosAddTileModal';
@@ -62,6 +63,8 @@ export default function PosDisplayEditorPage() {
   const rid = Number(restaurantId);
   const mid = Number(menuId);
   const router = useRouter();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -359,9 +362,11 @@ export default function PosDisplayEditorPage() {
           {preview ? <Pencil className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           {preview ? 'Modifier' : 'Aperçu'}
         </Button>
-        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-          {saving ? 'Enregistrement…' : 'Enregistrer'}
-        </Button>
+        {canEdit && (
+          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        )}
       </header>
 
       {error && (
@@ -399,7 +404,7 @@ export default function PosDisplayEditorPage() {
             </div>
           )}
 
-          {preview ? (
+          {preview || !canEdit ? (
             <PreviewGrid tiles={currentTiles} resolve={resolve} onDrill={onDrill} />
           ) : (
             <PosTileCanvas
@@ -415,7 +420,7 @@ export default function PosDisplayEditorPage() {
         </main>
 
         {/* ── Context panel (hidden in preview) ── */}
-        {!preview && (
+        {!preview && canEdit && (
           <aside className="w-[360px] shrink-0 overflow-auto border-s border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
             <PosTileInspector
               tile={selectedTile}

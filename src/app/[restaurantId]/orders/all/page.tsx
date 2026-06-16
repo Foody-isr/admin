@@ -16,6 +16,7 @@ import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
@@ -260,6 +261,8 @@ function CourierSelect({
 
 export default function OrdersPage() {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('orders.manage');
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
@@ -561,13 +564,15 @@ export default function OrdersPage() {
           desc={`${total} ${t('orders').toLowerCase()} · ${activeCount} ${t('shown') || 'shown'}`}
           actions={
             <>
-              <Button variant="primary" size="md" asChild>
-                <Link href={`/${rid}/orders/new`}>
-                  <PlusIcon />
-                  {t('newOrder')}
-                </Link>
-              </Button>
-              {paused ? (
+              {canManage && (
+                <Button variant="primary" size="md" asChild>
+                  <Link href={`/${rid}/orders/new`}>
+                    <PlusIcon />
+                    {t('newOrder')}
+                  </Link>
+                </Button>
+              )}
+              {canManage && (paused ? (
                 <Button
                   variant="primary"
                   size="sm"
@@ -588,7 +593,7 @@ export default function OrdersPage() {
                 >
                   <PauseIcon /> {t('pauseOrders') || 'Pause'}
                 </Button>
-              )}
+              ))}
               {wsStatus === 'connected' && (
                 <Badge tone="success" dot>
                   {t('live')}
@@ -675,15 +680,17 @@ export default function OrdersPage() {
                   'Les clients ne peuvent pas commander en ligne. Reprenez quand vous êtes prêt.'}
               </span>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => togglePause(false)}
-              disabled={pauseSaving}
-              className="shrink-0"
-            >
-              <PlayIcon /> {t('resumeOrders') || 'Reprendre'}
-            </Button>
+            {canManage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => togglePause(false)}
+                disabled={pauseSaving}
+                className="shrink-0"
+              >
+                <PlayIcon /> {t('resumeOrders') || 'Reprendre'}
+              </Button>
+            )}
           </div>
         )}
 
@@ -810,7 +817,7 @@ export default function OrdersPage() {
           </div>
         ) : (
           <>
-            {selectedIds.size > 0 && (
+            {canManage && selectedIds.size > 0 && (
               <div className="flex items-center gap-[var(--s-3)] px-4 py-3 bg-brand-500/5 border-b border-[var(--line)]">
                 <span className="text-fs-sm font-medium text-fg-primary">
                   {t('ordersSelected').replace('{n}', String(selectedIds.size))}
@@ -832,10 +839,12 @@ export default function OrdersPage() {
             )}
             <DataTable>
               <DataTableHead>
-                <DataTableSelectAllCell
-                  checked={assignableOrders.length > 0 && selectedIds.size === assignableOrders.length}
-                  onCheckedChange={toggleSelectAll}
-                />
+                {canManage && (
+                  <DataTableSelectAllCell
+                    checked={assignableOrders.length > 0 && selectedIds.size === assignableOrders.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                )}
                 <DataTableHeadCell>{t('orderNoColumn')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('name')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
@@ -854,14 +863,16 @@ export default function OrdersPage() {
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
                     className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
-                    <DataTableCell onClick={(e) => e.stopPropagation()} mobileHidden>
-                      {isAssignable(order) && (
-                        <Checkbox
-                          checked={selectedIds.has(order.id)}
-                          onCheckedChange={() => toggleSelect(order.id)}
-                        />
-                      )}
-                    </DataTableCell>
+                    {canManage && (
+                      <DataTableCell onClick={(e) => e.stopPropagation()} mobileHidden>
+                        {isAssignable(order) && (
+                          <Checkbox
+                            checked={selectedIds.has(order.id)}
+                            onCheckedChange={() => toggleSelect(order.id)}
+                          />
+                        )}
+                      </DataTableCell>
+                    )}
                     <DataTableCell className="text-fg-secondary tabular-nums" mobileLabel={t('orderNoColumn')}>
                       #{order.id}
                     </DataTableCell>
@@ -951,6 +962,7 @@ export default function OrdersPage() {
       {/* Right: order detail panel */}
       <OrderDetailDrawer
         order={selectedOrder}
+        canManage={canManage}
         isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
         onClose={() => setSelectedId(null)}
         onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
@@ -1003,12 +1015,13 @@ function statusIndex(status: string) {
 }
 
 function OrderDetailDrawer({
-  order, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+  order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder,
   couriers, onAssignCourier,
 }: {
   order: Order | null;
+  canManage: boolean;
   isLoading: boolean;
   onClose: () => void;
   onAccept: () => void;
@@ -1204,7 +1217,7 @@ function OrderDetailDrawer({
       subtitle={headerSubtitle}
       width={1060}
       primaryAction={
-        primaryBtn ? (
+        canManage && primaryBtn ? (
           <Button variant="primary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
             {primaryBtn.label}
           </Button>
@@ -1216,15 +1229,17 @@ function OrderDetailDrawer({
         // labels never get truncated. Desktop: original split-layout preserved.
         <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:items-center md:justify-between md:gap-[var(--s-3)]">
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-            <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
-              <EditIcon /> {t('edit') || 'Modifier'}
-            </Button>
+            {canManage && (
+              <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
+                <EditIcon /> {t('edit') || 'Modifier'}
+              </Button>
+            )}
             <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
               <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
             </Button>
           </div>
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-            {canTakePayment && (
+            {canManage && canTakePayment && (
               <Button
                 variant="primary"
                 size="md"
@@ -1236,7 +1251,7 @@ function OrderDetailDrawer({
                 <CreditCardIcon /> {t('takePayment')}
               </Button>
             )}
-            {canCloseOrder && (
+            {canManage && canCloseOrder && (
               <Button
                 variant="primary"
                 size="md"
@@ -1247,7 +1262,7 @@ function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {canCancelOrder && (
+            {canManage && canCancelOrder && (
               <Button
                 variant="ghost"
                 size="md"
@@ -1443,7 +1458,7 @@ function OrderDetailDrawer({
           {/* Courier assignment — delivery orders, until delivered */}
           {order.order_type === 'delivery' && (
             <Section title={t('courier')}>
-              {order.status === 'delivered' ? (
+              {order.status === 'delivered' || !canManage ? (
                 <div className="text-fs-sm text-[var(--fg-subtle)]">
                   {order.courier_name || t('courierNone')}
                 </div>

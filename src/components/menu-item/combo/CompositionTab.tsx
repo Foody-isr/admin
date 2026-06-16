@@ -16,6 +16,7 @@ import { Plus, AlertCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Menu, MenuCategory, MenuItem } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import type { ComboStepDraft, ComboStepDraftItem } from './types';
 import StepCard from './StepCard';
 import PricingCard from './PricingCard';
@@ -46,6 +47,8 @@ export default function CompositionTab({
   onShowSavingsDetail,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Server-resolved preview per dynamic step — the authoritative "available to
   // customer" set, replacing the old client-side estimate that ignored the
@@ -244,13 +247,15 @@ export default function CompositionTab({
             );
           })}
 
-          <button
-            type="button"
-            onClick={addStep}
-            className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={addStep}
+              className="py-[var(--s-4)] rounded-r-lg border border-dashed border-[var(--line-strong)] text-fs-sm font-medium text-[var(--fg-muted)] hover:border-[var(--brand-500)] hover:text-[var(--brand-500)] hover:bg-[color-mix(in_oklab,var(--brand-500)_4%,transparent)] transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" /> {t('composeNewStep')}
+            </button>
+          )}
         </section>
       </div>
 

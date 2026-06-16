@@ -22,6 +22,7 @@ import {
   MailIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 
 function formatDate(d: Date): string {
@@ -132,6 +133,8 @@ export default function DailyOperationsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const [report, setReport] = useState<DailyFoodCostReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -452,7 +455,7 @@ export default function DailyOperationsPage() {
     );
   }
 
-  const isOpen = report?.status === 'open';
+  const isOpen = report?.status === 'open' && canManage;
 
   return (
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
@@ -958,7 +961,7 @@ export default function DailyOperationsPage() {
           expanded={expandedSections.has('estimated')}
           onToggle={toggleSection}
           badge={estimatedPOs.length > 0 ? `${estimatedPOs.length} ${t('ordersBySupplier') || 'orders'}` : undefined}
-          action={estimatedPOs.length > 0 ? (
+          action={canManage && estimatedPOs.length > 0 ? (
             <button
               onClick={() => handleGenerateOrders('both')}
               disabled={generatingOrders}
@@ -1010,7 +1013,7 @@ export default function DailyOperationsPage() {
                 <div className="flex items-center justify-center gap-2 text-sm text-[var(--fg-secondary)]">
                   <RefreshCwIcon className="w-4 h-4 animate-spin" /> ...
                 </div>
-              ) : (
+              ) : canManage ? (
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <button
                     onClick={() => handleGenerateOrders('pos')}
@@ -1031,7 +1034,7 @@ export default function DailyOperationsPage() {
                     {t('fromBoth') || 'Both'}
                   </button>
                 </div>
-              )}
+              ) : null}
               <a
                 href="https://foody-pos.co.il/en/help/kitchen/estimated-supplies"
                 target="_blank"
@@ -1048,6 +1051,7 @@ export default function DailyOperationsPage() {
                 <SupplierOrderCard
                   key={po.id}
                   po={po}
+                  canManage={canManage}
                   onSendEmail={() => { setEmailModalPO(po); setEmailTo(po.supplier?.email || ''); }}
                   sendingEmail={sendingEmailPO === po.id}
                   t={t}
@@ -1133,8 +1137,9 @@ export default function DailyOperationsPage() {
 
 // ─── Supplier Order Card ─────────────────────────────────────────────────────
 
-function SupplierOrderCard({ po, onSendEmail, sendingEmail, t }: {
+function SupplierOrderCard({ po, canManage, onSendEmail, sendingEmail, t }: {
   po: PurchaseOrder;
+  canManage: boolean;
   onSendEmail: () => void;
   sendingEmail: boolean;
   t: (k: string) => string;
@@ -1156,7 +1161,7 @@ function SupplierOrderCard({ po, onSendEmail, sendingEmail, t }: {
             {po.status}
           </span>
         </div>
-        {po.status === 'draft' && (
+        {canManage && po.status === 'draft' && (
           <button
             onClick={onSendEmail}
             disabled={sendingEmail}

@@ -4,6 +4,7 @@ import { Save, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { Button } from '@/components/ds';
+import { usePermissions } from '@/lib/permissions-context';
 
 interface Props {
   title: string;
@@ -31,6 +32,8 @@ export default function MenuItemShell({
   children,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Esc to close — parity with Radix Dialog UX.
   useEffect(() => {
@@ -74,15 +77,17 @@ export default function MenuItemShell({
             <Button variant="secondary" size="md" onClick={onClose} className="hidden md:inline-flex">
               {t('cancel')}
             </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={onSave}
-              disabled={saving || saveDisabled}
-            >
-              <Save />
-              {saving ? t('saving') : t('save')}
-            </Button>
+            {canEdit && (
+              <Button
+                variant="primary"
+                size="md"
+                onClick={onSave}
+                disabled={saving || saveDisabled}
+              >
+                <Save />
+                {saving ? t('saving') : t('save')}
+              </Button>
+            )}
           </div>
         </div>
 

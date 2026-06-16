@@ -18,6 +18,7 @@ import {
   updateRestaurantSettings,
   WhatsAppSender,
 } from '@/lib/api';
+import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, Field, Input, PageHead, Section } from '@/components/ds';
 
 const FB_SDK_VERSION = process.env.NEXT_PUBLIC_META_GRAPH_VERSION || 'v21.0';
@@ -40,6 +41,8 @@ declare global {
 export default function WhatsAppSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [sender, setSender] = useState<WhatsAppSender | null>(null);
   const [loading, setLoading] = useState(true);
@@ -195,9 +198,11 @@ export default function WhatsAppSettingsPage() {
               <Badge tone={sender.status === 'ONLINE' ? 'success' : sender.status === 'FAILED' ? 'danger' : 'warning'}>
                 {sender.status}
               </Badge>
-              <Button variant="ghost" onClick={handleDisconnect}>
-                Disconnect
-              </Button>
+              {canEdit && (
+                <Button variant="ghost" onClick={handleDisconnect}>
+                  Disconnect
+                </Button>
+              )}
             </div>
           </div>
         ) : pending ? (
@@ -212,11 +217,13 @@ export default function WhatsAppSettingsPage() {
             <Field label="Display name">
               <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Chez Foody" />
             </Field>
-            <div>
-              <Button onClick={submitConnect} disabled={connecting || !phoneNumber || !displayName}>
-                {connecting ? 'Connecting...' : 'Connect'}
-              </Button>
-            </div>
+            {canEdit && (
+              <div>
+                <Button onClick={submitConnect} disabled={connecting || !phoneNumber || !displayName}>
+                  {connecting ? 'Connecting...' : 'Connect'}
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -224,11 +231,13 @@ export default function WhatsAppSettingsPage() {
               Connect your own WhatsApp Business number so order notifications are sent from your brand. Foody works with
               Twilio to enable your business on WhatsApp.
             </p>
-            <div>
-              <Button onClick={launchSignup} disabled={!META_APP_ID || !WA_CONFIG_ID}>
-                Connect WhatsApp
-              </Button>
-            </div>
+            {canEdit && (
+              <div>
+                <Button onClick={launchSignup} disabled={!META_APP_ID || !WA_CONFIG_ID}>
+                  Connect WhatsApp
+                </Button>
+              </div>
+            )}
             {(!META_APP_ID || !WA_CONFIG_ID) && (
               <p className="text-fs-sm text-[var(--danger-500)]">
                 WhatsApp onboarding is not configured yet (missing Meta app or config ID).
@@ -251,7 +260,7 @@ export default function WhatsAppSettingsPage() {
               name="otp_mode"
               value="required"
               checked={otpMode === 'required'}
-              disabled={otpSaving}
+              disabled={!canEdit || otpSaving}
               onChange={() => saveOtpMode('required')}
               className="mt-1"
             />
@@ -271,7 +280,7 @@ export default function WhatsAppSettingsPage() {
               name="otp_mode"
               value="skip"
               checked={otpMode === 'skip'}
-              disabled={otpSaving}
+              disabled={!canEdit || otpSaving}
               onChange={() => saveOtpMode('skip')}
               className="mt-1"
             />
