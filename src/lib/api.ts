@@ -2863,6 +2863,23 @@ export interface CreateOrderItemInput {
   modifiers?: CreateOrderModifierInput[];
 }
 
+/** One picked sub-item within a combo on a manually-built order. */
+export interface CreateOrderComboSelectionInput {
+  step_id: number;
+  menu_item_id: number;
+  option_id?: number;
+  quantity: number;
+  notes?: string;
+}
+
+/** One combo (meal-deal) on a manually-built order. The server validates the
+ *  step picks (min/max, availability) and computes the price. */
+export interface CreateOrderComboInput {
+  combo_item_id: number;
+  selections: CreateOrderComboSelectionInput[];
+  notes?: string;
+}
+
 export interface CreateOrderInput {
   order_type: 'pickup' | 'delivery';
   customer_name: string;
@@ -2882,6 +2899,7 @@ export interface CreateOrderInput {
   delivery_apt?: string;
   delivery_notes?: string;
   items: CreateOrderItemInput[];
+  combos?: CreateOrderComboInput[];
 }
 
 /** Creates an order manually from the admin (POS-style). Mirrors the staff

@@ -171,6 +171,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Manual order creation
     newOrderDesc: 'Build an order for a customer',
     checkout: 'Checkout',
+    comboLabel: 'Combo',
     backToOrders: 'Back to orders',
     orderItems: 'Order items',
     emptyCartHint: 'Tap menu items to add them to the order',
@@ -2934,6 +2935,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Manual order creation
     newOrderDesc: 'יצירת הזמנה עבור לקוח',
     checkout: 'תשלום',
+    comboLabel: 'קומבו',
     backToOrders: 'חזרה להזמנות',
     orderItems: 'פריטים בהזמנה',
     emptyCartHint: 'הקש על פריטים מהתפריט כדי להוסיף אותם להזמנה',
@@ -5677,6 +5679,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Manual order creation
     newOrderDesc: 'Créer une commande pour un client',
     checkout: 'Encaisser',
+    comboLabel: 'Formule',
     backToOrders: 'Retour aux commandes',
     orderItems: 'Articles de la commande',
     emptyCartHint: 'Touchez les articles du menu pour les ajouter à la commande',

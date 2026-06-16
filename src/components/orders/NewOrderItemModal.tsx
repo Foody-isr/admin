@@ -14,6 +14,17 @@ export interface NewOrderLineModifier {
   price_delta: number;
 }
 
+/** One picked sub-item inside a combo line. */
+export interface ComboSelection {
+  stepId: number;
+  stepName: string;
+  menuItemId: number;
+  menuItemName: string;
+  optionId?: number | null;
+  quantity: number;
+  priceDelta: number;
+}
+
 export interface NewOrderLine {
   /** Stable per-line id — distinct lines of the same item must not merge. */
   uid: string;
@@ -24,11 +35,20 @@ export interface NewOrderLine {
   selectedVariantName?: string;
   selectedVariantPrice?: number;
   modifiers: NewOrderLineModifier[];
+  // Present only on combo lines: `item` is the combo, and these are its picks.
+  comboItemId?: number;
+  comboSelections?: ComboSelection[];
 }
 
 /** Per-unit price for display only — the server recomputes the authoritative
  *  total from the menu item, variant, and modifiers at order creation. */
-export function lineUnitPrice(line: Pick<NewOrderLine, 'item' | 'selectedVariantPrice' | 'modifiers'>): number {
+export function lineUnitPrice(
+  line: Pick<NewOrderLine, 'item' | 'selectedVariantPrice' | 'modifiers' | 'comboItemId' | 'comboSelections'>,
+): number {
+  if (line.comboItemId != null) {
+    const delta = (line.comboSelections ?? []).reduce((sum, s) => sum + (s.priceDelta || 0) * s.quantity, 0);
+    return line.item.price + delta;
+  }
   const base = line.selectedVariantPrice ?? line.item.price;
   const mods = line.modifiers.reduce((sum, m) => sum + (m.price_delta || 0), 0);
   return base + mods;
