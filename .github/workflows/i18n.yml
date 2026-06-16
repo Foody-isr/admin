@@ -1,0 +1,22 @@
+name: i18n
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/check-i18n.cjs'
+      - '.github/workflows/i18n.yml'
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # No dependencies needed — the script only reads source files.
+      - name: Check translation completeness
+        run: npm run check:i18n
