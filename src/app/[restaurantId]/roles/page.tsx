@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
+import {
+  permissionDomainLabel,
+  permissionLabel,
+  permissionDescription,
+  roleDisplayName,
+  roleDisplayDescription,
+} from '@/lib/permission-i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, PageHead } from '@/components/ds';
 import {
@@ -158,18 +165,18 @@ export default function RolesPage() {
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {role.name}
+                  {roleDisplayName(t, role.name, role.is_system_default)}
                 </h3>
                 {role.is_system_default && (
                   <span className="inline-block text-xs px-2 py-0.5 rounded-full mt-1 bg-brand-500/10 text-brand-500">
-                    Default
+                    {t('defaultBadge')}
                   </span>
                 )}
               </div>
             </div>
             {role.description && (
               <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                {role.description}
+                {roleDisplayDescription(t, role.name, role.description, role.is_system_default)}
               </p>
             )}
             <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -189,7 +196,7 @@ export default function RolesPage() {
 
       {/* Role editor modal */}
       {showEditor && (
-        <Modal title={editingRole ? t('editRole').replace('{name}', editingRole.name) : t('createRole')} onClose={() => setShowEditor(false)}>
+        <Modal title={editingRole ? t('editRole').replace('{name}', roleDisplayName(t, editingRole.name, editingRole.is_system_default)) : t('createRole')} onClose={() => setShowEditor(false)}>
           <div className="space-y-4">
             {/* Name */}
             <div>
@@ -237,7 +244,7 @@ export default function RolesPage() {
                           disabled={!canManage}
                           className="rounded"
                         />
-                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{group.domain}</span>
+                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{permissionDomainLabel(t, group.domain)}</span>
                       </label>
                       <div className="pl-6 space-y-1">
                         {group.permissions.map((perm) => (
@@ -249,8 +256,8 @@ export default function RolesPage() {
                               disabled={!canManage}
                               className="rounded"
                             />
-                            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{perm.label}</span>
-                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>— {perm.description}</span>
+                            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{permissionLabel(t, perm.key, perm.label)}</span>
+                            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>— {permissionDescription(t, perm.key, perm.description)}</span>
                           </label>
                         ))}
                       </div>

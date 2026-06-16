@@ -8,6 +8,7 @@ import {
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
+import { roleDisplayName, roleDisplayLabel } from '@/lib/permission-i18n';
 import { PlusIcon, TrashIcon } from 'lucide-react';
 import { Button, PageHead } from '@/components/ds';
 import Modal from '@/components/Modal';
@@ -171,12 +172,12 @@ export default function StaffPage() {
                     style={{ background: 'var(--surface)', color: 'var(--text-primary)' }}
                   >
                     {roles.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
+                      <option key={r.id} value={r.id}>{roleDisplayName(t, r.name, r.is_system_default)}</option>
                     ))}
                   </select>
                 ) : (
                   <span className="badge badge-neutral">
-                    {member.role_name || member.role}
+                    {roleDisplayLabel(t, member.role_name || member.role)}
                   </span>
                 )}
               </DataTableCell>
@@ -226,7 +227,7 @@ export default function StaffPage() {
               <select className="input" value={form.role_id}
                 onChange={(e) => setForm((p) => ({ ...p, role_id: Number(e.target.value) }))}>
                 {roles.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                  <option key={r.id} value={r.id}>{roleDisplayName(t, r.name, r.is_system_default)}</option>
                 ))}
               </select>
             </div>
