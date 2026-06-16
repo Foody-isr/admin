@@ -28,6 +28,7 @@ import {
 } from '@/lib/cost-utils';
 import PrepCostBreakdownModal from '@/components/food-cost/PrepCostBreakdownModal';
 import { NumberInput } from '@/components/ui/NumberInput';
+import { usePermissions } from '@/lib/permissions-context';
 
 // "Et si… ?" simulator card — Figma reference:
 //   foodyadmin/foody-os-handoff/design-reference/screens/item-editor.jsx (WhatIfSimulator).
@@ -106,6 +107,8 @@ export default function WhatIfSimulator({
   onApplied,
   t,
 }: Props) {
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   // ── Bases ────────────────────────────────────────────────────────────────
   const basePrice = effectivePrice;
   const baseFoodCost = summary.foodCost;
@@ -506,26 +509,28 @@ export default function WhatIfSimulator({
             <RefreshCw className="w-3 h-3" />
             {t('simulatorReset') || 'Réinitialiser'}
           </button>
-          <button
-            type="button"
-            disabled={!dirty || applying}
-            onClick={handleApply}
-            className="inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors"
-            style={{
-              border: '1px solid var(--line)',
-              background: dirty ? 'var(--surface)' : 'transparent',
-              color: dirty ? 'var(--fg)' : 'var(--fg-subtle)',
-              opacity: dirty && !applying ? 1 : 0.5,
-              cursor: dirty && !applying ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {applying ? (
-              <RefreshCw className="w-3 h-3 animate-spin" />
-            ) : (
-              <Check className="w-3 h-3" />
-            )}
-            {t('simulatorApply') || 'Appliquer les changements'}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              disabled={!dirty || applying}
+              onClick={handleApply}
+              className="inline-flex items-center gap-1.5 h-8 px-[var(--s-3)] rounded-r-sm text-fs-xs font-semibold transition-colors"
+              style={{
+                border: '1px solid var(--line)',
+                background: dirty ? 'var(--surface)' : 'transparent',
+                color: dirty ? 'var(--fg)' : 'var(--fg-subtle)',
+                opacity: dirty && !applying ? 1 : 0.5,
+                cursor: dirty && !applying ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {applying ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : (
+                <Check className="w-3 h-3" />
+              )}
+              {t('simulatorApply') || 'Appliquer les changements'}
+            </button>
+          )}
         </div>
       </div>
 

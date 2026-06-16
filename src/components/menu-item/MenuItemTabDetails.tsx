@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
@@ -116,6 +117,8 @@ export default function MenuItemTabDetails({
   hideBasePrice = false,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const [categoryOpen, setCategoryOpen] = useState(false);
   // Track which field is currently being re-translated so we can show a spinner
   // and disable the button. `'all'` covers the strip-level "Re-translate all"
@@ -227,7 +230,7 @@ export default function MenuItemTabDetails({
               onChange={setActiveLocale}
               missing={missing}
             />
-            {onRetranslate && (
+            {canEdit && onRetranslate && (
               <button
                 type="button"
                 onClick={() => runRetranslate('all')}
@@ -316,7 +319,7 @@ export default function MenuItemTabDetails({
                     {(t('languageSourceLabel') || 'Source') + ': '}
                     <span className="font-medium text-[var(--fg-muted)]">{name || '—'}</span>
                   </div>
-                  {onRetranslate && (
+                  {canEdit && onRetranslate && (
                     <button
                       type="button"
                       onClick={() => runRetranslate('name')}
@@ -420,8 +423,9 @@ export default function MenuItemTabDetails({
           <Field label={t('status') || 'Statut'}>
             <button
               type="button"
-              onClick={() => setIsActive(!isActive)}
-              className="flex items-center gap-[var(--s-2)] h-9 text-start"
+              onClick={() => canEdit && setIsActive(!isActive)}
+              disabled={!canEdit}
+              className="flex items-center gap-[var(--s-2)] h-9 text-start disabled:cursor-default"
               aria-pressed={isActive}
             >
               <span
@@ -448,8 +452,9 @@ export default function MenuItemTabDetails({
           <Field label={t('itemNotesFieldLabel') || 'Special instructions field'}>
             <button
               type="button"
-              onClick={() => setAllowNotes(!allowNotes)}
-              className="flex items-center gap-[var(--s-2)] h-9 text-start"
+              onClick={() => canEdit && setAllowNotes(!allowNotes)}
+              disabled={!canEdit}
+              className="flex items-center gap-[var(--s-2)] h-9 text-start disabled:cursor-default"
               aria-pressed={allowNotes}
             >
               <span
@@ -490,7 +495,7 @@ export default function MenuItemTabDetails({
                   {(t('languageSourceLabel') || 'Source') + ': '}
                   <span className="text-[var(--fg-muted)]">{description || '—'}</span>
                 </div>
-                {onRetranslate && (
+                {canEdit && onRetranslate && (
                   <button
                     type="button"
                     onClick={() => runRetranslate('description')}
@@ -558,7 +563,7 @@ export default function MenuItemTabDetails({
                   {(t('languageSourceLabel') || 'Source') + ': '}
                   <span className="text-[var(--fg-muted)]">{portion || '—'}</span>
                 </div>
-                {onRetranslate && (
+                {canEdit && onRetranslate && (
                   <button
                     type="button"
                     onClick={() => runRetranslate('portion')}

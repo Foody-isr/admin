@@ -15,6 +15,7 @@ import {
   ChevronDown, ChevronUp, Search, Sparkles, Image as ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   computeItemCostSummary, COST_THRESHOLD, buildVariantOptions,
 } from '@/lib/cost-utils';
@@ -66,6 +67,8 @@ export default function FoodCostPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
 
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
@@ -645,14 +648,16 @@ export default function FoodCostPage() {
                 </div>
 
                 {/* Single primary action — opens the item edit modal on Recipe tab. */}
-                <div className="mt-[var(--s-4)] flex items-center justify-end">
-                  <button
-                    onClick={() => router.push(`/${rid}/menu/items/${selectedItem.item.id}?tab=recipe`)}
-                    className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-r-md transition-colors font-medium text-fs-sm"
-                  >
-                    {t('modifyIngredients') || 'Modifier les ingrédients'} →
-                  </button>
-                </div>
+                {canManage && (
+                  <div className="mt-[var(--s-4)] flex items-center justify-end">
+                    <button
+                      onClick={() => router.push(`/${rid}/menu/items/${selectedItem.item.id}?tab=recipe`)}
+                      className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-10 bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-r-md transition-colors font-medium text-fs-sm"
+                    >
+                      {t('modifyIngredients') || 'Modifier les ingrédients'} →
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Shared cost section — same component used in the menu-item
@@ -678,7 +683,7 @@ export default function FoodCostPage() {
         </div>
       </div>
 
-      {showImportModal && selectedItem && (
+      {canManage && showImportModal && selectedItem && (
         <RecipeImportModal
           rid={rid}
           mode={{ kind: 'menu-item', menuItem: selectedItem.item }}

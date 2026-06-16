@@ -85,6 +85,8 @@ const translations: Record<Locale, Record<string, string>> = {
     passwordPlaceholder: '••••••••',
     signingIn: 'Signing in…',
     noRestaurantAssigned: 'No restaurant assigned to your account. Contact your Foody administrator.',
+    accessDeniedTitle: "You don't have access to this section",
+    accessDeniedBody: 'Your role does not include permission to view this page. Contact an owner or manager if you need access.',
     loginFailed: 'Login failed',
 
     // ── Reset Password ──
@@ -2849,6 +2851,8 @@ const translations: Record<Locale, Record<string, string>> = {
     passwordPlaceholder: '••••••••',
     signingIn: 'מתחבר…',
     noRestaurantAssigned: 'לא שויכה מסעדה לחשבון שלך. פנה למנהל Foody שלך.',
+    accessDeniedTitle: 'אין לך גישה לקטע זה',
+    accessDeniedBody: 'התפקיד שלך אינו כולל הרשאה לצפות בדף זה. פנה לבעלים או למנהל אם נדרשת לך גישה.',
     loginFailed: 'ההתחברות נכשלה',
 
     // ── Reset Password ──
@@ -5593,6 +5597,8 @@ const translations: Record<Locale, Record<string, string>> = {
     passwordPlaceholder: '••••••••',
     signingIn: 'Connexion en cours…',
     noRestaurantAssigned: "Aucun restaurant associé à votre compte. Contactez votre administrateur Foody.",
+    accessDeniedTitle: "Vous n'avez pas accès à cette section",
+    accessDeniedBody: "Votre rôle ne dispose pas de l'autorisation pour voir cette page. Contactez un propriétaire ou un gérant si vous avez besoin d'un accès.",
     loginFailed: 'Échec de la connexion',
 
     // ── Reset Password ──

@@ -3,6 +3,7 @@
 import { AlertCircle, AlertTriangle, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { COST_THRESHOLD } from '@/lib/cost-utils';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 
 export interface RailCostSummary {
   foodCost: number;
@@ -68,6 +69,8 @@ export default function MenuItemSummaryRail({
   onAiImageClick,
 }: Props) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const currency = costSummary?.currencySymbol ?? '\u20AA';
   const overThreshold = costSummary && costSummary.costPct > COST_THRESHOLD;
 
@@ -111,7 +114,7 @@ export default function MenuItemSummaryRail({
               />
             );
           })()}
-          {onAiImageClick && (
+          {canEdit && onAiImageClick && (
             <button
               type="button"
               onClick={onAiImageClick}
@@ -122,7 +125,7 @@ export default function MenuItemSummaryRail({
               <Sparkles size={16} className="text-white" />
             </button>
           )}
-          {onImageClick && (
+          {canEdit && onImageClick && (
             <button
               type="button"
               onClick={onImageClick}

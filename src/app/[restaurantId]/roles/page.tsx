@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Modal from '@/components/Modal';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, PageHead } from '@/components/ds';
 import {
   listRoles,
@@ -19,6 +20,8 @@ export default function RolesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('roles.manage');
 
   const [roles, setRoles] = useState<RestaurantRole[]>([]);
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
@@ -136,9 +139,11 @@ export default function RolesPage() {
         title={t('rolesPermissions') || 'Rôles & permissions'}
         desc={t('manageStaffRoles')}
         actions={
-          <Button variant="primary" size="md" onClick={openCreate}>
-            {t('createRole')}
-          </Button>
+          canManage && (
+            <Button variant="primary" size="md" onClick={openCreate}>
+              {t('createRole')}
+            </Button>
+          )
         }
       />
 
@@ -193,7 +198,7 @@ export default function RolesPage() {
                 className="input w-full"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                disabled={editingRole?.is_system_default}
+                disabled={!canManage || editingRole?.is_system_default}
                 placeholder={t('roleNamePlaceholder')}
               />
               {editingRole?.is_system_default && (
@@ -208,6 +213,7 @@ export default function RolesPage() {
                 className="input w-full"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                disabled={!canManage}
                 placeholder={t('briefDescription')}
               />
             </div>
@@ -228,6 +234,7 @@ export default function RolesPage() {
                           checked={allSelected}
                           ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
                           onChange={() => toggleDomain(group)}
+                          disabled={!canManage}
                           className="rounded"
                         />
                         <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{group.domain}</span>
@@ -239,6 +246,7 @@ export default function RolesPage() {
                               type="checkbox"
                               checked={selectedPerms.has(perm.key)}
                               onChange={() => togglePerm(perm.key)}
+                              disabled={!canManage}
                               className="rounded"
                             />
                             <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{perm.label}</span>
@@ -255,7 +263,7 @@ export default function RolesPage() {
             {error && <p className="text-sm text-red-500">{error}</p>}
 
             <div className="flex items-center justify-between pt-2">
-              {editingRole && !editingRole.is_system_default ? (
+              {canManage && editingRole && !editingRole.is_system_default ? (
                 <button
                   onClick={() => {
                     handleDelete(editingRole);
@@ -274,9 +282,11 @@ export default function RolesPage() {
                 <button onClick={() => setShowEditor(false)} className="btn-secondary px-4 py-2 rounded-lg text-sm">
                   {t('cancel')}
                 </button>
-                <button onClick={handleSave} disabled={saving} className="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
-                  {saving ? t('saving') : editingRole ? t('saveChanges') : t('createRole')}
-                </button>
+                {canManage && (
+                  <button onClick={handleSave} disabled={saving} className="btn-primary px-4 py-2 rounded-lg text-sm font-medium">
+                    {saving ? t('saving') : editingRole ? t('saveChanges') : t('createRole')}
+                  </button>
+                )}
               </div>
             </div>
           </div>

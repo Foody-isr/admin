@@ -7,6 +7,7 @@ import {
   RichExtraction, TranslationReviewEntry,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { SparklesIcon, LinkIcon, ImageIcon } from 'lucide-react';
 import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
 
@@ -52,6 +53,8 @@ export default function MenuImportPage() {
   const rid = Number(restaurantId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [source, setSource] = useState<ImportSource>('photo');
   const [step, setStep] = useState<'upload' | 'review' | 'translations'>('upload');
@@ -165,6 +168,20 @@ export default function MenuImportPage() {
 
   const totalItems = extraction?.categories.reduce((sum, c) => sum + c.items.length, 0) ?? 0;
   const hasBranding = !!(extraction?.restaurant_logo_url || extraction?.restaurant_cover_url);
+
+  if (!canEdit) {
+    return (
+      <div className="max-w-2xl">
+        <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+          <SparklesIcon className="w-10 h-10 text-fg-secondary" strokeWidth={1.5} />
+          <h2 className="text-lg font-semibold text-fg-primary">{t('noPermission') || 'No permission'}</h2>
+          <p className="text-sm text-fg-secondary max-w-sm">
+            {t('noPermissionDesc') || "You don't have permission to import menus."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl space-y-6">

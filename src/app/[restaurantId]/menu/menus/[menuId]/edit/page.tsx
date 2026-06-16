@@ -8,6 +8,7 @@ import {
   Menu, MenuAvailabilityHour, Restaurant, Location,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { XIcon } from 'lucide-react';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,6 +19,8 @@ export default function MenuEditPage() {
   const mid = Number(menuId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   const [menu, setMenu] = useState<Menu | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -131,13 +134,15 @@ export default function MenuEditPage() {
           <XIcon className="w-5 h-5" />
         </button>
         <h2 className="text-sm font-bold text-fg-primary">{t('editMenuTitle')}</h2>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="btn-primary text-sm px-5 py-2 rounded-full"
-        >
-          {saving ? t('saving') : t('save')}
-        </button>
+        {canEdit ? (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary text-sm px-5 py-2 rounded-full"
+          >
+            {saving ? t('saving') : t('save')}
+          </button>
+        ) : <div />}
       </div>
 
       {/* ── Content ── */}
@@ -180,9 +185,11 @@ export default function MenuEditPage() {
                   </p>
                 </div>
               </div>
-              <button onClick={() => setShowLocationsEditor(!showLocationsEditor)} className="text-sm font-medium underline text-fg-primary">
-                {t('edit')}
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowLocationsEditor(!showLocationsEditor)} className="text-sm font-medium underline text-fg-primary">
+                  {t('edit')}
+                </button>
+              )}
             </div>
             {showLocationsEditor && (
               <div className="mt-3 pl-8 space-y-2">
@@ -227,9 +234,11 @@ export default function MenuEditPage() {
                   <p className="text-xs text-fg-tertiary mt-0.5">{channelNames.join(', ') || '—'}</p>
                 </div>
               </div>
-              <button onClick={() => setShowChannelsEditor(!showChannelsEditor)} className="text-sm font-medium underline text-fg-primary">
-                {t('edit')}
-              </button>
+              {canEdit && (
+                <button onClick={() => setShowChannelsEditor(!showChannelsEditor)} className="text-sm font-medium underline text-fg-primary">
+                  {t('edit')}
+                </button>
+              )}
             </div>
             {showChannelsEditor && (
               <div className="mt-3 pl-8 flex gap-4">
@@ -265,7 +274,8 @@ export default function MenuEditPage() {
                 type="checkbox"
                 checked={isWeeklyRotating}
                 onChange={(e) => setIsWeeklyRotating(e.target.checked)}
-                className="rounded shrink-0"
+                disabled={!canEdit}
+                className="rounded shrink-0 disabled:opacity-50"
               />
             </label>
           </div>
@@ -282,9 +292,11 @@ export default function MenuEditPage() {
                   <p className="text-xs text-fg-tertiary mt-0.5 max-w-md">{t('hoursAvailabilityDesc')}</p>
                 </div>
               </div>
-              <button onClick={() => { setShowHoursEditor(!showHoursEditor); if (followsRestaurantHours) setFollowsRestaurantHours(false); }} className="text-sm font-medium underline text-fg-primary shrink-0">
-                {t('edit')}
-              </button>
+              {canEdit && (
+                <button onClick={() => { setShowHoursEditor(!showHoursEditor); if (followsRestaurantHours) setFollowsRestaurantHours(false); }} className="text-sm font-medium underline text-fg-primary shrink-0">
+                  {t('edit')}
+                </button>
+              )}
             </div>
             {showHoursEditor && (
               <div className="mt-3 pl-8 space-y-2">

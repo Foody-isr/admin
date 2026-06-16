@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Edit, Save } from 'lucide-react';
 import { getRestaurant, updateRestaurant, type Restaurant } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 
 interface BrandingForm {
@@ -25,6 +26,8 @@ export default function BrandingSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,10 +91,12 @@ export default function BrandingSettingsPage() {
         title={t('branding') || 'Image de marque'}
         desc={t('brandingDesc') || 'Logo, couleurs, et apparence de vos supports clients.'}
         actions={
-          <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-            <Save />
-            {saving ? t('saving') : t('saveChanges')}
-          </Button>
+          canEdit && (
+            <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
+              <Save />
+              {saving ? t('saving') : t('saveChanges')}
+            </Button>
+          )
         }
       />
       {saved && (
@@ -126,28 +131,30 @@ export default function BrandingSettingsPage() {
             )}
           </div>
           <div className="flex flex-col gap-[var(--s-3)]">
-            <div className="flex items-center gap-[var(--s-2)]">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const url = window.prompt(t('logoUrlPrompt') || 'URL du logo:', form.logo_url);
-                  if (url !== null) setForm((p) => ({ ...p, logo_url: url }));
-                }}
-              >
-                <Edit />
-                {t('changeLogo') || 'Changer le logo'}
-              </Button>
-              {form.logo_url && (
-                <button
-                  type="button"
-                  className="text-fs-sm text-[var(--fg-muted)] hover:text-[var(--fg)] px-[var(--s-2)]"
-                  onClick={() => setForm((p) => ({ ...p, logo_url: '' }))}
+            {canEdit && (
+              <div className="flex items-center gap-[var(--s-2)]">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const url = window.prompt(t('logoUrlPrompt') || 'URL du logo:', form.logo_url);
+                    if (url !== null) setForm((p) => ({ ...p, logo_url: url }));
+                  }}
                 >
-                  {t('remove') || 'Supprimer'}
-                </button>
-              )}
-            </div>
+                  <Edit />
+                  {t('changeLogo') || 'Changer le logo'}
+                </Button>
+                {form.logo_url && (
+                  <button
+                    type="button"
+                    className="text-fs-sm text-[var(--fg-muted)] hover:text-[var(--fg)] px-[var(--s-2)]"
+                    onClick={() => setForm((p) => ({ ...p, logo_url: '' }))}
+                  >
+                    {t('remove') || 'Supprimer'}
+                  </button>
+                )}
+              </div>
+            )}
             <Field
               label={t('tagline') || 'Slogan'}
               hint={t('taglineHintBranding') || "Affiché sur la page d'accueil de votre menu en ligne."}

@@ -18,9 +18,11 @@ import type { DraftPayload, CostSummary } from '../types';
 export function CostSummaryHeader({
   payload,
   onSellingPriceChange,
+  canManage,
 }: {
   payload: DraftPayload;
   onSellingPriceChange: (price: number | undefined) => void;
+  canManage: boolean;
 }) {
   const { t } = useI18n();
   const s = payload.cost_summary;
@@ -57,7 +59,9 @@ export function CostSummaryHeader({
           }}
         >
           <strong style={{ fontSize: 14 }}>{t('labAskSellingPrice')}</strong>
-          <SellingPriceField value={undefined} onChange={onSellingPriceChange} large />
+          {canManage && (
+            <SellingPriceField value={undefined} onChange={onSellingPriceChange} large />
+          )}
           {s.suggested_min_price != null && (
             <span style={{ color: 'var(--fg-muted)', fontSize: 13 }}>
               {t('labSuggestedMinPrice')} ₪{s.suggested_min_price.toFixed(0)}
@@ -67,7 +71,13 @@ export function CostSummaryHeader({
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 14, color: 'var(--fg-muted)' }}>{t('labSellAt')}</span>
-          <SellingPriceField value={s.selling_price} onChange={onSellingPriceChange} large />
+          {canManage ? (
+            <SellingPriceField value={s.selling_price} onChange={onSellingPriceChange} large />
+          ) : (
+            <span style={{ fontSize: 18, fontWeight: 600 }}>
+              ₪{(s.selling_price ?? 0).toFixed(2)}
+            </span>
+          )}
         </div>
       )}
 

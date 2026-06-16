@@ -16,6 +16,7 @@ import { isMembershipActiveOn } from '@/lib/membership';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   ArrowLeftIcon,
   ChevronUpIcon,
@@ -78,6 +79,8 @@ export default function MenuDetailPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
 
   // Last-known data for this carte, kept across route round-trips (e.g.
   // carte → article editor → back) so the page renders instantly instead of
@@ -530,6 +533,7 @@ export default function MenuDetailPage() {
                   aria-label={t('loading')}
                 />
               )}
+              {canEdit && (
               <div className="relative">
                 <button
                   onClick={() => setHeaderDropdownOpen(!headerDropdownOpen)}
@@ -568,6 +572,7 @@ export default function MenuDetailPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
             <div className="flex items-center gap-0 mt-1 text-sm text-[var(--text-secondary)]">
               {restaurant?.name && (
@@ -640,6 +645,7 @@ export default function MenuDetailPage() {
               {t('configureBatchFirst') || 'Configurez les commandes anticipées dans les paramètres'}
             </button>
           )}
+          {canEdit && (
           <button
             className="btn-secondary rounded-full flex items-center gap-2"
             onClick={() => router.push(`/${rid}/menu/menus/${mid}/pos-display`)}
@@ -647,6 +653,8 @@ export default function MenuDetailPage() {
             <MonitorSmartphoneIcon className="w-4 h-4" />
             {t('editPosLayout')}
           </button>
+          )}
+          {canEdit && (
           <div className="relative">
             <button
               onClick={() => setAddDropdownOpen(!addDropdownOpen)}
@@ -672,6 +680,7 @@ export default function MenuDetailPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -697,7 +706,7 @@ export default function MenuDetailPage() {
           return (
             <div
               key={group.id}
-              draggable={draggingItem === null}
+              draggable={canEdit && draggingItem === null}
               onDragStart={(e) => handleDragStart(e, group.id)}
               onDragOver={(e) => handleDragOver(e, group.id)}
               onDrop={(e) => handleDrop(e, group.id)}
@@ -711,7 +720,9 @@ export default function MenuDetailPage() {
                 onClick={() => toggleExpand(group.id)}
               >
                 {/* Drag handle is desktop-only — touch reorder isn't supported. */}
-                <GripVerticalIcon className="hidden md:block w-5 h-5 text-[var(--text-muted)] shrink-0 cursor-grab active:cursor-grabbing" />
+                {canEdit && (
+                  <GripVerticalIcon className="hidden md:block w-5 h-5 text-[var(--text-muted)] shrink-0 cursor-grab active:cursor-grabbing" />
+                )}
                 {isExpanded
                   ? <ChevronUpIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
                   : <ChevronDownIcon className="w-5 h-5 text-[var(--text-muted)] shrink-0" />
@@ -719,6 +730,7 @@ export default function MenuDetailPage() {
                 <span className="font-bold text-base text-[var(--text-primary)]">{group.name}</span>
                 <span className="text-sm text-[var(--text-secondary)]">{t('nArticles').replace('{n}', String(items.length))}</span>
                 <div className="flex-1" />
+                {canEdit && (
                 <div className="relative">
                   <button
                     onClick={(e) => { e.stopPropagation(); setGroupDropdown(groupDropdown === group.id ? null : group.id); }}
@@ -744,13 +756,14 @@ export default function MenuDetailPage() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
 
               {/* ── Group Content (expanded) ── */}
               {isExpanded && (
                 <div className="border-t border-[var(--divider)] rounded-b-xl">
                   {/* Bulk-action bar — shown when any items in this group are selected. */}
-                  {selected.size > 0 && (
+                  {canEdit && selected.size > 0 && (
                     <div className="flex items-center gap-3 px-4 py-2.5 bg-[color-mix(in_oklab,var(--brand-500)_8%,transparent)] border-b border-[var(--divider)]">
                       <span className="text-sm font-medium text-[var(--text-primary)]">
                         {t('nSelected').replace('{n}', String(selected.size))}
@@ -787,13 +800,15 @@ export default function MenuDetailPage() {
                   {items.length > 0 && (
                     <div className={`hidden ${GRID_COLS_DESKTOP} px-4 py-2.5 border-b-2 border-[var(--text-primary)]`}>
                       <div>
-                        <input
-                          type="checkbox"
-                          className="rounded border-[var(--divider)]"
-                          checked={allSelected}
-                          ref={(el) => { if (el) el.indeterminate = someSelected; }}
-                          onChange={() => toggleSelectAllInGroup(group.id, itemIds)}
-                        />
+                        {canEdit && (
+                          <input
+                            type="checkbox"
+                            className="rounded border-[var(--divider)]"
+                            checked={allSelected}
+                            ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                            onChange={() => toggleSelectAllInGroup(group.id, itemIds)}
+                          />
+                        )}
                       </div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('article')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('pointOfSale')}</div>
@@ -814,6 +829,7 @@ export default function MenuDetailPage() {
                       t={t}
                       rid={rid}
                       groupId={group.id}
+                      canEdit={canEdit}
                       isSelected={selected.has(item.id)}
                       onToggleSelected={() => toggleItemSelected(group.id, item.id)}
                       isDragging={draggingItem?.itemId === item.id && draggingItem.groupId === group.id}
@@ -830,6 +846,7 @@ export default function MenuDetailPage() {
                   ))}
 
                   {/* Add Item Row */}
+                  {canEdit && (
                   <button
                     onClick={() => setItemPickerGroupId(group.id)}
                     className={`flex md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] md:items-center w-full px-4 py-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors border-t border-[var(--divider)]`}
@@ -845,6 +862,7 @@ export default function MenuDetailPage() {
                     <div className="hidden md:block" />
                     <div className="hidden md:block" />
                   </button>
+                  )}
 
                   {/* Inactive items expander — only shown for rotating cartes
                       when the selected batch has items currently filtered out. */}
@@ -868,12 +886,14 @@ export default function MenuDetailPage() {
                               className="flex items-center gap-3 py-2 text-sm text-[var(--text-secondary)]"
                             >
                               <span className="flex-1 truncate">{item.name}</span>
-                              <button
-                                onClick={() => addItemToCurrentBatch(group.id, item.id)}
-                                className="text-xs font-medium px-3 py-1 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors"
-                              >
-                                {t('addToThisBatch') || 'Ajouter à cette série'}
-                              </button>
+                              {canEdit && (
+                                <button
+                                  onClick={() => addItemToCurrentBatch(group.id, item.id)}
+                                  className="text-xs font-medium px-3 py-1 rounded-full border border-[var(--divider)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors"
+                                >
+                                  {t('addToThisBatch') || 'Ajouter à cette série'}
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -887,6 +907,7 @@ export default function MenuDetailPage() {
         })}
 
         {/* ── Add Group Card ── */}
+        {canEdit && (
         <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden">
           <button
             onClick={() => router.push(`/${rid}/menu/menus/${mid}/group/new`)}
@@ -896,6 +917,7 @@ export default function MenuDetailPage() {
             {t('addGroup')}
           </button>
         </div>
+        )}
       </div>
 
       {/* ── Add/Remove Items Modal ── */}
@@ -1441,7 +1463,7 @@ function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick 
 
 function ItemRow({
   item, restaurantName, menu, t, rid, groupId, onOpen, onRemoved,
-  isSelected, onToggleSelected,
+  isSelected, onToggleSelected, canEdit,
   isDragging, onItemDragStart, onItemDragOver, onItemDrop, onItemDragEnd,
 }: {
   item: MenuItem;
@@ -1454,6 +1476,7 @@ function ItemRow({
   onRemoved: () => void;
   isSelected: boolean;
   onToggleSelected: () => void;
+  canEdit: boolean;
   isDragging: boolean;
   onItemDragStart: (e: React.DragEvent<HTMLElement>) => void;
   onItemDragOver: (e: React.DragEvent<HTMLElement>) => void;
@@ -1499,7 +1522,7 @@ function ItemRow({
 
   return (
     <div
-      draggable
+      draggable={canEdit}
       onDragStart={onItemDragStart}
       onDragOver={onItemDragOver}
       onDrop={onItemDrop}
@@ -1509,13 +1532,17 @@ function ItemRow({
     >
       {/* Checkbox + drag handle — desktop only; cards collapse on mobile */}
       <div className="hidden md:flex md:items-center md:gap-1.5" onClick={(e) => e.stopPropagation()}>
-        <GripVerticalIcon className="w-4 h-4 text-[var(--text-muted)] cursor-grab active:cursor-grabbing shrink-0" />
-        <input
-          type="checkbox"
-          className="rounded border-[var(--divider)]"
-          checked={isSelected}
-          onChange={onToggleSelected}
-        />
+        {canEdit && (
+          <>
+            <GripVerticalIcon className="w-4 h-4 text-[var(--text-muted)] cursor-grab active:cursor-grabbing shrink-0" />
+            <input
+              type="checkbox"
+              className="rounded border-[var(--divider)]"
+              checked={isSelected}
+              onChange={onToggleSelected}
+            />
+          </>
+        )}
       </div>
 
       {/* Article name + image (card heading on mobile) */}
@@ -1559,6 +1586,7 @@ function ItemRow({
       </div>
 
       {/* Actions — pinned to top-end corner on mobile, inline on desktop */}
+      {canEdit && (
       <div className="absolute top-3 end-4 md:static md:flex md:justify-center" onClick={(e) => e.stopPropagation()}>
         <button
           ref={buttonRef}
@@ -1614,6 +1642,7 @@ function ItemRow({
           document.body,
         )}
       </div>
+      )}
     </div>
   );
 }

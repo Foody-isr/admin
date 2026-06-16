@@ -44,6 +44,7 @@ import {
   ChevronDownIcon, ChevronUpIcon, RefreshCwIcon, ClockIcon, ImageIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Kpi, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import RecipeImportModal from '../RecipeImportModal';
@@ -64,6 +65,8 @@ export default function PrepPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const deepLinkAppliedRef = useRef(false);
 
   const [items, setItems] = useState<PrepItem[]>([]);
@@ -293,10 +296,12 @@ export default function PrepPage() {
               <CalendarDaysIcon />
               {t('dailyPlan') || 'Plan du jour'}
             </Button>
-            <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
-              <PlusIcon />
-              {t('newPreparation') || t('addPrepItem')}
-            </Button>
+            {canManage && (
+              <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
+                <PlusIcon />
+                {t('newPreparation') || t('addPrepItem')}
+              </Button>
+            )}
           </>
         }
       />
@@ -358,15 +363,17 @@ export default function PrepPage() {
                 {t('deselectAll') || 'Tout désélectionner'}
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleBulkDelete}
-                className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400"
-              >
-                <TrashIcon className="w-4 h-4" />
-                {t('delete')} ({selected.size})
-              </button>
-            </div>
+            {canManage && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-4 py-2.5 bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  {t('delete')} ({selected.size})
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -407,7 +414,7 @@ export default function PrepPage() {
           </button>
           <ActionsDropdown
             actions={[
-              { label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> },
+              ...(canManage ? [{ label: t('importRecipe'), onClick: () => setImportModal(true), icon: <SparklesIcon className="w-4 h-4" /> }] : []),
               { label: t('refresh'), onClick: reload, icon: <RefreshCwIcon className="w-4 h-4" /> },
             ]}
           />
@@ -444,7 +451,7 @@ export default function PrepPage() {
           <p className="text-base text-fg-secondary text-center max-w-md">
             {items.length === 0 ? t('addFirstPrepRecipe') : t('tryAdjustingFilters')}
           </p>
-          {items.length === 0 && (
+          {items.length === 0 && canManage && (
             <Button variant="primary" size="md" onClick={() => setItemModal({ open: true })}>
               {t('addPrepItem')}
             </Button>
@@ -548,10 +555,12 @@ export default function PrepPage() {
                     <DataTableCell>
                       <RowActionsMenu
                         actions={[
-                          { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
-                          { label: t('wasteAdjust'), onClick: () => setTxModal({ open: true, item }), icon: <ArrowRightLeftIcon className="w-4 h-4" /> },
-                          { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
-                          { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger', icon: <TrashIcon className="w-4 h-4" /> },
+                          ...(canManage ? [
+                            { label: t('produceBatch'), onClick: () => setBatchModal({ open: true, item }), icon: <PlayIcon className="w-4 h-4" /> },
+                            { label: t('wasteAdjust'), onClick: () => setTxModal({ open: true, item }), icon: <ArrowRightLeftIcon className="w-4 h-4" /> },
+                            { label: t('edit'), onClick: () => setItemModal({ open: true, editing: item }), icon: <PencilIcon className="w-4 h-4" /> },
+                            { label: t('delete'), onClick: () => handleDelete(item.id), variant: 'danger' as const, icon: <TrashIcon className="w-4 h-4" /> },
+                          ] : []),
                         ]}
                       />
                     </DataTableCell>
@@ -588,18 +597,18 @@ export default function PrepPage() {
           selectedCategories.size === 1 ? Array.from(selectedCategories)[0] : ''
         }
         onSelect={handleCategorySelect}
-        onCreateCategory={async ({ name }) => {
+        onCreateCategory={canManage ? async ({ name }) => {
           await createPrepCategory(rid, { name });
           await reload();
-        }}
-        onEditCategory={async (oldName, patch) => {
+        } : undefined}
+        onEditCategory={canManage ? async (oldName, patch) => {
           const existing = categoryMeta.find((c) => c.name === oldName);
           const ensured = existing ?? (await createPrepCategory(rid, { name: oldName }));
           if (patch.name && patch.name !== oldName) {
             await updatePrepCategory(rid, ensured.id, { name: patch.name });
           }
           await reload();
-        }}
+        } : undefined}
       />
 
       <StockFiltersDrawer
@@ -648,6 +657,8 @@ function PrepItemModal({
   rid: number; editing?: PrepItem; categories: string[]; stockItems: StockItem[]; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const [name, setName] = useState(editing?.name ?? '');
   const [unit, setUnit] = useState<StockUnit>(editing?.unit ?? 'unit');
   const [quantity, setQuantity] = useState(editing?.quantity ?? 0);
@@ -811,15 +822,17 @@ function PrepItemModal({
       <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
 
       {/* Status toggle */}
-      <div className="flex items-center justify-between">
-        <span className="text-fs-sm text-[var(--fg-muted)]">{t('status')}</span>
-        <StatusPill
-          active={isActive}
-          onToggle={() => setIsActive(!isActive)}
-          activeLabel={t('active')}
-          inactiveLabel={t('inactive')}
-        />
-      </div>
+      {canManage && (
+        <div className="flex items-center justify-between">
+          <span className="text-fs-sm text-[var(--fg-muted)]">{t('status')}</span>
+          <StatusPill
+            active={isActive}
+            onToggle={() => setIsActive(!isActive)}
+            activeLabel={t('active')}
+            inactiveLabel={t('inactive')}
+          />
+        </div>
+      )}
 
       {editing && (
         <>
@@ -865,7 +878,7 @@ function PrepItemModal({
         className="text-fs-sm"
       />
 
-      {editing && (
+      {editing && canManage && (
         <>
           <div className="h-px bg-[var(--line)] my-[var(--s-4)]" />
           {/* Quick actions — reference has Dupliquer + Archiver ghost buttons */}
@@ -942,7 +955,7 @@ function PrepItemModal({
       onOpenChange={(v) => { if (!v) onClose(); }}
       title={editing ? t('editPrepItem') : t('addPrepItem')}
       subtitle={editing ? `${t('editingItem') || 'Modification'} · ${editing.name}` : undefined}
-      onSave={handleSubmit}
+      onSave={canManage ? handleSubmit : undefined}
       saveLabel={editing ? t('update') : t('create')}
       saveDisabled={!name.trim() || saving}
       cancelLabel={t('cancel')}
@@ -1055,7 +1068,7 @@ function PrepItemModal({
           {/* AI import shortcut — like the article recipe tab. Only for an
               existing prep (it replaces this prep's recipe; creating a new prep
               from a recipe is done from the page's Actions menu). */}
-          {editing && (
+          {editing && canManage && (
             <div className="flex justify-end mb-[var(--s-4)]">
               <button
                 type="button"
@@ -1085,14 +1098,16 @@ function PrepItemModal({
                     : (t('prepIngredientsSubtitle') || 'Saisissez la quantité de chaque ingrédient pour 1 batch.')}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={openAddPicker}
-                className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
-              >
-                <PlusIcon className="w-3.5 h-3.5" />
-                {t('addIngredient') || 'Ajouter un ingrédient'}
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={openAddPicker}
+                  className="inline-flex items-center gap-[var(--s-2)] text-fs-sm font-medium text-[var(--brand-500)] hover:underline"
+                >
+                  <PlusIcon className="w-3.5 h-3.5" />
+                  {t('addIngredient') || 'Ajouter un ingrédient'}
+                </button>
+              )}
             </div>
 
             {loadingIngs ? (
@@ -1157,14 +1172,16 @@ function PrepItemModal({
                             />
                           </td>
                           <td className="px-[var(--s-2)] py-[var(--s-2)] text-end">
-                            <button
-                              type="button"
-                              onClick={() => removeIngredient(idx)}
-                              className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
-                              aria-label={t('delete')}
-                            >
-                              <TrashIcon className="w-3.5 h-3.5" />
-                            </button>
+                            {canManage && (
+                              <button
+                                type="button"
+                                onClick={() => removeIngredient(idx)}
+                                className="p-1.5 rounded-r-xs text-[var(--danger-500)] hover:bg-[var(--danger-50)] transition-colors"
+                                aria-label={t('delete')}
+                              >
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1247,6 +1264,8 @@ function BatchProduceModal({
   rid: number; item: PrepItem; onClose: () => void; onProduced: () => void;
 }) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const [batches, setBatches] = useState(1);
   const [preview, setPreview] = useState<ProduceBatchResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1292,7 +1311,9 @@ function BatchProduceModal({
         {!preview ? (
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-            <button onClick={handlePreview} disabled={loading} className="btn-primary text-sm">{loading ? t('checking') : t('preview')}</button>
+            {canManage && (
+              <button onClick={handlePreview} disabled={loading} className="btn-primary text-sm">{loading ? t('checking') : t('preview')}</button>
+            )}
           </div>
         ) : (
           (() => {
@@ -1328,9 +1349,11 @@ function BatchProduceModal({
 
                 <div className="flex justify-end gap-2">
                   <button onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-                  <button onClick={handleProduce} disabled={loading || previewInsufficient.length > 0} className="btn-primary text-sm">
-                    {loading ? t('producing') : t('confirmProduce')}
-                  </button>
+                  {canManage && (
+                    <button onClick={handleProduce} disabled={loading || previewInsufficient.length > 0} className="btn-primary text-sm">
+                      {loading ? t('producing') : t('confirmProduce')}
+                    </button>
+                  )}
                 </div>
               </>
             );
@@ -1349,6 +1372,8 @@ function PrepTxModal({
   rid: number; item: PrepItem; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('kitchen.manage');
   const [type, setType] = useState<PrepTransactionType>('waste');
   const [qty, setQty] = useState(0);
   const [notes, setNotes] = useState('');
@@ -1404,7 +1429,9 @@ function PrepTxModal({
 
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className="btn-secondary text-sm">{t('cancel')}</button>
-          <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('confirm')}</button>
+          {canManage && (
+            <button type="submit" disabled={saving} className="btn-primary text-sm">{saving ? t('saving') : t('confirm')}</button>
+          )}
         </div>
       </form>
     </Modal>

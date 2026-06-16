@@ -17,6 +17,7 @@ import {
   RestaurantSettings,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, Field, NumberField, PageHead, Section, Select } from '@/components/ds';
 
 interface PaymentMethod {
@@ -38,6 +39,8 @@ export default function PaymentsSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [, setSettings] = useState<RestaurantSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,14 +169,18 @@ export default function PaymentsSettingsPage() {
                     <Badge tone="success" dot>
                       {t('active') || 'Actif'}
                     </Badge>
-                    <Button variant="ghost" size="sm">
-                      {t('configure') || 'Configurer'}
-                    </Button>
+                    {canEdit && (
+                      <Button variant="ghost" size="sm">
+                        {t('configure') || 'Configurer'}
+                      </Button>
+                    )}
                   </>
                 ) : (
-                  <Button variant="secondary" size="sm">
-                    {t('connect') || 'Connecter'}
-                  </Button>
+                  canEdit && (
+                    <Button variant="secondary" size="sm">
+                      {t('connect') || 'Connecter'}
+                    </Button>
+                  )
                 )}
               </div>
             </div>
@@ -308,9 +315,11 @@ export default function PaymentsSettingsPage() {
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)]">
-        <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-          {saving ? t('saving') : t('saveChanges')}
-        </Button>
+        {canEdit && (
+          <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
+            {saving ? t('saving') : t('saveChanges')}
+          </Button>
+        )}
         {saved && (
           <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
         )}

@@ -12,6 +12,7 @@ import {
   type SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Button, Input, PageHead, Field } from '@/components/ds';
 import Modal from '@/components/Modal';
 import { NumberInput } from '@/components/ui/NumberInput';
@@ -20,6 +21,8 @@ export default function SectionsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [sections, setSections] = useState<TableSection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,10 +80,12 @@ export default function SectionsPage() {
         title={t('sections')}
         desc={t('sectionsDesc')}
         actions={
-          <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
-            <Plus />
-            {t('newSection')}
-          </Button>
+          canManage ? (
+            <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
+              <Plus />
+              {t('newSection')}
+            </Button>
+          ) : null
         }
       />
 
@@ -88,10 +93,12 @@ export default function SectionsPage() {
         <div className="card flex flex-col items-center py-16 space-y-4">
           <Boxes className="w-10 h-10 text-fg-secondary" />
           <p className="text-fg-secondary text-center max-w-md">{t('noSectionsYet')}</p>
-          <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
-            <Plus />
-            {t('newSection')}
-          </Button>
+          {canManage && (
+            <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
+              <Plus />
+              {t('newSection')}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--s-3)]">
@@ -106,22 +113,24 @@ export default function SectionsPage() {
                   <h3 className="font-semibold text-fg-primary truncate">
                     {section.name}
                   </h3>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleRename(section)}
-                      title={t('renameSection')}
-                      className="p-1.5 rounded text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(section)}
-                      title={t('deleteSection')}
-                      className="p-1.5 rounded text-fg-secondary hover:text-red-500 hover:bg-[var(--surface-subtle)] transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {canManage && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleRename(section)}
+                        title={t('renameSection')}
+                        className="p-1.5 rounded text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(section)}
+                        title={t('deleteSection')}
+                        className="p-1.5 rounded text-fg-secondary hover:text-red-500 hover:bg-[var(--surface-subtle)] transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="text-fs-xs text-fg-secondary">
                   {count} {t('tablesCount')}

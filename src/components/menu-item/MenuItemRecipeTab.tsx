@@ -16,6 +16,7 @@ import {
   ChevronUpIcon, ChevronDownIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { NumberInput } from '@/components/ui/NumberInput';
 
 export interface MenuItemRecipeTabHandle {
@@ -46,6 +47,8 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
   ref,
 ) {
   const { t, locale } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('menu.edit');
   const helpUrl = `${process.env.NEXT_PUBLIC_LANDING_URL || 'https://foody-pos.co.il'}/${locale}/help/menu/ingredients-and-portions`;
 
   const [steps, setSteps] = useState<RecipeStepInput[]>([]);
@@ -125,14 +128,16 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
         >
           {t('scopeHowItWorks')}
         </a>
-        <button
-          type="button"
-          onClick={() => setShowImportModal(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-[var(--divider)] text-brand-500 hover:bg-brand-500/5 transition-colors"
-        >
-          <SparklesIcon className="h-4 w-4" />
-          {t('importRecipe')}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-[var(--divider)] text-brand-500 hover:bg-brand-500/5 transition-colors"
+          >
+            <SparklesIcon className="h-4 w-4" />
+            {t('importRecipe')}
+          </button>
+        )}
       </div>
 
       {/* Ingredients editor — each row's Scope picker marks it as Base or
@@ -176,31 +181,33 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
                 <span className="text-xs font-bold text-fg-secondary uppercase tracking-wider">
                   {t('recipeStepNumber').replace('{n}', String(idx + 1))}
                 </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => moveStep(idx, 'up')}
-                    disabled={idx === 0}
-                    className="p-1 rounded hover:bg-[var(--surface)] disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronUpIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveStep(idx, 'down')}
-                    disabled={idx === steps.length - 1}
-                    className="p-1 rounded hover:bg-[var(--surface)] disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronDownIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeStep(idx)}
-                    className="p-1 rounded text-red-500 hover:bg-red-500/10 transition-colors"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveStep(idx, 'up')}
+                      disabled={idx === 0}
+                      className="p-1 rounded hover:bg-[var(--surface)] disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronUpIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveStep(idx, 'down')}
+                      disabled={idx === steps.length - 1}
+                      className="p-1 rounded hover:bg-[var(--surface)] disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronDownIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeStep(idx)}
+                      className="p-1 rounded text-red-500 hover:bg-red-500/10 transition-colors"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
               <textarea
                 value={step.instruction}
@@ -223,14 +230,16 @@ const MenuItemRecipeTab = forwardRef<MenuItemRecipeTabHandle, Props>(function Me
               </div>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={addStep}
-            className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border-2 border-dashed border-[var(--divider)] text-sm text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-colors"
-          >
-            <PlusIcon className="h-4 w-4" />
-            {t('addRecipeStep')}
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={addStep}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border-2 border-dashed border-[var(--divider)] text-sm text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-colors"
+            >
+              <PlusIcon className="h-4 w-4" />
+              {t('addRecipeStep')}
+            </button>
+          )}
         </div>
       </FormSection>
 

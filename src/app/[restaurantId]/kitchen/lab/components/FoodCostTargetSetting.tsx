@@ -10,7 +10,13 @@ import { useI18n } from '@/lib/i18n';
  * Uses plain useState + useEffect (no TanStack Query). Fetches on mount,
  * PUTs immediately on change.
  */
-export function FoodCostTargetSetting({ restaurantId }: { restaurantId: number }) {
+export function FoodCostTargetSetting({
+  restaurantId,
+  canManage,
+}: {
+  restaurantId: number;
+  canManage: boolean;
+}) {
   const { t } = useI18n();
   const [pct, setPct] = useState<number>(0.35);
   const [loading, setLoading] = useState(true);
@@ -43,22 +49,26 @@ export function FoodCostTargetSetting({ restaurantId }: { restaurantId: number }
       opacity: loading ? 0.5 : 1,
     }}>
       <span style={{ color: 'var(--fg-muted)' }}>{t('labTargetSetting')}</span>
-      <select
-        value={pct}
-        onChange={(e) => handleChange(parseFloat(e.target.value))}
-        disabled={loading || saving}
-        style={{
-          padding: '4px 8px', borderRadius: 6,
-          border: '1px solid var(--line)', fontSize: 14,
-          background: 'var(--surface-2, #1f2937)',
-          color: 'var(--fg, inherit)',
-        }}
-      >
-        <option value={0.25}>{'<='} 25%</option>
-        <option value={0.30}>{'<='} 30%</option>
-        <option value={0.35}>{'<='} 35%</option>
-        <option value={0.40}>{'<='} 40%</option>
-      </select>
+      {canManage ? (
+        <select
+          value={pct}
+          onChange={(e) => handleChange(parseFloat(e.target.value))}
+          disabled={loading || saving}
+          style={{
+            padding: '4px 8px', borderRadius: 6,
+            border: '1px solid var(--line)', fontSize: 14,
+            background: 'var(--surface-2, #1f2937)',
+            color: 'var(--fg, inherit)',
+          }}
+        >
+          <option value={0.25}>{'<='} 25%</option>
+          <option value={0.30}>{'<='} 30%</option>
+          <option value={0.35}>{'<='} 35%</option>
+          <option value={0.40}>{'<='} 40%</option>
+        </select>
+      ) : (
+        <span style={{ fontWeight: 600 }}>{'<='} {(pct * 100).toFixed(0)}%</span>
+      )}
     </label>
   );
 }

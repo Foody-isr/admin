@@ -15,6 +15,7 @@ import {
   WeeklyHours,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { FulfillmentDayRow, ModeCard, ServiceToggle, Switch, WEEKDAYS_FR } from './_components';
@@ -74,6 +75,8 @@ export default function OrdersAvailabilityPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -355,7 +358,9 @@ export default function OrdersAvailabilityPage() {
               {pauseSaving && (
                 <span className="text-fs-xs text-[var(--fg-subtle)]">{t('saving') || 'Saving…'}</span>
               )}
-              <Switch checked={paused} onChange={togglePause} label={t('pauseOnlineOrders') || 'Pause'} />
+              {canEdit && (
+                <Switch checked={paused} onChange={togglePause} label={t('pauseOnlineOrders') || 'Pause'} />
+              )}
             </div>
           </div>
 
@@ -613,31 +618,35 @@ export default function OrdersAvailabilityPage() {
                           <div className="text-fs-xs text-[var(--fg-subtle)] truncate">{c.reason}</div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="p-1.5 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)]"
-                        onClick={() => setClosures((p) => p.filter((x) => x.id !== c.id))}
-                        aria-label={t('remove') || 'Supprimer'}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          className="p-1.5 rounded-r-md text-[var(--fg-muted)] hover:text-[var(--danger-500)]"
+                          onClick={() => setClosures((p) => p.filter((x) => x.id !== c.id))}
+                          aria-label={t('remove') || 'Supprimer'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="self-start"
-                  onClick={() => {
-                    const date = window.prompt(t('closureDatePrompt') || 'Date (ex. 15 avril) :');
-                    if (!date) return;
-                    const reason = window.prompt(t('closureReasonPrompt') || 'Raison :') || '';
-                    setClosures((p) => [...p, { id: Math.random().toString(36).slice(2), date, reason }]);
-                  }}
-                >
-                  <Plus />
-                  {t('addClosure') || 'Ajouter une fermeture'}
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="self-start"
+                    onClick={() => {
+                      const date = window.prompt(t('closureDatePrompt') || 'Date (ex. 15 avril) :');
+                      if (!date) return;
+                      const reason = window.prompt(t('closureReasonPrompt') || 'Raison :') || '';
+                      setClosures((p) => [...p, { id: Math.random().toString(36).slice(2), date, reason }]);
+                    }}
+                  >
+                    <Plus />
+                    {t('addClosure') || 'Ajouter une fermeture'}
+                  </Button>
+                )}
               </div>
             </div>
           </>
@@ -784,14 +793,16 @@ export default function OrdersAvailabilityPage() {
                 <div className="text-fs-sm font-semibold text-[var(--fg)]">
                   {t('batchFulfillmentDays') || 'Jours de livraison / retrait'}
                 </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setBatchDays((p) => [...p, makeDefaultDay(usedBatchDays)])}
-                >
-                  <Plus />
-                  {t('batchFulfillmentAddDay') || 'Ajouter un jour'}
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setBatchDays((p) => [...p, makeDefaultDay(usedBatchDays)])}
+                  >
+                    <Plus />
+                    {t('batchFulfillmentAddDay') || 'Ajouter un jour'}
+                  </Button>
+                )}
               </div>
               {batchNoDays ? (
                 <div
@@ -900,14 +911,16 @@ export default function OrdersAvailabilityPage() {
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-8)] flex-wrap">
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleSave}
-          disabled={saving || batchNoDays}
-        >
-          {saving ? t('saving') : t('saveChanges')}
-        </Button>
+        {canEdit && (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            disabled={saving || batchNoDays}
+          >
+            {saving ? t('saving') : t('saveChanges')}
+          </Button>
+        )}
         {saved && <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>}
         {saveError && <span className="text-fs-sm text-[var(--danger-500)] font-medium">{saveError}</span>}
       </div>

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { getRestaurant, updateRestaurant, Restaurant } from '@/lib/api';
 import { useI18n, SUPPORTED_LOCALES, type Locale } from '@/lib/i18n';
 import { Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
+import { usePermissions } from '@/lib/permissions-context';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
@@ -32,6 +33,8 @@ export default function SettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t, locale, setLocale } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -215,9 +218,11 @@ export default function SettingsPage() {
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-5)] flex-wrap">
-        <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
-          {saving ? t('saving') : t('saveChanges')}
-        </Button>
+        {canEdit && (
+          <Button variant="primary" size="md" onClick={handleSave} disabled={saving}>
+            {saving ? t('saving') : t('saveChanges')}
+          </Button>
+        )}
         {saved && (
           <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>
         )}
@@ -253,33 +258,35 @@ export default function SettingsPage() {
               {t('export') || 'Exporter'}
             </Button>
           </div>
-          <div
-            className="flex items-center justify-between gap-[var(--s-4)] p-[var(--s-4)] rounded-r-md border"
-            style={{
-              background: 'color-mix(in oklab, var(--danger-500) 10%, var(--surface))',
-              borderColor: 'color-mix(in oklab, var(--danger-500) 35%, var(--line))',
-            }}
-          >
-            <div className="min-w-0">
-              <div className="text-fs-sm font-semibold text-[var(--danger-500)]">
-                {t('closeAccount') || 'Fermer définitivement ce compte'}
-              </div>
-              <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                {t('closeAccountDesc') || 'Toutes les données seront supprimées après 30 jours.'}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="h-8 px-[var(--s-3)] rounded-r-md border text-fs-sm font-medium transition-colors hover:bg-[color-mix(in_oklab,var(--danger-500)_8%,transparent)]"
+          {canEdit && (
+            <div
+              className="flex items-center justify-between gap-[var(--s-4)] p-[var(--s-4)] rounded-r-md border"
               style={{
-                color: 'var(--danger-500)',
-                borderColor: 'color-mix(in oklab, var(--danger-500) 40%, var(--line))',
-                background: 'transparent',
+                background: 'color-mix(in oklab, var(--danger-500) 10%, var(--surface))',
+                borderColor: 'color-mix(in oklab, var(--danger-500) 35%, var(--line))',
               }}
             >
-              {t('closeAccountAction') || 'Fermer le compte'}
-            </button>
-          </div>
+              <div className="min-w-0">
+                <div className="text-fs-sm font-semibold text-[var(--danger-500)]">
+                  {t('closeAccount') || 'Fermer définitivement ce compte'}
+                </div>
+                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
+                  {t('closeAccountDesc') || 'Toutes les données seront supprimées après 30 jours.'}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="h-8 px-[var(--s-3)] rounded-r-md border text-fs-sm font-medium transition-colors hover:bg-[color-mix(in_oklab,var(--danger-500)_8%,transparent)]"
+                style={{
+                  color: 'var(--danger-500)',
+                  borderColor: 'color-mix(in oklab, var(--danger-500) 40%, var(--line))',
+                  background: 'transparent',
+                }}
+              >
+                {t('closeAccountAction') || 'Fermer le compte'}
+              </button>
+            </div>
+          )}
         </div>
       </Section>
     </div>

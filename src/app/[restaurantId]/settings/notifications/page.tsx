@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX } from 'lucide-react';
 import { Badge, Button, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   getCurrentSubscription,
   getEnvironment,
@@ -34,6 +35,8 @@ export default function NotificationsSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canEdit = hasAnyPermission('settings.edit');
 
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
@@ -154,6 +157,7 @@ export default function NotificationsSettingsPage() {
           onEnable={handleEnable}
           onDisable={handleDisable}
           onTest={handleTest}
+          canEdit={canEdit}
           t={t}
         />
       )}
@@ -165,7 +169,7 @@ export default function NotificationsSettingsPage() {
           (no point editing prefs that can never fire). */}
       {env?.supported && prefs && (
         <div className="mt-[var(--s-4)]">
-          <EventPreferences prefs={prefs} saving={savingPref} onToggle={handleTogglePref} t={t} />
+          <EventPreferences prefs={prefs} saving={savingPref} onToggle={handleTogglePref} canEdit={canEdit} t={t} />
         </div>
       )}
 
@@ -191,6 +195,7 @@ function ToggleCard({
   onEnable,
   onDisable,
   onTest,
+  canEdit,
   t,
 }: {
   subscribed: boolean;
@@ -198,6 +203,7 @@ function ToggleCard({
   onEnable: () => void;
   onDisable: () => void;
   onTest: () => void;
+  canEdit: boolean;
   t: (k: string) => string;
 }) {
   return (
@@ -239,7 +245,7 @@ function ToggleCard({
               : t('sendTestPush') || 'Envoyer un test'}
           </Button>
         )}
-        {subscribed ? (
+        {canEdit && (subscribed ? (
           <Button
             variant="secondary"
             size="md"
@@ -262,7 +268,7 @@ function ToggleCard({
               ? t('enabling') || 'Activation…'
               : t('enableNotifications') || 'Activer les notifications'}
           </Button>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -386,11 +392,13 @@ function EventPreferences({
   prefs,
   saving,
   onToggle,
+  canEdit,
   t,
 }: {
   prefs: NotificationPreferences;
   saving: ExposedPrefKey | null;
   onToggle: (key: ExposedPrefKey, next: boolean) => void;
+  canEdit: boolean;
   t: (k: string) => string;
 }) {
   return (
@@ -416,12 +424,14 @@ function EventPreferences({
                 <p className="text-fs-md font-medium text-[var(--fg)]">{title}</p>
                 <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5 leading-snug">{desc}</p>
               </div>
-              <PreferenceSwitch
-                checked={enabled}
-                disabled={saving === ev.key}
-                onChange={(next) => onToggle(ev.key, next)}
-                ariaLabel={title}
-              />
+              {canEdit && (
+                <PreferenceSwitch
+                  checked={enabled}
+                  disabled={saving === ev.key}
+                  onChange={(next) => onToggle(ev.key, next)}
+                  ariaLabel={title}
+                />
+              )}
             </li>
           );
         })}

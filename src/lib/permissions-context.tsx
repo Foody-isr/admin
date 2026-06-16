@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getMyPermissions } from './api';
-import { useAuth } from './auth-context';
 
 interface PermissionsContextType {
   permissions: string[];
@@ -29,12 +28,14 @@ export function PermissionsProvider({
   restaurantId: number;
   children: ReactNode;
 }) {
-  const { user } = useAuth();
   const [permissions, setPermissions] = useState<string[]>([]);
   const [roleName, setRoleName] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const isOwner = user?.role === 'owner' || user?.role === 'superadmin';
+  // Per-restaurant ownership, resolved from this restaurant's role (server
+  // returns "Owner"/"Super Admin"), NOT the global account role — a user can be
+  // an owner in one restaurant and a cashier in another.
+  const isOwner = roleName === 'Owner' || roleName === 'Super Admin';
 
   useEffect(() => {
     if (!restaurantId) return;

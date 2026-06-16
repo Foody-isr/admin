@@ -8,6 +8,7 @@ import {
   FloorPlan, TableSection, PlacementInput, DecorationInput, SectionInput,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   XIcon,
   TrashIcon,
@@ -494,6 +495,8 @@ export default function FloorPlanEditorPage() {
   const pid = Number(planId);
   const router = useRouter();
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  const canManage = hasAnyPermission('tables.manage');
 
   const [plan, setPlan] = useState<FloorPlan | null>(null);
   const [sections, setSections] = useState<TableSection[]>([]);
@@ -1139,13 +1142,15 @@ export default function FloorPlanEditorPage() {
             <XIcon className="w-5 h-5" />
           </button>
           <h1 className="text-base font-semibold text-fg-primary">{plan ? (plan.name ? t('editFloorPlan') + ' — ' + plan.name : t('editFloorPlan')) : t('editFloorPlan')}</h1>
-          <div className="flex items-center gap-2">
-            <button onClick={handleReset} className="btn-secondary px-4 text-sm">{t('resetLayout')}</button>
-            <button onClick={handleDelete} className="btn-secondary px-4 text-sm text-red-400 border-red-400/30">{t('deleteFloorPlan')}</button>
-            <button onClick={handleSave} disabled={saving} className="btn-primary px-5 text-sm disabled:opacity-50">
-              {saving ? t('saving') : t('saveFloorPlan')}
-            </button>
-          </div>
+          {canManage && (
+            <div className="flex items-center gap-2">
+              <button onClick={handleReset} className="btn-secondary px-4 text-sm">{t('resetLayout')}</button>
+              <button onClick={handleDelete} className="btn-secondary px-4 text-sm text-red-400 border-red-400/30">{t('deleteFloorPlan')}</button>
+              <button onClick={handleSave} disabled={saving} className="btn-primary px-5 text-sm disabled:opacity-50">
+                {saving ? t('saving') : t('saveFloorPlan')}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -1153,7 +1158,7 @@ export default function FloorPlanEditorPage() {
 
           {/* Left panel — selected item controls */}
           <div className="w-32 flex-shrink-0 flex flex-col gap-3 p-3" style={{ borderRight: '1px solid var(--divider)' }}>
-            {selectedPlacement && (
+            {canManage && selectedPlacement && (
               <>
                 <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Table</p>
                 <div>
@@ -1190,7 +1195,7 @@ export default function FloorPlanEditorPage() {
               </>
             )}
 
-            {selectedDecoration && (
+            {canManage && selectedDecoration && (
               <>
                 <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider">Forme</p>
                 <div>
@@ -1262,9 +1267,9 @@ export default function FloorPlanEditorPage() {
                 borderRadius: '8px',
                 border: '1px solid var(--divider)',
               }}
-              onDragOver={handleCanvasDragOver}
-              onDrop={handleCanvasDrop}
-              onMouseDown={handleCanvasMouseDown}
+              onDragOver={canManage ? handleCanvasDragOver : undefined}
+              onDrop={canManage ? handleCanvasDrop : undefined}
+              onMouseDown={canManage ? handleCanvasMouseDown : undefined}
             >
               {/* Decorations — rendered first (behind tables) */}
               {decorations.map((d) => {
@@ -1286,7 +1291,7 @@ export default function FloorPlanEditorPage() {
                   >
                     {/* Visible shape */}
                     <div
-                      onMouseDown={(e) => handleDecorationMouseDown(e, d.id)}
+                      onMouseDown={canManage ? (e) => handleDecorationMouseDown(e, d.id) : undefined}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -1305,9 +1310,9 @@ export default function FloorPlanEditorPage() {
                       </span>
                     </div>
                     {/* Resize handles — only on the primary selected item */}
-                    {isPrimary && <ResizeHandles type="decoration" id={d.id} onMouseDown={handleResizeMouseDown} />}
+                    {canManage && isPrimary && <ResizeHandles type="decoration" id={d.id} onMouseDown={handleResizeMouseDown} />}
                     {/* Rotate handle */}
-                    {isPrimary && (
+                    {canManage && isPrimary && (
                       <div
                         onMouseDown={(e) => handleRotateMouseDown(e, 'decoration', d.id)}
                         onClick={(e) => e.stopPropagation()}
@@ -1359,7 +1364,7 @@ export default function FloorPlanEditorPage() {
                   >
                     {/* Visible table */}
                     <div
-                      onMouseDown={(e) => handleTableMouseDown(e, p.tableId)}
+                      onMouseDown={canManage ? (e) => handleTableMouseDown(e, p.tableId) : undefined}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -1379,9 +1384,9 @@ export default function FloorPlanEditorPage() {
                       </span>
                     </div>
                     {/* Resize handles — only on the primary selected item */}
-                    {isPrimary && <ResizeHandles type="table" id={p.tableId} onMouseDown={handleResizeMouseDown} />}
+                    {canManage && isPrimary && <ResizeHandles type="table" id={p.tableId} onMouseDown={handleResizeMouseDown} />}
                     {/* Rotate handle */}
-                    {isPrimary && (
+                    {canManage && isPrimary && (
                       <div
                         onMouseDown={(e) => handleRotateMouseDown(e, 'table', p.tableId)}
                         onClick={(e) => e.stopPropagation()}
@@ -1471,7 +1476,7 @@ export default function FloorPlanEditorPage() {
             </div>
 
             {/* Floating alignment toolbar — shown when 2+ items are selected */}
-            {selection.length >= 2 && (
+            {canManage && selection.length >= 2 && (
               <AlignmentToolbar
                 count={selection.length}
                 onAlignLeft={alignLeft}
@@ -1519,13 +1524,13 @@ export default function FloorPlanEditorPage() {
                     {unplaced.map((tbl) => (
                       <div
                         key={tbl.id}
-                        draggable
-                        onDragStart={() => { dropState.current = { tableId: tbl.id, tableName: tbl.name }; }}
-                        onClick={() => {
+                        draggable={canManage}
+                        onDragStart={canManage ? () => { dropState.current = { tableId: tbl.id, tableName: tbl.name }; } : undefined}
+                        onClick={canManage ? () => {
                           const { x, y } = nextAutoSlot(placements, decorations);
                           setPlacements((prev) => [...prev, { tableId: tbl.id, tableName: tbl.name, x, y, width: DEFAULT_TABLE_SIZE, height: DEFAULT_TABLE_SIZE, shape: 'square', rotation: 0 }]);
                           setSelection([{ type: 'table', id: tbl.id }]);
-                        }}
+                        } : undefined}
                         className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer select-none transition-opacity hover:opacity-80"
                         style={{ background: '#1a1a1a', color: 'white' }}
                         title={tbl.name}
@@ -1545,45 +1550,49 @@ export default function FloorPlanEditorPage() {
                       </div>
                     ))}
                     {/* + Add table — the primary table creation entry point */}
-                    <button
-                      onClick={() =>
-                        setAddTableTarget({
-                          sectionId: section.id,
-                          sectionName: section.name,
-                          nextIndex: tables.length + 1,
-                        })
-                      }
-                      className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
-                      style={{ border: '1px dashed var(--divider)' }}
-                      title={t('addTable')}
-                    >
-                      <Plus className="w-3 h-3" />
-                      {t('addTable')}
-                    </button>
+                    {canManage && (
+                      <button
+                        onClick={() =>
+                          setAddTableTarget({
+                            sectionId: section.id,
+                            sectionName: section.name,
+                            nextIndex: tables.length + 1,
+                          })
+                        }
+                        className="px-2 py-1.5 rounded text-xs font-medium cursor-pointer flex items-center gap-1 hover:bg-[var(--surface-subtle)] text-fg-secondary"
+                        style={{ border: '1px dashed var(--divider)' }}
+                        title={t('addTable')}
+                      >
+                        <Plus className="w-3 h-3" />
+                        {t('addTable')}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })}
 
             {/* Decoration presets */}
-            <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '1rem' }}>
-              <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">Formes</p>
-              <div className="flex flex-wrap gap-1.5">
-                {DECORATION_PRESETS.map((preset) => (
-                  <button
-                    key={preset.label}
-                    onClick={() => addDecoration(preset)}
-                    className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-                    style={{ background: preset.color, color: 'rgba(0,0,0,0.6)', border: '1px solid rgba(0,0,0,0.1)' }}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+            {canManage && (
+              <div style={{ borderTop: '1px solid var(--divider)', paddingTop: '1rem' }}>
+                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wider mb-2">Formes</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {DECORATION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => addDecoration(preset)}
+                      className="px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
+                      style={{ background: preset.color, color: 'rgba(0,0,0,0.6)', border: '1px solid rgba(0,0,0,0.1)' }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Use an existing section on this plan */}
-            {hiddenSections.length > 0 && (
+            {canManage && hiddenSections.length > 0 && (
               <button
                 onClick={() => setShowAddSectionPicker(true)}
                 className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
@@ -1593,12 +1602,14 @@ export default function FloorPlanEditorPage() {
             )}
 
             {/* Create a brand-new section */}
-            <button
-              onClick={() => setShowSectionModal(true)}
-              className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
-            >
-              + {t('addSection')}
-            </button>
+            {canManage && (
+              <button
+                onClick={() => setShowSectionModal(true)}
+                className="w-full text-sm text-brand-500 hover:underline text-left mt-2"
+              >
+                + {t('addSection')}
+              </button>
+            )}
           </div>
         </div>
       </div>

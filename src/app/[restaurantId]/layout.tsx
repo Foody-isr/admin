@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/i18n';
 import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
+import PermissionRouteGuard from '@/components/PermissionRouteGuard';
 import IdleModal from '@/components/IdleModal';
 import AiDrawer from '@/components/ai/AiDrawer';
 import { AiChatProvider } from '@/lib/ai-context';
@@ -109,7 +110,9 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     return (
       <PermissionsProvider restaurantId={restaurantId}>
         <WsProvider restaurantId={restaurantId}>
-          <div className="min-h-screen">{children}</div>
+          <div className="min-h-screen">
+            <PermissionRouteGuard>{children}</PermissionRouteGuard>
+          </div>
           {idleVisible && <IdleModal countdown={countdown} onDismiss={dismissIdle} />}
         </WsProvider>
       </PermissionsProvider>
@@ -132,7 +135,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
                 isWideLayout={isWideLayout}
                 pageName={pageName}
               >
-                {children}
+                <PermissionRouteGuard>{children}</PermissionRouteGuard>
               </RestaurantShell>
               <AiDrawer />
               <SearchModal />
