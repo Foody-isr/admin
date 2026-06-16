@@ -1382,20 +1382,32 @@ export interface LoginResponse {
   restaurant_ids: number[];
 }
 
+/**
+ * Who may use the admin app: platform superadmins, or any staff member linked
+ * to at least one restaurant. We no longer gate on the global owner/manager
+ * role — per-restaurant permissions decide what each user can see and do
+ * (the sidebar and pages are permission-driven). A user with no restaurant
+ * link has nothing to manage and is rejected.
+ */
+export function canAccessAdmin(user: User | null, restaurantIds: number[]): boolean {
+  if (!user) return false;
+  if (user.role === 'superadmin') return true;
+  return restaurantIds.length > 0;
+}
+
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/login', undefined, {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 
-  const allowedRoles: Role[] = ['owner', 'manager'];
-  if (!allowedRoles.includes(data.user.role)) {
-    throw new Error('Access denied. Only restaurant owners and managers can log in here.');
-  }
-
   // Decode JWT to get restaurant_ids from claims
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
+
+  if (!canAccessAdmin(data.user, restaurantIds)) {
+    throw new Error('Access denied. Your account is not linked to any restaurant.');
+  }
 
   localStorage.setItem(TOKEN_KEY, data.token);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { User, getStoredUser, getStoredRestaurantIds, isAuthenticated, logout as apiLogout } from '@/lib/api';
+import { User, getStoredUser, getStoredRestaurantIds, isAuthenticated, canAccessAdmin, logout as apiLogout } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isAuthenticated()) {
       const stored = getStoredUser();
       const rids = getStoredRestaurantIds();
-      if (stored && (stored.role === 'owner' || stored.role === 'manager')) {
+      if (canAccessAdmin(stored, rids)) {
         setUserState(stored);
         setRestaurantIds(rids);
       } else {
