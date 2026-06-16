@@ -1430,6 +1430,9 @@ export function isAuthenticated(): boolean {
 
 export interface ValidateInviteResponse {
   valid: boolean;
+  // Discriminates the setup flow: 'owner_onboarding' (full wizard) vs 'staff_setup'
+  // (password + profile only). Older servers may omit this.
+  kind?: 'owner_onboarding' | 'staff_setup';
   user: { email: string; full_name: string; phone: string };
   restaurant?: {
     id: number;
@@ -3258,7 +3261,7 @@ export async function inviteStaff(restaurantId: number, input: {
   full_name: string;
   email: string;
   phone?: string;
-  password: string;
+  password?: string; // optional — staff set their own password via the email invite link
   role?: Role;
   role_id?: number;
 }): Promise<{ member: StaffMember; emailStatus: InviteEmailStatus }> {
