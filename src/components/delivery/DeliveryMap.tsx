@@ -12,11 +12,21 @@ export interface RouteLayer {
   stops: RouteStop[];
 }
 
+export interface CourierMarker {
+  courierId: number;
+  color: string;
+  lat: number;
+  lng: number;
+  stale?: boolean;
+}
+
 export interface DeliveryMapProps {
   /** Single-route convenience (courier view). Ignored if `routes` is provided. */
   stops?: RouteStop[];
   /** Multi-route (dispatcher view), each colored per courier. */
   routes?: RouteLayer[];
+  /** Live courier position dots (dispatcher view). */
+  couriers?: CourierMarker[];
   restaurant?: { lat: number; lng: number };
   highlightCourierId?: number | null;
   onStopClick?: (stop: RouteStop) => void;
@@ -53,6 +63,23 @@ function numberedIcon(label: string, color: string): L.DivIcon {
   return icon;
 }
 
+const courierIconCache = new Map<string, L.DivIcon>();
+function courierIcon(color: string, stale: boolean): L.DivIcon {
+  const key = `${color}|${stale}`;
+  let icon = courierIconCache.get(key);
+  if (!icon) {
+    const op = stale ? 0.4 : 1;
+    icon = L.divIcon({
+      className: 'foody-courier-pin',
+      html: `<div style="opacity:${op};width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 0 4px ${color}33,0 2px 6px rgba(0,0,0,.45)"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+    courierIconCache.set(key, icon);
+  }
+  return icon;
+}
+
 /** Fit the map to all visible points whenever the coordinate SET changes (not array identity). */
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -67,7 +94,7 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 export default function DeliveryMap({
-  stops, routes, restaurant, highlightCourierId, onStopClick, className,
+  stops, routes, couriers, restaurant, highlightCourierId, onStopClick, className,
 }: DeliveryMapProps) {
   const layers: RouteLayer[] = useMemo(() => {
     if (routes && routes.length) return routes;
@@ -117,6 +144,9 @@ export default function DeliveryMap({
             </Fragment>
           );
         })}
+        {(couriers ?? []).map((c) => (
+          <Marker key={`courier-${c.courierId}`} position={[c.lat, c.lng]} icon={courierIcon(c.color, !!c.stale)} />
+        ))}
         <FitBounds points={points} />
       </MapContainer>
     </div>
