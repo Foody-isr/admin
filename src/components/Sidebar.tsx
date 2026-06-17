@@ -155,6 +155,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       clickHref: `${base}/orders/all`,
       subItems: [
         { href: `${base}/orders/all`, labelKey: 'orders' },
+        { href: `${base}/orders/deliveries`, labelKey: 'deliveries' },
         { href: `${base}/orders/production`, labelKey: 'productionTitle' },
       ],
     },

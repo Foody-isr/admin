@@ -518,6 +518,8 @@ export interface Order {
   courier_name?: string;
   courier_phone?: string;
   courier_assigned_at?: string;
+  delivery_address?: string;
+  delivery_city?: string;
 }
 
 export interface StaffMember {
@@ -1348,7 +1350,7 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-async function apiFetch<T>(
+export async function apiFetch<T>(
   path: string,
   restaurantId?: number,
   options?: RequestInit
