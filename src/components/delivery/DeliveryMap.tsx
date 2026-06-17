@@ -53,17 +53,16 @@ function numberedIcon(label: string, color: string): L.DivIcon {
   return icon;
 }
 
-/** Fit the map to all visible points whenever they change. */
+/** Fit the map to all visible points whenever the coordinate SET changes (not array identity). */
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
+  const key = points.map((p) => `${p[0]},${p[1]}`).join('|');
   useEffect(() => {
     if (points.length === 0) return;
-    if (points.length === 1) {
-      map.setView(points[0], 14);
-      return;
-    }
+    if (points.length === 1) { map.setView(points[0], 14); return; }
     map.fitBounds(L.latLngBounds(points), { padding: [40, 40] });
-  }, [map, points]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, key]);
   return null;
 }
 

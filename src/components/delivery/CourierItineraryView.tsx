@@ -44,13 +44,13 @@ type Tab = 'assigned' | 'available';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatEta(seconds: number): string {
+function formatEta(seconds: number, t: (k: string) => string): string {
   if (seconds <= 0) return '';
   const m = Math.round(seconds / 60);
-  if (m < 60) return `${m} min`;
+  if (m < 60) return `${m} ${t('unitMin')}`;
   const h = Math.floor(m / 60);
   const rem = m % 60;
-  return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
+  return rem > 0 ? `${h}${t('unitHour')} ${rem}${t('unitMin')}` : `${h}${t('unitHour')}`;
 }
 
 function stopStatusTone(status: RouteStop['status']): 'success' | 'info' | 'neutral' {
@@ -140,7 +140,7 @@ function CurrentStopCard({
                 {stop.customer_name}
               </p>
               {stop.eta_seconds > 0 && (
-                <p className="text-fs-xs text-[var(--fg-muted)]">{formatEta(stop.eta_seconds)}</p>
+                <p className="text-fs-xs text-[var(--fg-muted)]">{formatEta(stop.eta_seconds, t)}</p>
               )}
             </div>
           </div>
@@ -277,7 +277,7 @@ function StopRow({
         <p className="text-fs-xs text-[var(--fg-muted)] truncate">{stop.address}</p>
         {stop.eta_seconds > 0 && (
           <p className="text-fs-xs" style={{ color: 'var(--fg-subtle)' }}>
-            {formatEta(stop.eta_seconds)}
+            {formatEta(stop.eta_seconds, t)}
           </p>
         )}
       </div>
@@ -302,7 +302,7 @@ function StopRow({
           <button
             onClick={onMoveUp}
             disabled={busy || isFirst}
-            aria-label="Move up"
+            aria-label={t('moveUp')}
             className="flex items-center justify-center w-6 h-5 rounded text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] disabled:opacity-25 disabled:pointer-events-none transition-colors"
           >
             <ChevronUpIcon className="w-3.5 h-3.5" />
@@ -310,7 +310,7 @@ function StopRow({
           <button
             onClick={onMoveDown}
             disabled={busy || isLast}
-            aria-label="Move down"
+            aria-label={t('moveDown')}
             className="flex items-center justify-center w-6 h-5 rounded text-[var(--fg-muted)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)] disabled:opacity-25 disabled:pointer-events-none transition-colors"
           >
             <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -383,11 +383,17 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const [route, setRoute] = useState<DeliveryRoute | null>(null);
   const [tab, setTab] = useState<Tab>('assigned');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [available, setAvailable] = useState<Order[]>([]);
   const prevEvent = useRef(lastEvent);
 
   const load = useCallback(async () => {
-    setRoute(await getMyRoute(rid));
+    try {
+      setError(null);
+      setRoute(await getMyRoute(rid));
+    } catch (e) {
+      setError((e as Error)?.message || 'load failed');
+    }
   }, [rid]);
 
   useEffect(() => { load(); }, [load]);
@@ -418,11 +424,13 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const currentStop = stops.find((s) => s.status !== 'delivered' && s.status !== 'skipped') ?? null;
   const delivered = stops.filter((s) => s.status === 'delivered').length;
 
-  async function withBusy<T>(fn: () => Promise<T>) {
+  async function withBusy<T>(fn: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
     try {
-      const r = await fn();
-      return r;
+      return await fn();
+    } catch (e) {
+      setError((e as Error)?.message || 'action failed');
+      await load();
     } finally {
       setBusy(false);
     }
@@ -477,8 +485,20 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     ? stops.filter((s) => s.id !== currentStop.id)
     : stops;
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading / Error ────────────────────────────────────────────────────────
   if (!route) {
+    if (error) {
+      return (
+        <Card>
+          <CardBody className="flex flex-col items-center gap-[var(--s-3)] py-10 text-center">
+            <p className="text-fs-sm text-[var(--fg-muted)]">{t('couldNotLoad')}</p>
+            <Button variant="secondary" size="md" onClick={load}>
+              {t('retry')}
+            </Button>
+          </CardBody>
+        </Card>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center gap-[var(--s-3)] py-20">
         <div
@@ -505,6 +525,23 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
 
   return (
     <div className="flex flex-col gap-[var(--s-4)] pb-[var(--s-8)]">
+      {/* ── Inline error banner ─────────────────────────────────────────── */}
+      {error && (
+        <div
+          className="flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] rounded-lg text-fs-sm"
+          style={{ background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)', color: 'var(--danger-500)', border: '1px solid color-mix(in oklab, var(--danger-500) 25%, transparent)' }}
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="shrink-0 font-semibold hover:opacity-70 transition-opacity"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* ── Page header ────────────────────────────────────────────────── */}
       <PageHead
         title={t('deliveryRouteToday')}
@@ -513,7 +550,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             <Badge tone={routeTone} dot>{routeStatusLabel}</Badge>
             {route.status === 'active' && route.est_duration_s > 0 && (
               <span className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('etaToFinish').replace('{time}', formatEta(route.est_duration_s))}
+                {t('etaToFinish').replace('{time}', formatEta(route.est_duration_s, t))}
               </span>
             )}
           </span>

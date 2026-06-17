@@ -35,13 +35,13 @@ const COURIER_COLORS = ['#F18A47', '#5AA9E6', '#C792EA', '#5BBF84', '#E6A75A', '
 function colorFor(index: number): string { return COURIER_COLORS[index % COURIER_COLORS.length]; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatEta(seconds: number): string {
+function formatEta(seconds: number, t: (k: string) => string): string {
   if (seconds <= 0) return '';
   const m = Math.round(seconds / 60);
-  if (m < 60) return `${m} min`;
+  if (m < 60) return `${m} ${t('unitMin')}`;
   const h = Math.floor(m / 60);
   const rem = m % 60;
-  return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
+  return rem > 0 ? `${h}${t('unitHour')} ${rem}${t('unitMin')}` : `${h}${t('unitHour')}`;
 }
 
 function routeStatusTone(status: DeliveryRoute['status']): 'neutral' | 'success' | 'info' | 'warning' {
@@ -109,7 +109,7 @@ function CourierCard({ route, courier, color, selected, onSelect, t }: CourierCa
         {route.est_duration_s > 0 && (
           <span className="text-fs-xs text-[var(--fg-subtle)] flex items-center gap-1">
             <ClockIcon className="w-3 h-3" />
-            {t('etaToFinish').replace('{time}', formatEta(route.est_duration_s))}
+            {t('etaToFinish').replace('{time}', formatEta(route.est_duration_s, t))}
           </span>
         )}
       </div>
@@ -129,16 +129,22 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [assignTo, setAssignTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [rts, orders, crs] = await Promise.all([
-      listDeliveryRoutes(rid),
-      listOrders(rid, { type: 'delivery', status: 'ready_for_delivery', payment_status: 'paid' }),
-      listCouriers(rid),
-    ]);
-    setRoutes(rts);
-    setReady(orders.orders.filter((o) => o.courier_id == null));
-    setCouriers(crs);
+    try {
+      setError(null);
+      const [rts, orders, crs] = await Promise.all([
+        listDeliveryRoutes(rid),
+        listOrders(rid, { type: 'delivery', status: 'ready_for_delivery', payment_status: 'paid' }),
+        listCouriers(rid),
+      ]);
+      setRoutes(rts);
+      setReady(orders.orders.filter((o) => o.courier_id == null));
+      setCouriers(crs);
+    } catch (e) {
+      setError((e as Error)?.message || 'load failed');
+    }
   }, [rid]);
 
   useEffect(() => { load(); }, [load]);
@@ -184,6 +190,9 @@ export default function DispatcherView({ rid }: { rid: number }) {
       await buildRoute(rid, assignTo, Array.from(picked));
       setPicked(new Set());
       await load();
+    } catch (e) {
+      setError((e as Error)?.message || 'action failed');
+      await load();
     } finally {
       setBusy(false);
     }
@@ -200,8 +209,39 @@ export default function DispatcherView({ rid }: { rid: number }) {
     setSelectedCourier((prev) => (prev === routeCourierId ? null : routeCourierId));
   };
 
+  // Failed initial load with nothing to show - offer retry
+  if (error && routes.length === 0 && ready.length === 0 && couriers.length === 0) {
+    return (
+      <Card>
+        <CardBody className="flex flex-col items-center gap-[var(--s-3)] py-10 text-center">
+          <p className="text-fs-sm text-[var(--fg-muted)]">{t('couldNotLoad')}</p>
+          <Button variant="secondary" size="md" onClick={load}>
+            {t('retry')}
+          </Button>
+        </CardBody>
+      </Card>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
+      {/* ── Inline error banner ─────────────────────────────────────────────── */}
+      {error && (
+        <div
+          className="col-span-full flex items-center justify-between gap-[var(--s-3)] px-[var(--s-4)] py-[var(--s-3)] rounded-lg text-fs-sm"
+          style={{ background: 'color-mix(in oklab, var(--danger-500) 10%, transparent)', color: 'var(--danger-500)', border: '1px solid color-mix(in oklab, var(--danger-500) 25%, transparent)' }}
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="shrink-0 font-semibold hover:opacity-70 transition-opacity"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {/* ── Left rail ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         {/* Couriers section */}
@@ -295,7 +335,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                               </div>
                             </div>
                           ) : (
-                            <span className="text-fs-xs text-[var(--fg-subtle)]">—</span>
+                            <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noAddress')}</span>
                           )}
                         </DataTableCell>
                       </DataTableRow>
@@ -316,7 +356,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                     value={assignTo ?? ''}
                     onChange={(e) => setAssignTo(e.target.value ? Number(e.target.value) : null)}
                   >
-                    <option value="">—</option>
+                    <option value="">{t('selectCourier')}</option>
                     {couriers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.full_name}
