@@ -13,6 +13,7 @@ import {
   MenuItem,
 } from '@/lib/api';
 import { Field, Select } from '@/components/ds';
+import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,10 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   const [rules, setRules] = useState<AvailabilityRule[]>([]);
   const [ruleId, setRuleId] = useState<number>(item.availability_rule_id ?? 0); // 0 = inherit
   const [override, setOverride] = useState<AvailabilityOverride>(item.availability_override ?? 'auto');
+  // Manual stock count (predefined stock): null = not tracked. `stockTracked`
+  // mirrors null-ness so the toggle survives a 0 value (0 = sold out, not off).
+  const [stockTracked, setStockTracked] = useState<boolean>(item.stock_quantity != null);
+  const [stockValue, setStockValue] = useState<number>(item.stock_quantity ?? 0);
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +99,26 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
       }
     },
     [rid, itemId, ruleId, override, loadPreview, onSaved, t],
+  );
+
+  // Persist the manual stock count. `null` stops tracking (the item goes back
+  // to unlimited unless a recipe constrains it); a number sets the current
+  // count. Reuses the same updateMenuItem endpoint as the rule/override save.
+  const saveStock = useCallback(
+    async (q: number | null) => {
+      setBusy(true);
+      setError(null);
+      try {
+        await updateMenuItem(rid, itemId, { stock_quantity: q });
+        await loadPreview();
+        onSaved?.();
+      } catch (e: any) {
+        setError(e?.message || t('availabilityCouldNotSave'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [rid, itemId, loadPreview, onSaved, t],
   );
 
   function ruleSummary(rule: AvailabilityRule | undefined): string {
@@ -281,6 +306,57 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                     </a>
                   </div>
                   <p className="text-fs-xs text-[var(--fg-subtle)]">{ruleSummary(resolvedRule)}</p>
+
+                  {/* Predefined stock — lets a restaurant track stock by just
+                      setting a number, no recipe required. Used as the buildable
+                      count when the item has no recipe; decrements on orders. */}
+                  <div className="mt-[var(--s-2)] pt-[var(--s-3)] border-t border-[var(--line)] flex flex-col gap-[var(--s-3)]">
+                    <label className="flex items-start gap-[var(--s-3)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={stockTracked}
+                        disabled={busy || !canEdit}
+                        onChange={(e) => {
+                          if (!canEdit) return;
+                          const on = e.target.checked;
+                          setStockTracked(on);
+                          saveStock(on ? stockValue : null);
+                        }}
+                        className="mt-0.5 accent-[var(--brand-500)]"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-fs-sm font-semibold text-[var(--fg)]">
+                          {t('manualStockTitle')}
+                        </span>
+                        <span className="block text-fs-xs text-[var(--fg-muted)] mt-1 leading-[var(--lh-base)]">
+                          {t('manualStockHint')}
+                        </span>
+                      </span>
+                    </label>
+                    {stockTracked && (
+                      <div className="ms-[calc(1rem+var(--s-3))]">
+                        <Field label={t('manualStockField')}>
+                          <div className="flex items-center gap-[var(--s-2)]">
+                            <NumberInput
+                              integer
+                              min={0}
+                              value={stockValue}
+                              disabled={busy || !canEdit}
+                              onChange={setStockValue}
+                              onBlur={() => {
+                                if (canEdit) saveStock(stockValue);
+                              }}
+                              placeholder="0"
+                              className="w-28 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
+                            />
+                            <span className="text-fs-xs text-[var(--fg-muted)]">
+                              {t('availabilityPortions')}
+                            </span>
+                          </div>
+                        </Field>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
