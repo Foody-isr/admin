@@ -24,6 +24,8 @@ import {
   Settings,
   ListPlus,
   CircleDot,
+  Ban,
+  RotateCcw,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -181,6 +183,10 @@ export default function ItemLibraryPage() {
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  // Items with an in-flight quick "86" toggle — disables the button to block
+  // double-taps while the single-field availability mutation is in flight.
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+
   // Availability bulk dropdown — small inline menu in the bulk toolbar.
   // Inline (not a drawer) because there are only three fixed options and the
   // operational use case is fast: 86 these items, or put them back on.
@@ -299,6 +305,46 @@ export default function ItemLibraryPage() {
   const handleToggleAvailability = async (item: FlatItem) => {
     await updateMenuItem(rid, item.id, { is_active: !item.is_active });
     reload();
+  };
+
+  // Per-row "86" quick toggle. Flips availability_override between
+  // 'force_sold_out' and 'auto' — the same single-field mutation as the bulk
+  // availability menu, but for one item in one click straight from the list.
+  // The availability_rule_id is left untouched so flipping back to 'auto'
+  // restores the item's normal rule-driven availability.
+  const handleQuickToggleSoldOut = async (item: FlatItem) => {
+    const next: AvailabilityOverride =
+      item.availability_override === 'force_sold_out' ? 'auto' : 'force_sold_out';
+    setTogglingIds((prev) => new Set(prev).add(item.id));
+    // Optimistic patch so the chip flips instantly — reload() reconciles with
+    // the server's computed state (a rule may still report low/sold_out).
+    setCategories((cats) =>
+      cats.map((c) => ({
+        ...c,
+        items: (c.items ?? []).map((it) =>
+          it.id === item.id
+            ? {
+                ...it,
+                availability_override: next,
+                availability_state: next === 'force_sold_out' ? 'sold_out' : 'available',
+              }
+            : it,
+        ),
+      })),
+    );
+    try {
+      await updateMenuItem(rid, item.id, { availability_override: next });
+      await reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update availability');
+      await reload(); // revert optimistic patch to server truth
+    } finally {
+      setTogglingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(item.id);
+        return n;
+      });
+    }
   };
 
   const toggleSelectAll = () => {
@@ -969,6 +1015,28 @@ export default function ItemLibraryPage() {
                       </DataTableCell>
                       <DataTableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
+                          {canEdit && (() => {
+                            const isForcedSoldOut = item.availability_override === 'force_sold_out';
+                            return (
+                              <button
+                                onClick={() => handleQuickToggleSoldOut(item)}
+                                disabled={togglingIds.has(item.id)}
+                                title={isForcedSoldOut ? t('quickMarkAvailable') : t('quickMarkSoldOut')}
+                                aria-label={isForcedSoldOut ? t('quickMarkAvailable') : t('quickMarkSoldOut')}
+                                className={`p-2 rounded-lg transition-colors group disabled:opacity-40 disabled:cursor-not-allowed ${
+                                  isForcedSoldOut
+                                    ? 'hover:bg-green-50 dark:hover:bg-green-900/20'
+                                    : 'hover:bg-red-50 dark:hover:bg-red-900/20'
+                                }`}
+                              >
+                                {isForcedSoldOut ? (
+                                  <RotateCcw size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-green-600" />
+                                ) : (
+                                  <Ban size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-red-500" />
+                                )}
+                              </button>
+                            );
+                          })()}
                           <button
                             onClick={() => openEditor(item, rid, router)}
                             className="p-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors group"
