@@ -17,7 +17,6 @@ import {
   ChevronUp,
   Image as ImageIcon,
   MoreVertical,
-  Eye,
   Tag,
   Trash2,
   Sparkles,
@@ -30,6 +29,7 @@ import RowActionsMenu from '@/components/common/RowActionsMenu';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
+import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
 import CsvImportModal from '@/components/import/CsvImportModal';
@@ -181,6 +181,10 @@ export default function ItemLibraryPage() {
   // Selection for checkboxes
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  // Items with an in-flight quick "86" toggle — disables the button to block
+  // double-taps while the single-field availability mutation is in flight.
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+
   // Availability bulk dropdown — small inline menu in the bulk toolbar.
   // Inline (not a drawer) because there are only three fixed options and the
   // operational use case is fast: 86 these items, or put them back on.
@@ -299,6 +303,43 @@ export default function ItemLibraryPage() {
   const handleToggleAvailability = async (item: FlatItem) => {
     await updateMenuItem(rid, item.id, { is_active: !item.is_active });
     reload();
+  };
+
+  // The DISPONIBILITÉ pill doubles as the availability toggle (see
+  // AvailabilityPill + availabilityToggleTarget — shared with the carte rows).
+  const handleAvailabilityToggle = async (item: FlatItem) => {
+    const next = availabilityToggleTarget(item.availability_state, item.availability_override);
+    setTogglingIds((prev) => new Set(prev).add(item.id));
+    // Optimistic patch so the pill flips instantly — reload() reconciles with
+    // the server's computed state (a rule may still report low/sold_out after
+    // a restore to 'auto').
+    setCategories((cats) =>
+      cats.map((c) => ({
+        ...c,
+        items: (c.items ?? []).map((it) =>
+          it.id === item.id
+            ? {
+                ...it,
+                availability_override: next,
+                availability_state: next === 'force_sold_out' ? 'sold_out' : 'available',
+              }
+            : it,
+        ),
+      })),
+    );
+    try {
+      await updateMenuItem(rid, item.id, { availability_override: next });
+      await reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update availability');
+      await reload(); // revert optimistic patch to server truth
+    } finally {
+      setTogglingIds((prev) => {
+        const n = new Set(prev);
+        n.delete(item.id);
+        return n;
+      });
+    }
   };
 
   const toggleSelectAll = () => {
@@ -931,36 +972,15 @@ export default function ItemLibraryPage() {
                         </span>
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('availability')}>
-                        {(() => {
-                          // Read-only effective-state chip. Toggling is_active
-                          // lives in the item editor — clicking here only ever
-                          // confused staff because the chip doesn't show
-                          // "active vs inactive", it shows the customer-facing
-                          // state (active AND stockable).
-                          let cls: string;
-                          let label: string;
-                          if (!item.is_active) {
-                            cls = 'bg-neutral-200 dark:bg-neutral-700/40 text-neutral-700 dark:text-neutral-300';
-                            label = t('unavailable');
-                          } else if (item.availability_state === 'sold_out') {
-                            cls = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
-                            label = t('outOfStock');
-                          } else if (item.availability_state === 'low') {
-                            cls = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
-                            label = t('lowStock');
-                          } else {
-                            cls = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-                            label = t('available');
-                          }
-                          return (
-                            <span
-                              title={item.availability_bottleneck || undefined}
-                              className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })()}
+                        <AvailabilityPill
+                          state={item.availability_state}
+                          override={item.availability_override}
+                          isActive={item.is_active}
+                          bottleneck={item.availability_bottleneck}
+                          canEdit={canEdit}
+                          pending={togglingIds.has(item.id)}
+                          onToggle={() => handleAvailabilityToggle(item)}
+                        />
                       </DataTableCell>
                       <DataTableCell align="right" mobileLabel={t('price')}>
                         <span className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">
@@ -968,14 +988,7 @@ export default function ItemLibraryPage() {
                         </span>
                       </DataTableCell>
                       <DataTableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openEditor(item, rid, router)}
-                            className="p-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors group"
-                            title={t('viewDetails') || 'Voir les détails'}
-                          >
-                            <Eye size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-orange-500" />
-                          </button>
+                        <div className="flex items-center justify-end gap-2">
                           {canEdit && (
                           <RowActionsMenu
                             actions={[

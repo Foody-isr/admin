@@ -426,6 +426,11 @@ export interface MenuItem {
   availability_rule_id?: number | null;
   /** Staff "86" switch: 'auto' | 'force_available' | 'force_sold_out'. */
   availability_override?: AvailabilityOverride;
+  /** Optional per-item manual stock count for restaurants not tracking
+   *  recipes yet. When set (and the item has no recipe), availability follows
+   *  the item's rule based on this number; it decrements as orders come in.
+   *  null = not tracked (unlimited unless a recipe constrains it). */
+  stock_quantity?: number | null;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
@@ -2926,6 +2931,51 @@ export async function createOrder(
     `/api/v1/orders?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Adds a single line to an existing order. The server recomputes the line
+ *  price (item + variant + modifiers), the order total, and broadcasts
+ *  `order.updated`. Mirrors `POST /api/v1/orders/:id/items`. */
+export async function addOrderItem(
+  restaurantId: number,
+  orderId: number,
+  input: CreateOrderItemInput,
+): Promise<{ item: OrderItem }> {
+  return apiFetch<{ item: OrderItem }>(
+    `/api/v1/orders/${orderId}/items?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Updates an existing order line wholesale (quantity, notes, variant, and the
+ *  full modifier set — modifiers are replaced, not merged). The server
+ *  re-resolves the price and recomputes the order total. Mirrors
+ *  `PUT /api/v1/orders/items/:itemId`. */
+export async function updateOrderItem(
+  restaurantId: number,
+  itemId: number,
+  input: CreateOrderItemInput,
+): Promise<{ item: OrderItem }> {
+  return apiFetch<{ item: OrderItem }>(
+    `/api/v1/orders/items/${itemId}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
+/** Removes a line from an order. The server recomputes the total and
+ *  broadcasts `order.updated`. Mirrors `DELETE /api/v1/orders/:id/items/:itemId`. */
+export async function removeOrderItem(
+  restaurantId: number,
+  orderId: number,
+  itemId: number,
+): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/orders/${orderId}/items/${itemId}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'DELETE' },
   );
 }
 
