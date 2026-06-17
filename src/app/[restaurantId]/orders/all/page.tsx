@@ -17,6 +17,7 @@ import { useWs, WsEvent } from '@/lib/ws-context';
 import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n } from '@/lib/i18n';
+import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
@@ -304,12 +305,15 @@ export default function OrdersPage() {
   // never renders muted cells based on a stale guess.
   const [weekStartDay, setWeekStartDay] = useState<WeekStartDay>(1);
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  // Minimal restaurant identity for printed tickets (name/address/phone header).
+  const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
   useEffect(() => {
     if (!rid) return;
     getRestaurant(rid)
       .then((r) => {
         setWeekStartDay(clampWeekStartDay(r.week_start_day));
         setWorkdays(getEffectiveWorkdays(r));
+        setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
       })
       .catch(() => {});
   }, [rid]);
@@ -977,6 +981,7 @@ export default function OrdersPage() {
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
         couriers={couriers}
         onAssignCourier={(courierId) => selectedOrder && handleAssignCourier(selectedOrder.id, courierId)}
+        restaurantInfo={restaurantInfo}
       />
 
       {/* Take Payment dialog */}
@@ -1019,7 +1024,7 @@ function OrderDetailDrawer({
   order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder,
-  couriers, onAssignCourier,
+  couriers, onAssignCourier, restaurantInfo,
 }: {
   order: Order | null;
   canManage: boolean;
@@ -1036,8 +1041,9 @@ function OrderDetailDrawer({
   onCloseOrder: () => void;
   couriers: StaffMember[];
   onAssignCourier: (courierId: number | null) => void;
+  restaurantInfo: PrintTicketRestaurant;
 }) {
-  const { t } = useI18n();
+  const { t, locale, direction } = useI18n();
 
   // Payment-link retrieval (for orders awaiting online payment). The link is
   // regenerated on demand — not stored — so staff can re-share it any time.
@@ -1170,6 +1176,30 @@ function OrderDetailDrawer({
   const displayedLineCount = regularItems.length + comboGroups.length;
   const totalUnits = allItems.reduce((s, i) => s + i.quantity, 0);
 
+  const handlePrint = (kind: TicketKind) => {
+    printOrderTicket({
+      order,
+      kind,
+      restaurant: restaurantInfo,
+      locale,
+      dir: direction,
+      labels: {
+        receiptHeading: t('receiptHeading') || 'RECEIPT',
+        kitchenHeading: t('kitchenHeading') || 'KITCHEN',
+        orderNumber: t('orderNumber').replace('{id}', String(order.id)),
+        date: t('date'),
+        type: t('type'),
+        typeValue: localizeOrderType(order.order_type, t),
+        table: t('tableHeading') || 'Table',
+        customer: t('customer'),
+        phone: t('phone'),
+        total: t('total'),
+        uncategorized: t('uncategorized') || 'Autres',
+        comboFallback: t('comboMenuFallback') || 'Combo',
+      },
+    });
+  };
+
   const primaryBtn = (() => {
     const isDelivery = order.order_type === 'delivery';
     switch (order.status) {
@@ -1278,9 +1308,7 @@ function OrderDetailDrawer({
                 <EditIcon /> {t('edit') || 'Modifier'}
               </Button>
             )}
-            <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
-              <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
-            </Button>
+            <PrintTicketMenu onSelect={handlePrint} />
           </div>
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
             {canManage && canTakePayment && (
@@ -1927,6 +1955,63 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Print Ticket Menu ───────────────────────────────────────────────────────
+// Lets staff pick which ticket to print: customer receipt (with prices, mirrors
+// foodyweb) or kitchen ticket (no prices). Opens upward since it lives in the
+// drawer footer. Printing itself is browser-based (see lib/print-ticket.ts).
+
+function PrintTicketMenu({ onSelect }: { onSelect: (kind: TicketKind) => void }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const choose = (kind: TicketKind) => {
+    setOpen(false);
+    onSelect(kind);
+  };
+
+  return (
+    <div className="relative flex-1 md:flex-none" ref={ref}>
+      <Button
+        variant="secondary"
+        size="md"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full md:w-auto justify-center"
+      >
+        <PrinterIcon /> {t('printReceipt') || 'Imprimer ticket'}
+        <ChevronDownIcon className="w-3.5 h-3.5" />
+      </Button>
+      {open && (
+        <div
+          className="absolute bottom-full left-0 mb-1 rounded-standard py-1 min-w-[200px] z-50 shadow-lg"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
+          <button
+            onClick={() => choose('receipt')}
+            className="block w-full text-left px-3 py-2 text-sm text-fg-secondary hover:text-fg-primary transition-colors"
+          >
+            {t('printCustomerReceipt') || 'Reçu client'}
+          </button>
+          <button
+            onClick={() => choose('kitchen')}
+            className="block w-full text-left px-3 py-2 text-sm text-fg-secondary hover:text-fg-primary transition-colors"
+          >
+            {t('printKitchenTicket') || 'Ticket cuisine'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
