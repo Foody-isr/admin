@@ -131,12 +131,18 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     return parts.join(' · ');
   }
 
-  // Hide deprecated "Always available"-style rules (track=false, non-default)
-  // from the picker — their effect is reachable via the "Toujours disponible"
-  // mode. Keep them listed when an existing item still points to one so the
-  // owner can see what's selected before switching away.
+  // Which rules to list explicitly in the picker. Two are intentionally hidden,
+  // because each is already represented by another control — listing them again
+  // is redundant and confusing:
+  //   • the restaurant default rule → already the "Inherit (… default)" option,
+  //     which is the canonical, future-proof way to follow it (it tracks
+  //     whichever rule is the default over time);
+  //   • deprecated "Always available" presets (track === false) → reachable via
+  //     the "Toujours disponible" mode.
+  // Either is kept when the item is *explicitly* pinned to it (r.id === ruleId)
+  // so the owner still sees their current selection before switching away.
   const visibleRules = useMemo(
-    () => rules.filter((r) => r.id === ruleId || r.is_default || r.track !== false),
+    () => rules.filter((r) => r.id === ruleId || (!r.is_default && r.track !== false)),
     [rules, ruleId],
   );
 
