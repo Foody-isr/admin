@@ -2927,6 +2927,51 @@ export async function createOrder(
   );
 }
 
+/** Adds a single line to an existing order. The server recomputes the line
+ *  price (item + variant + modifiers), the order total, and broadcasts
+ *  `order.updated`. Mirrors `POST /api/v1/orders/:id/items`. */
+export async function addOrderItem(
+  restaurantId: number,
+  orderId: number,
+  input: CreateOrderItemInput,
+): Promise<{ item: OrderItem }> {
+  return apiFetch<{ item: OrderItem }>(
+    `/api/v1/orders/${orderId}/items?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Updates an existing order line wholesale (quantity, notes, variant, and the
+ *  full modifier set — modifiers are replaced, not merged). The server
+ *  re-resolves the price and recomputes the order total. Mirrors
+ *  `PUT /api/v1/orders/items/:itemId`. */
+export async function updateOrderItem(
+  restaurantId: number,
+  itemId: number,
+  input: CreateOrderItemInput,
+): Promise<{ item: OrderItem }> {
+  return apiFetch<{ item: OrderItem }>(
+    `/api/v1/orders/items/${itemId}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
+/** Removes a line from an order. The server recomputes the total and
+ *  broadcasts `order.updated`. Mirrors `DELETE /api/v1/orders/:id/items/:itemId`. */
+export async function removeOrderItem(
+  restaurantId: number,
+  orderId: number,
+  itemId: number,
+): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/orders/${orderId}/items/${itemId}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+}
+
 /** (Re)generates a payment link for an existing unpaid/pending order so staff
  *  can copy/share it again. The URL is not persisted server-side — it's minted
  *  on demand by the provider — so each call returns a fresh link. Wraps the
