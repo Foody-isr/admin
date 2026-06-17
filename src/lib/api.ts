@@ -1343,7 +1343,7 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-async function apiFetch<T>(
+export async function apiFetch<T>(
   path: string,
   restaurantId?: number,
   options?: RequestInit
