@@ -91,7 +91,7 @@ function RouteProgress({ delivered, total }: { delivered: number; total: number 
 function NoStopsCard({ t }: { t: (k: string) => string }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-[var(--s-3)] py-10 text-center rounded-r-lg border border-dashed"
+      className="flex flex-col items-center justify-center gap-[var(--s-3)] py-10 text-center rounded-lg border border-dashed"
       style={{ borderColor: 'var(--line)', color: 'var(--fg-subtle)' }}
     >
       <PackageIcon className="w-10 h-10 opacity-40" />
@@ -341,7 +341,8 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
     prevEvent.current = lastEvent;
     if (lastEvent.type === 'route.updated') {
       const r = lastEvent.payload as unknown as DeliveryRoute;
-      if (route && r?.id === route.id) setRoute(r);
+      if (!route) { load(); return; }
+      if (r?.id === route.id) setRoute(r);
     } else if (lastEvent.type.startsWith('order.')) {
       load();
     }
@@ -487,7 +488,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
           <div className="flex flex-col gap-[var(--s-4)]">
             {/* Map — ~40vh, no SSR, Leaflet requires client-only */}
             {stops.length > 0 && (
-              <div className="rounded-r-lg overflow-hidden border border-[var(--line)] shadow-1" style={{ height: '40vh' }}>
+              <div className="rounded-lg overflow-hidden border border-[var(--line)] shadow-1" style={{ height: '40vh' }}>
                 <DeliveryMap stops={stops} className="h-full w-full" />
               </div>
             )}
@@ -559,7 +560,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
 function NoAvailablePlaceholder({ t }: { t: (k: string) => string }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-[var(--s-3)] py-16 text-center rounded-r-lg border border-dashed"
+      className="flex flex-col items-center justify-center gap-[var(--s-3)] py-16 text-center rounded-lg border border-dashed"
       style={{ borderColor: 'var(--line)', color: 'var(--fg-subtle)' }}
     >
       <PackageIcon className="w-10 h-10 opacity-40" />
