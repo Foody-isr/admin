@@ -201,7 +201,7 @@ export default function MenuDetailPage() {
   // global to the item, so this takes it off (or back on) every menu and
   // channel, not just this carte.
   const handleToggleSoldOut = async (groupId: number, item: MenuItem) => {
-    const next = availabilityToggleTarget(item.availability_state);
+    const next = availabilityToggleTarget(item.availability_state, item.availability_override);
     patchGroupItems(groupId, (items) =>
       items.map((i) =>
         i.id === item.id
@@ -1666,6 +1666,7 @@ function ItemRow({
         <div className="flex justify-end md:justify-start">
           <AvailabilityPill
             state={item.availability_state}
+            override={item.availability_override}
             isActive={item.is_active}
             bottleneck={item.availability_bottleneck}
             canEdit={canEdit}

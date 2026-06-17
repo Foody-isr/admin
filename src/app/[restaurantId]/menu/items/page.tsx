@@ -308,7 +308,7 @@ export default function ItemLibraryPage() {
   // The DISPONIBILITÉ pill doubles as the availability toggle (see
   // AvailabilityPill + availabilityToggleTarget — shared with the carte rows).
   const handleAvailabilityToggle = async (item: FlatItem) => {
-    const next = availabilityToggleTarget(item.availability_state);
+    const next = availabilityToggleTarget(item.availability_state, item.availability_override);
     setTogglingIds((prev) => new Set(prev).add(item.id));
     // Optimistic patch so the pill flips instantly — reload() reconciles with
     // the server's computed state (a rule may still report low/sold_out after
@@ -974,6 +974,7 @@ export default function ItemLibraryPage() {
                       <DataTableCell mobileLabel={t('availability')}>
                         <AvailabilityPill
                           state={item.availability_state}
+                          override={item.availability_override}
                           isActive={item.is_active}
                           bottleneck={item.availability_bottleneck}
                           canEdit={canEdit}

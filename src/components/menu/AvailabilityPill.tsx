@@ -4,16 +4,32 @@ import { ChevronDown } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { AvailabilityState, AvailabilityOverride } from '@/lib/api';
 
-// The override to apply when the availability pill is toggled, keyed on the
-// item's *visible* state. Binary and always a forced override (never 'auto'):
-// a forced override wins server-side, so the optimistic flip matches the
-// reloaded truth and the pill never bounces / needs a second click.
-export function availabilityToggleTarget(state?: AvailabilityState): AvailabilityOverride {
-  return state === 'sold_out' || state === 'hidden' ? 'force_available' : 'force_sold_out';
+// Whether the item reads as sold-out for display/toggle purposes. The stored
+// `availability_override` wins (it's always present on the wire), then the
+// computed `availability_state`. This keeps the pill correct even on responses
+// that carry the override but not the computed state (e.g. the carte's
+// /menu/menus list before it was stamped).
+function isEffectivelySoldOut(state?: AvailabilityState, override?: AvailabilityOverride): boolean {
+  if (override === 'force_sold_out') return true;
+  if (override === 'force_available') return false;
+  return state === 'sold_out' || state === 'hidden';
+}
+
+// The override to apply when the availability pill is toggled. Binary and always
+// a forced override (never 'auto'): a forced override wins server-side, so the
+// optimistic flip matches the reloaded truth and the pill never bounces / needs
+// a second click.
+export function availabilityToggleTarget(
+  state?: AvailabilityState,
+  override?: AvailabilityOverride,
+): AvailabilityOverride {
+  return isEffectivelySoldOut(state, override) ? 'force_available' : 'force_sold_out';
 }
 
 interface Props {
   state?: AvailabilityState;
+  /** Stored staff override — wins over the computed state for display/toggle. */
+  override?: AvailabilityOverride;
   /** item.is_active — inactive items render read-only (a different axis). */
   isActive: boolean;
   /** Limiting ingredient/prep, shown as the read-only chip's tooltip. */
@@ -31,7 +47,7 @@ interface Props {
  * effective state (Disponible / Stock faible / Rupture / Indisponible) and, for
  * active items the user can edit, doubles as a one-click availability toggle.
  */
-export function AvailabilityPill({ state, isActive, bottleneck, canEdit, pending, onToggle }: Props) {
+export function AvailabilityPill({ state, override, isActive, bottleneck, canEdit, pending, onToggle }: Props) {
   const { t } = useI18n();
 
   let cls: string;
@@ -39,10 +55,10 @@ export function AvailabilityPill({ state, isActive, bottleneck, canEdit, pending
   if (!isActive) {
     cls = 'bg-neutral-200 dark:bg-neutral-700/40 text-neutral-700 dark:text-neutral-300';
     label = t('unavailable');
-  } else if (state === 'sold_out') {
+  } else if (isEffectivelySoldOut(state, override)) {
     cls = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
     label = t('outOfStock');
-  } else if (state === 'low') {
+  } else if (override !== 'force_available' && state === 'low') {
     cls = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
     label = t('lowStock');
   } else {
@@ -63,7 +79,7 @@ export function AvailabilityPill({ state, isActive, bottleneck, canEdit, pending
   }
 
   const tip =
-    availabilityToggleTarget(state) === 'force_sold_out'
+    availabilityToggleTarget(state, override) === 'force_sold_out'
       ? t('quickMarkSoldOut')
       : t('quickMarkAvailable');
   return (
