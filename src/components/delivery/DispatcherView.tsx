@@ -131,6 +131,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [assignTo, setAssignTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -221,7 +226,6 @@ export default function DispatcherView({ rid }: { rid: number }) {
 
   // ── Live courier markers ───────────────────────────────────────────────────
   const courierMarkers = useMemo<CourierMarker[]>(() => {
-    const now = Date.now();
     const markers: CourierMarker[] = [];
     routes.forEach((r, i) => {
       const lp = livePositions.get(r.courier_id);
@@ -231,11 +235,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
         color: colorFor(i),
         lat: lp.lat,
         lng: lp.lng,
-        stale: now - lp.updatedAt > 60000,
+        stale: nowTick - lp.updatedAt > 60000,
       });
     });
     return markers;
-  }, [routes, livePositions]);
+  }, [routes, livePositions, nowTick]);
 
   // ── Courier lookup map ─────────────────────────────────────────────────────
   const courierById = useMemo<Map<number, StaffMember>>(() => {
