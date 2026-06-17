@@ -8,9 +8,10 @@ import {
   reorderGroupItems,
   listAllItems, addItemsToGroup, removeItemFromGroup,
   listGroupMemberships, getBatchFulfillmentConfig,
-  getAllCategories,
+  getAllCategories, updateMenuItem,
   Menu, MenuGroup, MenuItem, MenuCategory, Restaurant,
   MenuGroupMembership, BatchFulfillmentConfigResponse, GroupItemScope,
+  AvailabilityOverride,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
@@ -29,6 +30,7 @@ import {
   GripVerticalIcon,
   MonitorSmartphoneIcon,
   ExternalLinkIcon,
+  BanIcon,
 } from 'lucide-react';
 
 type TFn = (k: string) => string;
@@ -39,7 +41,7 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'
 
 // Grid column template — applied at md+ only. On mobile each row collapses to a
 // stacked card with inline labels (see ItemRow below).
-const GRID_COLS_DESKTOP = 'md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_40px] md:items-center';
+const GRID_COLS_DESKTOP = 'md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_76px] md:items-center';
 
 function channelsMeta(m: Menu, t: TFn): string {
   const parts = [m.pos_enabled && t('posSystem'), m.web_enabled && 'Web'].filter(Boolean) as string[];
@@ -190,6 +192,36 @@ export default function MenuDetailPage() {
       ...prev,
       groups: prev.groups?.map((g) => g.id === groupId ? { ...g, items: updater(g.items ?? []) } : g),
     } : prev);
+  };
+
+  // Quick "86" from the carte. Flips availability_override between
+  // 'force_sold_out' and 'auto' — the same single-field mutation used by the
+  // item library's row toggle and the bulk availability menu. Availability is
+  // global to the item, so this takes it off (or back on) every menu and
+  // channel, not just this carte; the ItemRow button's tooltip says as much.
+  // availability_rule_id is left untouched so 'auto' restores rule-driven
+  // availability. Optimistic patch flips the row instantly; reload reconciles.
+  const handleToggleSoldOut = async (groupId: number, item: MenuItem) => {
+    const next: AvailabilityOverride =
+      item.availability_override === 'force_sold_out' ? 'auto' : 'force_sold_out';
+    patchGroupItems(groupId, (items) =>
+      items.map((i) =>
+        i.id === item.id
+          ? {
+              ...i,
+              availability_override: next,
+              availability_state: next === 'force_sold_out' ? 'sold_out' : 'available',
+            }
+          : i,
+      ),
+    );
+    try {
+      await updateMenuItem(rid, item.id, { availability_override: next });
+      reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update availability');
+      reload(); // revert optimistic patch to server truth
+    }
   };
 
   // Navigate to the article editor with a return address: the editor's Back
@@ -838,6 +870,7 @@ export default function MenuDetailPage() {
                       onItemDrop={(e) => handleItemDrop(e, group.id)}
                       onItemDragEnd={() => setDraggingItem(null)}
                       onOpen={() => openItem(item)}
+                      onToggleSoldOut={() => handleToggleSoldOut(group.id, item)}
                       onRemoved={() => {
                         patchGroupItems(group.id, (items) => items.filter((i) => i.id !== item.id));
                         reload();
@@ -1462,7 +1495,7 @@ function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick 
 // ─── Item Row (CSS Grid) ─────────────────────────────────────────────────────
 
 function ItemRow({
-  item, restaurantName, menu, t, rid, groupId, onOpen, onRemoved,
+  item, restaurantName, menu, t, rid, groupId, onOpen, onRemoved, onToggleSoldOut,
   isSelected, onToggleSelected, canEdit,
   isDragging, onItemDragStart, onItemDragOver, onItemDrop, onItemDragEnd,
 }: {
@@ -1474,6 +1507,7 @@ function ItemRow({
   groupId: number;
   onOpen: () => void;
   onRemoved: () => void;
+  onToggleSoldOut: () => Promise<void>;
   isSelected: boolean;
   onToggleSelected: () => void;
   canEdit: boolean;
@@ -1485,7 +1519,19 @@ function ItemRow({
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+  const [toggling, setToggling] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const isForcedSoldOut = item.availability_override === 'force_sold_out';
+
+  const handleQuickToggle = async () => {
+    setToggling(true);
+    try {
+      await onToggleSoldOut();
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const openDropdown = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -1546,7 +1592,7 @@ function ItemRow({
       </div>
 
       {/* Article name + image (card heading on mobile) */}
-      <div className="flex items-center gap-3 min-w-0 pe-10 md:pe-0">
+      <div className="flex items-center gap-3 min-w-0 pe-20 md:pe-0">
         {item.image_url ? (
           <img src={item.image_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
         ) : (
@@ -1587,7 +1633,22 @@ function ItemRow({
 
       {/* Actions — pinned to top-end corner on mobile, inline on desktop */}
       {canEdit && (
-      <div className="absolute top-3 end-4 md:static md:flex md:justify-center" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute top-3 end-4 flex items-center gap-0.5 md:static md:justify-center" onClick={(e) => e.stopPropagation()}>
+        {/* Quick "86" toggle — colored red while the item is forced sold out so
+            servers can see at a glance which items are off the carte. */}
+        <button
+          onClick={handleQuickToggle}
+          disabled={toggling}
+          title={isForcedSoldOut ? `${t('quickMarkAvailable')} (${t('allChannels')})` : `${t('quickMarkSoldOut')} (${t('allChannels')})`}
+          aria-label={isForcedSoldOut ? t('quickMarkAvailable') : t('quickMarkSoldOut')}
+          className={`p-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+            isForcedSoldOut
+              ? 'bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30'
+              : 'text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-red-500'
+          }`}
+        >
+          <BanIcon className="w-4 h-4" />
+        </button>
         <button
           ref={buttonRef}
           onClick={() => (dropdownOpen ? setDropdownOpen(false) : openDropdown())}
