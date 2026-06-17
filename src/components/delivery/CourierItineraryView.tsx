@@ -6,8 +6,10 @@ import { useI18n } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import {
   getMyRoute, startRoute, markArrived, markStopDelivered, reorderStops, optimizeRoute,
+  listAvailableDeliveries, addStops,
   type DeliveryRoute, type RouteStop,
 } from '@/lib/delivery';
+import type { Order } from '@/lib/api';
 import { navUrl, callUrl } from '@/lib/delivery-links';
 import {
   Badge,
@@ -319,6 +321,58 @@ function StopRow({
   );
 }
 
+/** Single row in the available (self-pick) deliveries list. */
+function AvailableOrderRow({
+  order,
+  index,
+  total,
+  busy,
+  onAdd,
+  t,
+}: {
+  order: Order;
+  index: number;
+  total: number;
+  busy: boolean;
+  onAdd: (o: Order) => void;
+  t: (k: string) => string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-[var(--s-3)] py-[var(--s-3)] px-[var(--s-4)]"
+      style={{ borderBottom: index < total - 1 ? '1px solid var(--line)' : 'none' }}
+    >
+      {/* Customer */}
+      <div className="flex-1 min-w-0">
+        <p className="text-fs-sm font-medium text-[var(--fg)] truncate leading-tight">
+          {order.customer_name}
+        </p>
+        <p className="text-fs-xs text-[var(--fg-muted)] tabular-nums mt-0.5">
+          #{order.id}
+        </p>
+      </div>
+
+      {/* Total */}
+      {order.total_amount > 0 && (
+        <span className="text-fs-sm font-medium tabular-nums shrink-0" style={{ color: 'var(--fg-muted)' }}>
+          ₪{order.total_amount.toFixed(0)}
+        </span>
+      )}
+
+      {/* Add button */}
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={busy}
+        onClick={() => onAdd(order)}
+        className="shrink-0"
+      >
+        {t('addToRoute')}
+      </Button>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CourierItineraryView({ rid }: { rid: number }) {
@@ -327,6 +381,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const [route, setRoute] = useState<DeliveryRoute | null>(null);
   const [tab, setTab] = useState<Tab>('assigned');
   const [busy, setBusy] = useState(false);
+  const [available, setAvailable] = useState<Order[]>([]);
   const prevEvent = useRef(lastEvent);
 
   const load = useCallback(async () => {
@@ -334,6 +389,12 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   }, [rid]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadAvailable = useCallback(async () => {
+    setAvailable(await listAvailableDeliveries(rid));
+  }, [rid]);
+
+  useEffect(() => { if (tab === 'available') loadAvailable(); }, [tab, loadAvailable]);
 
   // Realtime: replace state when this courier's route changes.
   useEffect(() => {
@@ -399,6 +460,14 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
       if (j < 0 || j >= ids.length) return;
       [ids[i], ids[j]] = [ids[j], ids[i]];
       setRoute(await reorderStops(rid, route.id, ids));
+    });
+
+  const onAdd = (order: Order) =>
+    withBusy(async () => {
+      if (!route) return;
+      const updated = await addStops(rid, route.id, [order.id]);
+      setRoute(updated);
+      await loadAvailable();
     });
 
   // Upcoming = stops after the current one (or all when no current stop)
@@ -479,7 +548,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             )}
           </Tab>
           <Tab value="available">
-            {t('availableCount').replace('{n}', '…')}
+            {t('availableCount').replace('{n}', String(available.length))}
           </Tab>
         </TabsList>
 
@@ -547,24 +616,35 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
           </div>
         </TabsContent>
 
-        {/* ── Available tab — body implemented in Task 6 ───────────────── */}
+        {/* ── Available tab ────────────────────────────────────────────── */}
         <TabsContent value="available">
-          <NoAvailablePlaceholder t={t} />
+          {available.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center gap-[var(--s-3)] py-16 text-center rounded-lg border border-dashed"
+              style={{ borderColor: 'var(--line)', color: 'var(--fg-subtle)' }}
+            >
+              <PackageIcon className="w-10 h-10 opacity-40" />
+              <p className="text-fs-sm font-medium">{t('noAvailableDeliveries')}</p>
+            </div>
+          ) : (
+            <Card>
+              <div>
+                {available.map((order, i) => (
+                  <AvailableOrderRow
+                    key={order.id}
+                    order={order}
+                    index={i}
+                    total={available.length}
+                    busy={busy}
+                    onAdd={onAdd}
+                    t={t}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-// Placeholder for Task 6 (Available tab body).
-function NoAvailablePlaceholder({ t }: { t: (k: string) => string }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center gap-[var(--s-3)] py-16 text-center rounded-lg border border-dashed"
-      style={{ borderColor: 'var(--line)', color: 'var(--fg-subtle)' }}
-    >
-      <PackageIcon className="w-10 h-10 opacity-40" />
-      <p className="text-fs-sm font-medium">{t('noAvailableDeliveries')}</p>
     </div>
   );
 }
