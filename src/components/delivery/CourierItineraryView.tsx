@@ -11,6 +11,7 @@ import {
 } from '@/lib/delivery';
 import type { Order } from '@/lib/api';
 import { navUrl, callUrl } from '@/lib/delivery-links';
+import { useLocationReporter } from '@/lib/useLocationReporter';
 import {
   Badge,
   Button,
@@ -386,6 +387,7 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
   const [error, setError] = useState<string | null>(null);
   const [available, setAvailable] = useState<Order[]>([]);
   const prevEvent = useRef(lastEvent);
+  const { denied: locationDenied } = useLocationReporter(rid, route?.status === 'active');
 
   const load = useCallback(async () => {
     try {
@@ -541,6 +543,10 @@ export default function CourierItineraryView({ rid }: { rid: number }) {
             ✕
           </button>
         </div>
+      )}
+      {/* ── Location off notice (non-blocking) ─────────────────────── */}
+      {locationDenied && (
+        <p className="text-fs-xs text-[var(--fg-muted)]">{t('locationOffNotice')}</p>
       )}
       {/* ── Page header ────────────────────────────────────────────────── */}
       <PageHead

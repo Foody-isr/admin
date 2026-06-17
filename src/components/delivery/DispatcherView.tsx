@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import { listDeliveryRoutes, buildRoute, type DeliveryRoute } from '@/lib/delivery';
 import { listOrders, listCouriers, type Order, type StaffMember } from '@/lib/api';
-import type { RouteLayer } from '@/components/delivery/DeliveryMap';
+import type { RouteLayer, CourierMarker } from '@/components/delivery/DeliveryMap';
 import {
   Badge,
   Button,
@@ -123,6 +123,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const { lastEvent } = useWs();
   const prevEvent = useRef(lastEvent);
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
+  const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
@@ -130,6 +131,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [assignTo, setAssignTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -140,6 +146,17 @@ export default function DispatcherView({ rid }: { rid: number }) {
         listCouriers(rid),
       ]);
       setRoutes(rts);
+      const seed = new Map<number, { lat: number; lng: number; updatedAt: number }>();
+      for (const r of rts) {
+        if (r.last_location) {
+          seed.set(r.courier_id, {
+            lat: r.last_location.lat,
+            lng: r.last_location.lng,
+            updatedAt: Date.parse(r.last_location.updated_at),
+          });
+        }
+      }
+      setLivePositions(seed);
       setReady(orders.orders.filter((o) => o.courier_id == null));
       setCouriers(crs);
     } catch (e) {
@@ -152,6 +169,15 @@ export default function DispatcherView({ rid }: { rid: number }) {
   useEffect(() => {
     if (!lastEvent || lastEvent === prevEvent.current) return;
     prevEvent.current = lastEvent;
+    if (lastEvent.type === 'courier.location') {
+      const p = lastEvent.payload as unknown as { courier_id: number; lat: number; lng: number; updated_at: string };
+      setLivePositions((prev) => {
+        const next = new Map(prev);
+        next.set(p.courier_id, { lat: p.lat, lng: p.lng, updatedAt: Date.parse(p.updated_at) });
+        return next;
+      });
+      return; // a position tick should not trigger a full reload
+    }
     if (lastEvent.type === 'route.updated' || lastEvent.type.startsWith('order.')) load();
   }, [lastEvent, load]);
 
@@ -197,6 +223,23 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setBusy(false);
     }
   };
+
+  // ── Live courier markers ───────────────────────────────────────────────────
+  const courierMarkers = useMemo<CourierMarker[]>(() => {
+    const markers: CourierMarker[] = [];
+    routes.forEach((r, i) => {
+      const lp = livePositions.get(r.courier_id);
+      if (!lp) return;
+      markers.push({
+        courierId: r.courier_id,
+        color: colorFor(i),
+        lat: lp.lat,
+        lng: lp.lng,
+        stale: nowTick - lp.updatedAt > 60000,
+      });
+    });
+    return markers;
+  }, [routes, livePositions, nowTick]);
 
   // ── Courier lookup map ─────────────────────────────────────────────────────
   const courierById = useMemo<Map<number, StaffMember>>(() => {
@@ -383,6 +426,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       {/* ── Map (desktop only) ───────────────────────────────────────────────── */}
       <DeliveryMap
         routes={layers}
+        couriers={courierMarkers}
         highlightCourierId={selectedCourier}
         className="h-[70vh] rounded-xl overflow-hidden hidden lg:block"
       />
