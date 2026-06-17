@@ -30,22 +30,27 @@ function located(stops: RouteStop[]): RouteStop[] {
   return stops.filter((s) => s.lat != null && s.lng != null);
 }
 
-function numberedIcon(label: string, color: string): L.DivIcon {
-  return L.divIcon({
-    className: 'foody-stop-pin',
-    html: `<div style="background:${color};color:#1a1a1a;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">${label}</div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  });
-}
+const HOME_ICON = L.divIcon({
+  className: 'foody-home-pin',
+  html: `<div style="background:${RESTAURANT_GREEN};color:#10271a;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">★</div>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
 
-function homeIcon(): L.DivIcon {
-  return L.divIcon({
-    className: 'foody-home-pin',
-    html: `<div style="background:${RESTAURANT_GREEN};color:#10271a;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">★</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  });
+const numberedIconCache = new Map<string, L.DivIcon>();
+function numberedIcon(label: string, color: string): L.DivIcon {
+  const key = `${label}|${color}`;
+  let icon = numberedIconCache.get(key);
+  if (!icon) {
+    icon = L.divIcon({
+      className: 'foody-stop-pin',
+      html: `<div style="background:${color};color:#1a1a1a;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff">${label}</div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+    numberedIconCache.set(key, icon);
+  }
+  return icon;
 }
 
 /** Fit the map to all visible points whenever they change. */
@@ -78,7 +83,8 @@ export default function DeliveryMap({
       for (const s of located(layer.stops)) pts.push([s.lat as number, s.lng as number]);
     }
     return pts;
-  }, [layers, restaurant]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: compare by primitive values to avoid re-snapping on object identity change
+  }, [layers, restaurant?.lat, restaurant?.lng]);
 
   const center: [number, number] = points[0] ?? [32.0853, 34.7818]; // Tel Aviv fallback
 
@@ -89,7 +95,7 @@ export default function DeliveryMap({
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {restaurant && <Marker position={[restaurant.lat, restaurant.lng]} icon={homeIcon()} />}
+        {restaurant && <Marker position={[restaurant.lat, restaurant.lng]} icon={HOME_ICON} />}
         {layers.map((layer) => {
           const dim = highlightCourierId != null && layer.courierId !== highlightCourierId;
           const seq = located(layer.stops).sort((a, b) => a.sequence - b.sequence);
