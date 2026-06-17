@@ -304,18 +304,20 @@ export default function ItemLibraryPage() {
     reload();
   };
 
-  // The DISPONIBILITÉ pill doubles as the availability toggle. Clicking it
-  // flips the item's availability_override based on its current effective state:
-  //   • available (green)      → force_sold_out  (86 it)
-  //   • forced sold out        → auto            (restore rule-driven state)
-  //   • low / rupture (rule)   → force_available (force it back on)
-  // availability_rule_id is left untouched so 'auto' restores normal behaviour.
+  // The DISPONIBILITÉ pill doubles as the availability toggle. It's a binary
+  // switch keyed on what the pill currently shows: a sold-out pill (Rupture /
+  // hidden) flips to force_available, anything else gets force_sold_out.
+  //
+  // Both directions use a *forced* override (never 'auto') on purpose: a forced
+  // override always wins server-side, so the optimistic flip matches the
+  // reloaded truth and the pill never bounces. Routing through 'auto' would be
+  // non-deterministic — an item that resolves to sold-out under its rule would
+  // snap back, forcing a second click. Rule-driven 'auto' is still reachable
+  // from the item modal's Stock & availability tab.
   const nextAvailabilityOverride = (item: FlatItem): AvailabilityOverride => {
-    if (item.availability_override === 'force_sold_out') return 'auto';
-    if (!item.availability_state || item.availability_state === 'available') {
-      return 'force_sold_out';
-    }
-    return 'force_available';
+    const showingSoldOut =
+      item.availability_state === 'sold_out' || item.availability_state === 'hidden';
+    return showingSoldOut ? 'force_available' : 'force_sold_out';
   };
 
   const handleAvailabilityToggle = async (item: FlatItem) => {
