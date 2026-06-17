@@ -46,6 +46,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   // mirrors null-ness so the toggle survives a 0 value (0 = sold out, not off).
   const [stockTracked, setStockTracked] = useState<boolean>(item.stock_quantity != null);
   const [stockValue, setStockValue] = useState<number>(item.stock_quantity ?? 0);
+  // Predefined stock is one shared counter (−1 per item sold, any size), so flag
+  // items that have size variants/options to show the "shared across sizes" note.
+  const hasVariants =
+    (item.variant_groups?.some((g) => (g.variants?.length ?? 0) > 0) ?? false) ||
+    (item.option_sets?.some((os) => (os.options?.length ?? 0) > 0) ?? false);
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -371,6 +376,11 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                             </span>
                           </div>
                         </Field>
+                        {hasVariants && (
+                          <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
+                            {t('manualStockSharedVariants')}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
