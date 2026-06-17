@@ -81,6 +81,17 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     loadPreview();
   }, [rid, loadPreview]);
 
+  // Coalesce "pinned to the rule that IS the restaurant default" into "inherit".
+  // The two are equivalent, and inherit is the canonical, future-proof form — so
+  // an item explicitly pinned to e.g. "Standard" (the default) is shown as
+  // "Par défaut du restaurant", never as a duplicate explicit entry. Local only;
+  // it's persisted to availability_rule_id = 0 on the next save.
+  useEffect(() => {
+    if (ruleId !== 0 && rules.some((r) => r.is_default && r.id === ruleId)) {
+      setRuleId(0);
+    }
+  }, [rules, ruleId]);
+
   const save = useCallback(
     async (next: { ruleId?: number; override?: AvailabilityOverride }) => {
       setBusy(true);
