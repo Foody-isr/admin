@@ -29,6 +29,7 @@ import RowActionsMenu from '@/components/common/RowActionsMenu';
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import StockFiltersDrawer, { FilterView } from '@/components/stock/StockFiltersDrawer';
 import ArticlesKpiRow from '@/components/menu/ArticlesKpiRow';
+import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
 import CategoryDrawer from '@/components/menu/CategoryDrawer';
 import AssignSetDrawer from '@/components/menu/AssignSetDrawer';
 import CsvImportModal from '@/components/import/CsvImportModal';
@@ -304,24 +305,10 @@ export default function ItemLibraryPage() {
     reload();
   };
 
-  // The DISPONIBILITÉ pill doubles as the availability toggle. It's a binary
-  // switch keyed on what the pill currently shows: a sold-out pill (Rupture /
-  // hidden) flips to force_available, anything else gets force_sold_out.
-  //
-  // Both directions use a *forced* override (never 'auto') on purpose: a forced
-  // override always wins server-side, so the optimistic flip matches the
-  // reloaded truth and the pill never bounces. Routing through 'auto' would be
-  // non-deterministic — an item that resolves to sold-out under its rule would
-  // snap back, forcing a second click. Rule-driven 'auto' is still reachable
-  // from the item modal's Stock & availability tab.
-  const nextAvailabilityOverride = (item: FlatItem): AvailabilityOverride => {
-    const showingSoldOut =
-      item.availability_state === 'sold_out' || item.availability_state === 'hidden';
-    return showingSoldOut ? 'force_available' : 'force_sold_out';
-  };
-
+  // The DISPONIBILITÉ pill doubles as the availability toggle (see
+  // AvailabilityPill + availabilityToggleTarget — shared with the carte rows).
   const handleAvailabilityToggle = async (item: FlatItem) => {
-    const next = nextAvailabilityOverride(item);
+    const next = availabilityToggleTarget(item.availability_state);
     setTogglingIds((prev) => new Set(prev).add(item.id));
     // Optimistic patch so the pill flips instantly — reload() reconciles with
     // the server's computed state (a rule may still report low/sold_out after
@@ -985,60 +972,14 @@ export default function ItemLibraryPage() {
                         </span>
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('availability')}>
-                        {(() => {
-                          // The pill IS the availability toggle: it shows the
-                          // effective state (Disponible / Stock faible / Rupture
-                          // / Indisponible) and, for active items, clicking it
-                          // flips availability via the override (see
-                          // handleAvailabilityToggle). Inactive items (is_active
-                          // false — a different axis, edited in the modal) stay
-                          // read-only.
-                          let cls: string;
-                          let label: string;
-                          if (!item.is_active) {
-                            cls = 'bg-neutral-200 dark:bg-neutral-700/40 text-neutral-700 dark:text-neutral-300';
-                            label = t('unavailable');
-                          } else if (item.availability_state === 'sold_out') {
-                            cls = 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
-                            label = t('outOfStock');
-                          } else if (item.availability_state === 'low') {
-                            cls = 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400';
-                            label = t('lowStock');
-                          } else {
-                            cls = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-                            label = t('available');
-                          }
-                          if (!canEdit || !item.is_active) {
-                            return (
-                              <span
-                                title={item.availability_bottleneck || undefined}
-                                className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
-                              >
-                                {label}
-                              </span>
-                            );
-                          }
-                          const tip =
-                            nextAvailabilityOverride(item) === 'force_sold_out'
-                              ? t('quickMarkSoldOut')
-                              : t('quickMarkAvailable');
-                          return (
-                            <button
-                              type="button"
-                              disabled={togglingIds.has(item.id)}
-                              title={tip}
-                              aria-label={`${label} — ${tip}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAvailabilityToggle(item);
-                              }}
-                              className={`group inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium cursor-pointer transition-shadow hover:ring-1 hover:ring-inset hover:ring-current disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}
-                            >
-                              {label}
-                              <ChevronDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />
-                            </button>
-                          );
-                        })()}
+                        <AvailabilityPill
+                          state={item.availability_state}
+                          isActive={item.is_active}
+                          bottleneck={item.availability_bottleneck}
+                          canEdit={canEdit}
+                          pending={togglingIds.has(item.id)}
+                          onToggle={() => handleAvailabilityToggle(item)}
+                        />
                       </DataTableCell>
                       <DataTableCell align="right" mobileLabel={t('price')}>
                         <span className="font-semibold text-neutral-900 dark:text-white whitespace-nowrap">

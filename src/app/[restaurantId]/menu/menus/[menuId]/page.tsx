@@ -16,6 +16,7 @@ import {
 import { isMembershipActiveOn } from '@/lib/membership';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
+import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
@@ -30,7 +31,6 @@ import {
   GripVerticalIcon,
   MonitorSmartphoneIcon,
   ExternalLinkIcon,
-  BanIcon,
 } from 'lucide-react';
 
 type TFn = (k: string) => string;
@@ -41,7 +41,7 @@ const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il'
 
 // Grid column template — applied at md+ only. On mobile each row collapses to a
 // stacked card with inline labels (see ItemRow below).
-const GRID_COLS_DESKTOP = 'md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_80px_76px] md:items-center';
+const GRID_COLS_DESKTOP = 'md:grid md:grid-cols-[40px_1.5fr_1fr_1fr_1fr_minmax(120px,1fr)_80px_40px] md:items-center';
 
 function channelsMeta(m: Menu, t: TFn): string {
   const parts = [m.pos_enabled && t('posSystem'), m.web_enabled && 'Web'].filter(Boolean) as string[];
@@ -194,16 +194,14 @@ export default function MenuDetailPage() {
     } : prev);
   };
 
-  // Quick "86" from the carte. Flips availability_override between
-  // 'force_sold_out' and 'auto' — the same single-field mutation used by the
-  // item library's row toggle and the bulk availability menu. Availability is
+  // Quick "86" from the carte's availability pill. Binary toggle keyed on the
+  // item's visible state via availabilityToggleTarget (shared with the Library
+  // list) — always a forced override, never 'auto', so the optimistic flip
+  // matches the reloaded truth and the pill never bounces. Availability is
   // global to the item, so this takes it off (or back on) every menu and
-  // channel, not just this carte; the ItemRow button's tooltip says as much.
-  // availability_rule_id is left untouched so 'auto' restores rule-driven
-  // availability. Optimistic patch flips the row instantly; reload reconciles.
+  // channel, not just this carte.
   const handleToggleSoldOut = async (groupId: number, item: MenuItem) => {
-    const next: AvailabilityOverride =
-      item.availability_override === 'force_sold_out' ? 'auto' : 'force_sold_out';
+    const next = availabilityToggleTarget(item.availability_state);
     patchGroupItems(groupId, (items) =>
       items.map((i) =>
         i.id === item.id
@@ -221,6 +219,34 @@ export default function MenuDetailPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update availability');
       reload(); // revert optimistic patch to server truth
+    }
+  };
+
+  // Bulk availability for the selected items in a group — same global override
+  // mutation, applied to each selection. Optimistic patch flips them at once.
+  const bulkSetAvailability = async (groupId: number, value: AvailabilityOverride) => {
+    const ids = Array.from(selectedInGroup(groupId));
+    if (ids.length === 0) return;
+    patchGroupItems(groupId, (items) =>
+      items.map((i) =>
+        ids.includes(i.id)
+          ? {
+              ...i,
+              availability_override: value,
+              availability_state: value === 'force_sold_out' ? 'sold_out' : 'available',
+            }
+          : i,
+      ),
+    );
+    try {
+      for (const id of ids) {
+        await updateMenuItem(rid, id, { availability_override: value });
+      }
+      clearGroupSelection(groupId);
+      reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update availability');
+      reload();
     }
   };
 
@@ -820,6 +846,18 @@ export default function MenuDetailPage() {
                         {t('moveToGroup')}
                       </button>
                       <button
+                        onClick={() => bulkSetAvailability(group.id, 'force_sold_out')}
+                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {t('quickMarkSoldOut')}
+                      </button>
+                      <button
+                        onClick={() => bulkSetAvailability(group.id, 'force_available')}
+                        className="text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {t('quickMarkAvailable')}
+                      </button>
+                      <button
                         onClick={() => bulkRemoveFromGroup(group.id)}
                         className="text-sm font-medium text-red-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
                       >
@@ -846,6 +884,7 @@ export default function MenuDetailPage() {
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('pointOfSale')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('salesChannels')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('modifiers')}</div>
+                      <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">{t('availability')}</div>
                       <div className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide text-right">{t('price')}</div>
                       <div />
                     </div>
@@ -1522,8 +1561,6 @@ function ItemRow({
   const [toggling, setToggling] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const isForcedSoldOut = item.availability_override === 'force_sold_out';
-
   const handleQuickToggle = async () => {
     setToggling(true);
     try {
@@ -1623,6 +1660,21 @@ function ItemRow({
         <div className="text-sm text-[var(--text-secondary)] truncate text-end md:text-start">{modifierNames}</div>
       </div>
 
+      {/* Availability — same pill (and one-click toggle) as the Library list */}
+      <div className="flex items-center justify-between md:block gap-3" onClick={(e) => e.stopPropagation()}>
+        <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('availability')}</span>
+        <div className="flex justify-end md:justify-start">
+          <AvailabilityPill
+            state={item.availability_state}
+            isActive={item.is_active}
+            bottleneck={item.availability_bottleneck}
+            canEdit={canEdit}
+            pending={toggling}
+            onToggle={handleQuickToggle}
+          />
+        </div>
+      </div>
+
       {/* Price */}
       <div className="flex items-center justify-between md:block gap-3">
         <span className="md:hidden text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{t('price')}</span>
@@ -1634,21 +1686,6 @@ function ItemRow({
       {/* Actions — pinned to top-end corner on mobile, inline on desktop */}
       {canEdit && (
       <div className="absolute top-3 end-4 flex items-center gap-0.5 md:static md:justify-center" onClick={(e) => e.stopPropagation()}>
-        {/* Quick "86" toggle — colored red while the item is forced sold out so
-            servers can see at a glance which items are off the carte. */}
-        <button
-          onClick={handleQuickToggle}
-          disabled={toggling}
-          title={isForcedSoldOut ? `${t('quickMarkAvailable')} (${t('allChannels')})` : `${t('quickMarkSoldOut')} (${t('allChannels')})`}
-          aria-label={isForcedSoldOut ? t('quickMarkAvailable') : t('quickMarkSoldOut')}
-          className={`p-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-            isForcedSoldOut
-              ? 'bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30'
-              : 'text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-red-500'
-          }`}
-        >
-          <BanIcon className="w-4 h-4" />
-        </button>
         <button
           ref={buttonRef}
           onClick={() => (dropdownOpen ? setDropdownOpen(false) : openDropdown())}
