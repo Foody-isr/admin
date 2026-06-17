@@ -17,15 +17,12 @@ import {
   ChevronUp,
   Image as ImageIcon,
   MoreVertical,
-  Eye,
   Tag,
   Trash2,
   Sparkles,
   Settings,
   ListPlus,
   CircleDot,
-  Ban,
-  RotateCcw,
 } from 'lucide-react';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import RowActionsMenu from '@/components/common/RowActionsMenu';
@@ -307,17 +304,26 @@ export default function ItemLibraryPage() {
     reload();
   };
 
-  // Per-row "86" quick toggle. Flips availability_override between
-  // 'force_sold_out' and 'auto' — the same single-field mutation as the bulk
-  // availability menu, but for one item in one click straight from the list.
-  // The availability_rule_id is left untouched so flipping back to 'auto'
-  // restores the item's normal rule-driven availability.
-  const handleQuickToggleSoldOut = async (item: FlatItem) => {
-    const next: AvailabilityOverride =
-      item.availability_override === 'force_sold_out' ? 'auto' : 'force_sold_out';
+  // The DISPONIBILITÉ pill doubles as the availability toggle. Clicking it
+  // flips the item's availability_override based on its current effective state:
+  //   • available (green)      → force_sold_out  (86 it)
+  //   • forced sold out        → auto            (restore rule-driven state)
+  //   • low / rupture (rule)   → force_available (force it back on)
+  // availability_rule_id is left untouched so 'auto' restores normal behaviour.
+  const nextAvailabilityOverride = (item: FlatItem): AvailabilityOverride => {
+    if (item.availability_override === 'force_sold_out') return 'auto';
+    if (!item.availability_state || item.availability_state === 'available') {
+      return 'force_sold_out';
+    }
+    return 'force_available';
+  };
+
+  const handleAvailabilityToggle = async (item: FlatItem) => {
+    const next = nextAvailabilityOverride(item);
     setTogglingIds((prev) => new Set(prev).add(item.id));
-    // Optimistic patch so the chip flips instantly — reload() reconciles with
-    // the server's computed state (a rule may still report low/sold_out).
+    // Optimistic patch so the pill flips instantly — reload() reconciles with
+    // the server's computed state (a rule may still report low/sold_out after
+    // a restore to 'auto').
     setCategories((cats) =>
       cats.map((c) => ({
         ...c,
@@ -978,11 +984,13 @@ export default function ItemLibraryPage() {
                       </DataTableCell>
                       <DataTableCell mobileLabel={t('availability')}>
                         {(() => {
-                          // Read-only effective-state chip. Toggling is_active
-                          // lives in the item editor — clicking here only ever
-                          // confused staff because the chip doesn't show
-                          // "active vs inactive", it shows the customer-facing
-                          // state (active AND stockable).
+                          // The pill IS the availability toggle: it shows the
+                          // effective state (Disponible / Stock faible / Rupture
+                          // / Indisponible) and, for active items, clicking it
+                          // flips availability via the override (see
+                          // handleAvailabilityToggle). Inactive items (is_active
+                          // false — a different axis, edited in the modal) stay
+                          // read-only.
                           let cls: string;
                           let label: string;
                           if (!item.is_active) {
@@ -998,13 +1006,35 @@ export default function ItemLibraryPage() {
                             cls = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
                             label = t('available');
                           }
+                          if (!canEdit || !item.is_active) {
+                            return (
+                              <span
+                                title={item.availability_bottleneck || undefined}
+                                className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
+                              >
+                                {label}
+                              </span>
+                            );
+                          }
+                          const tip =
+                            nextAvailabilityOverride(item) === 'force_sold_out'
+                              ? t('quickMarkSoldOut')
+                              : t('quickMarkAvailable');
                           return (
-                            <span
-                              title={item.availability_bottleneck || undefined}
-                              className={`inline-block px-3 py-1 rounded-lg text-sm font-medium ${cls}`}
+                            <button
+                              type="button"
+                              disabled={togglingIds.has(item.id)}
+                              title={tip}
+                              aria-label={`${label} — ${tip}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAvailabilityToggle(item);
+                              }}
+                              className={`group inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium cursor-pointer transition-shadow hover:ring-1 hover:ring-inset hover:ring-current disabled:opacity-50 disabled:cursor-not-allowed ${cls}`}
                             >
                               {label}
-                            </span>
+                              <ChevronDown className="w-3.5 h-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                            </button>
                           );
                         })()}
                       </DataTableCell>
@@ -1014,36 +1044,7 @@ export default function ItemLibraryPage() {
                         </span>
                       </DataTableCell>
                       <DataTableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          {canEdit && (() => {
-                            const isForcedSoldOut = item.availability_override === 'force_sold_out';
-                            return (
-                              <button
-                                onClick={() => handleQuickToggleSoldOut(item)}
-                                disabled={togglingIds.has(item.id)}
-                                title={isForcedSoldOut ? t('quickMarkAvailable') : t('quickMarkSoldOut')}
-                                aria-label={isForcedSoldOut ? t('quickMarkAvailable') : t('quickMarkSoldOut')}
-                                className={`p-2 rounded-lg transition-colors group disabled:opacity-40 disabled:cursor-not-allowed ${
-                                  isForcedSoldOut
-                                    ? 'hover:bg-green-50 dark:hover:bg-green-900/20'
-                                    : 'hover:bg-red-50 dark:hover:bg-red-900/20'
-                                }`}
-                              >
-                                {isForcedSoldOut ? (
-                                  <RotateCcw size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-green-600" />
-                                ) : (
-                                  <Ban size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-red-500" />
-                                )}
-                              </button>
-                            );
-                          })()}
-                          <button
-                            onClick={() => openEditor(item, rid, router)}
-                            className="p-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors group"
-                            title={t('viewDetails') || 'Voir les détails'}
-                          >
-                            <Eye size={18} className="text-neutral-600 dark:text-neutral-400 group-hover:text-orange-500" />
-                          </button>
+                        <div className="flex items-center justify-end gap-2">
                           {canEdit && (
                           <RowActionsMenu
                             actions={[
