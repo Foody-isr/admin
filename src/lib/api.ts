@@ -426,6 +426,11 @@ export interface MenuItem {
   availability_rule_id?: number | null;
   /** Staff "86" switch: 'auto' | 'force_available' | 'force_sold_out'. */
   availability_override?: AvailabilityOverride;
+  /** Optional per-item manual stock count for restaurants not tracking
+   *  recipes yet. When set (and the item has no recipe), availability follows
+   *  the item's rule based on this number; it decrements as orders come in.
+   *  null = not tracked (unlimited unless a recipe constrains it). */
+  stock_quantity?: number | null;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
