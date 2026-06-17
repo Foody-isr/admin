@@ -347,8 +347,10 @@ function AvailableOrderRow({
         <p className="text-fs-sm font-medium text-[var(--fg)] truncate leading-tight">
           {order.customer_name}
         </p>
-        <p className="text-fs-xs text-[var(--fg-muted)] tabular-nums mt-0.5">
-          #{order.id}
+        <p className="text-fs-xs text-[var(--fg-muted)] truncate mt-0.5">
+          {order.delivery_address
+            ? [order.delivery_address, order.delivery_city].filter(Boolean).join(', ')
+            : `#${order.id}`}
         </p>
       </div>
 

@@ -513,6 +513,8 @@ export interface Order {
   courier_name?: string;
   courier_phone?: string;
   courier_assigned_at?: string;
+  delivery_address?: string;
+  delivery_city?: string;
 }
 
 export interface StaffMember {
