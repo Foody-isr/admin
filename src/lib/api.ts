@@ -2819,34 +2819,6 @@ export const markOrderOutForDelivery = (restaurantId: number, orderId: number) =
 export const markOrderDelivered = (restaurantId: number, orderId: number) =>
   postOrderAction(restaurantId, orderId, 'mark-delivered');
 
-// Assign (or clear, when courierId is null) the delivery courier for one order.
-export async function assignCourier(
-  restaurantId: number,
-  orderId: number,
-  courierId: number | null,
-): Promise<Order> {
-  const data = await apiFetch<{ order: Order }>(
-    `/api/v1/orders/${orderId}/assign-courier?restaurant_id=${restaurantId}`,
-    restaurantId,
-    { method: 'POST', body: JSON.stringify({ courier_id: courierId }) },
-  );
-  return data.order;
-}
-
-// Assign (or clear) the same courier across several orders at once.
-export async function bulkAssignCourier(
-  restaurantId: number,
-  orderIds: number[],
-  courierId: number | null,
-): Promise<Order[]> {
-  const data = await apiFetch<{ orders: Order[] }>(
-    `/api/v1/orders/bulk-assign-courier?restaurant_id=${restaurantId}`,
-    restaurantId,
-    { method: 'POST', body: JSON.stringify({ order_ids: orderIds, courier_id: courierId }) },
-  );
-  return data.orders ?? [];
-}
-
 export async function updateOrderPaymentStatus(
   restaurantId: number,
   orderId: number,

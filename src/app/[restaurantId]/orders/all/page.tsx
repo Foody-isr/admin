@@ -6,11 +6,10 @@ import Link from 'next/link';
 import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
-  markOrderServed, markOrderDelivered, markOrderOutForDelivery,
-  assignCourier, bulkAssignCourier, listCouriers,
+  markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings,
   initOrderPaymentLink,
-  Order, OrderStatus, ListOrdersParams, StaffMember,
+  Order, OrderStatus, ListOrdersParams,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -40,9 +39,7 @@ import {
   DataTableBody,
   DataTableRow,
   DataTableCell,
-  DataTableSelectAllCell,
 } from '@/components/data-table';
-import { Checkbox } from '@/components/ui/checkbox';
 import type { OrderItem } from '@/lib/api';
 
 // ─── Tab config ────────────────────────────────────────────────────────────
@@ -230,36 +227,6 @@ function localizeOrderType(type: Order['order_type'], t: (k: string) => string):
   return String(type).replace(/_/g, ' ');
 }
 
-// CourierSelect is a native <select> bound to a courier id. Choosing the
-// (empty) noneLabel option yields null — used to unassign in the drawer, or as
-// a placeholder in the bulk bar. stopPropagation keeps clicks off the row.
-function CourierSelect({
-  couriers, value, onChange, noneLabel, t,
-}: {
-  couriers: StaffMember[];
-  value: number | null;
-  onChange: (courierId: number | null) => void;
-  noneLabel: string;
-  t: (k: string) => string;
-}) {
-  if (couriers.length === 0) {
-    return <div className="text-fs-sm text-[var(--fg-subtle)]">{t('noCouriersHint')}</div>;
-  }
-  return (
-    <select
-      value={value ?? ''}
-      onClick={(e) => e.stopPropagation()}
-      onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-      className="text-fs-sm rounded-standard border border-[var(--line)] bg-[var(--surface)] px-2 py-1.5 text-fg-primary"
-    >
-      <option value="">{noneLabel}</option>
-      {couriers.map((c) => (
-        <option key={c.id} value={c.id}>{c.full_name}</option>
-      ))}
-    </select>
-  );
-}
-
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
@@ -296,10 +263,6 @@ export default function OrdersPage() {
   // Selected order for right panel
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
-
-  // Courier assignment (delivery orders)
-  const [couriers, setCouriers] = useState<StaffMember[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   // First day of the week + workdays for the date picker. Loaded with the
   // restaurant; both default to "everything on" until then so the picker
@@ -348,39 +311,6 @@ export default function OrdersPage() {
   };
 
   useEffect(() => { setSoundOn(isSoundEnabled()); }, [isSoundEnabled]);
-
-  useEffect(() => {
-    if (!rid) return;
-    listCouriers(rid).then(setCouriers).catch(() => setCouriers([]));
-  }, [rid]);
-
-  // Only delivery orders can have a courier; a courier can be (re)assigned any
-  // time before the order is delivered.
-  const isAssignable = useCallback(
-    (o: Order) => o.order_type === 'delivery' && o.status !== 'delivered',
-    [],
-  );
-  const assignableOrders = orders.filter(isAssignable);
-
-  const toggleSelect = (id: number) => setSelectedIds((prev) => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-  const toggleSelectAll = () => setSelectedIds((prev) =>
-    prev.size === assignableOrders.length && assignableOrders.length > 0
-      ? new Set()
-      : new Set(assignableOrders.map((o) => o.id)),
-  );
-  // Drop selections that scroll out of view / stop being assignable on refetch.
-  useEffect(() => {
-    setSelectedIds((prev) => {
-      const valid = new Set(assignableOrders.map((o) => o.id));
-      const next = new Set<number>();
-      prev.forEach((id) => { if (valid.has(id)) next.add(id); });
-      return next.size === prev.size ? prev : next;
-    });
-  }, [orders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Fetch ────────────────────────────────────────────────────────
 
@@ -473,35 +403,21 @@ export default function OrdersPage() {
   };
   const handleSendToKitchen = (orderId: number) =>
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'in_kitchen').then(() => {}), 'in_kitchen');
-  const handleMarkReady = (orderId: number) =>
-    runAction(orderId, () => updateOrderStatus(rid, orderId, 'ready').then(() => {}), 'ready');
+  // Delivery orders must land in `ready_for_delivery` so they enter the
+  // dispatch pipeline (the Deliveries page filters on that status). Dine-in and
+  // pickup use the generic `ready`.
+  const handleMarkReady = (orderId: number) => {
+    const isDelivery = orders.find((o) => o.id === orderId)?.order_type === 'delivery';
+    return isDelivery
+      ? runAction(orderId, () => markOrderReadyForDelivery(rid, orderId).then(() => {}), 'ready_for_delivery')
+      : runAction(orderId, () => updateOrderStatus(rid, orderId, 'ready').then(() => {}), 'ready');
+  };
   const handleMarkServed = (orderId: number) =>
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'served').then(() => {}), 'served');
   const handleOutForDelivery = (orderId: number) =>
     runAction(orderId, () => markOrderOutForDelivery(rid, orderId).then(() => {}), 'out_for_delivery');
   const handleMarkDelivered = (orderId: number) =>
     runAction(orderId, () => markOrderDelivered(rid, orderId).then(() => {}), 'delivered');
-
-  const handleAssignCourier = (orderId: number, courierId: number | null) =>
-    runAction(orderId, async () => {
-      const updated = await assignCourier(rid, orderId, courierId);
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updated } : o)));
-    });
-
-  const handleBulkAssignCourier = async (courierId: number | null) => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
-    try {
-      const updated = await bulkAssignCourier(rid, ids, courierId);
-      setOrders((prev) => prev.map((o) => {
-        const u = updated.find((x) => x.id === o.id);
-        return u ? { ...o, ...u } : o;
-      }));
-      setSelectedIds(new Set());
-    } catch {
-      await fetchOrders();
-    }
-  };
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -824,34 +740,8 @@ export default function OrdersPage() {
           </div>
         ) : (
           <>
-            {canManage && selectedIds.size > 0 && (
-              <div className="flex items-center gap-[var(--s-3)] px-4 py-3 bg-brand-500/5 border-b border-[var(--line)]">
-                <span className="text-fs-sm font-medium text-fg-primary">
-                  {t('ordersSelected').replace('{n}', String(selectedIds.size))}
-                </span>
-                <CourierSelect
-                  couriers={couriers}
-                  value={null}
-                  noneLabel={t('assignCourier')}
-                  onChange={(courierId) => { if (courierId != null) handleBulkAssignCourier(courierId); }}
-                  t={t}
-                />
-                <button
-                  onClick={() => setSelectedIds(new Set())}
-                  className="text-fs-sm text-fg-secondary hover:text-fg-primary transition-colors"
-                >
-                  {t('clearSelection') || t('cancel')}
-                </button>
-              </div>
-            )}
             <DataTable>
               <DataTableHead>
-                {canManage && (
-                  <DataTableSelectAllCell
-                    checked={assignableOrders.length > 0 && selectedIds.size === assignableOrders.length}
-                    onCheckedChange={toggleSelectAll}
-                  />
-                )}
                 <DataTableHeadCell>{t('orderNoColumn')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('name')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
@@ -870,16 +760,6 @@ export default function OrdersPage() {
                     onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
                     className={`cursor-pointer ${selectedId === order.id ? 'bg-blue-500/10' : ''}`}
                   >
-                    {canManage && (
-                      <DataTableCell onClick={(e) => e.stopPropagation()} mobileHidden>
-                        {isAssignable(order) && (
-                          <Checkbox
-                            checked={selectedIds.has(order.id)}
-                            onCheckedChange={() => toggleSelect(order.id)}
-                          />
-                        )}
-                      </DataTableCell>
-                    )}
                     <DataTableCell className="text-fg-secondary tabular-nums" mobileLabel={t('orderNoColumn')}>
                       #{order.id}
                     </DataTableCell>
@@ -982,8 +862,6 @@ export default function OrdersPage() {
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
         onEdit={() => setEditOpen(true)}
-        couriers={couriers}
-        onAssignCourier={(courierId) => selectedOrder && handleAssignCourier(selectedOrder.id, courierId)}
         restaurantInfo={restaurantInfo}
       />
 
@@ -1036,7 +914,7 @@ function OrderDetailDrawer({
   order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit,
-  couriers, onAssignCourier, restaurantInfo,
+  restaurantInfo,
 }: {
   order: Order | null;
   canManage: boolean;
@@ -1052,8 +930,6 @@ function OrderDetailDrawer({
   onTakePayment: () => void;
   onCloseOrder: () => void;
   onEdit: () => void;
-  couriers: StaffMember[];
-  onAssignCourier: (courierId: number | null) => void;
   restaurantInfo: PrintTicketRestaurant;
 }) {
   const { t, locale, direction } = useI18n();
@@ -1543,22 +1419,12 @@ function OrderDetailDrawer({
             </div>
           </div>
 
-          {/* Courier assignment — delivery orders, until delivered */}
+          {/* Courier — read-only. Assignment happens on the Deliveries page. */}
           {order.order_type === 'delivery' && (
             <Section title={t('courier')}>
-              {order.status === 'delivered' || !canManage ? (
-                <div className="text-fs-sm text-[var(--fg-subtle)]">
-                  {order.courier_name || t('courierNone')}
-                </div>
-              ) : (
-                <CourierSelect
-                  couriers={couriers}
-                  value={order.courier_id ?? null}
-                  noneLabel={t('courierNone')}
-                  onChange={onAssignCourier}
-                  t={t}
-                />
-              )}
+              <div className="text-fs-sm text-[var(--fg-subtle)]">
+                {order.courier_name || t('courierNone')}
+              </div>
             </Section>
           )}
 

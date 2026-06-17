@@ -157,7 +157,13 @@ export default function DispatcherView({ rid }: { rid: number }) {
         }
       }
       setLivePositions(seed);
-      setReady(orders.orders.filter((o) => o.courier_id == null));
+      // "Ready to dispatch" = ready_for_delivery + paid orders not yet on a
+      // route. Filtering by route membership (rather than courier_id) is the
+      // correct signal now that route-building is the only way to assign a
+      // courier: it also surfaces orders left assigned-but-unrouted by the
+      // legacy per-order courier picker, which would otherwise be invisible.
+      const routedOrderIds = new Set<number>(rts.flatMap((r) => r.stops.map((s) => s.order_id)));
+      setReady(orders.orders.filter((o) => !routedOrderIds.has(o.id)));
       setCouriers(crs);
     } catch (e) {
       setError((e as Error)?.message || 'load failed');
