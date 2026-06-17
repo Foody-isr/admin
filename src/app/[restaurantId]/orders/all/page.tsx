@@ -18,6 +18,7 @@ import { useOrderSound } from '@/lib/use-order-sound';
 import { useBrowserNotifications } from '@/lib/use-browser-notifications';
 import { useI18n } from '@/lib/i18n';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
+import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import {
@@ -504,6 +505,7 @@ export default function OrdersPage() {
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const handleTakePayment = (method: PaymentMethod) => {
     if (!selectedOrder) return Promise.resolve();
@@ -979,9 +981,19 @@ export default function OrdersPage() {
         onMarkDelivered={() => selectedOrder && handleMarkDelivered(selectedOrder.id)}
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
+        onEdit={() => setEditOpen(true)}
         couriers={couriers}
         onAssignCourier={(courierId) => selectedOrder && handleAssignCourier(selectedOrder.id, courierId)}
         restaurantInfo={restaurantInfo}
+      />
+
+      {/* Edit order items */}
+      <EditOrderDrawer
+        open={editOpen}
+        order={selectedOrder}
+        restaurantId={rid}
+        onClose={() => setEditOpen(false)}
+        onSaved={fetchOrders}
       />
 
       {/* Take Payment dialog */}
@@ -1023,7 +1035,7 @@ function statusIndex(status: string) {
 function OrderDetailDrawer({
   order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
-  onTakePayment, onCloseOrder,
+  onTakePayment, onCloseOrder, onEdit,
   couriers, onAssignCourier, restaurantInfo,
 }: {
   order: Order | null;
@@ -1039,6 +1051,7 @@ function OrderDetailDrawer({
   onMarkDelivered: () => void;
   onTakePayment: () => void;
   onCloseOrder: () => void;
+  onEdit: () => void;
   couriers: StaffMember[];
   onAssignCourier: (courierId: number | null) => void;
   restaurantInfo: PrintTicketRestaurant;
@@ -1235,6 +1248,9 @@ function OrderDetailDrawer({
   // it was a no-op (the action early-exits) which read as a bug.
   const canCloseOrder = !isCancelled && !isTerminal && order.payment_status === 'paid';
   const canCancelOrder = !isCancelled && !isTerminal;
+  // Items can be edited while the order is still in progress (not cancelled or
+  // already served/delivered/rejected).
+  const canEditOrder = !isCancelled && !isTerminal;
 
   const toneVar: 'warning' | 'success' | 'danger' | 'info' =
     bannerTone === 'warning' ? 'warning'
@@ -1303,8 +1319,8 @@ function OrderDetailDrawer({
         // labels never get truncated. Desktop: original split-layout preserved.
         <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:items-center md:justify-between md:gap-[var(--s-3)]">
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-            {canManage && (
-              <Button variant="secondary" size="md" className="flex-1 md:flex-none justify-center">
+            {canManage && canEditOrder && (
+              <Button variant="secondary" size="md" onClick={onEdit} className="flex-1 md:flex-none justify-center">
                 <EditIcon /> {t('edit') || 'Modifier'}
               </Button>
             )}
