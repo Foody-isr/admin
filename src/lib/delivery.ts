@@ -21,6 +21,15 @@ export interface RouteStop {
   needs_geocode: boolean;
 }
 
+export interface CourierLocationDTO {
+  courier_id: number;
+  route_id?: number | null;
+  lat: number;
+  lng: number;
+  heading?: number | null;
+  updated_at: string;
+}
+
 export interface DeliveryRoute {
   id: number;
   restaurant_id: number;
@@ -30,6 +39,7 @@ export interface DeliveryRoute {
   total_distance_m: number;
   est_duration_s: number;
   stops: RouteStop[];
+  last_location?: CourierLocationDTO | null;
 }
 
 function q(restaurantId: number, extra?: Record<string, string>): string {
@@ -126,4 +136,16 @@ export async function listDeliveryRoutes(restaurantId: number, date?: string): P
     `/api/v1/delivery/routes?${q(restaurantId, date ? { date } : undefined)}`, restaurantId,
   );
   return data.routes ?? [];
+}
+
+/** Report the courier's current GPS. 204 (no active route) and 429 (rate-limited)
+ *  are both fine; the caller ignores the result. */
+export async function reportLocation(
+  restaurantId: number,
+  pos: { lat: number; lng: number; heading?: number; speed?: number; accuracy?: number },
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/delivery/location?${q(restaurantId)}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(pos) },
+  );
 }
