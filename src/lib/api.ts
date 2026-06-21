@@ -622,6 +622,9 @@ export interface WebsiteConfig {
   hide_hero_logo: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   hero_logo_bg: 'white' | 'black';
+  /** Order-page cover composition. 'card' (default) shows the logo box with the
+   *  restaurant name + tagline; 'logo' centers the logo alone on the cover. */
+  hero_cover_layout: 'card' | 'logo';
   custom_palette?: {
     mode: 'light' | 'dark';
     bg: string;
