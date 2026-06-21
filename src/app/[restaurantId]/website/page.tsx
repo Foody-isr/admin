@@ -42,6 +42,7 @@ type PreviewMessage = {
   hideNavbarName: boolean;
   hideHeroLogo: boolean;
   heroLogoBg: 'white' | 'black';
+  heroCoverLayout: 'card' | 'logo';
   customPalette: WebsiteConfig['custom_palette'] | null;
   sectionColors: WebsiteConfig['section_colors'] | null;
   faviconURL: string;
@@ -301,6 +302,7 @@ export default function WebsitePage() {
       hideNavbarName: next.hide_navbar_name,
       hideHeroLogo: next.hide_hero_logo,
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
+      heroCoverLayout: next.hero_cover_layout === 'logo' ? 'logo' : 'card',
       customPalette: next.custom_palette ?? null,
       sectionColors: next.section_colors ?? null,
       faviconURL: next.favicon_url || '',
@@ -515,6 +517,7 @@ export default function WebsitePage() {
           hide_navbar_name: stateConfig.hide_navbar_name || false,
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
+          hero_cover_layout: stateConfig.hero_cover_layout === 'logo' ? 'logo' : 'card',
           custom_palette: stateConfig.custom_palette ?? null,
           section_colors: stateConfig.section_colors ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
@@ -624,6 +627,7 @@ export default function WebsitePage() {
         hide_navbar_name: hideNavbarName,
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
+        hero_cover_layout: config?.hero_cover_layout === 'logo' ? 'logo' : 'card',
         custom_palette: config?.custom_palette ?? null,
         section_colors: config?.section_colors ?? null,
         hero_name_font: heroNameFont,
