@@ -2991,6 +2991,24 @@ const translations: Record<Locale, Record<string, string>> = {
     batchFulfillmentRequirePrepayment: 'Require payment at checkout',
     batchFulfillmentRequirePrepaymentSubtitle:
       'Customers must pay immediately when placing a pre-order.',
+    // ── Delivery zones ──
+    deliveryZones: 'Delivery zones',
+    deliveryZonesDesc: 'Define where you deliver. Outside these zones, customers cannot place a delivery order.',
+    addZone: 'Add zone',
+    zoneName: 'Zone name',
+    noZonesYet: 'No zones yet. Every address is deliverable.',
+    zoneType_polygon: 'Drawn area',
+    zoneType_radius: 'Radius',
+    zoneType_cities: 'Cities',
+    draw: 'Draw',
+    drawing: 'Drawing...',
+    undo: 'Undo point',
+    points: 'points',
+    drawPolygonHint: 'Click the map to add points (3 minimum).',
+    setCenter: 'Set center',
+    moveCenter: 'Move center',
+    radiusKm: 'Radius (km)',
+    cityOrPostal: 'City or postal code',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -5909,6 +5927,24 @@ const translations: Record<Locale, Record<string, string>> = {
     batchFulfillmentRequirePrepayment: 'נדרש תשלום בעת ההזמנה',
     batchFulfillmentRequirePrepaymentSubtitle:
       'הלקוחות חייבים לשלם מיידית בעת ביצוע הזמנה מרוכזת.',
+    // ── Delivery zones ──
+    deliveryZones: 'אזורי משלוח',
+    deliveryZonesDesc: 'הגדירו לאן אתם מבצעים משלוחים. מחוץ לאזורים אלו, לקוחות לא יוכלו להזמין משלוח.',
+    addZone: 'הוסף אזור',
+    zoneName: 'שם האזור',
+    noZonesYet: 'אין אזורים עדיין. כל כתובת ניתנת למשלוח.',
+    zoneType_polygon: 'אזור מצויר',
+    zoneType_radius: 'רדיוס',
+    zoneType_cities: 'ערים',
+    draw: 'צייר',
+    drawing: 'מצייר...',
+    undo: 'בטל נקודה',
+    points: 'נקודות',
+    drawPolygonHint: 'לחצו על המפה להוספת נקודות (3 לפחות).',
+    setCenter: 'קבע מרכז',
+    moveCenter: 'הזז מרכז',
+    radiusKm: 'רדיוס (ק"מ)',
+    cityOrPostal: 'עיר או מיקוד',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -8828,5 +8864,23 @@ const translations: Record<Locale, Record<string, string>> = {
     batchFulfillmentRequirePrepayment: 'Paiement requis à la commande',
     batchFulfillmentRequirePrepaymentSubtitle:
       'Les clients doivent payer immédiatement lors d’une pré-commande.',
+    // ── Delivery zones ──
+    deliveryZones: 'Zones de livraison',
+    deliveryZonesDesc: 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.',
+    addZone: 'Ajouter une zone',
+    zoneName: 'Nom de la zone',
+    noZonesYet: 'Aucune zone. Toute adresse est livrable.',
+    zoneType_polygon: 'Zone dessinee',
+    zoneType_radius: 'Rayon',
+    zoneType_cities: 'Villes',
+    draw: 'Dessiner',
+    drawing: 'En cours...',
+    undo: 'Annuler point',
+    points: 'points',
+    drawPolygonHint: 'Cliquez sur la carte pour ajouter des points (3 minimum).',
+    setCenter: 'Placer le centre',
+    moveCenter: 'Deplacer le centre',
+    radiusKm: 'Rayon (km)',
+    cityOrPostal: 'Ville ou code postal',
   },
 };
