@@ -1,15 +1,22 @@
 'use client';
 
 import { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Polygon, Circle, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polygon, Circle, Polyline, Tooltip, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { DeliveryZone } from '@/lib/api';
 
 const BRAND = '#F18A47';
 const RESTAURANT_GREEN = '#5BBF84';
+const CITY_BLUE = '#3b82f6';
 
 export type DrawMode = 'none' | 'draw-polygon' | 'set-center';
+
+export interface CityMarker {
+  name: string;
+  lat: number;
+  lng: number;
+}
 
 export interface ZoneMapProps {
   center: { lat: number; lng: number };
@@ -21,6 +28,8 @@ export interface ZoneMapProps {
   draftRadiusM?: number;
   onMapClick: (lat: number, lng: number) => void;
   className?: string;
+  /** Optional city markers to display on the map (display-only, not persisted). */
+  cityMarkers?: CityMarker[];
 }
 
 const HOME_ICON = L.divIcon({
@@ -28,6 +37,13 @@ const HOME_ICON = L.divIcon({
   html: `<div style="width:22px;height:22px;border-radius:50%;background:${RESTAURANT_GREEN};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
   iconSize: [22, 22],
   iconAnchor: [11, 11],
+});
+
+const CITY_ICON = L.divIcon({
+  className: 'foody-zone-city',
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:${CITY_BLUE};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
 });
 
 function ClickCapture({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
@@ -41,7 +57,7 @@ function toLatLng(ring: [number, number][]): [number, number][] {
 }
 
 export default function ZoneMap({
-  center, zones, activeZoneId, drawMode, draftPolygon, draftCenter, draftRadiusM, onMapClick, className,
+  center, zones, activeZoneId, drawMode, draftPolygon, draftCenter, draftRadiusM, onMapClick, className, cityMarkers,
 }: ZoneMapProps) {
   const draftLatLng = useMemo(() => toLatLng(draftPolygon), [draftPolygon]);
 
@@ -84,6 +100,13 @@ export default function ZoneMap({
             pathOptions={{ color: BRAND, weight: 3, fillOpacity: 0.18, dashArray: '6' }}
           />
         )}
+
+        {/* City markers (display-only) */}
+        {cityMarkers?.map((cm) => (
+          <Marker key={`city-${cm.name}`} position={[cm.lat, cm.lng]} icon={CITY_ICON}>
+            <Tooltip permanent direction="top" offset={[0, -10]}>{cm.name}</Tooltip>
+          </Marker>
+        ))}
 
         {drawMode !== 'none' && <ClickCapture onMapClick={onMapClick} />}
       </MapContainer>
