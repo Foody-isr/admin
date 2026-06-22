@@ -625,6 +625,8 @@ export interface WebsiteConfig {
   /** Order-page cover composition. 'card' (default) shows the logo box with the
    *  restaurant name + tagline; 'logo' centers the logo alone on the cover. */
   hero_cover_layout: 'card' | 'logo';
+  /** Scales the cover logo, as a percentage of its default size (100 = default). */
+  hero_logo_size: number;
   custom_palette?: {
     mode: 'light' | 'dark';
     bg: string;
@@ -6023,5 +6025,62 @@ export async function confirmMenuItemImage(
     `/api/v1/menu/items/${itemId}/ai-image/confirm?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+// --- Delivery Zones ---
+
+export type DeliveryZoneType = 'polygon' | 'radius' | 'cities';
+
+export interface DeliveryZone {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  type: DeliveryZoneType;
+  is_active: boolean;
+  polygon?: [number, number][]; // [lng, lat] pairs
+  center_lat?: number;
+  center_lng?: number;
+  radius_m?: number;
+  cities?: string[];
+  created_at: string;
+}
+
+export interface DeliveryZoneInput {
+  name: string;
+  type: DeliveryZoneType;
+  is_active?: boolean;
+  polygon?: [number, number][];
+  center_lat?: number;
+  center_lng?: number;
+  radius_m?: number;
+  cities?: string[];
+}
+
+export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
+  const data = await apiFetch<{ zones: DeliveryZone[] }>(
+    `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.zones ?? [];
+}
+
+export async function createDeliveryZone(restaurantId: number, input: DeliveryZoneInput): Promise<DeliveryZone> {
+  return apiFetch<DeliveryZone>(
+    `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+export async function updateDeliveryZone(restaurantId: number, id: number, input: DeliveryZoneInput): Promise<DeliveryZone> {
+  return apiFetch<DeliveryZone>(
+    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+}
+
+export async function deleteDeliveryZone(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
   );
 }
