@@ -10,6 +10,7 @@ import {
   getRestaurant, geocodeAddress, DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
 } from '@/lib/api';
 import type { CityMarker } from '@/components/delivery/ZoneMap';
+import { lookupCityCoord } from '@/lib/israel-cities';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
@@ -56,8 +57,6 @@ export default function DeliveryZonesPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const cityInputRef = useRef<HTMLInputElement>(null);
-  // Used to cancel stale city-geocoding loops when the editor is superseded.
-  const editSessionRef = useRef(0);
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -96,7 +95,6 @@ export default function DeliveryZonesPage() {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const beginNew = () => {
-    editSessionRef.current += 1;
     const d = emptyDraft();
     // Pre-fill radius center from restaurant address.
     if (restaurantCenter) d.center = restaurantCenter;
@@ -104,10 +102,7 @@ export default function DeliveryZonesPage() {
     setCityMarkers([]);
   };
 
-  const beginEdit = async (z: DeliveryZone) => {
-    editSessionRef.current += 1;
-    const myToken = editSessionRef.current;
-
+  const beginEdit = (z: DeliveryZone) => {
     const d: Draft = {
       id: z.id, name: z.name, type: z.type, isActive: z.is_active,
       polygon: z.polygon ?? [],
@@ -117,19 +112,11 @@ export default function DeliveryZonesPage() {
     };
     setDraft(d);
 
-    // Geocode existing cities for display-only markers (best-effort).
-    // Guard: bail out if a newer edit session has started mid-loop.
+    // Build city markers synchronously from the bundled coordinate table.
     if (z.type === 'cities' && z.cities && z.cities.length > 0) {
-      const markers: CityMarker[] = [];
-      for (const city of z.cities) {
-        if (editSessionRef.current !== myToken) return;
-        const geo = await geocodeAddress(rid, city);
-        if (editSessionRef.current !== myToken) return;
-        if (geo.found && geo.lat != null && geo.lng != null) {
-          markers.push({ name: city, lat: geo.lat, lng: geo.lng });
-        }
-      }
-      if (editSessionRef.current !== myToken) return;
+      const markers: CityMarker[] = z.cities
+        .map((city) => { const c = lookupCityCoord(city); return c ? { name: city, lat: c.lat, lng: c.lng } : null; })
+        .filter((m): m is CityMarker => m !== null);
       setCityMarkers(markers);
     } else {
       setCityMarkers([]);
@@ -143,16 +130,16 @@ export default function DeliveryZonesPage() {
     void lat; void lng;
   };
 
-  const addCity = async () => {
+  const addCity = () => {
     const c = cityInput.trim();
     if (!c || !draft || draft.cities.includes(c)) { setCityInput(''); return; }
     setDraft({ ...draft, cities: [...draft.cities, c] });
     setCityInput('');
 
-    // Best-effort geocode for the new city marker.
-    const geo = await geocodeAddress(rid, c);
-    if (geo.found && geo.lat != null && geo.lng != null) {
-      setCityMarkers((prev) => [...prev.filter((m) => m.name !== c), { name: c, lat: geo.lat!, lng: geo.lng! }]);
+    // Best-effort pin from the bundled coordinate table (synchronous, no server call).
+    const coord = lookupCityCoord(c);
+    if (coord) {
+      setCityMarkers((prev) => [...prev.filter((m) => m.name !== c), { name: c, lat: coord.lat, lng: coord.lng }]);
     }
   };
 
@@ -191,7 +178,6 @@ export default function DeliveryZonesPage() {
       const saved = draft.id ? await updateDeliveryZone(rid, draft.id, payload) : await createDeliveryZone(rid, payload);
       setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
       setSaveError(null);
-      editSessionRef.current += 1;
       setDraft(null);
       setCityMarkers([]);
     } catch (err) {
@@ -212,7 +198,7 @@ export default function DeliveryZonesPage() {
   const remove = async (z: DeliveryZone) => {
     await deleteDeliveryZone(rid, z.id);
     setZones((prev) => prev.filter((x) => x.id !== z.id));
-    if (draft?.id === z.id) { editSessionRef.current += 1; setDraft(null); setCityMarkers([]); }
+    if (draft?.id === z.id) { setDraft(null); setCityMarkers([]); }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -221,25 +207,12 @@ export default function DeliveryZonesPage() {
     return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" /></div>;
   }
 
-  // Address notice shown at page top when addressOk is false.
-  const missingAddressNotice = addressOk === false ? (
-    <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-      <span>
-        {t('radiusMissingAddress') || "Renseignez l'adresse du restaurant dans Parametres > General pour utiliser un rayon."}{' '}
-        <Link href="../settings" className="underline font-medium">{t('generalSettings') || 'Parametres generaux'}</Link>
-      </span>
-    </div>
-  ) : null;
-
   return (
     <div className="max-w-[1100px]">
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2"><MapPin className="w-6 h-6" />{t('deliveryZones') || 'Zones de livraison'}</h1>
         <p className="text-gray-500 mt-1">{t('deliveryZonesDesc') || 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.'}</p>
       </div>
-
-      {missingAddressNotice}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
         <ZoneMap
@@ -356,7 +329,7 @@ export default function DeliveryZonesPage() {
                   className="flex-1 py-2 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50">
                   {saving ? '...' : (t('save') || 'Enregistrer')}
                 </button>
-                <button onClick={() => { editSessionRef.current += 1; setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
+                <button onClick={() => { setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
               </div>
             </div>
           )}
