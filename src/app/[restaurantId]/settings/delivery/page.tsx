@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { MapPin, Trash2, Plus } from 'lucide-react';
 import {
@@ -11,6 +11,7 @@ import {
 import type { DrawMode } from '@/components/delivery/ZoneMap';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { loadGooglePlaces } from '@/lib/google-places';
 
 // Leaflet must not SSR.
 const ZoneMap = dynamic(() => import('@/components/delivery/ZoneMap'), { ssr: false });
@@ -46,6 +47,7 @@ export default function DeliveryZonesPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [drawMode, setDrawMode] = useState<DrawMode>('none');
   const [cityInput, setCityInput] = useState('');
+  const [placesKey, setPlacesKey] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -57,9 +59,12 @@ export default function DeliveryZonesPage() {
         const lat = (r as any)?.latitude, lng = (r as any)?.longitude;
         if (typeof lat === 'number' && typeof lng === 'number') setCenter({ lat, lng });
         else if (zs[0]?.center_lat != null && zs[0]?.center_lng != null) setCenter({ lat: zs[0].center_lat!, lng: zs[0].center_lng! });
+        setPlacesKey((r as any)?.google_places_api_key || '');
       })
       .finally(() => setLoading(false));
   }, [rid]);
+
+  const cityInputRef = useRef<HTMLInputElement>(null);
 
   const beginNew = () => { setDraft(emptyDraft()); setDrawMode('none'); };
 
@@ -137,6 +142,41 @@ export default function DeliveryZonesPage() {
     setZones((prev) => prev.filter((x) => x.id !== z.id));
     if (draft?.id === z.id) setDraft(null);
   };
+
+  useEffect(() => {
+    if (draft?.type !== 'cities' || !placesKey || !cityInputRef.current) return;
+    let ac: any = null;
+    let listener: any = null;
+    let active = true;
+    loadGooglePlaces(placesKey).then(() => {
+      if (!active || !cityInputRef.current) return;
+      const g = (window as any).google;
+      if (!g?.maps?.places) return;
+      ac = new g.maps.places.Autocomplete(cityInputRef.current, { types: ['(cities)'] });
+      listener = ac.addListener('place_changed', () => {
+        const place = ac.getPlace();
+        if (!place) return;
+        // Prefer the locality component (matches how foodyweb derives the order city);
+        // fall back to administrative_area_level_2, then the place name.
+        let city = '';
+        for (const comp of place.address_components || []) {
+          if (comp.types?.includes('locality')) { city = comp.long_name; break; }
+          if (!city && comp.types?.includes('administrative_area_level_2')) city = comp.long_name;
+        }
+        if (!city) city = place.name || '';
+        city = city.trim();
+        if (city) {
+          setDraft((d) => (d && !d.cities.includes(city) ? { ...d, cities: [...d.cities, city] } : d));
+        }
+        setCityInput('');
+        if (cityInputRef.current) cityInputRef.current.value = '';
+      });
+    }).catch(() => { /* no key / blocked: plain text input still works */ });
+    return () => {
+      active = false;
+      if (listener && (window as any).google?.maps?.event) (window as any).google.maps.event.removeListener(listener);
+    };
+  }, [draft?.type, placesKey]);
 
   if (loading) {
     return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" /></div>;
@@ -237,7 +277,7 @@ export default function DeliveryZonesPage() {
               {draft.type === 'cities' && (
                 <div className="space-y-2">
                   <div className="flex gap-2">
-                    <input className="flex-1 border rounded-lg px-3 py-2" placeholder={t('cityOrPostal') || 'Ville ou code postal'}
+                    <input ref={cityInputRef} className="flex-1 border rounded-lg px-3 py-2" placeholder={t('cityOrPostal') || 'Ville ou code postal'}
                       value={cityInput} onChange={(e) => setCityInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }} />
                     <button onClick={addCity} className="px-3 rounded-lg bg-gray-100">{t('add') || 'Ajouter'}</button>

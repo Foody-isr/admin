@@ -65,6 +65,8 @@ export interface Restaurant {
   workdays?: number[];
   phone: string;
   delivery_enabled: boolean;
+  /** Google Places API key (client-restricted) for address/city autocomplete. Optional. */
+  google_places_api_key?: string;
   pickup_enabled: boolean;
   dine_in_enabled: boolean;
   is_active: boolean;
