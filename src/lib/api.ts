@@ -6086,3 +6086,23 @@ export async function deleteDeliveryZone(restaurantId: number, id: number): Prom
     { method: 'DELETE' }
   );
 }
+
+/**
+ * Geocode an address or city name via the server's free Nominatim-backed endpoint.
+ * Returns `{found: false}` on failure so callers can always destructure safely.
+ */
+export async function geocodeAddress(
+  _restaurantId: number,
+  address: string,
+  city?: string,
+): Promise<{ found: boolean; lat?: number; lng?: number }> {
+  const q = new URLSearchParams({ address });
+  if (city) q.set('city', city);
+  try {
+    const res = await fetch(`${API_URL}/api/v1/public/geocode?${q.toString()}`);
+    if (!res.ok) return { found: false };
+    return res.json();
+  } catch {
+    return { found: false };
+  }
+}

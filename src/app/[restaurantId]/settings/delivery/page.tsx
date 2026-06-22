@@ -1,17 +1,17 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { MapPin, Trash2, Plus } from 'lucide-react';
+import { AlertCircle, MapPin, Trash2, Plus } from 'lucide-react';
 import {
   getDeliveryZones, createDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
-  getRestaurant, DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
+  getRestaurant, geocodeAddress, DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
 } from '@/lib/api';
-import type { DrawMode } from '@/components/delivery/ZoneMap';
+import type { CityMarker } from '@/components/delivery/ZoneMap';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { loadGooglePlaces } from '@/lib/google-places';
 
 // Leaflet must not SSR.
 const ZoneMap = dynamic(() => import('@/components/delivery/ZoneMap'), { ssr: false });
@@ -23,7 +23,7 @@ interface Draft {
   name: string;
   type: DeliveryZoneType;
   isActive: boolean;
-  polygon: [number, number][];           // [lng, lat]
+  polygon: [number, number][];           // [lng, lat] — kept for display of legacy zones
   center: { lat: number; lng: number } | null;
   radiusKm: number;
   cities: string[];
@@ -44,61 +44,122 @@ export default function DeliveryZonesPage() {
   const [loading, setLoading] = useState(true);
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [center, setCenter] = useState(DEFAULT_CENTER);
+  // Restaurant center derived from geocoding the restaurant address.
+  const [restaurantCenter, setRestaurantCenter] = useState<{ lat: number; lng: number } | null>(null);
+  // False when the restaurant has no address or it cannot be geocoded.
+  const [addressOk, setAddressOk] = useState<boolean | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [drawMode, setDrawMode] = useState<DrawMode>('none');
   const [cityInput, setCityInput] = useState('');
-  const [placesKey, setPlacesKey] = useState<string>('');
+  // City markers geocoded on the fly (display-only, not persisted).
+  const [cityMarkers, setCityMarkers] = useState<CityMarker[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const cityInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Bootstrap ──────────────────────────────────────────────────────────────
+
   useEffect(() => {
     Promise.all([getDeliveryZones(rid), getRestaurant(rid).catch(() => null)])
-      .then(([zs, r]) => {
+      .then(async ([zs, r]) => {
         setZones(zs);
-        // Restaurant interface doesn't expose lat/lng — guard with any and fall back gracefully
-        const lat = (r as any)?.latitude, lng = (r as any)?.longitude;
-        if (typeof lat === 'number' && typeof lng === 'number') setCenter({ lat, lng });
-        else if (zs[0]?.center_lat != null && zs[0]?.center_lng != null) setCenter({ lat: zs[0].center_lat!, lng: zs[0].center_lng! });
-        setPlacesKey((r as any)?.google_places_api_key || '');
+
+        // Try to geocode the restaurant address for the radius center.
+        const address = (r as any)?.address as string | undefined;
+        if (address) {
+          const geo = await geocodeAddress(rid, address);
+          if (geo.found && geo.lat != null && geo.lng != null) {
+            const rc = { lat: geo.lat, lng: geo.lng };
+            setRestaurantCenter(rc);
+            setCenter(rc);
+            setAddressOk(true);
+          } else {
+            setAddressOk(false);
+            // Fall back to first zone center if available.
+            if (zs[0]?.center_lat != null && zs[0]?.center_lng != null) {
+              setCenter({ lat: zs[0].center_lat!, lng: zs[0].center_lng! });
+            }
+          }
+        } else {
+          setAddressOk(false);
+          // Fallback: existing zone center or Tel Aviv default.
+          const lat = (r as any)?.latitude, lng = (r as any)?.longitude;
+          if (typeof lat === 'number' && typeof lng === 'number') setCenter({ lat, lng });
+          else if (zs[0]?.center_lat != null && zs[0]?.center_lng != null) setCenter({ lat: zs[0].center_lat!, lng: zs[0].center_lng! });
+        }
       })
       .finally(() => setLoading(false));
   }, [rid]);
 
-  const cityInputRef = useRef<HTMLInputElement>(null);
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
-  const beginNew = () => { setDraft(emptyDraft()); setDrawMode('none'); };
+  const beginNew = () => {
+    const d = emptyDraft();
+    // Pre-fill radius center from restaurant address.
+    if (restaurantCenter) d.center = restaurantCenter;
+    setDraft(d);
+    setCityMarkers([]);
+  };
 
-  const beginEdit = (z: DeliveryZone) => {
-    setDraft({
+  const beginEdit = async (z: DeliveryZone) => {
+    const d: Draft = {
       id: z.id, name: z.name, type: z.type, isActive: z.is_active,
       polygon: z.polygon ?? [],
-      center: z.center_lat != null && z.center_lng != null ? { lat: z.center_lat, lng: z.center_lng } : null,
+      center: z.center_lat != null && z.center_lng != null ? { lat: z.center_lat, lng: z.center_lng } : restaurantCenter,
       radiusKm: z.radius_m != null ? z.radius_m / 1000 : 5,
       cities: z.cities ?? [],
-    });
-    setDrawMode('none');
+    };
+    setDraft(d);
+
+    // Geocode existing cities for display-only markers (best-effort).
+    if (z.type === 'cities' && z.cities && z.cities.length > 0) {
+      const markers: CityMarker[] = [];
+      for (const city of z.cities) {
+        const geo = await geocodeAddress(rid, city);
+        if (geo.found && geo.lat != null && geo.lng != null) {
+          markers.push({ name: city, lat: geo.lat, lng: geo.lng });
+        }
+      }
+      setCityMarkers(markers);
+    } else {
+      setCityMarkers([]);
+    }
   };
 
   const onMapClick = (lat: number, lng: number) => {
     if (!draft) return;
-    if (drawMode === 'draw-polygon') {
-      setDraft({ ...draft, polygon: [...draft.polygon, [lng, lat]] });
-    } else if (drawMode === 'set-center') {
-      setDraft({ ...draft, center: { lat, lng } });
-      setDrawMode('none');
+    // Only set-center mode remains active; draw-polygon is removed.
+    // (kept as no-op guard for safety)
+    void lat; void lng;
+  };
+
+  const addCity = async () => {
+    const c = cityInput.trim();
+    if (!c || !draft || draft.cities.includes(c)) { setCityInput(''); return; }
+    setDraft({ ...draft, cities: [...draft.cities, c] });
+    setCityInput('');
+
+    // Best-effort geocode for the new city marker.
+    const geo = await geocodeAddress(rid, c);
+    if (geo.found && geo.lat != null && geo.lng != null) {
+      setCityMarkers((prev) => [...prev.filter((m) => m.name !== c), { name: c, lat: geo.lat!, lng: geo.lng! }]);
     }
   };
 
-  const addCity = () => {
-    const c = cityInput.trim();
-    if (c && draft && !draft.cities.includes(c)) setDraft({ ...draft, cities: [...draft.cities, c] });
-    setCityInput('');
+  const removeCity = (c: string) => {
+    if (!draft) return;
+    setDraft({ ...draft, cities: draft.cities.filter((x) => x !== c) });
+    setCityMarkers((prev) => prev.filter((m) => m.name !== c));
   };
 
   const toPayload = (d: Draft): DeliveryZoneInput => {
     const base: DeliveryZoneInput = { name: d.name, type: d.type, is_active: d.isActive };
     if (d.type === 'polygon') base.polygon = d.polygon;
-    if (d.type === 'radius' && d.center) { base.center_lat = d.center.lat; base.center_lng = d.center.lng; base.radius_m = Math.round(d.radiusKm * 1000); }
+    if (d.type === 'radius') {
+      const rc = restaurantCenter;
+      if (rc) { base.center_lat = rc.lat; base.center_lng = rc.lng; }
+      base.radius_m = Math.round(d.radiusKm * 1000);
+    }
     if (d.type === 'cities') base.cities = d.cities;
     return base;
   };
@@ -106,7 +167,7 @@ export default function DeliveryZonesPage() {
   const validDraft = (d: Draft): boolean => {
     if (!d.name.trim()) return false;
     if (d.type === 'polygon') return d.polygon.length >= 3;
-    if (d.type === 'radius') return !!d.center && d.radiusKm > 0;
+    if (d.type === 'radius') return addressOk === true && d.radiusKm > 0;
     if (d.type === 'cities') return d.cities.length > 0;
     return false;
   };
@@ -121,7 +182,7 @@ export default function DeliveryZonesPage() {
       setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
       setSaveError(null);
       setDraft(null);
-      setDrawMode('none');
+      setCityMarkers([]);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -140,47 +201,25 @@ export default function DeliveryZonesPage() {
   const remove = async (z: DeliveryZone) => {
     await deleteDeliveryZone(rid, z.id);
     setZones((prev) => prev.filter((x) => x.id !== z.id));
-    if (draft?.id === z.id) setDraft(null);
+    if (draft?.id === z.id) { setDraft(null); setCityMarkers([]); }
   };
 
-  useEffect(() => {
-    if (draft?.type !== 'cities' || !placesKey || !cityInputRef.current) return;
-    let ac: any = null;
-    let listener: any = null;
-    let active = true;
-    loadGooglePlaces(placesKey).then(() => {
-      if (!active || !cityInputRef.current) return;
-      const g = (window as any).google;
-      if (!g?.maps?.places) return;
-      ac = new g.maps.places.Autocomplete(cityInputRef.current, { types: ['(cities)'] });
-      listener = ac.addListener('place_changed', () => {
-        const place = ac.getPlace();
-        if (!place) return;
-        // Prefer the locality component (matches how foodyweb derives the order city);
-        // fall back to administrative_area_level_2, then the place name.
-        let city = '';
-        for (const comp of place.address_components || []) {
-          if (comp.types?.includes('locality')) { city = comp.long_name; break; }
-          if (!city && comp.types?.includes('administrative_area_level_2')) city = comp.long_name;
-        }
-        if (!city) city = place.name || '';
-        city = city.trim();
-        if (city) {
-          setDraft((d) => (d && !d.cities.includes(city) ? { ...d, cities: [...d.cities, city] } : d));
-        }
-        setCityInput('');
-        if (cityInputRef.current) cityInputRef.current.value = '';
-      });
-    }).catch(() => { /* no key / blocked: plain text input still works */ });
-    return () => {
-      active = false;
-      if (listener && (window as any).google?.maps?.event) (window as any).google.maps.event.removeListener(listener);
-    };
-  }, [draft?.type, placesKey]);
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) {
     return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" /></div>;
   }
+
+  // Address notice shown at page top when addressOk is false.
+  const missingAddressNotice = addressOk === false ? (
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+      <span>
+        {t('radiusMissingAddress') || "Renseignez l'adresse du restaurant dans Parametres > General pour utiliser un rayon."}{' '}
+        <Link href="../settings" className="underline font-medium">{t('generalSettings') || 'Parametres generaux'}</Link>
+      </span>
+    </div>
+  ) : null;
 
   return (
     <div className="max-w-[1100px]">
@@ -189,17 +228,20 @@ export default function DeliveryZonesPage() {
         <p className="text-gray-500 mt-1">{t('deliveryZonesDesc') || 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.'}</p>
       </div>
 
+      {missingAddressNotice}
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
         <ZoneMap
           className="h-[520px] rounded-xl overflow-hidden border border-gray-200"
           center={center}
           zones={zones}
           activeZoneId={draft?.id ?? null}
-          drawMode={drawMode}
+          drawMode="none"
           draftPolygon={draft?.type === 'polygon' ? draft.polygon : []}
-          draftCenter={draft?.type === 'radius' ? draft.center : null}
+          draftCenter={draft?.type === 'radius' ? (restaurantCenter ?? draft.center) : null}
           draftRadiusM={draft?.type === 'radius' ? Math.round(draft.radiusKm * 1000) : undefined}
           onMapClick={onMapClick}
+          cityMarkers={draft?.type === 'cities' ? cityMarkers : undefined}
         />
 
         <div className="space-y-4">
@@ -235,36 +277,36 @@ export default function DeliveryZonesPage() {
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
+
+              {/* Type selector — only radius and cities */}
               <div className="flex gap-2">
-                {(['radius', 'polygon', 'cities'] as DeliveryZoneType[]).map((ty) => (
-                  <button key={ty} onClick={() => setDraft({ ...draft, type: ty })}
+                {(['radius', 'cities'] as const).map((ty) => (
+                  <button key={ty} onClick={() => { setDraft({ ...draft, type: ty }); setCityMarkers([]); }}
                     className={`flex-1 py-1.5 rounded-lg text-sm ${draft.type === ty ? 'bg-[var(--brand-500)] text-white' : 'bg-gray-100'}`}>
                     {t(`zoneType_${ty}`) || ty}
                   </button>
                 ))}
               </div>
 
-              {draft.type === 'polygon' && (
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-500">{t('drawPolygonHint') || 'Cliquez sur la carte pour ajouter des points (3 minimum).'}</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setDrawMode(drawMode === 'draw-polygon' ? 'none' : 'draw-polygon')}
-                      className={`flex-1 py-1.5 rounded-lg text-sm ${drawMode === 'draw-polygon' ? 'bg-green-600 text-white' : 'bg-gray-100'}`}>
-                      {drawMode === 'draw-polygon' ? (t('drawing') || 'En cours...') : (t('draw') || 'Dessiner')}
-                    </button>
-                    <button onClick={() => setDraft({ ...draft, polygon: draft.polygon.slice(0, -1) })} className="px-3 py-1.5 rounded-lg text-sm bg-gray-100">{t('undo') || 'Annuler point'}</button>
-                    <button onClick={() => setDraft({ ...draft, polygon: [] })} className="px-3 py-1.5 rounded-lg text-sm bg-gray-100">{t('clear') || 'Effacer'}</button>
-                  </div>
-                  <p className="text-xs text-gray-400">{draft.polygon.length} {t('points') || 'points'}</p>
-                </div>
-              )}
+              {/* Contextual hint per type */}
+              <p className="text-xs text-gray-500 italic">
+                {draft.type === 'cities'
+                  ? (t('zoneTypeHint_cities') || 'Les clients choisiront leur ville dans une liste au moment de la commande.')
+                  : (t('zoneTypeHint_radius') || "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.")}
+              </p>
 
               {draft.type === 'radius' && (
                 <div className="space-y-2">
-                  <button onClick={() => setDrawMode(drawMode === 'set-center' ? 'none' : 'set-center')}
-                    className={`w-full py-1.5 rounded-lg text-sm ${drawMode === 'set-center' ? 'bg-green-600 text-white' : 'bg-gray-100'}`}>
-                    {draft.center ? (t('moveCenter') || 'Deplacer le centre') : (t('setCenter') || 'Placer le centre')}
-                  </button>
+                  <p className="text-xs text-gray-500">{t('radiusFromAddressHint') || "Le rayon part de l'adresse du restaurant."}</p>
+                  {addressOk === false && (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        {t('radiusMissingAddress') || "Renseignez l'adresse du restaurant dans Parametres > General pour utiliser un rayon."}{' '}
+                        <Link href="../settings" className="underline font-medium">{t('generalSettings') || 'Parametres generaux'}</Link>
+                      </span>
+                    </div>
+                  )}
                   <label className="text-sm flex items-center gap-2">
                     {t('radiusKm') || 'Rayon (km)'}
                     <input type="number" min={0.1} step={0.1} value={draft.radiusKm}
@@ -277,15 +319,20 @@ export default function DeliveryZonesPage() {
               {draft.type === 'cities' && (
                 <div className="space-y-2">
                   <div className="flex gap-2">
-                    <input ref={cityInputRef} className="flex-1 border rounded-lg px-3 py-2" placeholder={t('cityOrPostal') || 'Ville ou code postal'}
-                      value={cityInput} onChange={(e) => setCityInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }} />
+                    <input
+                      ref={cityInputRef}
+                      className="flex-1 border rounded-lg px-3 py-2"
+                      placeholder={t('cityOrPostal') || 'Ville ou code postal'}
+                      value={cityInput}
+                      onChange={(e) => setCityInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }}
+                    />
                     <button onClick={addCity} className="px-3 rounded-lg bg-gray-100">{t('add') || 'Ajouter'}</button>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {draft.cities.map((c) => (
                       <span key={c} className="px-2 py-1 rounded-full bg-gray-100 text-sm flex items-center gap-1">
-                        {c}<button onClick={() => setDraft({ ...draft, cities: draft.cities.filter((x) => x !== c) })}>&times;</button>
+                        {c}<button onClick={() => removeCity(c)}>&times;</button>
                       </span>
                     ))}
                   </div>
@@ -298,7 +345,7 @@ export default function DeliveryZonesPage() {
                   className="flex-1 py-2 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50">
                   {saving ? '...' : (t('save') || 'Enregistrer')}
                 </button>
-                <button onClick={() => { setDraft(null); setDrawMode('none'); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
+                <button onClick={() => { setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
               </div>
             </div>
           )}

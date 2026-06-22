@@ -3009,6 +3009,10 @@ const translations: Record<Locale, Record<string, string>> = {
     moveCenter: 'Move center',
     radiusKm: 'Radius (km)',
     cityOrPostal: 'City or postal code',
+    radiusFromAddressHint: 'The radius is centered on the restaurant address.',
+    radiusMissingAddress: 'Set the restaurant address in Settings > General to use a radius zone.',
+    zoneTypeHint_cities: 'Customers will choose their city from a list when placing an order.',
+    zoneTypeHint_radius: 'The system automatically checks whether the customer address falls within the radius.',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -5945,6 +5949,10 @@ const translations: Record<Locale, Record<string, string>> = {
     moveCenter: 'הזז מרכז',
     radiusKm: 'רדיוס (ק"מ)',
     cityOrPostal: 'עיר או מיקוד',
+    radiusFromAddressHint: 'הרדיוס ממורכז על כתובת המסעדה.',
+    radiusMissingAddress: 'הזינו כתובת מסעדה בהגדרות > כללי כדי להשתמש בזון רדיוס.',
+    zoneTypeHint_cities: 'הלקוחות יבחרו את עירם מרשימה בעת ביצוע ההזמנה.',
+    zoneTypeHint_radius: 'המערכת בודקת אוטומטית אם כתובת הלקוח נמצאת בתוך הרדיוס.',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -8882,5 +8890,9 @@ const translations: Record<Locale, Record<string, string>> = {
     moveCenter: 'Deplacer le centre',
     radiusKm: 'Rayon (km)',
     cityOrPostal: 'Ville ou code postal',
+    radiusFromAddressHint: "Le rayon part de l'adresse du restaurant.",
+    radiusMissingAddress: "Renseignez l'adresse du restaurant dans Parametres > General pour utiliser un rayon.",
+    zoneTypeHint_cities: 'Les clients choisiront leur ville dans une liste au moment de la commande.',
+    zoneTypeHint_radius: "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.",
   },
 };
