@@ -43,6 +43,21 @@ type PreviewMessage = {
   hideHeroLogo: boolean;
   heroLogoBg: 'white' | 'black';
   heroCoverLayout: 'card' | 'logo';
+  heroNameFont: string;
+  tagline: string;
+  socialLinks: Record<string, string>;
+  navbarStyle: string;
+  navbarColor: string;
+  // Restaurant-level visuals (logo, cover, background) — live on the Restaurant,
+  // not WebsiteConfig — so the preview reflects cover/logo edits too.
+  restaurantPreview: {
+    logoUrl: string;
+    coverUrl: string;
+    coverDisplayMode: string;
+    coverFocalX: number;
+    coverFocalY: number;
+    backgroundColor: string;
+  } | null;
   customPalette: WebsiteConfig['custom_palette'] | null;
   sectionColors: WebsiteConfig['section_colors'] | null;
   faviconURL: string;
@@ -303,6 +318,23 @@ export default function WebsitePage() {
       hideHeroLogo: next.hide_hero_logo,
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
       heroCoverLayout: next.hero_cover_layout === 'logo' ? 'logo' : 'card',
+      // These four are edited in dedicated state (not `config`), so read them
+      // from the live state vars rather than `next`.
+      heroNameFont,
+      tagline,
+      navbarStyle,
+      navbarColor,
+      socialLinks: next.social_links ?? {},
+      restaurantPreview: restaurant
+        ? {
+            logoUrl: restaurant.logo_url || '',
+            coverUrl: restaurant.cover_url || '',
+            coverDisplayMode: restaurant.cover_display_mode || '',
+            coverFocalX: restaurant.cover_focal_x ?? 50,
+            coverFocalY: restaurant.cover_focal_y ?? 50,
+            backgroundColor: restaurant.background_color || '',
+          }
+        : null,
       customPalette: next.custom_palette ?? null,
       sectionColors: next.section_colors ?? null,
       faviconURL: next.favicon_url || '',
@@ -319,7 +351,7 @@ export default function WebsitePage() {
       typography: next.typography ?? null,
     };
     win.postMessage(message, '*');
-  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo]);
+  }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo, heroNameFont, tagline, navbarStyle, navbarColor, restaurant]);
 
   // Re-post the menu preview whenever the banner controls change so the iframe
   // reflects them live (these fields are not part of `config`, so the config
@@ -328,6 +360,16 @@ export default function WebsitePage() {
     if (config) postMenuPreview(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, orderPageInfo]);
+
+  // Re-post when dedicated-state fields (tagline, navbar, hero font) or the
+  // restaurant-level visuals (logo, cover, background) change. These live
+  // outside `config`, so a config change wouldn't otherwise trigger a re-post.
+  useEffect(() => {
+    if (config) postMenuPreview(config);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroNameFont, tagline, navbarStyle, navbarColor,
+      restaurant?.logo_url, restaurant?.cover_url, restaurant?.background_color,
+      restaurant?.cover_display_mode, restaurant?.cover_focal_x, restaurant?.cover_focal_y]);
 
   const handleMenuConfigUpdate = useCallback((patch: Partial<WebsiteConfig>) => {
     // Local-state-only — the global autosave effect persists to the draft.
