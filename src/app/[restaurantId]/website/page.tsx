@@ -43,6 +43,7 @@ type PreviewMessage = {
   hideHeroLogo: boolean;
   heroLogoBg: 'white' | 'black';
   heroCoverLayout: 'card' | 'logo';
+  heroLogoSize: number;
   heroNameFont: string;
   tagline: string;
   socialLinks: Record<string, string>;
@@ -318,6 +319,7 @@ export default function WebsitePage() {
       hideHeroLogo: next.hide_hero_logo,
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
       heroCoverLayout: next.hero_cover_layout === 'logo' ? 'logo' : 'card',
+      heroLogoSize: next.hero_logo_size > 0 ? next.hero_logo_size : 100,
       // These four are edited in dedicated state (not `config`), so read them
       // from the live state vars rather than `next`.
       heroNameFont,
@@ -560,6 +562,7 @@ export default function WebsitePage() {
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           hero_cover_layout: stateConfig.hero_cover_layout === 'logo' ? 'logo' : 'card',
+          hero_logo_size: stateConfig.hero_logo_size > 0 ? stateConfig.hero_logo_size : 100,
           custom_palette: stateConfig.custom_palette ?? null,
           section_colors: stateConfig.section_colors ?? null,
           hero_name_font: stateConfig.hero_name_font || '',
@@ -670,6 +673,7 @@ export default function WebsitePage() {
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         hero_cover_layout: config?.hero_cover_layout === 'logo' ? 'logo' : 'card',
+        hero_logo_size: config?.hero_logo_size && config.hero_logo_size > 0 ? config.hero_logo_size : 100,
         custom_palette: config?.custom_palette ?? null,
         section_colors: config?.section_colors ?? null,
         hero_name_font: heroNameFont,
@@ -1108,6 +1112,7 @@ export default function WebsitePage() {
               menuLayout={config?.layout_default || 'magazine'}
               menuLayoutMobile={config?.layout_default_mobile || ''}
               heroCoverLayout={config?.hero_cover_layout || 'card'}
+              heroLogoSize={config?.hero_logo_size && config.hero_logo_size > 0 ? config.hero_logo_size : 100}
               categoryBannerStyle={categoryBannerStyle}
               categoryBannerOverlay={categoryBannerOverlay}
               categoryBannerFit={categoryBannerFit}
@@ -1115,6 +1120,7 @@ export default function WebsitePage() {
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onMenuLayoutMobileChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default_mobile: v as '' | 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onHeroCoverLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, hero_cover_layout: v as 'card' | 'logo' } as WebsiteConfig) : c))}
+              onHeroLogoSizeChange={(v) => setConfig((c) => (c ? ({ ...c, hero_logo_size: v } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
               onCategoryBannerOverlayChange={setCategoryBannerOverlay}
               onCategoryBannerFitChange={setCategoryBannerFit}
@@ -1357,7 +1363,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1377,6 +1383,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   menuLayout: string;
   menuLayoutMobile: string;
   heroCoverLayout: 'card' | 'logo';
+  heroLogoSize: number;
   categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
@@ -1384,6 +1391,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
   onHeroCoverLayoutChange: (v: 'card' | 'logo') => void;
+  onHeroLogoSizeChange: (v: number) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
   onCategoryBannerFitChange: (v: 'cover' | 'contain' | 'natural') => void;
@@ -1521,6 +1529,23 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
               « Logo seul » place votre logo au centre de la couverture, sans nom ni slogan.
             </p>
           </div>
+          {restaurant?.logo_url && (
+            <div className="pt-2 border-t border-divider">
+              <div className="flex items-center justify-between mb-2">
+                <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary">Taille du logo</span>
+                <span className="text-[11px] text-fg-secondary tabular-nums">{heroLogoSize}%</span>
+              </div>
+              <input
+                type="range"
+                min={60}
+                max={160}
+                step={5}
+                value={heroLogoSize}
+                onChange={(e) => onHeroLogoSizeChange(Number(e.target.value))}
+                className="w-full accent-brand-500"
+              />
+            </div>
+          )}
           <div className="pt-2 border-t border-divider">
             <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Mise en page du menu</span>
             {/* One picker per device. The choice is the layout customers land
