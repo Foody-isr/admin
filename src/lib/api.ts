@@ -6025,3 +6025,60 @@ export async function confirmMenuItemImage(
     { method: 'POST', body: JSON.stringify(input) },
   );
 }
+
+// --- Delivery Zones ---
+
+export type DeliveryZoneType = 'polygon' | 'radius' | 'cities';
+
+export interface DeliveryZone {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  type: DeliveryZoneType;
+  is_active: boolean;
+  polygon?: [number, number][]; // [lng, lat] pairs
+  center_lat?: number;
+  center_lng?: number;
+  radius_m?: number;
+  cities?: string[];
+  created_at: string;
+}
+
+export interface DeliveryZoneInput {
+  name: string;
+  type: DeliveryZoneType;
+  is_active?: boolean;
+  polygon?: [number, number][];
+  center_lat?: number;
+  center_lng?: number;
+  radius_m?: number;
+  cities?: string[];
+}
+
+export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
+  const data = await apiFetch<{ zones: DeliveryZone[] }>(
+    `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId
+  );
+  return data.zones ?? [];
+}
+
+export async function createDeliveryZone(restaurantId: number, input: DeliveryZoneInput): Promise<DeliveryZone> {
+  return apiFetch<DeliveryZone>(
+    `/api/v1/delivery/zones?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+export async function updateDeliveryZone(restaurantId: number, id: number, input: DeliveryZoneInput): Promise<DeliveryZone> {
+  return apiFetch<DeliveryZone>(
+    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+}
+
+export async function deleteDeliveryZone(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'DELETE' }
+  );
+}
