@@ -625,6 +625,8 @@ export interface WebsiteConfig {
   /** Order-page cover composition. 'card' (default) shows the logo box with the
    *  restaurant name + tagline; 'logo' centers the logo alone on the cover. */
   hero_cover_layout: 'card' | 'logo';
+  /** Scales the cover logo, as a percentage of its default size (100 = default). */
+  hero_logo_size: number;
   custom_palette?: {
     mode: 'light' | 'dark';
     bg: string;
