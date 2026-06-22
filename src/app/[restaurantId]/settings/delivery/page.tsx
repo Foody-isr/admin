@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { MapPin, Trash2, Plus } from 'lucide-react';
 import {
@@ -47,6 +47,7 @@ export default function DeliveryZonesPage() {
   const [drawMode, setDrawMode] = useState<DrawMode>('none');
   const [cityInput, setCityInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([getDeliveryZones(rid), getRestaurant(rid).catch(() => null)])
@@ -67,7 +68,7 @@ export default function DeliveryZonesPage() {
       id: z.id, name: z.name, type: z.type, isActive: z.is_active,
       polygon: z.polygon ?? [],
       center: z.center_lat != null && z.center_lng != null ? { lat: z.center_lat, lng: z.center_lng } : null,
-      radiusKm: z.radius_m != null ? Math.round(z.radius_m / 100) / 10 : 5,
+      radiusKm: z.radius_m != null ? z.radius_m / 1000 : 5,
       cities: z.cities ?? [],
     });
     setDrawMode('none');
@@ -108,12 +109,16 @@ export default function DeliveryZonesPage() {
   const save = async () => {
     if (!draft || !validDraft(draft)) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const payload = toPayload(draft);
       const saved = draft.id ? await updateDeliveryZone(rid, draft.id, payload) : await createDeliveryZone(rid, payload);
       setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
+      setSaveError(null);
       setDraft(null);
       setDrawMode('none');
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -133,8 +138,6 @@ export default function DeliveryZonesPage() {
     if (draft?.id === z.id) setDraft(null);
   };
 
-  const draftZonesForMap = useMemo(() => zones, [zones]);
-
   if (loading) {
     return <div className="flex justify-center py-16"><div className="animate-spin w-8 h-8 border-4 border-[var(--brand-500)] border-t-transparent rounded-full" /></div>;
   }
@@ -150,7 +153,7 @@ export default function DeliveryZonesPage() {
         <ZoneMap
           className="h-[520px] rounded-xl overflow-hidden border border-gray-200"
           center={center}
-          zones={draftZonesForMap}
+          zones={zones}
           activeZoneId={draft?.id ?? null}
           drawMode={drawMode}
           draftPolygon={draft?.type === 'polygon' ? draft.polygon : []}
@@ -249,12 +252,13 @@ export default function DeliveryZonesPage() {
                 </div>
               )}
 
+              {saveError && <p className="text-sm text-red-500">{saveError}</p>}
               <div className="flex gap-2 pt-2">
                 <button disabled={!validDraft(draft) || saving} onClick={save}
                   className="flex-1 py-2 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50">
                   {saving ? '...' : (t('save') || 'Enregistrer')}
                 </button>
-                <button onClick={() => { setDraft(null); setDrawMode('none'); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
+                <button onClick={() => { setDraft(null); setDrawMode('none'); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
               </div>
             </div>
           )}
