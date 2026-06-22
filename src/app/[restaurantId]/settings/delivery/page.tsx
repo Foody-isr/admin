@@ -56,6 +56,8 @@ export default function DeliveryZonesPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const cityInputRef = useRef<HTMLInputElement>(null);
+  // Used to cancel stale city-geocoding loops when the editor is superseded.
+  const editSessionRef = useRef(0);
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -94,6 +96,7 @@ export default function DeliveryZonesPage() {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const beginNew = () => {
+    editSessionRef.current += 1;
     const d = emptyDraft();
     // Pre-fill radius center from restaurant address.
     if (restaurantCenter) d.center = restaurantCenter;
@@ -102,6 +105,9 @@ export default function DeliveryZonesPage() {
   };
 
   const beginEdit = async (z: DeliveryZone) => {
+    editSessionRef.current += 1;
+    const myToken = editSessionRef.current;
+
     const d: Draft = {
       id: z.id, name: z.name, type: z.type, isActive: z.is_active,
       polygon: z.polygon ?? [],
@@ -112,14 +118,18 @@ export default function DeliveryZonesPage() {
     setDraft(d);
 
     // Geocode existing cities for display-only markers (best-effort).
+    // Guard: bail out if a newer edit session has started mid-loop.
     if (z.type === 'cities' && z.cities && z.cities.length > 0) {
       const markers: CityMarker[] = [];
       for (const city of z.cities) {
+        if (editSessionRef.current !== myToken) return;
         const geo = await geocodeAddress(rid, city);
+        if (editSessionRef.current !== myToken) return;
         if (geo.found && geo.lat != null && geo.lng != null) {
           markers.push({ name: city, lat: geo.lat, lng: geo.lng });
         }
       }
+      if (editSessionRef.current !== myToken) return;
       setCityMarkers(markers);
     } else {
       setCityMarkers([]);
@@ -181,6 +191,7 @@ export default function DeliveryZonesPage() {
       const saved = draft.id ? await updateDeliveryZone(rid, draft.id, payload) : await createDeliveryZone(rid, payload);
       setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
       setSaveError(null);
+      editSessionRef.current += 1;
       setDraft(null);
       setCityMarkers([]);
     } catch (err) {
@@ -201,7 +212,7 @@ export default function DeliveryZonesPage() {
   const remove = async (z: DeliveryZone) => {
     await deleteDeliveryZone(rid, z.id);
     setZones((prev) => prev.filter((x) => x.id !== z.id));
-    if (draft?.id === z.id) { setDraft(null); setCityMarkers([]); }
+    if (draft?.id === z.id) { editSessionRef.current += 1; setDraft(null); setCityMarkers([]); }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -345,7 +356,7 @@ export default function DeliveryZonesPage() {
                   className="flex-1 py-2 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50">
                   {saving ? '...' : (t('save') || 'Enregistrer')}
                 </button>
-                <button onClick={() => { setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
+                <button onClick={() => { editSessionRef.current += 1; setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
               </div>
             </div>
           )}
