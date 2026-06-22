@@ -97,39 +97,6 @@ export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRe
         </div>
       </section>
 
-      {/* Cover layout — what shows on the order-page cover: the logo box with
-          the name + tagline, or the logo on its own centered on the cover. */}
-      <section className="rounded-lg border border-[var(--divider)] p-3">
-        <div className="mb-2">
-          <h3 className="text-xs font-semibold mb-0.5">{t('heroCoverLayout')}</h3>
-          <p className="text-[11px] text-fg-secondary leading-snug">{t('heroCoverLayoutHelp')}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {(['card', 'logo'] as const).map((value) => {
-            const selected = (config.hero_cover_layout || 'card') === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onUpdate({ hero_cover_layout: value })}
-                className={`flex flex-col items-start gap-1 px-2.5 py-2 rounded-md border text-start transition-colors ${
-                  selected
-                    ? 'border-brand-500 bg-brand-500/5 ring-1 ring-brand-500'
-                    : 'border-[var(--divider)] hover:border-fg-tertiary'
-                }`}
-              >
-                <span className="text-xs font-medium">
-                  {value === 'card' ? t('heroCoverCard') : t('heroCoverLogo')}
-                </span>
-                <span className="text-[10px] text-fg-secondary leading-tight">
-                  {value === 'card' ? t('heroCoverCardDesc') : t('heroCoverLogoDesc')}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
       {/* Default layout */}
       <section className="rounded-lg border border-[var(--divider)] p-3">
         <div className="mb-2">

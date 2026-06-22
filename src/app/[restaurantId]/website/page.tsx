@@ -1065,12 +1065,14 @@ export default function WebsitePage() {
               onAddSection={() => setShowAddModal(true)}
               menuLayout={config?.layout_default || 'magazine'}
               menuLayoutMobile={config?.layout_default_mobile || ''}
+              heroCoverLayout={config?.hero_cover_layout || 'card'}
               categoryBannerStyle={categoryBannerStyle}
               categoryBannerOverlay={categoryBannerOverlay}
               categoryBannerFit={categoryBannerFit}
               categoryBannerFitMobile={categoryBannerFitMobile}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onMenuLayoutMobileChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default_mobile: v as '' | 'compact' | 'magazine' } as WebsiteConfig) : c))}
+              onHeroCoverLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, hero_cover_layout: v as 'card' | 'logo' } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
               onCategoryBannerOverlayChange={setCategoryBannerOverlay}
               onCategoryBannerFitChange={setCategoryBannerFit}
@@ -1313,7 +1315,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1332,12 +1334,14 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   onAddSection: () => void;
   menuLayout: string;
   menuLayoutMobile: string;
+  heroCoverLayout: 'card' | 'logo';
   categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   categoryBannerOverlay: number;
   categoryBannerFit: 'cover' | 'contain' | 'natural';
   categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
+  onHeroCoverLayoutChange: (v: 'card' | 'logo') => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
   onCategoryBannerFitChange: (v: 'cover' | 'contain' | 'natural') => void;
@@ -1447,6 +1451,34 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
             restaurant={restaurant}
             onRestaurantUpdate={onRestaurantUpdate}
           />
+          <div className="pt-2 border-t border-divider">
+            <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Affichage de la couverture</span>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { v: 'card', label: 'Logo et nom', hint: 'Logo, nom et slogan' },
+                { v: 'logo', label: 'Logo seul', hint: 'Logo centré, sans texte' },
+              ] as const).map((opt) => {
+                const active = (heroCoverLayout || 'card') === opt.v;
+                return (
+                  <button
+                    key={opt.v}
+                    onClick={() => onHeroCoverLayoutChange(opt.v)}
+                    className={`text-left px-3 py-2 rounded-lg border text-sm transition ${
+                      active
+                        ? 'border-brand-500 bg-brand-500/5 text-fg-primary'
+                        : 'border-divider text-fg-secondary hover:border-fg-secondary'
+                    }`}
+                  >
+                    <div className="font-medium text-[13px]">{opt.label}</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">{opt.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-fg-secondary opacity-70 mt-1.5 leading-relaxed">
+              « Logo seul » place votre logo au centre de la couverture, sans nom ni slogan.
+            </p>
+          </div>
           <div className="pt-2 border-t border-divider">
             <span className="block text-[10px] uppercase tracking-[0.12em] text-fg-secondary mb-2">Mise en page du menu</span>
             {/* One picker per device. The choice is the layout customers land
