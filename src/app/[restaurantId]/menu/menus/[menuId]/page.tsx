@@ -14,6 +14,7 @@ import {
   AvailabilityOverride,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
+import { addDays, isoDate } from '@/lib/weeks';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
 import { AvailabilityPill, availabilityToggleTarget } from '@/components/menu/AvailabilityPill';
@@ -364,6 +365,28 @@ export default function MenuDetailPage() {
       cycleFulfilmentDates[cycleFulfilmentDates.length - 1] ?? selectedDay ?? selectedCycle?.cutoff_at?.slice(0, 10),
   };
 
+  // Soft-retire cutoff for removals while viewing a FUTURE cycle: the day before
+  // this cycle's first fulfilment date. Removing or replacing then bounds the old
+  // membership's effective_until to this date instead of hard-deleting the join
+  // row, so the item stays live in the current (and any earlier) week and only
+  // rolls off from the selected cycle onward. undefined on the current cycle (and
+  // non-rotating menus) → plain hard delete, since that membership is "always-on".
+  // Mirrors the group editor's `cutoff` (group/[groupId]/page.tsx).
+  const batchRemoveCutoff: string | undefined = (() => {
+    if (isCurrentCycle) return undefined;
+    const start = (cycleFulfilmentDates[0] ?? selectedDay ?? undefined)?.slice(0, 10);
+    if (!start) return undefined;
+    const [y, m, d] = start.split('-').map(Number);
+    return isoDate(addDays(new Date(y, m - 1, d), -1));
+  })();
+
+  // Batch-aware membership removal: hard-delete on the current cycle, soft-retire
+  // (scope-out from this cycle onward) on future cycles so earlier weeks keep the
+  // item. Every remove/replace path on this page must go through this so editing a
+  // future série never erases an article from the current week.
+  const removeItemForBatch = (groupId: number, itemId: number) =>
+    removeItemFromGroup(rid, groupId, itemId, batchRemoveCutoff);
+
   const splitForBatch = (group: MenuGroup, items: MenuItem[]): { active: MenuItem[]; inactive: MenuItem[] } => {
     if (!isRotating || !selectedDay) return { active: items, inactive: [] };
     const memberships = membershipsByGroup.get(group.id) ?? [];
@@ -486,7 +509,7 @@ export default function MenuDetailPage() {
     if (ids.length === 0) return;
     if (!confirm(t('removeSelectedFromGroupConfirm').replace('{n}', String(ids.length)))) return;
     for (const itemId of ids) {
-      await removeItemFromGroup(rid, groupId, itemId);
+      await removeItemForBatch(groupId, itemId);
     }
     clearGroupSelection(groupId);
     patchGroupItems(groupId, (items) => items.filter((i) => !ids.includes(i.id)));
@@ -497,6 +520,9 @@ export default function MenuDetailPage() {
   // Server has no atomic move endpoint, so we add to the new group (batch) and
   // then remove from the old group one-by-one. Items already present in the
   // target group simply update their existing membership row (idempotent).
+  // NOTE: a move is a structural change applied across all weeks (the add-side is
+  // intentionally always-on), so the source removal is a plain hard delete — it is
+  // deliberately NOT batch-scoped like the remove/replace paths above.
   const bulkMoveToGroup = async (sourceGroupId: number, targetGroupId: number) => {
     if (sourceGroupId === targetGroupId) return;
     const ids = Array.from(selectedInGroup(sourceGroupId));
@@ -525,8 +551,9 @@ export default function MenuDetailPage() {
   };
 
   // Swap each selected item for the replacement chosen in the step-by-step
-  // modal. Mirrors the other bulk actions on this page: hard-remove the old
-  // membership, then add the replacement scoped to the current batch.
+  // modal. Mirrors the other bulk actions on this page: remove the old membership
+  // (batch-aware — soft-retire on a future cycle so the article stays in earlier
+  // weeks), then add the replacement scoped to the selected batch.
   const bulkReplace = async (groupId: number, replacements: { oldId: number; newId: number }[]) => {
     if (replacements.length === 0) {
       setReplaceModalSourceGroupId(null);
@@ -534,7 +561,7 @@ export default function MenuDetailPage() {
       return;
     }
     for (const { oldId, newId } of replacements) {
-      await removeItemFromGroup(rid, groupId, oldId);
+      await removeItemForBatch(groupId, oldId);
       await addItemsToGroup(rid, groupId, [newId], currentBatchScope);
     }
     clearGroupSelection(groupId);
@@ -900,6 +927,7 @@ export default function MenuDetailPage() {
                       t={t}
                       rid={rid}
                       groupId={group.id}
+                      removeCutoff={batchRemoveCutoff}
                       canEdit={canEdit}
                       isSelected={selected.has(item.id)}
                       onToggleSelected={() => toggleItemSelected(group.id, item.id)}
@@ -1002,6 +1030,7 @@ export default function MenuDetailPage() {
           allCats={allCats}
           groupItems={groups.find((g) => g.id === itemPickerGroupId)?.items ?? []}
           addScope={currentBatchScope}
+          removeCutoff={batchRemoveCutoff}
           onClose={() => setItemPickerGroupId(null)}
           onDone={(added, removed) => {
             const groupId = itemPickerGroupId;
@@ -1054,7 +1083,7 @@ export default function MenuDetailPage() {
 
 // ─── Add/Remove Items Modal ──────────────────────────────────────────────────
 
-function AddRemoveItemsModal({ t, rid, groupId, allItems, allCats, groupItems, addScope, onClose, onDone, onCreateNew }: {
+function AddRemoveItemsModal({ t, rid, groupId, allItems, allCats, groupItems, addScope, removeCutoff, onClose, onDone, onCreateNew }: {
   t: TFn;
   rid: number;
   groupId: number;
@@ -1064,6 +1093,10 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, allCats, groupItems, a
   /** When set (non-empty), newly added items are scoped to the given date
    *  window. Used by the carte page when a non-current batch is selected. */
   addScope?: GroupItemScope;
+  /** When set, removals soft-retire the membership at this date (day before the
+   *  selected future cycle) instead of hard-deleting, so the item stays live in
+   *  earlier weeks. undefined → hard delete (current cycle / non-rotating). */
+  removeCutoff?: string;
   onClose: () => void;
   onDone: (added: number[], removed: number[]) => void;
   onCreateNew: () => void;
@@ -1112,7 +1145,7 @@ function AddRemoveItemsModal({ t, rid, groupId, allItems, allCats, groupItems, a
         await addItemsToGroup(rid, groupId, toAdd, addScope ?? {});
       }
       for (const id of toRemove) {
-        await removeItemFromGroup(rid, groupId, id);
+        await removeItemFromGroup(rid, groupId, id, removeCutoff);
       }
       onDone(toAdd, toRemove);
     } finally {
@@ -1534,7 +1567,7 @@ function MoveToGroupModal({ t, menus, sourceGroupId, itemCount, onClose, onPick 
 // ─── Item Row (CSS Grid) ─────────────────────────────────────────────────────
 
 function ItemRow({
-  item, restaurantName, menu, t, rid, groupId, onOpen, onRemoved, onToggleSoldOut,
+  item, restaurantName, menu, t, rid, groupId, removeCutoff, onOpen, onRemoved, onToggleSoldOut,
   isSelected, onToggleSelected, canEdit,
   isDragging, onItemDragStart, onItemDragOver, onItemDrop, onItemDragEnd,
 }: {
@@ -1544,6 +1577,9 @@ function ItemRow({
   t: TFn;
   rid: number;
   groupId: number;
+  /** Soft-retire cutoff when viewing a future cycle; undefined → hard delete.
+   *  See batchRemoveCutoff on the page component. */
+  removeCutoff?: string;
   onOpen: () => void;
   onRemoved: () => void;
   onToggleSoldOut: () => Promise<void>;
@@ -1599,7 +1635,7 @@ function ItemRow({
   const handleRemoveFromGroup = async () => {
     setDropdownOpen(false);
     if (!confirm(`${t('removeFromGroupConfirm')} "${item.name}"?`)) return;
-    await removeItemFromGroup(rid, groupId, item.id);
+    await removeItemFromGroup(rid, groupId, item.id, removeCutoff);
     onRemoved();
   };
 
