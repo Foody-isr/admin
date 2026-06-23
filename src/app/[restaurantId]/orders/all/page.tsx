@@ -7,9 +7,9 @@ import {
   listOrders, acceptOrder, rejectOrder, updateOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
-  getRestaurant, getRestaurantSettings, updateRestaurantSettings,
+  getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
   initOrderPaymentLink,
-  Order, OrderStatus, ListOrdersParams,
+  Order, OrderStatus, ListOrdersParams, CheckoutConfig, CheckoutFieldConfig,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -279,6 +279,16 @@ export default function OrdersPage() {
         setWorkdays(getEffectiveWorkdays(r));
         setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
       })
+      .catch(() => {});
+  }, [rid]);
+
+  // Maps custom checkout-field ids → their human label so order custom_fields
+  // (e.g. { code_immeuble: "A12" }) render as "Code Immeuble", not the raw id.
+  const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!rid) return;
+    getWebsiteConfig(rid)
+      .then((cfg) => setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config)))
       .catch(() => {});
   }, [rid]);
 
@@ -863,6 +873,7 @@ export default function OrdersPage() {
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
         onEdit={() => setEditOpen(true)}
         restaurantInfo={restaurantInfo}
+        customFieldLabels={customFieldLabels}
       />
 
       {/* Edit order items */}
@@ -910,11 +921,40 @@ function statusIndex(status: string) {
   return 0; // pending_review, scheduled, and any other live status → "Reçue"
 }
 
+// Turn a snake_case field id into a readable fallback label ("code_immeuble" →
+// "Code immeuble"). Used only when the owner left the field label blank.
+function humanizeFieldId(id: string): string {
+  return id
+    .split('_')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ')
+    .trim();
+}
+
+// Best display label for a checkout field: the owner's fr label, then en, then
+// any locale, falling back to a humanized id.
+function bestFieldLabel(field: CheckoutFieldConfig): string {
+  const l = field.label;
+  return l?.fr || l?.en || (l && Object.values(l)[0]) || humanizeFieldId(field.id);
+}
+
+// Flatten a restaurant's checkout config into an id→label map across both
+// order-type forms, so the orders board can label custom-field answers stored
+// on an order (which are keyed by field id, not label).
+function buildCustomFieldLabels(cfg: CheckoutConfig | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!cfg) return out;
+  for (const form of [cfg.delivery, cfg.pickup]) {
+    for (const f of form?.fields ?? []) out[f.id] = bestFieldLabel(f);
+  }
+  return out;
+}
+
 function OrderDetailDrawer({
   order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit,
-  restaurantInfo,
+  restaurantInfo, customFieldLabels,
 }: {
   order: Order | null;
   canManage: boolean;
@@ -931,6 +971,7 @@ function OrderDetailDrawer({
   onCloseOrder: () => void;
   onEdit: () => void;
   restaurantInfo: PrintTicketRestaurant;
+  customFieldLabels: Record<string, string>;
 }) {
   const { t, locale, direction } = useI18n();
 
@@ -1416,6 +1457,23 @@ function OrderDetailDrawer({
                   <span className="font-mono tabular-nums">{order.table_number}</span>
                 </div>
               )}
+
+              {/* Answers to the owner's custom checkout-form fields (e.g.
+                  "Code Immeuble"). Labels resolved from the checkout config;
+                  empty/false answers are already omitted server-side. */}
+              {order.custom_fields &&
+                Object.entries(order.custom_fields)
+                  .filter(([, v]) => v !== '' && v !== false && v != null)
+                  .map(([id, v]) => (
+                    <div key={id} className="flex items-start justify-between gap-3">
+                      <span className="text-[var(--fg-subtle)] shrink-0">
+                        {customFieldLabels[id] || humanizeFieldId(id)}
+                      </span>
+                      <span className="text-right break-words">
+                        {typeof v === 'boolean' ? '✓' : String(v)}
+                      </span>
+                    </div>
+                  ))}
             </div>
           </div>
 
