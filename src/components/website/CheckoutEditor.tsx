@@ -19,6 +19,7 @@ export type CheckoutSubTab = OrderTypeKey | 'confirmation';
 
 // Default label strings for built-in fields. Owners can override per-language.
 const BUILTIN_LABELS: Record<string, { en: string; fr: string; he: string }> = {
+  customer_first_name: { en: 'First name',     fr: 'Prénom',            he: 'שם פרטי' },
   customer_name:    { en: 'Full name',         fr: 'Nom complet',       he: 'שם מלא' },
   customer_phone:   { en: 'Phone number',      fr: 'Téléphone',         he: 'טלפון' },
   delivery_address: { en: 'Delivery address',  fr: 'Adresse de livraison', he: 'כתובת למשלוח' },

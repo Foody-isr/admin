@@ -522,6 +522,10 @@ export interface Order {
   courier_assigned_at?: string;
   delivery_address?: string;
   delivery_city?: string;
+  // Answers to the owner's custom checkout-form fields, keyed by field id (e.g.
+  // { code_immeuble: "A12" }). Labels are resolved from the restaurant's
+  // checkout_config. Empty/false answers are omitted server-side.
+  custom_fields?: Record<string, string | number | boolean> | null;
 }
 
 export interface StaffMember {
@@ -801,6 +805,7 @@ export function defaultConfirmationConfig(): ConfirmationConfig {
 // builtinDeliveryFields / builtinPickupFields maps. Owners can disable, retitle,
 // reorder, and toggle required, but the mapping to Order columns is fixed.
 export const BUILTIN_DELIVERY_FIELDS: ReadonlyArray<{ id: string; type: CheckoutFieldType; defaultRequired: boolean }> = [
+  { id: 'customer_first_name', type: 'text',  defaultRequired: false },
   { id: 'customer_name',    type: 'text',     defaultRequired: true  },
   { id: 'customer_phone',   type: 'tel',      defaultRequired: true  },
   { id: 'delivery_address', type: 'text',     defaultRequired: true  },
@@ -812,19 +817,22 @@ export const BUILTIN_DELIVERY_FIELDS: ReadonlyArray<{ id: string; type: Checkout
 ];
 
 export const BUILTIN_PICKUP_FIELDS: ReadonlyArray<{ id: string; type: CheckoutFieldType; defaultRequired: boolean }> = [
+  { id: 'customer_first_name', type: 'text', defaultRequired: false },
   { id: 'customer_name',   type: 'text',     defaultRequired: true  },
   { id: 'customer_phone',  type: 'tel',      defaultRequired: true  },
   { id: 'pickup_notes',    type: 'textarea', defaultRequired: false },
   { id: 'whatsapp_number', type: 'tel',      defaultRequired: false },
 ];
 
+// Builtins that are part of the catalogue (offered as addable chips) but OFF in
+// the default/legacy form, so opening the editor never silently introduces them.
+const OPT_IN_BUILTINS = new Set(['whatsapp_number', 'customer_first_name']);
+
 export function legacyCheckoutForm(orderType: 'delivery' | 'pickup'): CheckoutFormConfig {
-  // whatsapp_number is opt-in — seeded into the catalogue (so the owner sees
-  // it as an addable builtin) but disabled by default.
   const fields = (orderType === 'delivery' ? BUILTIN_DELIVERY_FIELDS : BUILTIN_PICKUP_FIELDS).map((f) => ({
     id: f.id,
     kind: 'builtin' as const,
-    enabled: f.id !== 'whatsapp_number',
+    enabled: !OPT_IN_BUILTINS.has(f.id),
     required: f.defaultRequired,
   }));
   return { require_auth: true, fields };
