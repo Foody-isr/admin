@@ -10,6 +10,7 @@ import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 import TypePickerCards from './combo/TypePickerCards';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
@@ -267,16 +268,17 @@ export default function MenuItemTabDetails({
                 </span>
               </button>
             )}
-            {!isSourceTab && (
-              <span className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('languageEditingTranslation') ||
-                  'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
-              </span>
-            )}
             {retranslateError && (
               <span className="text-fs-xs text-[var(--danger-500)]">{retranslateError}</span>
             )}
           </div>
+        )}
+
+        {/* Prominent, stateful language banner — sits in the reading path right
+            above the fields so owners can't miss whether they're editing the
+            source or a translation. */}
+        {i18nEnabled && (
+          <LocaleEditingBanner active={activeLocale} source={effectiveSource} />
         )}
 
         {/* Source-language mismatch warning — the item text is Hebrew but the

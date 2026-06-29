@@ -17,6 +17,7 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { XIcon, SearchIcon, PlusIcon, ChevronRightIcon } from 'lucide-react';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 import {
   addDays, clampWeekStartDay, getEffectiveWorkdays, getWeekStart, isoDate,
   workdaySpan, type WeekStartDay,
@@ -489,6 +490,7 @@ export default function GroupPage() {
                   onChange={setActiveLocale}
                   missing={missing}
                 />
+                <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
                 {isSourceTab ? (
                   <input
                     autoFocus
@@ -508,9 +510,6 @@ export default function GroupPage() {
                     <div className="text-xs text-fg-subtle">
                       {(t('languageSourceLabel') || 'Source') + ': '}
                       <span className="text-fg-muted">{name || '—'}</span>
-                      {' · '}
-                      {t('languageEditingTranslation') ||
-                        'Leave blank to use the auto-translation; what you type here overrides it.'}
                     </div>
                   </>
                 )}
