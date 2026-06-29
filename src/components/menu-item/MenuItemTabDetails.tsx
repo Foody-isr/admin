@@ -10,6 +10,7 @@ import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+import { Switch } from '@/components/ui/switch';
 import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 import TypePickerCards from './combo/TypePickerCards';
 
@@ -470,21 +471,18 @@ export default function MenuItemTabDetails({
             Default is on; turn off to hide the note field for this item. */}
         {setAllowNotes && (
           <Field label={t('itemNotesFieldLabel') || 'Special instructions field'}>
-            <button
-              type="button"
-              onClick={() => canEdit && setAllowNotes(!allowNotes)}
-              disabled={!canEdit}
-              className="flex items-center gap-[var(--s-2)] h-9 text-start disabled:cursor-default"
-              aria-pressed={allowNotes}
-            >
-              <span
-                className="relative inline-block w-2 h-2 rounded-full shrink-0"
-                style={{ background: allowNotes ? 'var(--success-500)' : 'var(--fg-subtle)' }}
+            <div className="flex items-center gap-[var(--s-2)] h-9">
+              <Switch
+                checked={allowNotes}
+                onCheckedChange={(v) => canEdit && setAllowNotes(v)}
+                disabled={!canEdit}
+                aria-label={t('itemNotesFieldLabel') || 'Special instructions field'}
+                className="data-[state=unchecked]:bg-input"
               />
               <span className="text-fs-sm font-medium text-[var(--fg)]">
                 {allowNotes ? (t('itemNotesOn') || 'On') : (t('itemNotesOff') || 'Off')}
               </span>
-            </button>
+            </div>
             <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
               {allowNotes
                 ? (t('itemNotesFieldHelpOn') || 'Guests can add a note to this item')

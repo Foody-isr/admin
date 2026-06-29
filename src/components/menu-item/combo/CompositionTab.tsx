@@ -25,6 +25,7 @@ import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
 import { buildAnyCarteItemIdSet } from './webCarte';
 import { useComboStepPreviews } from './useComboStepPreviews';
+import { Switch } from '@/components/ui/switch';
 
 interface Props {
   comboName: string;
@@ -208,21 +209,18 @@ export default function CompositionTab({
         <p className="text-fs-sm font-medium text-[var(--fg)] mb-1">
           {t('comboAllowQuantityLabel') || 'Allow ordering several at once'}
         </p>
-        <button
-          type="button"
-          onClick={() => canEdit && onComboAllowQuantityChange(!comboAllowQuantity)}
-          disabled={!canEdit}
-          className="flex items-center gap-[var(--s-2)] h-9 text-start disabled:cursor-default"
-          aria-pressed={comboAllowQuantity}
-        >
-          <span
-            className="relative inline-block w-2 h-2 rounded-full shrink-0"
-            style={{ background: comboAllowQuantity ? 'var(--success-500)' : 'var(--fg-subtle)' }}
+        <div className="flex items-center gap-[var(--s-2)] h-9">
+          <Switch
+            checked={comboAllowQuantity}
+            onCheckedChange={(v) => canEdit && onComboAllowQuantityChange(v)}
+            disabled={!canEdit}
+            aria-label={t('comboAllowQuantityLabel') || 'Allow ordering several at once'}
+            className="data-[state=unchecked]:bg-input"
           />
           <span className="text-fs-sm font-medium text-[var(--fg)]">
             {comboAllowQuantity ? (t('on') || 'On') : (t('off') || 'Off')}
           </span>
-        </button>
+        </div>
         <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
           {comboAllowQuantity
             ? (t('comboAllowQuantityHelpOn') || 'Guests can order several at once and fill all picks together')
