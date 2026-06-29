@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, Boxes, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
@@ -149,6 +149,24 @@ export default function MenuItemTabDetails({
   const i18nEnabled = !!sourceLocale && !!setTranslations;
   const effectiveSource: Locale = sourceLocale ?? 'en';
   const [activeLocale, setActiveLocale] = useState<Locale>(effectiveSource);
+  // The real source locale isn't known on first render: the parent seeds
+  // `sourceLocale` with an 'en' placeholder and only learns the restaurant's
+  // actual default_locale after an async fetch. useState() captured that
+  // placeholder once, so without this sync the editor stays stuck on the
+  // English tab while the true source is (e.g.) French — and every name /
+  // description edit silently lands in the English translation map instead of
+  // the source field the web renders ("saved but invisible"). Follow the
+  // source whenever it changes, until the owner explicitly picks a tab.
+  const userPickedLocale = useRef(false);
+  useEffect(() => {
+    if (!userPickedLocale.current) {
+      setActiveLocale(effectiveSource);
+    }
+  }, [effectiveSource]);
+  const selectLocale = (loc: Locale) => {
+    userPickedLocale.current = true;
+    setActiveLocale(loc);
+  };
   const activeCategory = categories.find((c) => c.id === categoryId);
   const isCombo = itemType === 'combo';
 
@@ -227,7 +245,7 @@ export default function MenuItemTabDetails({
               locales={SUPPORTED_LOCALES}
               source={effectiveSource}
               active={activeLocale}
-              onChange={setActiveLocale}
+              onChange={selectLocale}
               missing={missing}
             />
             {canEdit && onRetranslate && (
