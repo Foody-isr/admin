@@ -117,6 +117,7 @@ export default function EditItemPage() {
   const [categoryId, setCategoryId] = useState(() => item?.category_id ?? 0);
   const [isActive, setIsActive] = useState(() => item?.is_active ?? true);
   const [allowNotes, setAllowNotes] = useState<boolean>(() => item?.allow_notes ?? true);
+  const [comboAllowQuantity, setComboAllowQuantity] = useState<boolean>(() => item?.combo_allow_quantity ?? true);
   const [itemType, setItemType] = useState<ItemType>(
     () => (item?.item_type as ItemType) || 'food_and_beverage',
   );
@@ -211,6 +212,7 @@ export default function EditItemPage() {
           setCategoryId(found.category_id);
           setIsActive(found.is_active);
           setAllowNotes(found.allow_notes ?? true);
+          setComboAllowQuantity(found.combo_allow_quantity ?? true);
           setItemType(found.item_type || 'food_and_beverage');
           setImageUrl(found.image_url ?? '');
           if (found.item_type === 'combo' && found.combo_steps) {
@@ -360,6 +362,7 @@ export default function EditItemPage() {
         price: effectivePrice,
         is_active: isActive,
         allow_notes: allowNotes,
+        combo_allow_quantity: comboAllowQuantity,
         item_type: itemType,
         category_id: categoryId,
         image_url: imageUrl,
@@ -685,6 +688,8 @@ export default function EditItemPage() {
                 menus={menus}
                 restaurantId={rid}
                 onShowSavingsDetail={() => setSavingsModalOpen(true)}
+                comboAllowQuantity={comboAllowQuantity}
+                onComboAllowQuantityChange={setComboAllowQuantity}
               />
             )}
 
