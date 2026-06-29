@@ -25,6 +25,7 @@ import CustomerOutcomePreview from './CustomerOutcomePreview';
 import { validateCombo } from './validation';
 import { buildAnyCarteItemIdSet } from './webCarte';
 import { useComboStepPreviews } from './useComboStepPreviews';
+import { Switch } from '@/components/ui/switch';
 
 interface Props {
   comboName: string;
@@ -36,6 +37,8 @@ interface Props {
   menus: Menu[];
   restaurantId: number;
   onShowSavingsDetail?: () => void;
+  comboAllowQuantity: boolean;
+  onComboAllowQuantityChange: (next: boolean) => void;
 }
 
 export default function CompositionTab({
@@ -45,6 +48,8 @@ export default function CompositionTab({
   menus,
   restaurantId,
   onShowSavingsDetail,
+  comboAllowQuantity,
+  onComboAllowQuantityChange,
 }: Props) {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
@@ -197,6 +202,31 @@ export default function CompositionTab({
         itemsById={itemsById}
         onShowSavingsDetail={onShowSavingsDetail}
       />
+
+      {/* Combo-level: allow ordering several of this combo at once
+          (guest quantity-first flow). Default on; off → single combo. */}
+      <div className="mt-[var(--s-4)]">
+        <p className="text-fs-sm font-medium text-[var(--fg)] mb-1">
+          {t('comboAllowQuantityLabel') || 'Allow ordering several at once'}
+        </p>
+        <div className="flex items-center gap-[var(--s-2)] h-9">
+          <Switch
+            checked={comboAllowQuantity}
+            onCheckedChange={(v) => canEdit && onComboAllowQuantityChange(v)}
+            disabled={!canEdit}
+            aria-label={t('comboAllowQuantityLabel') || 'Allow ordering several at once'}
+            className="data-[state=unchecked]:bg-input"
+          />
+          <span className="text-fs-sm font-medium text-[var(--fg)]">
+            {comboAllowQuantity ? (t('on') || 'On') : (t('off') || 'Off')}
+          </span>
+        </div>
+        <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
+          {comboAllowQuantity
+            ? (t('comboAllowQuantityHelpOn') || 'Guests can order several at once and fill all picks together')
+            : (t('comboAllowQuantityHelpOff') || 'Single combo only')}
+        </p>
+      </div>
 
       {/* Two-pane composer — catalog left, steps right. The catalog is
           sticky to the viewport so it stays in view no matter how many

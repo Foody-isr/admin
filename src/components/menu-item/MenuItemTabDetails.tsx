@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, Boxes, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
@@ -10,6 +10,8 @@ import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+import { Switch } from '@/components/ui/switch';
+import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 import TypePickerCards from './combo/TypePickerCards';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
@@ -149,6 +151,24 @@ export default function MenuItemTabDetails({
   const i18nEnabled = !!sourceLocale && !!setTranslations;
   const effectiveSource: Locale = sourceLocale ?? 'en';
   const [activeLocale, setActiveLocale] = useState<Locale>(effectiveSource);
+  // The real source locale isn't known on first render: the parent seeds
+  // `sourceLocale` with an 'en' placeholder and only learns the restaurant's
+  // actual default_locale after an async fetch. useState() captured that
+  // placeholder once, so without this sync the editor stays stuck on the
+  // English tab while the true source is (e.g.) French — and every name /
+  // description edit silently lands in the English translation map instead of
+  // the source field the web renders ("saved but invisible"). Follow the
+  // source whenever it changes, until the owner explicitly picks a tab.
+  const userPickedLocale = useRef(false);
+  useEffect(() => {
+    if (!userPickedLocale.current) {
+      setActiveLocale(effectiveSource);
+    }
+  }, [effectiveSource]);
+  const selectLocale = (loc: Locale) => {
+    userPickedLocale.current = true;
+    setActiveLocale(loc);
+  };
   const activeCategory = categories.find((c) => c.id === categoryId);
   const isCombo = itemType === 'combo';
 
@@ -227,7 +247,7 @@ export default function MenuItemTabDetails({
               locales={SUPPORTED_LOCALES}
               source={effectiveSource}
               active={activeLocale}
-              onChange={setActiveLocale}
+              onChange={selectLocale}
               missing={missing}
             />
             {canEdit && onRetranslate && (
@@ -249,16 +269,17 @@ export default function MenuItemTabDetails({
                 </span>
               </button>
             )}
-            {!isSourceTab && (
-              <span className="text-fs-xs text-[var(--fg-subtle)]">
-                {t('languageEditingTranslation') ||
-                  'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
-              </span>
-            )}
             {retranslateError && (
               <span className="text-fs-xs text-[var(--danger-500)]">{retranslateError}</span>
             )}
           </div>
+        )}
+
+        {/* Prominent, stateful language banner — sits in the reading path right
+            above the fields so owners can't miss whether they're editing the
+            source or a translation. */}
+        {i18nEnabled && (
+          <LocaleEditingBanner active={activeLocale} source={effectiveSource} />
         )}
 
         {/* Source-language mismatch warning — the item text is Hebrew but the
@@ -450,21 +471,18 @@ export default function MenuItemTabDetails({
             Default is on; turn off to hide the note field for this item. */}
         {setAllowNotes && (
           <Field label={t('itemNotesFieldLabel') || 'Special instructions field'}>
-            <button
-              type="button"
-              onClick={() => canEdit && setAllowNotes(!allowNotes)}
-              disabled={!canEdit}
-              className="flex items-center gap-[var(--s-2)] h-9 text-start disabled:cursor-default"
-              aria-pressed={allowNotes}
-            >
-              <span
-                className="relative inline-block w-2 h-2 rounded-full shrink-0"
-                style={{ background: allowNotes ? 'var(--success-500)' : 'var(--fg-subtle)' }}
+            <div className="flex items-center gap-[var(--s-2)] h-9">
+              <Switch
+                checked={allowNotes}
+                onCheckedChange={(v) => canEdit && setAllowNotes(v)}
+                disabled={!canEdit}
+                aria-label={t('itemNotesFieldLabel') || 'Special instructions field'}
+                className="data-[state=unchecked]:bg-input"
               />
               <span className="text-fs-sm font-medium text-[var(--fg)]">
                 {allowNotes ? (t('itemNotesOn') || 'On') : (t('itemNotesOff') || 'Off')}
               </span>
-            </button>
+            </div>
             <p className="mt-1 text-fs-xs text-[var(--fg-muted)]">
               {allowNotes
                 ? (t('itemNotesFieldHelpOn') || 'Guests can add a note to this item')

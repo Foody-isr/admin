@@ -66,6 +66,7 @@ export default function NewItemPage() {
   const [categoryId, setCategoryId] = useState(defaultCatId);
   const [isActive, setIsActive] = useState(true);
   const [allowNotes, setAllowNotes] = useState(true);
+  const [comboAllowQuantity, setComboAllowQuantity] = useState(true);
   const [itemType, setItemType] = useState<ItemType>('food_and_beverage');
   const [pendingImage, setPendingImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -208,6 +209,7 @@ export default function NewItemPage() {
         price: effectivePrice,
         is_active: isActive,
         allow_notes: allowNotes,
+        combo_allow_quantity: comboAllowQuantity,
         item_type: itemType,
         category_id: categoryId || categories[0]?.id,
       };
@@ -489,6 +491,8 @@ export default function NewItemPage() {
                 menus={menus}
                 restaurantId={rid}
                 onShowSavingsDetail={() => setSavingsModalOpen(true)}
+                comboAllowQuantity={comboAllowQuantity}
+                onComboAllowQuantityChange={setComboAllowQuantity}
               />
             )}
 

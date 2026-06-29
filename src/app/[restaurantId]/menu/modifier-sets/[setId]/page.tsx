@@ -16,6 +16,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import CenteredModalShell from '@/components/common/CenteredModalShell';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
+import { LocaleEditingBanner } from '@/components/i18n/LocaleEditingBanner';
 
 const SUPPORTED_LOCALES: Locale[] = ['en', 'he', 'fr'];
 
@@ -303,13 +304,8 @@ export default function ModifierSetEditorPage() {
                   ]),
                 )}
               />
-              {!isSourceTab && (
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {t('languageEditingTranslation') ||
-                    'Editing translation. Leave blank to use the auto-translation; what you type here overrides it.'}
-                </span>
-              )}
             </div>
+            <LocaleEditingBanner active={activeLocale} source={sourceLocale} />
             {isSourceTab && (
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">

@@ -411,6 +411,9 @@ export interface MenuItem {
   /** Per-item toggle for the guest "special instructions" field (guest web only).
    *  null/undefined = default (shown); true = shown; false = hidden. */
   allow_notes?: boolean | null;
+  /** Combo-level toggle: allow guests to order several of this combo at once.
+   *  null/undefined = default (allowed = true); false = single combo only. */
+  combo_allow_quantity?: boolean | null;
   item_type: ItemType;
   sort_order: number;
   rotation_group?: string;
