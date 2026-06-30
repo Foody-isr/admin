@@ -3025,6 +3025,8 @@ const translations: Record<Locale, Record<string, string>> = {
     zoneFeeFreePlaceholder: 'Free',
     zoneMinGlobalPlaceholder: 'Default',
     zoneFeeMinHint: 'Leave empty for free delivery and the restaurant-wide minimum.',
+    defaultMinOrder: 'Default minimum order (₪)',
+    defaultMinOrderHint: 'Applied to addresses without a zone-specific minimum. 0 = no minimum. A zone can override it below.',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -5977,6 +5979,8 @@ const translations: Record<Locale, Record<string, string>> = {
     zoneFeeFreePlaceholder: 'חינם',
     zoneMinGlobalPlaceholder: 'ברירת מחדל',
     zoneFeeMinHint: 'השאירו ריק למשלוח חינם ולמינימום הכללי של המסעדה.',
+    defaultMinOrder: 'מינימום הזמנה ברירת מחדל (₪)',
+    defaultMinOrderHint: 'חל על כתובות ללא מינימום ייעודי לאזור. 0 = ללא מינימום. אזור יכול לעקוף זאת למטה.',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -8930,5 +8934,7 @@ const translations: Record<Locale, Record<string, string>> = {
     zoneFeeFreePlaceholder: 'Gratuit',
     zoneMinGlobalPlaceholder: 'Par défaut',
     zoneFeeMinHint: 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.',
+    defaultMinOrder: 'Commande minimum par défaut (₪)',
+    defaultMinOrderHint: 'Appliqué aux adresses sans minimum spécifique. 0 = pas de minimum. Une zone peut le remplacer ci-dessous.',
   },
 };
