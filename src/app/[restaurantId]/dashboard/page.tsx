@@ -120,7 +120,8 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>('today');
-  const [metric, setMetric] = useState<MetricKey>('revenue');
+  // The main chart tracks gross revenue; KPI cards are presentational.
+  const metric: MetricKey = 'revenue';
 
   const load = useCallback(() => {
     setLoading(true);
@@ -163,36 +164,31 @@ export default function DashboardPage() {
     return `${fmtShort(current.start)} → ${lastDay.toLocaleDateString(dateLocale)}`;
   }, [current, range, dateLocale]);
 
-  // KPI definitions, driven by the period totals. Each card can select the chart
-  // metric (single click) and drill into its report (the "details" link).
-  const metrics: { key: MetricKey; label: string; value: string; delta: number; report: string }[] = [
+  // KPI definitions, driven by the period totals. Presentational only.
+  const metrics: { key: MetricKey; label: string; value: string; delta: number }[] = [
     {
       key: 'revenue',
       label: t('grossRevenue'),
       value: fmtMoney(current?.total_revenue ?? 0),
       delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
-      report: `/${rid}/analytics/overview`,
     },
     {
       key: 'orders',
       label: t('orders'),
       value: String(current?.total_orders ?? 0),
       delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
-      report: `/${rid}/orders/all`,
     },
     {
       key: 'avgTicket',
       label: t('avgTicket'),
       value: `₪${(current?.avg_ticket ?? 0).toFixed(1)}`,
       delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
-      report: `/${rid}/analytics/overview`,
     },
     {
       key: 'itemsSold',
       label: t('itemsSold'),
       value: String(current?.items_sold ?? 0),
       delta: pct(current?.items_sold ?? 0, previous?.items_sold ?? 0),
-      report: `/${rid}/analytics/overview`,
     },
   ];
 
@@ -260,17 +256,13 @@ export default function DashboardPage() {
       {/* KPI strip — 4 equal. Hidden on mobile per the responsive policy. */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
         {metrics.map((m) => (
-          <MetricCard
+          <KpiCard
             key={m.key}
             label={m.label}
             value={m.value}
             delta={m.delta}
             sub={vsLabel}
             spark={series.map((d) => seriesValue(m.key, d))}
-            active={metric === m.key}
-            onSelect={() => setMetric(m.key)}
-            onDetails={() => router.push(m.report)}
-            detailsLabel={t('details')}
           />
         ))}
       </div>
@@ -411,56 +403,28 @@ export default function DashboardPage() {
 
 // ─── Helper components ──────────────────────────────────────────────────────
 
-interface MetricCardProps {
+interface KpiCardProps {
   label: string;
   value: string;
   delta: number;
   sub: string;
   spark: number[];
-  active: boolean;
-  onSelect: () => void;
-  onDetails: () => void;
-  detailsLabel: string;
 }
 
-function MetricCard({
-  label,
-  value,
-  delta,
-  sub,
-  spark,
-  active,
-  onSelect,
-  onDetails,
-  detailsLabel,
-}: MetricCardProps) {
+function KpiCard({ label, value, delta, sub, spark }: KpiCardProps) {
   const up = delta >= 0;
   return (
-    <div className="relative">
-      <Kpi
-        label={label}
-        value={
-          <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
-            <span>{value}</span>
-            <Sparkline values={spark} up={up} />
-          </div>
-        }
-        sub={sub}
-        delta={{ value: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
-        onClick={onSelect}
-        className={active ? 'ring-2 ring-[var(--brand-500)]' : ''}
-      />
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDetails();
-        }}
-        className="absolute top-[var(--s-4)] right-[var(--s-5)] z-10 text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors"
-      >
-        {detailsLabel}
-      </button>
-    </div>
+    <Kpi
+      label={label}
+      value={
+        <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
+          <span>{value}</span>
+          <Sparkline values={spark} up={up} />
+        </div>
+      }
+      sub={sub}
+      delta={{ value: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
+    />
   );
 }
 
