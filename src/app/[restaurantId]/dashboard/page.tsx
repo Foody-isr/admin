@@ -3,30 +3,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getDayComparison,
-  getAnalyticsToday,
+  getPeriodSummary,
   getTopSellers,
   getDailySeries,
-  type ComparisonResult,
+  listOrders,
+  type AnalyticsRange,
+  type PeriodComparison,
   type DaySummary,
-  type TodayStats,
   type TopSeller,
+  type Order,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import {
-  Calendar,
-  RefreshCw,
-  ArrowUp,
-  ArrowDown,
-  DollarSign,
-  Edit,
-  Plus,
-  Package,
-} from 'lucide-react';
-import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
+import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
 import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 
-type Range = 'today' | 'week' | 'month';
+type Range = AnalyticsRange;
+type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
 const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   en: 'en-US',
@@ -34,12 +26,14 @@ const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   fr: 'fr-FR',
 };
 
+const ORDER_TYPE_KEY: Record<string, 'dineIn' | 'pickup' | 'delivery'> = {
+  dine_in: 'dineIn',
+  pickup: 'pickup',
+  delivery: 'delivery',
+};
+
 function fmtDate(d = new Date(), locale = 'fr-FR') {
-  return d.toLocaleDateString(locale, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function fmtMoney(n: number) {
@@ -51,6 +45,61 @@ function pct(now: number, before: number) {
   return ((now - before) / before) * 100;
 }
 
+// Per-metric accessor into a day of the series — keeps the chart, sparklines and
+// KPI cards reading from the same source.
+function seriesValue(metric: MetricKey, d: DaySummary): number {
+  switch (metric) {
+    case 'orders':
+      return d.transactions;
+    case 'avgTicket':
+      return d.avg_sale;
+    case 'itemsSold':
+      return d.items_sold;
+    default:
+      return d.net_sales;
+  }
+}
+
+function formatMetric(metric: MetricKey, n: number): string {
+  switch (metric) {
+    case 'revenue':
+      return fmtMoney(n);
+    case 'avgTicket':
+      return `₪${n.toFixed(1)}`;
+    default:
+      return String(Math.round(n));
+  }
+}
+
+function relTime(iso: string): string {
+  const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  return `${Math.floor(hr / 24)}d`;
+}
+
+function paymentColor(status: string): string {
+  switch (status) {
+    case 'paid':
+      return 'var(--success-500)';
+    case 'pending':
+      return 'var(--warning-500)';
+    case 'refunded':
+      return 'var(--info-500)';
+    default:
+      return 'var(--danger-500)';
+  }
+}
+
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function DashboardPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -58,70 +107,113 @@ export default function DashboardPage() {
   const { t, locale } = useI18n();
   const dateLocale = DATE_LOCALES[locale];
 
-  const RANGE_LABELS: Record<Range | 'yesterday', string> = {
+  const RANGE_LABELS: Record<Range, string> = {
     yesterday: t('yesterday'),
     today: t('today'),
     week: t('days7'),
     month: t('days30'),
   };
 
-  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-  const [stats, setStats] = useState<TodayStats | null>(null);
+  const [period, setPeriod] = useState<PeriodComparison | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
-  const [dailySeries, setDailySeries] = useState<DaySummary[]>([]);
+  const [series, setSeries] = useState<DaySummary[]>([]);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>('today');
-  const [selectedKpi, setSelectedKpi] = useState<string | null>(null);
+  const [metric, setMetric] = useState<MetricKey>('revenue');
 
   const load = useCallback(() => {
     setLoading(true);
+    // Chart window follows the period: 30 daily points for the month, 7 otherwise.
+    const seriesDays = range === 'month' ? 30 : 7;
+    const endISO = range === 'yesterday' ? isoDaysAgo(1) : undefined;
     Promise.allSettled([
-      getDayComparison(rid),
-      getAnalyticsToday(rid),
-      getTopSellers(rid),
-      getDailySeries(rid, 7),
+      getPeriodSummary(rid, range),
+      getTopSellers(rid, range),
+      getDailySeries(rid, seriesDays, endISO),
+      listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
     ])
-      .then(([cmp, st, top, daily]) => {
-        if (cmp.status === 'fulfilled') setComparison(cmp.value);
-        if (st.status === 'fulfilled') setStats(st.value);
+      .then(([per, top, daily, orders]) => {
+        if (per.status === 'fulfilled') setPeriod(per.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
-        if (daily.status === 'fulfilled') setDailySeries(daily.value ?? []);
+        if (daily.status === 'fulfilled') setSeries(daily.value ?? []);
+        if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
       })
       .finally(() => setLoading(false));
-  }, [rid]);
+  }, [rid, range]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const current = comparison?.current;
-  const previous = comparison?.previous;
-  const revenue = stats?.total_revenue ?? current?.net_sales ?? 0;
-  const orders = stats?.total_orders ?? current?.transactions ?? 0;
-  const avgTicket = orders > 0 ? revenue / orders : current?.avg_sale ?? 0;
-  const laborPct = current?.labor_percent ?? 0;
+  const current = period?.current;
+  const previous = period?.previous;
 
-  const revChange = pct(current?.net_sales ?? 0, previous?.net_sales ?? 0);
-  const orderChange = pct(current?.transactions ?? 0, previous?.transactions ?? 0);
-  const ticketChange = pct(current?.avg_sale ?? 0, previous?.avg_sale ?? 0);
-  const laborChange = pct(current?.labor_percent ?? 0, previous?.labor_percent ?? 0);
+  const rangeWord = RANGE_LABELS[range].toLowerCase();
+  const vsLabel = range === 'today' ? t('vsYesterday') : t('vsPreviousPeriod');
 
-  // Last 7 days vs the 7 days before, day-by-day.
-  const weekBars = useMemo(() => {
-    if (dailySeries.length === 0) {
-      return Array.from({ length: 7 }, () => ({ day: '', cur: 0, prev: 0, hasData: false }));
-    }
-    const max = Math.max(1, ...dailySeries.map((d) => d.net_sales));
-    return dailySeries.map((d) => {
+  // Human label for the active window. `end` is exclusive (next midnight), so the
+  // multi-day form shows the inclusive last day.
+  const periodRangeLabel = useMemo(() => {
+    if (!current) return '';
+    const fmtShort = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale);
+    if (range === 'today' || range === 'yesterday') return fmtShort(current.start);
+    const lastDay = new Date(`${current.end}T00:00:00`);
+    lastDay.setDate(lastDay.getDate() - 1);
+    return `${fmtShort(current.start)} → ${lastDay.toLocaleDateString(dateLocale)}`;
+  }, [current, range, dateLocale]);
+
+  // KPI definitions, driven by the period totals. Each card can select the chart
+  // metric (single click) and drill into its report (the "details" link).
+  const metrics: { key: MetricKey; label: string; value: string; delta: number; report: string }[] = [
+    {
+      key: 'revenue',
+      label: t('grossRevenue'),
+      value: fmtMoney(current?.total_revenue ?? 0),
+      delta: pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0),
+      report: `/${rid}/analytics/overview`,
+    },
+    {
+      key: 'orders',
+      label: t('orders'),
+      value: String(current?.total_orders ?? 0),
+      delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
+      report: `/${rid}/orders/all`,
+    },
+    {
+      key: 'avgTicket',
+      label: t('avgTicket'),
+      value: `₪${(current?.avg_ticket ?? 0).toFixed(1)}`,
+      delta: pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0),
+      report: `/${rid}/analytics/overview`,
+    },
+    {
+      key: 'itemsSold',
+      label: t('itemsSold'),
+      value: String(current?.items_sold ?? 0),
+      delta: pct(current?.items_sold ?? 0, previous?.items_sold ?? 0),
+      report: `/${rid}/analytics/overview`,
+    },
+  ];
+
+  // Bars for the selected metric over the active window.
+  const chartData = useMemo(() => {
+    const n = series.length;
+    const everyN = n > 10 ? Math.ceil(n / 7) : 1;
+    return series.map((d, i) => {
       const date = new Date(`${d.date}T00:00:00`);
-      return {
-        day: date.toLocaleDateString(dateLocale, { weekday: 'short' }),
-        cur: (d.net_sales / max) * 100,
-        prev: 0,
-        hasData: true,
-      };
+      const showLabel = i === n - 1 || i % everyN === 0;
+      const label =
+        n > 10
+          ? showLabel
+            ? date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
+            : ''
+          : date.toLocaleDateString(dateLocale, { weekday: 'short' });
+      return { day: label, value: seriesValue(metric, d), isLast: i === n - 1 };
     });
-  }, [dailySeries, dateLocale]);
+  }, [series, metric, dateLocale]);
+
+  const selectedMetricLabel = metrics.find((m) => m.key === metric)?.label ?? '';
 
   if (loading) {
     return (
@@ -131,29 +223,22 @@ export default function DashboardPage() {
     );
   }
 
-  const greeting = t('dashboardHome') || 'Dashboard';
-  const dateSub = fmtDate(new Date(), dateLocale);
-
   return (
     <>
       <PageHead
-        title={greeting}
-        desc={dateSub}
+        title={t('dashboardHome') || 'Dashboard'}
+        desc={fmtDate(new Date(), dateLocale)}
         actions={
           <>
             <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
               {(['yesterday', 'today', 'week', 'month'] as const).map((r) => {
-                const active = r === 'today' ? range === 'today' : range === r;
-                const handleClick = () => {
-                  if (r === 'yesterday') return;
-                  setRange(r as Range);
-                };
+                const active = range === r;
                 return (
                   <button
                     key={r}
                     type="button"
-                    aria-selected={active}
-                    onClick={handleClick}
+                    aria-pressed={active}
+                    onClick={() => setRange(r)}
                     className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
                       active
                         ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
@@ -165,9 +250,6 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-            <Button variant="secondary" size="md">
-              <Calendar /> {new Date().toLocaleDateString(dateLocale, { day: 'numeric', month: 'long' })}
-            </Button>
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
@@ -175,55 +257,32 @@ export default function DashboardPage() {
         }
       />
 
-      {/* KPI strip — 4 equal. Hidden on mobile per the responsive policy:
-          the dashboard's chart + activity sections cover the mobile use case. */}
+      {/* KPI strip — 4 equal. Hidden on mobile per the responsive policy. */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
-        <KpiWithSpark
-          label={t('grossRevenue')}
-          value={fmtMoney(revenue)}
-          delta={revChange}
-          sub={t('vsYesterday')}
-          trend={revChange >= 0 ? 'up' : 'down'}
-          onClick={() => setSelectedKpi('revenue')}
-        />
-        <KpiWithSpark
-          label={t('orders')}
-          value={String(orders)}
-          delta={orderChange}
-          sub={`${orders} ${t('today').toLowerCase()}`}
-          trend={orderChange >= 0 ? 'up' : 'down'}
-          onClick={() => setSelectedKpi('orders')}
-        />
-        <KpiWithSpark
-          label={t('avgTicket')}
-          value={`₪${avgTicket.toFixed(1)}`}
-          delta={ticketChange}
-          sub={t('vsPreviousPeriod')}
-          trend={ticketChange >= 0 ? 'up' : 'down'}
-          onClick={() => setSelectedKpi('average-ticket')}
-        />
-        <KpiWithSpark
-          label={t('labor')}
-          value={`${laborPct.toFixed(1)}%`}
-          delta={laborChange}
-          sub={t('targetThirty')}
-          trend={laborChange <= 0 ? 'up' : 'down'}
-          onClick={() => setSelectedKpi('labor')}
-        />
+        {metrics.map((m) => (
+          <MetricCard
+            key={m.key}
+            label={m.label}
+            value={m.value}
+            delta={m.delta}
+            sub={vsLabel}
+            spark={series.map((d) => seriesValue(m.key, d))}
+            active={metric === m.key}
+            onSelect={() => setMetric(m.key)}
+            onDetails={() => router.push(m.report)}
+            detailsLabel={t('details')}
+          />
+        ))}
       </div>
-
-      <KPIInfoModal
-        kpiInfo={selectedKpi ? KPI_INFO[selectedKpi] ?? null : null}
-        onClose={() => setSelectedKpi(null)}
-      />
 
       {/* Main row: chart + right rail */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--s-5)] mb-[var(--s-5)]">
-        <Section
-          title={t('performanceLast7Days')}
-          desc={t('netSalesExcludingVat')}
-        >
-          <BarChart data={weekBars} emptyLabel={t('noSalesIn7Days')} />
+        <Section title={selectedMetricLabel} desc={periodRangeLabel}>
+          <MetricChart
+            data={chartData}
+            fmt={(n) => formatMetric(metric, n)}
+            emptyLabel={t('noSalesIn7Days')}
+          />
         </Section>
 
         <div className="flex flex-col gap-[var(--s-4)]">
@@ -258,10 +317,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Lower row: Top items + Activity */}
+      {/* Lower row: Top items + Recent activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[var(--s-5)]">
         <Section
           title={t('bestSellingItems')}
+          desc={periodRangeLabel}
           aside={
             <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/menu/items`)}>
               {t('seeAll')}
@@ -269,9 +329,7 @@ export default function DashboardPage() {
           }
         >
           {topSellers.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">
-              {t('noSalesYet')}
-            </p>
+            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{t('noSalesYet')}</p>
           ) : (
             <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
               {topSellers.slice(0, 5).map((s, i) => {
@@ -292,10 +350,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="w-20 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden shrink-0">
-                      <div
-                        className="h-full bg-[var(--brand-500)]"
-                        style={{ width: `${pctBar}%` }}
-                      />
+                      <div className="h-full bg-[var(--brand-500)]" style={{ width: `${pctBar}%` }} />
                     </div>
                     <div className="font-mono tabular-nums text-fs-sm text-[var(--fg)] min-w-[70px] text-right">
                       ₪{s.revenue.toFixed(2)}
@@ -308,48 +363,46 @@ export default function DashboardPage() {
         </Section>
 
         <Section
-          title={t('liveActivity')}
+          title={t('recentActivity')}
           aside={
             <Badge tone="success" dot>
               {t('online')}
             </Badge>
           }
         >
-          <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
-            <ActivityRow
-              color="var(--success-500)"
-              who={`${orders} ${t('orders').toLowerCase()}`}
-              what={t('recordedToday')}
-              amt={fmtMoney(revenue)}
-              when={t('liveLabel')}
-            />
-            {previous?.date && (
-              <ActivityRow
-                color="var(--info-500)"
-                who={t('comparison')}
-                what={`${new Date(previous.date).toLocaleDateString(dateLocale)} → ${new Date(current?.date ?? '').toLocaleDateString(dateLocale)}`}
-                when=""
-              />
-            )}
-            {(current?.tips ?? 0) > 0 && (
-              <ActivityRow
-                color="var(--warning-500)"
-                who={t('tips')}
-                what={t('collectedToday')}
-                amt={`₪${(current?.tips ?? 0).toFixed(2)}`}
-                when=""
-              />
-            )}
-            {(current?.discounts ?? 0) > 0 && (
-              <ActivityRow
-                color="var(--danger-500)"
-                who={t('discounts')}
-                what={t('discountsApplied')}
-                amt={`₪${(current?.discounts ?? 0).toFixed(2)}`}
-                when=""
-              />
-            )}
-          </div>
+          {recentOrders.length === 0 ? (
+            <p className="text-fs-sm text-[var(--fg-subtle)] py-6 text-center">{t('noSalesYet')}</p>
+          ) : (
+            <div className="-mx-[var(--s-5)] -mb-[var(--s-5)]">
+              {recentOrders.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => router.push(`/${rid}/orders/all`)}
+                  className="w-full px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0 text-left hover:bg-[var(--surface-2)] transition-colors"
+                >
+                  <div
+                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: paymentColor(o.payment_status) }}
+                  />
+                  <div className="flex-1 text-fs-sm min-w-0">
+                    <span className="text-[var(--fg)] font-medium truncate">
+                      {o.customer_name?.trim() || `#${o.id}`}
+                    </span>{' '}
+                    <span className="text-[var(--fg-muted)]">
+                      {t(ORDER_TYPE_KEY[o.order_type] ?? 'dineIn')}
+                    </span>
+                  </div>
+                  <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)] shrink-0">
+                    {fmtMoney(o.total_amount)}
+                  </span>
+                  <span className="text-fs-xs text-[var(--fg-subtle)] min-w-[40px] text-right shrink-0">
+                    {relTime(o.created_at)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </Section>
       </div>
     </>
@@ -358,52 +411,79 @@ export default function DashboardPage() {
 
 // ─── Helper components ──────────────────────────────────────────────────────
 
-interface KpiSparkProps {
+interface MetricCardProps {
   label: string;
   value: string;
   delta: number;
   sub: string;
-  trend: 'up' | 'down';
-  onClick?: () => void;
+  spark: number[];
+  active: boolean;
+  onSelect: () => void;
+  onDetails: () => void;
+  detailsLabel: string;
 }
 
-function KpiWithSpark({ label, value, delta, sub, trend, onClick }: KpiSparkProps) {
-  const deltaStr = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+function MetricCard({
+  label,
+  value,
+  delta,
+  sub,
+  spark,
+  active,
+  onSelect,
+  onDetails,
+  detailsLabel,
+}: MetricCardProps) {
+  const up = delta >= 0;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-left cursor-pointer transition-colors hover:border-[var(--line-strong)]"
-    >
+    <div className="relative">
       <Kpi
         label={label}
         value={
           <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
             <span>{value}</span>
-            <Sparkline trend={trend} />
+            <Sparkline values={spark} up={up} />
           </div>
         }
         sub={sub}
-        delta={{
-          value: (
-            <span className="inline-flex items-center gap-0.5">
-              {trend === 'up' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-              {deltaStr}
-            </span>
-          ),
-          direction: trend,
-        }}
+        delta={{ value: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
+        onClick={onSelect}
+        className={active ? 'ring-2 ring-[var(--brand-500)]' : ''}
       />
-    </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDetails();
+        }}
+        className="absolute top-[var(--s-4)] right-[var(--s-5)] z-10 text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--brand-500)] transition-colors"
+      >
+        {detailsLabel}
+      </button>
+    </div>
   );
 }
 
-function Sparkline({ trend }: { trend: 'up' | 'down' }) {
-  const pts = trend === 'up' ? [20, 18, 16, 14, 12, 8, 4] : [4, 8, 10, 12, 14, 16, 18];
-  const d = pts.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * 12} ${y}`).join(' ');
-  const color = trend === 'up' ? 'var(--success-500)' : 'var(--danger-500)';
+function Sparkline({ values, up }: { values: number[]; up: boolean }) {
+  const w = 72;
+  const h = 24;
+  if (values.length < 2 || values.every((v) => v === 0)) {
+    return <svg width={w} height={h} aria-hidden />;
+  }
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const span = max - min || 1;
+  const step = w / (values.length - 1);
+  const d = values
+    .map((v, i) => {
+      const x = i * step;
+      const y = h - ((v - min) / span) * h;
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+  const color = up ? 'var(--success-500)' : 'var(--danger-500)';
   return (
-    <svg width="72" height="24" viewBox="0 0 72 24" className="overflow-visible">
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
       <path
         d={d}
         fill="none"
@@ -416,14 +496,16 @@ function Sparkline({ trend }: { trend: 'up' | 'down' }) {
   );
 }
 
-function BarChart({
+function MetricChart({
   data,
+  fmt,
   emptyLabel,
 }: {
-  data: { day: string; cur: number; prev: number; hasData: boolean }[];
+  data: { day: string; value: number; isLast: boolean }[];
+  fmt: (n: number) => string;
   emptyLabel: string;
 }) {
-  const anyData = data.some((d) => d.hasData && d.cur > 0);
+  const anyData = data.some((d) => d.value > 0);
   if (!anyData) {
     return (
       <div
@@ -434,23 +516,24 @@ function BarChart({
       </div>
     );
   }
+  const max = Math.max(1, ...data.map((d) => d.value));
   return (
-    <div
-      className="flex items-end justify-between gap-[var(--s-3)]"
-      style={{ height: 180 }}
-    >
+    <div className="flex items-end justify-between gap-[var(--s-2)]" style={{ height: 180 }}>
       {data.map((d, i) => (
-        <div
-          key={i}
-          className="flex-1 flex flex-col items-center gap-[var(--s-2)] h-full"
-        >
+        <div key={i} className="flex-1 flex flex-col items-center gap-[var(--s-2)] h-full">
           <div className="flex items-end h-full w-full justify-center">
             <div
-              className="w-6 rounded-t-[3px] bg-[var(--brand-500)]"
-              style={{ height: `${Math.max(2, d.cur)}%` }}
+              className="w-full max-w-[28px] rounded-t-[3px]"
+              style={{
+                height: `${Math.max(2, (d.value / max) * 100)}%`,
+                background: d.isLast
+                  ? 'var(--brand-500)'
+                  : 'color-mix(in oklab, var(--brand-500) 55%, transparent)',
+              }}
+              title={fmt(d.value)}
             />
           </div>
-          <span className="text-fs-xs text-[var(--fg-muted)]">{d.day}</span>
+          <span className="text-fs-xs text-[var(--fg-muted)] truncate max-w-full">{d.day}</span>
         </div>
       ))}
     </div>
@@ -488,42 +571,5 @@ function QuickAction({
         <span className="text-fs-xs text-[var(--fg-muted)] truncate">{sub}</span>
       </div>
     </button>
-  );
-}
-
-function ActivityRow({
-  color,
-  who,
-  what,
-  amt,
-  when,
-}: {
-  color: string;
-  who: string;
-  what: string;
-  amt?: string;
-  when: string;
-}) {
-  return (
-    <div className="px-[var(--s-5)] py-[var(--s-3)] border-t border-[var(--line)] flex items-center gap-[var(--s-3)] first:border-t-0">
-      <div
-        className="w-1.5 h-1.5 rounded-full shrink-0"
-        style={{ background: color }}
-      />
-      <div className="flex-1 text-fs-sm min-w-0">
-        <span className="text-[var(--fg)] font-medium">{who}</span>{' '}
-        <span className="text-[var(--fg-muted)]">{what}</span>
-      </div>
-      {amt && (
-        <span className="font-mono tabular-nums text-fs-xs text-[var(--fg-muted)] shrink-0">
-          {amt}
-        </span>
-      )}
-      {when && (
-        <span className="text-fs-xs text-[var(--fg-subtle)] min-w-[64px] text-right shrink-0">
-          {when}
-        </span>
-      )}
-    </div>
   );
 }
