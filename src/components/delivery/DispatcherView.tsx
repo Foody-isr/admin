@@ -5,8 +5,22 @@ import dynamic from 'next/dynamic';
 import { useI18n } from '@/lib/i18n';
 import { useWs } from '@/lib/ws-context';
 import { listDeliveryRoutes, buildRoute, type DeliveryRoute } from '@/lib/delivery';
-import { listOrders, listCouriers, type Order, type StaffMember } from '@/lib/api';
+import {
+  listOrders, listCouriers, markOrderReadyForDelivery, sendOrderToKitchen,
+  type Order, type StaffMember,
+} from '@/lib/api';
+import { localizeStatus } from '@/components/orders/OrderDetailDrawer';
 import type { RouteLayer, CourierMarker } from '@/components/delivery/DeliveryMap';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Badge,
   Button,
@@ -125,11 +139,19 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [livePositions, setLivePositions] = useState<Map<number, { lat: number; lng: number; updatedAt: number }>>(new Map());
   const [ready, setReady] = useState<Order[]>([]);
+  // Paid delivery orders still being prepared (accepted / in_kitchen). The
+  // dispatcher can pre-assign these — confirming bumps them to ready-for-delivery.
+  const [preparing, setPreparing] = useState<Order[]>([]);
   const [couriers, setCouriers] = useState<StaffMember[]>([]);
   const [selectedCourier, setSelectedCourier] = useState<number | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [assignTo, setAssignTo] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Pre-assign (preparing) section state + its confirmation dialog.
+  const [pickedPrep, setPickedPrep] = useState<Set<number>>(new Set());
+  const [assignToPrep, setAssignToPrep] = useState<number | null>(null);
+  const [prepBusy, setPrepBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -140,12 +162,16 @@ export default function DispatcherView({ rid }: { rid: number }) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [rts, orders, crs] = await Promise.all([
+      const [rts, orders, prep, crs] = await Promise.all([
         listDeliveryRoutes(rid),
         // An order is dispatchable only once it is paid AND marked ready for
         // delivery. The empty state spells out both conditions so staff know
         // why an order isn't showing up yet.
         listOrders(rid, { type: 'delivery', status: 'ready_for_delivery', payment_status: 'paid' }),
+        // Paid orders still in the kitchen pipeline — eligible for pre-assignment.
+        // The server only allows in_kitchen → ready_for_delivery (accepted goes
+        // via the kitchen first), so we surface exactly those two statuses.
+        listOrders(rid, { type: 'delivery', status: 'accepted,in_kitchen', payment_status: 'paid' }),
         listCouriers(rid),
       ]);
       setRoutes(rts);
@@ -167,6 +193,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
       // legacy per-order courier picker, which would otherwise be invisible.
       const routedOrderIds = new Set<number>(rts.flatMap((r) => r.stops.map((s) => s.order_id)));
       setReady(orders.orders.filter((o) => !routedOrderIds.has(o.id)));
+      setPreparing(prep.orders.filter((o) => !routedOrderIds.has(o.id)));
       setCouriers(crs);
     } catch (e) {
       setError((e as Error)?.message || 'load failed');
@@ -230,6 +257,49 @@ export default function DispatcherView({ rid }: { rid: number }) {
       await load();
     } finally {
       setBusy(false);
+    }
+  };
+
+  // ── Pre-assign (orders still being prepared) ───────────────────────────────
+  const togglePickPrep = (id: number) =>
+    setPickedPrep((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const allPickedPrep = preparing.length > 0 && pickedPrep.size === preparing.length;
+  const toggleAllPrep = () =>
+    setPickedPrep(allPickedPrep ? new Set() : new Set(preparing.map((o) => o.id)));
+
+  const prepCourier = couriers.find((c) => c.id === assignToPrep);
+
+  // Confirmed pre-assign: push each selected order to ready-for-delivery (via the
+  // kitchen when still "accepted", since the server only allows in_kitchen →
+  // ready_for_delivery), then build the route — so it lands straight on the
+  // courier's tournée without a second assignment step.
+  const onPrepAssign = async () => {
+    if (assignToPrep == null || pickedPrep.size === 0) return;
+    setPrepBusy(true);
+    try {
+      const ids = Array.from(pickedPrep);
+      for (const id of ids) {
+        const o = preparing.find((p) => p.id === id);
+        if (!o) continue;
+        if (o.status === 'accepted') await sendOrderToKitchen(rid, id);
+        await markOrderReadyForDelivery(rid, id);
+      }
+      await buildRoute(rid, assignToPrep, ids);
+      setPickedPrep(new Set());
+      setAssignToPrep(null);
+      setConfirmOpen(false);
+      await load();
+    } catch (e) {
+      setError((e as Error)?.message || 'action failed');
+      setConfirmOpen(false);
+      await load();
+    } finally {
+      setPrepBusy(false);
     }
   };
 
@@ -432,7 +502,99 @@ export default function DispatcherView({ rid }: { rid: number }) {
             </>
           )}
         </Section>
+
+        {/* Being prepared — pre-assign before an order is marked ready. Only
+            shows when there are paid orders still in the kitchen pipeline. */}
+        {preparing.length > 0 && (
+          <Section title={t('beingPreparedTitle')}>
+            <p className="text-fs-xs text-[var(--fg-subtle)] mb-2">{t('beingPreparedHint')}</p>
+            <div className="overflow-x-auto -mx-[var(--s-5)]">
+              <DataTable responsive={false} className="border-0 rounded-none shadow-none bg-transparent dark:bg-transparent">
+                <DataTableHead>
+                  <DataTableHeadCell className="p-3 w-10">
+                    <Checkbox checked={allPickedPrep} onCheckedChange={toggleAllPrep} />
+                  </DataTableHeadCell>
+                  <DataTableHeadCell className="p-3">{t('customer')}</DataTableHeadCell>
+                  <DataTableHeadCell className="p-3">{t('status')}</DataTableHeadCell>
+                </DataTableHead>
+                <DataTableBody>
+                  {preparing.map((order, idx) => (
+                    <DataTableRow
+                      key={order.id}
+                      index={idx}
+                      onClick={() => togglePickPrep(order.id)}
+                      className="cursor-pointer"
+                    >
+                      <DataTableCell className="p-3 w-10">
+                        <Checkbox
+                          checked={pickedPrep.has(order.id)}
+                          onCheckedChange={() => togglePickPrep(order.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </DataTableCell>
+                      <DataTableCell className="p-3">
+                        <div className="text-fs-sm font-medium text-[var(--fg)]">{order.customer_name}</div>
+                        <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
+                      </DataTableCell>
+                      <DataTableCell className="p-3">
+                        <Badge tone="warning">{localizeStatus(order.status, t)}</Badge>
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))}
+                </DataTableBody>
+              </DataTable>
+            </div>
+
+            {/* Assign controls — opens a confirmation before bumping status. */}
+            <div className="mt-3 flex flex-col gap-2">
+              <div className="flex items-center gap-1 text-fs-xs text-[var(--fg-subtle)]">
+                <UserIcon className="w-3 h-3" />
+                {t('couriersTitle')}
+              </div>
+              <div className="flex gap-2">
+                <Select
+                  className="flex-1"
+                  value={assignToPrep ?? ''}
+                  onChange={(e) => setAssignToPrep(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">{t('selectCourier')}</option>
+                  {couriers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.full_name}</option>
+                  ))}
+                </Select>
+                <Button
+                  variant="primary"
+                  size="md"
+                  disabled={pickedPrep.size === 0 || assignToPrep == null || prepBusy}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  {t('assignNOrders').replace('{n}', String(pickedPrep.size))}
+                </Button>
+              </div>
+            </div>
+          </Section>
+        )}
       </div>
+
+      {/* ── Confirm dialog: pre-assign marks orders ready for delivery ────────── */}
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!prepBusy) setConfirmOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('confirmReadyTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmReadyBody')
+                .replace('{n}', String(pickedPrep.size))
+                .replace('{courier}', prepCourier?.full_name ?? '')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={prepBusy}>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); onPrepAssign(); }} disabled={prepBusy}>
+              {t('confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Map (desktop only) ───────────────────────────────────────────────── */}
       <DeliveryMap
