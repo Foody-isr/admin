@@ -142,11 +142,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setError(null);
       const [rts, orders, crs] = await Promise.all([
         listDeliveryRoutes(rid),
-        // Paid and unpaid orders alike are dispatchable — many restaurants
-        // collect cash on delivery, so gating on `paid` here hid legitimate
-        // runs. Payment status is surfaced per-row so the dispatcher still sees
-        // what's outstanding before assigning.
-        listOrders(rid, { type: 'delivery', status: 'ready_for_delivery' }),
+        // An order is dispatchable only once it is paid AND marked ready for
+        // delivery. The empty state spells out both conditions so staff know
+        // why an order isn't showing up yet.
+        listOrders(rid, { type: 'delivery', status: 'ready_for_delivery', payment_status: 'paid' }),
         listCouriers(rid),
       ]);
       setRoutes(rts);
@@ -376,17 +375,7 @@ export default function DispatcherView({ rid }: { rid: number }) {
                           <div className="text-fs-sm font-medium text-[var(--fg)]">
                             {order.customer_name}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</span>
-                            {order.payment_status !== 'paid' && (
-                              <Badge tone="warning" className="text-fs-xs">
-                                {(() => {
-                                  const tv = t(order.payment_status);
-                                  return tv === order.payment_status ? order.payment_status : tv;
-                                })()}
-                              </Badge>
-                            )}
-                          </div>
+                          <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
                         </DataTableCell>
                         <DataTableCell className="p-3">
                           {order.delivery_address ? (
