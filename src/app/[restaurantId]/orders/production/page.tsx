@@ -18,10 +18,12 @@ import ActionsDropdown from '@/components/common/ActionsDropdown';
 import {
   fetchProductionSheet,
   fetchProductionDays,
+  listAllItems,
   ProductionSheetResponse,
   ProductionSheetOrder,
   ProductionDay,
 } from '@/lib/api';
+import { itemPortionGrams } from '@/lib/production';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
@@ -41,7 +43,20 @@ export default function ProductionPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
+  // Box-packing controls (client-only, filter-like): the available portion
+  // sizes per article (from its variants) and the size the user picked to
+  // divide each article's total by. Nothing is persisted.
+  const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
+  const [boxPortions, setBoxPortions] = useState<Record<number, number>>({});
   const fsRef = useRef<HTMLDivElement>(null);
+
+  const setBoxPortion = (itemId: number, grams: number | null) =>
+    setBoxPortions((prev) => {
+      const next = { ...prev };
+      if (grams == null) delete next[itemId];
+      else next[itemId] = grams;
+      return next;
+    });
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -51,6 +66,21 @@ export default function ProductionPage() {
       const upcoming = d.find((x) => x.date >= today) ?? d[d.length - 1];
       setDate(upcoming ? upcoming.date : today);
     });
+  }, [restaurantId]);
+
+  // Load each article's available portion sizes (from its size variants) so the
+  // box-packing dropdowns can offer only the article's existing portions.
+  useEffect(() => {
+    listAllItems(restaurantId)
+      .then((items) => {
+        const map: Record<number, number[]> = {};
+        for (const it of items) {
+          const grams = itemPortionGrams(it);
+          if (grams.length) map[it.id] = grams;
+        }
+        setPortionsByItem(map);
+      })
+      .catch(() => undefined);
   }, [restaurantId]);
 
   // Load the sheet for the active day.
@@ -273,7 +303,14 @@ export default function ProductionPage() {
         (splitMode === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
             {categorySheets.map(({ cat, sheet: cs }) => (
-              <ProductionMatrix key={cat.id} sheet={cs} onRowClick={handleRowClick} />
+              <ProductionMatrix
+                key={cat.id}
+                sheet={cs}
+                onRowClick={handleRowClick}
+                availablePortions={portionsByItem}
+                boxPortions={boxPortions}
+                onBoxPortionChange={setBoxPortion}
+              />
             ))}
           </div>
         ) : splitMode === 'customer' ? (
@@ -292,12 +329,24 @@ export default function ProductionPage() {
                     {order.order_type === 'delivery' ? '🚚' : '🛍'} {order.window_start ?? ''}
                   </span>
                 </h2>
-                <ProductionMatrix sheet={cs} onRowClick={handleRowClick} />
+                <ProductionMatrix
+                  sheet={cs}
+                  onRowClick={handleRowClick}
+                  availablePortions={portionsByItem}
+                  boxPortions={boxPortions}
+                  onBoxPortionChange={setBoxPortion}
+                />
               </div>
             ))}
           </div>
         ) : (
-          <ProductionMatrix sheet={filteredSheet} onRowClick={handleRowClick} />
+          <ProductionMatrix
+            sheet={filteredSheet}
+            onRowClick={handleRowClick}
+            availablePortions={portionsByItem}
+            boxPortions={boxPortions}
+            onBoxPortionChange={setBoxPortion}
+          />
         ))}
 
       <ProductionOrderDetail
