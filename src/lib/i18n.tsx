@@ -3023,6 +3023,13 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'General settings',
     zoneTypeHint_cities: 'Customers will choose their city from a list when placing an order.',
     zoneTypeHint_radius: 'The system automatically checks whether the customer address falls within the radius.',
+    zoneDeliveryFee: 'Delivery fee (₪)',
+    zoneMinOrder: 'Minimum order (₪)',
+    zoneFeeFreePlaceholder: 'Free',
+    zoneMinGlobalPlaceholder: 'Default',
+    zoneFeeMinHint: 'Leave empty for free delivery and the restaurant-wide minimum.',
+    defaultMinOrder: 'Default minimum order (₪)',
+    defaultMinOrderHint: 'Applied to addresses without a zone-specific minimum. 0 = no minimum. A zone can override it below.',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -5973,6 +5980,13 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'הגדרות כלליות',
     zoneTypeHint_cities: 'הלקוחות יבחרו את עירם מרשימה בעת ביצוע ההזמנה.',
     zoneTypeHint_radius: 'המערכת בודקת אוטומטית אם כתובת הלקוח נמצאת בתוך הרדיוס.',
+    zoneDeliveryFee: 'דמי משלוח (₪)',
+    zoneMinOrder: 'מינימום הזמנה (₪)',
+    zoneFeeFreePlaceholder: 'חינם',
+    zoneMinGlobalPlaceholder: 'ברירת מחדל',
+    zoneFeeMinHint: 'השאירו ריק למשלוח חינם ולמינימום הכללי של המסעדה.',
+    defaultMinOrder: 'מינימום הזמנה ברירת מחדל (₪)',
+    defaultMinOrderHint: 'חל על כתובות ללא מינימום ייעודי לאזור. 0 = ללא מינימום. אזור יכול לעקוף זאת למטה.',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -8924,5 +8938,12 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'Paramètres généraux',
     zoneTypeHint_cities: 'Les clients choisiront leur ville dans une liste au moment de la commande.',
     zoneTypeHint_radius: "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.",
+    zoneDeliveryFee: 'Frais de livraison (₪)',
+    zoneMinOrder: 'Commande minimum (₪)',
+    zoneFeeFreePlaceholder: 'Gratuit',
+    zoneMinGlobalPlaceholder: 'Par défaut',
+    zoneFeeMinHint: 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.',
+    defaultMinOrder: 'Commande minimum par défaut (₪)',
+    defaultMinOrderHint: 'Appliqué aux adresses sans minimum spécifique. 0 = pas de minimum. Une zone peut le remplacer ci-dessous.',
   },
 };

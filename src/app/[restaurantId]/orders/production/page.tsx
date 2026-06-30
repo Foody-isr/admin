@@ -24,7 +24,7 @@ import {
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
-import { ProductionOrderDrawer } from '@/components/production/ProductionOrderDrawer';
+import { ProductionOrderDetail } from '@/components/production/ProductionOrderDetail';
 
 export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
@@ -245,7 +245,7 @@ export default function ProductionPage() {
           <ProductionMatrix sheet={filteredSheet} onRowClick={handleRowClick} />
         ))}
 
-      <ProductionOrderDrawer
+      <ProductionOrderDetail
         restaurantId={restaurantId}
         orderId={selectedOrderId}
         onClose={() => setSelectedOrderId(null)}
