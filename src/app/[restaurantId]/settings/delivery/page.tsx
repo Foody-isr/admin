@@ -7,7 +7,8 @@ import { useParams } from 'next/navigation';
 import { AlertCircle, MapPin, Trash2, Plus } from 'lucide-react';
 import {
   getDeliveryZones, createDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
-  getRestaurant, geocodeAddress, DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
+  getRestaurant, geocodeAddress, getRestaurantSettings, updateRestaurantSettings,
+  DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
 } from '@/lib/api';
 import type { CityMarker } from '@/components/delivery/ZoneMap';
 import { lookupCityCoord } from '@/lib/israel-cities';
@@ -60,6 +61,12 @@ export default function DeliveryZonesPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Restaurant-wide default minimum order for delivery. Applies to any address
+  // not covered by a zone-specific minimum. 0 = no minimum.
+  const [minOrderDelivery, setMinOrderDelivery] = useState<number>(0);
+  const [minOrderSaving, setMinOrderSaving] = useState(false);
+  const [minOrderSaved, setMinOrderSaved] = useState(false);
+
   const cityInputRef = useRef<HTMLInputElement>(null);
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
@@ -95,6 +102,25 @@ export default function DeliveryZonesPage() {
       })
       .finally(() => setLoading(false));
   }, [rid]);
+
+  // Load the restaurant-wide default minimum order (moved here from the Payments
+  // page so all delivery fee/minimum config lives in one place).
+  useEffect(() => {
+    getRestaurantSettings(rid)
+      .then((s) => setMinOrderDelivery(s.minimum_order_delivery ?? 0))
+      .catch(() => {});
+  }, [rid]);
+
+  const saveMinOrder = async () => {
+    setMinOrderSaving(true);
+    try {
+      await updateRestaurantSettings(rid, { minimum_order_delivery: minOrderDelivery });
+      setMinOrderSaved(true);
+      setTimeout(() => setMinOrderSaved(false), 2000);
+    } finally {
+      setMinOrderSaving(false);
+    }
+  };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -233,6 +259,38 @@ export default function DeliveryZonesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2"><MapPin className="w-6 h-6" />{t('deliveryZones') || 'Zones de livraison'}</h1>
         <p className="text-gray-500 mt-1">{t('deliveryZonesDesc') || 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.'}</p>
+      </div>
+
+      {/* Restaurant-wide default minimum order — overridden by any zone that
+          sets its own minimum below. */}
+      <div className="mb-4 p-4 rounded-xl border border-gray-200 bg-white">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm flex flex-col gap-1">
+            <span className="font-medium">{t('defaultMinOrder') || 'Commande minimum par défaut (₪)'}</span>
+            <input
+              type="number" min={0} step="0.5" inputMode="decimal"
+              value={minOrderDelivery}
+              disabled={!canEdit}
+              onChange={(e) => setMinOrderDelivery(Number(e.target.value))}
+              className="w-32 border rounded-lg px-3 py-2"
+            />
+          </label>
+          {canEdit && (
+            <button
+              onClick={saveMinOrder}
+              disabled={minOrderSaving}
+              className="py-2 px-4 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50"
+            >
+              {minOrderSaving ? '...' : (t('save') || 'Enregistrer')}
+            </button>
+          )}
+          {minOrderSaved && (
+            <span className="text-sm text-green-600 font-medium pb-2">{t('saved') || 'Enregistré'}</span>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          {t('defaultMinOrderHint') || 'Appliqué aux adresses sans minimum spécifique. 0 = pas de minimum. Une zone peut le remplacer ci-dessous.'}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
