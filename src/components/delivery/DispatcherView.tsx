@@ -142,7 +142,11 @@ export default function DispatcherView({ rid }: { rid: number }) {
       setError(null);
       const [rts, orders, crs] = await Promise.all([
         listDeliveryRoutes(rid),
-        listOrders(rid, { type: 'delivery', status: 'ready_for_delivery', payment_status: 'paid' }),
+        // Paid and unpaid orders alike are dispatchable — many restaurants
+        // collect cash on delivery, so gating on `paid` here hid legitimate
+        // runs. Payment status is surfaced per-row so the dispatcher still sees
+        // what's outstanding before assigning.
+        listOrders(rid, { type: 'delivery', status: 'ready_for_delivery' }),
         listCouriers(rid),
       ]);
       setRoutes(rts);
@@ -306,9 +310,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
           </CardHeader>
           <CardBody>
             {routes.length === 0 ? (
-              <p className="text-fs-sm text-[var(--fg-subtle)] py-2 text-center">
-                {t('noStopsYet')}
-              </p>
+              <div className="py-2 text-center">
+                <p className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('noStopsYet')}</p>
+                <p className="text-fs-xs text-[var(--fg-subtle)] mt-1">{t('noStopsYetHint')}</p>
+              </div>
             ) : (
               <div className="flex flex-col gap-2">
                 {routes.map((route, i) => (
@@ -330,9 +335,10 @@ export default function DispatcherView({ rid }: { rid: number }) {
         {/* Ready to dispatch section */}
         <Section title={t('readyToDispatch')}>
           {ready.length === 0 ? (
-            <p className="text-fs-sm text-[var(--fg-subtle)] py-2 text-center">
-              {t('noAvailableDeliveries')}
-            </p>
+            <div className="py-2 text-center">
+              <p className="text-fs-sm font-medium text-[var(--fg-muted)]">{t('noAvailableDeliveries')}</p>
+              <p className="text-fs-xs text-[var(--fg-subtle)] mt-1">{t('noReadyDeliveriesHint')}</p>
+            </div>
           ) : (
             <>
               <div className="overflow-x-auto -mx-[var(--s-5)]">
@@ -370,7 +376,17 @@ export default function DispatcherView({ rid }: { rid: number }) {
                           <div className="text-fs-sm font-medium text-[var(--fg)]">
                             {order.customer_name}
                           </div>
-                          <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</span>
+                            {order.payment_status !== 'paid' && (
+                              <Badge tone="warning" className="text-fs-xs">
+                                {(() => {
+                                  const tv = t(order.payment_status);
+                                  return tv === order.payment_status ? order.payment_status : tv;
+                                })()}
+                              </Badge>
+                            )}
+                          </div>
                         </DataTableCell>
                         <DataTableCell className="p-3">
                           {order.delivery_address ? (
