@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getDayComparison,
-  getAnalyticsToday,
+  getPeriodSummary,
   getTopSellers,
   getDailySeries,
-  type ComparisonResult,
+  type AnalyticsRange,
+  type PeriodComparison,
   type DaySummary,
-  type TodayStats,
   type TopSeller,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -26,7 +25,7 @@ import {
 import KPIInfoModal, { KPI_INFO } from '@/components/common/KPIInfoModal';
 import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 
-type Range = 'today' | 'week' | 'month';
+type Range = AnalyticsRange;
 
 const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   en: 'en-US',
@@ -58,15 +57,14 @@ export default function DashboardPage() {
   const { t, locale } = useI18n();
   const dateLocale = DATE_LOCALES[locale];
 
-  const RANGE_LABELS: Record<Range | 'yesterday', string> = {
+  const RANGE_LABELS: Record<Range, string> = {
     yesterday: t('yesterday'),
     today: t('today'),
     week: t('days7'),
     month: t('days30'),
   };
 
-  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
-  const [stats, setStats] = useState<TodayStats | null>(null);
+  const [period, setPeriod] = useState<PeriodComparison | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [dailySeries, setDailySeries] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,35 +74,50 @@ export default function DashboardPage() {
   const load = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
-      getDayComparison(rid),
-      getAnalyticsToday(rid),
+      getPeriodSummary(rid, range),
       getTopSellers(rid),
       getDailySeries(rid, 7),
     ])
-      .then(([cmp, st, top, daily]) => {
-        if (cmp.status === 'fulfilled') setComparison(cmp.value);
-        if (st.status === 'fulfilled') setStats(st.value);
+      .then(([per, top, daily]) => {
+        if (per.status === 'fulfilled') setPeriod(per.value);
         if (top.status === 'fulfilled') setTopSellers(top.value ?? []);
         if (daily.status === 'fulfilled') setDailySeries(daily.value ?? []);
       })
       .finally(() => setLoading(false));
-  }, [rid]);
+  }, [rid, range]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const current = comparison?.current;
-  const previous = comparison?.previous;
-  const revenue = stats?.total_revenue ?? current?.net_sales ?? 0;
-  const orders = stats?.total_orders ?? current?.transactions ?? 0;
-  const avgTicket = orders > 0 ? revenue / orders : current?.avg_sale ?? 0;
-  const laborPct = current?.labor_percent ?? 0;
+  const current = period?.current;
+  const previous = period?.previous;
+  const revenue = current?.total_revenue ?? 0;
+  const orders = current?.total_orders ?? 0;
+  const avgTicket = current?.avg_ticket ?? 0;
+  // No labor data source yet — kept at 0 so the KPI card stays in the grid.
+  const laborPct = 0;
 
-  const revChange = pct(current?.net_sales ?? 0, previous?.net_sales ?? 0);
-  const orderChange = pct(current?.transactions ?? 0, previous?.transactions ?? 0);
-  const ticketChange = pct(current?.avg_sale ?? 0, previous?.avg_sale ?? 0);
-  const laborChange = pct(current?.labor_percent ?? 0, previous?.labor_percent ?? 0);
+  const revChange = pct(current?.total_revenue ?? 0, previous?.total_revenue ?? 0);
+  const orderChange = pct(current?.total_orders ?? 0, previous?.total_orders ?? 0);
+  const ticketChange = pct(current?.avg_ticket ?? 0, previous?.avg_ticket ?? 0);
+  const laborChange = 0;
+
+  // Sub-labels reflect the selected period.
+  const rangeWord = RANGE_LABELS[range].toLowerCase();
+  const vsLabel = range === 'today' ? t('vsYesterday') : t('vsPreviousPeriod');
+
+  // Human label for the active window. `end` is exclusive (next midnight), so
+  // the multi-day form shows the inclusive last day.
+  const periodRangeLabel = useMemo(() => {
+    if (!current) return '';
+    const fmtShort = (iso: string) =>
+      new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale);
+    if (range === 'today' || range === 'yesterday') return fmtShort(current.start);
+    const lastDay = new Date(`${current.end}T00:00:00`);
+    lastDay.setDate(lastDay.getDate() - 1);
+    return `${fmtShort(current.start)} → ${lastDay.toLocaleDateString(dateLocale)}`;
+  }, [current, range, dateLocale]);
 
   // Last 7 days vs the 7 days before, day-by-day.
   const weekBars = useMemo(() => {
@@ -143,17 +156,13 @@ export default function DashboardPage() {
           <>
             <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
               {(['yesterday', 'today', 'week', 'month'] as const).map((r) => {
-                const active = r === 'today' ? range === 'today' : range === r;
-                const handleClick = () => {
-                  if (r === 'yesterday') return;
-                  setRange(r as Range);
-                };
+                const active = range === r;
                 return (
                   <button
                     key={r}
                     type="button"
                     aria-selected={active}
-                    onClick={handleClick}
+                    onClick={() => setRange(r)}
                     className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
                       active
                         ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
@@ -182,7 +191,7 @@ export default function DashboardPage() {
           label={t('grossRevenue')}
           value={fmtMoney(revenue)}
           delta={revChange}
-          sub={t('vsYesterday')}
+          sub={vsLabel}
           trend={revChange >= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('revenue')}
         />
@@ -190,7 +199,7 @@ export default function DashboardPage() {
           label={t('orders')}
           value={String(orders)}
           delta={orderChange}
-          sub={`${orders} ${t('today').toLowerCase()}`}
+          sub={`${orders} ${rangeWord}`}
           trend={orderChange >= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('orders')}
         />
@@ -198,7 +207,7 @@ export default function DashboardPage() {
           label={t('avgTicket')}
           value={`₪${avgTicket.toFixed(1)}`}
           delta={ticketChange}
-          sub={t('vsPreviousPeriod')}
+          sub={vsLabel}
           trend={ticketChange >= 0 ? 'up' : 'down'}
           onClick={() => setSelectedKpi('average-ticket')}
         />
@@ -319,33 +328,15 @@ export default function DashboardPage() {
             <ActivityRow
               color="var(--success-500)"
               who={`${orders} ${t('orders').toLowerCase()}`}
-              what={t('recordedToday')}
+              what={range === 'today' ? t('recordedToday') : rangeWord}
               amt={fmtMoney(revenue)}
-              when={t('liveLabel')}
+              when={range === 'today' ? t('liveLabel') : ''}
             />
-            {previous?.date && (
+            {current && (
               <ActivityRow
                 color="var(--info-500)"
                 who={t('comparison')}
-                what={`${new Date(previous.date).toLocaleDateString(dateLocale)} → ${new Date(current?.date ?? '').toLocaleDateString(dateLocale)}`}
-                when=""
-              />
-            )}
-            {(current?.tips ?? 0) > 0 && (
-              <ActivityRow
-                color="var(--warning-500)"
-                who={t('tips')}
-                what={t('collectedToday')}
-                amt={`₪${(current?.tips ?? 0).toFixed(2)}`}
-                when=""
-              />
-            )}
-            {(current?.discounts ?? 0) > 0 && (
-              <ActivityRow
-                color="var(--danger-500)"
-                who={t('discounts')}
-                what={t('discountsApplied')}
-                amt={`₪${(current?.discounts ?? 0).toFixed(2)}`}
+                what={periodRangeLabel}
                 when=""
               />
             )}
