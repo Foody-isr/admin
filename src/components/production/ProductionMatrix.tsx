@@ -10,10 +10,16 @@ import {
   DataTableCell,
 } from '@/components/data-table/DataTable';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { packIntoBoxes, fmtPortionGrams } from '@/lib/production';
 
 interface Props {
   sheet: ProductionSheetResponse;
   onRowClick: (orderId: number) => void;
+  /** menu_item_id -> available portion sizes (grams) from the article's variants. */
+  availablePortions?: Record<number, number[]>;
+  /** menu_item_id -> box size (grams) the user chose to divide that article by. */
+  boxPortions?: Record<number, number>;
+  onBoxPortionChange?: (itemId: number, grams: number | null) => void;
 }
 
 function cellVal(value: number | undefined, measure: 'weight' | 'unit'): string {
@@ -42,7 +48,13 @@ const BRAND_TXT = 'text-[var(--brand-500)] dark:text-[var(--brand-500)]';
 /** "Par client" production grid, built on the shared DataTable so it matches the
  *  orders table's fonts/styles. Slim category band, item-name header, an
  *  "À préparer" totals row, and a sticky-left Client column. */
-export function ProductionMatrix({ sheet, onRowClick }: Props) {
+export function ProductionMatrix({
+  sheet,
+  onRowClick,
+  availablePortions,
+  boxPortions,
+  onBoxPortionChange,
+}: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
   const cats = sheet.categories;
@@ -68,11 +80,34 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
         <tr className={HEAD_ROW}>
           <DataTableHeadCell className={STICKY_HEAD}>{t('productionClient')}</DataTableHeadCell>
           {cats.flatMap((cat) =>
-            cat.item_ids.map((id) => (
-              <DataTableHeadCell key={`n-${id}`} align="center" className="whitespace-nowrap">
-                {itemsById.get(id)?.name}
-              </DataTableHeadCell>
-            )),
+            cat.item_ids.map((id) => {
+              const item = itemsById.get(id);
+              const portions = availablePortions?.[id] ?? [];
+              const showBox =
+                item?.measure === 'weight' && portions.length >= 2 && !!onBoxPortionChange;
+              return (
+                <DataTableHeadCell key={`n-${id}`} align="center" className="whitespace-nowrap">
+                  <span>{item?.name}</span>
+                  {showBox && (
+                    <select
+                      aria-label={t('productionBoxSize')}
+                      value={boxPortions?.[id] ?? ''}
+                      onChange={(e) =>
+                        onBoxPortionChange!(id, e.target.value ? Number(e.target.value) : null)
+                      }
+                      className="mt-1 block mx-auto max-w-[7rem] text-[10px] font-medium normal-case tracking-normal rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] px-1.5 py-0.5 focus:outline-none focus:border-[var(--brand-500)]"
+                    >
+                      <option value="">{t('productionBoxAuto')}</option>
+                      {portions.map((g) => (
+                        <option key={g} value={g}>
+                          {fmtPortionGrams(g)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </DataTableHeadCell>
+              );
+            }),
           )}
         </tr>
 
@@ -84,15 +119,31 @@ export function ProductionMatrix({ sheet, onRowClick }: Props) {
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id)!;
+              // When the user picks a box size, repack the column total into the
+              // fewest containers using the article's portions (chosen size as
+              // the largest box). Otherwise fall back to the ordered packaging.
+              const chosen = boxPortions?.[id];
+              const boxes =
+                item.measure === 'weight' && chosen
+                  ? packIntoBoxes(item.total, chosen, availablePortions?.[id] ?? [])
+                  : null;
               return (
                 <DataTableHeadCell key={`tt-${id}`} align="center" className={BRAND_TXT}>
                   {/* Total is intentionally not flagged for combos: a column total can mix
                       combo and non-combo items, so the dotted flag belongs on cells only. */}
                   <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
-                  {item.measure === 'weight' && item.packaging && item.packaging.length > 0 && (
+                  {boxes ? (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
-                      {item.packaging.map((p) => `${p.count}×${p.portion_g}`).join(' · ')}
+                      {boxes.map((b) => `${b.count}×${b.portion}`).join(' · ')}
                     </span>
+                  ) : (
+                    item.measure === 'weight' &&
+                    item.packaging &&
+                    item.packaging.length > 0 && (
+                      <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
+                        {item.packaging.map((p) => `${p.count}×${p.portion_g}`).join(' · ')}
+                      </span>
+                    )
                   )}
                 </DataTableHeadCell>
               );
