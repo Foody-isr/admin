@@ -10,6 +10,7 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   LayoutListIcon,
+  UsersIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Kpi, PageHead } from '@/components/ds';
@@ -39,7 +40,7 @@ export default function ProductionPage() {
   const [view, setView] = useState<'production' | 'courses'>('production');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [splitByCategory, setSplitByCategory] = useState(false);
+  const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
   const fsRef = useRef<HTMLDivElement>(null);
 
   // Load available days, default to the next upcoming day (or the last one).
@@ -117,6 +118,29 @@ export default function ProductionPage() {
       .filter((c) => c.sheet.orders.length > 0);
   }, [filteredSheet]);
 
+  // One sub-sheet per customer (for the split-by-customer view): a single-row
+  // table keeping only the items that customer ordered, with totals scoped to
+  // that order. Reuses ProductionMatrix per table.
+  const customerSheets = useMemo(() => {
+    if (!filteredSheet) return [];
+    return filteredSheet.orders
+      .map((o) => {
+        // recomputeTotals over the single order rescopes item totals to this
+        // customer and (since it's a subset of the day) drops the day-level
+        // packaging/combo aggregates that wouldn't apply to one order.
+        const scoped = recomputeTotals(filteredSheet, [o]);
+        const orderedIds = new Set(
+          scoped.items.filter((it) => it.total > 0).map((it) => it.menu_item_id),
+        );
+        const items = scoped.items.filter((it) => orderedIds.has(it.menu_item_id));
+        const categories = scoped.categories
+          .map((cat) => ({ ...cat, item_ids: cat.item_ids.filter((id) => orderedIds.has(id)) }))
+          .filter((cat) => cat.item_ids.length > 0);
+        return { order: o, sheet: { ...scoped, items, categories } };
+      })
+      .filter((c) => c.sheet.items.length > 0);
+  }, [filteredSheet]);
+
   const handleRowClick = fullscreen ? () => undefined : (id: number) => setSelectedOrderId(id);
 
   // Enter full screen: maximize layout (state) + request native full-screen
@@ -171,9 +195,20 @@ export default function ProductionPage() {
                       icon: <Maximize2Icon className="w-4 h-4" />,
                     },
                     {
-                      label: splitByCategory ? t('productionSingleTable') : t('productionSplitByCategory'),
-                      onClick: () => setSplitByCategory((v) => !v),
+                      label:
+                        splitMode === 'category'
+                          ? t('productionSingleTable')
+                          : t('productionSplitByCategory'),
+                      onClick: () => setSplitMode((m) => (m === 'category' ? 'none' : 'category')),
                       icon: <LayoutListIcon className="w-4 h-4" />,
+                    },
+                    {
+                      label:
+                        splitMode === 'customer'
+                          ? t('productionSingleTable')
+                          : t('productionSplitByCustomer'),
+                      onClick: () => setSplitMode((m) => (m === 'customer' ? 'none' : 'customer')),
+                      icon: <UsersIcon className="w-4 h-4" />,
                     },
                     {
                       label: view === 'production' ? t('productionShoppingList') : t('productionTitle'),
@@ -235,10 +270,30 @@ export default function ProductionPage() {
         view === 'production' &&
         filteredSheet &&
         filteredSheet.orders.length > 0 &&
-        (splitByCategory ? (
+        (splitMode === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
             {categorySheets.map(({ cat, sheet: cs }) => (
               <ProductionMatrix key={cat.id} sheet={cs} onRowClick={handleRowClick} />
+            ))}
+          </div>
+        ) : splitMode === 'customer' ? (
+          <div className="flex flex-col gap-[var(--s-5)]">
+            {customerSheets.map(({ order, sheet: cs }) => (
+              <div key={order.order_id} className="flex flex-col gap-[var(--s-2)]">
+                <h2 className="flex items-center gap-[var(--s-2)] text-fs-base font-semibold">
+                  {order.customer_name}
+                  <span
+                    className={`text-fs-micro px-2 py-0.5 rounded-r-sm font-medium ${
+                      order.order_type === 'delivery'
+                        ? 'bg-[var(--info-50)] text-[var(--info-500)]'
+                        : 'bg-[var(--success-50)] text-[var(--success-500)]'
+                    }`}
+                  >
+                    {order.order_type === 'delivery' ? '🚚' : '🛍'} {order.window_start ?? ''}
+                  </span>
+                </h2>
+                <ProductionMatrix sheet={cs} onRowClick={handleRowClick} />
+              </div>
             ))}
           </div>
         ) : (
