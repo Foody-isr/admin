@@ -10,7 +10,7 @@ import {
   XIcon, PrinterIcon, ChevronDownIcon,
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
-  CopyIcon, MessageCircleIcon, LinkIcon,
+  CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
@@ -229,17 +229,19 @@ function statusIndex(status: string) {
 // ─── Order Detail Drawer — 1060px, matches design-reference/order-details.jsx ────
 
 export function OrderDetailDrawer({
-  order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+  order, canManage, canDelete, isLoading, onClose, onAccept, onReject, onDelete, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit,
   restaurantInfo, customFieldLabels,
 }: {
   order: Order | null;
   canManage: boolean;
+  canDelete?: boolean;
   isLoading: boolean;
   onClose: () => void;
   onAccept: () => void;
   onReject: () => void;
+  onDelete?: () => void;
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
@@ -554,6 +556,20 @@ export function OrderDetailDrawer({
                 className="flex-1 md:flex-none justify-center"
               >
                 <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
+              </Button>
+            )}
+            {/* Permanent delete — owners/admins only. Removes the order entirely
+                (not archived). Confirmation warning handled by the caller. */}
+            {canDelete && onDelete && (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={onDelete}
+                disabled={isLoading}
+                style={{ color: 'var(--danger-500)' }}
+                className="flex-1 md:flex-none justify-center"
+              >
+                <Trash2Icon /> {t('deleteOrder') || 'Supprimer la commande'}
               </Button>
             )}
           </div>
