@@ -112,6 +112,31 @@ export default function ProductionPage() {
     return recomputeTotals(sheet, orders);
   }, [sheet, search]);
 
+  // Portion sizes offered in each article's box-size dropdown. Union of the
+  // article's numeric size variants (from listAllItems) and the portions that
+  // actually appear in the day's orders (sheet packaging) — the latter is the
+  // robust source, since some articles size by recipe/options rather than named
+  // variants, which would otherwise leave the dropdown empty.
+  const availablePortions = useMemo<Record<number, number[]>>(() => {
+    const map: Record<number, Set<number>> = {};
+    const add = (id: number, g: number) => {
+      if (!(g > 0)) return;
+      (map[id] ??= new Set()).add(g);
+    };
+    for (const [idStr, gs] of Object.entries(portionsByItem)) {
+      for (const g of gs) add(Number(idStr), g);
+    }
+    for (const it of sheet?.items ?? []) {
+      if (it.measure !== 'weight') continue;
+      for (const p of it.packaging ?? []) add(it.menu_item_id, p.portion_g);
+    }
+    const out: Record<number, number[]> = {};
+    for (const [idStr, set] of Object.entries(map)) {
+      out[Number(idStr)] = Array.from(set).sort((a, b) => a - b);
+    }
+    return out;
+  }, [portionsByItem, sheet]);
+
   // Day-level production KPIs (reflect the whole day, independent of search).
   const kpi = useMemo(() => {
     const orders = sheet?.orders ?? [];
@@ -307,7 +332,7 @@ export default function ProductionPage() {
                 key={cat.id}
                 sheet={cs}
                 onRowClick={handleRowClick}
-                availablePortions={portionsByItem}
+                availablePortions={availablePortions}
                 boxPortions={boxPortions}
                 onBoxPortionChange={setBoxPortion}
               />
@@ -332,7 +357,7 @@ export default function ProductionPage() {
                 <ProductionMatrix
                   sheet={cs}
                   onRowClick={handleRowClick}
-                  availablePortions={portionsByItem}
+                  availablePortions={availablePortions}
                   boxPortions={boxPortions}
                   onBoxPortionChange={setBoxPortion}
                 />
@@ -343,7 +368,7 @@ export default function ProductionPage() {
           <ProductionMatrix
             sheet={filteredSheet}
             onRowClick={handleRowClick}
-            availablePortions={portionsByItem}
+            availablePortions={availablePortions}
             boxPortions={boxPortions}
             onBoxPortionChange={setBoxPortion}
           />
