@@ -8,7 +8,8 @@ import {
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
-  Order, OrderStatus, ListOrdersParams,
+  listCouriers, assignCourier,
+  Order, OrderStatus, ListOrdersParams, StaffMember,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -33,7 +34,7 @@ import {
   ChevronDownIcon, PlusIcon,
   PauseIcon, PlayIcon,
 } from 'lucide-react';
-import { Badge, Button, PageHead } from '@/components/ds';
+import { Badge, Button, PageHead, Select } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
@@ -147,6 +148,16 @@ export default function OrdersPage() {
       .then((cfg) => setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config)))
       .catch(() => {});
   }, [rid]);
+
+  // Couriers eligible for assignment — powers the inline picker on each delivery
+  // row and the assign dropdown in the detail drawer. Loaded once per restaurant.
+  const [couriers, setCouriers] = useState<StaffMember[]>([]);
+  useEffect(() => {
+    if (!rid || !canManage) return;
+    listCouriers(rid)
+      .then(setCouriers)
+      .catch(() => {});
+  }, [rid, canManage]);
 
   // Online-ordering pause — same kill switch as Settings → Commandes &
   // disponibilité, surfaced here so staff can pause mid-service without leaving
@@ -310,6 +321,31 @@ export default function OrdersPage() {
     runAction(orderId, () => markOrderOutForDelivery(rid, orderId).then(() => {}), 'out_for_delivery');
   const handleMarkDelivered = (orderId: number) =>
     runAction(orderId, () => markOrderDelivered(rid, orderId).then(() => {}), 'delivered');
+
+  // Inline courier assignment (orders list + detail drawer). Hits the per-order
+  // assign-courier endpoint, which works at any pre-delivery stage — no need to
+  // first mark the order ready or route it through the dispatcher.
+  const handleAssignCourier = (orderId: number, courierId: number | null) => {
+    const courier = courierId == null ? null : couriers.find((c) => c.id === courierId) ?? null;
+    setActionLoading(orderId);
+    addProcessingGuard(orderId);
+    // Optimistic — reflect the new courier immediately.
+    setOrders((prev) => prev.map((o) => o.id === orderId ? {
+      ...o,
+      courier_id: courierId,
+      courier_name: courier?.full_name ?? '',
+      courier_phone: courier?.phone ?? '',
+    } : o));
+    assignCourier(rid, orderId, courierId)
+      .then((updated) => {
+        setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, ...updated } : o));
+      })
+      .catch(async () => { await fetchOrders(); })
+      .finally(() => {
+        setActionLoading(null);
+        removeProcessingGuard(orderId);
+      });
+  };
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -683,12 +719,31 @@ export default function OrdersPage() {
                       </Badge>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('courier')}>
-                      {order.order_type === 'delivery' ? (
-                        order.courier_name
-                          ? <span className="text-fg-primary">{order.courier_name}</span>
-                          : <span className="text-[var(--fg-subtle)]">{t('courierNone')}</span>
-                      ) : (
+                      {order.order_type !== 'delivery' ? (
                         <span className="text-[var(--fg-subtle)]">—</span>
+                      ) : canManage && order.status !== 'delivered' ? (
+                        // Inline picker — stop row-click so changing the courier
+                        // doesn't also toggle the detail drawer.
+                        <Select
+                          aria-label={t('assignCourier')}
+                          value={order.courier_id ?? ''}
+                          disabled={actionLoading === order.id}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleAssignCourier(order.id, e.target.value ? Number(e.target.value) : null);
+                          }}
+                          className="min-w-[8rem]"
+                        >
+                          <option value="">{t('courierNone')}</option>
+                          {couriers.map((c) => (
+                            <option key={c.id} value={c.id}>{c.full_name}</option>
+                          ))}
+                        </Select>
+                      ) : order.courier_name ? (
+                        <span className="text-fg-primary">{order.courier_name}</span>
+                      ) : (
+                        <span className="text-[var(--fg-subtle)]">{t('courierNone')}</span>
                       )}
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('payment')}>
@@ -758,6 +813,8 @@ export default function OrdersPage() {
         onEdit={() => setEditOpen(true)}
         restaurantInfo={restaurantInfo}
         customFieldLabels={customFieldLabels}
+        couriers={couriers}
+        onAssignCourier={(courierId) => selectedOrder && handleAssignCourier(selectedOrder.id, courierId)}
       />
 
       {/* Edit order items */}
