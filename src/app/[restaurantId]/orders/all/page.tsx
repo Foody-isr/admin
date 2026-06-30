@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  listOrders, acceptOrder, rejectOrder, updateOrderStatus,
+  listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
@@ -87,7 +87,7 @@ function defaultDateRange(): { from: Date; to: Date } {
 
 export default function OrdersPage() {
   const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
+  const { hasAnyPermission, isOwner } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -222,6 +222,14 @@ export default function OrdersPage() {
     if (!wsOrder?.id) return;
     if (isProcessing(wsOrder.id)) return;
 
+    // Owner deleted an order elsewhere — drop it from the list and close the
+    // drawer if it was open. Handled before the upsert below so it isn't re-added.
+    if (type === 'order.deleted') {
+      setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
+      setSelectedId((prev) => (prev === wsOrder.id ? null : prev));
+      return;
+    }
+
     if (type === 'order.created') {
       playSound();
       notify(t('newOrder'), {
@@ -266,6 +274,24 @@ export default function OrdersPage() {
   const handleReject = (orderId: number) => {
     if (!confirm(t('rejectThisOrder'))) return;
     runAction(orderId, () => rejectOrder(rid, orderId));
+  };
+  // Hard delete — permanently removes the order. Owner/admin only (also enforced
+  // server-side). Guarded by an explicit, irreversible-action warning.
+  const handleDelete = async (orderId: number) => {
+    if (!confirm(t('deleteOrderWarning'))) return;
+    setActionLoading(orderId);
+    addProcessingGuard(orderId);
+    try {
+      await deleteOrder(rid, orderId);
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setSelectedId((prev) => (prev === orderId ? null : prev));
+    } catch {
+      alert(t('deleteOrderFailed'));
+      await fetchOrders();
+    } finally {
+      setActionLoading(null);
+      removeProcessingGuard(orderId);
+    }
   };
   const handleSendToKitchen = (orderId: number) =>
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'in_kitchen').then(() => {}), 'in_kitchen');
@@ -716,10 +742,12 @@ export default function OrdersPage() {
       <OrderDetailDrawer
         order={selectedOrder}
         canManage={canManage}
+        canDelete={isOwner}
         isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
         onClose={() => setSelectedId(null)}
         onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
+        onDelete={() => selectedOrder && handleDelete(selectedOrder.id)}
         onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
         onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
         onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
