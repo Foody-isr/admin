@@ -899,6 +899,7 @@ export interface DaySummary {
   net_sales: number;
   transactions: number;
   avg_sale: number;
+  items_sold: number;
   tips: number;
   discounts: number;
   labor_percent: number;
@@ -925,6 +926,7 @@ export interface RangeSummary {
   total_orders: number;
   total_revenue: number;
   avg_ticket: number;
+  items_sold: number;
   start: string;
   end: string;
 }
@@ -3263,9 +3265,14 @@ export async function getAnalyticsToday(restaurantId: number): Promise<TodayStat
   return data.summary;
 }
 
-export async function getTopSellers(restaurantId: number): Promise<TopSeller[]> {
+export async function getTopSellers(
+  restaurantId: number,
+  range?: AnalyticsRange
+): Promise<TopSeller[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (range) params.set('range', range);
   const data = await apiFetch<{ top_items: TopSeller[] }>(
-    `/api/v1/analytics/top-sellers?restaurant_id=${restaurantId}`, restaurantId
+    `/api/v1/analytics/top-sellers?${params}`, restaurantId
   );
   return data.top_items ?? [];
 }

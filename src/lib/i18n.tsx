@@ -2480,6 +2480,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── Dashboard v2 (overview page) ──
     articlesUnit: 'items',
     grossRevenue: 'Gross revenue',
+    itemsSold: 'Items sold',
     labor: 'Labor',
     vsYesterday: 'vs yesterday',
     vsPreviousPeriod: 'vs previous period',
@@ -5441,6 +5442,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── Dashboard v2 (overview page) ──
     articlesUnit: 'פריטים',
     grossRevenue: 'הכנסה ברוטו',
+    itemsSold: 'פריטים שנמכרו',
     labor: 'עבודה',
     vsYesterday: 'מול אתמול',
     vsPreviousPeriod: 'מול תקופה קודמת',
@@ -8400,6 +8402,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // ── Dashboard v2 (overview page) ──
     articlesUnit: 'articles',
     grossRevenue: 'Revenu brut',
+    itemsSold: 'Articles vendus',
     labor: "Main-d'œuvre",
     vsYesterday: 'vs hier',
     vsPreviousPeriod: 'vs période précédente',
