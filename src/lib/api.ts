@@ -2805,6 +2805,12 @@ export async function rejectOrder(restaurantId: number, orderId: number): Promis
   await apiFetch<void>(`/api/v1/orders/${orderId}/reject?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
 }
 
+// Permanently deletes an order (hard delete, not archive). Restricted to
+// restaurant owners/admins on the server. Irreversible.
+export async function deleteOrder(restaurantId: number, orderId: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/orders/${orderId}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
 export async function updateOrderStatus(restaurantId: number, orderId: number, status: OrderStatus): Promise<Order> {
   const data = await apiFetch<{ order: Order }>(`/api/v1/orders/${orderId}/status?restaurant_id=${restaurantId}`, restaurantId, {
     method: 'PUT',

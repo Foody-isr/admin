@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  listOrders, acceptOrder, rejectOrder, updateOrderStatus,
+  listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
@@ -27,6 +27,7 @@ import {
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon, PlusIcon,
   PauseIcon, PlayIcon, CopyIcon, MessageCircleIcon, LinkIcon,
+  Trash2Icon,
 } from 'lucide-react';
 import { Badge, Button, Drawer, PageHead, Section } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
@@ -231,7 +232,7 @@ function localizeOrderType(type: Order['order_type'], t: (k: string) => string):
 
 export default function OrdersPage() {
   const { t } = useI18n();
-  const { hasAnyPermission } = usePermissions();
+  const { hasAnyPermission, isOwner } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -366,6 +367,12 @@ export default function OrdersPage() {
     if (!wsOrder?.id) return;
     if (isProcessing(wsOrder.id)) return;
 
+    if (type === 'order.deleted') {
+      setOrders((prev) => prev.filter((o) => o.id !== wsOrder.id));
+      setSelectedId((prev) => (prev === wsOrder.id ? null : prev));
+      return;
+    }
+
     if (type === 'order.created') {
       playSound();
       notify(t('newOrder'), {
@@ -410,6 +417,24 @@ export default function OrdersPage() {
   const handleReject = (orderId: number) => {
     if (!confirm(t('rejectThisOrder'))) return;
     runAction(orderId, () => rejectOrder(rid, orderId));
+  };
+  // Hard delete — permanently removes the order. Owner/admin only (also enforced
+  // server-side). Guarded by an explicit, irreversible-action warning.
+  const handleDelete = async (orderId: number) => {
+    if (!confirm(t('deleteOrderWarning'))) return;
+    setActionLoading(orderId);
+    addProcessingGuard(orderId);
+    try {
+      await deleteOrder(rid, orderId);
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setSelectedId((prev) => (prev === orderId ? null : prev));
+    } catch (e) {
+      alert(t('deleteOrderFailed'));
+      await fetchOrders();
+    } finally {
+      setActionLoading(null);
+      removeProcessingGuard(orderId);
+    }
   };
   const handleSendToKitchen = (orderId: number) =>
     runAction(orderId, () => updateOrderStatus(rid, orderId, 'in_kitchen').then(() => {}), 'in_kitchen');
@@ -860,10 +885,12 @@ export default function OrdersPage() {
       <OrderDetailDrawer
         order={selectedOrder}
         canManage={canManage}
+        canDelete={isOwner}
         isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
         onClose={() => setSelectedId(null)}
         onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
+        onDelete={() => selectedOrder && handleDelete(selectedOrder.id)}
         onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
         onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
         onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
@@ -951,17 +978,19 @@ function buildCustomFieldLabels(cfg: CheckoutConfig | null | undefined): Record<
 }
 
 function OrderDetailDrawer({
-  order, canManage, isLoading, onClose, onAccept, onReject, onSendToKitchen, onMarkReady, onMarkServed,
+  order, canManage, canDelete, isLoading, onClose, onAccept, onReject, onDelete, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit,
   restaurantInfo, customFieldLabels,
 }: {
   order: Order | null;
   canManage: boolean;
+  canDelete: boolean;
   isLoading: boolean;
   onClose: () => void;
   onAccept: () => void;
   onReject: () => void;
+  onDelete: () => void;
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
@@ -1276,6 +1305,20 @@ function OrderDetailDrawer({
                 className="flex-1 md:flex-none justify-center"
               >
                 <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
+              </Button>
+            )}
+            {/* Permanent delete — owners/admins only. Removes the order entirely
+                (not archived). Confirmation warning handled by the caller. */}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={onDelete}
+                disabled={isLoading}
+                style={{ color: 'var(--danger-500)' }}
+                className="flex-1 md:flex-none justify-center"
+              >
+                <Trash2Icon /> {t('deleteOrder') || 'Supprimer la commande'}
               </Button>
             )}
           </div>
