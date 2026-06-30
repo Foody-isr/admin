@@ -899,6 +899,7 @@ export interface DaySummary {
   net_sales: number;
   transactions: number;
   avg_sale: number;
+  items_sold: number;
   tips: number;
   discounts: number;
   labor_percent: number;
@@ -916,6 +917,23 @@ export interface ComparisonResult {
   current: DaySummary;
   previous: DaySummary;
   hourly: HourlyPair[];
+}
+
+// Named-period totals (session-grouped) for the dashboard period toggle.
+export type AnalyticsRange = 'today' | 'yesterday' | 'week' | 'month';
+
+export interface RangeSummary {
+  total_orders: number;
+  total_revenue: number;
+  avg_ticket: number;
+  items_sold: number;
+  start: string;
+  end: string;
+}
+
+export interface PeriodComparison {
+  current: RangeSummary;
+  previous: RangeSummary;
 }
 
 // ─── Customer Insights Types ────────────────────────────────────────────────
@@ -2843,21 +2861,6 @@ export const markOrderOutForDelivery = (restaurantId: number, orderId: number) =
 export const markOrderDelivered = (restaurantId: number, orderId: number) =>
   postOrderAction(restaurantId, orderId, 'mark-delivered');
 
-// assignCourier sets (or clears, when courierId is null) the courier on a single
-// delivery order. Works on any non-delivered delivery order regardless of status,
-// so staff can assign from the order list / detail drawer before an order ever
-// reaches the dispatch pipeline. Pass null to unassign.
-export async function assignCourier(
-  restaurantId: number, orderId: number, courierId: number | null,
-): Promise<Order> {
-  const data = await apiFetch<{ order: Order }>(
-    `/api/v1/orders/${orderId}/assign-courier?restaurant_id=${restaurantId}`,
-    restaurantId,
-    { method: 'POST', body: JSON.stringify({ courier_id: courierId }) },
-  );
-  return data.order;
-}
-
 export async function updateOrderPaymentStatus(
   restaurantId: number,
   orderId: number,
@@ -3247,9 +3250,14 @@ export async function getAnalyticsToday(restaurantId: number): Promise<TodayStat
   return data.summary;
 }
 
-export async function getTopSellers(restaurantId: number): Promise<TopSeller[]> {
+export async function getTopSellers(
+  restaurantId: number,
+  range?: AnalyticsRange
+): Promise<TopSeller[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (range) params.set('range', range);
   const data = await apiFetch<{ top_items: TopSeller[] }>(
-    `/api/v1/analytics/top-sellers?restaurant_id=${restaurantId}`, restaurantId
+    `/api/v1/analytics/top-sellers?${params}`, restaurantId
   );
   return data.top_items ?? [];
 }
@@ -3278,6 +3286,19 @@ export async function getDayComparison(
   if (compare) params.set('compare', compare);
   return apiFetch<ComparisonResult>(
     `/api/v1/analytics/comparison?${params}`, restaurantId
+  );
+}
+
+export async function getPeriodSummary(
+  restaurantId: number,
+  range: AnalyticsRange
+): Promise<PeriodComparison> {
+  const params = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    range,
+  });
+  return apiFetch<PeriodComparison>(
+    `/api/v1/analytics/period?${params}`, restaurantId
   );
 }
 
