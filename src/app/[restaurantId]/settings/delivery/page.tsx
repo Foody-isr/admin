@@ -28,11 +28,15 @@ interface Draft {
   center: { lat: number; lng: number } | null;
   radiusKm: number;
   cities: string[];
+  // Empty string means "unset": no fee (free) / fall back to global minimum.
+  deliveryFee: string;
+  minOrder: string;
 }
 
 const emptyDraft = (): Draft => ({
   id: null, name: '', type: 'radius', isActive: true,
   polygon: [], center: null, radiusKm: 5, cities: [],
+  deliveryFee: '', minOrder: '',
 });
 
 export default function DeliveryZonesPage() {
@@ -109,6 +113,8 @@ export default function DeliveryZonesPage() {
       center: z.center_lat != null && z.center_lng != null ? { lat: z.center_lat, lng: z.center_lng } : restaurantCenter,
       radiusKm: z.radius_m != null ? z.radius_m / 1000 : 5,
       cities: z.cities ?? [],
+      deliveryFee: z.delivery_fee != null ? String(z.delivery_fee) : '',
+      minOrder: z.min_order != null ? String(z.min_order) : '',
     };
     setDraft(d);
 
@@ -149,8 +155,22 @@ export default function DeliveryZonesPage() {
     setCityMarkers((prev) => prev.filter((m) => m.name !== c));
   };
 
+  // Parse a price-like field: empty/blank or invalid -> null (unset), else the number.
+  const parsePrice = (v: string): number | null => {
+    const s = v.trim();
+    if (s === '') return null;
+    const n = Number(s);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
   const toPayload = (d: Draft): DeliveryZoneInput => {
-    const base: DeliveryZoneInput = { name: d.name, type: d.type, is_active: d.isActive };
+    const base: DeliveryZoneInput = {
+      name: d.name,
+      type: d.type,
+      is_active: d.isActive,
+      delivery_fee: parsePrice(d.deliveryFee),
+      min_order: parsePrice(d.minOrder),
+    };
     if (d.type === 'polygon') base.polygon = d.polygon;
     if (d.type === 'radius') {
       const rc = restaurantCenter;
@@ -191,6 +211,7 @@ export default function DeliveryZonesPage() {
     const saved = await updateDeliveryZone(rid, z.id, {
       name: z.name, type: z.type, is_active: !z.is_active,
       polygon: z.polygon, center_lat: z.center_lat, center_lng: z.center_lng, radius_m: z.radius_m, cities: z.cities,
+      delivery_fee: z.delivery_fee ?? null, min_order: z.min_order ?? null,
     });
     setZones((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
   };
@@ -235,7 +256,12 @@ export default function DeliveryZonesPage() {
               <div key={z.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
                 <button className="text-left flex-1" onClick={() => beginEdit(z)}>
                   <div className="font-medium">{z.name}</div>
-                  <div className="text-xs text-gray-500">{t(`zoneType_${z.type}`) || z.type}{z.is_active ? '' : ` - ${t('inactive') || 'inactive'}`}</div>
+                  <div className="text-xs text-gray-500">
+                    {t(`zoneType_${z.type}`) || z.type}
+                    {z.delivery_fee != null && z.delivery_fee > 0 ? ` · ₪${z.delivery_fee}` : ''}
+                    {z.min_order != null && z.min_order > 0 ? ` · ${t('minShort') || 'min'} ₪${z.min_order}` : ''}
+                    {z.is_active ? '' : ` - ${t('inactive') || 'inactive'}`}
+                  </div>
                 </button>
                 <label className="mr-2 text-xs flex items-center gap-1">
                   <input type="checkbox" checked={z.is_active} disabled={!canEdit} onChange={() => toggleActive(z)} />
@@ -322,6 +348,29 @@ export default function DeliveryZonesPage() {
                   </div>
                 </div>
               )}
+
+              {/* Per-zone delivery fee and minimum order (all zone types) */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <label className="text-sm flex flex-col gap-1">
+                  <span className="text-gray-600">{t('zoneDeliveryFee') || 'Frais de livraison (₪)'}</span>
+                  <input type="number" min={0} step="0.5" inputMode="decimal"
+                    placeholder={t('zoneFeeFreePlaceholder') || 'Gratuit'}
+                    value={draft.deliveryFee}
+                    onChange={(e) => setDraft({ ...draft, deliveryFee: e.target.value })}
+                    className="border rounded-lg px-3 py-2" />
+                </label>
+                <label className="text-sm flex flex-col gap-1">
+                  <span className="text-gray-600">{t('zoneMinOrder') || 'Commande minimum (₪)'}</span>
+                  <input type="number" min={0} step="0.5" inputMode="decimal"
+                    placeholder={t('zoneMinGlobalPlaceholder') || 'Par défaut'}
+                    value={draft.minOrder}
+                    onChange={(e) => setDraft({ ...draft, minOrder: e.target.value })}
+                    className="border rounded-lg px-3 py-2" />
+                </label>
+              </div>
+              <p className="text-xs text-gray-400">
+                {t('zoneFeeMinHint') || 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.'}
+              </p>
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
               <div className="flex gap-2 pt-2">

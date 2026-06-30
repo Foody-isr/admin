@@ -3020,6 +3020,11 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'General settings',
     zoneTypeHint_cities: 'Customers will choose their city from a list when placing an order.',
     zoneTypeHint_radius: 'The system automatically checks whether the customer address falls within the radius.',
+    zoneDeliveryFee: 'Delivery fee (₪)',
+    zoneMinOrder: 'Minimum order (₪)',
+    zoneFeeFreePlaceholder: 'Free',
+    zoneMinGlobalPlaceholder: 'Default',
+    zoneFeeMinHint: 'Leave empty for free delivery and the restaurant-wide minimum.',
   },
 
   // ── Hebrew ──────────────────────────────────────────────────────────────
@@ -5967,6 +5972,11 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'הגדרות כלליות',
     zoneTypeHint_cities: 'הלקוחות יבחרו את עירם מרשימה בעת ביצוע ההזמנה.',
     zoneTypeHint_radius: 'המערכת בודקת אוטומטית אם כתובת הלקוח נמצאת בתוך הרדיוס.',
+    zoneDeliveryFee: 'דמי משלוח (₪)',
+    zoneMinOrder: 'מינימום הזמנה (₪)',
+    zoneFeeFreePlaceholder: 'חינם',
+    zoneMinGlobalPlaceholder: 'ברירת מחדל',
+    zoneFeeMinHint: 'השאירו ריק למשלוח חינם ולמינימום הכללי של המסעדה.',
   },
 
   // ── French ──────────────────────────────────────────────────────────────
@@ -8915,5 +8925,10 @@ const translations: Record<Locale, Record<string, string>> = {
     generalSettings: 'Paramètres généraux',
     zoneTypeHint_cities: 'Les clients choisiront leur ville dans une liste au moment de la commande.',
     zoneTypeHint_radius: "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.",
+    zoneDeliveryFee: 'Frais de livraison (₪)',
+    zoneMinOrder: 'Commande minimum (₪)',
+    zoneFeeFreePlaceholder: 'Gratuit',
+    zoneMinGlobalPlaceholder: 'Par défaut',
+    zoneFeeMinHint: 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.',
   },
 };
