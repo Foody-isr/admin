@@ -17,9 +17,8 @@ import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@
 import {
   initOrderPaymentLink,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
-  type StaffMember,
 } from '@/lib/api';
-import { Badge, Button, Drawer, Section, Select } from '@/components/ds';
+import { Badge, Button, Drawer, Section } from '@/components/ds';
 
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand';
 
@@ -234,7 +233,6 @@ export function OrderDetailDrawer({
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit,
   restaurantInfo, customFieldLabels,
-  couriers = [], onAssignCourier,
 }: {
   order: Order | null;
   canManage: boolean;
@@ -254,10 +252,6 @@ export function OrderDetailDrawer({
   onEdit: () => void;
   restaurantInfo: PrintTicketRestaurant;
   customFieldLabels: Record<string, string>;
-  // Couriers eligible for assignment + the assign callback. When omitted the
-  // courier section falls back to read-only (e.g. hosts without a courier list).
-  couriers?: StaffMember[];
-  onAssignCourier?: (courierId: number | null) => void;
 }) {
   const { t, locale, direction } = useI18n();
 
@@ -777,30 +771,12 @@ export function OrderDetailDrawer({
             </div>
           </div>
 
-          {/* Courier — assign / reassign inline (delivery orders only). Uses the
-              per-order assign-courier endpoint, so it works at any stage before
-              the order is delivered, independent of the Deliveries dispatcher. */}
+          {/* Courier — read-only. Assignment happens on the Deliveries page. */}
           {order.order_type === 'delivery' && (
             <Section title={t('courier')}>
-              {canManage && onAssignCourier ? (
-                <Select
-                  aria-label={t('assignCourier')}
-                  value={order.courier_id ?? ''}
-                  disabled={isLoading || order.status === 'delivered'}
-                  onChange={(e) =>
-                    onAssignCourier(e.target.value ? Number(e.target.value) : null)
-                  }
-                >
-                  <option value="">{t('courierNone')}</option>
-                  {couriers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.full_name}</option>
-                  ))}
-                </Select>
-              ) : (
-                <div className="text-fs-sm text-[var(--fg-subtle)]">
-                  {order.courier_name || t('courierNone')}
-                </div>
-              )}
+              <div className="text-fs-sm text-[var(--fg-subtle)]">
+                {order.courier_name || t('courierNone')}
+              </div>
             </Section>
           )}
 
