@@ -6056,6 +6056,10 @@ export interface DeliveryZone {
   center_lng?: number;
   radius_m?: number;
   cities?: string[];
+  /** Flat delivery fee charged for this zone. null/undefined = free delivery. */
+  delivery_fee?: number | null;
+  /** Minimum cart subtotal to deliver here. null/undefined = use the global minimum_order_delivery. */
+  min_order?: number | null;
   created_at: string;
 }
 
@@ -6068,6 +6072,8 @@ export interface DeliveryZoneInput {
   center_lng?: number;
   radius_m?: number;
   cities?: string[];
+  delivery_fee?: number | null;
+  min_order?: number | null;
 }
 
 export async function getDeliveryZones(restaurantId: number): Promise<DeliveryZone[]> {
