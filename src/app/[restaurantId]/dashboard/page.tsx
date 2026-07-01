@@ -257,7 +257,24 @@ export default function DashboardPage() {
         }
       />
 
-      {/* KPI strip — 4 equal. Hidden on mobile per the responsive policy. */}
+      {/* Compact KPI grid — mobile only. 2×2, tighter padding, smaller value,
+          no sparkline, so all four numbers fit above the fold on a phone. */}
+      <div className="grid grid-cols-2 md:hidden gap-[var(--s-3)] mb-[var(--s-5)]">
+        {metrics.map((m) => {
+          const up = m.delta >= 0;
+          return (
+            <Kpi
+              key={m.key}
+              className="p-[var(--s-4)]"
+              label={kpiLabel(m.label, m.hint)}
+              value={<span className="text-fs-2xl">{m.value}</span>}
+              delta={{ value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
+            />
+          );
+        })}
+      </div>
+
+      {/* KPI strip — 4 equal, with sparklines. Desktop/tablet only. */}
       <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
         {metrics.map((m) => (
           <KpiCard
@@ -418,20 +435,23 @@ interface KpiCardProps {
   hint?: string;
 }
 
+// Label with an optional ⓘ tooltip — shared by the compact (mobile) and full
+// (desktop) KPI renders so the caveat markup lives in one place.
+function kpiLabel(label: string, hint?: string) {
+  if (!hint) return label;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <InfoTip text={hint} />
+    </span>
+  );
+}
+
 function KpiCard({ label, value, delta, sub, spark, hint }: KpiCardProps) {
   const up = delta >= 0;
   return (
     <Kpi
-      label={
-        hint ? (
-          <span className="inline-flex items-center gap-1">
-            {label}
-            <InfoTip text={hint} />
-          </span>
-        ) : (
-          label
-        )
-      }
+      label={kpiLabel(label, hint)}
       value={
         <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
           <span>{value}</span>
