@@ -53,16 +53,23 @@ interface Tab {
   labelKey: string;
   statuses?: string;
   active?: boolean;
+  isScheduled?: boolean;
 }
 
 // The "active" tab sends an explicit status set instead of `active=true`
 // because the server's `active=true` shortcut still includes `served` for
 // backward compatibility with older POS clients — which would otherwise
 // inflate the badge count while the table filters them out.
+//
+// The "scheduled" tab filters on the durable `is_scheduled` flag (not the
+// transient `scheduled` status) so a scheduled order stays listed after it is
+// promoted to in_kitchen etc. on its fulfillment day. It is scoped to
+// still-in-progress statuses so completed/cancelled scheduled orders live in
+// the Terminées / Annulées tabs, not here.
 const TABS: Tab[] = [
   { key: 'all', labelKey: 'all', active: undefined },
   { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
-  { key: 'scheduled', labelKey: 'scheduled', statuses: 'scheduled' },
+  { key: 'scheduled', labelKey: 'scheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
   { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
 ];
@@ -193,6 +200,7 @@ export default function OrdersPage() {
     };
     if (tab.statuses) params.status = tab.statuses;
     else if (tab.active) params.active = true;
+    if (tab.isScheduled) params.is_scheduled = true;
     if (searchSubmitted) params.q = searchSubmitted;
     if (typeFilter) params.type = typeFilter;
     if (paymentFilter) params.payment_status = paymentFilter;
