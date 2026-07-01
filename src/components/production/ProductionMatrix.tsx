@@ -10,7 +10,7 @@ import {
   DataTableCell,
 } from '@/components/data-table/DataTable';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { packIntoBoxes, fmtPortionGrams } from '@/lib/production';
+import { packIntoBoxes, cellPortionBreakdown, fmtPortionGrams } from '@/lib/production';
 
 interface Props {
   sheet: ProductionSheetResponse;
@@ -121,29 +121,25 @@ export function ProductionMatrix({
               const item = itemsById.get(id)!;
               // When the user picks a box size, repack the column total into the
               // fewest containers using the article's portions (chosen size as
-              // the largest box). Otherwise fall back to the ordered packaging.
+              // the largest box). In "Auto" the breakdown mirrors the client cells
+              // as displayed (2 cells of 500 read as "2×500"), so the header maps
+              // line-for-line to the column instead of the raw ordered portions.
               const chosen = boxPortions?.[id];
               const boxes =
-                item.measure === 'weight' && chosen
-                  ? packIntoBoxes(item.total, chosen, availablePortions?.[id] ?? [])
-                  : null;
+                item.measure !== 'weight'
+                  ? null
+                  : chosen
+                    ? packIntoBoxes(item.total, chosen, availablePortions?.[id] ?? [])
+                    : cellPortionBreakdown(sheet.orders.map((o) => o.cells[String(id)]));
               return (
                 <DataTableHeadCell key={`tt-${id}`} align="center" className={BRAND_TXT}>
                   {/* Total is intentionally not flagged for combos: a column total can mix
                       combo and non-combo items, so the dotted flag belongs on cells only. */}
                   <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
-                  {boxes ? (
+                  {boxes && boxes.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
                       {boxes.map((b) => `${b.count}×${b.portion}`).join(' · ')}
                     </span>
-                  ) : (
-                    item.measure === 'weight' &&
-                    item.packaging &&
-                    item.packaging.length > 0 && (
-                      <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
-                        {item.packaging.map((p) => `${p.count}×${p.portion_g}`).join(' · ')}
-                      </span>
-                    )
                   )}
                 </DataTableHeadCell>
               );

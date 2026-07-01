@@ -52,6 +52,24 @@ export function packIntoBoxes(total: number, chosen: number, available: number[]
   return out;
 }
 
+/** Auto-mode packaging breakdown for a weighed column, built from the per-client
+ *  cell values exactly as the grid shows them. Each non-zero cell contributes one
+ *  container of its own value and equal values are tallied, so cells [500, 500,
+ *  250, 250, 250] read as "2×500 · 3×250" — a header row that maps line-for-line
+ *  to the column. A cell already above a box size (e.g. 1000) stays "1×1000"
+ *  rather than being re-split, so what you read in the header is what a client
+ *  cell literally shows. Sorted by portion descending (largest box first). */
+export function cellPortionBreakdown(cellValues: Array<number | undefined>): PortionBox[] {
+  const counts = new Map<number, number>();
+  for (const v of cellValues) {
+    if (!v || v <= 0) continue;
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[0] - a[0])
+    .map(([portion, count]) => ({ portion, count }));
+}
+
 /** Compact gram label: "250 g", "1 kg", "1.5 kg". */
 export function fmtPortionGrams(g: number): string {
   if (g >= 1000) {
