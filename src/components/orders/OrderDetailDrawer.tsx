@@ -11,7 +11,7 @@ import {
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
-  SendIcon, MailIcon,
+  SendIcon, MailIcon, FileTextIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -23,7 +23,7 @@ import {
   buildMailtoUrl,
 } from '@/lib/receipt-share';
 import {
-  initOrderPaymentLink,
+  initOrderPaymentLink, getOrderInvoice, sendOrderInvoice,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
 } from '@/lib/api';
 import { Badge, Button, Drawer, Section } from '@/components/ds';
@@ -900,6 +900,13 @@ export function OrderDetailDrawer({
             </div>
           </Section>
 
+          {/* Invoice — official Summit fiscal document, for Summit-paid orders */}
+          {order.external_metadata?.document_id ? (
+            <Section title={t('invoiceHeading') || 'Facture'}>
+              <InvoiceSection order={order} />
+            </Section>
+          ) : null}
+
           {/* Activity */}
           <Section title={t('activity') || 'Activité'}>
             <ActivityTimeline order={order} t={t} />
@@ -1398,6 +1405,123 @@ function SendToCustomerMenu({ order }: { order: Order }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Invoice Section (Summit) ────────────────────────────────────────────────
+// For a Summit-paid order, fetches the official invoice (number + downloadable
+// PDF URL) and lets staff view/download it, email it via Summit (recipient
+// editable), or share the link (WhatsApp / copy). Rendered only when the order
+// carries a Summit document_id. No fiscal document is generated here — Summit
+// already created it at payment.
+
+function InvoiceSection({ order }: { order: Order }) {
+  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [invoice, setInvoice] = useState<{ document_number: number; document_url: string } | null>(null);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState(order.customer_email || '');
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setFailed(false);
+    getOrderInvoice(order.restaurant_id, order.id)
+      .then((inv) => { if (active) { setInvoice(inv); setLoading(false); } })
+      .catch(() => { if (active) { setFailed(true); setLoading(false); } });
+    return () => { active = false; };
+  }, [order.restaurant_id, order.id]);
+
+  if (loading) {
+    return <div className="text-fs-sm text-[var(--fg-subtle)]">{t('invoiceLoading') || 'Chargement de la facture…'}</div>;
+  }
+  if (failed || !invoice) {
+    return <div className="text-fs-sm text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</div>;
+  }
+
+  const url = invoice.document_url;
+  const waText = t('invoiceShareMessage')
+    .replace('{name}', order.customer_name ? ` ${order.customer_name}` : '')
+    .replace('{number}', String(invoice.document_number))
+    .replace('{id}', String(order.id))
+    .replace('{url}', url)
+    .trim();
+  const waUrl = buildWhatsAppUrl(order.customer_phone, waText);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable — link still reachable via the other actions */
+    }
+  };
+
+  const doSend = async () => {
+    setSendState('sending');
+    try {
+      await sendOrderInvoice(order.restaurant_id, order.id, emailDraft.trim() || undefined);
+      setSendState('sent');
+      setSendOpen(false);
+    } catch {
+      setSendState('error');
+    }
+  };
+
+  const shareBtn =
+    'inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium hover:bg-[var(--surface-2)]';
+
+  return (
+    <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+      <div className="flex items-center justify-between">
+        <span className="font-medium">#{invoice.document_number}</span>
+        <span className="text-fs-xs text-[var(--fg-muted)]">Summit</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+        <Button variant="secondary" size="sm" onClick={() => window.open(url, '_blank', 'noopener')}>
+          <FileTextIcon className="size-3.5" /> {t('invoiceView') || 'Voir / Télécharger'}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setSendOpen((v) => !v)}>
+          <SendIcon className="size-3.5" /> {t('invoiceSend') || 'Envoyer la facture'}
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+      {sendOpen && (
+        <div className="flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
+          <label className="text-fs-xs text-[var(--fg-muted)]">{t('invoiceRecipient') || 'Destinataire'}</label>
+          <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+            <input
+              type="email"
+              value={emailDraft}
+              onChange={(e) => setEmailDraft(e.target.value)}
+              placeholder="client@email.com"
+              className="flex-1 min-w-[180px] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-2 py-1 text-fs-sm"
+            />
+            <Button variant="primary" size="sm" onClick={doSend} disabled={sendState === 'sending'}>
+              <MailIcon className="size-3.5" />
+              {sendState === 'sending' ? (t('invoiceSending') || 'Envoi…') : (t('invoiceSendEmail') || 'Par email (via Summit)')}
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+            {waUrl && (
+              <a href={waUrl} target="_blank" rel="noopener noreferrer" className={shareBtn}>
+                <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
+              </a>
+            )}
+            <button onClick={copyLink} className={shareBtn}>
+              {copied ? <CheckIcon className="size-3.5" /> : <LinkIcon className="size-3.5" />}
+              {copied ? (t('linkCopied') || 'Lien copié') : (t('copyLink') || 'Copier le lien')}
+            </button>
+          </div>
+        </div>
+      )}
+      {sendState === 'sent' && <span className="text-fs-xs text-[var(--success-500)]">{t('invoiceSent') || 'Facture envoyée'}</span>}
+      {sendState === 'error' && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</span>}
     </div>
   );
 }
