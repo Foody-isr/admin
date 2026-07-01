@@ -959,6 +959,11 @@ export interface CustomerInsight {
   order_source_breakdown: Record<string, number>;
   preferred_day_of_week: string;
   preferred_hour: number;
+  /** Last known delivery address, from the customer's most recent delivery order. */
+  address?: string;
+  city?: string;
+  floor?: string;
+  apt?: string;
 }
 
 export interface CustomerListResult {
