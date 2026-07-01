@@ -11,10 +11,17 @@ import {
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
+  SendIcon, MailIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
+import {
+  receiptShareUrl,
+  buildShareMessage,
+  buildWhatsAppUrl,
+  buildMailtoUrl,
+} from '@/lib/receipt-share';
 import {
   initOrderPaymentLink,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
@@ -528,6 +535,7 @@ export function OrderDetailDrawer({
               </Button>
             )}
             <PrintTicketMenu onSelect={handlePrint} />
+            <SendToCustomerMenu order={order} />
           </div>
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
             {canManage && canTakePayment && (
@@ -1295,6 +1303,98 @@ function PrintTicketMenu({ onSelect }: { onSelect: (kind: TicketKind) => void })
             className="block w-full text-left px-3 py-2 text-sm text-fg-secondary hover:text-fg-primary transition-colors"
           >
             {t('printKitchenTicket') || 'Ticket cuisine'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Send To Customer Menu ───────────────────────────────────────────────────
+// Lets staff send the customer their receipt without downloading + re-uploading:
+// WhatsApp / email device deep-links pre-filled with a short summary + a link to
+// the hosted receipt page, plus a copy-link shortcut. Mirrors PrintTicketMenu.
+// No backend call — the receipt link is built from the order's receipt_token.
+
+function SendToCustomerMenu({ order }: { order: Order }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const url = receiptShareUrl(order.receipt_token);
+  const body = buildShareMessage({
+    template: t('receiptShareMessage'),
+    name: order.customer_name,
+    id: order.id,
+    total: order.total_amount ?? 0,
+    url,
+  });
+  const subject = t('receiptEmailSubject').replace('{id}', String(order.id));
+  const waUrl = buildWhatsAppUrl(order.customer_phone, body);
+  const mailUrl = buildMailtoUrl(order.customer_email, subject, body);
+
+  const copyLink = async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable — link stays available via the other actions */
+    }
+  };
+
+  const itemClass =
+    'flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-fg-secondary hover:text-fg-primary transition-colors';
+
+  return (
+    <div className="relative flex-1 md:flex-none" ref={ref}>
+      <Button
+        variant="secondary"
+        size="md"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full md:w-auto justify-center"
+      >
+        <SendIcon /> {t('sendToCustomer') || 'Envoyer au client'}
+        <ChevronDownIcon className="w-3.5 h-3.5" />
+      </Button>
+      {open && (
+        <div
+          className="absolute bottom-full left-0 mb-1 rounded-standard py-1 min-w-[220px] z-50 shadow-lg"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
+          {waUrl && (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className={itemClass}
+            >
+              <MessageCircleIcon className="size-4" />
+              {t('sendReceiptWhatsApp') || 'Envoyer par WhatsApp'}
+            </a>
+          )}
+          <a href={mailUrl} onClick={() => setOpen(false)} className={itemClass}>
+            <MailIcon className="size-4" />
+            {t('sendReceiptEmail') || 'Envoyer par email'}
+          </a>
+          <button
+            onClick={copyLink}
+            disabled={!url}
+            className={`${itemClass} disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {copied ? <CheckIcon className="size-4" /> : <LinkIcon className="size-4" />}
+            {copied ? (t('linkCopied') || 'Lien copié') : (t('copyLink') || 'Copier le lien')}
           </button>
         </div>
       )}
