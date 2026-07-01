@@ -16,6 +16,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
 import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
+import { InfoTip } from '@/components/help/InfoTip';
 
 type Range = AnalyticsRange;
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
@@ -165,7 +166,7 @@ export default function DashboardPage() {
   }, [current, range, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
-  const metrics: { key: MetricKey; label: string; value: string; delta: number }[] = [
+  const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string }[] = [
     {
       key: 'revenue',
       label: t('grossRevenue'),
@@ -177,6 +178,9 @@ export default function DashboardPage() {
       label: t('orders'),
       value: String(current?.total_orders ?? 0),
       delta: pct(current?.total_orders ?? 0, previous?.total_orders ?? 0),
+      // These KPIs reflect realized (paid) activity — the count deliberately
+      // excludes unpaid/scheduled orders, so it can trail the Orders list.
+      hint: t('paidOrdersOnly'),
     },
     {
       key: 'avgTicket',
@@ -262,6 +266,7 @@ export default function DashboardPage() {
             value={m.value}
             delta={m.delta}
             sub={vsLabel}
+            hint={m.hint}
             spark={series.map((d) => seriesValue(m.key, d))}
           />
         ))}
@@ -409,13 +414,24 @@ interface KpiCardProps {
   delta: number;
   sub: string;
   spark: number[];
+  /** Optional ⓘ tooltip appended to the label for a metric that needs a caveat. */
+  hint?: string;
 }
 
-function KpiCard({ label, value, delta, sub, spark }: KpiCardProps) {
+function KpiCard({ label, value, delta, sub, spark, hint }: KpiCardProps) {
   const up = delta >= 0;
   return (
     <Kpi
-      label={label}
+      label={
+        hint ? (
+          <span className="inline-flex items-center gap-1">
+            {label}
+            <InfoTip text={hint} />
+          </span>
+        ) : (
+          label
+        )
+      }
       value={
         <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
           <span>{value}</span>
