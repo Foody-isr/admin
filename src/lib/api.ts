@@ -537,6 +537,11 @@ export interface Order {
   // { code_immeuble: "A12" }). Labels are resolved from the restaurant's
   // checkout_config. Empty/false answers are omitted server-side.
   custom_fields?: Record<string, string | number | boolean> | null;
+  // Public receipt page token (foodyweb /receipt/[token]). Set at order creation;
+  // absent only on very old orders that predate tokenization.
+  receipt_token?: string;
+  // Optional confirmation email captured at checkout (e.g. Google sign-in). May be absent.
+  customer_email?: string;
 }
 
 export interface StaffMember {

@@ -14,6 +14,7 @@ import {
   type Order,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePersistentEnum } from '@/lib/use-persistent-enum';
 import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
 import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
@@ -23,28 +24,9 @@ type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
 // The dashboard period is remembered across navigation as a single shared
 // preference (not per-restaurant), so picking "7 derniers jours" sticks until
-// the user changes it. Stored in localStorage, mirroring how the locale is kept.
+// the user changes it. Persisted via usePersistentEnum, like the locale.
 const RANGES: Range[] = ['yesterday', 'today', 'week', 'month'];
 const RANGE_STORAGE_KEY = 'foody.dashboard.range';
-
-function readStoredRange(): Range {
-  if (typeof window === 'undefined') return 'today';
-  try {
-    const saved = window.localStorage.getItem(RANGE_STORAGE_KEY);
-    return saved && (RANGES as string[]).includes(saved) ? (saved as Range) : 'today';
-  } catch {
-    return 'today';
-  }
-}
-
-function writeStoredRange(range: Range) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(RANGE_STORAGE_KEY, range);
-  } catch {
-    /* storage unavailable (private mode / quota) — non-fatal */
-  }
-}
 
 const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   en: 'en-US',
@@ -145,25 +127,12 @@ export default function DashboardPage() {
   const [series, setSeries] = useState<DaySummary[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<Range>('today');
-  // Gate the first fetch until the persisted period is restored, so we load once
-  // with the right range instead of fetching 'today' then re-fetching.
-  const [hydrated, setHydrated] = useState(false);
+  // Persisted across navigation. `hydrated` gates the first fetch until the
+  // stored period is restored, so we load once with the right range instead of
+  // fetching 'today' then re-fetching.
+  const [range, setRange, hydrated] = usePersistentEnum<Range>(RANGE_STORAGE_KEY, 'today', RANGES);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
-
-  // Restore the last-used period on mount. Done in an effect (not a lazy state
-  // initializer) so the server and first client render agree on 'today' and
-  // React doesn't flag a hydration mismatch on the active tab.
-  useEffect(() => {
-    setRange(readStoredRange());
-    setHydrated(true);
-  }, []);
-
-  // Persist the choice so navigating away and back keeps it.
-  useEffect(() => {
-    if (hydrated) writeStoredRange(range);
-  }, [range, hydrated]);
 
   const load = useCallback(() => {
     setLoading(true);
