@@ -15,6 +15,7 @@ import {
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
 import { useI18n } from '@/lib/i18n';
+import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { PlusIcon, SearchIcon, ChevronRightIcon } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Switch } from '@/components/ui/switch';
@@ -54,24 +55,8 @@ type CustomerRow = {
   city?: string;
   floor?: string;
   apt?: string;
+  entryCode?: string;
 };
-
-// Merge a row's delivery address into two display lines: street + city on top,
-// floor + apartment underneath. Returns null when we have no address at all.
-function addressLines(
-  row: CustomerRow,
-  t: (key: string) => string
-): { primary: string; secondary: string } | null {
-  const primary = [row.address, row.city].filter(Boolean).join(', ');
-  const unit: string[] = [];
-  if (row.floor) unit.push(`${t('floor')} ${row.floor}`);
-  if (row.apt) unit.push(`${t('apartment')} ${row.apt}`);
-  const secondary = unit.join(', ');
-  if (!primary && !secondary) return null;
-  // Guard against an empty first line if only unit info somehow exists.
-  if (!primary) return { primary: secondary, secondary: '' };
-  return { primary, secondary };
-}
 
 export default function CustomersPage() {
   const { restaurantId } = useParams();
@@ -107,6 +92,7 @@ export default function CustomersPage() {
   const [editCity, setEditCity] = useState('');
   const [editFloor, setEditFloor] = useState('');
   const [editApt, setEditApt] = useState('');
+  const [editEntryCode, setEditEntryCode] = useState('');
   const [editDeliveryNotes, setEditDeliveryNotes] = useState('');
 
   const canManage = hasAnyPermission('customers.manage');
@@ -162,6 +148,7 @@ export default function CustomersPage() {
       city: c.city,
       floor: c.floor,
       apt: c.apt,
+      entryCode: c.entry_code,
     }));
     // On the unfiltered first page, surface trusted customers who have no
     // orders yet (so manually added cash customers stay visible).
@@ -193,6 +180,7 @@ export default function CustomersPage() {
     setEditCity('');
     setEditFloor('');
     setEditApt('');
+    setEditEntryCode('');
     setEditDeliveryNotes('');
     setProfileLoading(true);
     try {
@@ -204,6 +192,7 @@ export default function CustomersPage() {
       setEditCity(p.city || seed?.city || '');
       setEditFloor(p.floor || seed?.floor || '');
       setEditApt(p.apt || seed?.apt || '');
+      setEditEntryCode(p.entry_code || seed?.entry_code || '');
       setEditDeliveryNotes(p.delivery_notes || seed?.delivery_notes || '');
     } catch {
       // Non-fatal: the cash toggle still works even if the profile can't load.
@@ -225,6 +214,7 @@ export default function CustomersPage() {
           city: editCity,
           floor: editFloor,
           apt: editApt,
+          entry_code: editEntryCode,
           delivery_notes: editDeliveryNotes,
         });
       }
@@ -329,7 +319,11 @@ export default function CustomersPage() {
             </DataTableHead>
             <DataTableBody>
               {rows.map((row, index) => {
-                const addr = addressLines(row, t);
+                const addr = formatDeliveryAddress(
+                  { address: row.address, city: row.city, floor: row.floor, apt: row.apt, entryCode: row.entryCode },
+                  t,
+                  { compact: true },
+                );
                 return (
                 <DataTableRow
                   key={phoneKey(row.phone) || index}
@@ -346,9 +340,9 @@ export default function CustomersPage() {
                   <DataTableCell mobileLabel={t('address')}>
                     {addr ? (
                       <div className="flex flex-col leading-tight">
-                        <span className="text-fg-primary">{addr.primary}</span>
-                        {addr.secondary && (
-                          <span className="text-fs-xs text-fg-tertiary">{addr.secondary}</span>
+                        <span className="text-fg-primary">{addr.line1}</span>
+                        {addr.line2 && (
+                          <span className="text-fs-xs text-fg-tertiary">{addr.line2}</span>
                         )}
                       </div>
                     ) : (
@@ -483,6 +477,16 @@ export default function CustomersPage() {
                     onChange={(e) => setEditApt(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">{t('buildingCode')}</label>
+                <input
+                  className="input"
+                  value={editEntryCode}
+                  disabled={!profile?.has_account}
+                  onChange={(e) => setEditEntryCode(e.target.value)}
+                />
               </div>
 
               <div>

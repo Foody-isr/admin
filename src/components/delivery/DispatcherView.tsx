@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useI18n } from '@/lib/i18n';
+import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { useWs } from '@/lib/ws-context';
 import { listDeliveryRoutes, buildRoute, type DeliveryRoute } from '@/lib/delivery';
 import {
@@ -448,19 +449,32 @@ export default function DispatcherView({ rid }: { rid: number }) {
                           <div className="text-fs-xs text-[var(--fg-subtle)]">#{order.id}</div>
                         </DataTableCell>
                         <DataTableCell className="p-3">
-                          {order.delivery_address ? (
-                            <div className="flex items-start gap-1">
-                              <MapPinIcon className="w-3 h-3 text-[var(--fg-subtle)] mt-0.5 shrink-0" />
-                              <div>
-                                <div className="text-fs-xs text-[var(--fg)]">{order.delivery_address}</div>
-                                {order.delivery_city && (
-                                  <div className="text-fs-xs text-[var(--fg-subtle)]">{order.delivery_city}</div>
-                                )}
+                          {(() => {
+                            const addr = formatDeliveryAddress(
+                              {
+                                address: order.delivery_address,
+                                city: order.delivery_city,
+                                floor: order.delivery_floor,
+                                apt: order.delivery_apt,
+                                entryCode: order.delivery_entry_code,
+                              },
+                              t,
+                            );
+                            if (!addr) {
+                              return <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noAddress')}</span>;
+                            }
+                            return (
+                              <div className="flex items-start gap-1">
+                                <MapPinIcon className="w-3 h-3 text-[var(--fg-subtle)] mt-0.5 shrink-0" />
+                                <div className="leading-tight">
+                                  <div className="text-fs-xs text-[var(--fg)]">{addr.line1}</div>
+                                  {addr.line2 && (
+                                    <div className="text-fs-xs text-[var(--fg-subtle)]">{addr.line2}</div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <span className="text-fs-xs text-[var(--fg-subtle)]">{t('noAddress')}</span>
-                          )}
+                            );
+                          })()}
                         </DataTableCell>
                       </DataTableRow>
                     ))}

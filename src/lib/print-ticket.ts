@@ -35,6 +35,8 @@ export interface PrintTicketLabels {
   table: string;
   customer: string;
   phone: string;
+  subtotal: string;
+  deliveryFee: string;
   total: string;
   uncategorized: string;
   comboFallback: string;
@@ -195,9 +197,22 @@ function renderReceiptBody(order: Order, labels: PrintTicketLabels): string {
     }
   }
 
+  // Delivery orders carry a zone fee folded into total_amount. Break it out so
+  // the receipt reconciles: subtotal + delivery fee = total. Derive the subtotal
+  // from the total (not the item sum) so the three lines always add up.
+  const deliveryFee = order.delivery_fee ?? 0;
+  const breakdown =
+    deliveryFee > 0
+      ? `<div class="row"><span class="name">${esc(labels.subtotal)}</span>` +
+        `<span class="price">${money(g.total - deliveryFee)}</span></div>` +
+        `<div class="row"><span class="name">${esc(labels.deliveryFee)}</span>` +
+        `<span class="price">${money(deliveryFee)}</span></div>`
+      : '';
+
   return (
     `<div class="items">${rows.join('')}</div>` +
     `<div class="totals">` +
+    breakdown +
     `<div class="row total"><span class="name">${esc(labels.total)}</span>` +
     `<span class="price">${money(g.total)}</span></div>` +
     `</div>`

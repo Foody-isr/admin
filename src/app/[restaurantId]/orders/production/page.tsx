@@ -11,6 +11,7 @@ import {
   Minimize2Icon,
   LayoutListIcon,
   UsersIcon,
+  RotateCcwIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Kpi, PageHead } from '@/components/ds';
@@ -24,6 +25,7 @@ import {
   ProductionDay,
 } from '@/lib/api';
 import { itemPortionGrams, fmtPortionGrams } from '@/lib/production';
+import { useProductionColumnOrder } from '@/lib/production-column-order';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
@@ -49,6 +51,9 @@ export default function ProductionPage() {
   const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
   const [boxSize, setBoxSize] = useState<number | null>(null);
   const fsRef = useRef<HTMLDivElement>(null);
+  // Persisted per-restaurant column layout (category + item order, drag-reordered).
+  const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
+    useProductionColumnOrder(restaurantId);
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -104,6 +109,14 @@ export default function ProductionPage() {
     return recomputeTotals(sheet, orders);
   }, [sheet, search]);
 
+  // Apply the saved column order (categories as blocks, items within a category)
+  // before render. Split views derive from this, so the layout is consistent
+  // everywhere; only the main table lets the user drag to change it.
+  const orderedSheet = useMemo<ProductionSheetResponse | null>(
+    () => (filteredSheet ? applyOrder(filteredSheet) : null),
+    [filteredSheet, applyOrder],
+  );
+
   // Portion sizes offered in each article's box-size dropdown. Union of the
   // article's numeric size variants (from listAllItems) and the portions that
   // actually appear in the day's orders (sheet packaging) — the latter is the
@@ -157,33 +170,33 @@ export default function ProductionPage() {
   // One sub-sheet per category (for the split view), keeping only clients who
   // ordered something in that category. Reuses ProductionMatrix per table.
   const categorySheets = useMemo(() => {
-    if (!filteredSheet) return [];
-    return filteredSheet.categories
+    if (!orderedSheet) return [];
+    return orderedSheet.categories
       .map((cat) => ({
         cat,
         sheet: {
-          date: filteredSheet.date,
+          date: orderedSheet.date,
           categories: [cat],
-          items: filteredSheet.items.filter((it) => cat.item_ids.includes(it.menu_item_id)),
-          orders: filteredSheet.orders.filter((o) =>
+          items: orderedSheet.items.filter((it) => cat.item_ids.includes(it.menu_item_id)),
+          orders: orderedSheet.orders.filter((o) =>
             cat.item_ids.some((id) => (o.cells[String(id)] ?? 0) > 0),
           ),
         } as ProductionSheetResponse,
       }))
       .filter((c) => c.sheet.orders.length > 0);
-  }, [filteredSheet]);
+  }, [orderedSheet]);
 
   // One sub-sheet per customer (for the split-by-customer view): a single-row
   // table keeping only the items that customer ordered, with totals scoped to
   // that order. Reuses ProductionMatrix per table.
   const customerSheets = useMemo(() => {
-    if (!filteredSheet) return [];
-    return filteredSheet.orders
+    if (!orderedSheet) return [];
+    return orderedSheet.orders
       .map((o) => {
         // recomputeTotals over the single order rescopes item totals to this
         // customer and (since it's a subset of the day) drops the day-level
         // packaging/combo aggregates that wouldn't apply to one order.
-        const scoped = recomputeTotals(filteredSheet, [o]);
+        const scoped = recomputeTotals(orderedSheet, [o]);
         const orderedIds = new Set(
           scoped.items.filter((it) => it.total > 0).map((it) => it.menu_item_id),
         );
@@ -194,7 +207,7 @@ export default function ProductionPage() {
         return { order: o, sheet: { ...scoped, items, categories } };
       })
       .filter((c) => c.sheet.items.length > 0);
-  }, [filteredSheet]);
+  }, [orderedSheet]);
 
   const handleRowClick = fullscreen ? () => undefined : (id: number) => setSelectedOrderId(id);
 
@@ -302,6 +315,15 @@ export default function ProductionPage() {
                       onClick: () => window.print(),
                       icon: <PrinterIcon className="w-4 h-4" />,
                     },
+                    ...(hasCustomOrder
+                      ? [
+                          {
+                            label: t('productionResetColumns'),
+                            onClick: resetColumns,
+                            icon: <RotateCcwIcon className="w-4 h-4" />,
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               </>
@@ -341,13 +363,13 @@ export default function ProductionPage() {
         <ProductionShoppingList restaurantId={restaurantId} date={date} />
       )}
 
-      {!loading && view === 'production' && filteredSheet && filteredSheet.orders.length === 0 && (
+      {!loading && view === 'production' && orderedSheet && orderedSheet.orders.length === 0 && (
         <p className="text-fs-sm text-[var(--fg-muted)]">{t('productionNoOrders')}</p>
       )}
       {!loading &&
         view === 'production' &&
-        filteredSheet &&
-        filteredSheet.orders.length > 0 &&
+        orderedSheet &&
+        orderedSheet.orders.length > 0 &&
         (splitMode === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
             {categorySheets.map(({ cat, sheet: cs }) => (
@@ -387,10 +409,13 @@ export default function ProductionPage() {
           </div>
         ) : (
           <ProductionMatrix
-            sheet={filteredSheet}
+            sheet={orderedSheet}
             onRowClick={handleRowClick}
             availablePortions={availablePortions}
             boxSize={boxSize}
+            sticky
+            onReorderCategories={setCategoryOrder}
+            onReorderItems={setItemOrder}
           />
         ))}
 

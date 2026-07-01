@@ -26,6 +26,7 @@ const BUILTIN_LABELS: Record<string, { en: string; fr: string; he: string }> = {
   delivery_city:    { en: 'City',              fr: 'Ville',             he: 'עיר' },
   delivery_floor:   { en: 'Floor',             fr: 'Étage',             he: 'קומה' },
   delivery_apt:     { en: 'Apartment / unit',  fr: 'Appartement',       he: 'דירה' },
+  delivery_entry_code: { en: 'Building code',  fr: 'Code immeuble',     he: 'קוד כניסה' },
   delivery_notes:   { en: 'Delivery notes',    fr: 'Notes de livraison', he: 'הערות למשלוח' },
   pickup_notes:     { en: 'Notes',             fr: 'Notes',             he: 'הערות' },
   whatsapp_number:  { en: 'WhatsApp number',   fr: 'Numéro WhatsApp',   he: 'מספר וואטסאפ' },
