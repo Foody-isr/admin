@@ -902,7 +902,7 @@ export function OrderDetailDrawer({
 
           {/* Invoice — official Summit fiscal document, for Summit-paid orders */}
           {order.external_metadata?.document_id ? (
-            <Section title={t('invoiceHeading') || 'Facture'}>
+            <Section title={t('invoiceHeading') || 'Invoice'}>
               <InvoiceSection order={order} />
             </Section>
           ) : null}
@@ -1436,6 +1436,14 @@ function InvoiceSection({ order }: { order: Order }) {
     return () => { active = false; };
   }, [order.restaurant_id, order.id]);
 
+  // Reset the send panel + recipient when a different order is shown in the
+  // same reused drawer instance.
+  useEffect(() => {
+    setEmailDraft(order.customer_email || '');
+    setSendOpen(false);
+    setSendState('idle');
+  }, [order.id, order.customer_email]);
+
   if (loading) {
     return <div className="text-fs-sm text-[var(--fg-subtle)]">{t('invoiceLoading') || 'Chargement de la facture…'}</div>;
   }
@@ -1493,9 +1501,10 @@ function InvoiceSection({ order }: { order: Order }) {
       </div>
       {sendOpen && (
         <div className="flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
-          <label className="text-fs-xs text-[var(--fg-muted)]">{t('invoiceRecipient') || 'Destinataire'}</label>
+          <label htmlFor="invoice-recipient" className="text-fs-xs text-[var(--fg-muted)]">{t('invoiceRecipient') || 'Destinataire'}</label>
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
             <input
+              id="invoice-recipient"
               type="email"
               value={emailDraft}
               onChange={(e) => setEmailDraft(e.target.value)}
@@ -1521,7 +1530,7 @@ function InvoiceSection({ order }: { order: Order }) {
         </div>
       )}
       {sendState === 'sent' && <span className="text-fs-xs text-[var(--success-500)]">{t('invoiceSent') || 'Facture envoyée'}</span>}
-      {sendState === 'error' && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</span>}
+      {sendState === 'error' && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceSendError') || "Échec de l'envoi de la facture"}</span>}
     </div>
   );
 }
