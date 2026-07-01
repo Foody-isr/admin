@@ -10,16 +10,15 @@ import {
   DataTableCell,
 } from '@/components/data-table/DataTable';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { packIntoBoxes, cellPortionBreakdown, fmtPortionGrams } from '@/lib/production';
+import { packIntoBoxes, cellPortionBreakdown } from '@/lib/production';
 
 interface Props {
   sheet: ProductionSheetResponse;
   onRowClick: (orderId: number) => void;
   /** menu_item_id -> available portion sizes (grams) from the article's variants. */
   availablePortions?: Record<number, number[]>;
-  /** menu_item_id -> box size (grams) the user chose to divide that article by. */
-  boxPortions?: Record<number, number>;
-  onBoxPortionChange?: (itemId: number, grams: number | null) => void;
+  /** Page-wide box size (grams) to repack every weighed column by; null = Auto. */
+  boxSize?: number | null;
 }
 
 function cellVal(value: number | undefined, measure: 'weight' | 'unit'): string {
@@ -52,8 +51,7 @@ export function ProductionMatrix({
   sheet,
   onRowClick,
   availablePortions,
-  boxPortions,
-  onBoxPortionChange,
+  boxSize,
 }: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
@@ -82,29 +80,9 @@ export function ProductionMatrix({
           {cats.flatMap((cat) =>
             cat.item_ids.map((id) => {
               const item = itemsById.get(id);
-              const portions = availablePortions?.[id] ?? [];
-              const showBox =
-                item?.measure === 'weight' && portions.length >= 2 && !!onBoxPortionChange;
               return (
                 <DataTableHeadCell key={`n-${id}`} align="center" className="whitespace-nowrap">
                   <span>{item?.name}</span>
-                  {showBox && (
-                    <select
-                      aria-label={t('productionBoxSize')}
-                      value={boxPortions?.[id] ?? ''}
-                      onChange={(e) =>
-                        onBoxPortionChange!(id, e.target.value ? Number(e.target.value) : null)
-                      }
-                      className="mt-1 block mx-auto max-w-[7rem] text-[10px] font-medium normal-case tracking-normal rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] px-1.5 py-0.5 focus:outline-none focus:border-[var(--brand-500)]"
-                    >
-                      <option value="">{t('productionBoxAuto')}</option>
-                      {portions.map((g) => (
-                        <option key={g} value={g}>
-                          {fmtPortionGrams(g)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
                 </DataTableHeadCell>
               );
             }),
@@ -124,7 +102,7 @@ export function ProductionMatrix({
               // the largest box). In "Auto" the breakdown mirrors the client cells
               // as displayed (2 cells of 500 read as "2×500"), so the header maps
               // line-for-line to the column instead of the raw ordered portions.
-              const chosen = boxPortions?.[id];
+              const chosen = boxSize;
               const boxes =
                 item.measure !== 'weight'
                   ? null
