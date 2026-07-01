@@ -2796,6 +2796,8 @@ export async function confirmMenuImport(
 export interface ListOrdersParams {
   status?: string;
   active?: boolean;
+  /** Filter on the durable scheduled flag, independent of lifecycle status. */
+  is_scheduled?: boolean;
   q?: string;
   type?: string;
   from?: string;
@@ -2816,6 +2818,7 @@ export async function listOrders(restaurantId: number, params?: ListOrdersParams
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   if (params?.status) qs.set('status', params.status);
   if (params?.active) qs.set('active', 'true');
+  if (params?.is_scheduled) qs.set('is_scheduled', 'true');
   if (params?.q) qs.set('q', params.q);
   if (params?.type) qs.set('type', params.type);
   if (params?.from) qs.set('from', params.from);
