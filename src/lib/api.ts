@@ -525,6 +525,14 @@ export interface Order {
   courier_assigned_at?: string;
   delivery_address?: string;
   delivery_city?: string;
+  delivery_floor?: string;
+  delivery_apt?: string;
+  delivery_entry_code?: string; // building entry code ("code immeuble" / digicode)
+  delivery_notes?: string;
+  // Zone-based delivery fee charged for this order. Already folded into
+  // total_amount by the server; omitted (undefined) for non-delivery orders or
+  // zones without a fee. Treat missing as 0.
+  delivery_fee?: number;
   // Answers to the owner's custom checkout-form fields, keyed by field id (e.g.
   // { code_immeuble: "A12" }). Labels are resolved from the restaurant's
   // checkout_config. Empty/false answers are omitted server-side.
@@ -815,6 +823,7 @@ export const BUILTIN_DELIVERY_FIELDS: ReadonlyArray<{ id: string; type: Checkout
   { id: 'delivery_city',    type: 'text',     defaultRequired: true  },
   { id: 'delivery_floor',   type: 'text',     defaultRequired: false },
   { id: 'delivery_apt',     type: 'text',     defaultRequired: false },
+  { id: 'delivery_entry_code', type: 'text',  defaultRequired: false },
   { id: 'delivery_notes',   type: 'textarea', defaultRequired: false },
   { id: 'whatsapp_number',  type: 'tel',      defaultRequired: false },
 ];
@@ -964,6 +973,7 @@ export interface CustomerInsight {
   city?: string;
   floor?: string;
   apt?: string;
+  entry_code?: string;
 }
 
 export interface CustomerListResult {
@@ -2935,6 +2945,7 @@ export interface CreateOrderInput {
   delivery_city?: string;
   delivery_floor?: string;
   delivery_apt?: string;
+  delivery_entry_code?: string;
   delivery_notes?: string;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
@@ -4497,6 +4508,7 @@ export interface CustomerDeliverySeed {
   city: string;
   floor: string;
   apt: string;
+  entry_code: string;
   delivery_notes: string;
 }
 
@@ -4510,6 +4522,7 @@ export interface CustomerProfile {
   city: string;
   floor: string;
   apt: string;
+  entry_code: string;
   delivery_notes: string;
   /** Latest delivery order, used to pre-fill the editor when nothing is saved yet. */
   last_delivery?: CustomerDeliverySeed | null;
@@ -4521,6 +4534,7 @@ export interface CustomerProfileInput {
   city: string;
   floor: string;
   apt: string;
+  entry_code: string;
   delivery_notes: string;
 }
 

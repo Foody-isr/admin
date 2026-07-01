@@ -10,9 +10,10 @@ import {
   XIcon, PrinterIcon, ChevronDownIcon,
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
-  CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon,
+  CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { formatDeliveryAddress } from '@/lib/delivery-address';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import {
   initOrderPaymentLink,
@@ -380,8 +381,11 @@ export function OrderDetailDrawer({
     return s + comboPriceFor(items) + deltas;
   }, 0);
 
-  const subtotal = regularTotal + combosSubtotal;
-  const totalsLine = order.total_amount ?? subtotal;
+  const totalsLine = order.total_amount ?? regularTotal + combosSubtotal;
+  const deliveryFee = order.delivery_fee ?? 0;
+  // When a delivery fee applies, derive the subtotal from the total so the three
+  // displayed lines (subtotal + fee = total) always reconcile exactly.
+  const subtotal = deliveryFee > 0 ? totalsLine - deliveryFee : regularTotal + combosSubtotal;
 
   const displayedLineCount = regularItems.length + comboGroups.length;
   const totalUnits = allItems.reduce((s, i) => s + i.quantity, 0);
@@ -403,6 +407,8 @@ export function OrderDetailDrawer({
         table: t('tableHeading') || 'Table',
         customer: t('customer'),
         phone: t('phone'),
+        subtotal: t('subtotal') || 'Sous-total',
+        deliveryFee: t('delivery_fee') || 'Frais de livraison',
         total: t('total'),
         uncategorized: t('uncategorized') || 'Autres',
         comboFallback: t('comboMenuFallback') || 'Combo',
@@ -771,6 +777,46 @@ export function OrderDetailDrawer({
             </div>
           </div>
 
+          {/* Delivery address — same field set the Clients column and the
+              Deliveries dispatcher show, via the shared formatter. */}
+          {order.order_type === 'delivery' && (() => {
+            const addr = formatDeliveryAddress(
+              {
+                address: order.delivery_address,
+                city: order.delivery_city,
+                floor: order.delivery_floor,
+                apt: order.delivery_apt,
+                entryCode: order.delivery_entry_code,
+              },
+              t,
+            );
+            const notes = order.delivery_notes?.trim();
+            if (!addr && !notes) return null;
+            return (
+              <Section title={t('deliveryAddress')}>
+                <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
+                  {addr && (
+                    <div className="flex items-start gap-1.5">
+                      <MapPinIcon className="w-3.5 h-3.5 text-[var(--fg-muted)] mt-0.5 shrink-0" />
+                      <div className="flex flex-col leading-tight">
+                        <span>{addr.line1}</span>
+                        {addr.line2 && (
+                          <span className="text-[var(--fg-subtle)]">{addr.line2}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {notes && (
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-[var(--fg-subtle)] shrink-0">{t('deliveryNotes')}</span>
+                      <span className="text-right break-words">{notes}</span>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            );
+          })()}
+
           {/* Courier — read-only. Assignment happens on the Deliveries page. */}
           {order.order_type === 'delivery' && (
             <Section title={t('courier')}>
@@ -787,6 +833,12 @@ export function OrderDetailDrawer({
                 <span className="text-[var(--fg-subtle)]">{t('subtotal') || 'Sous-total'}</span>
                 <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
               </div>
+              {deliveryFee > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--fg-subtle)]">{t('delivery_fee') || 'Frais de livraison'}</span>
+                  <span className="font-mono tabular-nums">₪{deliveryFee.toFixed(2)}</span>
+                </div>
+              )}
               <div className="h-px bg-[var(--line)] my-[var(--s-2)]" />
               <div className="flex items-center justify-between text-fs-lg font-semibold tracking-tight">
                 <span>{t('total')}</span>
