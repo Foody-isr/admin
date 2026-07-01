@@ -2975,6 +2975,7 @@ const translations: Record<Locale, Record<string, string>> = {
       "No order mode is enabled — customers won't be able to order online.",
     noServiceEnabledBanner:
       'No order mode is enabled. Turn on Pickup, Dine-in, or Delivery in Settings → General → Service & availability to configure their hours.',
+    on: 'Enabled',
     off: 'Disabled',
     mode: 'Mode',
     scheduledOrdersPageDesc:
@@ -5947,6 +5948,7 @@ const translations: Record<Locale, Record<string, string>> = {
       'אף מצב הזמנה אינו פעיל — לקוחות לא יוכלו להזמין באתר.',
     noServiceEnabledBanner:
       'אף מצב הזמנה אינו פעיל. הפעל איסוף עצמי, ישיבה במקום או משלוח בהגדרות → כללי → שירות וזמינות כדי להגדיר את שעות הפעילות.',
+    on: 'מופעל',
     off: 'מושבת',
     mode: 'מצב',
     scheduledOrdersPageDesc:
@@ -8920,6 +8922,7 @@ const translations: Record<Locale, Record<string, string>> = {
       'Aucun mode de commande activé : les clients ne pourront pas commander en ligne.',
     noServiceEnabledBanner:
       'Aucun mode de commande n’est activé. Activez À emporter, Sur place ou Livraison dans Paramètres → Général → Service & disponibilité pour configurer leurs horaires.',
+    on: 'Activé',
     off: 'Désactivé',
     mode: 'Mode',
     scheduledOrdersPageDesc:
