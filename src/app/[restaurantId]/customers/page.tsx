@@ -48,7 +48,30 @@ type CustomerRow = {
   orders: number;
   lastOrderAt: string | null;
   trusted: TrustedCustomer | null;
+  // Last known delivery address (from the customer's most recent delivery
+  // order). Absent for customers who never ordered delivery.
+  address?: string;
+  city?: string;
+  floor?: string;
+  apt?: string;
 };
+
+// Merge a row's delivery address into two display lines: street + city on top,
+// floor + apartment underneath. Returns null when we have no address at all.
+function addressLines(
+  row: CustomerRow,
+  t: (key: string) => string
+): { primary: string; secondary: string } | null {
+  const primary = [row.address, row.city].filter(Boolean).join(', ');
+  const unit: string[] = [];
+  if (row.floor) unit.push(`${t('floor')} ${row.floor}`);
+  if (row.apt) unit.push(`${t('apartment')} ${row.apt}`);
+  const secondary = unit.join(', ');
+  if (!primary && !secondary) return null;
+  // Guard against an empty first line if only unit info somehow exists.
+  if (!primary) return { primary: secondary, secondary: '' };
+  return { primary, secondary };
+}
 
 export default function CustomersPage() {
   const { restaurantId } = useParams();
@@ -135,6 +158,10 @@ export default function CustomersPage() {
       orders: c.total_orders,
       lastOrderAt: c.last_order_date,
       trusted: trustedByKey.get(phoneKey(c.customer_phone)) ?? null,
+      address: c.address,
+      city: c.city,
+      floor: c.floor,
+      apt: c.apt,
     }));
     // On the unfiltered first page, surface trusted customers who have no
     // orders yet (so manually added cash customers stay visible).
@@ -289,18 +316,21 @@ export default function CustomersPage() {
       ) : (
         <>
           <DataTable
-            style={{ ['--cols' as string]: '1.4fr 1.4fr 0.7fr 1fr 0.8fr 32px' } as React.CSSProperties}
+            style={{ ['--cols' as string]: '1.3fr 1.2fr 1.8fr 0.6fr 0.9fr 0.8fr 32px' } as React.CSSProperties}
           >
             <DataTableHead>
               <DataTableHeadCell>{t('phone')}</DataTableHeadCell>
               <DataTableHeadCell>{t('name')}</DataTableHeadCell>
+              <DataTableHeadCell>{t('address')}</DataTableHeadCell>
               <DataTableHeadCell>{t('orders')}</DataTableHeadCell>
               <DataTableHeadCell>{t('lastOrder')}</DataTableHeadCell>
               <DataTableHeadCell>{t('canPayCash')}</DataTableHeadCell>
               <DataTableHeadSpacerCell />
             </DataTableHead>
             <DataTableBody>
-              {rows.map((row, index) => (
+              {rows.map((row, index) => {
+                const addr = addressLines(row, t);
+                return (
                 <DataTableRow
                   key={phoneKey(row.phone) || index}
                   index={index}
@@ -312,6 +342,18 @@ export default function CustomersPage() {
                   </DataTableCell>
                   <DataTableCell mobileLabel={t('name')} className="text-fg-primary">
                     {row.name || '—'}
+                  </DataTableCell>
+                  <DataTableCell mobileLabel={t('address')}>
+                    {addr ? (
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-fg-primary">{addr.primary}</span>
+                        {addr.secondary && (
+                          <span className="text-fs-xs text-fg-tertiary">{addr.secondary}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-fg-tertiary">—</span>
+                    )}
                   </DataTableCell>
                   <DataTableCell mobileLabel={t('orders')} className="text-fg-secondary">
                     {row.orders}
@@ -336,7 +378,8 @@ export default function CustomersPage() {
                     )}
                   </DataTableCell>
                 </DataTableRow>
-              ))}
+                );
+              })}
             </DataTableBody>
           </DataTable>
 
