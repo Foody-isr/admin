@@ -23,7 +23,7 @@ import {
   ProductionSheetOrder,
   ProductionDay,
 } from '@/lib/api';
-import { itemPortionGrams } from '@/lib/production';
+import { itemPortionGrams, fmtPortionGrams } from '@/lib/production';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
@@ -43,20 +43,12 @@ export default function ProductionPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [splitMode, setSplitMode] = useState<'none' | 'category' | 'customer'>('none');
-  // Box-packing controls (client-only, filter-like): the available portion
-  // sizes per article (from its variants) and the size the user picked to
-  // divide each article's total by. Nothing is persisted.
+  // Box-packing control (client-only, filter-like): the available portion sizes
+  // per article (from its variants) and a single, page-wide box size the user
+  // picked to divide every weighed column by. Nothing is persisted.
   const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
-  const [boxPortions, setBoxPortions] = useState<Record<number, number>>({});
+  const [boxSize, setBoxSize] = useState<number | null>(null);
   const fsRef = useRef<HTMLDivElement>(null);
-
-  const setBoxPortion = (itemId: number, grams: number | null) =>
-    setBoxPortions((prev) => {
-      const next = { ...prev };
-      if (grams == null) delete next[itemId];
-      else next[itemId] = grams;
-      return next;
-    });
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -137,6 +129,14 @@ export default function ProductionPage() {
     return out;
   }, [portionsByItem, sheet]);
 
+  // Portion sizes offered in the single, page-wide box-size control: the union
+  // of every weighed column's available portions. One choice repacks all columns.
+  const allPortions = useMemo<number[]>(() => {
+    const set = new Set<number>();
+    for (const gs of Object.values(availablePortions)) for (const g of gs) set.add(g);
+    return Array.from(set).sort((a, b) => a - b);
+  }, [availablePortions]);
+
   // Day-level production KPIs (reflect the whole day, independent of search).
   const kpi = useMemo(() => {
     const orders = sheet?.orders ?? [];
@@ -210,6 +210,27 @@ export default function ProductionPage() {
     setFullscreen(false);
   };
 
+  // Single, page-wide box-size control — repacks every weighed column at once
+  // (replaces the old per-column dropdowns). Hidden when no article has portions.
+  const boxSizeControl = allPortions.length > 0 && (
+    <label className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] whitespace-nowrap">
+      {t('productionBoxSize')}
+      <select
+        aria-label={t('productionBoxSize')}
+        value={boxSize ?? ''}
+        onChange={(e) => setBoxSize(e.target.value ? Number(e.target.value) : null)}
+        className="h-11 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] text-fs-sm px-3 focus:outline-none focus:border-[var(--brand-500)] transition-colors"
+      >
+        <option value="">{t('productionBoxAuto')}</option>
+        {allPortions.map((g) => (
+          <option key={g} value={g}>
+            {fmtPortionGrams(g)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   return (
     <div
       ref={fsRef}
@@ -225,6 +246,7 @@ export default function ProductionPage() {
           <div className="flex items-center gap-[var(--s-3)]">
             <h1 className="text-fs-xl font-semibold leading-none">{t('productionTitle')}</h1>
             {date && <DateStepper date={date} days={days} onChange={setDate} />}
+            {view === 'production' && boxSizeControl}
           </div>
           <button
             onClick={exitFullscreen}
@@ -306,6 +328,7 @@ export default function ProductionPage() {
                     className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
                   />
                 </div>
+                {boxSizeControl}
               </div>
             )}
           </header>
@@ -333,8 +356,7 @@ export default function ProductionPage() {
                 sheet={cs}
                 onRowClick={handleRowClick}
                 availablePortions={availablePortions}
-                boxPortions={boxPortions}
-                onBoxPortionChange={setBoxPortion}
+                boxSize={boxSize}
               />
             ))}
           </div>
@@ -358,8 +380,7 @@ export default function ProductionPage() {
                   sheet={cs}
                   onRowClick={handleRowClick}
                   availablePortions={availablePortions}
-                  boxPortions={boxPortions}
-                  onBoxPortionChange={setBoxPortion}
+                  boxSize={boxSize}
                 />
               </div>
             ))}
@@ -369,8 +390,7 @@ export default function ProductionPage() {
             sheet={filteredSheet}
             onRowClick={handleRowClick}
             availablePortions={availablePortions}
-            boxPortions={boxPortions}
-            onBoxPortionChange={setBoxPortion}
+            boxSize={boxSize}
           />
         ))}
 
