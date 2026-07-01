@@ -3036,7 +3036,7 @@ export async function getOrderInvoice(
   restaurantId: number,
   orderId: number,
 ): Promise<{ document_number: number; document_url: string }> {
-  return apiFetch(`/api/v1/orders/${orderId}/invoice`, restaurantId);
+  return apiFetch<{ document_number: number; document_url: string }>(`/api/v1/orders/${orderId}/invoice`, restaurantId);
 }
 
 export async function sendOrderInvoice(
@@ -3044,7 +3044,7 @@ export async function sendOrderInvoice(
   orderId: number,
   email?: string,
 ): Promise<{ sent: boolean }> {
-  return apiFetch(`/api/v1/orders/${orderId}/invoice/send`, restaurantId, {
+  return apiFetch<{ sent: boolean }>(`/api/v1/orders/${orderId}/invoice/send`, restaurantId, {
     method: 'POST',
     body: JSON.stringify(email ? { email_address: email } : {}),
   });
