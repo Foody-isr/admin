@@ -96,6 +96,14 @@ function getPresets(weekStartDay: WeekStartDay): Preset[] {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
+  // Rolling windows that mirror the dashboard's "Last 7 / 30 days" presets
+  // (today included), so the two surfaces can be compared on an identical range.
+  const last7Start = new Date(today);
+  last7Start.setDate(last7Start.getDate() - 6);
+
+  const last30Start = new Date(today);
+  last30Start.setDate(last30Start.getDate() - 29);
+
   const weekStart = new Date(today);
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() - weekStartDay + 7) % 7));
 
@@ -117,6 +125,8 @@ function getPresets(weekStartDay: WeekStartDay): Preset[] {
   return [
     { label: 'Today', range: () => ({ from: today, to: endOfDay(now) }) },
     { label: 'Yesterday', range: () => ({ from: yesterday, to: endOfDay(yesterday) }) },
+    { label: 'Last 7 days', range: () => ({ from: last7Start, to: endOfDay(now) }) },
+    { label: 'Last 30 days', range: () => ({ from: last30Start, to: endOfDay(now) }) },
     { label: 'This week', range: () => ({ from: weekStart, to: endOfDay(now) }) },
     { label: 'Last week', range: () => ({ from: lastWeekStart, to: endOfDay(lastWeekEnd) }) },
     { label: 'This month', range: () => ({ from: monthStart, to: endOfDay(now) }) },
