@@ -11,6 +11,7 @@ import {
   type ComparisonResult,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePersistentEnum } from '@/lib/use-persistent-enum';
 import { ArrowUp, Calendar, Download } from 'lucide-react';
 import {
   Badge,
@@ -26,6 +27,10 @@ import {
 
 type Range = '7d' | '30d' | 'q' | 'y';
 
+// Remembered across navigation as a single shared preference, like the dashboard.
+const RANGES: Range[] = ['7d', '30d', 'q', 'y'];
+const RANGE_STORAGE_KEY = 'foody.analytics.range';
+
 export default function AnalyticsOverviewPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
@@ -35,7 +40,7 @@ export default function AnalyticsOverviewPage() {
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<Range>('30d');
+  const [range, setRange] = usePersistentEnum<Range>(RANGE_STORAGE_KEY, '30d', RANGES);
 
   useEffect(() => {
     Promise.all([
