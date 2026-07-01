@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
-  getAnalyticsToday,
+  getPeriodSummary,
+  getDailySeries,
   getDayComparison,
   getTopSellers,
-  TodayStats,
+  type AnalyticsRange,
+  type DaySummary,
   TopSeller,
   type ComparisonResult,
 } from '@/lib/api';
@@ -25,36 +27,131 @@ import {
   Thead,
 } from '@/components/ds';
 
-type Range = '7d' | '30d' | 'q' | 'y';
+type Range = '7d' | '30d' | 'q';
 
 // Remembered across navigation as a single shared preference, like the dashboard.
-const RANGES: Range[] = ['7d', '30d', 'q', 'y'];
+const RANGES: Range[] = ['7d', '30d', 'q'];
 const RANGE_STORAGE_KEY = 'foody.analytics.range';
+
+// 7d/30d reuse the dashboard's period endpoint for an exact match. Trimestre
+// (90d, the daily endpoint's max) aggregates the daily series instead.
+const RANGE_DAYS: Record<Range, number> = { '7d': 7, '30d': 30, q: 90 };
+const RANGE_PERIOD: Partial<Record<Range, AnalyticsRange>> = { '7d': 'week', '30d': 'month' };
+
+type OverviewSummary = {
+  revenue: number;
+  orders: number;
+  avgTicket: number;
+  itemsSold: number;
+  revenueDelta: number;
+  ordersDelta: number;
+  avgTicketDelta: number;
+  itemsSoldDelta: number;
+  series: number[];
+};
+
+function pct(now: number, before: number): number {
+  if (!before) return now > 0 ? 100 : 0;
+  return ((now - before) / before) * 100;
+}
+
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Line + filled-area SVG paths for the hero sparkline, normalized to w×h.
+function sparkline(values: number[], w = 320, h = 120): { line: string; area: string } {
+  if (values.length === 0) return { line: '', area: '' };
+  const max = Math.max(1, ...values);
+  const n = values.length;
+  const pts = values.map((v, i) => {
+    const x = n === 1 ? w : Math.round((i / (n - 1)) * w);
+    const y = Math.round(h - (v / max) * (h - 8) - 4);
+    return `${x},${y}`;
+  });
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ');
+  return { line, area: `${line} L${w},${h} L0,${h} Z` };
+}
 
 export default function AnalyticsOverviewPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { t } = useI18n();
 
-  const [stats, setStats] = useState<TodayStats | null>(null);
+  const [summary, setSummary] = useState<OverviewSummary | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = usePersistentEnum<Range>(RANGE_STORAGE_KEY, '30d', RANGES);
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    const days = RANGE_DAYS[range];
+    const periodRange = RANGE_PERIOD[range];
+    // Weekday comparison chart is a fixed today-vs-yesterday view, independent of range.
+    const cmpPromise = getDayComparison(rid).catch(() => null);
+    const agg = (rows: DaySummary[]) => {
+      const revenue = rows.reduce((s, d) => s + d.net_sales, 0);
+      const orders = rows.reduce((s, d) => s + d.transactions, 0);
+      const itemsSold = rows.reduce((s, d) => s + d.items_sold, 0);
+      return { revenue, orders, itemsSold, avgTicket: orders > 0 ? revenue / orders : 0 };
+    };
+    try {
+      if (periodRange) {
+        // 7d / 30d: reuse the dashboard's period endpoint so figures match exactly.
+        const [cmp, daily, top] = await Promise.all([
+          getPeriodSummary(rid, periodRange),
+          getDailySeries(rid, days).catch(() => [] as DaySummary[]),
+          getTopSellers(rid, periodRange).catch(() => [] as TopSeller[]),
+        ]);
+        const c = cmp.current;
+        const p = cmp.previous;
+        setSummary({
+          revenue: c.total_revenue,
+          orders: c.total_orders,
+          avgTicket: c.avg_ticket,
+          itemsSold: c.items_sold,
+          revenueDelta: pct(c.total_revenue, p.total_revenue),
+          ordersDelta: pct(c.total_orders, p.total_orders),
+          avgTicketDelta: pct(c.avg_ticket, p.avg_ticket),
+          itemsSoldDelta: pct(c.items_sold, p.items_sold),
+          series: daily.map((d) => d.net_sales),
+        });
+        setTopSellers(top);
+      } else {
+        // Trimestre: 90-day window (the daily endpoint's max). Fetch the current
+        // window plus the preceding one (via end-date) for the vs-previous delta.
+        const [curDaily, prevDaily, top] = await Promise.all([
+          getDailySeries(rid, days).catch(() => [] as DaySummary[]),
+          getDailySeries(rid, days, isoDaysAgo(days)).catch(() => [] as DaySummary[]),
+          getTopSellers(rid).catch(() => [] as TopSeller[]),
+        ]);
+        const c = agg(curDaily);
+        const p = agg(prevDaily);
+        setSummary({
+          revenue: c.revenue,
+          orders: c.orders,
+          avgTicket: c.avgTicket,
+          itemsSold: c.itemsSold,
+          revenueDelta: pct(c.revenue, p.revenue),
+          ordersDelta: pct(c.orders, p.orders),
+          avgTicketDelta: pct(c.avgTicket, p.avgTicket),
+          itemsSoldDelta: pct(c.itemsSold, p.itemsSold),
+          series: curDaily.map((d) => d.net_sales),
+        });
+        setTopSellers(top);
+      }
+      setComparison(await cmpPromise);
+    } finally {
+      setLoading(false);
+    }
+  }, [rid, range]);
+
   useEffect(() => {
-    Promise.all([
-      getAnalyticsToday(rid).catch(() => null),
-      getTopSellers(rid).catch(() => []),
-      getDayComparison(rid).catch(() => null),
-    ])
-      .then(([s, ts, cmp]) => {
-        if (s) setStats(s);
-        setTopSellers(ts);
-        if (cmp) setComparison(cmp);
-      })
-      .finally(() => setLoading(false));
-  }, [rid]);
+    load();
+  }, [load]);
 
   // Build a weekday line-chart dataset by bucketing hourly data.
   const weekDataset = useMemo(() => {
@@ -105,9 +202,11 @@ export default function AnalyticsOverviewPage() {
     );
   }
 
-  const revenue = stats?.total_revenue ?? 0;
-  const orders = stats?.total_orders ?? 0;
-  const avgTicket = orders > 0 ? revenue / orders : 0;
+  const revenue = summary?.revenue ?? 0;
+  const orders = summary?.orders ?? 0;
+  const avgTicket = summary?.avgTicket ?? 0;
+  const itemsSold = summary?.itemsSold ?? 0;
+  const spark = sparkline(summary?.series ?? []);
 
   return (
     <>
@@ -122,7 +221,6 @@ export default function AnalyticsOverviewPage() {
                   ['7d', '7j'],
                   ['30d', '30j'],
                   ['q', 'Trimestre'],
-                  ['y', 'Année'],
                 ] as const
               ).map(([key, label]) => (
                 <button
@@ -155,45 +253,38 @@ export default function AnalyticsOverviewPage() {
         <div>
           <div className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)] mb-[var(--s-2)]">
             {t('netRevenue') || 'Revenu net'} ·{' '}
-            {range === '7d' ? '7j' : range === '30d' ? '30 derniers jours' : range === 'q' ? 'Trimestre' : 'Année'}
+            {range === '7d' ? '7j' : range === '30d' ? '30 derniers jours' : 'Trimestre'}
           </div>
           <div
             className="font-semibold tabular-nums text-[var(--fg)]"
             style={{ fontSize: 56, letterSpacing: '-0.03em', lineHeight: 1 }}
           >
-            ₪{revenue.toFixed(0)}
+            ₪{revenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </div>
           <div className="flex items-center gap-[var(--s-3)] mt-[var(--s-3)]">
-            <span className="inline-flex items-center gap-1 text-fs-xs font-medium text-[var(--success-500)] dark:text-[#4ade80] tabular-nums">
-              <ArrowUp className="w-3.5 h-3.5" />
-              +18.2%
-            </span>
+            <Delta value={summary?.revenueDelta ?? 0} />
             <span className="text-fs-sm text-[var(--fg-muted)]">
               vs période précédente
             </span>
           </div>
         </div>
         <svg viewBox="0 0 320 120" width="100%" height="120" preserveAspectRatio="none">
-          <path
-            d="M0,80 L20,72 L40,78 L60,60 L80,64 L100,48 L120,52 L140,40 L160,44 L180,30 L200,34 L220,22 L240,28 L260,20 L280,16 L300,22 L320,10 L320,120 L0,120 Z"
-            fill="color-mix(in oklab, var(--brand-500) 20%, transparent)"
-          />
-          <path
-            d="M0,80 L20,72 L40,78 L60,60 L80,64 L100,48 L120,52 L140,40 L160,44 L180,30 L200,34 L220,22 L240,28 L260,20 L280,16 L300,22 L320,10"
-            fill="none"
-            stroke="var(--brand-500)"
-            strokeWidth={2}
-          />
+          {spark.area && (
+            <path d={spark.area} fill="color-mix(in oklab, var(--brand-500) 20%, transparent)" />
+          )}
+          {spark.line && (
+            <path d={spark.line} fill="none" stroke="var(--brand-500)" strokeWidth={2} />
+          )}
         </svg>
       </div>
 
       {/* Secondary KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--s-4)] mb-[var(--s-5)]">
         {[
-          { l: 'Commandes', v: orders.toString(), d: '+12.4%', up: true },
-          { l: 'Ticket moyen', v: `₪${avgTicket.toFixed(1)}`, d: '+5.2%', up: true },
-          { l: 'Articles vendus', v: String(topSellers.reduce((s, x) => s + x.quantity, 0)), d: '+8.4%', up: true },
-          { l: 'Références actives', v: String(topSellers.length), d: '—', up: true },
+          { l: 'Commandes', v: orders.toString(), delta: summary?.ordersDelta },
+          { l: 'Ticket moyen', v: `₪${avgTicket.toFixed(1)}`, delta: summary?.avgTicketDelta },
+          { l: 'Articles vendus', v: String(itemsSold), delta: summary?.itemsSoldDelta },
+          { l: 'Références actives', v: String(topSellers.length), delta: undefined },
         ].map((k, i) => (
           <div
             key={i}
@@ -205,15 +296,11 @@ export default function AnalyticsOverviewPage() {
             <div className="text-fs-3xl font-semibold leading-none text-[var(--fg)] tabular-nums">
               {k.v}
             </div>
-            <div
-              className={`inline-flex items-center gap-1 text-fs-xs font-medium tabular-nums ${
-                k.up
-                  ? 'text-[var(--success-500)] dark:text-[#4ade80]'
-                  : 'text-[var(--danger-500)] dark:text-[#fb7185]'
-              }`}
-            >
-              <ArrowUp className="w-3 h-3" /> {k.d}
-            </div>
+            {k.delta != null ? (
+              <Delta value={k.delta} />
+            ) : (
+              <span className="text-fs-xs text-[var(--fg-muted)]">—</span>
+            )}
           </div>
         ))}
       </div>
@@ -296,6 +383,23 @@ export default function AnalyticsOverviewPage() {
         )}
       </Section>
     </>
+  );
+}
+
+function Delta({ value }: { value: number }) {
+  const up = value >= 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-fs-xs font-medium tabular-nums ${
+        up
+          ? 'text-[var(--success-500)] dark:text-[#4ade80]'
+          : 'text-[var(--danger-500)] dark:text-[#fb7185]'
+      }`}
+    >
+      <ArrowUp className={`w-3 h-3 ${up ? '' : 'rotate-180'}`} />
+      {up ? '+' : ''}
+      {value.toFixed(1)}%
+    </span>
   );
 }
 
