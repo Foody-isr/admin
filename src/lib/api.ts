@@ -542,6 +542,9 @@ export interface Order {
   receipt_token?: string;
   // Optional confirmation email captured at checkout (e.g. Google sign-in). May be absent.
   customer_email?: string;
+  // Payment-provider metadata serialized from the server's ExternalMeta
+  // (e.g. Summit's document_id on a paid order). Shape is provider-specific.
+  external_metadata?: Record<string, unknown> | null;
 }
 
 export interface StaffMember {
@@ -3027,6 +3030,24 @@ export async function initOrderPaymentLink(
     restaurantId,
     { method: 'POST' },
   );
+}
+
+export async function getOrderInvoice(
+  restaurantId: number,
+  orderId: number,
+): Promise<{ document_number: number; document_url: string }> {
+  return apiFetch<{ document_number: number; document_url: string }>(`/api/v1/orders/${orderId}/invoice`, restaurantId);
+}
+
+export async function sendOrderInvoice(
+  restaurantId: number,
+  orderId: number,
+  email?: string,
+): Promise<{ sent: boolean }> {
+  return apiFetch<{ sent: boolean }>(`/api/v1/orders/${orderId}/invoice/send`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify(email ? { email_address: email } : {}),
+  });
 }
 
 // ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
