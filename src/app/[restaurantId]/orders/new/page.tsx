@@ -9,6 +9,7 @@ import {
   type BatchFulfillmentConfigResponse, type MenuGroupMembership,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
+import { itemSizeOptions } from '@/lib/item-options';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
@@ -43,9 +44,12 @@ function catColor(index: number): string {
 }
 
 // An item opens the config modal only when it actually has choices to make;
-// otherwise it adds instantly (POS speed).
+// otherwise it adds instantly (POS speed). Sizes come from itemSizeOptions
+// (option sets — NOT the dead legacy variant_groups): reading the legacy
+// tables here quick-added option-set items without ever asking for a size,
+// creating size-less lines the production sheet could not weigh.
 function hasOptions(it: MenuItem): boolean {
-  const variants = (it.variant_groups ?? []).some((g) => (g.variants ?? []).some((v) => v.is_active));
+  const variants = itemSizeOptions(it).length > 0;
   const mods =
     (it.modifiers ?? []).some((m) => m.is_active) ||
     (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));

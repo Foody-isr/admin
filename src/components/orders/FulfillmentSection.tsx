@@ -37,10 +37,24 @@ function TimingTile({
   );
 }
 
+// Locale-formatted fulfillment day ("vendredi 10 juillet") — the server's
+// day_name is English-only and the raw ISO date reads as data, not language.
+function formatTargetDay(iso: string, locale: string): string {
+  try {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString(locale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export function FulfillmentSection({
   orderType, batchConfig, value, onChange, allowImmediate = true,
 }: FulfillmentSectionProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const targets = useMemo(
     () => buildFulfillmentTargets(batchConfig, orderType),
     [batchConfig, orderType],
@@ -96,7 +110,7 @@ export function FulfillmentSection({
           >
             {targets.map((tg) => (
               <option key={tg.id} value={tg.id}>
-                {`${tg.dayName} ${tg.date}${tg.windowStart ? ` · ${tg.windowStart}-${tg.windowEnd}` : ''}`}
+                {`${formatTargetDay(tg.date, locale)}${tg.windowStart ? ` · ${tg.windowStart}-${tg.windowEnd}` : ''}`}
               </option>
             ))}
           </select>

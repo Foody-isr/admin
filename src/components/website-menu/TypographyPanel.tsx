@@ -56,12 +56,22 @@ function FontSample({
 }
 
 // Menu text roles exposed for per-section font + size overrides. Mirrors the
-// roles foodyweb applies in lib/themes/typography.ts.
-const ROLES: { key: TypographyRoleKey; label: string; sample: string; family: 'display' | 'body' }[] = [
-  { key: 'categoryTitle', label: 'Titres de catégories', sample: 'SALADES', family: 'display' },
-  { key: 'itemName', label: 'Noms des plats', sample: 'Salade César', family: 'display' },
+// roles foodyweb applies in lib/themes/typography.ts. `caseControl` marks the
+// roles offering the Auto / Majuscules / Normale case picker (prices are
+// numbers, casing is meaningless there).
+const ROLES: { key: TypographyRoleKey; label: string; sample: string; family: 'display' | 'body'; caseControl?: boolean }[] = [
+  { key: 'categoryTitle', label: 'Titres de catégories', sample: 'Salades', family: 'display', caseControl: true },
+  { key: 'itemName', label: 'Noms des plats', sample: 'Salade César', family: 'display', caseControl: true },
   { key: 'itemPrice', label: 'Prix', sample: '₪35.00', family: 'display' },
-  { key: 'itemDescription', label: 'Descriptions', sample: 'Roquette, parmesan, croûtons', family: 'body' },
+  { key: 'itemDescription', label: 'Descriptions', sample: 'Roquette, parmesan, croûtons', family: 'body', caseControl: true },
+];
+
+// Case picker options. Auto (absent) keeps the theme's own behavior — e.g. a
+// dark custom palette renders category titles in capitals by default.
+const CASE_OPTIONS: { value: 'uppercase' | 'none' | undefined; label: string }[] = [
+  { value: undefined, label: 'Auto' },
+  { value: 'uppercase', label: 'Majuscules' },
+  { value: 'none', label: 'Normale' },
 ];
 
 // Drop defaulted values so the saved blob stays minimal (and the editor's
@@ -73,10 +83,11 @@ function normalizeTypography(t: TypographyOverrides): TypographyOverrides | null
   for (const r of ROLES) {
     const o = t.roles?.[r.key];
     if (!o) continue;
-    const clean: { font?: string; sizeMult?: number; weight?: number } = {};
+    const clean: { font?: string; sizeMult?: number; weight?: number; transform?: 'uppercase' | 'none' } = {};
     if (o.font) clean.font = o.font;
     if (typeof o.sizeMult === 'number' && o.sizeMult !== 1) clean.sizeMult = o.sizeMult;
     if (typeof o.weight === 'number') clean.weight = o.weight;
+    if (o.transform === 'uppercase' || o.transform === 'none') clean.transform = o.transform;
     if (Object.keys(clean).length > 0) roles[r.key] = clean;
   }
   if (Object.keys(roles).length > 0) out.roles = roles;
@@ -227,6 +238,13 @@ export function TypographyPanel({
     commit({
       ...typo,
       roles: { ...typo.roles, [key]: { ...typo.roles?.[key], weight } },
+    });
+  }
+
+  function setRoleTransform(key: TypographyRoleKey, transform?: 'uppercase' | 'none') {
+    commit({
+      ...typo,
+      roles: { ...typo.roles, [key]: { ...typo.roles?.[key], transform } },
     });
   }
 
@@ -405,6 +423,7 @@ export function TypographyPanel({
                     style={{
                       fontFamily: o.font ? `"${o.font}"` : 'inherit',
                       fontWeight: o.weight,
+                      textTransform: o.transform === 'uppercase' ? 'uppercase' : undefined,
                     }}
                     dir={r.key === 'itemPrice' ? 'ltr' : undefined}
                     title={r.sample}
@@ -440,6 +459,30 @@ export function TypographyPanel({
                   />
                   <span className="text-[10px] tabular-nums text-fg-secondary w-9 text-end">{pct(roleMult)}</span>
                 </div>
+                {r.caseControl && (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-fg-tertiary shrink-0">Casse</span>
+                    <div className="flex rounded-lg border border-divider overflow-hidden">
+                      {CASE_OPTIONS.map((c) => {
+                        const selected = o.transform === c.value;
+                        return (
+                          <button
+                            key={c.label}
+                            type="button"
+                            onClick={() => setRoleTransform(r.key, c.value)}
+                            className={`px-2 py-1 text-[10px] transition-colors ${
+                              selected
+                                ? 'bg-brand-500/10 text-brand-500 font-medium'
+                                : 'text-fg-secondary hover:bg-[var(--surface-2)]'
+                            }`}
+                          >
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
