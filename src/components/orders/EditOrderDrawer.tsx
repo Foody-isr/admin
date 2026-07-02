@@ -12,7 +12,7 @@
 // recreating it from a new order.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Minus, Trash2, Search } from 'lucide-react';
+import { Plus, Minus, Trash2, Search, Pencil } from 'lucide-react';
 import { Drawer, Field, Input } from '@/components/ds';
 import {
   listAllItems,
@@ -53,6 +53,18 @@ interface EditLine {
   quantity: number;
   notes: string;
   modifiers: EditModifier[];
+  /** Soft-delete: existing lines stay visible (struck through, restorable)
+   *  until save, so staff can review removals — same pattern as combos. */
+  removed?: boolean;
+}
+
+// An item with no active variants and no active modifiers can be added with one
+// click — no picker modal needed. Mirrors NewOrderItemModal's own field reads.
+function isSimpleItem(it: MenuItem): boolean {
+  const hasVariants = (it.variant_groups?.[0]?.variants ?? []).some((v) => v.is_active);
+  const hasDirectMods = (it.modifiers ?? []).some((m) => m.is_active);
+  const hasSetMods = (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));
+  return !hasVariants && !hasDirectMods && !hasSetMods;
 }
 
 interface ComboBlock {
@@ -132,10 +144,15 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
 
-  // Add-item picker state.
+  // Add-item picker state. Results render only while a query is typed; the
+  // highlight index drives ArrowUp/ArrowDown + Enter keyboard selection.
   const [catalog, setCatalog] = useState<MenuItem[]>([]);
   const [search, setSearch] = useState('');
+  const [highlightIdx, setHighlightIdx] = useState(0);
   const [pickerItem, setPickerItem] = useState<MenuItem | null>(null);
+
+  // Which line's notes editor is open (notes collapse behind a pencil affordance).
+  const [editingNotesUid, setEditingNotesUid] = useState<string | null>(null);
 
   // Seed the working copy from the order whenever the drawer opens for an order.
   useEffect(() => {
@@ -162,6 +179,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setRemovedCombos(new Set());
     setError(null);
     setSearch('');
+    setHighlightIdx(0);
+    setEditingNotesUid(null);
 
     setOrderType((order.order_type as 'pickup' | 'delivery') ?? 'pickup');
     setAddress(order.delivery_address ?? '');
@@ -198,22 +217,73 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     return () => { cancelled = true; };
   }, [open, restaurantId]);
 
+  // Search results — only while typing, capped at 8 for keyboard navigation.
   const filteredCatalog = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return catalog.slice(0, 30);
-    return catalog.filter((i) => i.name.toLowerCase().includes(q)).slice(0, 30);
+    if (!q) return [];
+    return catalog.filter((i) => i.name.toLowerCase().includes(q)).slice(0, 8);
   }, [catalog, search]);
 
+  // Original per-line snapshot, for the "qty changed" marker and dirty checks.
+  const origById = useMemo(() => {
+    const m = new Map<number, { quantity: number; notes: string }>();
+    for (const it of order?.items ?? []) {
+      if (!it.combo_group) m.set(it.id, { quantity: it.quantity, notes: it.notes ?? '' });
+    }
+    return m;
+  }, [order]);
+
+  const activeLines = useMemo(() => lines.filter((l) => !l.removed), [lines]);
+
   const liveTotal = useMemo(() => {
-    const itemsTotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+    const itemsTotal = activeLines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
     const combosTotal = combos
       .filter((c) => !removedCombos.has(c.group))
       .reduce((s, c) => s + c.price, 0);
     return itemsTotal + combosTotal;
-  }, [lines, combos, removedCombos]);
+  }, [activeLines, combos, removedCombos]);
 
   const remainingCount =
-    lines.length + combos.filter((c) => !removedCombos.has(c.group)).length;
+    activeLines.length + combos.filter((c) => !removedCombos.has(c.group)).length;
+
+  // Fulfillment/type/address dirty — gates both the PUT on save and the
+  // discard-confirm on close.
+  const fulfillmentDirty = useMemo(() => {
+    if (!order) return false;
+    if (orderType !== order.order_type) return true;
+    if (
+      orderType === 'delivery' &&
+      (address !== (order.delivery_address ?? '') ||
+        city !== (order.delivery_city ?? '') ||
+        floor !== (order.delivery_floor ?? '') ||
+        apt !== (order.delivery_apt ?? ''))
+    ) {
+      return true;
+    }
+    const wasScheduled = !!(order.is_scheduled && order.scheduled_for);
+    if ((fulfillment.timing === 'scheduled') !== wasScheduled) return true;
+    if (fulfillment.timing === 'scheduled') {
+      return (
+        fulfillment.scheduledFor !== order.scheduled_for?.slice(0, 10) ||
+        (fulfillment.windowStart ?? undefined) !== (order.scheduled_pickup_window_start ?? undefined) ||
+        (fulfillment.windowEnd ?? undefined) !== (order.scheduled_pickup_window_end ?? undefined)
+      );
+    }
+    return false;
+  }, [order, orderType, address, city, floor, apt, fulfillment]);
+
+  const linesDirty = useMemo(
+    () =>
+      removedCombos.size > 0 ||
+      lines.some((l) => {
+        if (l.removed || !l.orderItemId) return true; // removal or brand-new line
+        const orig = origById.get(l.orderItemId);
+        return !!orig && (orig.quantity !== l.quantity || orig.notes !== l.notes);
+      }),
+    [lines, removedCombos, origById],
+  );
+
+  const isDirty = linesDirty || fulfillmentDirty;
 
   function changeQty(uid: string, delta: number) {
     setLines((prev) =>
@@ -226,7 +296,19 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   }
 
   function removeLine(uid: string) {
-    setLines((prev) => prev.filter((l) => l.uid !== uid));
+    setLines((prev) =>
+      prev.flatMap((l) => {
+        if (l.uid !== uid) return [l];
+        // Existing lines soft-delete (struck through + restorable) so the
+        // removal is reviewable before save; just-added lines simply go away.
+        return l.orderItemId ? [{ ...l, removed: true }] : [];
+      }),
+    );
+    if (editingNotesUid === uid) setEditingNotesUid(null);
+  }
+
+  function restoreLine(uid: string) {
+    setLines((prev) => prev.map((l) => (l.uid === uid ? { ...l, removed: false } : l)));
   }
 
   function toggleCombo(group: string) {
@@ -242,6 +324,45 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setLines((prev) => [...prev, newLineToEditLine(nl)]);
   }
 
+  // Picking a search result: simple items (no variants/modifiers) add in one
+  // click — merging into an identical existing line instead of duplicating it;
+  // items with options open the picker modal.
+  function pickCatalogItem(it: MenuItem) {
+    if (isSimpleItem(it)) {
+      const existing = lines.find(
+        (l) => !l.removed && l.menuItemId === it.id && !l.selectedVariantId && l.modifiers.length === 0,
+      );
+      if (existing) {
+        changeQty(existing.uid, 1);
+      } else {
+        setLines((prev) => [
+          ...prev,
+          {
+            uid: `new-${it.id}-${Date.now()}`,
+            menuItemId: it.id,
+            name: it.name,
+            unitPrice: it.price,
+            quantity: 1,
+            notes: '',
+            modifiers: [],
+          },
+        ]);
+      }
+    } else {
+      setPickerItem(it);
+    }
+    setSearch('');
+    setHighlightIdx(0);
+  }
+
+  // "+1" quick action on a search result — bumps the one matching line without
+  // closing the search, for rapid repeat additions. Shown only when the match
+  // is unambiguous (exactly one active line for that item).
+  function quickAddMatch(it: MenuItem): EditLine | undefined {
+    const matches = activeLines.filter((l) => l.menuItemId === it.id);
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+
   async function handleSave() {
     if (!order) return;
     if (remainingCount === 0) {
@@ -251,14 +372,11 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setSaving(true);
     setError(null);
 
-    const original = (order.items ?? []).filter((i) => !i.combo_group);
-    const keptIds = new Set(lines.filter((l) => l.orderItemId).map((l) => l.orderItemId!));
-
     try {
-      // 1) Removed regular lines.
-      for (const it of original) {
-        if (!keptIds.has(it.id)) {
-          await removeOrderItem(restaurantId, order.id, it.id);
+      // 1) Soft-deleted regular lines.
+      for (const line of lines) {
+        if (line.removed && line.orderItemId) {
+          await removeOrderItem(restaurantId, order.id, line.orderItemId);
         }
       }
       // 2) Removed combos — drop every child line in the group.
@@ -271,30 +389,33 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       }
       // 3) Updated existing lines (quantity / notes changed).
       for (const line of lines) {
-        if (!line.orderItemId) continue;
-        const orig = original.find((o) => o.id === line.orderItemId);
-        if (orig && (orig.quantity !== line.quantity || (orig.notes ?? '') !== line.notes)) {
+        if (line.removed || !line.orderItemId) continue;
+        const orig = origById.get(line.orderItemId);
+        if (orig && (orig.quantity !== line.quantity || orig.notes !== line.notes)) {
           await updateOrderItem(restaurantId, line.orderItemId, lineToInput(line));
         }
       }
       // 4) Newly added lines.
       for (const line of lines) {
-        if (!line.orderItemId) {
+        if (!line.removed && !line.orderItemId) {
           await addOrderItem(restaurantId, order.id, lineToInput(line));
         }
       }
 
-      // 5) Update fulfillment (type, address, schedule).
-      await updateOrderFulfillment(restaurantId, order.id, {
-        order_type: orderType,
-        is_scheduled: fulfillment.timing === 'scheduled',
-        scheduled_for: fulfillment.timing === 'scheduled' ? fulfillment.scheduledFor : undefined,
-        scheduled_pickup_window_start: fulfillment.timing === 'scheduled' ? fulfillment.windowStart : undefined,
-        scheduled_pickup_window_end: fulfillment.timing === 'scheduled' ? fulfillment.windowEnd : undefined,
-        ...(orderType === 'delivery'
-          ? { delivery_address: address, delivery_city: city, delivery_floor: floor, delivery_apt: apt }
-          : {}),
-      });
+      // 5) Fulfillment (type, address, schedule) — only when actually changed,
+      // so a pure item edit never touches the order's status/schedule.
+      if (fulfillmentDirty) {
+        await updateOrderFulfillment(restaurantId, order.id, {
+          order_type: orderType,
+          is_scheduled: fulfillment.timing === 'scheduled',
+          scheduled_for: fulfillment.timing === 'scheduled' ? fulfillment.scheduledFor : undefined,
+          scheduled_pickup_window_start: fulfillment.timing === 'scheduled' ? fulfillment.windowStart : undefined,
+          scheduled_pickup_window_end: fulfillment.timing === 'scheduled' ? fulfillment.windowEnd : undefined,
+          ...(orderType === 'delivery'
+            ? { delivery_address: address, delivery_city: city, delivery_floor: floor, delivery_apt: apt }
+            : {}),
+        });
+      }
 
       onSaved();
       onClose();
@@ -309,13 +430,18 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     <>
       <Drawer
         open={open}
-        onOpenChange={(o) => !o && onClose()}
+        onOpenChange={(o) => {
+          if (o) return;
+          // Guard against silently losing edits on Escape / overlay click.
+          if (isDirty && !window.confirm(t('discardUnsavedChanges'))) return;
+          onClose();
+        }}
         title={t('editOrder') || 'Modifier la commande'}
         subtitle={order ? t('orderNumber').replace('{id}', String(order.id)) : undefined}
         width={560}
         onSave={handleSave}
         saveLabel={saving ? t('savingChanges') || 'Saving…' : `${t('saveChanges')} · ₪${liveTotal.toFixed(2)}`}
-        saveDisabled={saving}
+        saveDisabled={saving || !isDirty}
       >
         <div className="flex flex-col gap-[var(--s-5)]">
           {error && (
@@ -362,133 +488,321 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
             onChange={setFulfillment}
           />
 
-          {/* Existing + added regular lines */}
-          <div className="flex flex-col gap-[var(--s-3)]">
-            {lines.map((line) => (
-              <div key={line.uid} className="rounded-md border border-[var(--line)] p-[var(--s-3)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-fs-sm font-medium truncate">
-                      {line.name}
-                      {line.variantName ? <span className="text-[var(--fg-muted)]"> — {line.variantName}</span> : null}
-                    </div>
-                    {line.modifiers.length > 0 && (
-                      <div className="text-fs-xs text-[var(--fg-muted)] truncate">
-                        {line.modifiers.map((m) => m.name).join(' · ')}
-                      </div>
-                    )}
-                    <div className="text-fs-xs text-[var(--fg-subtle)] font-mono">₪{line.unitPrice.toFixed(2)}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeLine(line.uid)}
-                    aria-label={t('remove')}
-                    className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-600)] transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => changeQty(line.uid, -1)}
-                      disabled={line.quantity <= 1}
-                      aria-label="-"
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-[var(--line-strong)] disabled:opacity-40"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-6 text-center text-fs-sm tabular-nums">{line.quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => changeQty(line.uid, 1)}
-                      aria-label="+"
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-[var(--line-strong)]"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <span className="ms-auto text-fs-sm font-medium tabular-nums">
-                    ₪{(line.unitPrice * line.quantity).toFixed(2)}
-                  </span>
-                </div>
-
-                <input
-                  type="text"
-                  value={line.notes}
-                  onChange={(e) => setNotes(line.uid, e.target.value)}
-                  placeholder={t('itemNotesPlaceholder')}
-                  className="mt-2 w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-3)] py-1.5 text-fs-xs"
-                />
-              </div>
-            ))}
-
-            {/* Combos — removable, not editable */}
-            {combos.map((combo) => {
-              const removed = removedCombos.has(combo.group);
-              return (
-                <div
-                  key={combo.group}
-                  className={`rounded-md border border-[var(--line)] p-[var(--s-3)] ${removed ? 'opacity-50' : ''}`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-fs-sm font-medium truncate">🍱 {combo.name}</div>
-                      <div className="text-fs-xs text-[var(--fg-muted)]">
-                        {combo.items.map((i) => i.name).join(' · ')}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleCombo(combo.group)}
-                      className="shrink-0 text-fs-xs text-[var(--fg-subtle)] hover:text-[var(--fg)] underline"
-                    >
-                      {removed ? t('cancel') : t('remove')}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {combos.length > 0 && (
-              <p className="text-fs-xs text-[var(--fg-subtle)]">{t('combosNotEditable')}</p>
-            )}
-          </div>
-
-          {/* Add-item picker */}
+          {/* Add-item search — at the TOP of the items area so adding never
+              requires scrolling past the whole order. Results render as an
+              overlay only while typing (max 8, keyboard-navigable). */}
           <Field label={t('addItem')}>
             <div className="relative">
               <Search className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--fg-subtle)]" />
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setHighlightIdx(0); }}
+                onKeyDown={(e) => {
+                  if (filteredCatalog.length === 0) return;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setHighlightIdx((i) => Math.min(i + 1, filteredCatalog.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setHighlightIdx((i) => Math.max(i - 1, 0));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    pickCatalogItem(filteredCatalog[Math.min(highlightIdx, filteredCatalog.length - 1)]);
+                  } else if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setSearch('');
+                  }
+                }}
                 placeholder={t('searchItems')}
                 className="w-full rounded-md border border-[var(--line-strong)] bg-[var(--surface)] ps-9 pe-3 py-2 text-fs-sm"
               />
-            </div>
-            <div className="mt-2 max-h-64 overflow-auto rounded-md border border-[var(--line)]">
-              {filteredCatalog.length === 0 ? (
-                <p className="px-[var(--s-3)] py-3 text-fs-sm text-[var(--fg-subtle)]">{t('noItemsFound')}</p>
-              ) : (
-                filteredCatalog.map((it) => (
-                  <button
-                    key={it.id}
-                    type="button"
-                    onClick={() => setPickerItem(it)}
-                    className="flex w-full items-center justify-between gap-3 px-[var(--s-3)] py-2 text-start hover:bg-[var(--surface-subtle)] transition-colors"
-                  >
-                    <span className="text-fs-sm truncate">{it.name}</span>
-                    <span className="shrink-0 font-mono tabular-nums text-fs-xs text-[var(--fg-muted)]">
-                      ₪{it.price.toFixed(2)}
-                    </span>
-                  </button>
-                ))
+              {search.trim() !== '' && (
+                <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-auto rounded-md border border-[var(--line-strong)] bg-[var(--surface)] shadow-lg">
+                  {filteredCatalog.length === 0 ? (
+                    <p className="px-[var(--s-3)] py-3 text-fs-sm text-[var(--fg-subtle)]">{t('noItemsFound')}</p>
+                  ) : (
+                    filteredCatalog.map((it, idx) => {
+                      const variantCount = (it.variant_groups?.[0]?.variants ?? []).filter((v) => v.is_active).length;
+                      const match = quickAddMatch(it);
+                      return (
+                        <div
+                          key={it.id}
+                          className={cn(
+                            'flex w-full items-center gap-2 px-[var(--s-3)] py-2',
+                            idx === highlightIdx && 'bg-[var(--surface-2)]',
+                          )}
+                          onMouseEnter={() => setHighlightIdx(idx)}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => pickCatalogItem(it)}
+                            className="flex min-w-0 flex-1 items-center gap-2 text-start"
+                          >
+                            <span className="text-fs-sm truncate">{it.name}</span>
+                            {variantCount > 0 && (
+                              <span className="shrink-0 rounded-full bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--fg-muted)]">
+                                {(t('nOptions') || '{n} options').replace('{n}', String(variantCount))}
+                              </span>
+                            )}
+                            <span className="ms-auto shrink-0 font-mono tabular-nums text-fs-xs text-[var(--fg-muted)]">
+                              ₪{it.price.toFixed(2)}
+                            </span>
+                          </button>
+                          {match && (
+                            <button
+                              type="button"
+                              onClick={() => changeQty(match.uid, 1)}
+                              title={t('alreadyAdded')}
+                              className="shrink-0 rounded-md border border-[var(--line-strong)] px-2 py-0.5 text-fs-xs font-medium text-[var(--brand-600)] hover:bg-[var(--surface-2)]"
+                            >
+                              +1
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               )}
             </div>
           </Field>
+
+          {/* Lines + combos — one compact, reviewable list. Soft-deleted rows
+              stay visible (struck through + restorable) so staff can audit
+              every change before saving. */}
+          <div className="flex flex-col gap-[var(--s-2)]">
+            <div className="rounded-md border border-[var(--line)] divide-y divide-[var(--line)]">
+              {lines.map((line) => {
+                const orig = line.orderItemId ? origById.get(line.orderItemId) : undefined;
+                const qtyChanged = !!orig && orig.quantity !== line.quantity;
+                const isNew = !line.orderItemId;
+                const editingNotes = editingNotesUid === line.uid;
+                return (
+                  <div key={line.uid} className="px-[var(--s-3)] py-[var(--s-2)]">
+                    <div className="flex items-center gap-[var(--s-3)]">
+                      {/* Stepper pill (hidden for removed rows) */}
+                      {line.removed ? (
+                        <span className="w-[76px] shrink-0" aria-hidden />
+                      ) : (
+                        <div className="flex shrink-0 items-center rounded-md border border-[var(--line-strong)]">
+                          <button
+                            type="button"
+                            onClick={() => changeQty(line.uid, -1)}
+                            disabled={line.quantity <= 1}
+                            aria-label="-"
+                            className="flex h-7 w-6 items-center justify-center disabled:opacity-40"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span
+                            className={cn(
+                              'w-7 text-center text-fs-sm tabular-nums',
+                              qtyChanged && 'font-semibold text-[var(--brand-600)]',
+                            )}
+                            title={qtyChanged ? `${orig!.quantity} → ${line.quantity}` : undefined}
+                          >
+                            {line.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => changeQty(line.uid, 1)}
+                            aria-label="+"
+                            className="flex h-7 w-6 items-center justify-center"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Name + chips */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              'text-fs-sm font-medium truncate',
+                              line.removed && 'line-through text-[var(--fg-muted)]',
+                            )}
+                          >
+                            {line.name}
+                          </span>
+                          {isNew && !line.removed && (
+                            <span
+                              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]"
+                              style={{
+                                background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                                color: 'var(--brand-500)',
+                              }}
+                            >
+                              {t('badgeNew')}
+                            </span>
+                          )}
+                        </div>
+                        {(line.variantName || line.modifiers.length > 0 || line.notes) && !line.removed && (
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            {line.variantName && (
+                              <span
+                                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                style={{
+                                  background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                                  color: 'var(--brand-500)',
+                                }}
+                              >
+                                {line.variantName}
+                              </span>
+                            )}
+                            {line.modifiers.map((m) => (
+                              <span
+                                key={m.modifier_id}
+                                className="inline-flex items-center rounded-full bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--fg-muted)]"
+                              >
+                                {m.name}
+                              </span>
+                            ))}
+                            {line.notes && !editingNotes && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingNotesUid(line.uid)}
+                                className="inline-flex items-center gap-1 text-[11px] italic text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                              >
+                                <Pencil className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate max-w-[180px]">&ldquo;{line.notes}&rdquo;</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Note affordance (only when no note yet) */}
+                      {!line.removed && !line.notes && !editingNotes && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingNotesUid(line.uid)}
+                          aria-label={t('addNote')}
+                          title={t('addNote')}
+                          className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--fg)] transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* Line total */}
+                      <span
+                        className={cn(
+                          'shrink-0 text-fs-sm font-medium tabular-nums text-end min-w-[64px]',
+                          line.removed && 'line-through text-[var(--fg-muted)]',
+                        )}
+                      >
+                        ₪{(line.unitPrice * line.quantity).toFixed(2)}
+                      </span>
+
+                      {/* Remove / restore */}
+                      {line.removed ? (
+                        <button
+                          type="button"
+                          onClick={() => restoreLine(line.uid)}
+                          className="shrink-0 text-fs-xs font-medium text-[var(--brand-600)] hover:underline"
+                        >
+                          {t('restore')}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => removeLine(line.uid)}
+                          aria-label={t('remove')}
+                          className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-600)] transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* On-demand notes editor */}
+                    {editingNotes && !line.removed && (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={line.notes}
+                        onChange={(e) => setNotes(line.uid, e.target.value)}
+                        onBlur={() => setEditingNotesUid(null)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === 'Escape') {
+                            e.stopPropagation();
+                            setEditingNotesUid(null);
+                          }
+                        }}
+                        placeholder={t('itemNotesPlaceholder')}
+                        className="mt-2 w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-[var(--s-3)] py-1.5 text-fs-xs"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Combos — removable as a whole, not editable */}
+              {combos.map((combo) => {
+                const removed = removedCombos.has(combo.group);
+                return (
+                  <div key={combo.group} className="flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)]">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'text-fs-sm font-medium truncate',
+                            removed && 'line-through text-[var(--fg-muted)]',
+                          )}
+                        >
+                          {combo.name}
+                        </span>
+                        <span
+                          className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                          style={{
+                            background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                            color: 'var(--brand-500)',
+                          }}
+                        >
+                          {t('combo') || 'Combo'}
+                        </span>
+                      </div>
+                      <div className={cn('text-fs-xs text-[var(--fg-muted)] truncate', removed && 'line-through')}>
+                        {combo.items.map((i) => i.name).join(' · ')}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'shrink-0 text-fs-sm font-medium tabular-nums text-end min-w-[64px]',
+                        removed && 'line-through text-[var(--fg-muted)]',
+                      )}
+                    >
+                      ₪{combo.price.toFixed(2)}
+                    </span>
+                    {removed ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleCombo(combo.group)}
+                        className="shrink-0 text-fs-xs font-medium text-[var(--brand-600)] hover:underline"
+                      >
+                        {t('restore')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toggleCombo(combo.group)}
+                        aria-label={t('remove')}
+                        className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--danger-600)] transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {combos.length > 0 && (
+              <p className="text-fs-xs text-[var(--fg-subtle)]">{t('combosNotEditable')}</p>
+            )}
+          </div>
         </div>
       </Drawer>
 
