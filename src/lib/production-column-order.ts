@@ -1,39 +1,29 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ProductionSheetResponse, ProductionSheetCategory } from '@/lib/api';
+import {
+  saveProductionColumnOrder,
+  type ProductionSheetResponse,
+  type ProductionSheetCategory,
+  type ProductionColumnOrderConfig,
+} from '@/lib/api';
 
-// Persisted, per-restaurant column layout for the production sheet. Categories
-// are ordered as whole blocks; items are ordered within their category. Both
-// orders are stored as *partial* preferences (only ids the user has moved) so a
+// Restaurant-wide column layout for the production sheet, shared across all
+// staff and devices (server-persisted on the Restaurant). Categories are
+// ordered as whole blocks; items are ordered within their category. Both orders
+// are stored as *partial* preferences (only ids the user has moved) so a
 // newly-added category or item always still appears — see orderBy().
-interface ColumnOrderState {
-  /** Preferred category-id order (category bands, left to right). */
-  categories: number[];
-  /** Preferred item-id order within each category id. */
-  items: Record<number, number[]>;
-}
+type ColumnOrderState = ProductionColumnOrderConfig;
 
 const EMPTY: ColumnOrderState = { categories: [], items: {} };
 
-// Mirrors the stock-level convention (foody.stock.level.<rid>.<itemId>).
-function storageKey(restaurantId: number): string {
-  return `foody.production.colorder.${restaurantId}`;
-}
-
-function load(restaurantId: number): ColumnOrderState {
-  if (typeof window === 'undefined') return EMPTY;
-  try {
-    const raw = window.localStorage.getItem(storageKey(restaurantId));
-    if (!raw) return EMPTY;
-    const parsed = JSON.parse(raw) as Partial<ColumnOrderState>;
-    return {
-      categories: Array.isArray(parsed.categories) ? parsed.categories : [],
-      items: parsed.items && typeof parsed.items === 'object' ? parsed.items : {},
-    };
-  } catch {
-    return EMPTY;
-  }
+// Coerce whatever the server returned (possibly null / partial) into a full state.
+function normalize(cfg: ProductionColumnOrderConfig | null | undefined): ColumnOrderState {
+  if (!cfg) return EMPTY;
+  return {
+    categories: Array.isArray(cfg.categories) ? cfg.categories : [],
+    items: cfg.items && typeof cfg.items === 'object' ? cfg.items : {},
+  };
 }
 
 /**
@@ -74,33 +64,43 @@ export interface ProductionColumnOrder {
 }
 
 /**
- * Owns the production sheet's column layout: loads the saved order for the
- * restaurant, applies it to a sheet before render, and persists drag reorders
- * to localStorage. Client-only; a no-op for restaurants with no saved order.
+ * Owns the production sheet's shared column layout: seeds from the layout the
+ * server returned with the sheet (`serverOrder`), applies it to a sheet before
+ * render, and persists drag reorders back to the server so every device sees
+ * the same arrangement. Optimistic: a failed save reverts the local change.
  */
-export function useProductionColumnOrder(restaurantId: number): ProductionColumnOrder {
+export function useProductionColumnOrder(
+  restaurantId: number,
+  serverOrder: ProductionColumnOrderConfig | null | undefined,
+): ProductionColumnOrder {
   const [state, setState] = useState<ColumnOrderState>(EMPTY);
   // Latest state for the event-handler mutators, so they compute from current
   // order without adding it to their dependency lists.
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // Seed from the server's saved layout whenever it arrives / changes. Keyed on
+  // a stable serialisation so a refetch returning the same value is a no-op and
+  // never clobbers a just-made local reorder.
+  const serverKey = serverOrder ? JSON.stringify(serverOrder) : '';
   useEffect(() => {
-    setState(load(restaurantId));
-  }, [restaurantId]);
+    setState(normalize(serverOrder));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverKey]);
 
-  // Writes happen only from user drag actions (event handlers), always scoped to
-  // the current restaurant — so we never risk writing one restaurant's order to
-  // another's key on a restaurant switch.
+  // Optimistically apply `next`, then persist. On failure, revert to `prev` so
+  // the UI never shows a layout that didn't save. Best-effort like the old
+  // localStorage code — ordering is a convenience, never blocks the sheet.
   const commit = useCallback(
     (next: ColumnOrderState) => {
+      const prev = stateRef.current;
       stateRef.current = next;
       setState(next);
-      try {
-        window.localStorage.setItem(storageKey(restaurantId), JSON.stringify(next));
-      } catch {
-        /* ignore quota / private-mode errors — ordering is a convenience */
-      }
+      saveProductionColumnOrder(restaurantId, next).catch((err) => {
+        console.error('[production] failed to save column order', err);
+        stateRef.current = prev;
+        setState(prev);
+      });
     },
     [restaurantId],
   );

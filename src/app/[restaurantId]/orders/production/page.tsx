@@ -16,6 +16,7 @@ import {
   ChevronDownIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { Kpi, PageHead } from '@/components/ds';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import {
@@ -59,12 +60,18 @@ export default function ProductionPage() {
   // page-wide default + per-article overrides, persisted per restaurant.
   const display = useProductionDisplay(restaurantId);
   const fsRef = useRef<HTMLDivElement>(null);
-  // Persisted per-restaurant column layout (category + item order, drag-reordered).
+  // Only managers/owners may rearrange the shared layout (server enforces
+  // SettingsEdit); everyone can still tick orders done.
+  const { hasPermission } = usePermissions();
+  const canEditLayout = hasPermission('settings.edit');
+  // Restaurant-wide column layout (category + item order), shared across all
+  // staff/devices — seeded from the layout the server returns with the sheet.
   const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
-    useProductionColumnOrder(restaurantId);
+    useProductionColumnOrder(restaurantId, sheet?.column_order);
 
-  // Per-device, per-day "prepared" set for the active restaurant + date.
-  const { doneIds, toggle: toggleDone } = useProductionDone(restaurantId, date);
+  // Shared "done" set for the active restaurant + day, synced live across
+  // tablets — seeded from the sheet's per-order prepared flags.
+  const { doneIds, toggle: toggleDone } = useProductionDone(restaurantId, sheet?.orders);
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -378,7 +385,7 @@ export default function ProductionPage() {
                       onClick: () => window.print(),
                       icon: <PrinterIcon className="w-4 h-4" />,
                     },
-                    ...(hasCustomOrder
+                    ...(canEditLayout && hasCustomOrder
                       ? [
                           {
                             label: t('productionResetColumns'),
@@ -488,8 +495,8 @@ export default function ProductionPage() {
             unitDisplayIds={unitDisplayIds}
             onToggleItemDisplay={display.toggleItem}
             sticky
-            onReorderCategories={setCategoryOrder}
-            onReorderItems={setItemOrder}
+            onReorderCategories={canEditLayout ? setCategoryOrder : undefined}
+            onReorderItems={canEditLayout ? setItemOrder : undefined}
             doneIds={doneIds}
             onToggleDone={toggleDone}
           />
