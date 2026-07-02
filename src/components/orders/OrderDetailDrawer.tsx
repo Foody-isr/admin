@@ -11,7 +11,7 @@ import {
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
-  SendIcon, MailIcon, FileTextIcon, MoreHorizontalIcon,
+  SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -23,7 +23,7 @@ import {
   buildMailtoUrl,
 } from '@/lib/receipt-share';
 import {
-  initOrderPaymentLink, getOrderInvoice, sendOrderInvoice,
+  initOrderPaymentLink, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
 } from '@/lib/api';
 import { Badge, Button, Drawer, Section } from '@/components/ds';
@@ -1520,6 +1520,8 @@ function InvoiceSection({ order }: { order: Order }) {
   const [emailDraft, setEmailDraft] = useState(order.customer_email || '');
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState<false | 'view' | 'download'>(false);
+  const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -1576,6 +1578,33 @@ function InvoiceSection({ order }: { order: Order }) {
     }
   };
 
+  // Fetch the PDF through our server (Summit forces a download + blocks
+  // cross-origin), then either open it inline in a new tab or save it.
+  const openPdf = async (mode: 'view' | 'download') => {
+    setPdfBusy(mode);
+    setPdfError(false);
+    try {
+      const blob = await fetchOrderInvoicePdf(order.restaurant_id, order.id);
+      const blobUrl = URL.createObjectURL(blob);
+      if (mode === 'download') {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `facture-${invoice.document_number}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        window.open(blobUrl, '_blank', 'noopener');
+      }
+      // Give the new tab / download time to read the blob before revoking.
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch {
+      setPdfError(true);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   const shareBtn =
     'inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium hover:bg-[var(--surface-2)]';
 
@@ -1586,8 +1615,11 @@ function InvoiceSection({ order }: { order: Order }) {
         <span className="text-fs-xs text-[var(--fg-muted)]">Summit</span>
       </div>
       <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-        <Button variant="secondary" size="sm" onClick={() => window.open(url, '_blank', 'noopener')}>
-          <FileTextIcon className="size-3.5" /> {t('invoiceView') || 'Voir / Télécharger'}
+        <Button variant="secondary" size="sm" onClick={() => openPdf('view')} disabled={pdfBusy !== false}>
+          <FileTextIcon className="size-3.5" /> {pdfBusy === 'view' ? `${t('loading')}…` : (t('invoiceView') || 'Voir')}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => openPdf('download')} disabled={pdfBusy !== false}>
+          <DownloadIcon className="size-3.5" /> {pdfBusy === 'download' ? `${t('loading')}…` : (t('invoiceDownload') || 'Télécharger')}
         </Button>
         <Button variant="secondary" size="sm" onClick={() => setSendOpen((v) => !v)}>
           <SendIcon className="size-3.5" /> {t('invoiceSend') || 'Envoyer la facture'}
@@ -1626,6 +1658,7 @@ function InvoiceSection({ order }: { order: Order }) {
       )}
       {sendState === 'sent' && <span className="text-fs-xs text-[var(--success-500)]">{t('invoiceSent') || 'Facture envoyée'}</span>}
       {sendState === 'error' && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceSendError') || "Échec de l'envoi de la facture"}</span>}
+      {pdfError && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</span>}
     </div>
   );
 }
