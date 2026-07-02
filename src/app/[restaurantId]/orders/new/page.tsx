@@ -274,6 +274,14 @@ export default function NewOrderPage() {
         payment_method: paymentMethod || undefined,
         payment_status: paymentStatus,
         payment_required: data.payment === 'link',
+        ...(data.fulfillment.timing === 'scheduled' && data.fulfillment.scheduledFor
+          ? {
+              is_scheduled: true,
+              scheduled_for: data.fulfillment.scheduledFor,
+              scheduled_pickup_window_start: data.fulfillment.windowStart,
+              scheduled_pickup_window_end: data.fulfillment.windowEnd,
+            }
+          : {}),
         ...(data.orderType === 'delivery'
           ? {
               delivery_address: data.address.trim(),
@@ -676,6 +684,7 @@ export default function NewOrderPage() {
         submitting={submitting}
         error={submitError}
         onConfirm={handleConfirm}
+        batchConfig={batchConfig}
       />
     </div>
   );
