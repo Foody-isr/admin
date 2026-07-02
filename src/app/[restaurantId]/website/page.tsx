@@ -2861,6 +2861,10 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
   const content = section.content || {};
   const settings = section.settings || {};
 
+  const aboutImg = section.section_type === 'about' && !!settings.bg_image;
+  const overlayOn = aboutImg ? (settings.bg_overlay ?? true) : !!settings.bg_overlay;
+  const overlayOpacity = settings.bg_overlay_opacity ?? (aboutImg ? 45 : 50);
+
   function updateContent(key: string, value: any) {
     onUpdate({ content: { ...content, [key]: value } as any });
   }
@@ -2962,13 +2966,13 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
                 <label className="text-xs text-fg-secondary">Overlay</label>
                 <button
                   type="button"
-                  onClick={() => updateSettings('bg_overlay', !settings.bg_overlay)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${settings.bg_overlay ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
+                  onClick={() => updateSettings('bg_overlay', !overlayOn)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${overlayOn ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
                 >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${settings.bg_overlay ? 'translate-x-4' : ''}`} />
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${overlayOn ? 'translate-x-4' : ''}`} />
                 </button>
               </div>
-              {settings.bg_overlay && (
+              {overlayOn && (
                 <>
                   {/* Overlay color */}
                   <div className="flex items-center gap-2">
@@ -2980,14 +2984,14 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs text-fg-secondary">Overlay Opacity</label>
-                      <span className="text-xs text-fg-secondary">{settings.bg_overlay_opacity ?? 50}%</span>
+                      <span className="text-xs text-fg-secondary">{overlayOpacity}%</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="5"
-                      value={settings.bg_overlay_opacity ?? 50}
+                      value={overlayOpacity}
                       onChange={e => updateSettings('bg_overlay_opacity', Number(e.target.value))}
                       className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-[var(--brand)]"
                     />
