@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Drawer, Field, Input, Textarea } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
   ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, ClockIcon, LinkIcon,
 } from 'lucide-react';
+import { FulfillmentSection } from './FulfillmentSection';
+import {
+  buildFulfillmentTargets,
+  defaultFulfillment,
+  type FulfillmentValue,
+} from '@/lib/orders/fulfillment';
+import type { BatchFulfillmentConfigResponse } from '@/lib/api';
 
 export type OrderType = 'pickup' | 'delivery';
 export type PaymentChoice = 'cash_paid' | 'card_paid' | 'unpaid' | 'link';
@@ -21,6 +28,7 @@ export interface CheckoutData {
   apt: string;
   deliveryNotes: string;
   payment: PaymentChoice;
+  fulfillment: FulfillmentValue;
 }
 
 interface NewOrderCheckoutDrawerProps {
@@ -31,6 +39,8 @@ interface NewOrderCheckoutDrawerProps {
   submitting: boolean;
   error: string | null;
   onConfirm: (data: CheckoutData) => void;
+  batchConfig: BatchFulfillmentConfigResponse | null;
+  defaultDate?: string;
 }
 
 // A single selectable tile (used for order type + payment choices).
@@ -64,7 +74,7 @@ function OptionTile({
 }
 
 export function NewOrderCheckoutDrawer({
-  open, onClose, total, itemCount, submitting, error, onConfirm,
+  open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
 }: NewOrderCheckoutDrawerProps) {
   const { t } = useI18n();
 
@@ -77,6 +87,24 @@ export function NewOrderCheckoutDrawer({
   const [apt, setApt] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [payment, setPayment] = useState<PaymentChoice>('cash_paid');
+
+  const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
+
+  // Default to Programmée on the first batch target when batch mode is on; falls
+  // back to Immédiate otherwise. Runs once per drawer-open (ref-guarded).
+  const targets = buildFulfillmentTargets(batchConfig, orderType);
+  const didInitFulfillment = useRef(false);
+  useEffect(() => {
+    if (!open) { didInitFulfillment.current = false; return; }
+    if (didInitFulfillment.current) return;
+    didInitFulfillment.current = true;
+    const preferred = defaultDate ? targets.find((tg) => tg.date === defaultDate) : undefined;
+    setFulfillment(
+      preferred
+        ? { timing: 'scheduled', scheduledFor: preferred.date, windowStart: preferred.windowStart, windowEnd: preferred.windowEnd }
+        : defaultFulfillment(targets),
+    );
+  }, [open, targets, defaultDate]);
 
   const canConfirm =
     customerName.trim().length > 0 &&
@@ -99,7 +127,7 @@ export function NewOrderCheckoutDrawer({
       subtitle={`${itemCount} ${t('orderItems').toLowerCase()} · ₪${total.toFixed(2)}`}
       width={480}
       onSave={() =>
-        onConfirm({ customerName, customerPhone, orderType, address, city, floor, apt, deliveryNotes, payment })
+        onConfirm({ customerName, customerPhone, orderType, address, city, floor, apt, deliveryNotes, payment, fulfillment })
       }
       saveLabel={submitting ? `${t('creating')}…` : `${t('createOrder')} · ₪${total.toFixed(2)}`}
       saveDisabled={!canConfirm}
@@ -115,6 +143,13 @@ export function NewOrderCheckoutDrawer({
             <OptionTile active={orderType === 'delivery'} onClick={() => setOrderType('delivery')} icon={<TruckIcon />} label={t('delivery')} />
           </div>
         </div>
+
+        <FulfillmentSection
+          orderType={orderType}
+          batchConfig={batchConfig}
+          value={fulfillment}
+          onChange={setFulfillment}
+        />
 
         {/* Customer */}
         <div className="flex flex-col gap-[var(--s-3)]">
@@ -159,6 +194,10 @@ export function NewOrderCheckoutDrawer({
             ))}
           </div>
         </div>
+
+        {fulfillment.timing === 'scheduled' && (payment === 'unpaid' || payment === 'link') && (
+          <p className="text-fs-xs text-[var(--fg-muted)]">{t('fulfillmentScheduledUnpaidHint')}</p>
+        )}
 
         {error && <p className="text-fs-sm text-[var(--danger-500)]">{error}</p>}
       </div>

@@ -13,18 +13,24 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Minus, Trash2, Search } from 'lucide-react';
-import { Drawer, Field } from '@/components/ds';
+import { Drawer, Field, Input } from '@/components/ds';
 import {
   listAllItems,
   addOrderItem,
   updateOrderItem,
   removeOrderItem,
+  updateOrderFulfillment,
+  getBatchFulfillmentConfig,
   type Order,
   type OrderItem,
   type MenuItem,
   type CreateOrderItemInput,
+  type BatchFulfillmentConfigResponse,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
+import { FulfillmentSection } from './FulfillmentSection';
+import type { FulfillmentValue } from '@/lib/orders/fulfillment';
 import { NewOrderItemModal, type NewOrderLine, lineUnitPrice } from './NewOrderItemModal';
 
 // ─── Working-copy model ──────────────────────────────────────────────────────
@@ -118,6 +124,14 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [orderType, setOrderType] = useState<'pickup' | 'delivery'>('pickup');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [floor, setFloor] = useState('');
+  const [apt, setApt] = useState('');
+  const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
+  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+
   // Add-item picker state.
   const [catalog, setCatalog] = useState<MenuItem[]>([]);
   const [search, setSearch] = useState('');
@@ -148,6 +162,22 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setRemovedCombos(new Set());
     setError(null);
     setSearch('');
+
+    setOrderType((order.order_type as 'pickup' | 'delivery') ?? 'pickup');
+    setAddress(order.delivery_address ?? '');
+    setCity(order.delivery_city ?? '');
+    setFloor(order.delivery_floor ?? '');
+    setApt(order.delivery_apt ?? '');
+    setFulfillment(
+      order.is_scheduled && order.scheduled_for
+        ? {
+            timing: 'scheduled',
+            scheduledFor: order.scheduled_for.slice(0, 10),
+            windowStart: order.scheduled_pickup_window_start ?? undefined,
+            windowEnd: order.scheduled_pickup_window_end ?? undefined,
+          }
+        : { timing: 'immediate' },
+    );
   }, [open, order, t]);
 
   // Load the item catalog once for the add picker.
@@ -157,6 +187,16 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       .then((items) => setCatalog(items.filter((i) => i.is_active && i.item_type !== 'combo')))
       .catch(() => setCatalog([]));
   }, [open, restaurantId, catalog.length]);
+
+  // Load batch fulfillment config on open.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getBatchFulfillmentConfig(restaurantId)
+      .then((cfg) => { if (!cancelled) setBatchConfig(cfg); })
+      .catch(() => { if (!cancelled) setBatchConfig(null); });
+    return () => { cancelled = true; };
+  }, [open, restaurantId]);
 
   const filteredCatalog = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -244,6 +284,18 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         }
       }
 
+      // 5) Update fulfillment (type, address, schedule).
+      await updateOrderFulfillment(restaurantId, order.id, {
+        order_type: orderType,
+        is_scheduled: fulfillment.timing === 'scheduled',
+        scheduled_for: fulfillment.timing === 'scheduled' ? fulfillment.scheduledFor : undefined,
+        scheduled_pickup_window_start: fulfillment.timing === 'scheduled' ? fulfillment.windowStart : undefined,
+        scheduled_pickup_window_end: fulfillment.timing === 'scheduled' ? fulfillment.windowEnd : undefined,
+        ...(orderType === 'delivery'
+          ? { delivery_address: address, delivery_city: city, delivery_floor: floor, delivery_apt: apt }
+          : {}),
+      });
+
       onSaved();
       onClose();
     } catch (e) {
@@ -271,6 +323,44 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
               {error}
             </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+              {t('orderType')}
+            </span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setOrderType('pickup')}
+                className={cn('flex-1 rounded-md border p-[var(--s-3)] text-fs-sm font-medium',
+                  orderType === 'pickup' ? 'border-[var(--brand-500)] ring-1 ring-[var(--brand-500)]' : 'border-[var(--line-strong)]')}>
+                {t('pickup')}
+              </button>
+              <button type="button" onClick={() => setOrderType('delivery')}
+                className={cn('flex-1 rounded-md border p-[var(--s-3)] text-fs-sm font-medium',
+                  orderType === 'delivery' ? 'border-[var(--brand-500)] ring-1 ring-[var(--brand-500)]' : 'border-[var(--line-strong)]')}>
+                {t('delivery')}
+              </button>
+            </div>
+          </div>
+
+          {orderType === 'delivery' && (
+            <div className="flex flex-col gap-[var(--s-3)]">
+              <Field label={t('deliveryAddress')}>
+                <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+              </Field>
+              <div className="grid grid-cols-3 gap-2">
+                <Field label={t('city')}><Input value={city} onChange={(e) => setCity(e.target.value)} /></Field>
+                <Field label={t('floor')}><Input value={floor} onChange={(e) => setFloor(e.target.value)} /></Field>
+                <Field label={t('apt')}><Input value={apt} onChange={(e) => setApt(e.target.value)} /></Field>
+              </div>
+            </div>
+          )}
+
+          <FulfillmentSection
+            orderType={orderType}
+            batchConfig={batchConfig}
+            value={fulfillment}
+            onChange={setFulfillment}
+          />
 
           {/* Existing + added regular lines */}
           <div className="flex flex-col gap-[var(--s-3)]">

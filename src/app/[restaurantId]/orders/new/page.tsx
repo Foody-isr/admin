@@ -84,6 +84,17 @@ export default function NewOrderPage() {
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
   const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
+  // Batch config loaded unconditionally so the checkout drawer has it regardless
+  // of whether the active carte is rotating. This is independent of the rotating
+  // carte batchConfig above (which drives item filtering and may be null).
+  const [fulfillmentBatchConfig, setFulfillmentBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getBatchFulfillmentConfig(restaurantId)
+      .then((cfg) => { if (!cancelled) setFulfillmentBatchConfig(cfg); })
+      .catch(() => { if (!cancelled) setFulfillmentBatchConfig(null); });
+    return () => { cancelled = true; };
+  }, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -274,6 +285,14 @@ export default function NewOrderPage() {
         payment_method: paymentMethod || undefined,
         payment_status: paymentStatus,
         payment_required: data.payment === 'link',
+        ...(data.fulfillment.timing === 'scheduled' && data.fulfillment.scheduledFor
+          ? {
+              is_scheduled: true,
+              scheduled_for: data.fulfillment.scheduledFor,
+              scheduled_pickup_window_start: data.fulfillment.windowStart,
+              scheduled_pickup_window_end: data.fulfillment.windowEnd,
+            }
+          : {}),
         ...(data.orderType === 'delivery'
           ? {
               delivery_address: data.address.trim(),
@@ -676,6 +695,8 @@ export default function NewOrderPage() {
         submitting={submitting}
         error={submitError}
         onConfirm={handleConfirm}
+        batchConfig={fulfillmentBatchConfig}
+        defaultDate={selectedDay ?? undefined}
       />
     </div>
   );
