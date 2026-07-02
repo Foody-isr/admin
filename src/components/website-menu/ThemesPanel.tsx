@@ -9,6 +9,20 @@ const PALETTE_HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 type CustomPalette = NonNullable<WebsiteConfig['custom_palette']>;
 
+// Derives the palette mode from the background's luminance (same WCAG math +
+// 0.4 threshold as foodyweb's contrastInk, so both sides agree). The mode is
+// not user-facing: it only tells the foodyweb resolver which direction to
+// derive the secondary shades (muted ink, dividers…) from the 4 swatches.
+function paletteModeFromBg(bg: string): 'light' | 'dark' {
+  const c = bg.replace('#', '');
+  const r = parseInt(c.slice(0, 2), 16) / 255;
+  const g = parseInt(c.slice(2, 4), 16) / 255;
+  const b = parseInt(c.slice(4, 6), 16) / 255;
+  const f = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const luminance = 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  return luminance > 0.4 ? 'light' : 'dark';
+}
+
 type Props = {
   config: WebsiteConfig;
   catalog: ThemeCatalog;
@@ -65,6 +79,10 @@ export function ThemesPanel({ config, catalog, onUpdate }: Props) {
 
   const handlePaletteChange = (patch: Partial<CustomPalette>) => {
     const next: CustomPalette = { ...(customPalette ?? seedFromCatalog(catalog, config.theme_id)), ...patch };
+    // Mode is auto-derived from the background on every edit; a stored palette
+    // keeps its saved mode untouched until the user edits a color. Seeding from
+    // a preset passes an explicit mode (the preset's declared one) — keep it.
+    if (!('mode' in patch)) next.mode = paletteModeFromBg(next.bg);
     onUpdate({ custom_palette: next });
   };
 
@@ -343,24 +361,9 @@ function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProp
         <h3 className="text-xs font-semibold mb-0.5">{t('customPaletteEditTitle')}</h3>
       </div>
 
-      {/* Mode — segmented light / dark. Drives derived tokens on render. */}
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-medium text-fg-primary">{t('customPaletteMode')}</span>
-        <div className="inline-flex rounded-md border border-[var(--divider)] overflow-hidden">
-          {(['light', 'dark'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onChange({ mode: m })}
-              className={`px-2.5 py-1 text-[11px] capitalize ${
-                palette.mode === m ? 'bg-brand-500 text-white' : 'text-fg-secondary hover:bg-[var(--surface-hover)]'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* No light/dark toggle: the mode is auto-derived from the background
+          color (see paletteModeFromBg) — asking was redundant and let users
+          pick a polarity that fought their own colors. */}
 
       {/* The 4 swatch rows. Color picker + hex input, both wired to the same field. */}
       {rows.map(({ key, label }) => (
