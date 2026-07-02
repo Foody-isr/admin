@@ -2303,9 +2303,10 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
 }
 
 // ─── About Blocks Editor ──────────────────────────────────────────────
-function AboutBlocksEditor({ content, updateContent }: {
+function AboutBlocksEditor({ content, updateContent, restaurantId }: {
   content: Record<string, any>;
   updateContent: (key: string, value: any) => void;
+  restaurantId: number;
 }) {
   // Backward compat: migrate legacy {title, body} to blocks
   const blocks: Record<string, any>[] =
@@ -2341,6 +2342,13 @@ function AboutBlocksEditor({ content, updateContent }: {
               <button type="button" onClick={() => removeBlock(idx)} className="text-xs text-red-500 hover:text-red-700 transition">Remove</button>
             )}
           </div>
+          <SectionImageUploader
+            restaurantId={restaurantId}
+            currentUrl={block.image_url || ''}
+            onUploaded={(url) => updateBlock(idx, 'image_url', url)}
+            onRemove={() => updateBlock(idx, 'image_url', '')}
+            label="Block image (optional)"
+          />
           <TextFieldWithTypography
             label="Title"
             value={block.title || ''}
@@ -3187,7 +3195,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
 
         {/* About — multi-block editor */}
         {section.section_type === 'about' && (
-          <AboutBlocksEditor content={content} updateContent={updateContent} />
+          <AboutBlocksEditor content={content} updateContent={updateContent} restaurantId={restaurantId} />
         )}
 
         {/* Hero Banner — per-field typography */}
