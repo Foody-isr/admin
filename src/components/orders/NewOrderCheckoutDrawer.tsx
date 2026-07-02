@@ -40,6 +40,7 @@ interface NewOrderCheckoutDrawerProps {
   error: string | null;
   onConfirm: (data: CheckoutData) => void;
   batchConfig: BatchFulfillmentConfigResponse | null;
+  defaultDate?: string;
 }
 
 // A single selectable tile (used for order type + payment choices).
@@ -73,7 +74,7 @@ function OptionTile({
 }
 
 export function NewOrderCheckoutDrawer({
-  open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig,
+  open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
 }: NewOrderCheckoutDrawerProps) {
   const { t } = useI18n();
 
@@ -97,8 +98,13 @@ export function NewOrderCheckoutDrawer({
     if (!open) { didInitFulfillment.current = false; return; }
     if (didInitFulfillment.current) return;
     didInitFulfillment.current = true;
-    setFulfillment(defaultFulfillment(targets));
-  }, [open, targets]);
+    const preferred = defaultDate ? targets.find((tg) => tg.date === defaultDate) : undefined;
+    setFulfillment(
+      preferred
+        ? { timing: 'scheduled', scheduledFor: preferred.date, windowStart: preferred.windowStart, windowEnd: preferred.windowEnd }
+        : defaultFulfillment(targets),
+    );
+  }, [open, targets, defaultDate]);
 
   const canConfirm =
     customerName.trim().length > 0 &&

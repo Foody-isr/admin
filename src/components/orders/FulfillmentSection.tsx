@@ -105,6 +105,11 @@ export function FulfillmentSection({
 
       {value.timing === 'scheduled' && !hasTargets && (
         <div className="flex flex-col gap-2">
+          {batchConfig?.enabled && (
+            <p className="text-fs-xs text-[var(--fg-muted)]">
+              {t('fulfillmentNoDayForType').replace('{type}', orderType === 'delivery' ? t('delivery') : t('pickup'))}
+            </p>
+          )}
           <label className="flex flex-col gap-1 text-fs-xs text-[var(--fg-muted)]">
             {t('fulfillmentDate')}
             <input

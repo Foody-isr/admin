@@ -84,6 +84,17 @@ export default function NewOrderPage() {
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   const [selectedCycleIndex, setSelectedCycleIndex] = useState(0);
   const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
+  // Batch config loaded unconditionally so the checkout drawer has it regardless
+  // of whether the active carte is rotating. This is independent of the rotating
+  // carte batchConfig above (which drives item filtering and may be null).
+  const [fulfillmentBatchConfig, setFulfillmentBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getBatchFulfillmentConfig(restaurantId)
+      .then((cfg) => { if (!cancelled) setFulfillmentBatchConfig(cfg); })
+      .catch(() => { if (!cancelled) setFulfillmentBatchConfig(null); });
+    return () => { cancelled = true; };
+  }, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -684,7 +695,8 @@ export default function NewOrderPage() {
         submitting={submitting}
         error={submitError}
         onConfirm={handleConfirm}
-        batchConfig={batchConfig}
+        batchConfig={fulfillmentBatchConfig}
+        defaultDate={selectedDay ?? undefined}
       />
     </div>
   );
