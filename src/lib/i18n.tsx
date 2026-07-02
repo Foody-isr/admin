@@ -1051,6 +1051,8 @@ const translations: Record<Locale, Record<string, string>> = {
     productionCategoryTotal: 'Total',
     productionClient: 'Client',
     productionResetColumns: 'Reset column order',
+    productionDoneDivider: 'Done',
+    productionMarkDone: 'Mark as ready',
     // ── Calendar + Preparation Plan ──
     calendarTitle: 'Calendar',
     calendarSubtitle: 'Upcoming scheduled orders, by week or by day.',
@@ -4077,6 +4079,8 @@ const translations: Record<Locale, Record<string, string>> = {
     productionCategoryTotal: 'סה״כ',
     productionClient: 'לקוח',
     productionResetColumns: 'איפוס סדר העמודות',
+    productionDoneDivider: 'הושלם',
+    productionMarkDone: 'סמן כמוכן',
     // ── Calendar + Preparation Plan ──
     calendarTitle: 'יומן',
     calendarSubtitle: 'הזמנות מתוזמנות קרובות, לפי שבוע או יום.',
@@ -7069,6 +7073,8 @@ const translations: Record<Locale, Record<string, string>> = {
     productionCategoryTotal: 'Total',
     productionClient: 'Client',
     productionResetColumns: 'Réinitialiser les colonnes',
+    productionDoneDivider: 'Terminé',
+    productionMarkDone: 'Marquer comme prêt',
     // ── Calendrier + Plan de préparation ──
     calendarTitle: 'Calendrier',
     calendarSubtitle: 'Commandes programmées à venir, par semaine ou par jour.',
