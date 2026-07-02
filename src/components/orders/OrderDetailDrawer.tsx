@@ -11,7 +11,7 @@ import {
   CreditCardIcon, CheckCircle2Icon,
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
-  SendIcon, MailIcon, FileTextIcon,
+  SendIcon, MailIcon, FileTextIcon, MoreHorizontalIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -516,18 +516,18 @@ export function OrderDetailDrawer({
       title={t('orderNumber').replace('{id}', String(order.id))}
       subtitle={headerSubtitle}
       width={1060}
-      primaryAction={
-        canManage && primaryBtn ? (
-          <Button variant="primary" size="sm" onClick={primaryBtn.onClick} disabled={isLoading}>
-            {primaryBtn.label}
-          </Button>
-        ) : null
-      }
+      // The single "next step" primary lives in the footer command bar (below),
+      // so the header stays purely informational — no competing top-right CTA.
+      primaryAction={null}
       footer={
-        // Mobile: stack into two rows with primary actions on top (flex-col-reverse
-        // since DOM has secondary first), each Button stretches to fill width so
-        // labels never get truncated. Desktop: original split-layout preserved.
+        // Command bar. Left: quiet utilities (edit / print / send). Right: a
+        // contextual secondary (Encaisser when unpaid, Clôturer when paid —
+        // mutually exclusive by payment state), an overflow menu for the rare
+        // and destructive actions, and ONE dominant primary = the order's next
+        // step. Mobile: the right cluster stacks with the primary on top
+        // (col-reverse), each button full-width so labels never truncate.
         <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:items-center md:justify-between md:gap-[var(--s-3)]">
+          {/* Left — quiet utilities */}
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
             {canManage && canEditOrder && (
               <Button variant="secondary" size="md" onClick={onEdit} className="flex-1 md:flex-none justify-center">
@@ -537,14 +537,19 @@ export function OrderDetailDrawer({
             <PrintTicketMenu onSelect={handlePrint} />
             <SendToCustomerMenu order={order} />
           </div>
-          <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+
+          {/* Right — contextual secondary · overflow · single primary */}
+          <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:flex-nowrap md:items-center">
             {canManage && canTakePayment && (
               <Button
-                variant="primary"
+                variant="secondary"
                 size="md"
                 onClick={onTakePayment}
                 disabled={isLoading}
-                style={{ background: 'var(--success-500)', color: '#fff' }}
+                style={{
+                  color: 'var(--success-600)',
+                  borderColor: 'color-mix(in oklab, var(--success-500) 45%, var(--line-strong))',
+                }}
                 className="flex-1 md:flex-none justify-center"
               >
                 <CreditCardIcon /> {t('takePayment')}
@@ -552,7 +557,7 @@ export function OrderDetailDrawer({
             )}
             {canManage && canCloseOrder && (
               <Button
-                variant="primary"
+                variant="secondary"
                 size="md"
                 onClick={onCloseOrder}
                 disabled={isLoading}
@@ -561,29 +566,24 @@ export function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {canManage && canCancelOrder && (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={onReject}
+            {canManage && (canCancelOrder || (canDelete && !!onDelete)) && (
+              <OrderOverflowMenu
+                canCancel={canCancelOrder}
+                canDelete={!!(canDelete && onDelete)}
+                onCancel={onReject}
+                onDelete={onDelete}
                 disabled={isLoading}
-                className="flex-1 md:flex-none justify-center"
-              >
-                <XIcon /> {t('cancelOrder') || 'Annuler la commande'}
-              </Button>
+              />
             )}
-            {/* Permanent delete — owners/admins only. Removes the order entirely
-                (not archived). Confirmation warning handled by the caller. */}
-            {canDelete && onDelete && (
+            {canManage && primaryBtn && (
               <Button
-                variant="ghost"
+                variant="primary"
                 size="md"
-                onClick={onDelete}
+                onClick={primaryBtn.onClick}
                 disabled={isLoading}
-                style={{ color: 'var(--danger-500)' }}
                 className="flex-1 md:flex-none justify-center"
               >
-                <Trash2Icon /> {t('deleteOrder') || 'Supprimer la commande'}
+                {primaryBtn.label}
               </Button>
             )}
           </div>
@@ -598,7 +598,13 @@ export function OrderDetailDrawer({
               Lives at the top of the body so staff see it immediately on both
               desktop and mobile (whereas the drawer subtitle truncates). */}
           {isScheduled && order.scheduled_for && (
-            <ScheduledBanner iso={order.scheduled_for} t={t} />
+            <ScheduledBanner
+              iso={order.scheduled_for}
+              windowStart={order.scheduled_pickup_window_start}
+              windowEnd={order.scheduled_pickup_window_end}
+              orderType={order.order_type}
+              t={t}
+            />
           )}
 
           {/* Timeline */}
@@ -736,18 +742,18 @@ export function OrderDetailDrawer({
                 <div className="font-semibold text-fs-md truncate">
                   {order.customer_name || t('guestCustomer') || 'Client'}
                 </div>
-                <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5">
-                  {localizeSource(order.order_source, t)}
-                </div>
+                {/* Source is shown once, in the structured rows below — no
+                    duplicate subtitle here. */}
+                {order.customer_phone && (
+                  <div className="text-fs-xs text-[var(--fg-subtle)] mt-0.5 font-mono tabular-nums truncate">
+                    {order.customer_phone}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
-              {order.customer_phone && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[var(--fg-subtle)]">{t('phone')}</span>
-                  <span className="font-mono tabular-nums">{order.customer_phone}</span>
-                </div>
-              )}
+              {/* Phone is shown under the name above; the rows below carry the
+                  remaining metadata (type, source, custom fields). */}
               <div className="flex items-center justify-between">
                 <span className="text-[var(--fg-subtle)]">{t('type')}</span>
                 <span>{localizeOrderType(order.order_type, t)}</span>
@@ -919,8 +925,27 @@ export function OrderDetailDrawer({
 
 // ─── Scheduled banner — prominent date/time callout for scheduled orders ──────
 
-function ScheduledBanner({ iso, t }: { iso: string; t: (k: string) => string }) {
+function ScheduledBanner({
+  iso, windowStart, windowEnd, orderType, t,
+}: {
+  iso: string;
+  windowStart?: string | null;
+  windowEnd?: string | null;
+  orderType?: Order['order_type'];
+  t: (k: string) => string;
+}) {
   const rel = relativeDayLabel(iso, t);
+  // Prefer the fulfillment window (e.g. "14:00-18:00") over the raw scheduled_for
+  // clock time — for batch orders that timestamp is a meaningless near-midnight
+  // value, so a delivery/pickup window is what staff actually need to see.
+  const win = windowStart && windowEnd ? `${windowStart}-${windowEnd}` : null;
+  const typeLabel =
+    orderType === 'delivery' ? t('delivery')
+    : orderType === 'pickup' ? t('pickup')
+    : null;
+  const timeText = win
+    ? (typeLabel ? `${typeLabel} · ${win}` : win)
+    : formatScheduledTimeOnly(iso);
   return (
     <div
       className="flex items-center gap-[var(--s-4)] rounded-r-lg p-[var(--s-4)]"
@@ -957,7 +982,7 @@ function ScheduledBanner({ iso, t }: { iso: string; t: (k: string) => string }) 
           {formatScheduledDateLong(iso)}
         </div>
         <div className="text-fs-sm tabular-nums text-[var(--fg-muted)] mt-0.5">
-          {formatScheduledTimeOnly(iso)}
+          {timeText}
         </div>
       </div>
     </div>
@@ -1403,6 +1428,76 @@ function SendToCustomerMenu({ order }: { order: Order }) {
             {copied ? <CheckIcon className="size-4" /> : <LinkIcon className="size-4" />}
             {copied ? (t('linkCopied') || 'Lien copié') : (t('copyLink') || 'Copier le lien')}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Order Overflow Menu — rare + destructive actions ────────────────────────
+// Keeps Cancel / Delete out of the primary command bar so they can't be
+// mis-clicked next to constructive actions. Opens upward (it lives in the
+// footer); both items are danger-colored.
+
+function OrderOverflowMenu({
+  canCancel, canDelete, onCancel, onDelete, disabled,
+}: {
+  canCancel: boolean;
+  canDelete: boolean;
+  onCancel: () => void;
+  onDelete?: () => void;
+  disabled?: boolean;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const itemClass =
+    'flex items-center gap-2 w-full text-left px-3 py-2 text-sm transition-colors hover:bg-[var(--surface-2)]';
+
+  return (
+    <div className="relative flex-1 md:flex-none" ref={ref}>
+      <Button
+        variant="ghost"
+        size="md"
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        aria-label={t('moreActions') || 'More'}
+        className="w-full md:w-auto justify-center"
+      >
+        <MoreHorizontalIcon />
+      </Button>
+      {open && (
+        <div
+          className="absolute bottom-full end-0 mb-1 rounded-standard py-1 min-w-[220px] z-50 shadow-lg"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
+          {canCancel && (
+            <button
+              onClick={() => { setOpen(false); onCancel(); }}
+              className={itemClass}
+              style={{ color: 'var(--danger-500)' }}
+            >
+              <XIcon className="size-4" /> {t('cancelOrder') || 'Annuler la commande'}
+            </button>
+          )}
+          {canDelete && onDelete && (
+            <button
+              onClick={() => { setOpen(false); onDelete(); }}
+              className={itemClass}
+              style={{ color: 'var(--danger-500)' }}
+            >
+              <Trash2Icon className="size-4" /> {t('deleteOrder') || 'Supprimer la commande'}
+            </button>
+          )}
         </div>
       )}
     </div>
