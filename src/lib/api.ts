@@ -3093,6 +3093,27 @@ export async function sendOrderInvoice(
   });
 }
 
+// Fetches the Summit invoice PDF bytes through our server (Summit forces a
+// download + blocks cross-origin fetches, so we proxy it). The caller turns the
+// Blob into an object URL to view inline or download.
+export async function fetchOrderInvoicePdf(
+  restaurantId: number,
+  orderId: number,
+): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/orders/${orderId}/invoice/pdf`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `API error ${res.status}`);
+  }
+  return res.blob();
+}
+
 // ─── Kitchen Plan (scheduled-orders aggregation) ─────────────────────────────
 
 export interface KitchenPlanModifierBreakdown {
