@@ -19,6 +19,7 @@
   --brand-700: #c2410c;
   --brand-800: #9a3412;
   --brand-900: #7c2d12;
+  --brand: var(--brand-500); /* bare brand alias — used by website builder controls */
 
   /* Categorical (charts, avatars, item tags) */
   --cat-1: #f97316;
