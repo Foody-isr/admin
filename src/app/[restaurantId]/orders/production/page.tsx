@@ -26,6 +26,7 @@ import {
 } from '@/lib/api';
 import { itemPortionGrams, fmtPortionGrams } from '@/lib/production';
 import { useProductionColumnOrder } from '@/lib/production-column-order';
+import { useProductionDone } from '@/lib/production-done';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
@@ -54,6 +55,9 @@ export default function ProductionPage() {
   // Persisted per-restaurant column layout (category + item order, drag-reordered).
   const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
     useProductionColumnOrder(restaurantId);
+
+  // Per-device, per-day "prepared" set for the active restaurant + date.
+  const { doneIds, toggle: toggleDone } = useProductionDone(restaurantId, date);
 
   // Load available days, default to the next upcoming day (or the last one).
   useEffect(() => {
@@ -379,6 +383,8 @@ export default function ProductionPage() {
                 onRowClick={handleRowClick}
                 availablePortions={availablePortions}
                 boxSize={boxSize}
+                doneIds={doneIds}
+                onToggleDone={toggleDone}
               />
             ))}
           </div>
@@ -403,6 +409,9 @@ export default function ProductionPage() {
                   onRowClick={handleRowClick}
                   availablePortions={availablePortions}
                   boxSize={boxSize}
+                  doneIds={doneIds}
+                  onToggleDone={toggleDone}
+                  reorderDone={false}
                 />
               </div>
             ))}
@@ -416,6 +425,8 @@ export default function ProductionPage() {
             sticky
             onReorderCategories={setCategoryOrder}
             onReorderItems={setItemOrder}
+            doneIds={doneIds}
+            onToggleDone={toggleDone}
           />
         ))}
 
