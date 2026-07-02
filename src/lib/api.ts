@@ -3253,12 +3253,20 @@ export interface ProductionSheetOrder {
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
   units?: Record<string, number>; // menu_item_id -> ordered container count (2 pots, not 1000 g)
   provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
+  prepared?: boolean; // shared "done" flag (Order.prepared_at set); synced live across tablets
+}
+// Restaurant-wide saved production-sheet layout: category-band order + item-column
+// order within each category. Shared across all staff/devices (server-persisted).
+export interface ProductionColumnOrderConfig {
+  categories: number[];
+  items: Record<number, number[]>;
 }
 export interface ProductionSheetResponse {
   date: string;
   categories: ProductionSheetCategory[];
   items: ProductionSheetItem[];
   orders: ProductionSheetOrder[];
+  column_order?: ProductionColumnOrderConfig | null;
 }
 export interface ProductionDay {
   date: string;
@@ -3279,7 +3287,35 @@ export async function fetchProductionSheet(
     categories: data.categories ?? [],
     items: data.items ?? [],
     orders: data.orders ?? [],
+    column_order: data.column_order ?? null,
   };
+}
+
+// Persist the restaurant-wide production-sheet column layout (managers/owners
+// only — the server enforces SettingsEdit). Shared across all staff/devices.
+export async function saveProductionColumnOrder(
+  restaurantId: number,
+  config: ProductionColumnOrderConfig,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/production-config?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(config) },
+  );
+}
+
+// Toggle an order's shared production-sheet "done" flag (kitchen staff — the
+// server enforces KitchenManage and broadcasts the change live to other tablets).
+export async function setOrderPrepared(
+  restaurantId: number,
+  orderId: number,
+  prepared: boolean,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/${orderId}/prepared?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ prepared }) },
+  );
 }
 
 export async function fetchProductionDays(restaurantId: number): Promise<ProductionDay[]> {

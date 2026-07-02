@@ -1,31 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-// Per-restaurant, per-day set of orders a cook has marked prepared on the
-// production sheet. Client-only, stored in localStorage; keyed by date so each
-// day naturally starts with a clean sheet. Mirrors the storage-key convention
-// used by production-column-order.ts (foody.production.colorder.<rid>).
-function storageKey(restaurantId: number, date: string): string {
-  return `foody.production.done.${restaurantId}.${date}`;
-}
-
-function load(restaurantId: number, date: string): Set<number> {
-  if (typeof window === 'undefined' || !date) return new Set();
-  try {
-    const raw = window.localStorage.getItem(storageKey(restaurantId, date));
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? new Set(parsed.filter((n): n is number => typeof n === 'number'))
-      : new Set();
-  } catch {
-    return new Set();
-  }
-}
+import { setOrderPrepared, type ProductionSheetOrder } from '@/lib/api';
+import { useWs } from '@/lib/ws-context';
 
 export interface ProductionDone {
-  /** Order ids marked done for the active restaurant + date. */
+  /** Order ids marked done for the active restaurant + day. */
   doneIds: Set<number>;
   /** Whether a given order is marked done. */
   isDone: (orderId: number) => boolean;
@@ -35,47 +15,73 @@ export interface ProductionDone {
   setDone: (orderId: number, done: boolean) => void;
 }
 
+function seedFrom(orders: ProductionSheetOrder[] | undefined): Set<number> {
+  const s = new Set<number>();
+  for (const o of orders ?? []) if (o.prepared) s.add(o.order_id);
+  return s;
+}
+
 /**
- * Owns the production sheet's per-day "done" set for one restaurant: loads it on
- * mount / date change, and persists toggles to localStorage. Failures (quota,
- * private mode) degrade to in-memory only and never throw.
+ * Owns the production sheet's shared "done" set for one restaurant. Seeds from
+ * the `prepared` flags the server returned with the sheet, persists each toggle
+ * to the server (optimistic — reverts on failure), and applies live
+ * `production.done.updated` WebSocket events so other tablets stay in sync.
+ * "Fresh each day" falls out naturally: a new day loads a new sheet with its own
+ * prepared flags.
  */
-export function useProductionDone(restaurantId: number, date: string): ProductionDone {
+export function useProductionDone(
+  restaurantId: number,
+  orders: ProductionSheetOrder[] | undefined,
+): ProductionDone {
   const [doneIds, setDoneIds] = useState<Set<number>>(new Set());
   // Latest set for the event-handler mutators, so they compute from current
   // state without adding it to their dependency lists.
   const ref = useRef(doneIds);
   ref.current = doneIds;
 
+  // Re-seed whenever the sheet's prepared flags change (new day / reload). Keyed
+  // on the sorted set of prepared ids so an unrelated refetch is a no-op and
+  // never clobbers a just-made local toggle.
+  const seedKey = (orders ?? [])
+    .filter((o) => o.prepared)
+    .map((o) => o.order_id)
+    .sort((a, b) => a - b)
+    .join(',');
   useEffect(() => {
-    setDoneIds(load(restaurantId, date));
-  }, [restaurantId, date]);
+    const next = seedFrom(orders);
+    ref.current = next;
+    setDoneIds(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedKey]);
 
-  const commit = useCallback(
-    (next: Set<number>) => {
-      ref.current = next;
-      setDoneIds(next);
-      if (!date) return;
-      try {
-        window.localStorage.setItem(
-          storageKey(restaurantId, date),
-          JSON.stringify(Array.from(next)),
-        );
-      } catch {
-        /* ignore quota / private-mode errors — done state is a convenience */
-      }
-    },
-    [restaurantId, date],
-  );
+  const apply = useCallback((orderId: number, done: boolean) => {
+    const next = new Set(ref.current);
+    if (done) next.add(orderId);
+    else next.delete(orderId);
+    ref.current = next;
+    setDoneIds(next);
+  }, []);
+
+  // Apply live done-toggles from other tablets (and this tab's own echo, which
+  // is idempotent with the optimistic update below).
+  const { lastEvent } = useWs();
+  useEffect(() => {
+    if (!lastEvent || lastEvent.type !== 'production.done.updated') return;
+    const orderId = Number(lastEvent.payload?.order_id);
+    if (!orderId) return;
+    apply(orderId, !!lastEvent.payload?.prepared);
+  }, [lastEvent, apply]);
 
   const setDone = useCallback(
     (orderId: number, done: boolean) => {
-      const next = new Set(ref.current);
-      if (done) next.add(orderId);
-      else next.delete(orderId);
-      commit(next);
+      const prev = ref.current.has(orderId);
+      apply(orderId, done); // optimistic
+      setOrderPrepared(restaurantId, orderId, done).catch((err) => {
+        console.error('[production] failed to save done state', err);
+        apply(orderId, prev); // revert on failure
+      });
     },
-    [commit],
+    [apply, restaurantId],
   );
 
   const toggle = useCallback(
