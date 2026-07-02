@@ -2958,6 +2958,12 @@ export interface CreateOrderInput {
   delivery_apt?: string;
   delivery_entry_code?: string;
   delivery_notes?: string;
+  /** When true the order is created as scheduled (status "scheduled") for
+   *  `scheduled_for`. The server persists these for any order. */
+  is_scheduled?: boolean;
+  scheduled_for?: string;                 // "YYYY-MM-DD"
+  scheduled_pickup_window_start?: string; // "HH:MM"
+  scheduled_pickup_window_end?: string;   // "HH:MM"
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
 }
@@ -3017,6 +3023,37 @@ export async function removeOrderItem(
     `/api/v1/orders/${orderId}/items/${itemId}?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'DELETE' },
+  );
+}
+
+/** Fields for retargeting an existing order's fulfillment. Mirrors the server
+ *  `orders.FulfillmentInput`. is_scheduled=false + omitted scheduled fields
+ *  clears the schedule and sends the order to the kitchen. */
+export interface FulfillmentUpdateInput {
+  order_type: 'pickup' | 'delivery';
+  is_scheduled: boolean;
+  scheduled_for?: string;                 // "YYYY-MM-DD"
+  scheduled_pickup_window_start?: string; // "HH:MM"
+  scheduled_pickup_window_end?: string;   // "HH:MM"
+  delivery_address?: string;
+  delivery_city?: string;
+  delivery_floor?: string;
+  delivery_apt?: string;
+  delivery_entry_code?: string;
+}
+
+/** Updates an existing order's fulfillment (type, address, schedule). The server
+ *  adjusts status (immediate<->scheduled) and broadcasts `order.updated`. Mirrors
+ *  `PUT /api/v1/orders/:id/fulfillment`. */
+export async function updateOrderFulfillment(
+  restaurantId: number,
+  orderId: number,
+  input: FulfillmentUpdateInput,
+): Promise<{ order: Order }> {
+  return apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/fulfillment?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
   );
 }
 
