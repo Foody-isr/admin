@@ -648,8 +648,9 @@ export interface WebsiteConfig {
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   hero_logo_bg: 'white' | 'black';
   /** Order-page cover composition. 'card' (default) shows the logo box with the
-   *  restaurant name + tagline; 'logo' centers the logo alone on the cover. */
-  hero_cover_layout: 'card' | 'logo';
+   *  restaurant name + tagline; 'logo' centers the logo alone on the cover;
+   *  'bare' keeps the logo at the card position without box, name or tagline. */
+  hero_cover_layout: 'card' | 'logo' | 'bare';
   /** Scales the cover logo, as a percentage of its default size (100 = default). */
   hero_logo_size: number;
   custom_palette?: {

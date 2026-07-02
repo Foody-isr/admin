@@ -31,6 +31,11 @@ import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 type MenuSubTab = 'themes' | 'typography' | 'branding';
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
 
+type HeroCoverLayout = 'card' | 'logo' | 'bare';
+/** Coerces a stored cover-layout value to a known option; unknowns fall back to 'card'. */
+const asHeroCoverLayout = (v: string | undefined | null): HeroCoverLayout =>
+  v === 'logo' || v === 'bare' ? v : 'card';
+
 type PreviewMessage = {
   type: 'foody-theme-preview';
   themeId: string;
@@ -42,7 +47,7 @@ type PreviewMessage = {
   hideNavbarName: boolean;
   hideHeroLogo: boolean;
   heroLogoBg: 'white' | 'black';
-  heroCoverLayout: 'card' | 'logo';
+  heroCoverLayout: HeroCoverLayout;
   heroLogoSize: number;
   heroNameFont: string;
   tagline: string;
@@ -318,7 +323,7 @@ export default function WebsitePage() {
       hideNavbarName: next.hide_navbar_name,
       hideHeroLogo: next.hide_hero_logo,
       heroLogoBg: next.hero_logo_bg === 'black' ? 'black' : 'white',
-      heroCoverLayout: next.hero_cover_layout === 'logo' ? 'logo' : 'card',
+      heroCoverLayout: asHeroCoverLayout(next.hero_cover_layout),
       heroLogoSize: next.hero_logo_size > 0 ? next.hero_logo_size : 100,
       // These four are edited in dedicated state (not `config`), so read them
       // from the live state vars rather than `next`.
@@ -561,7 +566,7 @@ export default function WebsitePage() {
           hide_navbar_name: stateConfig.hide_navbar_name || false,
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
-          hero_cover_layout: stateConfig.hero_cover_layout === 'logo' ? 'logo' : 'card',
+          hero_cover_layout: asHeroCoverLayout(stateConfig.hero_cover_layout),
           hero_logo_size: stateConfig.hero_logo_size > 0 ? stateConfig.hero_logo_size : 100,
           custom_palette: stateConfig.custom_palette ?? null,
           section_colors: stateConfig.section_colors ?? null,
@@ -672,7 +677,7 @@ export default function WebsitePage() {
         hide_navbar_name: hideNavbarName,
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
-        hero_cover_layout: config?.hero_cover_layout === 'logo' ? 'logo' : 'card',
+        hero_cover_layout: asHeroCoverLayout(config?.hero_cover_layout),
         hero_logo_size: config?.hero_logo_size && config.hero_logo_size > 0 ? config.hero_logo_size : 100,
         custom_palette: config?.custom_palette ?? null,
         section_colors: config?.section_colors ?? null,
@@ -1119,7 +1124,7 @@ export default function WebsitePage() {
               categoryBannerFitMobile={categoryBannerFitMobile}
               onMenuLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default: v as 'compact' | 'magazine' } as WebsiteConfig) : c))}
               onMenuLayoutMobileChange={(v) => setConfig((c) => (c ? ({ ...c, layout_default_mobile: v as '' | 'compact' | 'magazine' } as WebsiteConfig) : c))}
-              onHeroCoverLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, hero_cover_layout: v as 'card' | 'logo' } as WebsiteConfig) : c))}
+              onHeroCoverLayoutChange={(v) => setConfig((c) => (c ? ({ ...c, hero_cover_layout: v } as WebsiteConfig) : c))}
               onHeroLogoSizeChange={(v) => setConfig((c) => (c ? ({ ...c, hero_logo_size: v } as WebsiteConfig) : c))}
               onCategoryBannerStyleChange={setCategoryBannerStyle}
               onCategoryBannerOverlayChange={setCategoryBannerOverlay}
@@ -1382,7 +1387,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   onAddSection: () => void;
   menuLayout: string;
   menuLayoutMobile: string;
-  heroCoverLayout: 'card' | 'logo';
+  heroCoverLayout: HeroCoverLayout;
   heroLogoSize: number;
   categoryBannerStyle: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   categoryBannerOverlay: number;
@@ -1390,7 +1395,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
   categoryBannerFitMobile: '' | 'cover' | 'contain' | 'natural';
   onMenuLayoutChange: (v: string) => void;
   onMenuLayoutMobileChange: (v: string) => void;
-  onHeroCoverLayoutChange: (v: 'card' | 'logo') => void;
+  onHeroCoverLayoutChange: (v: HeroCoverLayout) => void;
   onHeroLogoSizeChange: (v: number) => void;
   onCategoryBannerStyleChange: (v: '' | 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none') => void;
   onCategoryBannerOverlayChange: (v: number) => void;
@@ -1507,6 +1512,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
               {([
                 { v: 'card', label: 'Logo et nom', hint: 'Logo, nom et slogan' },
                 { v: 'logo', label: 'Logo seul', hint: 'Logo centré, sans texte' },
+                { v: 'bare', label: 'Logo sans cadre', hint: 'À sa place, sans encadré ni texte' },
               ] as const).map((opt) => {
                 const active = (heroCoverLayout || 'card') === opt.v;
                 return (
@@ -1527,6 +1533,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
             </div>
             <p className="text-[10px] text-fg-secondary opacity-70 mt-1.5 leading-relaxed">
               « Logo seul » place votre logo au centre de la couverture, sans nom ni slogan.
+              « Logo sans cadre » garde le logo à sa position habituelle, sans encadré, nom ni slogan.
             </p>
           </div>
           {restaurant?.logo_url && (

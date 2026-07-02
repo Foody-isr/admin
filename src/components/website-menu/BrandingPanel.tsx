@@ -131,8 +131,8 @@ export function BrandingPanel({ config, onUpdate, restaurantId, restaurant, onRe
 
       {/* Logo background — the logo sits in a rounded square on the order-page
           hero (Wolt-style). This picks the box background. Hidden in logo-only
-          cover mode, where there is no box. */}
-      {config.hero_cover_layout !== 'logo' && (
+          and bare-logo cover modes, where there is no box. */}
+      {config.hero_cover_layout !== 'logo' && config.hero_cover_layout !== 'bare' && (
       <section className="rounded-lg border border-[var(--divider)] p-3">
         <div className="mb-2">
           <h3 className="text-xs font-semibold mb-0.5">{t('logoBackground')}</h3>
