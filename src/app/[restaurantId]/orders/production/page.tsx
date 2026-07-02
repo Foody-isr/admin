@@ -12,6 +12,8 @@ import {
   LayoutListIcon,
   UsersIcon,
   RotateCcwIcon,
+  SlidersHorizontalIcon,
+  ChevronDownIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { Kpi, PageHead } from '@/components/ds';
@@ -27,6 +29,8 @@ import {
 import { itemPortionGrams, fmtPortionGrams } from '@/lib/production';
 import { useProductionColumnOrder } from '@/lib/production-column-order';
 import { useProductionDone } from '@/lib/production-done';
+import { useProductionDisplay, type ProductionDisplayMode } from '@/lib/production-display';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
@@ -51,6 +55,9 @@ export default function ProductionPage() {
   // picked to divide every weighed column by. Nothing is persisted.
   const [portionsByItem, setPortionsByItem] = useState<Record<number, number[]>>({});
   const [boxSize, setBoxSize] = useState<number | null>(null);
+  // Portions (grams) vs units (container counts) display for weighed columns:
+  // page-wide default + per-article overrides, persisted per restaurant.
+  const display = useProductionDisplay(restaurantId);
   const fsRef = useRef<HTMLDivElement>(null);
   // Persisted per-restaurant column layout (category + item order, drag-reordered).
   const { applyOrder, setCategoryOrder, setItemOrder, reset: resetColumns, hasCustomOrder } =
@@ -227,25 +234,77 @@ export default function ProductionPage() {
     setFullscreen(false);
   };
 
-  // Single, page-wide box-size control — repacks every weighed column at once
-  // (replaces the old per-column dropdowns). Hidden when no article has portions.
-  const boxSizeControl = allPortions.length > 0 && (
-    <label className="inline-flex items-center gap-[var(--s-2)] text-fs-sm text-[var(--fg-muted)] whitespace-nowrap">
-      {t('productionBoxSize')}
-      <select
-        aria-label={t('productionBoxSize')}
-        value={boxSize ?? ''}
-        onChange={(e) => setBoxSize(e.target.value ? Number(e.target.value) : null)}
-        className="h-11 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] text-fs-sm px-3 focus:outline-none focus:border-[var(--brand-500)] transition-colors"
-      >
-        <option value="">{t('productionBoxAuto')}</option>
-        {allPortions.map((g) => (
-          <option key={g} value={g}>
-            {fmtPortionGrams(g)}
-          </option>
-        ))}
-      </select>
-    </label>
+  // Weighed columns currently displayed as container counts instead of grams
+  // (page default + per-article overrides). Drives the matrix cells + header.
+  const unitDisplayIds = useMemo<Set<number>>(() => {
+    const set = new Set<number>();
+    for (const it of orderedSheet?.items ?? []) {
+      if (it.measure === 'weight' && display.effectiveMode(it.menu_item_id) === 'units') {
+        set.add(it.menu_item_id);
+      }
+    }
+    return set;
+  }, [orderedSheet, display]);
+
+  // "Affichage" options popover — groups the page-wide display settings: box
+  // size (repacks every weighed column) and portions/units values. Per-article
+  // overrides live on the column headers themselves.
+  const modeButton = (mode: ProductionDisplayMode, label: string) => (
+    <button
+      onClick={() => display.setMode(mode)}
+      className={`flex-1 h-9 rounded-r-md text-fs-sm font-medium transition-colors border ${
+        display.mode === mode
+          ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--brand-500)]'
+          : 'border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg-muted)] hover:bg-[var(--surface-2)]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+  const displayControl = (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="inline-flex items-center gap-[var(--s-2)] px-[var(--s-4)] h-11 rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-fs-sm font-medium hover:bg-[var(--surface-2)] transition-colors whitespace-nowrap"
+        >
+          <SlidersHorizontalIcon className="w-4 h-4" />
+          {t('productionDisplay')}
+          <ChevronDownIcon className="w-3.5 h-3.5 text-[var(--fg-muted)]" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 flex flex-col gap-[var(--s-4)] p-[var(--s-4)]">
+        <div className="flex flex-col gap-2">
+          <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+            {t('productionDisplayValues')}
+          </span>
+          <div className="flex gap-2">
+            {modeButton('portions', t('productionDisplayPortions'))}
+            {modeButton('units', t('productionDisplayUnits'))}
+          </div>
+          <p className="text-fs-xs text-[var(--fg-subtle)]">{t('productionDisplayHint')}</p>
+        </div>
+        {allPortions.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
+              {t('productionBoxSize')}
+            </span>
+            <select
+              aria-label={t('productionBoxSize')}
+              value={boxSize ?? ''}
+              onChange={(e) => setBoxSize(e.target.value ? Number(e.target.value) : null)}
+              className="h-10 w-full rounded-r-lg border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] text-fs-sm px-3 focus:outline-none focus:border-[var(--brand-500)] transition-colors"
+            >
+              <option value="">{t('productionBoxAuto')}</option>
+              {allPortions.map((g) => (
+                <option key={g} value={g}>
+                  {fmtPortionGrams(g)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 
   return (
@@ -263,7 +322,7 @@ export default function ProductionPage() {
           <div className="flex items-center gap-[var(--s-3)]">
             <h1 className="text-fs-xl font-semibold leading-none">{t('productionTitle')}</h1>
             {date && <DateStepper date={date} days={days} onChange={setDate} />}
-            {view === 'production' && boxSizeControl}
+            {view === 'production' && displayControl}
           </div>
           <button
             onClick={exitFullscreen}
@@ -354,7 +413,7 @@ export default function ProductionPage() {
                     className="w-full ps-11 pe-3 h-11 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-lg text-fs-sm placeholder:text-[var(--fg-subtle)] focus:outline-none focus:border-[var(--brand-500)] focus:shadow-ring transition-colors"
                   />
                 </div>
-                {boxSizeControl}
+                {displayControl}
               </div>
             )}
           </header>
@@ -383,6 +442,8 @@ export default function ProductionPage() {
                 onRowClick={handleRowClick}
                 availablePortions={availablePortions}
                 boxSize={boxSize}
+                unitDisplayIds={unitDisplayIds}
+                onToggleItemDisplay={display.toggleItem}
                 doneIds={doneIds}
                 onToggleDone={toggleDone}
               />
@@ -409,6 +470,8 @@ export default function ProductionPage() {
                   onRowClick={handleRowClick}
                   availablePortions={availablePortions}
                   boxSize={boxSize}
+                  unitDisplayIds={unitDisplayIds}
+                  onToggleItemDisplay={display.toggleItem}
                   doneIds={doneIds}
                   onToggleDone={toggleDone}
                   reorderDone={false}
@@ -422,6 +485,8 @@ export default function ProductionPage() {
             onRowClick={handleRowClick}
             availablePortions={availablePortions}
             boxSize={boxSize}
+            unitDisplayIds={unitDisplayIds}
+            onToggleItemDisplay={display.toggleItem}
             sticky
             onReorderCategories={setCategoryOrder}
             onReorderItems={setItemOrder}
@@ -447,15 +512,16 @@ function recomputeTotals(
   const sameSet = orders.length === sheet.orders.length;
   const items = sheet.items.map((it) => {
     const total = orders.reduce((s, o) => s + (o.cells[String(it.menu_item_id)] ?? 0), 0);
+    const total_units = orders.reduce((s, o) => s + (o.units?.[String(it.menu_item_id)] ?? 0), 0);
     // Packaging + day-total combo breakdown are full-day aggregates that can't be
     // recomputed from cells under a filter; keep them only for the unfiltered view.
     const comboFields = sameSet
       ? {}
       : { combo_breakdown: undefined, standalone_count: undefined };
     if (it.measure !== 'weight') {
-      return { ...it, total, packaging: undefined, ...comboFields };
+      return { ...it, total, total_units, packaging: undefined, ...comboFields };
     }
-    return { ...it, total, packaging: sameSet ? it.packaging : undefined, ...comboFields };
+    return { ...it, total, total_units, packaging: sameSet ? it.packaging : undefined, ...comboFields };
   });
   return { ...sheet, orders, items };
 }

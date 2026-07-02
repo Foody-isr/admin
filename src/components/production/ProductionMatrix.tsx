@@ -28,6 +28,12 @@ interface Props {
   availablePortions?: Record<number, number[]>;
   /** Page-wide box size (grams) to repack every weighed column by; null = Auto. */
   boxSize?: number | null;
+  /** Weighed columns displayed as ordered container counts (2 pots) instead of
+   *  grams (1 000). Fed by the page's portions/units display preference. */
+  unitDisplayIds?: Set<number>;
+  /** Flip one article's portions/units display. Renders a small g/u chip on
+   *  each weighed column header when set. */
+  onToggleItemDisplay?: (itemId: number) => void;
   /** Pin the 3-row header + first column, scrolling the grid inside its own
    *  viewport. Enabled for the main/fullscreen table; off for split views. */
   sticky?: boolean;
@@ -92,6 +98,8 @@ export function ProductionMatrix({
   onRowClick,
   availablePortions,
   boxSize,
+  unitDisplayIds,
+  onToggleItemDisplay,
   sticky = false,
   onReorderCategories,
   onReorderItems,
@@ -101,6 +109,10 @@ export function ProductionMatrix({
 }: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
+  // A weighed column flipped to units shows ordered container counts (2 pots)
+  // instead of grams; unit-measure columns already count and are unaffected.
+  const showUnits = (id: number) =>
+    itemsById.get(id)?.measure === 'weight' && !!unitDisplayIds?.has(id);
   const cats = sheet.categories;
   const editable = !!(onReorderCategories && onReorderItems);
 
@@ -315,6 +327,22 @@ export function ProductionMatrix({
                       <GripVerticalIcon className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity" />
                     )}
                     {item?.name}
+                    {onToggleItemDisplay && item?.measure === 'weight' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleItemDisplay(id);
+                        }}
+                        title={t('productionToggleColumnDisplay')}
+                        className={`ms-0.5 inline-flex items-center justify-center w-5 h-5 rounded-r-sm border text-[10px] font-bold lowercase transition-colors ${
+                          showUnits(id)
+                            ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--brand-500)]'
+                            : 'border-[var(--line-strong)] text-[var(--fg-muted)] hover:bg-[var(--surface-2)]'
+                        }`}
+                      >
+                        {showUnits(id) ? 'u' : 'g'}
+                      </button>
+                    )}
                   </span>
                 </DataTableHeadCell>
               );
@@ -354,7 +382,9 @@ export function ProductionMatrix({
                 >
                   {/* Total is intentionally not flagged for combos: a column total can mix
                       combo and non-combo items, so the dotted flag belongs on cells only. */}
-                  <span className="text-base font-extrabold tabular-nums normal-case">{fmtTotal(item)}</span>
+                  <span className="text-base font-extrabold tabular-nums normal-case">
+                    {showUnits(id) ? `${item.total_units ?? 0} u.` : fmtTotal(item)}
+                  </span>
                   {boxes && boxes.length > 0 && (
                     <span className="block mt-0.5 text-[10px] font-medium normal-case tracking-normal text-[var(--fg-muted)]">
                       {boxes.map((b) => `${b.count}×${b.portion}`).join(' · ')}
@@ -419,7 +449,8 @@ export function ProductionMatrix({
                 {cats.flatMap((cat) =>
                   cat.item_ids.map((id) => {
                     const item = itemsById.get(id)!;
-                    const v = o.cells[String(id)];
+                    const v = showUnits(id) ? o.units?.[String(id)] : o.cells[String(id)];
+                    const measure = showUnits(id) ? 'unit' : item.measure;
                     const prov = o.provenance?.[String(id)];
                     const rowActive = hoverRow === o.order_id;
                     const colActive = hoverCol === id;
@@ -441,7 +472,7 @@ export function ProductionMatrix({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-[var(--brand-500)] underline-offset-4">
-                                {cellVal(v, item.measure)}
+                                {cellVal(v, measure)}
                                 <span
                                   className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]"
                                   aria-hidden
@@ -463,7 +494,7 @@ export function ProductionMatrix({
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          cellVal(v, item.measure)
+                          cellVal(v, measure)
                         )}
                       </DataTableCell>
                     );

@@ -3196,6 +3196,9 @@ export interface ProductionSheetItem {
   category_id: number;
   measure: 'weight' | 'unit';
   total: number;
+  /** Day's ordered container count (sum of line quantities), regardless of
+   *  measure — e.g. 11 pots for a 3 750 g column. Feeds units display mode. */
+  total_units?: number;
   unit: 'g' | 'u';
   packaging?: ProductionSheetPortion[];
   combo_breakdown?: ProductionComboRef[]; // aggregated combo portions for the day total
@@ -3224,6 +3227,7 @@ export interface ProductionSheetOrder {
   window_start?: string;
   window_end?: string;
   cells: Record<string, number>; // menu_item_id (string key) -> grams or count
+  units?: Record<string, number>; // menu_item_id -> ordered container count (2 pots, not 1000 g)
   provenance?: Record<string, ProductionCellProvenance>; // menu_item_id -> combo/individual split
 }
 export interface ProductionSheetResponse {
