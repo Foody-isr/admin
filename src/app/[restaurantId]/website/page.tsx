@@ -104,6 +104,7 @@ const LAYOUT_OPTIONS: Record<string, { value: string; labelKey: string }[]> = {
   text_and_image: [{ value: 'default', labelKey: 'imageRight' }, { value: 'image_left', labelKey: 'imageLeft' }],
   gallery:        [{ value: 'grid', labelKey: 'grid' }, { value: 'masonry', labelKey: 'masonry' }],
   testimonials:   [{ value: 'carousel', labelKey: 'carousel' }, { value: 'grid', labelKey: 'grid' }],
+  about:          [{ value: 'centered', labelKey: 'centered' }, { value: 'split', labelKey: 'split' }, { value: 'banner', labelKey: 'banner' }],
   footer:         [{ value: 'columns', labelKey: 'columns' }, { value: 'centered', labelKey: 'centered' }, { value: 'minimal', labelKey: 'minimal' }],
 };
 
@@ -2302,9 +2303,10 @@ function SectionListPanel({ sections, selectedId, onSelect, onMove, onToggleVisi
 }
 
 // ─── About Blocks Editor ──────────────────────────────────────────────
-function AboutBlocksEditor({ content, updateContent }: {
+function AboutBlocksEditor({ content, updateContent, restaurantId }: {
   content: Record<string, any>;
   updateContent: (key: string, value: any) => void;
+  restaurantId: number;
 }) {
   // Backward compat: migrate legacy {title, body} to blocks
   const blocks: Record<string, any>[] =
@@ -2340,6 +2342,13 @@ function AboutBlocksEditor({ content, updateContent }: {
               <button type="button" onClick={() => removeBlock(idx)} className="text-xs text-red-500 hover:text-red-700 transition">Remove</button>
             )}
           </div>
+          <SectionImageUploader
+            restaurantId={restaurantId}
+            currentUrl={block.image_url || ''}
+            onUploaded={(url) => updateBlock(idx, 'image_url', url)}
+            onRemove={() => updateBlock(idx, 'image_url', '')}
+            label="Block image (optional)"
+          />
           <TextFieldWithTypography
             label="Title"
             value={block.title || ''}
@@ -2860,6 +2869,10 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
   const content = section.content || {};
   const settings = section.settings || {};
 
+  const aboutImg = section.section_type === 'about' && !!settings.bg_image;
+  const overlayOn = aboutImg ? (settings.bg_overlay ?? true) : !!settings.bg_overlay;
+  const overlayOpacity = settings.bg_overlay_opacity ?? (aboutImg ? 45 : 50);
+
   function updateContent(key: string, value: any) {
     onUpdate({ content: { ...content, [key]: value } as any });
   }
@@ -2888,17 +2901,23 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
         <div>
           <h3 className="text-sm font-semibold text-fg-secondary mb-2">Layout</h3>
           <div className="flex gap-2">
-            {layouts.map(l => (
-              <button
-                key={l.value}
-                onClick={() => onUpdate({ layout: l.value })}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  section.layout === l.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-                }`}
-              >
-                {t(l.labelKey)}
-              </button>
-            ))}
+            {(() => {
+              const effLayout =
+                section.section_type === 'about' && (!section.layout || section.layout === 'default')
+                  ? 'centered'
+                  : section.layout;
+              return layouts.map(l => (
+                <button
+                  key={l.value}
+                  onClick={() => onUpdate({ layout: l.value })}
+                  className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                    effLayout === l.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
+                  }`}
+                >
+                  {t(l.labelKey)}
+                </button>
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -2955,13 +2974,13 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
                 <label className="text-xs text-fg-secondary">Overlay</label>
                 <button
                   type="button"
-                  onClick={() => updateSettings('bg_overlay', !settings.bg_overlay)}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${settings.bg_overlay ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
+                  onClick={() => updateSettings('bg_overlay', !overlayOn)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${overlayOn ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
                 >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${settings.bg_overlay ? 'translate-x-4' : ''}`} />
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${overlayOn ? 'translate-x-4' : ''}`} />
                 </button>
               </div>
-              {settings.bg_overlay && (
+              {overlayOn && (
                 <>
                   {/* Overlay color */}
                   <div className="flex items-center gap-2">
@@ -2973,14 +2992,14 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs text-fg-secondary">Overlay Opacity</label>
-                      <span className="text-xs text-fg-secondary">{settings.bg_overlay_opacity ?? 50}%</span>
+                      <span className="text-xs text-fg-secondary">{overlayOpacity}%</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="5"
-                      value={settings.bg_overlay_opacity ?? 50}
+                      value={overlayOpacity}
                       onChange={e => updateSettings('bg_overlay_opacity', Number(e.target.value))}
                       className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-[var(--brand)]"
                     />
@@ -3031,7 +3050,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
       {/* Typography */}
       {['hero_banner', 'text_and_image', 'about', 'promo_banner', 'scrolling_text', 'footer'].includes(section.section_type) && (
         <div>
-          <h3 className="text-sm font-semibold text-fg-secondary mb-2">Typography</h3>
+          <h3 className="text-sm font-semibold text-fg-secondary mb-2">{section.section_type === 'about' ? 'Default typography (all blocks)' : 'Typography'}</h3>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-fg-secondary mb-1.5 block">Heading Size</label>
@@ -3101,13 +3120,82 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
         </div>
       )}
 
+      {/* About — design controls */}
+      {section.section_type === 'about' && (
+        <div className="space-y-4">
+          {section.layout === 'split' && (
+            <div className="space-y-2">
+              <label className="text-xs text-fg-secondary font-medium block">Side Image</label>
+              <SectionImageUploader
+                restaurantId={restaurantId}
+                currentUrl={settings.image_url || ''}
+                onUploaded={(url) => updateSettings('image_url', url)}
+                onRemove={() => updateSettings('image_url', '')}
+              />
+              <div>
+                <label className="text-xs text-fg-secondary mb-1 block">Image Side</label>
+                <div className="flex gap-1.5">
+                  {[{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }].map(opt => (
+                    <button key={opt.value} type="button" onClick={() => updateSettings('image_side', opt.value)}
+                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.image_side || 'left') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-fg-secondary mb-1 block">Text Alignment</label>
+            <div className="flex gap-1.5">
+              {[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }].map(opt => {
+                const def = section.layout === 'split' ? 'left' : 'center';
+                return (
+                  <button key={opt.value} type="button" onClick={() => updateSettings('text_align', opt.value)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.text_align || def) === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-fg-secondary mb-1 block">Content Width</label>
+            <div className="flex gap-1.5">
+              {[{ value: 'narrow', label: 'Narrow' }, { value: 'normal', label: 'Normal' }, { value: 'wide', label: 'Wide' }].map(opt => (
+                <button key={opt.value} type="button" onClick={() => updateSettings('content_width', opt.value)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.content_width || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-fg-secondary mb-1 block">Vertical Spacing</label>
+            <div className="flex gap-1.5">
+              {[{ value: 'compact', label: 'Compact' }, { value: 'normal', label: 'Normal' }, { value: 'spacious', label: 'Spacious' }].map(opt => (
+                <button key={opt.value} type="button" onClick={() => updateSettings('padding', opt.value)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.padding || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-fg-secondary font-medium block">Button (optional)</label>
+            <input type="text" value={settings.cta_label || ''} onChange={e => updateSettings('cta_label', e.target.value)} className={inputClass} placeholder="Button label (e.g. Commander)" />
+            <input type="text" value={settings.cta_link || ''} onChange={e => updateSettings('cta_link', e.target.value)} className={inputClass} placeholder="Link (e.g. /order)" />
+          </div>
+        </div>
+      )}
+
       {/* Content fields */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-fg-secondary">Content</h3>
 
         {/* About — multi-block editor */}
         {section.section_type === 'about' && (
-          <AboutBlocksEditor content={content} updateContent={updateContent} />
+          <AboutBlocksEditor content={content} updateContent={updateContent} restaurantId={restaurantId} />
         )}
 
         {/* Hero Banner — per-field typography */}
