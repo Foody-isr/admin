@@ -647,7 +647,6 @@ export default function OrdersPage() {
                 <DataTableHeadCell>{t('type')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('date')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('status')}</DataTableHeadCell>
-                <DataTableHeadCell>{t('courier')}</DataTableHeadCell>
                 <DataTableHeadCell>{t('payment')}</DataTableHeadCell>
                 <DataTableHeadCell align="right">{t('total')}</DataTableHeadCell>
               </DataTableHead>
@@ -689,15 +688,6 @@ export default function OrdersPage() {
                       <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
                         {localizeStatus(order.status, t)}
                       </Badge>
-                    </DataTableCell>
-                    <DataTableCell mobileLabel={t('courier')}>
-                      {order.order_type === 'delivery' ? (
-                        order.courier_name
-                          ? <span className="text-fg-primary">{order.courier_name}</span>
-                          : <span className="text-[var(--fg-subtle)]">{t('courierNone')}</span>
-                      ) : (
-                        <span className="text-[var(--fg-subtle)]">—</span>
-                      )}
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('payment')}>
                       <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
