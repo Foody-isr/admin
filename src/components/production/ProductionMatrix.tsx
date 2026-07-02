@@ -63,6 +63,13 @@ const BRAND_TXT = 'text-[var(--brand-500)] dark:text-[var(--brand-500)]';
 // Highlight shown on the column a dragged header is hovering over.
 const DROP_TARGET = 'shadow-[inset_2px_0_0_0_var(--brand-500)]';
 
+// Crosshair hover: the whole hovered row and column get a translucent tint;
+// sticky cells use an opaque variant so scrolling body content never shows
+// through them; the exact hovered cell gets a 1px brand border.
+const CROSS_TINT = 'bg-orange-100/60 dark:bg-orange-900/25';
+const CROSS_STICKY = 'bg-orange-100 dark:bg-orange-950';
+const CELL_BORDER = 'shadow-[inset_0_0_0_1px_var(--brand-500)]';
+
 /** "Par client" production grid, built on the shared DataTable so it matches the
  *  orders table's fonts/styles. Slim category band, item-name header, an
  *  "À préparer" totals row, and a sticky-left Client column. Optionally pins the
@@ -143,10 +150,19 @@ export function ProductionMatrix({
     setOverItem(null);
   };
 
+  // ── Crosshair hover state (row = order_id, col = menu_item_id) ──
+  const [hoverRow, setHoverRow] = useState<number | null>(null);
+  const [hoverCol, setHoverCol] = useState<number | null>(null);
+  const clearHover = () => {
+    setHoverRow(null);
+    setHoverCol(null);
+  };
+
   return (
     <DataTable
       ref={scrollRef}
       responsive={false}
+      onMouseLeave={clearHover}
       // Cap height + scroll internally when pinned, but reset both under print so
       // window.print() emits the full table instead of just the visible window.
       className={
@@ -230,6 +246,10 @@ export function ProductionMatrix({
                   key={`n-${id}`}
                   align="center"
                   draggable={editable}
+                  onMouseEnter={() => {
+                    setHoverCol(id);
+                    setHoverRow(null);
+                  }}
                   onDragStart={
                     editable
                       ? (e) => {
@@ -260,7 +280,7 @@ export function ProductionMatrix({
                       : undefined
                   }
                   onDragEnd={editable ? clearDrag : undefined}
-                  className={`${stickyRow} ${HEAD_BG} group whitespace-nowrap ${
+                  className={`${stickyRow} ${hoverCol === id ? `${CROSS_STICKY} ${BRAND_TXT}` : HEAD_BG} group whitespace-nowrap ${
                     editable ? 'cursor-grab active:cursor-grabbing select-none' : ''
                   } ${overItem === id && dragItem ? DROP_TARGET : ''}`}
                   style={{ top: topOf(1), zIndex: sticky ? 20 : undefined }}
@@ -304,7 +324,7 @@ export function ProductionMatrix({
                 <DataTableHeadCell
                   key={`tt-${id}`}
                   align="center"
-                  className={`${stickyRow} ${HEAD_BG} ${BRAND_TXT}`}
+                  className={`${stickyRow} ${hoverCol === id ? CROSS_STICKY : HEAD_BG} ${BRAND_TXT}`}
                   style={{ top: topOf(2), zIndex: sticky ? 20 : undefined }}
                 >
                   {/* Total is intentionally not flagged for combos: a column total can mix
@@ -330,7 +350,17 @@ export function ProductionMatrix({
             onClick={() => onRowClick(o.order_id)}
             className="cursor-pointer"
           >
-            <DataTableCell className="sticky left-0 z-10 bg-white dark:bg-[#111111] font-medium whitespace-nowrap">
+            <DataTableCell
+              onMouseEnter={() => {
+                setHoverRow(o.order_id);
+                setHoverCol(null);
+              }}
+              className={`sticky left-0 z-10 font-medium whitespace-nowrap transition-colors ${
+                hoverRow === o.order_id
+                  ? `${CROSS_STICKY} ${BRAND_TXT} font-semibold`
+                  : 'bg-white dark:bg-[#111111]'
+              }`}
+            >
               {o.customer_name}
               <span
                 className={`ms-2 text-fs-micro px-2 py-0.5 rounded-r-sm ${
@@ -347,11 +377,21 @@ export function ProductionMatrix({
                 const item = itemsById.get(id)!;
                 const v = o.cells[String(id)];
                 const prov = o.provenance?.[String(id)];
+                const rowActive = hoverRow === o.order_id;
+                const colActive = hoverCol === id;
                 return (
                   <DataTableCell
                     key={`${o.order_id}-${id}`}
                     align="center"
-                    className={`tabular-nums ${v ? '' : 'text-[var(--fg-subtle)]'}`}
+                    onMouseEnter={() => {
+                      setHoverRow(o.order_id);
+                      setHoverCol(id);
+                    }}
+                    className={`tabular-nums transition-colors ${
+                      v ? '' : 'text-[var(--fg-subtle)]'
+                    } ${rowActive || colActive ? CROSS_TINT : ''} ${
+                      rowActive && colActive ? CELL_BORDER : ''
+                    }`}
                   >
                     {prov ? (
                       <Tooltip>
