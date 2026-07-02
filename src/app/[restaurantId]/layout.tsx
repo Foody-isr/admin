@@ -11,6 +11,7 @@ import { SidebarProvider, useSidebar } from '@/lib/sidebar-context';
 import Sidebar from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import PermissionRouteGuard from '@/components/PermissionRouteGuard';
+import { PushResync } from '@/components/common/PushResync';
 import IdleModal from '@/components/IdleModal';
 import AiDrawer from '@/components/ai/AiDrawer';
 import { AiChatProvider } from '@/lib/ai-context';
@@ -110,6 +111,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
     return (
       <PermissionsProvider restaurantId={restaurantId}>
         <WsProvider restaurantId={restaurantId}>
+          <PushResync restaurantId={restaurantId} />
           <div className="min-h-screen">
             <PermissionRouteGuard>{children}</PermissionRouteGuard>
           </div>
@@ -122,6 +124,7 @@ function RestaurantGuard({ children }: { children: React.ReactNode }) {
   return (
     <PermissionsProvider restaurantId={restaurantId}>
       <WsProvider restaurantId={restaurantId}>
+        <PushResync restaurantId={restaurantId} />
         <AiChatProvider restaurantId={restaurantId}>
           <SearchShortcutProvider>
             <SidebarProvider>
