@@ -29,6 +29,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { itemSizeOptions } from '@/lib/item-options';
 import { FulfillmentSection } from './FulfillmentSection';
 import type { FulfillmentValue } from '@/lib/orders/fulfillment';
 import { NewOrderItemModal, type NewOrderLine, lineUnitPrice } from './NewOrderItemModal';
@@ -58,10 +59,14 @@ interface EditLine {
   removed?: boolean;
 }
 
-// An item with no active variants and no active modifiers can be added with one
+// An item with no size options and no active modifiers can be added with one
 // click — no picker modal needed. Mirrors NewOrderItemModal's own field reads.
+// Sizes come from itemSizeOptions (option sets — NOT the dead legacy
+// variant_groups): reading the legacy tables here made every option-set item
+// look "simple", so staff quick-adds created size-less lines the production
+// sheet could not weigh.
 function isSimpleItem(it: MenuItem): boolean {
-  const hasVariants = (it.variant_groups?.[0]?.variants ?? []).some((v) => v.is_active);
+  const hasVariants = itemSizeOptions(it).length > 0;
   const hasDirectMods = (it.modifiers ?? []).some((m) => m.is_active);
   const hasSetMods = (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));
   return !hasVariants && !hasDirectMods && !hasSetMods;

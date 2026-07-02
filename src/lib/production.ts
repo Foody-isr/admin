@@ -1,4 +1,5 @@
 import type { MenuItem } from '@/lib/api';
+import { itemSizeOptions } from '@/lib/item-options';
 
 /** Parse a gram value from a portion-variant label like "250", "500 g", "1kg",
  *  "1.5 kg". Returns null when the label isn't a plain numeric portion (e.g.
@@ -13,14 +14,13 @@ export function parsePortionGrams(name: string): number | null {
 }
 
 /** Distinct, ascending portion sizes (grams) derived from an item's numeric
- *  size variants. Empty when the item has no numeric portion variants. */
+ *  size options (option sets, with legacy variant-group fallback — see
+ *  itemSizeOptions). Empty when the item has no numeric portion options. */
 export function itemPortionGrams(item: MenuItem): number[] {
   const grams = new Set<number>();
-  for (const g of item.variant_groups ?? []) {
-    for (const v of g.variants ?? []) {
-      const px = parsePortionGrams(v.name);
-      if (px != null) grams.add(px);
-    }
+  for (const o of itemSizeOptions(item)) {
+    const px = parsePortionGrams(o.name);
+    if (px != null) grams.add(px);
   }
   return Array.from(grams).sort((a, b) => a - b);
 }

@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { Drawer, Field, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
-import type { MenuItem, MenuItemModifier, MenuItemVariant } from '@/lib/api';
+import type { MenuItem, MenuItemModifier } from '@/lib/api';
+import { itemSizeOptions, itemSizeGroupLabel, type ItemSizeOption } from '@/lib/item-options';
 
 // ─── Cart line model (shared with the order-builder page) ────────────────────
 
@@ -91,12 +92,8 @@ interface NewOrderItemModalProps {
 export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemModalProps) {
   const { t } = useI18n();
 
-  // Only the first variant group maps to the order's single selected_variant_id.
-  const variantGroup = item?.variant_groups?.[0];
-  const variants = useMemo(
-    () => (variantGroup?.variants ?? []).filter((v) => v.is_active),
-    [variantGroup],
-  );
+  // Only the first size group maps to the order's single selected_variant_id.
+  const variants = useMemo(() => (item ? itemSizeOptions(item) : []), [item]);
   const modifierGroups = useMemo(() => (item ? collectModifierGroups(item) : []), [item]);
 
   const [variantId, setVariantId] = useState<number | undefined>(undefined);
@@ -121,7 +118,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   if (!item) return null;
   const activeItem = item;
 
-  const selectedVariant: MenuItemVariant | undefined = variants.find((v) => v.id === variantId);
+  const selectedVariant: ItemSizeOption | undefined = variants.find((v) => v.id === variantId);
   const allMods = modifierGroups.flatMap((g) => g.modifiers);
   const appliedMods: NewOrderLineModifier[] = allMods
     .filter((m) => checkedMods.has(m.id))
@@ -171,7 +168,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
         {variants.length > 0 && (
           <div className="flex flex-col gap-2">
             <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
-              {variantGroup?.title || t('size')}
+              {itemSizeGroupLabel(activeItem) || t('size')}
             </span>
             <div className="flex flex-col gap-1.5">
               {variants.map((v) => (
