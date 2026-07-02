@@ -2953,7 +2953,8 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
           </div>
         )}
 
-        {/* Background Image */}
+        {/* Background Image — for About, only meaningful in the Banner layout */}
+        {(section.section_type !== 'about' || section.layout === 'banner') && (
         <div className="mt-4 space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-xs text-fg-secondary font-medium">Background Image</label>
@@ -3045,6 +3046,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Typography */}
