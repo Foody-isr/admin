@@ -693,6 +693,8 @@ export interface TypographyRoleOverride {
   sizeMult?: number;
   /** Font weight (100-900). Absent = keep the section's default weight. */
   weight?: number;
+  /** Text case. Absent = Auto (keep the theme's behavior). */
+  transform?: 'uppercase' | 'none';
 }
 
 /** A Google Fonts family the restaurant added to its own library via the
