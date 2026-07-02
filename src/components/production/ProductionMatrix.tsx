@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { GripVerticalIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { ProductionSheetResponse, ProductionSheetItem, ProductionSheetPortion } from '@/lib/api';
+import {
+  ProductionSheetResponse,
+  ProductionSheetItem,
+  ProductionSheetPortion,
+  ProductionSheetOrder,
+} from '@/lib/api';
 import {
   DataTable,
   DataTableHeadCell,
@@ -12,6 +17,7 @@ import {
   DataTableCell,
 } from '@/components/data-table/DataTable';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 import { packIntoBoxes, cellPortionBreakdown } from '@/lib/production';
 import { reorder } from '@/lib/production-column-order';
 
@@ -30,6 +36,13 @@ interface Props {
   onReorderCategories?: (categoryIds: number[]) => void;
   /** Persist a new item-column order within a category after a drag. */
   onReorderItems?: (categoryId: number, itemIds: number[]) => void;
+  /** Order ids marked prepared. Renders a done checkbox + dim/strike when set. */
+  doneIds?: Set<number>;
+  /** Toggle an order's done state. When omitted the done feature is inert. */
+  onToggleDone?: (orderId: number) => void;
+  /** When true (default) done rows sink below active ones under a divider.
+   *  Pass false where rows are already grouped per customer (no reordering). */
+  reorderDone?: boolean;
 }
 
 function cellVal(value: number | undefined, measure: 'weight' | 'unit'): string {
@@ -63,6 +76,13 @@ const BRAND_TXT = 'text-[var(--brand-500)] dark:text-[var(--brand-500)]';
 // Highlight shown on the column a dragged header is hovering over.
 const DROP_TARGET = 'shadow-[inset_2px_0_0_0_var(--brand-500)]';
 
+// Crosshair hover: the whole hovered row and column get a translucent tint;
+// sticky cells use an opaque variant so scrolling body content never shows
+// through them; the exact hovered cell gets a 1px brand border.
+const CROSS_TINT = 'bg-orange-100/60 dark:bg-orange-900/25';
+const CROSS_STICKY = 'bg-orange-100 dark:bg-orange-950';
+const CELL_BORDER = 'shadow-[inset_0_0_0_1px_var(--brand-500)]';
+
 /** "Par client" production grid, built on the shared DataTable so it matches the
  *  orders table's fonts/styles. Slim category band, item-name header, an
  *  "À préparer" totals row, and a sticky-left Client column. Optionally pins the
@@ -75,11 +95,23 @@ export function ProductionMatrix({
   sticky = false,
   onReorderCategories,
   onReorderItems,
+  doneIds,
+  onToggleDone,
+  reorderDone = true,
 }: Props) {
   const { t } = useI18n();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
   const cats = sheet.categories;
   const editable = !!(onReorderCategories && onReorderItems);
+
+  const doneEnabled = !!onToggleDone;
+  const isDone = (orderId: number) => !!doneIds?.has(orderId);
+  const activeOrders = doneEnabled
+    ? sheet.orders.filter((o) => !isDone(o.order_id))
+    : sheet.orders;
+  const doneOrders = doneEnabled ? sheet.orders.filter((o) => isDone(o.order_id)) : [];
+  // Total column span = the Client column + every item column across categories.
+  const colCount = 1 + cats.reduce((n, c) => n + c.item_ids.length, 0);
 
   // ── Sticky header: measure cumulative row heights so each of the three header
   // rows pins at the right offset (heights vary — the "À préparer" row wraps). ──
@@ -143,10 +175,19 @@ export function ProductionMatrix({
     setOverItem(null);
   };
 
+  // ── Crosshair hover state (row = order_id, col = menu_item_id) ──
+  const [hoverRow, setHoverRow] = useState<number | null>(null);
+  const [hoverCol, setHoverCol] = useState<number | null>(null);
+  const clearHover = () => {
+    setHoverRow(null);
+    setHoverCol(null);
+  };
+
   return (
     <DataTable
       ref={scrollRef}
       responsive={false}
+      onMouseLeave={clearHover}
       // Cap height + scroll internally when pinned, but reset both under print so
       // window.print() emits the full table instead of just the visible window.
       className={
@@ -230,6 +271,10 @@ export function ProductionMatrix({
                   key={`n-${id}`}
                   align="center"
                   draggable={editable}
+                  onMouseEnter={() => {
+                    setHoverCol(id);
+                    setHoverRow(null);
+                  }}
                   onDragStart={
                     editable
                       ? (e) => {
@@ -260,7 +305,7 @@ export function ProductionMatrix({
                       : undefined
                   }
                   onDragEnd={editable ? clearDrag : undefined}
-                  className={`${stickyRow} ${HEAD_BG} group whitespace-nowrap ${
+                  className={`${stickyRow} transition-colors ${hoverCol === id ? `${CROSS_STICKY} ${BRAND_TXT}` : HEAD_BG} group whitespace-nowrap ${
                     editable ? 'cursor-grab active:cursor-grabbing select-none' : ''
                   } ${overItem === id && dragItem ? DROP_TARGET : ''}`}
                   style={{ top: topOf(1), zIndex: sticky ? 20 : undefined }}
@@ -304,7 +349,7 @@ export function ProductionMatrix({
                 <DataTableHeadCell
                   key={`tt-${id}`}
                   align="center"
-                  className={`${stickyRow} ${HEAD_BG} ${BRAND_TXT}`}
+                  className={`${stickyRow} transition-colors ${hoverCol === id ? CROSS_STICKY : HEAD_BG} ${BRAND_TXT}`}
                   style={{ top: topOf(2), zIndex: sticky ? 20 : undefined }}
                 >
                   {/* Total is intentionally not flagged for combos: a column total can mix
@@ -323,70 +368,131 @@ export function ProductionMatrix({
       </thead>
 
       <DataTableBody>
-        {sheet.orders.map((o) => (
-          <DataTableRow
-            key={o.order_id}
-            striped={false}
-            onClick={() => onRowClick(o.order_id)}
-            className="cursor-pointer"
-          >
-            <DataTableCell className="sticky left-0 z-10 bg-white dark:bg-[#111111] font-medium whitespace-nowrap">
-              {o.customer_name}
-              <span
-                className={`ms-2 text-fs-micro px-2 py-0.5 rounded-r-sm ${
-                  o.order_type === 'delivery'
-                    ? 'bg-[var(--info-50)] text-[var(--info-500)]'
-                    : 'bg-[var(--success-50)] text-[var(--success-500)]'
+        {(() => {
+          const renderRow = (o: ProductionSheetOrder) => {
+            const done = isDone(o.order_id);
+            return (
+              <DataTableRow
+                key={o.order_id}
+                striped={false}
+                onClick={() => onRowClick(o.order_id)}
+                className={`cursor-pointer transition-opacity ${
+                  done ? 'opacity-60 line-through' : ''
                 }`}
               >
-                {o.order_type === 'delivery' ? '🚚' : '🛍'} {o.window_start ?? ''}
-              </span>
-            </DataTableCell>
-            {cats.flatMap((cat) =>
-              cat.item_ids.map((id) => {
-                const item = itemsById.get(id)!;
-                const v = o.cells[String(id)];
-                const prov = o.provenance?.[String(id)];
-                return (
-                  <DataTableCell
-                    key={`${o.order_id}-${id}`}
-                    align="center"
-                    className={`tabular-nums ${v ? '' : 'text-[var(--fg-subtle)]'}`}
-                  >
-                    {prov ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-[var(--brand-500)] underline-offset-4">
-                            {cellVal(v, item.measure)}
-                            <span
-                              className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]"
-                              aria-hidden
-                            />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {prov.combos.map((c) => (
-                            <span key={c.name} className="block">
-                              {fmtProvQty(c.qty, item.measure, c.portions)} {item.name} ({c.name})
-                            </span>
-                          ))}
-                          {prov.standalone > 0 && (
-                            <span className="block opacity-80">
-                              {fmtProvQty(prov.standalone, item.measure, prov.standalone_portions)} {item.name} (
-                              {t('productionIndividual')})
-                            </span>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      cellVal(v, item.measure)
+                <DataTableCell
+                  onMouseEnter={() => {
+                    setHoverRow(o.order_id);
+                    setHoverCol(null);
+                  }}
+                  className={`sticky left-0 z-10 font-medium whitespace-nowrap transition-colors ${
+                    hoverRow === o.order_id
+                      ? `${CROSS_STICKY} ${BRAND_TXT} font-semibold`
+                      : 'bg-white dark:bg-[#111111]'
+                  }`}
+                >
+                  <span className="inline-flex items-center">
+                    {doneEnabled && (
+                      <span
+                        className="inline-flex align-middle me-2 no-underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={done}
+                          onCheckedChange={() => onToggleDone!(o.order_id)}
+                          aria-label={t('productionMarkDone')}
+                        />
+                      </span>
                     )}
-                  </DataTableCell>
-                );
-              }),
-            )}
-          </DataTableRow>
-        ))}
+                    {o.customer_name}
+                    <span
+                      className={`ms-2 text-fs-micro px-2 py-0.5 rounded-r-sm no-underline ${
+                        o.order_type === 'delivery'
+                          ? 'bg-[var(--info-50)] text-[var(--info-500)]'
+                          : 'bg-[var(--success-50)] text-[var(--success-500)]'
+                      }`}
+                    >
+                      {o.order_type === 'delivery' ? '🚚' : '🛍'} {o.window_start ?? ''}
+                    </span>
+                  </span>
+                </DataTableCell>
+                {cats.flatMap((cat) =>
+                  cat.item_ids.map((id) => {
+                    const item = itemsById.get(id)!;
+                    const v = o.cells[String(id)];
+                    const prov = o.provenance?.[String(id)];
+                    const rowActive = hoverRow === o.order_id;
+                    const colActive = hoverCol === id;
+                    return (
+                      <DataTableCell
+                        key={`${o.order_id}-${id}`}
+                        align="center"
+                        onMouseEnter={() => {
+                          setHoverRow(o.order_id);
+                          setHoverCol(id);
+                        }}
+                        className={`tabular-nums transition-colors ${
+                          v ? '' : 'text-[var(--fg-subtle)]'
+                        } ${rowActive || colActive ? CROSS_TINT : ''} ${
+                          rowActive && colActive ? CELL_BORDER : ''
+                        }`}
+                      >
+                        {prov ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-[var(--brand-500)] underline-offset-4">
+                                {cellVal(v, item.measure)}
+                                <span
+                                  className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--brand-500)]"
+                                  aria-hidden
+                                />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {prov.combos.map((c) => (
+                                <span key={c.name} className="block">
+                                  {fmtProvQty(c.qty, item.measure, c.portions)} {item.name} ({c.name})
+                                </span>
+                              ))}
+                              {prov.standalone > 0 && (
+                                <span className="block opacity-80">
+                                  {fmtProvQty(prov.standalone, item.measure, prov.standalone_portions)}{' '}
+                                  {item.name} ({t('productionIndividual')})
+                                </span>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          cellVal(v, item.measure)
+                        )}
+                      </DataTableCell>
+                    );
+                  }),
+                )}
+              </DataTableRow>
+            );
+          };
+
+          if (reorderDone && doneEnabled) {
+            return (
+              <>
+                {activeOrders.map(renderRow)}
+                {doneOrders.length > 0 && (
+                  <tr className="border-y border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a]">
+                    <td
+                      colSpan={colCount}
+                      className="sticky left-0 bg-neutral-50 dark:bg-[#0a0a0a] px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--fg-muted)]"
+                    >
+                      {t('productionDoneDivider')} ({doneOrders.length})
+                    </td>
+                  </tr>
+                )}
+                {doneOrders.map(renderRow)}
+              </>
+            );
+          }
+          return <>{sheet.orders.map(renderRow)}</>;
+        })()}
       </DataTableBody>
     </DataTable>
   );
