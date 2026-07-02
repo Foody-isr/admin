@@ -1,9 +1,9 @@
-// Foody Admin service worker — v1.
+// Foody Admin service worker — v3.
 // Intentionally minimal: only handles Web Push events. No caching / offline
 // support yet (that's a separate concern; conflating them makes both harder
 // to debug). Bump the version string on any structural change so clients
 // upgrade.
-const SW_VERSION = 'foody-admin-sw-v2';
+const SW_VERSION = 'foody-admin-sw-v3';
 
 self.addEventListener('install', () => {
   // Activate immediately on first install / update so push events flow as
@@ -41,6 +41,46 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Subscription rotation. iOS (and desktop browsers) fire this when the push
+// service invalidates and reissues our subscription — on OS update, PWA
+// offload under storage pressure, or periodic key refresh. If we don't
+// re-subscribe here the server's stored endpoint goes stale and pushes
+// silently stop until the user manually re-enables. We re-subscribe with the
+// same VAPID key, then ping any open client so the app re-registers the fresh
+// endpoint with the server. The SW itself can't make that authenticated call:
+// the JWT lives in the app's localStorage, which is unreachable from here — so
+// the app's on-open re-sync (see lib/push.ts::syncSubscription) is the backstop
+// when no client is open to receive the ping.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const appServerKey =
+          event.oldSubscription?.options?.applicationServerKey ||
+          event.newSubscription?.options?.applicationServerKey;
+        let sub =
+          event.newSubscription ||
+          (await self.registration.pushManager.getSubscription());
+        if (!sub && appServerKey) {
+          sub = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: appServerKey,
+          });
+        }
+        const clients = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+        for (const client of clients) {
+          client.postMessage({ type: 'foody-push-resync' });
+        }
+      } catch (_) {
+        // Best-effort — the app's on-open re-sync repairs it next launch.
+      }
+    })(),
+  );
 });
 
 // Notification click — focus an existing tab on the target URL when
