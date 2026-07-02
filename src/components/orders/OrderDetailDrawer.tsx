@@ -907,7 +907,7 @@ export function OrderDetailDrawer({
           </Section>
 
           {/* Invoice — official Summit fiscal document, for Summit-paid orders */}
-          {order.external_metadata?.document_id ? (
+          {order.external_metadata?.document_number ? (
             <Section title={t('invoiceHeading') || 'Invoice'}>
               <InvoiceSection order={order} />
             </Section>
