@@ -590,10 +590,14 @@ export function OrderDetailDrawer({
         </div>
       }
     >
-      {/* 2-column content */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--s-5)]">
+      {/* Two-pane on desktop: the grid fills the drawer body's height and each
+          column scrolls independently, so reading the Facture on the right never
+          scrolls the Progression on the left out of view (and vice-versa). The
+          columns hold exactly the body height, so the Drawer's own scroll stays
+          idle — no second scrollbar. Mobile stays a single natural scroll. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-[var(--s-5)] lg:h-full lg:min-h-0">
         {/* LEFT — timeline + items */}
-        <div className="flex flex-col gap-[var(--s-4)]">
+        <div className="flex flex-col gap-[var(--s-4)] lg:min-h-0 lg:overflow-y-auto lg:pe-[var(--s-2)]">
           {/* Scheduled banner — prominent date/time when the order is scheduled.
               Lives at the top of the body so staff see it immediately on both
               desktop and mobile (whereas the drawer subtitle truncates). */}
@@ -728,7 +732,7 @@ export function OrderDetailDrawer({
         </div>
 
         {/* RIGHT — customer + totals + activity */}
-        <div className="flex flex-col gap-[var(--s-4)]">
+        <div className="flex flex-col gap-[var(--s-4)] lg:min-h-0 lg:overflow-y-auto lg:pe-[var(--s-2)]">
           {/* Customer card */}
           <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg shadow-1 p-[var(--s-5)]">
             <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-4)]">
