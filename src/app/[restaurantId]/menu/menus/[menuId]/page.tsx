@@ -14,6 +14,7 @@ import {
   AvailabilityOverride,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
+import { getCarteHealth, CarteHealthReport, CarteHealthProblem } from '@/lib/carte-health';
 import { addDays, isoDate } from '@/lib/weeks';
 import { getPageCache, setPageCache, saveScroll, restoreScroll } from '@/lib/page-state';
 import { BatchPicker } from '@/components/menu/BatchPicker';
@@ -32,6 +33,7 @@ import {
   GripVerticalIcon,
   MonitorSmartphoneIcon,
   ExternalLinkIcon,
+  AlertTriangleIcon,
 } from 'lucide-react';
 
 type TFn = (k: string) => string;
@@ -70,6 +72,87 @@ function Tag({ children }: { children: React.ReactNode }) {
     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
       {children}
     </span>
+  );
+}
+
+// serieDayOf resolves the ISO date (YYYY-MM-DD) a batch cycle is scoped to:
+// its primary fulfilment day, falling back to the cutoff date. Shared by the
+// membership filter (selectedDay) and the carte-health fetch so both agree.
+function serieDayOf(config: BatchFulfillmentConfigResponse | null, index: number): string | null {
+  const cyc = config?.upcoming_cycles ?? [];
+  const sel = cyc[Math.min(index, cyc.length - 1)] ?? null;
+  return (sel?.fulfillment_days?.[0]?.date) ?? (sel?.cutoff_at ? sel.cutoff_at.slice(0, 10) : null);
+}
+
+// ─── Carte health banner ─────────────────────────────────────────────────────
+// Surfaces per-série misconfigurations right where the operator curates each
+// week (combo step short, empty rotating group, unmatched variant pin, orphan
+// items) so an unorderable combo is caught before customers hit it.
+
+function healthLine(p: CarteHealthProblem, t: TFn): string {
+  switch (p.type) {
+    case 'combo_step_under_min':
+      return (t('carteHealthComboShort') || '')
+        .replace('{combo}', p.combo_name || '')
+        .replace('{step}', p.step_name || '')
+        .replace('{available}', String(p.available))
+        .replace('{required}', String(p.required));
+    case 'variant_pin_unmatched':
+      return (t('carteHealthVariantPin') || '')
+        .replace('{combo}', p.combo_name || '')
+        .replace('{step}', p.step_name || '')
+        .replace('{variant}', p.variant_label || '');
+    case 'empty_group':
+      return (t('carteHealthEmptyGroup') || '')
+        .replace('{group}', p.group_name || '')
+        .replace('{menu}', p.menu_name || '');
+    default:
+      return '';
+  }
+}
+
+function CarteHealthBanner({ report, t }: { report: CarteHealthReport | null; t: TFn }) {
+  if (!report) return null;
+  const problems = report.problems ?? [];
+  const alarming = problems.filter((p) => p.severity !== 'info');
+  const orphans = problems.filter((p) => p.type === 'item_no_group');
+  if (alarming.length === 0 && orphans.length === 0) return null;
+
+  const hasError = alarming.some((p) => p.severity === 'error');
+  const tone = alarming.length === 0
+    ? 'border-[var(--divider)] bg-[var(--surface-subtle)] text-[var(--text-secondary)]'
+    : hasError
+      ? 'border-red-300 bg-red-50 text-red-900'
+      : 'border-amber-300 bg-amber-50 text-amber-900';
+  const iconTone = alarming.length === 0
+    ? 'text-[var(--text-muted)]'
+    : hasError ? 'text-red-500' : 'text-amber-500';
+
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${tone}`} role="alert">
+      <div className="flex items-start gap-3">
+        <AlertTriangleIcon className={`w-5 h-5 mt-0.5 shrink-0 ${iconTone}`} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm">
+            {alarming.length > 0
+              ? (t('carteHealthTitle') || '').replace('{n}', String(alarming.length))
+              : (t('carteHealthOrphanCount') || '').replace('{n}', String(orphans.length))}
+          </p>
+          {alarming.length > 0 && (
+            <ul className="mt-1.5 space-y-1 text-sm list-disc pl-4">
+              {alarming.map((p, i) => (
+                <li key={i}>{healthLine(p, t)}</li>
+              ))}
+              {orphans.length > 0 && (
+                <li className="opacity-80">
+                  {(t('carteHealthOrphanCount') || '').replace('{n}', String(orphans.length))}
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -139,6 +222,8 @@ export default function MenuDetailPage() {
   const [membershipsByGroup, setMembershipsByGroup] = useState<Map<number, MenuGroupMembership[]>>(new Map());
   // Which groups have the "N items not in this batch" expander open.
   const [showInactiveByGroup, setShowInactiveByGroup] = useState<Set<number>>(new Set());
+  // Per-série carte health (empty groups, short combo steps, orphan items).
+  const [health, setHealth] = useState<CarteHealthReport | null>(null);
 
   const reload = useCallback(() => {
     setSyncing(true);
@@ -174,6 +259,16 @@ export default function MenuDetailPage() {
   }, [rid, mid, cacheKey]);
 
   useEffect(() => { reload(); getRestaurant(rid).then(setRestaurant).catch(() => null); }, [reload, rid]);
+
+  // Fetch carte health for the selected série (server defaults to today when no
+  // rotating cycle is picked). Refetches when the operator switches série.
+  useEffect(() => {
+    let cancelled = false;
+    getCarteHealth(rid, serieDayOf(batchConfig, selectedCycleIndex) ?? undefined)
+      .then((r) => { if (!cancelled) setHealth(r); })
+      .catch(() => { if (!cancelled) setHealth(null); });
+    return () => { cancelled = true; };
+  }, [rid, batchConfig, selectedCycleIndex]);
 
   // Categories load independently of the menu reload — they only feed the
   // Replace modal's filter chips, so they don't need to block the main view.
@@ -346,9 +441,9 @@ export default function MenuDetailPage() {
   const selectedCycle = cycles[Math.min(selectedCycleIndex, cycles.length - 1)] ?? null;
   // selectedDay: the ISO date used for membership filtering. Prefers the cycle's
   // primary fulfilment day; falls back to the cutoff date if no fulfilment day.
-  const selectedDay = (selectedCycle?.fulfillment_days?.[0]?.date)
-    ?? (selectedCycle?.cutoff_at ? selectedCycle.cutoff_at.slice(0, 10) : null);
+  const selectedDay = serieDayOf(batchConfig, selectedCycleIndex);
   const isCurrentCycle = selectedCycleIndex === 0;
+  const healthAlarmCount = (health?.problems ?? []).filter((p) => p.severity !== 'info').length;
   // When adding to a non-current cycle, scope the membership to that cycle's
   // FULFILMENT day(s) — the same axis the series filter uses (selectedDay) — not
   // the earlier ordering window (open_at/cutoff_at). Using open_at/cutoff_at made
@@ -703,6 +798,15 @@ export default function MenuDetailPage() {
               onChange={setSelectedCycleIndex}
             />
           )}
+          {healthAlarmCount > 0 && (
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700"
+              title={(t('carteHealthBadge') || '').replace('{n}', String(healthAlarmCount))}
+            >
+              <AlertTriangleIcon className="w-3.5 h-3.5" />
+              {healthAlarmCount}
+            </span>
+          )}
           {/* Preview the selected série on the live guest site (view-only). Opens
               foodyweb with ?preview_date pinned to the cycle's fulfilment day, so
               the operator sees exactly what customers will see that week. */}
@@ -768,6 +872,8 @@ export default function MenuDetailPage() {
           )}
         </div>
       </div>
+
+      <CarteHealthBanner report={health} t={t} />
 
       {/* ── Accordion Groups ── */}
       <div className="space-y-3">
