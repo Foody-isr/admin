@@ -3112,6 +3112,75 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
         </div>
       )}
 
+      {/* About — design controls */}
+      {section.section_type === 'about' && (
+        <div className="space-y-4">
+          {section.layout === 'split' && (
+            <div className="space-y-2">
+              <label className="text-xs text-fg-secondary font-medium block">Side Image</label>
+              <SectionImageUploader
+                restaurantId={restaurantId}
+                currentUrl={settings.image_url || ''}
+                onUploaded={(url) => updateSettings('image_url', url)}
+                onRemove={() => updateSettings('image_url', '')}
+              />
+              <div>
+                <label className="text-xs text-fg-secondary mb-1 block">Image Side</label>
+                <div className="flex gap-1.5">
+                  {[{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }].map(opt => (
+                    <button key={opt.value} type="button" onClick={() => updateSettings('image_side', opt.value)}
+                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.image_side || 'left') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="text-xs text-fg-secondary mb-1 block">Text Alignment</label>
+            <div className="flex gap-1.5">
+              {[{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }].map(opt => {
+                const def = section.layout === 'split' ? 'left' : 'center';
+                return (
+                  <button key={opt.value} type="button" onClick={() => updateSettings('text_align', opt.value)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.text_align || def) === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-fg-secondary mb-1 block">Content Width</label>
+            <div className="flex gap-1.5">
+              {[{ value: 'narrow', label: 'Narrow' }, { value: 'normal', label: 'Normal' }, { value: 'wide', label: 'Wide' }].map(opt => (
+                <button key={opt.value} type="button" onClick={() => updateSettings('content_width', opt.value)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.content_width || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-fg-secondary mb-1 block">Vertical Spacing</label>
+            <div className="flex gap-1.5">
+              {[{ value: 'compact', label: 'Compact' }, { value: 'normal', label: 'Normal' }, { value: 'spacious', label: 'Spacious' }].map(opt => (
+                <button key={opt.value} type="button" onClick={() => updateSettings('padding', opt.value)}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.padding || 'normal') === opt.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-fg-secondary font-medium block">Button (optional)</label>
+            <input type="text" value={settings.cta_label || ''} onChange={e => updateSettings('cta_label', e.target.value)} className={inputClass} placeholder="Button label (e.g. Commander)" />
+            <input type="text" value={settings.cta_link || ''} onChange={e => updateSettings('cta_link', e.target.value)} className={inputClass} placeholder="Link (e.g. /order)" />
+          </div>
+        </div>
+      )}
+
       {/* Content fields */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-fg-secondary">Content</h3>
