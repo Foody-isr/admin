@@ -104,6 +104,7 @@ const LAYOUT_OPTIONS: Record<string, { value: string; labelKey: string }[]> = {
   text_and_image: [{ value: 'default', labelKey: 'imageRight' }, { value: 'image_left', labelKey: 'imageLeft' }],
   gallery:        [{ value: 'grid', labelKey: 'grid' }, { value: 'masonry', labelKey: 'masonry' }],
   testimonials:   [{ value: 'carousel', labelKey: 'carousel' }, { value: 'grid', labelKey: 'grid' }],
+  about:          [{ value: 'centered', labelKey: 'centered' }, { value: 'split', labelKey: 'split' }, { value: 'banner', labelKey: 'banner' }],
   footer:         [{ value: 'columns', labelKey: 'columns' }, { value: 'centered', labelKey: 'centered' }, { value: 'minimal', labelKey: 'minimal' }],
 };
 
@@ -2888,17 +2889,23 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
         <div>
           <h3 className="text-sm font-semibold text-fg-secondary mb-2">Layout</h3>
           <div className="flex gap-2">
-            {layouts.map(l => (
-              <button
-                key={l.value}
-                onClick={() => onUpdate({ layout: l.value })}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  section.layout === l.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
-                }`}
-              >
-                {t(l.labelKey)}
-              </button>
-            ))}
+            {(() => {
+              const effLayout =
+                section.section_type === 'about' && (!section.layout || section.layout === 'default')
+                  ? 'centered'
+                  : section.layout;
+              return layouts.map(l => (
+                <button
+                  key={l.value}
+                  onClick={() => onUpdate({ layout: l.value })}
+                  className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                    effLayout === l.value ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'
+                  }`}
+                >
+                  {t(l.labelKey)}
+                </button>
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -3031,7 +3038,7 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
       {/* Typography */}
       {['hero_banner', 'text_and_image', 'about', 'promo_banner', 'scrolling_text', 'footer'].includes(section.section_type) && (
         <div>
-          <h3 className="text-sm font-semibold text-fg-secondary mb-2">Typography</h3>
+          <h3 className="text-sm font-semibold text-fg-secondary mb-2">{section.section_type === 'about' ? 'Default typography (all blocks)' : 'Typography'}</h3>
           <div className="space-y-3">
             <div>
               <label className="text-xs text-fg-secondary mb-1.5 block">Heading Size</label>
