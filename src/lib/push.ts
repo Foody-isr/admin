@@ -148,6 +148,19 @@ export async function subscribe(restaurantId: number): Promise<PushSubscription>
   }
 
   const reg = await navigator.serviceWorker.ready;
+  return persistSubscription(restaurantId, reg);
+}
+
+/**
+ * Ensure a valid browser subscription exists (creating or repairing one if the
+ * VAPID key rotated) and upsert it server-side. Shared by `subscribe` (which
+ * first requests permission) and `syncSubscription` (which assumes permission
+ * was already granted). Idempotent on the unique endpoint column.
+ */
+async function persistSubscription(
+  restaurantId: number,
+  reg: ServiceWorkerRegistration,
+): Promise<PushSubscription> {
   const publicKey = await fetchVapidPublicKey(restaurantId);
   const appServerKey = urlBase64ToUint8Array(publicKey);
 
@@ -166,9 +179,6 @@ export async function subscribe(restaurantId: number): Promise<PushSubscription>
     });
   }
 
-  // Always upsert server-side. Idempotent on the unique endpoint column,
-  // so a successful repeat call costs ~one indexed write and fixes the
-  // case where the server has no row for an existing local subscription.
   const json = sub.toJSON();
   await authedFetch('/api/v1/admin/push/subscribe', restaurantId, {
     method: 'POST',
@@ -179,6 +189,35 @@ export async function subscribe(restaurantId: number): Promise<PushSubscription>
     }),
   });
   return sub;
+}
+
+/**
+ * Background self-heal, safe to call on every app open. When the user has
+ * already granted permission, re-registers this device's *current* endpoint
+ * with the server. This fixes the silent-death failure mode where iOS rotates
+ * a PWA's push subscription (on OS update, app offload, or periodic refresh):
+ * the browser gets a fresh endpoint but the old one — the only one the server
+ * knows — goes stale, so pushes stop until the user manually re-enables. A
+ * quiet re-sync keeps the server pointed at the live endpoint.
+ *
+ * No-ops (returns false) when push isn't supported, permission isn't granted,
+ * or no service worker is registered (e.g. dev without NEXT_PUBLIC_ENABLE_SW).
+ * Uses `getRegistration()` rather than `serviceWorker.ready` so it can't hang
+ * forever when no SW exists. Never throws — failures are logged, not fatal.
+ */
+export async function syncSubscription(restaurantId: number): Promise<boolean> {
+  const env = getEnvironment();
+  if (!env.supported || env.permission !== 'granted') return false;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return false;
+  try {
+    await persistSubscription(restaurantId, reg);
+    return true;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[push] background re-sync failed:', err);
+    return false;
+  }
 }
 
 /** Unsubscribe this device — both locally and server-side. Idempotent. */
@@ -203,23 +242,57 @@ export async function unsubscribe(restaurantId: number): Promise<void> {
 }
 
 export interface TestSendResult {
-  /** Number of subscriptions for the calling user that received the push. */
+  /** Number of subscriptions that received the push (of those tested). */
   sent: number;
-  /** Total subscriptions on file for the calling user (includes any that
-   *  failed silently — useful for "0 of 2" diagnostics). */
+  /** How many subscriptions were tested. When scoped to this device it's
+   *  0 or 1; useful for "0 of N" diagnostics. */
   subscriptions_count: number;
+  /** False only when the test was scoped to this device's endpoint and the
+   *  server had no row for it — i.e. "you're not subscribed on this device". */
+  current_device_known: boolean;
 }
 
 /**
- * Send a sample push to every subscription belonging to the current user
- * for this restaurant. Server-side endpoint; the round-trip means a few
- * seconds may pass before the OS actually shows the notification.
+ * Send a sample push to *this device's* subscription for the given restaurant.
+ * We pass the current browser endpoint so the result reflects the phone/computer
+ * the user is actually holding — an aggregate across every device the user ever
+ * registered would report "sent" even when this device gets nothing. The server
+ * round-trip means a few seconds may pass before the OS shows the notification.
  */
 export async function sendTestPush(restaurantId: number): Promise<TestSendResult> {
+  const sub = await getCurrentSubscription();
   const res = await authedFetch('/api/v1/admin/push/test', restaurantId, {
     method: 'POST',
+    body: JSON.stringify({ endpoint: sub?.endpoint ?? '' }),
   });
   return (await res.json()) as TestSendResult;
+}
+
+/** One push-subscribed device belonging to the current user, as shown in the
+ *  settings "your devices" list. The raw endpoint is never exposed — only a
+ *  short tail so the client can flag which row is the current device. */
+export interface PushDevice {
+  id: number;
+  label: string;
+  endpoint_tail: string;
+  created_at: string;
+  last_used_at: string;
+}
+
+/** List the current user's push-subscribed devices for this restaurant. */
+export async function listDevices(restaurantId: number): Promise<PushDevice[]> {
+  const res = await authedFetch('/api/v1/admin/push/devices', restaurantId);
+  const data = (await res.json()) as { devices?: PushDevice[] };
+  return data.devices ?? [];
+}
+
+/** Remove one of the current user's subscriptions by id (server-side only —
+ *  the browser keeps its local sub, which the settings page handles by also
+ *  unsubscribing locally when the removed device is the current one). */
+export async function removeDevice(restaurantId: number, id: number): Promise<void> {
+  await authedFetch(`/api/v1/admin/push/devices/${id}`, restaurantId, {
+    method: 'DELETE',
+  });
 }
 
 /** Per-event opt-ins persisted on staff_notification_preferences. Shared

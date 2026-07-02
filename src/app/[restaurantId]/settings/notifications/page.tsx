@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX } from 'lucide-react';
+import { Bell, BellOff, Smartphone, AlertTriangle, ShoppingCart, XCircle, CreditCard, PackageX, Trash2, Monitor } from 'lucide-react';
 import { Badge, Button, PageHead } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -10,12 +10,15 @@ import {
   getCurrentSubscription,
   getEnvironment,
   getNotificationPreferences,
+  listDevices,
+  removeDevice,
   sendTestPush,
   subscribe,
   unsubscribe,
   updateNotificationPreferences,
   type NotificationPreferences,
   type NotificationPreferencesUpdate,
+  type PushDevice,
   type PushEnvironment,
 } from '@/lib/push';
 
@@ -34,23 +37,36 @@ type ExposedPrefKey =
 export default function NotificationsSettingsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
 
   const [env, setEnv] = useState<PushEnvironment | null>(null);
   const [subscribed, setSubscribed] = useState(false);
+  const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [savingPref, setSavingPref] = useState<ExposedPrefKey | null>(null);
+  const [devices, setDevices] = useState<PushDevice[] | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+
+  const loadDevices = useCallback(async () => {
+    try {
+      setDevices(await listDevices(rid));
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[notifications] failed to load devices:', err);
+    }
+  }, [rid]);
 
   const refresh = useCallback(async () => {
     setEnv(getEnvironment());
     const existing = await getCurrentSubscription();
     setSubscribed(Boolean(existing));
-    // Fetch prefs in parallel — don't block the toggle UI if the
+    setCurrentEndpoint(existing?.endpoint ?? null);
+    // Fetch prefs + devices in parallel — don't block the toggle UI if the
     // endpoint is slow. Errors here aren't fatal (the toggles just
     // won't show until next refresh).
     try {
@@ -60,7 +76,8 @@ export default function NotificationsSettingsPage() {
       // eslint-disable-next-line no-console
       console.warn('[notifications] failed to load prefs:', err);
     }
-  }, [rid]);
+    await loadDevices();
+  }, [rid, loadDevices]);
 
   useEffect(() => {
     refresh();
@@ -116,15 +133,50 @@ export default function NotificationsSettingsPage() {
     setStatus('testing');
     try {
       const result = await sendTestPush(rid);
-      setTestResult(
-        result.sent > 0
-          ? (t('testPushSent') || 'Notification de test envoyée. Si elle n’apparaît pas dans quelques secondes, vérifiez les autorisations système.')
-          : (t('testPushNoneSent') || 'Aucune notification envoyée — vérifiez que vous êtes bien abonné depuis cet appareil.'),
-      );
+      if (result.sent > 0) {
+        setTestResult(
+          t('testPushSent')
+            || 'Notification de test envoyée. Si elle n’apparaît pas dans quelques secondes, vérifiez les autorisations système.',
+        );
+      } else if (!result.current_device_known) {
+        // The server had no subscription row for this device's endpoint.
+        setTestResult(
+          t('testPushNoneSent')
+            || 'Cet appareil n’est pas abonné. Touchez « Activer » pour recevoir les notifications ici.',
+        );
+      } else {
+        // Subscribed on this device, but the push service refused delivery.
+        setTestResult(
+          t('testPushFailed')
+            || 'Impossible de livrer sur cet appareil. Désactivez puis réactivez les notifications ici.',
+        );
+      }
+      // Delivery touches last_used_at server-side; refresh so the list reflects it.
+      await loadDevices();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setStatus('idle');
+    }
+  };
+
+  const handleRemoveDevice = async (device: PushDevice) => {
+    setError(null);
+    setRemovingId(device.id);
+    try {
+      await removeDevice(rid, device.id);
+      // If we just removed the device we're on, also drop the local browser
+      // subscription so the toggle above flips back to "not subscribed".
+      const isCurrent = Boolean(currentEndpoint && currentEndpoint.endsWith(device.endpoint_tail));
+      if (isCurrent) {
+        await unsubscribe(rid).catch(() => {});
+      }
+      setTestResult(null);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -170,6 +222,24 @@ export default function NotificationsSettingsPage() {
       {env?.supported && prefs && (
         <div className="mt-[var(--s-4)]">
           <EventPreferences prefs={prefs} saving={savingPref} onToggle={handleTogglePref} canEdit={canEdit} t={t} />
+        </div>
+      )}
+
+      {/* Subscribed devices. Lets the user see every phone/computer receiving
+          notifications and prune stale ones — the main defense against the
+          old "sends succeeded but not on my phone" confusion caused by dead
+          subscriptions piling up. */}
+      {env?.supported && devices && devices.length > 0 && (
+        <div className="mt-[var(--s-4)]">
+          <DeviceList
+            devices={devices}
+            currentEndpoint={currentEndpoint}
+            removingId={removingId}
+            canEdit={canEdit}
+            onRemove={handleRemoveDevice}
+            locale={locale}
+            t={t}
+          />
         </div>
       )}
 
@@ -431,6 +501,94 @@ function EventPreferences({
                   onChange={(next) => onToggle(ev.key, next)}
                   ariaLabel={title}
                 />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Subscribed devices ─────────────────────────────────────────────────────
+
+/** Pick an icon for a device from its "OS · Browser" label. */
+function deviceIcon(label: string): React.ComponentType<{ className?: string }> {
+  return /iPhone|iPad|Android/.test(label) ? Smartphone : Monitor;
+}
+
+/** Format a subscription timestamp as a short, locale-aware date + time.
+ *  Falls back to the raw string if it can't be parsed. */
+function formatDeviceDate(iso: string, locale: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(locale, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function DeviceList({
+  devices,
+  currentEndpoint,
+  removingId,
+  canEdit,
+  onRemove,
+  locale,
+  t,
+}: {
+  devices: PushDevice[];
+  currentEndpoint: string | null;
+  removingId: number | null;
+  canEdit: boolean;
+  onRemove: (device: PushDevice) => void;
+  locale: string;
+  t: (k: string) => string;
+}) {
+  return (
+    <div className="rounded-r-lg border border-[var(--line)] bg-[var(--surface)] p-[var(--s-5)]">
+      <h3 className="text-fs-sm font-semibold uppercase tracking-[0.06em] text-[var(--fg-muted)]">
+        {t('yourDevices') || 'Vos appareils'}
+      </h3>
+      <p className="text-fs-sm text-[var(--fg-muted)] mt-1.5 mb-[var(--s-4)]">
+        {t('yourDevicesDesc')
+          || 'Téléphones et ordinateurs abonnés aux notifications pour ce restaurant. Retirez ceux que vous n’utilisez plus.'}
+      </p>
+      <ul className="flex flex-col gap-[var(--s-3)]">
+        {devices.map((d) => {
+          const isCurrent = Boolean(currentEndpoint && currentEndpoint.endsWith(d.endpoint_tail));
+          const Icon = deviceIcon(d.label);
+          return (
+            <li key={d.id} className="flex items-center gap-[var(--s-3)]">
+              <div
+                className="w-9 h-9 shrink-0 rounded-r-md grid place-items-center bg-[var(--surface-2)]"
+                aria-hidden
+              >
+                <Icon className="w-4 h-4 text-[var(--fg-muted)]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-[var(--s-2)] flex-wrap">
+                  <p className="text-fs-md font-medium text-[var(--fg)] truncate">{d.label}</p>
+                  {isCurrent && <Badge tone="success">{t('thisDevice') || 'Cet appareil'}</Badge>}
+                </div>
+                <p className="text-fs-xs text-[var(--fg-muted)] mt-0.5">
+                  {(t('deviceLastActive') || 'Dernière activité')}: {formatDeviceDate(d.last_used_at, locale)}
+                </p>
+              </div>
+              {canEdit && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onRemove(d)}
+                  disabled={removingId === d.id}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {removingId === d.id
+                    ? t('deviceRemoving') || 'Retrait…'
+                    : t('deviceRemove') || 'Retirer'}
+                </Button>
               )}
             </li>
           );
