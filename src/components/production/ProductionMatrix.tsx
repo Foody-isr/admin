@@ -305,7 +305,7 @@ export function ProductionMatrix({
                       : undefined
                   }
                   onDragEnd={editable ? clearDrag : undefined}
-                  className={`${stickyRow} ${hoverCol === id ? `${CROSS_STICKY} ${BRAND_TXT}` : HEAD_BG} group whitespace-nowrap ${
+                  className={`${stickyRow} transition-colors ${hoverCol === id ? `${CROSS_STICKY} ${BRAND_TXT}` : HEAD_BG} group whitespace-nowrap ${
                     editable ? 'cursor-grab active:cursor-grabbing select-none' : ''
                   } ${overItem === id && dragItem ? DROP_TARGET : ''}`}
                   style={{ top: topOf(1), zIndex: sticky ? 20 : undefined }}
@@ -349,7 +349,7 @@ export function ProductionMatrix({
                 <DataTableHeadCell
                   key={`tt-${id}`}
                   align="center"
-                  className={`${stickyRow} ${hoverCol === id ? CROSS_STICKY : HEAD_BG} ${BRAND_TXT}`}
+                  className={`${stickyRow} transition-colors ${hoverCol === id ? CROSS_STICKY : HEAD_BG} ${BRAND_TXT}`}
                   style={{ top: topOf(2), zIndex: sticky ? 20 : undefined }}
                 >
                   {/* Total is intentionally not flagged for combos: a column total can mix
