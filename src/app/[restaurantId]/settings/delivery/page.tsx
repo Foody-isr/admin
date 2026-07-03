@@ -14,6 +14,7 @@ import type { CityMarker } from '@/components/delivery/ZoneMap';
 import { lookupCityCoord } from '@/lib/israel-cities';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { useIsMobile } from '@/components/ui/use-mobile';
 
 // Leaflet must not SSR.
 const ZoneMap = dynamic(() => import('@/components/delivery/ZoneMap'), { ssr: false });
@@ -46,6 +47,9 @@ export default function DeliveryZonesPage() {
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
+  // Phones get a compact sticky map preview (no drag/zoom, so it doesn't trap
+  // the page scroll) with the zone list + editor scrolling underneath it.
+  const isMobile = useIsMobile();
 
   const [loading, setLoading] = useState(true);
   const [zones, setZones] = useState<DeliveryZone[]>([]);
@@ -258,12 +262,12 @@ export default function DeliveryZonesPage() {
     <div className="max-w-[1100px]">
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2"><MapPin className="w-6 h-6" />{t('deliveryZones') || 'Zones de livraison'}</h1>
-        <p className="text-gray-500 mt-1">{t('deliveryZonesDesc') || 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.'}</p>
+        <p className="text-[var(--fg-muted)] mt-1">{t('deliveryZonesDesc') || 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.'}</p>
       </div>
 
       {/* Restaurant-wide default minimum order — overridden by any zone that
           sets its own minimum below. */}
-      <div className="mb-4 p-4 rounded-xl border border-gray-200 bg-white">
+      <div className="mb-4 p-4 rounded-xl border border-[var(--line)] bg-[var(--surface)]">
         <div className="flex flex-wrap items-end gap-3">
           <label className="text-sm flex flex-col gap-1">
             <span className="font-medium">{t('defaultMinOrder') || 'Commande minimum par défaut (₪)'}</span>
@@ -272,7 +276,7 @@ export default function DeliveryZonesPage() {
               value={minOrderDelivery}
               disabled={!canEdit}
               onChange={(e) => setMinOrderDelivery(Number(e.target.value))}
-              className="w-32 border rounded-lg px-3 py-2"
+              className="w-32 border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2"
             />
           </label>
           {canEdit && (
@@ -285,17 +289,18 @@ export default function DeliveryZonesPage() {
             </button>
           )}
           {minOrderSaved && (
-            <span className="text-sm text-green-600 font-medium pb-2">{t('saved') || 'Enregistré'}</span>
+            <span className="text-sm text-[var(--success-500)] font-medium pb-2">{t('saved') || 'Enregistré'}</span>
           )}
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-[var(--fg-subtle)] mt-2">
           {t('defaultMinOrderHint') || 'Appliqué aux adresses sans minimum spécifique. 0 = pas de minimum. Une zone peut le remplacer ci-dessous.'}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_360px] gap-4">
         <ZoneMap
-          className="h-[520px] rounded-xl overflow-hidden border border-gray-200"
+          className="max-md:sticky max-md:top-0 max-md:z-10 h-[200px] lg:h-[520px] rounded-xl overflow-hidden border border-[var(--line)] bg-[var(--surface)]"
+          interactive={!isMobile}
           center={center}
           zones={zones}
           activeZoneId={draft?.id ?? null}
@@ -311,10 +316,10 @@ export default function DeliveryZonesPage() {
           {/* Zone list */}
           <div className="space-y-2">
             {zones.map((z) => (
-              <div key={z.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+              <div key={z.id} className="flex items-center justify-between p-3 rounded-lg border border-[var(--line)] bg-[var(--surface)]">
                 <button className="text-left flex-1" onClick={() => beginEdit(z)}>
                   <div className="font-medium">{z.name}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-[var(--fg-muted)]">
                     {t(`zoneType_${z.type}`) || z.type}
                     {z.delivery_fee != null && z.delivery_fee > 0 ? ` · ₪${z.delivery_fee}` : ''}
                     {z.min_order != null && z.min_order > 0 ? ` · ${t('minShort') || 'min'} ₪${z.min_order}` : ''}
@@ -324,23 +329,23 @@ export default function DeliveryZonesPage() {
                 <label className="mr-2 text-xs flex items-center gap-1">
                   <input type="checkbox" checked={z.is_active} disabled={!canEdit} onChange={() => toggleActive(z)} />
                 </label>
-                <button disabled={!canEdit} onClick={() => remove(z)} className="text-red-500 p-1"><Trash2 className="w-4 h-4" /></button>
+                <button disabled={!canEdit} onClick={() => remove(z)} className="text-[var(--danger-500)] p-1"><Trash2 className="w-4 h-4" /></button>
               </div>
             ))}
-            {zones.length === 0 && <p className="text-sm text-gray-400">{t('noZonesYet') || 'Aucune zone. Toute adresse est livrable.'}</p>}
+            {zones.length === 0 && <p className="text-sm text-[var(--fg-subtle)]">{t('noZonesYet') || 'Aucune zone. Toute adresse est livrable.'}</p>}
           </div>
 
           {canEdit && !draft && (
-            <button onClick={beginNew} className="w-full py-2 rounded-lg border-2 border-dashed border-gray-300 text-gray-600 flex items-center justify-center gap-2">
+            <button onClick={beginNew} className="w-full py-2 rounded-lg border-2 border-dashed border-[var(--line-strong)] text-[var(--fg-muted)] flex items-center justify-center gap-2">
               <Plus className="w-4 h-4" />{t('addZone') || 'Ajouter une zone'}
             </button>
           )}
 
           {/* Editor */}
           {draft && (
-            <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-3">
+            <div className="p-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] space-y-3">
               <input
-                className="w-full border rounded-lg px-3 py-2"
+                className="w-full border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2"
                 placeholder={t('zoneName') || 'Nom de la zone'}
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -350,14 +355,14 @@ export default function DeliveryZonesPage() {
               <div className="flex gap-2">
                 {(['radius', 'cities'] as const).map((ty) => (
                   <button key={ty} onClick={() => { setDraft({ ...draft, type: ty }); setCityMarkers([]); }}
-                    className={`flex-1 py-1.5 rounded-lg text-sm ${draft.type === ty ? 'bg-[var(--brand-500)] text-white' : 'bg-gray-100'}`}>
+                    className={`flex-1 py-1.5 rounded-lg text-sm ${draft.type === ty ? 'bg-[var(--brand-500)] text-white' : 'bg-[var(--surface-2)]'}`}>
                     {t(`zoneType_${ty}`) || ty}
                   </button>
                 ))}
               </div>
 
               {/* Contextual hint per type */}
-              <p className="text-xs text-gray-500 italic">
+              <p className="text-xs text-[var(--fg-muted)] italic">
                 {draft.type === 'cities'
                   ? (t('zoneTypeHint_cities') || 'Les clients choisiront leur ville dans une liste au moment de la commande.')
                   : (t('zoneTypeHint_radius') || "Le systeme verifie automatiquement si l'adresse du client est dans le rayon.")}
@@ -365,7 +370,7 @@ export default function DeliveryZonesPage() {
 
               {draft.type === 'radius' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500">{t('radiusFromAddressHint') || "Le rayon part de l'adresse du restaurant."}</p>
+                  <p className="text-xs text-[var(--fg-muted)]">{t('radiusFromAddressHint') || "Le rayon part de l'adresse du restaurant."}</p>
                   {addressOk === false && (
                     <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                       <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
@@ -379,7 +384,7 @@ export default function DeliveryZonesPage() {
                     {t('radiusKm') || 'Rayon (km)'}
                     <input type="number" min={0.1} step={0.1} value={draft.radiusKm}
                       onChange={(e) => setDraft({ ...draft, radiusKm: Number(e.target.value) })}
-                      className="w-24 border rounded-lg px-2 py-1" />
+                      className="w-24 border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-2 py-1" />
                   </label>
                 </div>
               )}
@@ -389,17 +394,17 @@ export default function DeliveryZonesPage() {
                   <div className="flex gap-2">
                     <input
                       ref={cityInputRef}
-                      className="flex-1 border rounded-lg px-3 py-2"
+                      className="flex-1 border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2"
                       placeholder={t('cityOrPostal') || 'Ville ou code postal'}
                       value={cityInput}
                       onChange={(e) => setCityInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCity(); } }}
                     />
-                    <button onClick={addCity} className="px-3 rounded-lg bg-gray-100">{t('add') || 'Ajouter'}</button>
+                    <button onClick={addCity} className="px-3 rounded-lg bg-[var(--surface-2)]">{t('add') || 'Ajouter'}</button>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {draft.cities.map((c) => (
-                      <span key={c} className="px-2 py-1 rounded-full bg-gray-100 text-sm flex items-center gap-1">
+                      <span key={c} className="px-2 py-1 rounded-full bg-[var(--surface-2)] text-sm flex items-center gap-1">
                         {c}<button onClick={() => removeCity(c)}>&times;</button>
                       </span>
                     ))}
@@ -410,7 +415,7 @@ export default function DeliveryZonesPage() {
               {/* Per-zone delivery fee and minimum order (all zone types) */}
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <label className="text-sm flex flex-col gap-1">
-                  <span className="text-gray-600">{t('zoneDeliveryFee') || 'Frais de livraison (₪)'}</span>
+                  <span className="text-[var(--fg-muted)]">{t('zoneDeliveryFee') || 'Frais de livraison (₪)'}</span>
                   <input type="number" min={0} step="0.5" inputMode="decimal"
                     placeholder={t('zoneFeeFreePlaceholder') || 'Gratuit'}
                     value={draft.deliveryFee}
@@ -418,7 +423,7 @@ export default function DeliveryZonesPage() {
                     className="border rounded-lg px-3 py-2" />
                 </label>
                 <label className="text-sm flex flex-col gap-1">
-                  <span className="text-gray-600">{t('zoneMinOrder') || 'Commande minimum (₪)'}</span>
+                  <span className="text-[var(--fg-muted)]">{t('zoneMinOrder') || 'Commande minimum (₪)'}</span>
                   <input type="number" min={0} step="0.5" inputMode="decimal"
                     placeholder={t('zoneMinGlobalPlaceholder') || 'Par défaut'}
                     value={draft.minOrder}
@@ -426,17 +431,17 @@ export default function DeliveryZonesPage() {
                     className="border rounded-lg px-3 py-2" />
                 </label>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-[var(--fg-subtle)]">
                 {t('zoneFeeMinHint') || 'Laissez vide pour une livraison gratuite et le minimum global du restaurant.'}
               </p>
 
-              {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+              {saveError && <p className="text-sm text-[var(--danger-500)]">{saveError}</p>}
               <div className="flex gap-2 pt-2">
                 <button disabled={!validDraft(draft) || saving} onClick={save}
                   className="flex-1 py-2 rounded-lg bg-[var(--brand-500)] text-white font-medium disabled:opacity-50">
                   {saving ? '...' : (t('save') || 'Enregistrer')}
                 </button>
-                <button onClick={() => { setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-gray-100">{t('cancel') || 'Annuler'}</button>
+                <button onClick={() => { setDraft(null); setCityMarkers([]); setSaveError(null); }} className="px-4 py-2 rounded-lg bg-[var(--surface-2)]">{t('cancel') || 'Annuler'}</button>
               </div>
             </div>
           )}
