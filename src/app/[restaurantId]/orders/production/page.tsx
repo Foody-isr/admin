@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
+import { useIsMobile } from '@/components/ui/use-mobile';
 import { Kpi, PageHead } from '@/components/ds';
 import ActionsDropdown from '@/components/common/ActionsDropdown';
 import {
@@ -41,6 +42,10 @@ export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = Number(params.restaurantId);
   const { t } = useI18n();
+  // Phones get a lean single-table view: no split/fullscreen/drag, no internal
+  // height cap — the page scrolls vertically and the grid scrolls sideways with
+  // the Client column pinned. See ProductionMatrix for the tap-to-focus handling.
+  const isMobile = useIsMobile();
 
   const [days, setDays] = useState<ProductionDay[]>([]);
   const [date, setDate] = useState<string>('');
@@ -228,6 +233,9 @@ export default function ProductionPage() {
   }, [orderedSheet]);
 
   const handleRowClick = fullscreen ? () => undefined : (id: number) => setSelectedOrderId(id);
+  // Split views are desktop-only; on a phone we always render the single main
+  // table (any split chosen on a wider screen is ignored while narrow).
+  const effectiveSplit = isMobile ? 'none' : splitMode;
 
   // Enter full screen: maximize layout (state) + request native full-screen
   // (falls back to the in-app overlay if the browser blocks the API).
@@ -349,27 +357,35 @@ export default function ProductionPage() {
                 {date && <DateStepper date={date} days={days} onChange={setDate} />}
                 <ActionsDropdown
                   actions={[
-                    {
-                      label: t('productionFullscreen'),
-                      onClick: enterFullscreen,
-                      icon: <Maximize2Icon className="w-4 h-4" />,
-                    },
-                    {
-                      label:
-                        splitMode === 'category'
-                          ? t('productionSingleTable')
-                          : t('productionSplitByCategory'),
-                      onClick: () => setSplitMode((m) => (m === 'category' ? 'none' : 'category')),
-                      icon: <LayoutListIcon className="w-4 h-4" />,
-                    },
-                    {
-                      label:
-                        splitMode === 'customer'
-                          ? t('productionSingleTable')
-                          : t('productionSplitByCustomer'),
-                      onClick: () => setSplitMode((m) => (m === 'customer' ? 'none' : 'customer')),
-                      icon: <UsersIcon className="w-4 h-4" />,
-                    },
+                    // Fullscreen + split views are desktop-only — they fight the
+                    // phone's single-scroll model, so they're dropped on mobile.
+                    ...(!isMobile
+                      ? [
+                          {
+                            label: t('productionFullscreen'),
+                            onClick: enterFullscreen,
+                            icon: <Maximize2Icon className="w-4 h-4" />,
+                          },
+                          {
+                            label:
+                              splitMode === 'category'
+                                ? t('productionSingleTable')
+                                : t('productionSplitByCategory'),
+                            onClick: () =>
+                              setSplitMode((m) => (m === 'category' ? 'none' : 'category')),
+                            icon: <LayoutListIcon className="w-4 h-4" />,
+                          },
+                          {
+                            label:
+                              splitMode === 'customer'
+                                ? t('productionSingleTable')
+                                : t('productionSplitByCustomer'),
+                            onClick: () =>
+                              setSplitMode((m) => (m === 'customer' ? 'none' : 'customer')),
+                            icon: <UsersIcon className="w-4 h-4" />,
+                          },
+                        ]
+                      : []),
                     {
                       label: view === 'production' ? t('productionShoppingList') : t('productionTitle'),
                       onClick: () => setView((v) => (v === 'production' ? 'courses' : 'production')),
@@ -385,7 +401,7 @@ export default function ProductionPage() {
                       onClick: () => window.print(),
                       icon: <PrinterIcon className="w-4 h-4" />,
                     },
-                    ...(canEditLayout && hasCustomOrder
+                    ...(canEditLayout && hasCustomOrder && !isMobile
                       ? [
                           {
                             label: t('productionResetColumns'),
@@ -440,7 +456,7 @@ export default function ProductionPage() {
         view === 'production' &&
         orderedSheet &&
         orderedSheet.orders.length > 0 &&
-        (splitMode === 'category' ? (
+        (effectiveSplit === 'category' ? (
           <div className="flex flex-col gap-[var(--s-4)]">
             {categorySheets.map(({ cat, sheet: cs }) => (
               <ProductionMatrix
@@ -456,7 +472,7 @@ export default function ProductionPage() {
               />
             ))}
           </div>
-        ) : splitMode === 'customer' ? (
+        ) : effectiveSplit === 'customer' ? (
           <div className="flex flex-col gap-[var(--s-5)]">
             {customerSheets.map(({ order, sheet: cs }) => (
               <div key={order.order_id} className="flex flex-col gap-[var(--s-2)]">
@@ -487,19 +503,29 @@ export default function ProductionPage() {
             ))}
           </div>
         ) : (
-          <ProductionMatrix
-            sheet={orderedSheet}
-            onRowClick={handleRowClick}
-            availablePortions={availablePortions}
-            boxSize={boxSize}
-            unitDisplayIds={unitDisplayIds}
-            onToggleItemDisplay={display.toggleItem}
-            sticky
-            onReorderCategories={canEditLayout ? setCategoryOrder : undefined}
-            onReorderItems={canEditLayout ? setItemOrder : undefined}
-            doneIds={doneIds}
-            onToggleDone={toggleDone}
-          />
+          <div className="flex flex-col gap-[var(--s-2)]">
+            {isMobile && (
+              <p className="md:hidden text-fs-xs text-[var(--fg-muted)]">
+                {t('productionSwipeHint')}
+              </p>
+            )}
+            <ProductionMatrix
+              sheet={orderedSheet}
+              onRowClick={handleRowClick}
+              availablePortions={availablePortions}
+              boxSize={boxSize}
+              unitDisplayIds={unitDisplayIds}
+              onToggleItemDisplay={display.toggleItem}
+              // Phones drop the pinned-header / internal height cap so the page
+              // scrolls vertically and only the grid scrolls sideways; drag
+              // reordering is desktop-only.
+              sticky={!isMobile}
+              onReorderCategories={!isMobile && canEditLayout ? setCategoryOrder : undefined}
+              onReorderItems={!isMobile && canEditLayout ? setItemOrder : undefined}
+              doneIds={doneIds}
+              onToggleDone={toggleDone}
+            />
+          </div>
         ))}
 
       <ProductionOrderDetail
