@@ -35,6 +35,7 @@ import { useProductionDisplay, type ProductionDisplayMode } from '@/lib/producti
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { DateStepper } from '@/components/production/DateStepper';
 import { ProductionMatrix } from '@/components/production/ProductionMatrix';
+import { ProductionMobile } from '@/components/production/ProductionMobile';
 import { ProductionShoppingList } from '@/components/production/ProductionShoppingList';
 import { ProductionOrderDetail } from '@/components/production/ProductionOrderDetail';
 
@@ -42,9 +43,9 @@ export default function ProductionPage() {
   const params = useParams<{ restaurantId: string }>();
   const restaurantId = Number(params.restaurantId);
   const { t } = useI18n();
-  // Phones get a lean single-table view: no split/fullscreen/drag, no internal
-  // height cap — the page scrolls vertically and the grid scrolls sideways with
-  // the Client column pinned. See ProductionMatrix for the tap-to-focus handling.
+  // A clients × items matrix can't be read on a phone, so instead of shrinking
+  // it we swap in ProductionMobile — a single-axis view the staffer switches
+  // between (Clients / Items / Status). Split/fullscreen/drag stay desktop-only.
   const isMobile = useIsMobile();
 
   const [days, setDays] = useState<ProductionDay[]>([]);
@@ -502,13 +503,15 @@ export default function ProductionPage() {
               </div>
             ))}
           </div>
+        ) : isMobile ? (
+          <ProductionMobile
+            sheet={orderedSheet}
+            onRowClick={handleRowClick}
+            doneIds={doneIds}
+            onToggleDone={toggleDone}
+          />
         ) : (
           <div className="flex flex-col gap-[var(--s-2)]">
-            {isMobile && (
-              <p className="md:hidden text-fs-xs text-[var(--fg-muted)]">
-                {t('productionSwipeHint')}
-              </p>
-            )}
             <ProductionMatrix
               sheet={orderedSheet}
               onRowClick={handleRowClick}
@@ -516,12 +519,11 @@ export default function ProductionPage() {
               boxSize={boxSize}
               unitDisplayIds={unitDisplayIds}
               onToggleItemDisplay={display.toggleItem}
-              // Phones drop the pinned-header / internal height cap so the page
-              // scrolls vertically and only the grid scrolls sideways; drag
-              // reordering is desktop-only.
-              sticky={!isMobile}
-              onReorderCategories={!isMobile && canEditLayout ? setCategoryOrder : undefined}
-              onReorderItems={!isMobile && canEditLayout ? setItemOrder : undefined}
+              // The main table pins its header + caps height so only the grid
+              // scrolls; managers can drag columns to reorder the shared layout.
+              sticky
+              onReorderCategories={canEditLayout ? setCategoryOrder : undefined}
+              onReorderItems={canEditLayout ? setItemOrder : undefined}
               doneIds={doneIds}
               onToggleDone={toggleDone}
             />
