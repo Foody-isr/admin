@@ -800,6 +800,8 @@ const translations: Record<Locale, Record<string, string>> = {
     cancelReasonDeliveryIssue: 'Delivery issue',
     cancelReasonOther: 'Other',
     cancelReasonPaymentAbandoned: 'Payment not completed',
+    cashToCollect: 'Collect in cash',
+    paidInCash: 'Paid in cash',
     note: 'Note:',
 
     // ── Order timeline (short labels under each step) ──
@@ -3864,6 +3866,8 @@ const translations: Record<Locale, Record<string, string>> = {
     cancelReasonDeliveryIssue: 'בעיית משלוח',
     cancelReasonOther: 'אחר',
     cancelReasonPaymentAbandoned: 'התשלום לא הושלם',
+    cashToCollect: 'לגבות במזומן',
+    paidInCash: 'שולם במזומן',
     note: 'הערה:',
 
     // ── Order timeline (short labels under each step) ──
@@ -6894,6 +6898,8 @@ const translations: Record<Locale, Record<string, string>> = {
     cancelReasonDeliveryIssue: 'Problème de livraison',
     cancelReasonOther: 'Autre',
     cancelReasonPaymentAbandoned: 'Paiement non finalisé',
+    cashToCollect: 'À encaisser en espèces',
+    paidInCash: 'Payé en espèces',
     note: 'Note :',
 
     // ── Order timeline (short labels under each step) ──

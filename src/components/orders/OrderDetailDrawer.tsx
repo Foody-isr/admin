@@ -23,6 +23,7 @@ import {
   buildMailtoUrl,
 } from '@/lib/receipt-share';
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
+import { CashTag } from '@/components/orders/CashTag';
 import {
   initOrderPaymentLink, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
@@ -883,13 +884,18 @@ export function OrderDetailDrawer({
                 <span>{t('total')}</span>
                 <span className="font-mono tabular-nums">₪{totalsLine.toFixed(2)}</span>
               </div>
-              <div className="flex items-center justify-between mt-[var(--s-2)]">
+              <div className="flex items-center justify-between mt-[var(--s-2)] gap-2">
                 <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'} dot>
                   {(() => {
                     const tv = t(order.payment_status);
                     return tv === order.payment_status ? order.payment_status : tv;
                   })()}
                 </Badge>
+                <CashTag
+                  paymentMethod={order.payment_method}
+                  paymentStatus={order.payment_status}
+                  variant="full"
+                />
               </div>
 
               {/* Payment link — for orders awaiting online payment. Lets staff

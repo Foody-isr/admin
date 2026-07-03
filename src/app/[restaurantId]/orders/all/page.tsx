@@ -38,6 +38,7 @@ import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
+import { CashTag } from '@/components/orders/CashTag';
 import {
   DataTable,
   DataTableHead,
@@ -694,12 +695,15 @@ export default function OrdersPage() {
                       </Badge>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('payment')}>
-                      <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
-                        {(() => {
-                          const tv = t(order.payment_status);
-                          return tv === order.payment_status ? order.payment_status : tv;
-                        })()}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge tone={PAYMENT_TONE[order.payment_status] ?? 'neutral'}>
+                          {(() => {
+                            const tv = t(order.payment_status);
+                            return tv === order.payment_status ? order.payment_status : tv;
+                          })()}
+                        </Badge>
+                        <CashTag paymentMethod={order.payment_method} paymentStatus={order.payment_status} />
+                      </div>
                     </DataTableCell>
                     <DataTableCell align="right" className="font-medium text-fg-primary" mobileLabel={t('total')}>
                       ₪{(order.total_amount ?? 0).toFixed(0)}
