@@ -30,6 +30,9 @@ export interface ZoneMapProps {
   className?: string;
   /** Optional city markers to display on the map (display-only, not persisted). */
   cityMarkers?: CityMarker[];
+  /** When false, the map is a static preview: no drag/zoom/tap. Used on phones
+   *  where a pannable map would trap the page's vertical scroll. Defaults true. */
+  interactive?: boolean;
 }
 
 const HOME_ICON = L.divIcon({
@@ -58,12 +61,23 @@ function toLatLng(ring: [number, number][]): [number, number][] {
 
 export default function ZoneMap({
   center, zones, activeZoneId, drawMode, draftPolygon, draftCenter, draftRadiusM, onMapClick, className, cityMarkers,
+  interactive = true,
 }: ZoneMapProps) {
   const draftLatLng = useMemo(() => toLatLng(draftPolygon), [draftPolygon]);
 
   return (
     <div className={className}>
-      <MapContainer center={[center.lat, center.lng]} zoom={13} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+      <MapContainer
+        center={[center.lat, center.lng]}
+        zoom={13}
+        scrollWheelZoom={interactive}
+        dragging={interactive}
+        doubleClickZoom={interactive}
+        touchZoom={interactive}
+        keyboard={interactive}
+        zoomControl={interactive}
+        style={{ height: '100%', width: '100%' }}
+      >
         <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <Marker position={[center.lat, center.lng]} icon={HOME_ICON} />
 
