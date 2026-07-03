@@ -7,6 +7,7 @@ import {
 } from '@/components/orders/OrderDetailDrawer';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
+import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { usePermissions } from '@/lib/permissions-context';
 import { type PrintTicketRestaurant } from '@/lib/print-ticket';
 import {
@@ -38,6 +39,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   const [order, setOrder] = useState<Order | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   // Minimal restaurant identity for printed tickets + custom checkout-field
@@ -79,9 +81,11 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   };
 
   const handleAccept = () => order && run(() => acceptOrder(restaurantId, order.id));
-  const handleReject = () => {
-    if (!order || !confirm(t('rejectThisOrder'))) return;
-    run(() => rejectOrder(restaurantId, order.id));
+  // Cancellation now requires a reason, collected in CancelOrderDialog.
+  const handleReject = () => order && setCancelOpen(true);
+  const handleCancelConfirm = (reasonCode: string, note: string) => {
+    if (!order) return;
+    return run(() => rejectOrder(restaurantId, order.id, reasonCode, note));
   };
   const handleSendToKitchen = () =>
     order && run(() => updateOrderStatus(restaurantId, order.id, 'in_kitchen'));
@@ -151,6 +155,12 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onOpenChange={setPaymentOpen}
         totalAmount={order?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+      />
+
+      <CancelOrderDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        onConfirm={handleCancelConfirm}
       />
     </>
   );

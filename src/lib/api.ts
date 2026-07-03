@@ -2848,8 +2848,16 @@ export async function acceptOrder(restaurantId: number, orderId: number): Promis
   await apiFetch<void>(`/api/v1/orders/${orderId}/accept?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
 }
 
-export async function rejectOrder(restaurantId: number, orderId: number): Promise<void> {
-  await apiFetch<void>(`/api/v1/orders/${orderId}/reject?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST' });
+export async function rejectOrder(
+  restaurantId: number,
+  orderId: number,
+  reasonCode: string,
+  note = '',
+): Promise<void> {
+  await apiFetch<void>(`/api/v1/orders/${orderId}/reject?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'POST',
+    body: JSON.stringify({ reason_code: reasonCode, note }),
+  });
 }
 
 // Permanently deletes an order (hard delete, not archive). Restricted to

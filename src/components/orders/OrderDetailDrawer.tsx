@@ -22,6 +22,7 @@ import {
   buildWhatsAppUrl,
   buildMailtoUrl,
 } from '@/lib/receipt-share';
+import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
 import {
   initOrderPaymentLink, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
@@ -610,6 +611,26 @@ export function OrderDetailDrawer({
               t={t}
             />
           )}
+
+          {/* Cancellation reason — shown when an order was rejected by staff or
+              auto-cancelled as an abandoned payment. */}
+          {(['rejected', 'cancelled'] as string[]).includes(order.status) && (() => {
+            const { code, note } = cancellationInfo(order);
+            if (!code && !note) return null;
+            return (
+              <div className="rounded-r-md border border-[var(--line)] bg-[var(--danger-50)] px-[var(--s-4)] py-[var(--s-3)]">
+                <div className="text-fs-sm font-semibold text-[var(--danger-500)]">
+                  {t('cancellationReason')}
+                </div>
+                <div className="text-fs-sm text-[var(--fg)] mt-0.5">
+                  {code ? t(CANCELLATION_REASON_KEY[code]) : note}
+                </div>
+                {code && note && (
+                  <div className="text-fs-sm text-[var(--fg-muted)] mt-0.5">{note}</div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Timeline */}
           <Section title={t('progress') || 'Progression'}>

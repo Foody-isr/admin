@@ -37,6 +37,7 @@ import { Badge, Button, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
+import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import {
   DataTable,
   DataTableHead,
@@ -279,9 +280,11 @@ export default function OrdersPage() {
 
   const handleAccept = (orderId: number) =>
     runAction(orderId, () => acceptOrder(rid, orderId), 'accepted');
-  const handleReject = (orderId: number) => {
-    if (!confirm(t('rejectThisOrder'))) return;
-    runAction(orderId, () => rejectOrder(rid, orderId));
+  // Cancellation now requires a reason, collected in CancelOrderDialog.
+  const handleReject = (orderId: number) => setCancelOrderId(orderId);
+  const handleCancelConfirm = (reasonCode: string, note: string) => {
+    if (cancelOrderId == null) return;
+    return runAction(cancelOrderId, () => rejectOrder(rid, cancelOrderId, reasonCode, note));
   };
   // Hard delete — permanently removes the order. Owner/admin only (also enforced
   // server-side). Guarded by an explicit, irreversible-action warning.
@@ -321,6 +324,7 @@ export default function OrdersPage() {
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const handleTakePayment = (method: PaymentMethod) => {
@@ -773,6 +777,13 @@ export default function OrdersPage() {
         onOpenChange={setPaymentOpen}
         totalAmount={selectedOrder?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+      />
+
+      {/* Cancel order — reason required */}
+      <CancelOrderDialog
+        open={cancelOrderId !== null}
+        onOpenChange={(v) => { if (!v) setCancelOrderId(null); }}
+        onConfirm={handleCancelConfirm}
       />
     </div>
   );

@@ -18,6 +18,7 @@ import {
 } from '@/components/data-table/DataTable';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useIsMobile } from '@/components/ui/use-mobile';
 import { packIntoBoxes, cellPortionBreakdown } from '@/lib/production';
 import { reorder } from '@/lib/production-column-order';
 
@@ -108,6 +109,11 @@ export function ProductionMatrix({
   reorderDone = true,
 }: Props) {
   const { t } = useI18n();
+  // On touch phones there is no hover, so tapping a cell "focuses" its row +
+  // column (the crosshair) instead of opening the drawer — see the data cell's
+  // onClick below. Also drives the tighter mobile padding so more item columns
+  // fit while the pinned Client column stays visible during horizontal scroll.
+  const isMobile = useIsMobile();
   const itemsById = new Map(sheet.items.map((i) => [i.menu_item_id, i]));
   // A weighed column flipped to units shows ordered container counts (2 pots)
   // instead of grams; unit-measure columns already count and are unaffected.
@@ -415,7 +421,7 @@ export function ProductionMatrix({
                     setHoverRow(o.order_id);
                     setHoverCol(null);
                   }}
-                  className={`sticky left-0 z-10 font-medium whitespace-nowrap transition-colors ${
+                  className={`sticky left-0 z-10 font-medium whitespace-nowrap transition-colors max-md:px-3 ${
                     hoverRow === o.order_id
                       ? `${CROSS_STICKY} ${BRAND_TXT} font-semibold`
                       : 'bg-white dark:bg-[#111111]'
@@ -462,7 +468,20 @@ export function ProductionMatrix({
                           setHoverRow(o.order_id);
                           setHoverCol(id);
                         }}
-                        className={`tabular-nums transition-colors ${
+                        // Tap-to-focus on phones: light up this cell's row +
+                        // column and swallow the tap so the order drawer doesn't
+                        // open (that stays on the Client name). Desktop keeps the
+                        // whole row clickable.
+                        onClick={
+                          isMobile
+                            ? (e) => {
+                                e.stopPropagation();
+                                setHoverRow(o.order_id);
+                                setHoverCol(id);
+                              }
+                            : undefined
+                        }
+                        className={`tabular-nums transition-colors max-md:px-2 max-md:py-2.5 ${
                           v ? '' : 'text-[var(--fg-subtle)]'
                         } ${rowActive || colActive ? CROSS_TINT : ''} ${
                           rowActive && colActive ? CELL_BORDER : ''
