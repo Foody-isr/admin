@@ -502,6 +502,7 @@ export interface Order {
   order_source?: string;
   status: OrderStatus;
   payment_status: PaymentStatus;
+  payment_method?: string;
   customer_name: string;
   customer_phone: string;
   total_amount: number;
