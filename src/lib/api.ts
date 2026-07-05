@@ -103,6 +103,10 @@ export interface RestaurantSettings {
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
+  // Order-lifecycle profile. "full" (default) keeps the manual step-by-step
+  // flow; "simple" auto-marks an order ready when it is ticked done on the
+  // production sheet. Absent/unknown values are treated as "full".
+  order_workflow?: "full" | "simple";
   // One-click online ordering pause. When orders_paused is true (and
   // orders_paused_until is null or still in the future) all online ordering is
   // blocked, overriding opening hours and both pre-order modes. Send

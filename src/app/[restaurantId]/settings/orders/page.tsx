@@ -121,6 +121,7 @@ export default function OrdersAvailabilityPage() {
   const [prepTime, setPrepTime] = useState(20);
   const [autoSendToKitchen, setAutoSendToKitchen] = useState(true);
   const [tipsEnabled, setTipsEnabled] = useState(true);
+  const [orderWorkflow, setOrderWorkflow] = useState<'full' | 'simple'>('full');
 
   useEffect(() => {
     Promise.all([getRestaurant(rid), getRestaurantSettings(rid)])
@@ -167,6 +168,7 @@ export default function OrdersAvailabilityPage() {
         setPrepTime(s.pickup_prep_time_minutes ?? 20);
         setAutoSendToKitchen(s.auto_send_to_kitchen ?? true);
         setTipsEnabled(s.tips_enabled ?? true);
+        setOrderWorkflow(s.order_workflow === 'simple' ? 'simple' : 'full');
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -279,6 +281,7 @@ export default function OrdersAvailabilityPage() {
         pickup_prep_time_minutes: prepTime,
         auto_send_to_kitchen: autoSendToKitchen,
         tips_enabled: tipsEnabled,
+        order_workflow: orderWorkflow,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -854,6 +857,23 @@ export default function OrdersAvailabilityPage() {
         desc={t('serviceRulesDesc') || 'Comment les commandes circulent une fois passées.'}
       >
         <div className="flex flex-col gap-[var(--s-4)]">
+          <Field
+            label={t('orderWorkflow') || 'Suivi des commandes'}
+            hint={
+              t('orderWorkflowHint') ||
+              'En mode simplifié, cocher une commande « prête » dans le plan de production la marque automatiquement prête et prévient le client. Le mode complet garde chaque étape manuelle.'
+            }
+          >
+            <Select
+              value={orderWorkflow}
+              onChange={(e) => setOrderWorkflow(e.target.value === 'simple' ? 'simple' : 'full')}
+            >
+              <option value="full">{t('orderWorkflowFull') || 'Complet (étape par étape)'}</option>
+              <option value="simple">
+                {t('orderWorkflowSimple') || 'Précommande simplifiée'}
+              </option>
+            </Select>
+          </Field>
           <div className="flex flex-wrap gap-[var(--s-4)]">
             {dineInEnabled && (
               <Field
