@@ -45,6 +45,10 @@ export const STATUS_TONE: Record<string, BadgeTone> = {
   picked_up: 'success',
   delivered: 'success',
   rejected: 'danger',
+  // Legacy status for abandoned-payment orders; rendered like `rejected`
+  // ("Annulée") so cancellations read as one status. New abandonments use
+  // `rejected` (see foodyserver abandonment sweeper).
+  cancelled: 'danger',
   scheduled: 'neutral',
 };
 
@@ -80,6 +84,8 @@ const STATUS_KEY: Record<string, string> = {
   picked_up: 'statusPickedUp',
   delivered: 'statusDelivered',
   rejected: 'statusRejected',
+  // Legacy abandoned-payment status — same label as `rejected` ("Annulée").
+  cancelled: 'statusRejected',
   scheduled: 'statusScheduled',
 };
 

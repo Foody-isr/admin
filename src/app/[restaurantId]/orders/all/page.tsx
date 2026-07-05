@@ -73,7 +73,7 @@ const TABS: Tab[] = [
   { key: 'active', labelKey: 'active', statuses: 'pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery', active: true },
   { key: 'scheduled', labelKey: 'scheduled', isScheduled: true, statuses: 'scheduled,pending_review,accepted,in_kitchen,ready,ready_for_pickup,ready_for_delivery,out_for_delivery' },
   { key: 'completed', labelKey: 'completed', statuses: 'served,received,picked_up,delivered' },
-  { key: 'canceled', labelKey: 'canceled', statuses: 'rejected' },
+  { key: 'canceled', labelKey: 'canceled', statuses: 'rejected,cancelled' },
 ];
 
 const PAGE_SIZE = 25;
