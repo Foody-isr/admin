@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ExtraFont } from '@/lib/api';
+import type { ExtraFont, FontFace } from '@/lib/api';
 import {
   fontsByCategory, CATEGORY_LABELS, isCuratedFont, loadFontPreview,
+  detectFontVariant, suggestFamilyName, WEIGHT_LABELS,
   type CustomFontSource,
 } from '@/lib/website-fonts';
+
+// Weight options offered per uploaded file (auto-filled from the filename).
+const WEIGHT_CHOICES = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
 // Catalog entry shape written by scripts/fetch-google-fonts-catalog.mjs
 // (short keys keep the lazy chunk small).
@@ -66,6 +70,7 @@ function OptionRow({
       ref={ref}
       type="button"
       onClick={onPick}
+      title={option.family}
       className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-start transition-colors ${
         selected ? 'bg-brand-500/10 text-brand-500' : 'hover:bg-surface-subtle text-fg-primary'
       }`}
@@ -116,21 +121,27 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Custom-font upload sub-panel state (only reachable when onUploadFont is set).
+  // One family can carry several files (Léger/Solide/…), each an @font-face at
+  // its own weight/style — the weight is auto-detected from the filename.
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadVariants, setUploadVariants] = useState<{ weight: number; style: 'normal' | 'italic' }[]>([]);
   const [uploadName, setUploadName] = useState('');
   const [uploadHebrew, setUploadHebrew] = useState(false);
   const [uploadLicensed, setUploadLicensed] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadDone, setUploadDone] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   function resetUpload() {
     setUploadOpen(false);
-    setUploadFile(null);
+    setUploadFiles([]);
+    setUploadVariants([]);
     setUploadName('');
     setUploadHebrew(false);
     setUploadLicensed(false);
     setUploading(false);
+    setUploadDone(0);
     setUploadError(null);
   }
 
@@ -172,7 +183,9 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
       push('Mes polices', extraFonts.map((f) => ({
         family: f.family,
         supportsHebrew: f.supportsHebrew,
-        custom: f.url ? { url: f.url, format: f.format } : undefined,
+        custom: (f.faces?.length || f.url)
+          ? { url: f.url, format: f.format, faces: f.faces }
+          : undefined,
       })));
     }
     for (const g of fontsByCategory()) {
@@ -205,25 +218,40 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
     setOpen(false);
   }
 
-  function chooseFile(f: File | null) {
-    setUploadFile(f);
+  function chooseFiles(list: FileList | null) {
+    const files = list ? Array.from(list) : [];
     setUploadError(null);
-    // Default the family name to the file name without its extension.
-    if (f && !uploadName.trim()) setUploadName(f.name.replace(/\.[^.]+$/, ''));
+    setUploadFiles(files);
+    setUploadVariants(files.map((f) => detectFontVariant(f.name)));
+    // Prefill the family name from the common part of the file names.
+    if (files.length > 0 && !uploadName.trim()) setUploadName(suggestFamilyName(files.map((f) => f.name)));
   }
 
-  const canSubmitUpload = Boolean(uploadFile) && uploadName.trim().length > 0 && uploadLicensed && !uploading;
+  function setVariantWeight(i: number, weight: number) {
+    setUploadVariants((v) => v.map((x, idx) => (idx === i ? { ...x, weight } : x)));
+  }
+
+  const canSubmitUpload = uploadFiles.length > 0 && uploadName.trim().length > 0 && uploadLicensed && !uploading;
 
   async function submitUpload() {
     const name = uploadName.trim();
-    if (!onUploadFont || !uploadFile || !name || !uploadLicensed || uploading) return;
+    if (!onUploadFont || uploadFiles.length === 0 || !name || !uploadLicensed || uploading) return;
     setUploading(true);
     setUploadError(null);
+    setUploadDone(0);
     try {
-      const { url, format } = await onUploadFont(uploadFile);
+      // Upload each variant file, then group them under one family name — each
+      // file becomes an @font-face at its detected weight/style.
+      const faces: FontFace[] = [];
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const { url, format } = await onUploadFont(uploadFiles[i]);
+        const v = uploadVariants[i] ?? { weight: 400, style: 'normal' as const };
+        faces.push({ url, format, weight: v.weight, style: v.style });
+        setUploadDone(i + 1);
+      }
+      const weights = Array.from(new Set(faces.map((f) => f.weight ?? 400))).sort((a, b) => a - b);
       const picked: ExtraFont = {
-        family: name, category: 'custom', weights: [400],
-        supportsHebrew: uploadHebrew, url, format,
+        family: name, category: 'custom', weights, supportsHebrew: uploadHebrew, faces,
       };
       onChange(name, picked);
       resetUpload();
@@ -241,7 +269,7 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-divider bg-[var(--surface)] text-xs text-start focus:outline-none focus:ring-2 focus:ring-brand-500/40"
       >
-        <span className="truncate" style={value ? { fontFamily: `"${value}"` } : undefined}>
+        <span className="truncate" title={value || defaultLabel} style={value ? { fontFamily: `"${value}"` } : undefined}>
           {value || defaultLabel}
         </span>
         <svg width="12" height="12" viewBox="0 0 12 12" className="shrink-0 text-fg-tertiary">
@@ -267,13 +295,20 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
                 <input
                   type="file"
                   accept={FONT_ACCEPT}
+                  multiple
                   className="hidden"
-                  onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => chooseFiles(e.target.files)}
                 />
                 <span className="truncate">
-                  {uploadFile ? uploadFile.name : 'Choisir un fichier (.woff2, .woff, .ttf, .otf)'}
+                  {uploadFiles.length > 0
+                    ? `${uploadFiles.length} fichier${uploadFiles.length > 1 ? 's' : ''} sélectionné${uploadFiles.length > 1 ? 's' : ''}`
+                    : 'Choisir un ou plusieurs fichiers (.woff2, .woff, .ttf, .otf)'}
                 </span>
               </label>
+              <p className="text-[10px] text-fg-tertiary leading-relaxed -mt-0.5">
+                Ajoutez chaque variante (Léger, Solide, Gras…) comme fichier séparé — elles
+                seront regroupées sous une même police.
+              </p>
               <input
                 type="text"
                 value={uploadName}
@@ -281,6 +316,30 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
                 placeholder="Nom de la police"
                 className="w-full px-2 py-1.5 rounded-md border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-1 focus:ring-brand-500/40"
               />
+              {uploadFiles.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase tracking-wider text-fg-tertiary">Variantes</span>
+                  {uploadFiles.map((f, i) => (
+                    <div key={`${f.name}-${i}`} className="flex items-center gap-2">
+                      <span className="flex-1 min-w-0 truncate text-[11px] text-fg-secondary" title={f.name}>
+                        {f.name}
+                        {uploadVariants[i]?.style === 'italic' && (
+                          <span className="ml-1 italic text-fg-tertiary">italique</span>
+                        )}
+                      </span>
+                      <select
+                        value={uploadVariants[i]?.weight ?? 400}
+                        onChange={(e) => setVariantWeight(i, Number(e.target.value))}
+                        className="w-[104px] shrink-0 px-2 py-1 rounded-md border border-divider bg-[var(--surface)] text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+                      >
+                        {WEIGHT_CHOICES.map((w) => (
+                          <option key={w} value={w}>{WEIGHT_LABELS[w] ?? w} ({w})</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
               <label className="flex items-center gap-2 text-[11px] text-fg-secondary cursor-pointer">
                 <input type="checkbox" checked={uploadHebrew} onChange={(e) => setUploadHebrew(e.target.checked)} />
                 Cette police contient l&apos;hébreu
@@ -301,7 +360,9 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
                 onClick={submitUpload}
                 className="w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium bg-brand-500 text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {uploading ? 'Import…' : 'Importer et utiliser'}
+                {uploading
+                  ? `Import… (${uploadDone}/${uploadFiles.length})`
+                  : 'Importer et utiliser'}
               </button>
             </div>
           ) : (

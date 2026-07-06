@@ -104,6 +104,17 @@ function pct(mult: number): string {
   return `${Math.round(mult * 100)}%`;
 }
 
+/** Build the @font-face source for a custom (uploaded) font entry: multi-variant
+ *  faces when present, else the single-file url. Undefined for Google Fonts and
+ *  curated families (they load by family name). Accepts an ExtraFont or a
+ *  freshly picked font (same url/format/faces shape). */
+function fontSourceOf(ef?: Pick<ExtraFont, 'url' | 'format' | 'faces'>): CustomFontSource | undefined {
+  if (!ef) return undefined;
+  if (ef.faces && ef.faces.length > 0) return { faces: ef.faces };
+  if (ef.url) return { url: ef.url, format: ef.format };
+  return undefined;
+}
+
 /** Weight (style) picker for one section — only offers weights the effective
  *  family actually ships ("Auto" keeps the section's built-in weight). */
 function WeightSelect({
@@ -173,11 +184,10 @@ export function TypographyPanel({
     return extraFonts.find((f) => f.family === family)?.weights;
   }
 
-  /** @font-face source for a family already in the library, if it is a custom
-   *  (uploaded) font. Undefined for Google Fonts, which load by family name. */
+  /** @font-face source for a custom (uploaded) font entry — multi-variant faces
+   *  when present, else the single-file url. Undefined for Google Fonts. */
   function customSource(family: string): CustomFontSource | undefined {
-    const ef = extraFonts.find((f) => f.family === family);
-    return ef?.url ? { url: ef.url, format: ef.format } : undefined;
+    return fontSourceOf(extraFonts.find((f) => f.family === family));
   }
 
   // Load the fonts currently selected (per role + hero) so the in-panel
@@ -187,7 +197,7 @@ export function TypographyPanel({
     for (const f of families) {
       if (!f) continue;
       const ef = extraFonts.find((x) => x.family === f);
-      loadWebsiteFont(f, ef?.weights, ef?.url ? { url: ef.url, format: ef.format } : undefined);
+      loadWebsiteFont(f, ef?.weights, fontSourceOf(ef));
     }
   }, [typo.roles, heroNameFont, extraFonts]);
 
@@ -230,7 +240,7 @@ export function TypographyPanel({
 
   function setRoleFont(key: TypographyRoleKey, family: string, picked?: ExtraFont) {
     if (family) {
-      const src = picked?.url ? { url: picked.url, format: picked.format } : customSource(family);
+      const src = fontSourceOf(picked) ?? customSource(family);
       loadWebsiteFont(family, picked?.weights ?? extraWeights(family), src);
     }
     const role = ROLES.find((r) => r.key === key)!;
@@ -268,7 +278,7 @@ export function TypographyPanel({
 
   function setHeroFont(family: string, picked?: ExtraFont) {
     if (family) {
-      const src = picked?.url ? { url: picked.url, format: picked.format } : customSource(family);
+      const src = fontSourceOf(picked) ?? customSource(family);
       loadWebsiteFont(family, picked?.weights ?? extraWeights(family), src);
     }
     onHeroNameFontChange(family);

@@ -116,24 +116,110 @@ export function curatedFontWeights(family: string): number[] | undefined {
 export const FONT_PREVIEW_LATIN = 'Tonight’s Menu · Salade 35';
 export const FONT_PREVIEW_HEBREW = ' תפריט הערב';
 
-/** A custom (uploaded) font's @font-face source. Passed to the loaders below so
- *  they inject an @font-face instead of building a Google Fonts URL. */
-export interface CustomFontSource {
+/** One uploaded file = one @font-face at a weight/style (mirrors api.ts FontFace). */
+export interface CustomFontFace {
   url: string;
   format?: string;
+  weight?: number;
+  style?: 'normal' | 'italic';
 }
 
-/** Inject an @font-face for a custom (uploaded) font family (idempotent).
- *  Shared by the preview and builder loaders so one face serves both. */
-export function loadCustomFont(family: string, url: string, format?: string): void {
-  if (typeof document === 'undefined' || !family || !url) return;
+/** A custom (uploaded) font's @font-face source(s). `faces` covers multi-variant
+ *  families; `url`/`format` is the single-file legacy shape. Passed to the loaders
+ *  below so they inject @font-face(s) instead of building a Google Fonts URL. */
+export interface CustomFontSource {
+  url?: string;
+  format?: string;
+  faces?: CustomFontFace[];
+}
+
+/** True when a source carries at least one uploaded face. */
+export function hasCustomFace(s?: CustomFontSource): boolean {
+  return Boolean(s && (s.url || (s.faces && s.faces.length > 0)));
+}
+
+/** Inject the @font-face(s) for a custom (uploaded) font family (idempotent).
+ *  A multi-variant family emits one @font-face per face (each with its weight/
+ *  style) under the same family name, so the browser picks the right file for a
+ *  requested weight. Shared by the preview and builder loaders. */
+export function loadCustomFont(family: string, source: CustomFontSource): void {
+  if (typeof document === 'undefined' || !family) return;
+  const faces: CustomFontFace[] = source.faces?.length
+    ? source.faces
+    : source.url
+      ? [{ url: source.url, format: source.format }]
+      : [];
+  if (faces.length === 0) return;
   const id = `cf-${family.replace(/\s+/g, '-')}`;
   if (document.getElementById(id)) return;
+  const css = faces
+    .map((f) => {
+      const fmt = f.format ? ` format("${f.format}")` : '';
+      const w = f.weight ? `font-weight:${f.weight};` : '';
+      const st = f.style === 'italic' ? 'font-style:italic;' : '';
+      return `@font-face{font-family:"${family}";src:url("${f.url}")${fmt};${w}${st}font-display:swap;}`;
+    })
+    .join('');
   const style = document.createElement('style');
   style.id = id;
-  const fmt = format ? ` format("${format}")` : '';
-  style.textContent = `@font-face{font-family:"${family}";src:url("${url}")${fmt};font-display:swap;}`;
+  style.textContent = css;
   document.head.appendChild(style);
+}
+
+// ── Filename-based variant detection (multi-file custom-font upload) ─────────
+// Maps weight/style keywords (FR + EN) found in a font file's name to a numeric
+// weight, so uploading "Eros-Leger.otf" + "Eros-Solide.otf" auto-fills 300/700.
+// The owner can override per file in the picker.
+
+const WEIGHT_KEYWORDS: { re: RegExp; weight: number }[] = [
+  { re: /(extra[\s_-]?black|ultra[\s_-]?black)/i, weight: 900 },
+  { re: /(extra[\s_-]?bold|ultra[\s_-]?bold|extra[\s_-]?gras)/i, weight: 800 },
+  { re: /(semi[\s_-]?bold|demi[\s_-]?bold|demi[\s_-]?gras)/i, weight: 600 },
+  { re: /(extra[\s_-]?light|ultra[\s_-]?light|extra[\s_-]?l[ée]ger)/i, weight: 200 },
+  { re: /(black|heavy|noir)/i, weight: 900 },
+  { re: /(bold|gras|solide)/i, weight: 700 },
+  { re: /(medium|m[ée]dium|moyen)/i, weight: 500 },
+  { re: /(thin|maigre|hairline)/i, weight: 100 },
+  { re: /(light|l[ée]ger|leger)/i, weight: 300 },
+  { re: /(regular|normal|roman|book|r[ée]gulier)/i, weight: 400 },
+];
+
+/** Guess a font file's weight + style from its filename. Defaults to 400/normal
+ *  when no keyword matches. */
+export function detectFontVariant(filename: string): { weight: number; style: 'normal' | 'italic' } {
+  const name = filename.replace(/\.[^.]+$/, '');
+  const style: 'normal' | 'italic' = /(italic|oblique|italique)/i.test(name) ? 'italic' : 'normal';
+  const hit = WEIGHT_KEYWORDS.find((k) => k.re.test(name));
+  return { weight: hit?.weight ?? 400, style };
+}
+
+/** Suggest a family name from a set of uploaded filenames: the longest common
+ *  prefix, with weight/style keywords and separators stripped and words
+ *  title-cased. Editable by the owner. */
+export function suggestFamilyName(filenames: string[]): string {
+  if (filenames.length === 0) return '';
+  const bases = filenames.map((f) => f.replace(/\.[^.]+$/, ''));
+  let prefix = bases[0];
+  for (const b of bases.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < b.length && prefix[i].toLowerCase() === b[i].toLowerCase()) i++;
+    prefix = prefix.slice(0, i);
+  }
+  const source = prefix.length >= 3 ? prefix : bases[0];
+  const cleaned = source
+    .replace(/\.[^.]+$/, '')
+    .replace(
+      /(extra[\s_-]?black|ultra[\s_-]?black|extra[\s_-]?bold|ultra[\s_-]?bold|semi[\s_-]?bold|demi[\s_-]?bold|extra[\s_-]?light|ultra[\s_-]?light|italic|oblique|italique|black|heavy|noir|bold|gras|solide|medium|m[ée]dium|moyen|thin|maigre|light|l[ée]ger|leger|regular|normal|roman|book)/gi,
+      ' ',
+    )
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned
+    .split(' ')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 /** Inject a tiny text-subset stylesheet (weight 400, family name + samples) so
@@ -142,8 +228,8 @@ export function loadCustomFont(family: string, url: string, format?: string): vo
  *  Custom (uploaded) fonts load their whole @font-face instead of a subset. */
 export function loadFontPreview(family: string, hebrew: boolean, custom?: CustomFontSource): void {
   if (typeof document === 'undefined' || !family) return;
-  if (custom?.url) {
-    loadCustomFont(family, custom.url, custom.format);
+  if (hasCustomFace(custom)) {
+    loadCustomFont(family, custom!);
     return;
   }
   const id = `gf-preview-${family.replace(/\s+/g, '-')}`;
@@ -162,8 +248,8 @@ export function loadFontPreview(family: string, hebrew: boolean, custom?: Custom
  *  (the css2 endpoint 400s when asked for a weight a family lacks). */
 export function loadWebsiteFont(family: string, weights?: number[], custom?: CustomFontSource): void {
   if (typeof document === 'undefined' || !family) return;
-  if (custom?.url) {
-    loadCustomFont(family, custom.url, custom.format);
+  if (hasCustomFace(custom)) {
+    loadCustomFont(family, custom!);
     return;
   }
   const def = FONT_BY_FAMILY[family];
