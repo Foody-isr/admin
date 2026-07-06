@@ -774,8 +774,6 @@ export interface ExtraFont {
 }
 
 export interface TypographyOverrides {
-  /** Overall menu text size multiplier. 1 = unchanged. */
-  sizeScale?: number;
   roles?: Partial<Record<TypographyRoleKey, TypographyRoleOverride>>;
   /** Restaurant-curated Google Fonts additions, offered alongside the curated list. */
   extraFonts?: ExtraFont[];
