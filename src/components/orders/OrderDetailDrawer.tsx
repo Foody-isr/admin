@@ -12,6 +12,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
   SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
+  RotateCcwIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -245,7 +246,7 @@ function statusIndex(status: string) {
 // ─── Order Detail Drawer — 1060px, matches design-reference/order-details.jsx ────
 
 export function OrderDetailDrawer({
-  order, canManage, canDelete, isLoading, onClose, onAccept, onReject, onDelete, onSendToKitchen, onMarkReady, onMarkServed,
+  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit,
   restaurantInfo, customFieldLabels,
@@ -253,11 +254,13 @@ export function OrderDetailDrawer({
   order: Order | null;
   canManage: boolean;
   canDelete?: boolean;
+  canOverride?: boolean;
   isLoading: boolean;
   onClose: () => void;
   onAccept: () => void;
   onReject: () => void;
   onDelete?: () => void;
+  onOverride?: () => void;
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
@@ -466,6 +469,11 @@ export function OrderDetailDrawer({
   // it was a no-op (the action early-exits) which read as a bug.
   const canCloseOrder = !isCancelled && !isTerminal && order.payment_status === 'paid';
   const canCancelOrder = !isCancelled && !isTerminal;
+  // Manual status correction is offered on any live or completed order (owner/
+  // manager only, gated by canOverride) — precisely so a terminal order marked
+  // "served"/"delivered" by mistake can be walked back. Excluded for cancelled
+  // and not-yet-started (scheduled) orders, which keep their own flows.
+  const canCorrectStatus = !!canOverride && !isCancelled && !isScheduled;
   // Items can be edited while the order is still in progress (not cancelled or
   // already served/delivered/rejected).
   const canEditOrder = !isCancelled && !isTerminal;
@@ -574,10 +582,12 @@ export function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {canManage && (canCancelOrder || (canDelete && !!onDelete)) && (
+            {canManage && (canCorrectStatus || canCancelOrder || (canDelete && !!onDelete)) && (
               <OrderOverflowMenu
+                canCorrect={canCorrectStatus && !!onOverride}
                 canCancel={canCancelOrder}
                 canDelete={!!(canDelete && onDelete)}
+                onCorrect={onOverride}
                 onCancel={onReject}
                 onDelete={onDelete}
                 disabled={isLoading}
@@ -1477,10 +1487,12 @@ function SendToCustomerMenu({ order }: { order: Order }) {
 // footer); both items are danger-colored.
 
 function OrderOverflowMenu({
-  canCancel, canDelete, onCancel, onDelete, disabled,
+  canCorrect, canCancel, canDelete, onCorrect, onCancel, onDelete, disabled,
 }: {
+  canCorrect?: boolean;
   canCancel: boolean;
   canDelete: boolean;
+  onCorrect?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
   disabled?: boolean;
@@ -1517,6 +1529,18 @@ function OrderOverflowMenu({
           className="absolute bottom-full end-0 mb-1 rounded-standard py-1 min-w-[220px] z-50 shadow-lg"
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
+          {canCorrect && onCorrect && (
+            <button
+              onClick={() => { setOpen(false); onCorrect(); }}
+              className={itemClass}
+              style={{ color: 'var(--fg)' }}
+            >
+              <RotateCcwIcon className="size-4" /> {t('correctStatus') || 'Corriger le statut'}
+            </button>
+          )}
+          {canCorrect && onCorrect && (canCancel || canDelete) && (
+            <div className="my-1 h-px" style={{ background: 'var(--divider)' }} />
+          )}
           {canCancel && (
             <button
               onClick={() => { setOpen(false); onCancel(); }}

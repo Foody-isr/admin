@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus,
+  listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
   updateOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
@@ -38,6 +38,7 @@ import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
+import { OverrideStatusDialog } from '@/components/orders/OverrideStatusDialog';
 import { CashTag } from '@/components/orders/CashTag';
 import {
   DataTable,
@@ -96,8 +97,11 @@ function defaultDateRange(): { from: Date; to: Date } {
 
 export default function OrdersPage() {
   const { t } = useI18n();
-  const { hasAnyPermission, isOwner } = usePermissions();
+  const { hasAnyPermission, isOwner, roleName } = usePermissions();
   const canManage = hasAnyPermission('orders.manage');
+  // Manual status correction is a management action — owner or manager only,
+  // matching the server route (RequireRestaurantRoles owner, manager).
+  const canOverride = isOwner || roleName === 'Manager';
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { status: wsStatus, lastEvent, addProcessingGuard, removeProcessingGuard, isProcessing } = useWs();
@@ -287,6 +291,13 @@ export default function OrdersPage() {
     if (cancelOrderId == null) return;
     return runAction(cancelOrderId, () => rejectOrder(rid, cancelOrderId, reasonCode, note));
   };
+  // Manual status correction (owner/manager) — target status chosen in
+  // OverrideStatusDialog. Silent for the customer; server audit-logs it.
+  const handleOverride = (orderId: number) => setOverrideOrderId(orderId);
+  const handleOverrideConfirm = (status: OrderStatus, note: string) => {
+    if (overrideOrderId == null) return;
+    return runAction(overrideOrderId, () => overrideOrderStatus(rid, overrideOrderId, status, note), status);
+  };
   // Hard delete — permanently removes the order. Owner/admin only (also enforced
   // server-side). Guarded by an explicit, irreversible-action warning.
   const handleDelete = async (orderId: number) => {
@@ -326,6 +337,7 @@ export default function OrdersPage() {
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [overrideOrderId, setOverrideOrderId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const handleTakePayment = (method: PaymentMethod) => {
@@ -749,11 +761,13 @@ export default function OrdersPage() {
         order={selectedOrder}
         canManage={canManage}
         canDelete={isOwner}
+        canOverride={canOverride}
         isLoading={selectedOrder != null && actionLoading === selectedOrder.id}
         onClose={() => setSelectedId(null)}
         onAccept={() => selectedOrder && handleAccept(selectedOrder.id)}
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
         onDelete={() => selectedOrder && handleDelete(selectedOrder.id)}
+        onOverride={() => selectedOrder && handleOverride(selectedOrder.id)}
         onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
         onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
         onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
@@ -788,6 +802,15 @@ export default function OrdersPage() {
         open={cancelOrderId !== null}
         onOpenChange={(v) => { if (!v) setCancelOrderId(null); }}
         onConfirm={handleCancelConfirm}
+      />
+
+      {/* Correct order status — owner/manager, silent for the customer */}
+      <OverrideStatusDialog
+        open={overrideOrderId !== null}
+        orderType={orders.find((o) => o.id === overrideOrderId)?.order_type}
+        currentStatus={orders.find((o) => o.id === overrideOrderId)?.status}
+        onOpenChange={(v) => { if (!v) setOverrideOrderId(null); }}
+        onConfirm={handleOverrideConfirm}
       />
     </div>
   );

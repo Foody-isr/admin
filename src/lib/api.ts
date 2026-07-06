@@ -2888,6 +2888,24 @@ export async function updateOrderStatus(restaurantId: number, orderId: number, s
   return data.order;
 }
 
+// Manually corrects an order's status to any progression value, bypassing the
+// forward-only transition rule. Owner/manager only (enforced server-side). The
+// correction is silent for the customer (no WhatsApp) but refreshes POS/admin
+// screens and is audit-logged. For undoing a mistake such as an order marked
+// "delivered" too soon. Cancelling still goes through rejectOrder.
+export async function overrideOrderStatus(
+  restaurantId: number,
+  orderId: number,
+  status: OrderStatus,
+  note = '',
+): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(`/api/v1/orders/${orderId}/status/override?restaurant_id=${restaurantId}`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ status, note }),
+  });
+  return data.order;
+}
+
 async function postOrderAction(restaurantId: number, orderId: number, action: string): Promise<Order> {
   const data = await apiFetch<{ order: Order }>(
     `/api/v1/orders/${orderId}/${action}?restaurant_id=${restaurantId}`,
