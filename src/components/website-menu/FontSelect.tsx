@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ExtraFont } from '@/lib/api';
 import {
   fontsByCategory, CATEGORY_LABELS, isCuratedFont, loadFontPreview,
+  type CustomFontSource,
 } from '@/lib/website-fonts';
 
 // Catalog entry shape written by scripts/fetch-google-fonts-catalog.mjs
@@ -25,7 +26,7 @@ function loadCatalog(): Promise<CatalogEntry[]> {
   return catalogPromise;
 }
 
-type Option = { family: string; supportsHebrew: boolean; catalog?: CatalogEntry };
+type Option = { family: string; supportsHebrew: boolean; catalog?: CatalogEntry; custom?: CustomFontSource };
 type Group = { label: string; options: Option[] };
 
 // Row that renders the family name in its own face, lazy-loading the tiny
@@ -57,7 +58,7 @@ function OptionRow({
   }, []);
 
   useEffect(() => {
-    if (visible) loadFontPreview(option.family, option.supportsHebrew);
+    if (visible) loadFontPreview(option.family, option.supportsHebrew, option.custom);
   }, [visible, option]);
 
   return (
@@ -95,21 +96,46 @@ type Props = {
   extraFonts: ExtraFont[];
   /** Label of the inherit option, e.g. `Police du thème (Switzer)`. */
   defaultLabel: string;
+  /** Uploads a custom font file and resolves with its stored URL + @font-face
+   *  format hint. When provided, an "Importer une police" action appears. */
+  onUploadFont?: (file: File) => Promise<{ url: string; format: string }>;
 };
+
+// Accepted custom-font file extensions (mirrors the server's isValidFontType).
+const FONT_ACCEPT = '.woff2,.woff,.ttf,.otf';
 
 /** Canva-style font picker: one search box over the restaurant's fonts, the
  *  curated list AND the full Google Fonts catalog. Picking a catalog font
  *  adds it to the restaurant's fonts automatically — no separate library
  *  management step. */
-export function FontSelect({ value, onChange, extraFonts, defaultLabel }: Props) {
+export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUploadFont }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [catalog, setCatalog] = useState<CatalogEntry[] | null>(catalogCache);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Custom-font upload sub-panel state (only reachable when onUploadFont is set).
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadName, setUploadName] = useState('');
+  const [uploadHebrew, setUploadHebrew] = useState(false);
+  const [uploadLicensed, setUploadLicensed] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  function resetUpload() {
+    setUploadOpen(false);
+    setUploadFile(null);
+    setUploadName('');
+    setUploadHebrew(false);
+    setUploadLicensed(false);
+    setUploading(false);
+    setUploadError(null);
+  }
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) { resetUpload(); return; }
     setQuery('');
     inputRef.current?.focus();
     loadCatalog().then(setCatalog);
@@ -143,7 +169,11 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel }: Props)
     };
 
     if (extraFonts.length > 0) {
-      push('Mes polices', extraFonts.map((f) => ({ family: f.family, supportsHebrew: f.supportsHebrew })));
+      push('Mes polices', extraFonts.map((f) => ({
+        family: f.family,
+        supportsHebrew: f.supportsHebrew,
+        custom: f.url ? { url: f.url, format: f.format } : undefined,
+      })));
     }
     for (const g of fontsByCategory()) {
       push(CATEGORY_LABELS[g.category], g.fonts.map((f) => ({ family: f.family, supportsHebrew: f.supportsHebrew })));
@@ -175,6 +205,35 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel }: Props)
     setOpen(false);
   }
 
+  function chooseFile(f: File | null) {
+    setUploadFile(f);
+    setUploadError(null);
+    // Default the family name to the file name without its extension.
+    if (f && !uploadName.trim()) setUploadName(f.name.replace(/\.[^.]+$/, ''));
+  }
+
+  const canSubmitUpload = Boolean(uploadFile) && uploadName.trim().length > 0 && uploadLicensed && !uploading;
+
+  async function submitUpload() {
+    const name = uploadName.trim();
+    if (!onUploadFont || !uploadFile || !name || !uploadLicensed || uploading) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const { url, format } = await onUploadFont(uploadFile);
+      const picked: ExtraFont = {
+        family: name, category: 'custom', weights: [400],
+        supportsHebrew: uploadHebrew, url, format,
+      };
+      onChange(name, picked);
+      resetUpload();
+      setOpen(false);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'Échec de l’import.');
+      setUploading(false);
+    }
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -192,49 +251,120 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel }: Props)
 
       {open && (
         <div className="absolute z-30 mt-1 w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] shadow-lg">
-          <div className="p-1.5 border-b border-[var(--divider)]">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher (Google Fonts inclus)..."
-              className="w-full px-2 py-1.5 rounded-md border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-1 focus:ring-brand-500/40"
-            />
-          </div>
-          <div className="max-h-60 overflow-y-auto p-1.5">
-            {!q && (
+          {uploadOpen ? (
+            <div className="p-2.5 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-fg-primary">Importer une police</span>
+                <button
+                  type="button"
+                  onClick={resetUpload}
+                  className="text-[11px] text-fg-tertiary hover:text-fg-primary"
+                >
+                  Annuler
+                </button>
+              </div>
+              <label className="flex items-center gap-2 px-2.5 py-2 rounded-md border border-dashed border-divider text-[11px] text-fg-secondary cursor-pointer hover:border-fg-tertiary">
+                <input
+                  type="file"
+                  accept={FONT_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
+                />
+                <span className="truncate">
+                  {uploadFile ? uploadFile.name : 'Choisir un fichier (.woff2, .woff, .ttf, .otf)'}
+                </span>
+              </label>
+              <input
+                type="text"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                placeholder="Nom de la police"
+                className="w-full px-2 py-1.5 rounded-md border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+              />
+              <label className="flex items-center gap-2 text-[11px] text-fg-secondary cursor-pointer">
+                <input type="checkbox" checked={uploadHebrew} onChange={(e) => setUploadHebrew(e.target.checked)} />
+                Cette police contient l&apos;hébreu
+              </label>
+              <label className="flex items-start gap-2 text-[11px] text-fg-secondary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={uploadLicensed}
+                  onChange={(e) => setUploadLicensed(e.target.checked)}
+                  className="mt-0.5"
+                />
+                J&apos;ai le droit d&apos;utiliser cette police sur ce site.
+              </label>
+              {uploadError && <p className="text-[11px] text-red-500">{uploadError}</p>}
               <button
                 type="button"
-                onClick={() => { onChange(''); setOpen(false); }}
-                className={`w-full px-2.5 py-1.5 rounded-md text-[13px] text-start transition-colors ${
-                  !value ? 'bg-brand-500/10 text-brand-500' : 'hover:bg-surface-subtle text-fg-primary'
-                }`}
+                disabled={!canSubmitUpload}
+                onClick={submitUpload}
+                className="w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium bg-brand-500 text-white transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {defaultLabel}
+                {uploading ? 'Import…' : 'Importer et utiliser'}
               </button>
-            )}
-            {groups.map((g) => (
-              <div key={g.label}>
-                <div className="px-2.5 pt-2 pb-1 text-[9px] uppercase tracking-wider text-fg-tertiary">
-                  {g.label}
-                </div>
-                {g.options.map((o) => (
-                  <OptionRow
-                    key={o.family}
-                    option={o}
-                    selected={o.family === value}
-                    onPick={() => pick(o)}
-                  />
-                ))}
+            </div>
+          ) : (
+            <>
+              <div className="p-1.5 border-b border-[var(--divider)]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Rechercher (Google Fonts inclus)..."
+                  className="w-full px-2 py-1.5 rounded-md border border-divider bg-[var(--surface)] text-xs focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+                />
               </div>
-            ))}
-            {q && groups.length === 0 && (
-              <p className="px-2.5 py-3 text-[11px] text-fg-tertiary text-center">
-                {catalog ? 'Aucune police trouvée.' : 'Chargement du catalogue...'}
-              </p>
-            )}
-          </div>
+              <div className="max-h-60 overflow-y-auto p-1.5">
+                {!q && (
+                  <button
+                    type="button"
+                    onClick={() => { onChange(''); setOpen(false); }}
+                    className={`w-full px-2.5 py-1.5 rounded-md text-[13px] text-start transition-colors ${
+                      !value ? 'bg-brand-500/10 text-brand-500' : 'hover:bg-surface-subtle text-fg-primary'
+                    }`}
+                  >
+                    {defaultLabel}
+                  </button>
+                )}
+                {groups.map((g) => (
+                  <div key={g.label}>
+                    <div className="px-2.5 pt-2 pb-1 text-[9px] uppercase tracking-wider text-fg-tertiary">
+                      {g.label}
+                    </div>
+                    {g.options.map((o) => (
+                      <OptionRow
+                        key={o.family}
+                        option={o}
+                        selected={o.family === value}
+                        onPick={() => pick(o)}
+                      />
+                    ))}
+                  </div>
+                ))}
+                {q && groups.length === 0 && (
+                  <p className="px-2.5 py-3 text-[11px] text-fg-tertiary text-center">
+                    {catalog ? 'Aucune police trouvée.' : 'Chargement du catalogue...'}
+                  </p>
+                )}
+              </div>
+              {onUploadFont && (
+                <div className="p-1.5 border-t border-[var(--divider)]">
+                  <button
+                    type="button"
+                    onClick={() => setUploadOpen(true)}
+                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] text-brand-500 hover:bg-brand-500/10 transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" className="shrink-0">
+                      <path d="M6 2.5v7M2.5 6h7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                    Importer une police
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

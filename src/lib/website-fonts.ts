@@ -116,11 +116,36 @@ export function curatedFontWeights(family: string): number[] | undefined {
 export const FONT_PREVIEW_LATIN = 'Tonight’s Menu · Salade 35';
 export const FONT_PREVIEW_HEBREW = ' תפריט הערב';
 
+/** A custom (uploaded) font's @font-face source. Passed to the loaders below so
+ *  they inject an @font-face instead of building a Google Fonts URL. */
+export interface CustomFontSource {
+  url: string;
+  format?: string;
+}
+
+/** Inject an @font-face for a custom (uploaded) font family (idempotent).
+ *  Shared by the preview and builder loaders so one face serves both. */
+export function loadCustomFont(family: string, url: string, format?: string): void {
+  if (typeof document === 'undefined' || !family || !url) return;
+  const id = `cf-${family.replace(/\s+/g, '-')}`;
+  if (document.getElementById(id)) return;
+  const style = document.createElement('style');
+  style.id = id;
+  const fmt = format ? ` format("${format}")` : '';
+  style.textContent = `@font-face{font-family:"${family}";src:url("${url}")${fmt};font-display:swap;}`;
+  document.head.appendChild(style);
+}
+
 /** Inject a tiny text-subset stylesheet (weight 400, family name + samples) so
  *  preview rows render in their own face — cheap enough for long scrolling
- *  lists. All call sites share the same subset so the link is loaded once. */
-export function loadFontPreview(family: string, hebrew: boolean): void {
+ *  lists. All call sites share the same subset so the link is loaded once.
+ *  Custom (uploaded) fonts load their whole @font-face instead of a subset. */
+export function loadFontPreview(family: string, hebrew: boolean, custom?: CustomFontSource): void {
   if (typeof document === 'undefined' || !family) return;
+  if (custom?.url) {
+    loadCustomFont(family, custom.url, custom.format);
+    return;
+  }
   const id = `gf-preview-${family.replace(/\s+/g, '-')}`;
   if (document.getElementById(id)) return;
   const text = family + FONT_PREVIEW_LATIN + (hebrew ? FONT_PREVIEW_HEBREW : '');
@@ -135,8 +160,12 @@ export function loadFontPreview(family: string, hebrew: boolean): void {
  *  previews inside the builder. Curated families load their declared weights;
  *  for extra fonts pass the weights stored on the restaurant's ExtraFont entry
  *  (the css2 endpoint 400s when asked for a weight a family lacks). */
-export function loadWebsiteFont(family: string, weights?: number[]): void {
+export function loadWebsiteFont(family: string, weights?: number[], custom?: CustomFontSource): void {
   if (typeof document === 'undefined' || !family) return;
+  if (custom?.url) {
+    loadCustomFont(family, custom.url, custom.format);
+    return;
+  }
   const def = FONT_BY_FAMILY[family];
   const id = `gf-builder-${family.replace(/\s+/g, '-')}`;
   if (document.getElementById(id)) return;
