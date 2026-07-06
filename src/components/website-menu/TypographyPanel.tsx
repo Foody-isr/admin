@@ -550,8 +550,8 @@ export function TypographyPanel({
                   <span className="text-[10px] text-fg-tertiary shrink-0">Taille</span>
                   <input
                     type="range"
-                    min={0.7}
-                    max={1.6}
+                    min={0.6}
+                    max={3}
                     step={0.05}
                     value={roleMult}
                     onChange={(e) => setRoleSize(r.key, Number(e.target.value))}
