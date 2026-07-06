@@ -103,6 +103,10 @@ export interface RestaurantSettings {
   auto_accept_prepaid: boolean;
   auto_send_to_kitchen: boolean;
   rush_mode: boolean;
+  // Order-lifecycle profile. "full" (default) keeps the manual step-by-step
+  // flow; "simple" auto-marks an order ready when it is ticked done on the
+  // production sheet. Absent/unknown values are treated as "full".
+  order_workflow?: "full" | "simple";
   // One-click online ordering pause. When orders_paused is true (and
   // orders_paused_until is null or still in the future) all online ordering is
   // blocked, overriding opening hours and both pre-order modes. Send
@@ -698,14 +702,23 @@ export interface TypographyRoleOverride {
   transform?: 'uppercase' | 'none';
 }
 
-/** A Google Fonts family the restaurant added to its own library via the
- *  font browser. Weights are stored so foodyweb can load the real axes
- *  (the css2 fallback for unknown families only fetches weight 400). */
+/** A font the restaurant added to its own library, beyond the curated list.
+ *  Two kinds share this shape:
+ *   - Google Fonts picked from the browser (no `url`): weights are stored so
+ *     foodyweb can load the real axes (the css2 fallback for unknown families
+ *     only fetches weight 400).
+ *   - Custom fonts uploaded by the owner (`url` set, `category: 'custom'`):
+ *     loaded via @font-face from the S3 `url` instead of Google Fonts.
+ *  The presence of `url` is the sole discriminator between the two. */
 export interface ExtraFont {
   family: string;
-  category: 'sans' | 'serif' | 'display' | 'handwriting' | 'mono';
+  category: 'sans' | 'serif' | 'display' | 'handwriting' | 'mono' | 'custom';
   weights: number[];
   supportsHebrew: boolean;
+  /** Custom-font source (S3). Present ⇒ load via @font-face, not Google Fonts. */
+  url?: string;
+  /** CSS @font-face format() hint: 'woff2' | 'woff' | 'truetype' | 'opentype'. */
+  format?: string;
 }
 
 export interface TypographyOverrides {
@@ -3702,6 +3715,32 @@ export async function uploadSectionImage(restaurantId: number, file: File): Prom
   }
   const data = await res.json();
   return data.image_url;
+}
+
+/** Upload a custom font file for the website builder's typography controls.
+ *  Returns the public S3 URL and the @font-face format() hint the caller stores
+ *  on the ExtraFont entry. */
+export async function uploadWebsiteFont(
+  restaurantId: number,
+  file: File,
+): Promise<{ url: string; format: string }> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('font', file);
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/website-fonts`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Upload failed (${res.status})`);
+  }
+  const data = await res.json();
+  return { url: data.url, format: data.format };
 }
 
 // ─── Website Sections ───────────────────────────────────────────────────────

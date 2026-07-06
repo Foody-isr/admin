@@ -6,7 +6,11 @@ import type {
   WebsiteConfig, ThemeCatalog, TypographyPairingEntry,
   TypographyOverrides, TypographyRoleKey, ExtraFont,
 } from '@/lib/api';
-import { loadWebsiteFont, curatedFontWeights, WEIGHT_LABELS } from '@/lib/website-fonts';
+import { uploadWebsiteFont } from '@/lib/api';
+import {
+  loadWebsiteFont, curatedFontWeights, WEIGHT_LABELS,
+  type CustomFontSource,
+} from '@/lib/website-fonts';
 import { FontSelect } from './FontSelect';
 
 function loadGoogleFont(family: string, weights: number[]) {
@@ -130,6 +134,8 @@ type Props = {
   config: WebsiteConfig;
   catalog: ThemeCatalog;
   onUpdate: (patch: Partial<WebsiteConfig>) => void;
+  /** Restaurant scope for the custom-font upload endpoint. */
+  restaurantId: number;
   /** Hero restaurant-name font (WebsiteConfig.hero_name_font, managed by the
    *  parent editor state) — edited here so every text section lives in one list. */
   heroNameFont: string;
@@ -139,7 +145,7 @@ type Props = {
 };
 
 export function TypographyPanel({
-  config, catalog, onUpdate, heroNameFont, onHeroNameFontChange, heroSample,
+  config, catalog, onUpdate, restaurantId, heroNameFont, onHeroNameFontChange, heroSample,
 }: Props) {
   const { t } = useI18n();
   const typo: TypographyOverrides = config.typography ?? {};
@@ -167,12 +173,21 @@ export function TypographyPanel({
     return extraFonts.find((f) => f.family === family)?.weights;
   }
 
+  /** @font-face source for a family already in the library, if it is a custom
+   *  (uploaded) font. Undefined for Google Fonts, which load by family name. */
+  function customSource(family: string): CustomFontSource | undefined {
+    const ef = extraFonts.find((f) => f.family === family);
+    return ef?.url ? { url: ef.url, format: ef.format } : undefined;
+  }
+
   // Load the fonts currently selected (per role + hero) so the in-panel
   // samples render in the chosen face.
   useEffect(() => {
     const families = ROLES.map((r) => typo.roles?.[r.key]?.font).concat(heroNameFont);
     for (const f of families) {
-      if (f) loadWebsiteFont(f, extraFonts.find((x) => x.family === f)?.weights);
+      if (!f) continue;
+      const ef = extraFonts.find((x) => x.family === f);
+      loadWebsiteFont(f, ef?.weights, ef?.url ? { url: ef.url, format: ef.format } : undefined);
     }
   }, [typo.roles, heroNameFont, extraFonts]);
 
@@ -214,7 +229,10 @@ export function TypographyPanel({
   }
 
   function setRoleFont(key: TypographyRoleKey, family: string, picked?: ExtraFont) {
-    if (family) loadWebsiteFont(family, picked?.weights ?? extraWeights(family));
+    if (family) {
+      const src = picked?.url ? { url: picked.url, format: picked.format } : customSource(family);
+      loadWebsiteFont(family, picked?.weights ?? extraWeights(family), src);
+    }
     const role = ROLES.find((r) => r.key === key)!;
     const cur = typo.roles?.[key] ?? {};
     // A weight the new family doesn't ship falls back to Auto.
@@ -249,7 +267,10 @@ export function TypographyPanel({
   }
 
   function setHeroFont(family: string, picked?: ExtraFont) {
-    if (family) loadWebsiteFont(family, picked?.weights ?? extraWeights(family));
+    if (family) {
+      const src = picked?.url ? { url: picked.url, format: picked.format } : customSource(family);
+      loadWebsiteFont(family, picked?.weights ?? extraWeights(family), src);
+    }
     onHeroNameFontChange(family);
     const avail = availableWeights(family, 'display', picked);
     const heroWeight = typo.heroWeight !== undefined && avail.includes(typo.heroWeight)
@@ -396,6 +417,7 @@ export function TypographyPanel({
                   onChange={setHeroFont}
                   extraFonts={extraFonts}
                   defaultLabel="Police du style général"
+                  onUploadFont={(file) => uploadWebsiteFont(restaurantId, file)}
                 />
               </div>
               <WeightSelect
@@ -438,6 +460,7 @@ export function TypographyPanel({
                       onChange={(family, picked) => setRoleFont(r.key, family, picked)}
                       extraFonts={extraFonts}
                       defaultLabel={themeFont ? `Police du thème (${themeFont})` : 'Police du thème (par défaut)'}
+                      onUploadFont={(file) => uploadWebsiteFont(restaurantId, file)}
                     />
                   </div>
                   <WeightSelect

@@ -1763,6 +1763,7 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
             config={config}
             catalog={themeCatalog}
             onUpdate={onConfigUpdate}
+            restaurantId={restaurantId}
             heroNameFont={heroNameFont}
             onHeroNameFontChange={onHeroNameFontChange}
             heroSample={restaurant?.name}
