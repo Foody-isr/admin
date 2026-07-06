@@ -79,6 +79,7 @@ function FontSample({
 // its nearest real cut on pick, so a 700-title role doesn't chase a weight the
 // uploaded font lacks and fall back to a thinner face.
 const ROLES: { key: TypographyRoleKey; label: string; sample: string; family: 'display' | 'body'; caseControl?: boolean; defaultWeight: number }[] = [
+  { key: 'categoryBar', label: 'Barre de catégories', sample: 'Salades', family: 'body', caseControl: true, defaultWeight: 500 },
   { key: 'categoryTitle', label: 'Titres de catégories', sample: 'Salades', family: 'display', caseControl: true, defaultWeight: 700 },
   { key: 'itemName', label: 'Noms des plats', sample: 'Salade César', family: 'display', caseControl: true, defaultWeight: 600 },
   { key: 'itemPrice', label: 'Prix', sample: '₪35.00', family: 'display', defaultWeight: 600 },

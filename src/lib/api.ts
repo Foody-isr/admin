@@ -722,7 +722,7 @@ export interface WebsiteConfig {
 // Stored as an opaque JSON blob on WebsiteConfig.typography (the server never
 // inspects its internals). foodyweb reads the SAME camelCase shape verbatim in
 // lib/themes/typography.ts — keep the two in sync.
-export type TypographyRoleKey = 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription';
+export type TypographyRoleKey = 'categoryBar' | 'categoryTitle' | 'itemName' | 'itemPrice' | 'itemDescription';
 
 export interface TypographyRoleOverride {
   /** Curated font family. Empty/absent = inherit the pairing's font. */
