@@ -6,12 +6,23 @@ import type {
   WebsiteConfig, ThemeCatalog, TypographyPairingEntry,
   TypographyOverrides, TypographyRoleKey, ExtraFont,
 } from '@/lib/api';
-import { uploadWebsiteFont } from '@/lib/api';
+import { uploadWebsiteFont, deleteWebsiteFonts } from '@/lib/api';
 import {
-  loadWebsiteFont, curatedFontWeights, WEIGHT_LABELS,
+  loadWebsiteFont, unloadCustomFont, curatedFontWeights, WEIGHT_LABELS,
   type CustomFontSource,
 } from '@/lib/website-fonts';
 import { FontSelect } from './FontSelect';
+import { MyFontsManager } from './MyFontsManager';
+
+/** A custom (uploaded) font carries its own faces/url; Google picks don't. */
+function isCustomFont(f: ExtraFont): boolean {
+  return Boolean(f.url || (f.faces && f.faces.length > 0));
+}
+
+/** S3 keys of every file backing a custom font (for deletion). */
+function fontKeys(f: ExtraFont): string[] {
+  return (f.faces ?? []).map((face) => face.key).filter((k): k is string => Boolean(k));
+}
 
 function loadGoogleFont(family: string, weights: number[]) {
   if (typeof document === 'undefined') return;
@@ -210,9 +221,9 @@ export function TypographyPanel({
     }
   }, [typo.roles, heroNameFont, extraFonts]);
 
-  /** Persist the blob, pruning extra fonts no section references anymore —
-   *  the library is implicit (it IS the set of picked non-curated fonts),
-   *  so there is no separate management UI to clean it up. */
+  /** Persist the blob. Google picks are disposable, so an unreferenced one is
+   *  pruned. Custom (uploaded) fonts are a persistent library — they are kept
+   *  even when no section uses them, and only removed via the fonts manager. */
   function commit(next: TypographyOverrides, heroOverride?: string) {
     const hero = heroOverride ?? heroNameFont;
     const referenced = new Set<string>();
@@ -221,7 +232,7 @@ export function TypographyPanel({
       if (f) referenced.add(f);
     }
     if (hero) referenced.add(hero);
-    const pruned = (next.extraFonts ?? []).filter((f) => referenced.has(f.family));
+    const pruned = (next.extraFonts ?? []).filter((f) => isCustomFont(f) || referenced.has(f.family));
     onUpdate({ typography: normalizeTypography({ ...next, extraFonts: pruned }) });
   }
 
@@ -310,6 +321,78 @@ export function TypographyPanel({
 
   function setHeroWeight(weight?: number) {
     commit({ ...typo, heroWeight: weight });
+  }
+
+  // ── Custom-font library management ─────────────────────────────────────────
+  const customFonts = useMemo(() => extraFonts.filter(isCustomFont), [extraFonts]);
+
+  /** How many roles (+ hero) reference a family — drives delete warnings. */
+  function fontUsage(family: string): number {
+    let n = ROLES.reduce((acc, r) => acc + (typo.roles?.[r.key]?.font === family ? 1 : 0), 0);
+    if (heroNameFont === family) n += 1;
+    return n;
+  }
+
+  /** Import a new custom font, or replace one with an added-variant version. */
+  function upsertFont(font: ExtraFont) {
+    const exists = extraFonts.some((f) => f.family === font.family);
+    const nextExtra = exists
+      ? extraFonts.map((f) => (f.family === font.family ? font : f))
+      : [...extraFonts, font];
+    unloadCustomFont(font.family); // re-inject with the new face set
+    loadWebsiteFont(font.family, font.weights, fontSourceOf(font));
+    commit({ ...typo, extraFonts: nextExtra });
+  }
+
+  /** Rename a custom font, cascading to every role + the hero that uses it. */
+  function renameFont(oldFamily: string, newFamily: string) {
+    const name = newFamily.trim();
+    if (!name || name === oldFamily || extraFonts.some((f) => f.family === name)) return;
+    const nextRoles = { ...typo.roles };
+    for (const r of ROLES) {
+      if (nextRoles[r.key]?.font === oldFamily) nextRoles[r.key] = { ...nextRoles[r.key], font: name };
+    }
+    const renamed = { ...extraFonts.find((f) => f.family === oldFamily)!, family: name };
+    const nextExtra = extraFonts.map((f) => (f.family === oldFamily ? renamed : f));
+    const heroNext = heroNameFont === oldFamily ? name : heroNameFont;
+    if (heroNext !== heroNameFont) onHeroNameFontChange(heroNext);
+    unloadCustomFont(oldFamily);
+    loadWebsiteFont(name, renamed.weights, fontSourceOf(renamed)); // inject under the new name
+    commit({ ...typo, roles: nextRoles, extraFonts: nextExtra }, heroNext);
+  }
+
+  /** Delete a custom font: unset it everywhere, drop it, and free its S3 files. */
+  function deleteFont(font: ExtraFont) {
+    const nextRoles = { ...typo.roles };
+    for (const r of ROLES) {
+      if (nextRoles[r.key]?.font === font.family) {
+        const { font: _drop, ...rest } = nextRoles[r.key]!;
+        nextRoles[r.key] = rest;
+      }
+    }
+    const heroNext = heroNameFont === font.family ? '' : heroNameFont;
+    if (heroNext !== heroNameFont) onHeroNameFontChange(heroNext);
+    const nextExtra = extraFonts.filter((f) => f.family !== font.family);
+    unloadCustomFont(font.family);
+    commit({ ...typo, roles: nextRoles, extraFonts: nextExtra }, heroNext);
+    const keys = fontKeys(font);
+    if (keys.length) deleteWebsiteFonts(restaurantId, keys).catch(() => {});
+  }
+
+  /** Remove one variant of a custom font (deleting the last one deletes the font). */
+  function removeVariant(family: string, index: number) {
+    const font = extraFonts.find((f) => f.family === family);
+    const list = font?.faces ?? [];
+    if (!font || list.length === 0) return;
+    if (list.length <= 1) { deleteFont(font); return; }
+    const removed = list[index];
+    const nextFaces = list.filter((_, i) => i !== index);
+    const weights = Array.from(new Set(nextFaces.map((f) => f.weight ?? 400))).sort((a, b) => a - b);
+    const nextExtra = extraFonts.map((f) => (f.family === family ? { ...f, faces: nextFaces, weights } : f));
+    unloadCustomFont(family);
+    loadWebsiteFont(family, weights, { faces: nextFaces }); // re-inject without the removed face
+    commit({ ...typo, extraFonts: nextExtra });
+    if (removed?.key) deleteWebsiteFonts(restaurantId, [removed.key]).catch(() => {});
   }
 
   return (
@@ -543,6 +626,16 @@ export function TypographyPanel({
           La taille de chaque section se combine avec la taille générale du menu ci-dessus.
         </p>
       </div>
+
+      <MyFontsManager
+        fonts={customFonts}
+        usageCount={fontUsage}
+        onUpload={(file) => uploadWebsiteFont(restaurantId, file)}
+        onUpsert={upsertFont}
+        onRename={renameFont}
+        onDelete={deleteFont}
+        onRemoveVariant={removeVariant}
+      />
     </div>
   );
 }
