@@ -138,6 +138,20 @@ export function hasCustomFace(s?: CustomFontSource): boolean {
   return Boolean(s && (s.url || (s.faces && s.faces.length > 0)));
 }
 
+// Guest app origin — its /api/font proxy streams uploaded fonts with open CORS,
+// so the builder preview (admin origin) can load them regardless of S3 CORS.
+const WEB_ORIGIN = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';
+
+/** Route an uploaded font's S3 URL through the guest app's /api/font proxy so
+ *  the builder preview's cross-origin @font-face isn't blocked by S3 CORS. Only
+ *  our own bucket URLs are rewritten. */
+function fontSrcUrl(url: string): string {
+  if (/amazonaws\.com\//i.test(url) || url.includes('/fonts/')) {
+    return `${WEB_ORIGIN}/api/font?u=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 /** Inject the @font-face(s) for a custom (uploaded) font family (idempotent).
  *  A multi-variant family emits one @font-face per face (each with its weight/
  *  style) under the same family name, so the browser picks the right file for a
@@ -157,7 +171,7 @@ export function loadCustomFont(family: string, source: CustomFontSource): void {
       const fmt = f.format ? ` format("${f.format}")` : '';
       const w = f.weight ? `font-weight:${f.weight};` : '';
       const st = f.style === 'italic' ? 'font-style:italic;' : '';
-      return `@font-face{font-family:"${family}";src:url("${f.url}")${fmt};${w}${st}font-display:swap;}`;
+      return `@font-face{font-family:"${family}";src:url("${fontSrcUrl(f.url)}")${fmt};${w}${st}font-display:swap;}`;
     })
     .join('');
   const style = document.createElement('style');
