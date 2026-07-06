@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ExtraFont, FontFace } from '@/lib/api';
 import {
   fontsByCategory, CATEGORY_LABELS, isCuratedFont, loadFontPreview,
-  detectFontVariant, suggestFamilyName, WEIGHT_LABELS,
+  detectFontVariant, detectFontVariantFromFile, suggestFamilyName, WEIGHT_LABELS,
   type CustomFontSource,
 } from '@/lib/website-fonts';
 
@@ -222,9 +222,11 @@ export function FontSelect({ value, onChange, extraFonts, defaultLabel, onUpload
     const files = list ? Array.from(list) : [];
     setUploadError(null);
     setUploadFiles(files);
+    // Show a filename-based guess immediately, then refine from the real font
+    // metadata (OS/2 weight class) — filenames often omit the weight entirely.
     setUploadVariants(files.map((f) => detectFontVariant(f.name)));
-    // Prefill the family name from the common part of the file names.
     if (files.length > 0 && !uploadName.trim()) setUploadName(suggestFamilyName(files.map((f) => f.name)));
+    void Promise.all(files.map((f) => detectFontVariantFromFile(f))).then(setUploadVariants);
   }
 
   function setVariantWeight(i: number, weight: number) {
