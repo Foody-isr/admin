@@ -37,6 +37,7 @@ import { Badge, Button, PageHead } from '@/components/ds';
 import { FeatureIntro } from '@/components/help/FeatureIntro';
 import { HorizontalScrollRail } from '@/components/common/HorizontalScrollRail';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
+import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { OverrideStatusDialog } from '@/components/orders/OverrideStatusDialog';
 import { CashTag } from '@/components/orders/CashTag';
@@ -336,6 +337,7 @@ export default function OrdersPage() {
 
   // ─── Payment / Close ─────────────────────────────────────────────
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [weightsOpen, setWeightsOpen] = useState(false);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [overrideOrderId, setOverrideOrderId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -776,6 +778,7 @@ export default function OrdersPage() {
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
         onEdit={() => setEditOpen(true)}
+        onConfirmWeights={() => setWeightsOpen(true)}
         restaurantInfo={restaurantInfo}
         customFieldLabels={customFieldLabels}
       />
@@ -795,6 +798,14 @@ export default function OrdersPage() {
         onOpenChange={setPaymentOpen}
         totalAmount={selectedOrder?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+      />
+
+      {/* Confirm weights — by-weight orders on a card hold */}
+      <ConfirmWeightsModal
+        open={weightsOpen}
+        onOpenChange={setWeightsOpen}
+        order={selectedOrder}
+        onConfirmed={fetchOrders}
       />
 
       {/* Cancel order — reason required */}

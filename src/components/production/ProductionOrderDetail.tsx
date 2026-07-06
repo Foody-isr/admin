@@ -7,6 +7,7 @@ import {
 } from '@/components/orders/OrderDetailDrawer';
 import { EditOrderDrawer } from '@/components/orders/EditOrderDrawer';
 import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymentDialog';
+import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { usePermissions } from '@/lib/permissions-context';
 import { type PrintTicketRestaurant } from '@/lib/print-ticket';
@@ -39,6 +40,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   const [order, setOrder] = useState<Order | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [weightsOpen, setWeightsOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -138,6 +140,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onTakePayment={() => setPaymentOpen(true)}
         onCloseOrder={handleCloseOrder}
         onEdit={() => setEditOpen(true)}
+        onConfirmWeights={() => setWeightsOpen(true)}
         restaurantInfo={restaurantInfo}
         customFieldLabels={customFieldLabels}
       />
@@ -155,6 +158,13 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onOpenChange={setPaymentOpen}
         totalAmount={order?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+      />
+
+      <ConfirmWeightsModal
+        open={weightsOpen}
+        onOpenChange={setWeightsOpen}
+        order={order}
+        onConfirmed={refetch}
       />
 
       <CancelOrderDialog

@@ -16,7 +16,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { Badge, Button, Field, Input, PageHead, Section, Select } from '@/components/ds';
+import { Badge, Button, Field, Input, NumberField, PageHead, Section, Select } from '@/components/ds';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { FulfillmentDayRow, ModeCard, ServiceToggle, Switch, WEEKDAYS_FR } from './_components';
 
@@ -122,6 +122,9 @@ export default function OrdersAvailabilityPage() {
   const [autoSendToKitchen, setAutoSendToKitchen] = useState(true);
   const [tipsEnabled, setTipsEnabled] = useState(true);
   const [orderWorkflow, setOrderWorkflow] = useState<'full' | 'simple'>('full');
+  // Safety margin added on top of an item's estimated weight when placing the
+  // card hold for by-weight orders. Percent; default 20.
+  const [weightHoldBuffer, setWeightHoldBuffer] = useState(20);
 
   useEffect(() => {
     Promise.all([getRestaurant(rid), getRestaurantSettings(rid)])
@@ -169,6 +172,7 @@ export default function OrdersAvailabilityPage() {
         setAutoSendToKitchen(s.auto_send_to_kitchen ?? true);
         setTipsEnabled(s.tips_enabled ?? true);
         setOrderWorkflow(s.order_workflow === 'simple' ? 'simple' : 'full');
+        setWeightHoldBuffer(s.weight_hold_buffer_percent ?? 20);
       })
       .finally(() => setLoading(false));
   }, [rid]);
@@ -282,6 +286,7 @@ export default function OrdersAvailabilityPage() {
         auto_send_to_kitchen: autoSendToKitchen,
         tips_enabled: tipsEnabled,
         order_workflow: orderWorkflow,
+        weight_hold_buffer_percent: weightHoldBuffer,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -927,6 +932,30 @@ export default function OrdersAvailabilityPage() {
             label={t('enableTips') || 'Pourboires'}
             sub={t('enableTipsDesc') || 'Proposer une étape pourboire au client.'}
           />
+          {/* Card-hold safety margin for by-weight items. The hold is placed on
+              the estimated weight plus this buffer so the captured amount at
+              weigh-in rarely exceeds what was authorized. */}
+          <Field
+            label={t('weightHoldBufferLabel') || 'Weight hold buffer %'}
+            hint={
+              t('weightHoldBufferHint') ||
+              'Extra margin added to the estimated weight when holding a card for by-weight items, so the final charge stays within the authorized hold.'
+            }
+          >
+            <div className="relative" style={{ width: 120 }}>
+              <NumberField
+                min={0}
+                max={200}
+                value={weightHoldBuffer}
+                onChange={setWeightHoldBuffer}
+                disabled={!canEdit}
+                className="pe-8 font-mono"
+              />
+              <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                %
+              </span>
+            </div>
+          </Field>
         </div>
       </Section>
 
