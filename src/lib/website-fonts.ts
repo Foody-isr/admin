@@ -138,6 +138,14 @@ export function hasCustomFace(s?: CustomFontSource): boolean {
   return Boolean(s && (s.url || (s.faces && s.faces.length > 0)));
 }
 
+/** Remove a custom family's injected @font-face so the next load re-injects it
+ *  with fresh faces — call after a font's variants or name change, since
+ *  loadCustomFont is otherwise idempotent per family. */
+export function unloadCustomFont(family: string): void {
+  if (typeof document === 'undefined' || !family) return;
+  document.getElementById(`cf-${family.replace(/\s+/g, '-')}`)?.remove();
+}
+
 // Guest app origin — its /api/font proxy streams uploaded fonts with open CORS,
 // so the builder preview (admin origin) can load them regardless of S3 CORS.
 const WEB_ORIGIN = process.env.NEXT_PUBLIC_WEB_URL || 'https://app.foody-pos.co.il';

@@ -120,7 +120,6 @@ export default function OrdersAvailabilityPage() {
   // ── Service rules (RestaurantSettings) ────────────────────────────────────
   const [serviceMode, setServiceMode] = useState('table');
   const [prepTime, setPrepTime] = useState(20);
-  const [autoSendToKitchen, setAutoSendToKitchen] = useState(true);
   const [tipsEnabled, setTipsEnabled] = useState(true);
   // Safety margin added on top of an item's estimated weight when placing the
   // card hold for by-weight orders. Percent; default 20.
@@ -169,7 +168,6 @@ export default function OrdersAvailabilityPage() {
         // Service rules
         setServiceMode(s.service_mode || 'table');
         setPrepTime(s.pickup_prep_time_minutes ?? 20);
-        setAutoSendToKitchen(s.auto_send_to_kitchen ?? true);
         setTipsEnabled(s.tips_enabled ?? true);
         setWeightHoldBuffer(s.weight_hold_buffer_percent ?? 20);
       })
@@ -282,7 +280,6 @@ export default function OrdersAvailabilityPage() {
         // Service rules
         service_mode: serviceMode,
         pickup_prep_time_minutes: prepTime,
-        auto_send_to_kitchen: autoSendToKitchen,
         tips_enabled: tipsEnabled,
         weight_hold_buffer_percent: weightHoldBuffer,
       });
@@ -901,12 +898,6 @@ export default function OrdersAvailabilityPage() {
               </Field>
             )}
           </div>
-          <RuleToggle
-            checked={autoSendToKitchen}
-            onChange={setAutoSendToKitchen}
-            label={t('autoSendToKitchen') || 'Envoi automatique en cuisine'}
-            sub={t('autoSendDesc') || 'Les commandes partent en cuisine dès leur acceptation.'}
-          />
           <RuleToggle
             checked={tipsEnabled}
             onChange={setTipsEnabled}

@@ -236,6 +236,11 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
               <div className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-wide">
                 {t('wfAutomations') || 'Automatisations'}
               </div>
+              <div className="text-fs-xs text-[var(--fg-subtle)] -mt-0.5 mb-0.5">
+                {t('wfAutomationsHint') ||
+                  'Quand l’un de ces événements se produit, la commande passe automatiquement à'}{' '}
+                «&nbsp;{stage.name.trim() || (t('wfThisStep') || 'cette étape')}&nbsp;».
+              </div>
               <StageSwitch
                 checked={stage.trigger_production_done}
                 onChange={(v) => patchStage(i, { trigger_production_done: v })}

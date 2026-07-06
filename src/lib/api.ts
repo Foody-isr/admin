@@ -740,6 +740,8 @@ export interface TypographyRoleOverride {
 export interface FontFace {
   /** S3 source of the font file. */
   url: string;
+  /** S3 object key — kept so the file can be deleted when the font/variant is removed. */
+  key?: string;
   /** CSS @font-face format() hint: 'woff2' | 'woff' | 'truetype' | 'opentype'. */
   format?: string;
   /** Weight this file provides (100-900). Absent = unweighted (matches any). */
@@ -3871,7 +3873,7 @@ export async function uploadSectionImage(restaurantId: number, file: File): Prom
 export async function uploadWebsiteFont(
   restaurantId: number,
   file: File,
-): Promise<{ url: string; format: string }> {
+): Promise<{ url: string; format: string; key: string }> {
   const token = getToken();
   const formData = new FormData();
   formData.append('font', file);
@@ -3888,7 +3890,29 @@ export async function uploadWebsiteFont(
     throw new Error(body.error || body.message || `Upload failed (${res.status})`);
   }
   const data = await res.json();
-  return { url: data.url, format: data.format };
+  return { url: data.url, format: data.format, key: data.key };
+}
+
+/** Delete uploaded custom-font files from S3 (when a font or variant is removed
+ *  in the builder's font manager). Best-effort — only this restaurant's own
+ *  font objects are deletable server-side. */
+export async function deleteWebsiteFonts(restaurantId: number, keys: string[]): Promise<void> {
+  const clean = keys.filter(Boolean);
+  if (clean.length === 0) return;
+  const token = getToken();
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/website-fonts`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Restaurant-ID': String(restaurantId),
+    },
+    body: JSON.stringify({ keys: clean }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || body.message || `Delete failed (${res.status})`);
+  }
 }
 
 // ─── Website Sections ───────────────────────────────────────────────────────
