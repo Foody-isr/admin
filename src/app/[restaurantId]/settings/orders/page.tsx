@@ -19,6 +19,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, Field, Input, NumberField, PageHead, Section, Select } from '@/components/ds';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { FulfillmentDayRow, ModeCard, ServiceToggle, Switch, WEEKDAYS_FR } from './_components';
+import { OrderWorkflowBuilder } from './OrderWorkflowBuilder';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Day = typeof DAYS[number];
@@ -121,7 +122,6 @@ export default function OrdersAvailabilityPage() {
   const [prepTime, setPrepTime] = useState(20);
   const [autoSendToKitchen, setAutoSendToKitchen] = useState(true);
   const [tipsEnabled, setTipsEnabled] = useState(true);
-  const [orderWorkflow, setOrderWorkflow] = useState<'full' | 'simple'>('full');
   // Safety margin added on top of an item's estimated weight when placing the
   // card hold for by-weight orders. Percent; default 20.
   const [weightHoldBuffer, setWeightHoldBuffer] = useState(20);
@@ -171,7 +171,6 @@ export default function OrdersAvailabilityPage() {
         setPrepTime(s.pickup_prep_time_minutes ?? 20);
         setAutoSendToKitchen(s.auto_send_to_kitchen ?? true);
         setTipsEnabled(s.tips_enabled ?? true);
-        setOrderWorkflow(s.order_workflow === 'simple' ? 'simple' : 'full');
         setWeightHoldBuffer(s.weight_hold_buffer_percent ?? 20);
       })
       .finally(() => setLoading(false));
@@ -285,7 +284,6 @@ export default function OrdersAvailabilityPage() {
         pickup_prep_time_minutes: prepTime,
         auto_send_to_kitchen: autoSendToKitchen,
         tips_enabled: tipsEnabled,
-        order_workflow: orderWorkflow,
         weight_hold_buffer_percent: weightHoldBuffer,
       });
       setSaved(true);
@@ -862,23 +860,6 @@ export default function OrdersAvailabilityPage() {
         desc={t('serviceRulesDesc') || 'Comment les commandes circulent une fois passées.'}
       >
         <div className="flex flex-col gap-[var(--s-4)]">
-          <Field
-            label={t('orderWorkflow') || 'Suivi des commandes'}
-            hint={
-              t('orderWorkflowHint') ||
-              'En mode simplifié, cocher une commande « prête » dans le plan de production la marque automatiquement prête et prévient le client. Le mode complet garde chaque étape manuelle.'
-            }
-          >
-            <Select
-              value={orderWorkflow}
-              onChange={(e) => setOrderWorkflow(e.target.value === 'simple' ? 'simple' : 'full')}
-            >
-              <option value="full">{t('orderWorkflowFull') || 'Complet (étape par étape)'}</option>
-              <option value="simple">
-                {t('orderWorkflowSimple') || 'Précommande simplifiée'}
-              </option>
-            </Select>
-          </Field>
           <div className="flex flex-wrap gap-[var(--s-4)]">
             {dineInEnabled && (
               <Field
@@ -957,6 +938,17 @@ export default function OrdersAvailabilityPage() {
             </div>
           </Field>
         </div>
+      </Section>
+
+      {/* ── Order workflow builder ───────────────────────────────────────── */}
+      <Section
+        title={t('orderWorkflow') || 'Suivi des commandes'}
+        desc={
+          t('workflowBuilderSectionDesc') ||
+          'Le parcours de vos commandes, par type de service. Ajoutez, renommez et réordonnez les étapes, et branchez les automatisations.'
+        }
+      >
+        <OrderWorkflowBuilder rid={rid} canEdit={canEdit} />
       </Section>
 
       <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-8)] flex-wrap">

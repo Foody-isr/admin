@@ -1507,6 +1507,51 @@ export async function apiFetch<T>(
   return res.json();
 }
 
+// ─── Order workflow builder ──────────────────────────────────────────────────
+// Per-order-type pipelines. Each stage has a free-form name, a semantic `kind`
+// the engine understands, automation triggers, and a customer-notify toggle.
+
+export type WorkflowStageKind = 'received' | 'in_progress' | 'ready' | 'out_for_delivery' | 'completed';
+export type WorkflowOrderType = 'pickup' | 'dine_in' | 'delivery';
+
+export interface WorkflowStage {
+  id?: number;
+  name: string;
+  kind: WorkflowStageKind;
+  color?: string;
+  trigger_payment_confirmed: boolean;
+  trigger_production_done: boolean;
+  trigger_courier_assigned: boolean;
+  trigger_courier_delivered: boolean;
+  notify_customer: boolean;
+  customer_message?: string;
+}
+
+export interface OrderWorkflow {
+  id: number;
+  order_type: WorkflowOrderType;
+  template_source: string; // full | simple | custom
+  stages: WorkflowStage[];
+}
+
+/** GET /api/v1/order-workflows — one pipeline per order type (seeded on first read). */
+export async function getOrderWorkflows(restaurantId: number): Promise<OrderWorkflow[]> {
+  const data = await apiFetch<{ workflows: OrderWorkflow[] }>('/api/v1/order-workflows', restaurantId);
+  return data.workflows ?? [];
+}
+
+/** PUT /api/v1/order-workflows/:orderType — replace one pipeline wholesale. */
+export async function updateOrderWorkflow(
+  restaurantId: number,
+  orderType: WorkflowOrderType,
+  stages: WorkflowStage[]
+): Promise<OrderWorkflow> {
+  return apiFetch<OrderWorkflow>(`/api/v1/order-workflows/${orderType}`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ stages }),
+  });
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface LoginResponse {
