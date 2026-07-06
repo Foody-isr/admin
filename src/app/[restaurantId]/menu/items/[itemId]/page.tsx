@@ -14,7 +14,7 @@ import {
   retranslateMenuItem,
   MenuCategory, MenuItem, ModifierSet, Menu,
   ModifierSetItemOverridesInput,
-  OptionSet, ItemOptionOverride, ItemType,
+  OptionSet, ItemOptionOverride, ItemType, PricingMode,
   StockItem, PrepItem, MenuItemIngredient,
   TranslationMap,
 } from '@/lib/api';
@@ -108,6 +108,9 @@ export default function EditItemPage() {
   // the stock-editor UX. Background fetch below overwrites with fresh values.
   const [name, setName] = useState(() => item?.name ?? '');
   const [price, setPrice] = useState<number>(() => item?.price ?? 0);
+  const [pricingMode, setPricingMode] = useState<PricingMode>(() => item?.pricing_mode ?? 'standard');
+  const [pricePerKg, setPricePerKg] = useState<number>(() => item?.price_per_kg ?? 0);
+  const [estimatedWeightGrams, setEstimatedWeightGrams] = useState<number>(() => item?.estimated_weight_grams ?? 0);
   const [description, setDescription] = useState(() => item?.description ?? '');
   const [aiContext, setAiContext] = useState(() => item?.ai_context ?? '');
   const [portion, setPortion] = useState(() => item?.portion ?? '');
@@ -205,6 +208,9 @@ export default function EditItemPage() {
           setItem(found);
           setName(found.name);
           setPrice(found.price ?? 0);
+          setPricingMode(found.pricing_mode ?? 'standard');
+          setPricePerKg(found.price_per_kg ?? 0);
+          setEstimatedWeightGrams(found.estimated_weight_grams ?? 0);
           setDescription(found.description ?? '');
           setAiContext(found.ai_context ?? '');
           setPortion(found.portion ?? '');
@@ -350,8 +356,13 @@ export default function EditItemPage() {
   }, [variantGroups]);
   const effectivePrice = meaningfulVariants && firstVariantPrice > 0 ? firstVariantPrice : price;
 
+  // A by-weight item has no flat base price — its price comes from ₪/kg × the
+  // weighed amount, so validity keys off price_per_kg instead of effectivePrice.
+  const isByWeight = itemType !== 'combo' && pricingMode === 'by_weight';
+  const priceOk = isByWeight ? pricePerKg > 0 : effectivePrice > 0;
+
   const handleSave = async () => {
-    if (!name.trim() || effectivePrice <= 0) return;
+    if (!name.trim() || !priceOk) return;
     setSaving(true);
     try {
       const updatePayload: Record<string, unknown> = {
@@ -360,6 +371,9 @@ export default function EditItemPage() {
         ai_context: aiContext,
         portion,
         price: effectivePrice,
+        pricing_mode: pricingMode,
+        price_per_kg: pricingMode === 'by_weight' ? pricePerKg : 0,
+        estimated_weight_grams: pricingMode === 'by_weight' ? estimatedWeightGrams : 0,
         is_active: isActive,
         allow_notes: allowNotes,
         combo_allow_quantity: comboAllowQuantity,
@@ -563,7 +577,7 @@ export default function EditItemPage() {
         onClose={goBack}
         onSave={canEdit ? handleSave : () => {}}
         saving={saving}
-        saveDisabled={!canEdit || !name.trim() || effectivePrice <= 0}
+        saveDisabled={!canEdit || !name.trim() || !priceOk}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden bg-[var(--bg)]">
@@ -588,6 +602,12 @@ export default function EditItemPage() {
                   setName={setName}
                   price={price}
                   setPrice={setPrice}
+                  pricingMode={pricingMode}
+                  setPricingMode={setPricingMode}
+                  pricePerKg={pricePerKg}
+                  setPricePerKg={setPricePerKg}
+                  estimatedWeightGrams={estimatedWeightGrams}
+                  setEstimatedWeightGrams={setEstimatedWeightGrams}
                   description={description}
                   setDescription={setDescription}
                   aiContext={aiContext}
@@ -621,8 +641,10 @@ export default function EditItemPage() {
 
                 {/* Sizes / variants — pricing lives here when present, which is
                     why the base-price field above hides itself (no more "same
-                    price shown twice"). Combos price via the Composition tab. */}
-                {itemType !== 'combo' && (
+                    price shown twice"). Combos price via the Composition tab.
+                    By-weight items are priced per kg, not by size, so the sizes
+                    editor is hidden for them. */}
+                {itemType !== 'combo' && !isByWeight && (
                   <section className="max-w-4xl bg-[var(--surface)] rounded-r-lg border border-[var(--line)] p-[var(--s-5)]">
                     <div className="flex items-center gap-[var(--s-3)] mb-[var(--s-3)]">
                       <span className="w-[3px] h-6 rounded-e-md bg-[var(--brand-500)]" />

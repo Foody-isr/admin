@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import type { MenuCategory, Menu, ItemType, TranslationMap } from '@/lib/api';
+import type { MenuCategory, Menu, ItemType, PricingMode, TranslationMap } from '@/lib/api';
 import MenuGroupPicker from '@/components/MenuGroupPicker';
 import { Field, Input, NumberField, Textarea } from '@/components/ds';
 import { LocaleTabs, type Locale } from '@/components/i18n/LocaleTabs';
@@ -28,6 +28,16 @@ interface Props {
   setName: (v: string) => void;
   price: number;
   setPrice: (v: number) => void;
+  /** How the item is priced: a flat/size "standard" price, or "by_weight"
+   *  (₪/kg against a measured weight). Controls which price inputs show. */
+  pricingMode: PricingMode;
+  setPricingMode: (v: PricingMode) => void;
+  /** Price per kilogram (₪) — only used when pricingMode is "by_weight". */
+  pricePerKg: number;
+  setPricePerKg: (v: number) => void;
+  /** Estimated weight per unit (grams) — used when pricingMode is "by_weight". */
+  estimatedWeightGrams: number;
+  setEstimatedWeightGrams: (v: number) => void;
   description: string;
   setDescription: (v: string) => void;
   /** Private staff guidance about this item for the AI ordering assistant only
@@ -97,6 +107,9 @@ interface Props {
 export default function MenuItemTabDetails({
   name, setName,
   price, setPrice,
+  pricingMode, setPricingMode,
+  pricePerKg, setPricePerKg,
+  estimatedWeightGrams, setEstimatedWeightGrams,
   description, setDescription,
   aiContext, setAiContext,
   portion, setPortion,
@@ -219,6 +232,11 @@ export default function MenuItemTabDetails({
   const priceLabel = isCombo
     ? t('composeBasePriceLabel')
     : (t('sellingPriceLabel') || 'Prix de vente');
+
+  // By-weight pricing is only offered for regular articles — combos keep an
+  // explicit base price, and the toggle is meaningless for them.
+  const canByWeight = !isCombo;
+  const isByWeight = canByWeight && pricingMode === 'by_weight';
 
   return (
     <div className="max-w-4xl">
@@ -398,33 +416,115 @@ export default function MenuItemTabDetails({
           </Field>
         </div>
 
+        {/* Pricing mode — Standard vs By weight. Only for regular articles;
+            combos always price by a base amount. Selecting "By weight" swaps
+            the base-price field below for per-kg + estimated-weight inputs. */}
+        {canByWeight && (
+          <Field
+            label={t('pricingModeLabel') || 'Pricing'}
+            hint={
+              isByWeight
+                ? (t('pricingModeByWeightHint') ||
+                    'Priced per kilogram. The final price is set from the weight measured at fulfillment.')
+                : (t('pricingModeStandardHint') || 'A fixed price (or size options).')
+            }
+          >
+            <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md w-fit">
+              {(['standard', 'by_weight'] as const).map((m) => {
+                const active = pricingMode === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={!canEdit}
+                    aria-pressed={active}
+                    onClick={() => setPricingMode(m)}
+                    className={`inline-flex items-center h-[30px] px-[var(--s-4)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast disabled:cursor-not-allowed ${
+                      active
+                        ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
+                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
+                    }`}
+                  >
+                    {m === 'standard'
+                      ? (t('pricingModeStandard') || 'Standard')
+                      : (t('pricingModeByWeight') || 'By weight')}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
+
         {/* Row 2 — Prix | TVA | Statut */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[var(--s-4)]">
-          <Field
-            label={priceLabel}
-            hint={isCombo ? t('composeBasePriceHint') : undefined}
-          >
-            {hideBasePrice ? (
-              // Sizes own the price — show a read-only hint pointing at the
-              // size rows below instead of a second editable price field.
-              <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)]/40 text-fs-xs text-[var(--fg-muted)]">
-                {t('priceFromSizes') || 'Le prix est défini par les tailles ci-dessous.'}
-              </div>
-            ) : (
-              <div className="relative">
-                <NumberField
-                  min={0}
-                  value={price}
-                  onChange={setPrice}
-                  placeholder="0.00"
-                  className="pr-8 font-mono"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
-                  ₪
-                </span>
-              </div>
-            )}
-          </Field>
+          {isByWeight ? (
+            // By-weight items are priced per kg (not by size), so the standard
+            // base-price field is replaced by a ₪/kg input plus an estimated
+            // weight used to size the card hold before the real weigh-in.
+            <>
+              <Field
+                label={t('pricePerKgLabel') || 'Price per kg'}
+                hint={t('pricePerKgHint') || 'Rate charged against the measured weight.'}
+              >
+                <div className="relative">
+                  <NumberField
+                    min={0}
+                    value={pricePerKg}
+                    onChange={setPricePerKg}
+                    placeholder="0.00"
+                    className="pe-16 font-mono"
+                  />
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                    ₪/kg
+                  </span>
+                </div>
+              </Field>
+
+              <Field
+                label={t('estimatedWeightLabel') || 'Estimated weight'}
+                hint={t('estimatedWeightHint') || 'Used to place the card hold before weighing.'}
+              >
+                <div className="relative">
+                  <NumberField
+                    min={0}
+                    value={estimatedWeightGrams}
+                    onChange={setEstimatedWeightGrams}
+                    placeholder="0"
+                    className="pe-10 font-mono"
+                  />
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                    g
+                  </span>
+                </div>
+              </Field>
+            </>
+          ) : (
+            <Field
+              label={priceLabel}
+              hint={isCombo ? t('composeBasePriceHint') : undefined}
+            >
+              {hideBasePrice ? (
+                // Sizes own the price — show a read-only hint pointing at the
+                // size rows below instead of a second editable price field.
+                <div className="flex items-center h-9 px-[var(--s-3)] rounded-r-md border border-dashed border-[var(--line-strong)] bg-[var(--surface-2)]/40 text-fs-xs text-[var(--fg-muted)]">
+                  {t('priceFromSizes') || 'Le prix est défini par les tailles ci-dessous.'}
+                </div>
+              ) : (
+                <div className="relative">
+                  <NumberField
+                    min={0}
+                    value={price}
+                    onChange={setPrice}
+                    placeholder="0.00"
+                    className="pe-8 font-mono"
+                  />
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fs-sm text-[var(--fg-muted)] pointer-events-none">
+                    ₪
+                  </span>
+                </div>
+              )}
+            </Field>
+          )}
 
           <Field label={t('vat') || 'TVA'}>
             <div className="relative">

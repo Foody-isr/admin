@@ -10,7 +10,7 @@ import {
   syncItemVariants,
   getRestaurantSettings,
   MenuCategory, Menu, MenuItem, ModifierSet, OptionSet,
-  ItemType,
+  ItemType, PricingMode,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -60,6 +60,9 @@ export default function NewItemPage() {
   // Form state
   const [name, setName] = useState('');
   const [price, setPrice] = useState<number>(0);
+  const [pricingMode, setPricingMode] = useState<PricingMode>('standard');
+  const [pricePerKg, setPricePerKg] = useState<number>(0);
+  const [estimatedWeightGrams, setEstimatedWeightGrams] = useState<number>(0);
   const [description, setDescription] = useState('');
   const [aiContext, setAiContext] = useState('');
   const [portion, setPortion] = useState('');
@@ -197,8 +200,13 @@ export default function NewItemPage() {
   }, [variantGroups]);
   const effectivePrice = meaningfulVariants && firstVariantPrice > 0 ? firstVariantPrice : price;
 
+  // A by-weight item is priced per kg (not a flat base), so its validity keys
+  // off price_per_kg rather than the base price.
+  const isByWeight = itemType !== 'combo' && pricingMode === 'by_weight';
+  const priceOk = isByWeight ? pricePerKg > 0 : effectivePrice > 0;
+
   const handleSave = async () => {
-    if (!name.trim() || effectivePrice <= 0) return;
+    if (!name.trim() || !priceOk) return;
     setSaving(true);
     try {
       const createPayload: Parameters<typeof createMenuItem>[1] = {
@@ -207,6 +215,9 @@ export default function NewItemPage() {
         ai_context: aiContext,
         portion,
         price: effectivePrice,
+        pricing_mode: pricingMode,
+        price_per_kg: pricingMode === 'by_weight' ? pricePerKg : 0,
+        estimated_weight_grams: pricingMode === 'by_weight' ? estimatedWeightGrams : 0,
         is_active: isActive,
         allow_notes: allowNotes,
         combo_allow_quantity: comboAllowQuantity,
@@ -394,7 +405,7 @@ export default function NewItemPage() {
         onClose={goBack}
         onSave={canEdit ? handleSave : () => {}}
         saving={saving}
-        saveDisabled={!canEdit || !name.trim() || effectivePrice <= 0}
+        saveDisabled={!canEdit || !name.trim() || !priceOk}
         sidebar={rail}
       >
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -451,6 +462,12 @@ export default function NewItemPage() {
                 setName={setName}
                 price={price}
                 setPrice={setPrice}
+                pricingMode={pricingMode}
+                setPricingMode={setPricingMode}
+                pricePerKg={pricePerKg}
+                setPricePerKg={setPricePerKg}
+                estimatedWeightGrams={estimatedWeightGrams}
+                setEstimatedWeightGrams={setEstimatedWeightGrams}
                 description={description}
                 setDescription={setDescription}
                 aiContext={aiContext}
@@ -499,25 +516,29 @@ export default function NewItemPage() {
             {/* ── Sizes & modifiers — rendered inside the Article tab ── */}
             {activeTab === 'details' && itemType !== 'combo' && (
               <div className="max-w-4xl">
-                <div className="mb-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                    <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
-                      {t('variants')}
-                    </h3>
+                {/* By-weight items are priced per kg, not by size, so the sizes
+                    editor is hidden for them. */}
+                {!isByWeight && (
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                      <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                        {t('variants')}
+                      </h3>
+                    </div>
+                    <div className="space-y-4">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {t('variantsDescription')}
+                      </p>
+                      <VariantsEditor
+                        groups={variantGroups}
+                        onChange={setVariantGroups}
+                        allOptionSets={allOptionSets}
+                        itemBasePrice={effectivePrice}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-4">
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                      {t('variantsDescription')}
-                    </p>
-                    <VariantsEditor
-                      groups={variantGroups}
-                      onChange={setVariantGroups}
-                      allOptionSets={allOptionSets}
-                      itemBasePrice={effectivePrice}
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div>
                   <div className="flex items-center gap-3 mb-6">

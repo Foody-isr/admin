@@ -87,10 +87,16 @@ export interface BatchFulfillmentDay {
   delivery_end?: string;
 }
 
+export type PricingMode = 'standard' | 'by_weight';
+
 export interface RestaurantSettings {
   id: number;
   restaurant_id: number;
   require_order_approval: boolean;
+  /** Safety margin added on top of an item's estimated weight when placing the
+   *  card hold for by-weight orders, so the captured amount at weigh-in rarely
+   *  exceeds the authorized hold. Percent (e.g. 20 = +20%). Default 20. */
+  weight_hold_buffer_percent?: number;
   require_dine_in_prepayment: boolean;
   service_mode: string;
   scheduling_enabled: boolean;
@@ -404,6 +410,15 @@ export interface MenuItem {
   category_id: number;
   name: string;
   description: string;
+  /** How this item is priced. "standard" (default) uses `price` (or size
+   *  variants); "by_weight" charges `price_per_kg` against the weight measured
+   *  at fulfillment, with `estimated_weight_grams` driving the pre-auth hold. */
+  pricing_mode?: PricingMode;
+  /** Price per kilogram, in ₪. Only meaningful when `pricing_mode` is "by_weight". */
+  price_per_kg?: number;
+  /** Estimated weight per unit, in grams. Drives the card hold amount for
+   *  by-weight items before the real weight is known. */
+  estimated_weight_grams?: number;
   /** Private staff guidance for the AI ordering assistant (never shown to guests). */
   ai_context?: string;
   /** Short serving-size label shown under the title when the item has no size
@@ -481,6 +496,15 @@ export interface OrderItem {
   quantity: number;
   notes?: string;
   target_station?: string;
+  /** Pricing snapshot for by-weight lines. "standard" (default) prices via
+   *  `price`; "by_weight" prices `price_per_kg` × actual weight at fulfillment. */
+  pricing_mode?: PricingMode;
+  /** Price per kilogram snapshotted at order time (by-weight lines only). */
+  price_per_kg?: number;
+  /** Estimated weight per unit in grams, snapshotted at order time. */
+  estimated_weight_grams?: number;
+  /** Actual weighed grams captured by staff at fulfillment. null until weighed. */
+  actual_weight_grams?: number | null;
   selected_variant_id?: number;
   selected_variant_name?: string;
   selected_variant_price?: number;
@@ -507,6 +531,15 @@ export interface Order {
   status: OrderStatus;
   payment_status: PaymentStatus;
   payment_method?: string;
+  /** Settlement lifecycle for by-weight orders paid via card hold. "" = not a
+   *  held order; "held" = card pre-authorized, awaiting weigh-in; "captured" =
+   *  final weight confirmed and charged; "released" = hold voided;
+   *  "over_hold_flagged" = final total exceeded the hold, needs staff attention. */
+  settlement_status?: '' | 'held' | 'captured' | 'released' | 'over_hold_flagged';
+  /** Amount authorized on the customer's card (₪) while awaiting weigh-in. */
+  hold_amount?: number;
+  /** Amount actually captured (₪) after weights were confirmed. */
+  captured_amount?: number;
   customer_name: string;
   customer_phone: string;
   total_amount: number;
@@ -2961,6 +2994,41 @@ export async function updateOrderPaymentStatus(
     { method: 'PUT', body: JSON.stringify(body) },
   );
   return data.order;
+}
+
+// ─── By-weight settlement ────────────────────────────────────────────────────
+
+/** One weighed line submitted to the weigh endpoint. */
+export interface OrderItemWeightInput {
+  order_item_id: number;
+  actual_weight_grams: number;
+}
+
+/** Result of confirming actual weights on a held by-weight order. */
+export interface ConfirmWeightsResult {
+  order_id: number;
+  final_total: number;
+  captured_amount: number;
+  hold_amount: number;
+  settlement_status: '' | 'held' | 'captured' | 'released' | 'over_hold_flagged';
+}
+
+/**
+ * Confirm the real weights for a held by-weight order. The server prices each
+ * line at `price_per_kg` × grams, captures the card hold up to `hold_amount`,
+ * and returns the settled totals. Flags `over_hold_flagged` if the final total
+ * exceeded the authorized hold.
+ */
+export async function confirmOrderWeights(
+  restaurantId: number,
+  orderId: number,
+  weights: OrderItemWeightInput[],
+): Promise<ConfirmWeightsResult> {
+  return apiFetch<ConfirmWeightsResult>(
+    `/api/v1/orders/${orderId}/weigh?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ weights }) },
+  );
 }
 
 // ─── Manual order creation (staff-built orders) ──────────────────────────────

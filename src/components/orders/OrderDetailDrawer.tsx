@@ -12,7 +12,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
   SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
-  RotateCcwIcon,
+  RotateCcwIcon, ScaleIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -248,7 +248,7 @@ function statusIndex(status: string) {
 export function OrderDetailDrawer({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
-  onTakePayment, onCloseOrder, onEdit,
+  onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
   restaurantInfo, customFieldLabels,
 }: {
   order: Order | null;
@@ -269,6 +269,9 @@ export function OrderDetailDrawer({
   onTakePayment: () => void;
   onCloseOrder: () => void;
   onEdit: () => void;
+  /** Opens the confirm-weights modal for by-weight orders on a card hold.
+   *  The action button only renders when order.settlement_status === "held". */
+  onConfirmWeights?: () => void;
   restaurantInfo: PrintTicketRestaurant;
   customFieldLabels: Record<string, string>;
 }) {
@@ -463,6 +466,10 @@ export function OrderDetailDrawer({
     : 'C';
 
   const isTerminal = ['served', 'received', 'picked_up', 'delivered', 'rejected'].includes(order.status);
+  // By-weight orders sit on a card hold until staff enter the measured weights.
+  // Surface the confirm-weights action while the settlement is still "held".
+  const isHeld = order.settlement_status === 'held';
+  const canConfirmWeights = isHeld && !!onConfirmWeights && !isCancelled;
   const canTakePayment = !isCancelled && order.payment_status !== 'paid' && order.payment_status !== 'refunded';
   // "Close order" transitions a paid in-progress order to served/delivered.
   // Once already terminal there is nothing to do, so hide the button — clicking
@@ -556,6 +563,21 @@ export function OrderDetailDrawer({
 
           {/* Right — contextual secondary · overflow · single primary */}
           <div className="flex flex-col-reverse gap-[var(--s-2)] md:flex-row md:flex-nowrap md:items-center">
+            {canManage && canConfirmWeights && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={onConfirmWeights}
+                disabled={isLoading}
+                style={{
+                  color: 'var(--brand-600)',
+                  borderColor: 'color-mix(in oklab, var(--brand-500) 45%, var(--line-strong))',
+                }}
+                className="flex-1 md:flex-none justify-center"
+              >
+                <ScaleIcon /> {t('confirmWeights') || 'Confirm weights'}
+              </Button>
+            )}
             {canManage && canTakePayment && (
               <Button
                 variant="secondary"
