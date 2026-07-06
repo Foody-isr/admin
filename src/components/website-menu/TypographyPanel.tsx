@@ -63,12 +63,21 @@ function FontSample({
 // roles foodyweb applies in lib/themes/typography.ts. `caseControl` marks the
 // roles offering the Auto / Majuscules / Normale case picker (prices are
 // numbers, casing is meaningless there).
-const ROLES: { key: TypographyRoleKey; label: string; sample: string; family: 'display' | 'body'; caseControl?: boolean }[] = [
-  { key: 'categoryTitle', label: 'Titres de catégories', sample: 'Salades', family: 'display', caseControl: true },
-  { key: 'itemName', label: 'Noms des plats', sample: 'Salade César', family: 'display', caseControl: true },
-  { key: 'itemPrice', label: 'Prix', sample: '₪35.00', family: 'display' },
-  { key: 'itemDescription', label: 'Descriptions', sample: 'Roquette, parmesan, croûtons', family: 'body', caseControl: true },
+// `defaultWeight` is the weight the theme renders each role at (mirrors the
+// baseWeight foodyweb passes to roleTextStyle). Used to snap a custom font to
+// its nearest real cut on pick, so a 700-title role doesn't chase a weight the
+// uploaded font lacks and fall back to a thinner face.
+const ROLES: { key: TypographyRoleKey; label: string; sample: string; family: 'display' | 'body'; caseControl?: boolean; defaultWeight: number }[] = [
+  { key: 'categoryTitle', label: 'Titres de catégories', sample: 'Salades', family: 'display', caseControl: true, defaultWeight: 700 },
+  { key: 'itemName', label: 'Noms des plats', sample: 'Salade César', family: 'display', caseControl: true, defaultWeight: 600 },
+  { key: 'itemPrice', label: 'Prix', sample: '₪35.00', family: 'display', defaultWeight: 600 },
+  { key: 'itemDescription', label: 'Descriptions', sample: 'Roquette, parmesan, croûtons', family: 'body', caseControl: true, defaultWeight: 400 },
 ];
+
+/** The available weight closest to `target` (custom fonts ship a finite set). */
+function nearestWeight(avail: number[], target: number): number {
+  return avail.reduce((best, w) => (Math.abs(w - target) < Math.abs(best - target) ? w : best), avail[0]);
+}
 
 // Case picker options. Auto (absent) keeps the theme's own behavior — e.g. a
 // dark custom palette renders category titles in capitals by default.
@@ -245,9 +254,15 @@ export function TypographyPanel({
     }
     const role = ROLES.find((r) => r.key === key)!;
     const cur = typo.roles?.[key] ?? {};
-    // A weight the new family doesn't ship falls back to Auto.
     const avail = availableWeights(family, role.family, picked);
-    const weight = cur.weight !== undefined && avail.includes(cur.weight) ? cur.weight : undefined;
+    // Keep an explicit weight the new family still ships; otherwise drop to Auto.
+    let weight = cur.weight !== undefined && avail.includes(cur.weight) ? cur.weight : undefined;
+    // Custom (uploaded) fonts ship a finite set of faces. Leaving Auto makes the
+    // browser chase the role's theme weight (e.g. 700 for titles) the font may
+    // not have, rendering a thinner fallback — so snap to the nearest real cut.
+    if (weight === undefined && (fontSourceOf(picked) ?? customSource(family))) {
+      weight = nearestWeight(avail, role.defaultWeight);
+    }
     commit({
       ...typo,
       extraFonts: withExtra(picked),
@@ -283,9 +298,13 @@ export function TypographyPanel({
     }
     onHeroNameFontChange(family);
     const avail = availableWeights(family, 'display', picked);
-    const heroWeight = typo.heroWeight !== undefined && avail.includes(typo.heroWeight)
+    let heroWeight = typo.heroWeight !== undefined && avail.includes(typo.heroWeight)
       ? typo.heroWeight
       : undefined;
+    // Snap custom fonts to their nearest real cut (the hero name is a heading).
+    if (heroWeight === undefined && (fontSourceOf(picked) ?? customSource(family))) {
+      heroWeight = nearestWeight(avail, 700);
+    }
     commit({ ...typo, extraFonts: withExtra(picked), heroWeight }, family);
   }
 

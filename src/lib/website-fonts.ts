@@ -207,6 +207,52 @@ export function detectFontVariant(filename: string): { weight: number; style: 'n
   return { weight: hit?.weight ?? 400, style };
 }
 
+// Raw-sfnt signatures we can parse (TTF 0x00010000, 'OTTO', 'true', 'typ1').
+// WOFF/WOFF2 are compressed containers we skip (fall back to the filename).
+const SFNT_SIGS = new Set([0x00010000, 0x4f54544f, 0x74727565, 0x74797031]);
+
+/** Read the true weight (OS/2 `usWeightClass`) and italic flag straight out of a
+ *  TTF/OTF file — filenames lie, font tables don't. Returns {} for WOFF/WOFF2
+ *  (compressed) or any parse error so callers fall back to the filename guess. */
+export async function readFontMetadata(file: File): Promise<{ weight?: number; italic?: boolean }> {
+  try {
+    const buf = await file.arrayBuffer();
+    if (buf.byteLength < 12) return {};
+    const dv = new DataView(buf);
+    if (!SFNT_SIGS.has(dv.getUint32(0))) return {};
+    const numTables = dv.getUint16(4);
+    let os2 = -1;
+    for (let i = 0; i < numTables; i++) {
+      const rec = 12 + i * 16;
+      if (rec + 16 > buf.byteLength) break;
+      const tag = String.fromCharCode(
+        dv.getUint8(rec), dv.getUint8(rec + 1), dv.getUint8(rec + 2), dv.getUint8(rec + 3),
+      );
+      if (tag === 'OS/2') { os2 = dv.getUint32(rec + 8); break; }
+    }
+    if (os2 < 0 || os2 + 64 > buf.byteLength) return {};
+    let weight = dv.getUint16(os2 + 4);            // usWeightClass
+    const italic = (dv.getUint16(os2 + 62) & 0x01) !== 0; // fsSelection bit 0
+    if (weight >= 1 && weight <= 9) weight *= 100; // legacy 1-9 scale
+    if (weight < 100 || weight > 900) return { italic };
+    return { weight: Math.round(weight / 100) * 100, italic };
+  } catch {
+    return {};
+  }
+}
+
+/** Detect a file's weight/style, preferring the real font metadata and falling
+ *  back to the filename keywords, then 400/normal. */
+export async function detectFontVariantFromFile(
+  file: File,
+): Promise<{ weight: number; style: 'normal' | 'italic' }> {
+  const [meta, fromName] = [await readFontMetadata(file), detectFontVariant(file.name)];
+  return {
+    weight: meta.weight ?? fromName.weight,
+    style: meta.italic ? 'italic' : fromName.style,
+  };
+}
+
 /** Suggest a family name from a set of uploaded filenames: the longest common
  *  prefix, with weight/style keywords and separators stripped and words
  *  title-cased. Editable by the owner. */
