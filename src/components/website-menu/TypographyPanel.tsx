@@ -102,7 +102,6 @@ const CASE_OPTIONS: { value: 'uppercase' | 'none' | undefined; label: string }[]
 // autosave snapshot stays stable when nothing meaningful changed).
 function normalizeTypography(t: TypographyOverrides): TypographyOverrides | null {
   const out: TypographyOverrides = {};
-  if (typeof t.sizeScale === 'number' && t.sizeScale !== 1) out.sizeScale = t.sizeScale;
   const roles: NonNullable<TypographyOverrides['roles']> = {};
   for (const r of ROLES) {
     const o = t.roles?.[r.key];
@@ -180,7 +179,6 @@ export function TypographyPanel({
 }: Props) {
   const { t } = useI18n();
   const typo: TypographyOverrides = config.typography ?? {};
-  const sizeScale = typo.sizeScale ?? 1;
   const extraFonts = useMemo(() => typo.extraFonts ?? [], [typo.extraFonts]);
   const selectedPairing = catalog.typography_pairings.find((p) => p.id === config.pairing_id);
   const [stylesOpen, setStylesOpen] = useState(false);
@@ -234,10 +232,6 @@ export function TypographyPanel({
     if (hero) referenced.add(hero);
     const pruned = (next.extraFonts ?? []).filter((f) => isCustomFont(f) || referenced.has(f.family));
     onUpdate({ typography: normalizeTypography({ ...next, extraFonts: pruned }) });
-  }
-
-  function setSizeScale(v: number) {
-    commit({ ...typo, sizeScale: v });
   }
 
   function withExtra(picked?: ExtraFont): ExtraFont[] {
@@ -467,39 +461,10 @@ export function TypographyPanel({
         )}
       </div>
 
-      {/* Overall menu text size */}
-      <div className="border-t border-[var(--divider)] pt-4">
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-medium text-fg-primary">Taille du texte du menu</label>
-          <span className="text-[11px] tabular-nums text-fg-secondary">{pct(sizeScale)}</span>
-        </div>
-        <input
-          type="range"
-          min={0.8}
-          max={1.4}
-          step={0.05}
-          value={sizeScale}
-          onChange={(e) => setSizeScale(Number(e.target.value))}
-          className="w-full accent-brand-500"
-        />
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[10px] text-fg-tertiary">Petit</span>
-          <span className="text-[10px] text-fg-tertiary">Grand</span>
-        </div>
-        {sizeScale !== 1 && (
-          <button
-            type="button"
-            onClick={() => setSizeScale(1)}
-            className="mt-1 text-[11px] text-brand-500 hover:underline"
-          >
-            Réinitialiser
-          </button>
-        )}
-      </div>
-
       {/* One list of text sections; each picker searches the curated list AND
           the full Google Fonts catalog (picked catalog fonts are persisted
-          automatically in typography.extraFonts). */}
+          automatically in typography.extraFonts). Size is set per section —
+          there is no separate overall menu size. */}
       <div className="border-t border-[var(--divider)] pt-4">
         <label className="block text-xs font-medium text-fg-primary mb-1">Polices par section</label>
         <p className="text-[10px] text-fg-tertiary mb-2 leading-relaxed">
@@ -622,9 +587,6 @@ export function TypographyPanel({
             );
           })}
         </div>
-        <p className="text-[10px] text-fg-tertiary mt-2 leading-relaxed">
-          La taille de chaque section se combine avec la taille générale du menu ci-dessus.
-        </p>
       </div>
 
       <MyFontsManager
