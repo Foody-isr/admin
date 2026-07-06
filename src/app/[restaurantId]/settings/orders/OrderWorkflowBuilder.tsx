@@ -193,6 +193,12 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
           {stages.map((stage, i) => {
             const open = openIndex === i;
             const isLast = i === stages.length - 1;
+            const isFirst = i === 0;
+            const hasTrigger =
+              stage.trigger_production_done ||
+              stage.trigger_payment_confirmed ||
+              stage.trigger_courier_assigned ||
+              stage.trigger_courier_delivered;
             return (
               <div key={i} className="flex gap-[var(--s-3)] items-stretch">
                 {/* Rail: dot + connector line */}
@@ -281,9 +287,19 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
                             {t('wfTriggersTitle') || 'Se déclenche quand'}
                           </div>
                           <p className="text-fs-xs text-[var(--fg-subtle)] -mt-0.5 mb-0.5">
-                            {t('wfAutomationsHint') ||
-                              'Quand l’un de ces événements se produit, la commande passe automatiquement à'}{' '}
-                            «&nbsp;{stage.name.trim() || (t('wfThisStep') || 'cette étape')}&nbsp;».
+                            {hasTrigger ? (
+                              <>
+                                {t('wfAutomationsHint') ||
+                                  'Quand l’un de ces événements se produit, la commande passe automatiquement à'}{' '}
+                                «&nbsp;{stage.name.trim() || (t('wfThisStep') || 'cette étape')}&nbsp;».
+                              </>
+                            ) : isFirst ? (
+                              t('wfTriggerStartHint') ||
+                              'Point de départ : les commandes démarrent ici. Ajouter une automatisation est optionnel.'
+                            ) : (
+                              t('wfTriggerManualHint') ||
+                              'Avancement manuel : le staff fait passer la commande à cette étape. Ajoutez une automatisation pour le faire à sa place.'
+                            )}
                           </p>
                           <ToggleRow
                             checked={stage.trigger_production_done}
