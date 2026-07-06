@@ -702,23 +702,40 @@ export interface TypographyRoleOverride {
   transform?: 'uppercase' | 'none';
 }
 
+/** One uploaded font file = one @font-face at a given weight/style. A custom
+ *  family groups several of these (e.g. Léger 300 + Solide 700). */
+export interface FontFace {
+  /** S3 source of the font file. */
+  url: string;
+  /** CSS @font-face format() hint: 'woff2' | 'woff' | 'truetype' | 'opentype'. */
+  format?: string;
+  /** Weight this file provides (100-900). Absent = unweighted (matches any). */
+  weight?: number;
+  /** 'italic' when the file is an italic/oblique cut. Absent = normal. */
+  style?: 'normal' | 'italic';
+}
+
 /** A font the restaurant added to its own library, beyond the curated list.
- *  Two kinds share this shape:
- *   - Google Fonts picked from the browser (no `url`): weights are stored so
- *     foodyweb can load the real axes (the css2 fallback for unknown families
- *     only fetches weight 400).
- *   - Custom fonts uploaded by the owner (`url` set, `category: 'custom'`):
- *     loaded via @font-face from the S3 `url` instead of Google Fonts.
- *  The presence of `url` is the sole discriminator between the two. */
+ *  Three kinds share this shape:
+ *   - Google Fonts picked from the browser (no `url`/`faces`): weights are
+ *     stored so foodyweb can load the real axes.
+ *   - Single-file custom fonts (`url` set, `category: 'custom'`): one uploaded
+ *     file loaded via @font-face.
+ *   - Multi-variant custom fonts (`faces` set): several uploaded files grouped
+ *     under one family, each an @font-face at its own weight/style. `weights`
+ *     lists the covered weights so the style picker offers them.
+ *  Presence of `url` or `faces` marks a custom (uploaded) font. */
 export interface ExtraFont {
   family: string;
   category: 'sans' | 'serif' | 'display' | 'handwriting' | 'mono' | 'custom';
   weights: number[];
   supportsHebrew: boolean;
-  /** Custom-font source (S3). Present ⇒ load via @font-face, not Google Fonts. */
+  /** Single-file custom source (S3). Legacy/simple case; `faces` supersedes it. */
   url?: string;
-  /** CSS @font-face format() hint: 'woff2' | 'woff' | 'truetype' | 'opentype'. */
+  /** CSS @font-face format() hint for the single-file `url`. */
   format?: string;
+  /** Multi-variant custom faces — one uploaded file per weight/style. */
+  faces?: FontFace[];
 }
 
 export interface TypographyOverrides {
