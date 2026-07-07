@@ -1,17 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  Bell,
-  Bike,
-  ChevronDown,
-  ClipboardCheck,
-  CreditCard,
-  Info,
-  PackageCheck,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Bell, ChevronDown, Info, Plus, Trash2 } from 'lucide-react';
 import {
   getOrderWorkflows,
   updateOrderWorkflow,
@@ -23,6 +13,8 @@ import {
 import { useI18n } from '@/lib/i18n';
 import { Badge, Button, Input, Select } from '@/components/ds';
 import { Switch } from './_components';
+
+type TriggerChoice = 'manual' | 'payment' | 'production' | 'courier_assigned' | 'courier_delivered';
 
 const ORDER_TYPES: WorkflowOrderType[] = ['pickup', 'dine_in', 'delivery'];
 const ALL_KINDS: WorkflowStageKind[] = ['received', 'in_progress', 'ready', 'out_for_delivery', 'completed'];
@@ -40,18 +32,37 @@ function blankStage(): WorkflowStage {
   };
 }
 
+// A stage advances via a single trigger in the builder; map it to/from the four
+// booleans the API carries.
+function currentTrigger(s: WorkflowStage): TriggerChoice {
+  if (s.trigger_production_done) return 'production';
+  if (s.trigger_payment_confirmed) return 'payment';
+  if (s.trigger_courier_assigned) return 'courier_assigned';
+  if (s.trigger_courier_delivered) return 'courier_delivered';
+  return 'manual';
+}
+function triggerPatch(choice: TriggerChoice): Partial<WorkflowStage> {
+  return {
+    trigger_production_done: choice === 'production',
+    trigger_payment_confirmed: choice === 'payment',
+    trigger_courier_assigned: choice === 'courier_assigned',
+    trigger_courier_delivered: choice === 'courier_delivered',
+  };
+}
+
 /**
  * OrderWorkflowBuilder shows a restaurant's order pipeline per service type as a
- * vertical timeline: each step collapses to a compact row (name, role, and
- * status badges) and expands inline to edit its role, its triggers ("what moves
- * an order here"), and its customer notification. Saves one order type at a time.
+ * living flow: steps are simple nodes on a vertical line, and the connector
+ * between two steps carries HOW the order advances (its trigger) — because a
+ * trigger describes the transition, not the step. A step's own editor only holds
+ * its name, role, and customer notification. Saves one order type at a time.
  */
 export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: boolean }) {
   const { t } = useI18n();
   const [byType, setByType] = useState<Record<string, WorkflowStage[]>>({});
   const [templateSource, setTemplateSource] = useState<Record<string, string>>({});
   const [activeType, setActiveType] = useState<WorkflowOrderType>('pickup');
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -100,7 +111,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
 
   const switchType = (ot: WorkflowOrderType) => {
     setActiveType(ot);
-    setOpenIndex(0);
+    setOpenIndex(null);
     setError(null);
     setSaved(false);
   };
@@ -122,7 +133,10 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   };
 
   const reset = async () => {
-    if (typeof window !== 'undefined' && !window.confirm(t('wfResetConfirm') || 'Réinitialiser ce parcours au modèle par défaut ? Vos modifications seront perdues.')) {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(t('wfResetConfirm') || 'Réinitialiser ce parcours au modèle par défaut ? Vos modifications seront perdues.')
+    ) {
       return;
     }
     setResetting(true);
@@ -131,7 +145,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       const wf = await resetOrderWorkflow(rid, activeType);
       setByType((w) => ({ ...w, [activeType]: wf.stages }));
       setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
-      setOpenIndex(0);
+      setOpenIndex(null);
       setSaved(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -141,6 +155,11 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   };
 
   const kinds = activeType === 'delivery' ? ALL_KINDS : ALL_KINDS.filter((k) => k !== 'out_for_delivery');
+  const triggerOptions: TriggerChoice[] =
+    activeType === 'delivery'
+      ? ['manual', 'payment', 'production', 'courier_assigned', 'courier_delivered']
+      : ['manual', 'payment', 'production'];
+
   const kindLabel = (k: WorkflowStageKind): string =>
     ({
       received: t('wfKindReceived') || 'Reçue',
@@ -149,6 +168,14 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       out_for_delivery: t('wfKindOutForDelivery') || 'En livraison',
       completed: t('wfKindCompleted') || 'Terminée',
     })[k];
+  const triggerLabel = (c: TriggerChoice): string =>
+    ({
+      manual: t('wfTrigManual') || 'Avancement manuel',
+      payment: t('wfTrigPayment') || 'Paiement confirmé',
+      production: t('wfTrigProduction') || 'Coché dans le plan de production',
+      courier_assigned: t('wfTrigCourierAssigned') || 'Livreur assigné',
+      courier_delivered: t('wfTrigCourierDelivered') || 'Livré / récupéré',
+    })[c];
   const typeLabel = (ot: WorkflowOrderType): string =>
     ot === 'pickup'
       ? t('pickup') || 'À emporter'
@@ -172,8 +199,8 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       >
         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--info-500)' }} />
         <span>
-          {t('workflowBuilderDesc') ||
-            'Construisez le parcours de vos commandes, étape par étape. Le « Type » de chaque étape indique au système ce qu’elle signifie (en préparation, prête, en livraison…) pour garder le stock, les statistiques et la livraison corrects.'}
+          {t('workflowBuilderFlowDesc') ||
+            'Le parcours d’une commande. Chaque étape est un jalon ; entre deux étapes, choisissez ce qui fait avancer la commande (paiement, plan de production, livreur… ou manuellement).'}
         </span>
       </div>
 
@@ -204,7 +231,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
         )}
       </div>
 
-      {/* Vertical pipeline */}
+      {/* Flow */}
       {stages.length === 0 ? (
         <div className="text-fs-sm text-[var(--fg-subtle)] py-[var(--s-3)]">
           {t('wfEmpty') || 'Aucune étape. Ajoutez-en une pour commencer.'}
@@ -213,205 +240,169 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
         <div className="flex flex-col">
           {stages.map((stage, i) => {
             const open = openIndex === i;
-            const isLast = i === stages.length - 1;
             const isFirst = i === 0;
-            const hasTrigger =
-              stage.trigger_production_done ||
-              stage.trigger_payment_confirmed ||
-              stage.trigger_courier_assigned ||
-              stage.trigger_courier_delivered;
             return (
-              <div key={i} className="flex gap-[var(--s-3)] items-stretch">
-                {/* Rail: dot + connector line */}
-                <div className="flex flex-col items-center w-4 shrink-0">
-                  <div
-                    className="w-2.5 h-2.5 rounded-full mt-[14px] transition-colors"
-                    style={{ background: open ? 'var(--brand-500)' : 'var(--line-strong)' }}
-                  />
-                  {!isLast && <div className="w-px flex-1 my-1" style={{ background: 'var(--line)' }} />}
-                </div>
+              <React.Fragment key={i}>
+                {/* Connector INTO this step: how the order advances here */}
+                {!isFirst && (
+                  <div className="flex gap-[var(--s-3)] items-stretch">
+                    <Rail marker="arrow" topLine bottomLine />
+                    <div className="flex-1 min-w-0 flex items-center gap-2 py-[var(--s-1)] flex-wrap">
+                      <span className="text-fs-xs text-[var(--fg-subtle)] shrink-0">
+                        {t('wfTriggeredBy') || 'Se déclenche par'}
+                      </span>
+                      <Select
+                        value={currentTrigger(stage)}
+                        onChange={(e) => patchStage(i, triggerPatch(e.target.value as TriggerChoice))}
+                        disabled={!canEdit}
+                      >
+                        {triggerOptions.map((o) => (
+                          <option key={o} value={o}>
+                            {triggerLabel(o)}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+                )}
 
-                {/* Step card */}
-                <div className={`flex-1 min-w-0 ${isLast ? '' : 'mb-[var(--s-3)]'}`}>
-                  <div
-                    className="rounded-r-md border transition-colors"
-                    style={{ borderColor: open ? 'var(--brand-500)' : 'var(--line)' }}
-                  >
-                    {/* Header (collapsed summary, click to expand) */}
-                    <button
-                      type="button"
-                      onClick={() => setOpenIndex(open ? null : i)}
-                      className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-3)] text-start"
+                {/* Step node */}
+                <div className="flex gap-[var(--s-3)] items-stretch">
+                  <Rail marker="dot" active={open} topLine={!isFirst} bottomLine />
+                  <div className="flex-1 min-w-0 pb-[var(--s-2)]">
+                    <div
+                      className="rounded-r-md border transition-colors"
+                      style={{ borderColor: open ? 'var(--brand-500)' : 'var(--line)' }}
                     >
-                      <span className="text-fs-xs font-mono text-[var(--fg-subtle)] w-4 shrink-0">{i + 1}</span>
-                      <span
-                        className={`text-fs-sm font-medium truncate ${stage.name.trim() ? 'text-[var(--fg)]' : 'text-[var(--fg-subtle)] italic'}`}
+                      {/* Collapsed header */}
+                      <button
+                        type="button"
+                        onClick={() => setOpenIndex(open ? null : i)}
+                        className="w-full flex items-center gap-[var(--s-2)] px-[var(--s-3)] py-[var(--s-3)] text-start"
                       >
-                        {stage.name.trim() || (t('wfUnnamed') || 'Étape sans nom')}
-                      </span>
-                      <span
-                        className="ms-2 shrink-0 inline-flex items-center h-[18px] px-[6px] rounded-r-full text-fs-micro font-medium"
-                        style={{
-                          background: 'color-mix(in oklab, var(--brand-500) 10%, transparent)',
-                          color: 'var(--brand-600)',
-                        }}
-                      >
-                        {kindLabel(stage.kind)}
-                      </span>
-                      <span className="ms-auto flex items-center gap-1.5 shrink-0 text-[var(--fg-subtle)]">
-                        <StageBadges stage={stage} t={t} />
-                        <ChevronDown
-                          className="w-4 h-4 transition-transform"
-                          style={{ transform: open ? 'rotate(180deg)' : 'none' }}
-                        />
-                      </span>
-                    </button>
-
-                    {/* Editor (expanded) */}
-                    {open && (
-                      <div className="px-[var(--s-3)] pb-[var(--s-4)] pt-[var(--s-1)] flex flex-col gap-[var(--s-4)] border-t border-[var(--line)]">
-                        <div className="flex flex-wrap gap-[var(--s-3)] pt-[var(--s-3)]">
-                          <label className="flex-1 min-w-[200px] flex flex-col gap-1">
-                            <span className="text-fs-xs text-[var(--fg-muted)]">
-                              {t('wfStageName') || 'Nom de l’étape'}
-                            </span>
-                            <Input
-                              value={stage.name}
-                              onChange={(e) => patchStage(i, { name: e.target.value })}
-                              placeholder={t('wfStageNamePlaceholder') || 'Nom de l’étape (ex. Au four)'}
-                              disabled={!canEdit}
-                            />
-                          </label>
-                          <label className="flex flex-col gap-1">
-                            <span className="text-fs-xs text-[var(--fg-muted)]">{t('wfType') || 'Type'}</span>
-                            <Select
-                              value={stage.kind}
-                              onChange={(e) => patchStage(i, { kind: e.target.value as WorkflowStageKind })}
-                              disabled={!canEdit}
-                            >
-                              {kinds.map((k) => (
-                                <option key={k} value={k}>
-                                  {kindLabel(k)}
-                                </option>
-                              ))}
-                            </Select>
-                          </label>
-                        </div>
-                        <p className="text-fs-xs text-[var(--fg-subtle)] -mt-2">
-                          {t('wfTypeHint') ||
-                            'Le type indique au système ce que représente l’étape (préparation, prête, livraison…).'}
-                        </p>
-
-                        {/* Triggers */}
-                        <div className="flex flex-col gap-1.5">
-                          <div className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-wide">
-                            {t('wfTriggersTitle') || 'Se déclenche quand'}
-                          </div>
-                          <p className="text-fs-xs text-[var(--fg-subtle)] -mt-0.5 mb-0.5">
-                            {hasTrigger ? (
-                              <>
-                                {t('wfAutomationsHint') ||
-                                  'Quand l’un de ces événements se produit, la commande passe automatiquement à'}{' '}
-                                «&nbsp;{stage.name.trim() || (t('wfThisStep') || 'cette étape')}&nbsp;».
-                              </>
-                            ) : isFirst ? (
-                              t('wfTriggerStartHint') ||
-                              'Point de départ : les commandes démarrent ici. Ajouter une automatisation est optionnel.'
-                            ) : (
-                              t('wfTriggerManualHint') ||
-                              'Avancement manuel : le staff fait passer la commande à cette étape. Ajoutez une automatisation pour le faire à sa place.'
-                            )}
-                          </p>
-                          <ToggleRow
-                            checked={stage.trigger_production_done}
-                            onChange={(v) => patchStage(i, { trigger_production_done: v })}
-                            label={t('wfTrigProduction') || 'Coché dans le plan de production'}
-                            disabled={!canEdit}
-                          />
-                          <ToggleRow
-                            checked={stage.trigger_payment_confirmed}
-                            onChange={(v) => patchStage(i, { trigger_payment_confirmed: v })}
-                            label={t('wfTrigPayment') || 'Paiement confirmé'}
-                            disabled={!canEdit}
-                          />
-                          {activeType === 'delivery' && (
-                            <>
-                              <ToggleRow
-                                checked={stage.trigger_courier_assigned}
-                                onChange={(v) => patchStage(i, { trigger_courier_assigned: v })}
-                                label={t('wfTrigCourierAssigned') || 'Livreur assigné'}
-                                disabled={!canEdit}
-                              />
-                              <ToggleRow
-                                checked={stage.trigger_courier_delivered}
-                                onChange={(v) => patchStage(i, { trigger_courier_delivered: v })}
-                                label={t('wfTrigCourierDelivered') || 'Livré / récupéré'}
-                                disabled={!canEdit}
-                              />
-                            </>
-                          )}
-                        </div>
-
-                        {/* Customer notification */}
-                        <div className="flex flex-col gap-1.5">
-                          <div className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-wide">
-                            {t('wfNotificationTitle') || 'Notification client'}
-                          </div>
-                          <ToggleRow
-                            checked={stage.notify_customer}
-                            onChange={(v) => patchStage(i, { notify_customer: v })}
-                            label={t('wfNotify') || 'Prévenir le client'}
-                            disabled={!canEdit}
-                          />
-                          {stage.notify_customer && (
-                            <Input
-                              value={stage.customer_message ?? ''}
-                              onChange={(e) => patchStage(i, { customer_message: e.target.value })}
-                              placeholder={t('wfNotifyMsgPlaceholder') || 'Message (optionnel, sinon message par défaut)'}
-                              disabled={!canEdit}
-                            />
-                          )}
-                        </div>
-
-                        {/* Row actions */}
-                        {canEdit && (
-                          <div className="flex items-center gap-1 pt-1 border-t border-[var(--line)]">
-                            <IconButton
-                              onClick={() => moveStage(i, -1)}
-                              disabled={i === 0}
-                              label={t('wfMoveUp') || 'Monter'}
-                              icon={<ChevronDown className="w-4 h-4 rotate-180" />}
-                            />
-                            <IconButton
-                              onClick={() => moveStage(i, 1)}
-                              disabled={i === stages.length - 1}
-                              label={t('wfMoveDown') || 'Descendre'}
-                              icon={<ChevronDown className="w-4 h-4" />}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeStage(i)}
-                              className="ms-auto inline-flex items-center gap-1 px-[var(--s-2)] py-1 rounded-r-md text-fs-xs text-[var(--danger-500)] hover:bg-[var(--surface-2)]"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              {t('wfRemoveStage') || 'Supprimer l’étape'}
-                            </button>
-                          </div>
+                        <span className="text-fs-xs font-mono text-[var(--fg-subtle)] w-4 shrink-0">{i + 1}</span>
+                        <span
+                          className={`text-fs-sm font-medium truncate ${stage.name.trim() ? 'text-[var(--fg)]' : 'text-[var(--fg-subtle)] italic'}`}
+                        >
+                          {stage.name.trim() || (t('wfUnnamed') || 'Étape sans nom')}
+                        </span>
+                        {isFirst && (
+                          <span className="shrink-0 text-fs-micro text-[var(--fg-subtle)] uppercase tracking-wide">
+                            {t('wfStart') || 'Départ'}
+                          </span>
                         )}
-                      </div>
-                    )}
+                        <span
+                          className="ms-2 shrink-0 inline-flex items-center h-[18px] px-[6px] rounded-r-full text-fs-micro font-medium"
+                          style={{
+                            background: 'color-mix(in oklab, var(--brand-500) 10%, transparent)',
+                            color: 'var(--brand-600)',
+                          }}
+                        >
+                          {kindLabel(stage.kind)}
+                        </span>
+                        <span className="ms-auto flex items-center gap-1.5 shrink-0 text-[var(--fg-subtle)]">
+                          {stage.notify_customer && (
+                            <Bell className="w-3.5 h-3.5" style={{ color: 'var(--brand-500)' }} />
+                          )}
+                          <ChevronDown
+                            className="w-4 h-4 transition-transform"
+                            style={{ transform: open ? 'rotate(180deg)' : 'none' }}
+                          />
+                        </span>
+                      </button>
+
+                      {/* Expanded editor — name, role, notification (NO triggers) */}
+                      {open && (
+                        <div className="px-[var(--s-3)] pb-[var(--s-4)] pt-[var(--s-1)] flex flex-col gap-[var(--s-4)] border-t border-[var(--line)]">
+                          <div className="flex flex-wrap gap-[var(--s-3)] pt-[var(--s-3)]">
+                            <label className="flex-1 min-w-[200px] flex flex-col gap-1">
+                              <span className="text-fs-xs text-[var(--fg-muted)]">
+                                {t('wfStageName') || 'Nom de l’étape'}
+                              </span>
+                              <Input
+                                value={stage.name}
+                                onChange={(e) => patchStage(i, { name: e.target.value })}
+                                placeholder={t('wfStageNamePlaceholder') || 'Nom de l’étape (ex. Au four)'}
+                                disabled={!canEdit}
+                              />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                              <span className="text-fs-xs text-[var(--fg-muted)]">{t('wfType') || 'Type'}</span>
+                              <Select
+                                value={stage.kind}
+                                onChange={(e) => patchStage(i, { kind: e.target.value as WorkflowStageKind })}
+                                disabled={!canEdit}
+                              >
+                                {kinds.map((k) => (
+                                  <option key={k} value={k}>
+                                    {kindLabel(k)}
+                                  </option>
+                                ))}
+                              </Select>
+                            </label>
+                          </div>
+                          <p className="text-fs-xs text-[var(--fg-subtle)] -mt-2">
+                            {t('wfTypeHint') ||
+                              'Le type indique au système ce que représente l’étape (préparation, prête, livraison…).'}
+                          </p>
+
+                          <div className="flex flex-col gap-1.5">
+                            <div className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-wide">
+                              {t('wfNotificationTitle') || 'Notification client'}
+                            </div>
+                            <ToggleRow
+                              checked={stage.notify_customer}
+                              onChange={(v) => patchStage(i, { notify_customer: v })}
+                              label={t('wfNotify') || 'Prévenir le client'}
+                              disabled={!canEdit}
+                            />
+                            {stage.notify_customer && (
+                              <Input
+                                value={stage.customer_message ?? ''}
+                                onChange={(e) => patchStage(i, { customer_message: e.target.value })}
+                                placeholder={t('wfNotifyMsgPlaceholder') || 'Message (optionnel, sinon message par défaut)'}
+                                disabled={!canEdit}
+                              />
+                            )}
+                          </div>
+
+                          {canEdit && (
+                            <div className="flex items-center gap-1 pt-1 border-t border-[var(--line)]">
+                              <IconButton
+                                onClick={() => moveStage(i, -1)}
+                                disabled={i === 0}
+                                label={t('wfMoveUp') || 'Monter'}
+                                icon={<ChevronDown className="w-4 h-4 rotate-180" />}
+                              />
+                              <IconButton
+                                onClick={() => moveStage(i, 1)}
+                                disabled={i === stages.length - 1}
+                                label={t('wfMoveDown') || 'Descendre'}
+                                icon={<ChevronDown className="w-4 h-4" />}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeStage(i)}
+                                className="ms-auto inline-flex items-center gap-1 px-[var(--s-2)] py-1 rounded-r-md text-fs-xs text-[var(--danger-500)] hover:bg-[var(--surface-2)]"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {t('wfRemoveStage') || 'Supprimer l’étape'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </React.Fragment>
             );
           })}
 
-          {/* Add step (as a final rail node) */}
+          {/* Add step */}
           {canEdit && (
             <div className="flex gap-[var(--s-3)] items-center">
-              <div className="flex flex-col items-center w-4 shrink-0">
-                <Plus className="w-3.5 h-3.5" style={{ color: 'var(--fg-subtle)' }} />
-              </div>
+              <Rail marker="plus" topLine />
               <button
                 type="button"
                 onClick={addStage}
@@ -442,24 +433,34 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   );
 }
 
-function StageBadges({ stage, t }: { stage: WorkflowStage; t: (k: string) => string }) {
-  const badges: { on: boolean; icon: React.ReactNode; label: string }[] = [
-    { on: stage.trigger_production_done, icon: <ClipboardCheck className="w-3.5 h-3.5" />, label: t('wfTrigProduction') || 'Coché dans le plan de production' },
-    { on: stage.trigger_payment_confirmed, icon: <CreditCard className="w-3.5 h-3.5" />, label: t('wfTrigPayment') || 'Paiement confirmé' },
-    { on: stage.trigger_courier_assigned, icon: <Bike className="w-3.5 h-3.5" />, label: t('wfTrigCourierAssigned') || 'Livreur assigné' },
-    { on: stage.trigger_courier_delivered, icon: <PackageCheck className="w-3.5 h-3.5" />, label: t('wfTrigCourierDelivered') || 'Livré / récupéré' },
-    { on: stage.notify_customer, icon: <Bell className="w-3.5 h-3.5" />, label: t('wfNotify') || 'Prévenir le client' },
-  ];
+// Rail draws the continuous flow line with a marker (a node dot, a transition
+// arrow, or the add "+"). Line segments are flex so they stretch to the row.
+function Rail({
+  marker,
+  active,
+  topLine,
+  bottomLine,
+}: {
+  marker: 'dot' | 'arrow' | 'plus';
+  active?: boolean;
+  topLine?: boolean;
+  bottomLine?: boolean;
+}) {
   return (
-    <>
-      {badges
-        .filter((b) => b.on)
-        .map((b, idx) => (
-          <span key={idx} title={b.label} className="inline-flex">
-            {b.icon}
-          </span>
-        ))}
-    </>
+    <div className="w-4 shrink-0 flex flex-col items-center self-stretch">
+      <div className="w-px flex-1" style={{ background: topLine ? 'var(--line)' : 'transparent', minHeight: 8 }} />
+      {marker === 'dot' ? (
+        <div
+          className="w-2.5 h-2.5 rounded-full my-0.5"
+          style={{ background: active ? 'var(--brand-500)' : 'var(--line-strong)' }}
+        />
+      ) : marker === 'plus' ? (
+        <Plus className="w-3.5 h-3.5 my-0.5" style={{ color: 'var(--fg-subtle)' }} />
+      ) : (
+        <ChevronDown className="w-3.5 h-3.5 my-0.5" style={{ color: 'var(--fg-subtle)' }} />
+      )}
+      <div className="w-px flex-1" style={{ background: bottomLine ? 'var(--line)' : 'transparent', minHeight: 8 }} />
+    </div>
   );
 }
 
