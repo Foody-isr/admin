@@ -247,8 +247,8 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
                 {!isFirst && (
                   <div className="flex gap-[var(--s-3)] items-stretch">
                     <Rail marker="arrow" topLine bottomLine />
-                    <div className="flex-1 min-w-0 flex items-center gap-2 py-[var(--s-1)] flex-wrap">
-                      <span className="text-fs-xs text-[var(--fg-subtle)] shrink-0">
+                    <div className="flex-1 min-w-0 flex flex-col gap-1 py-[var(--s-2)]">
+                      <span className="text-fs-xs text-[var(--fg-subtle)]">
                         {t('wfTriggeredBy') || 'Se déclenche par'}
                       </span>
                       <Select
@@ -269,7 +269,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
                 {/* Step node */}
                 <div className="flex gap-[var(--s-3)] items-stretch">
                   <Rail marker="dot" active={open} topLine={!isFirst} bottomLine />
-                  <div className="flex-1 min-w-0 pb-[var(--s-2)]">
+                  <div className="flex-1 min-w-0 py-[var(--s-2)]">
                     <div
                       className="rounded-r-md border transition-colors"
                       style={{ borderColor: open ? 'var(--brand-500)' : 'var(--line)' }}
@@ -446,9 +446,19 @@ function Rail({
   topLine?: boolean;
   bottomLine?: boolean;
 }) {
+  const isDot = marker === 'dot';
   return (
     <div className="w-4 shrink-0 flex flex-col items-center self-stretch">
-      <div className="w-px flex-1" style={{ background: topLine ? 'var(--line)' : 'transparent', minHeight: 8 }} />
+      {/* Dots anchor to the collapsed header height so they stay aligned when a
+          step expands; arrows/plus center in their (short) rows. */}
+      <div
+        className={isDot ? 'w-px' : 'w-px flex-1'}
+        style={{
+          background: topLine ? 'var(--line)' : 'transparent',
+          height: isDot ? 26 : undefined,
+          minHeight: isDot ? undefined : 8,
+        }}
+      />
       {marker === 'dot' ? (
         <div
           className="w-2.5 h-2.5 rounded-full my-0.5"
