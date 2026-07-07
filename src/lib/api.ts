@@ -1552,6 +1552,16 @@ export async function updateOrderWorkflow(
   });
 }
 
+/** DELETE /api/v1/order-workflows/:orderType — reset one pipeline to the default template. */
+export async function resetOrderWorkflow(
+  restaurantId: number,
+  orderType: WorkflowOrderType
+): Promise<OrderWorkflow> {
+  return apiFetch<OrderWorkflow>(`/api/v1/order-workflows/${orderType}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface LoginResponse {

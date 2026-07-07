@@ -15,6 +15,7 @@ import {
 import {
   getOrderWorkflows,
   updateOrderWorkflow,
+  resetOrderWorkflow,
   type WorkflowStage,
   type WorkflowStageKind,
   type WorkflowOrderType,
@@ -54,6 +55,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,6 +118,25 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reset = async () => {
+    if (typeof window !== 'undefined' && !window.confirm(t('wfResetConfirm') || 'Réinitialiser ce parcours au modèle par défaut ? Vos modifications seront perdues.')) {
+      return;
+    }
+    setResetting(true);
+    setError(null);
+    try {
+      const wf = await resetOrderWorkflow(rid, activeType);
+      setByType((w) => ({ ...w, [activeType]: wf.stages }));
+      setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
+      setOpenIndex(0);
+      setSaved(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -406,8 +427,13 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       {canEdit && (
         <div className="flex items-center gap-[var(--s-3)] flex-wrap">
           <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-            {saving ? t('saving') : t('saveChanges')}
+            {saving ? t('saving') : t('wfSaveFlow') || 'Enregistrer ce parcours'}
           </Button>
+          {templateSource[activeType] === 'custom' && (
+            <Button variant="ghost" size="sm" onClick={reset} disabled={resetting}>
+              {resetting ? t('saving') : t('wfReset') || 'Réinitialiser au parcours par défaut'}
+            </Button>
+          )}
           {saved && <span className="text-fs-sm text-[var(--success-500)] font-medium">{t('saved')}</span>}
           {error && <span className="text-fs-sm text-[var(--danger-500)] font-medium">{error}</span>}
         </div>
