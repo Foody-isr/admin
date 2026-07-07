@@ -125,7 +125,11 @@ export function FontUploadPanel({ onUpload, onDone, onCancel, existing }: Props)
 
       {files.length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-fg-tertiary">Variantes</span>
+          <span className="text-[10px] uppercase tracking-wider text-fg-tertiary">Poids de chaque fichier</span>
+          <span className="text-[9px] text-fg-tertiary leading-relaxed">
+            Détecté automatiquement — corrigez si besoin (Typo 8 = Regular, Typo 9 = Light…).
+            La liste sert à indiquer le poids de CE fichier, pas à en créer d&apos;autres.
+          </span>
           {files.map((f, i) => (
             <div key={`${f.name}-${i}`} className="flex items-center gap-2">
               <span className="flex-1 min-w-0 truncate text-[11px] text-fg-secondary" title={f.name}>
@@ -143,6 +147,15 @@ export function FontUploadPanel({ onUpload, onDone, onCancel, existing }: Props)
               </select>
             </div>
           ))}
+          {(() => {
+            const used = files.map((_, i) => variants[i]?.weight ?? 400);
+            return new Set(used).size < used.length ? (
+              <span className="text-[10px] text-amber-600 leading-relaxed mt-0.5">
+                Plusieurs fichiers ont le même poids. Si ce sont des variantes différentes
+                (ex. Regular et Light), ajustez-les ci-dessus.
+              </span>
+            ) : null;
+          })()}
         </div>
       )}
 
