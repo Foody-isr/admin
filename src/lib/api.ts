@@ -1562,6 +1562,46 @@ export async function resetOrderWorkflow(
   });
 }
 
+// ─── Saved date ranges (orders filter presets) ───────────────────────────────
+// Reusable filter windows for the orders list (e.g. "Vendredi à vendredi").
+// Stored as a recurring rule — start_weekday (0=Sun…6=Sat) + length_days — so
+// each one re-resolves to its current occurrence rather than freezing on a date.
+
+export interface SavedDateRange {
+  id: number;
+  name: string;
+  start_weekday: number; // 0 = Sunday … 6 = Saturday
+  length_days: number; // inclusive span (1 = a single day)
+  sort_order: number;
+}
+
+/** GET /api/v1/orders/saved-ranges — the restaurant's saved filter windows. */
+export async function getSavedDateRanges(restaurantId: number): Promise<SavedDateRange[]> {
+  const data = await apiFetch<{ saved_ranges: SavedDateRange[] }>(
+    '/api/v1/orders/saved-ranges',
+    restaurantId
+  );
+  return data.saved_ranges ?? [];
+}
+
+/** POST /api/v1/orders/saved-ranges — persist a new saved filter window. */
+export async function createSavedDateRange(
+  restaurantId: number,
+  input: { name: string; start_weekday: number; length_days: number }
+): Promise<SavedDateRange> {
+  return apiFetch<SavedDateRange>('/api/v1/orders/saved-ranges', restaurantId, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+/** DELETE /api/v1/orders/saved-ranges/:id — remove a saved filter window. */
+export async function deleteSavedDateRange(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/orders/saved-ranges/${id}`, restaurantId, {
+    method: 'DELETE',
+  });
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface LoginResponse {

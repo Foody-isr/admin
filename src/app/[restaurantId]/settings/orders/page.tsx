@@ -556,6 +556,10 @@ export default function OrdersAvailabilityPage() {
                   >
                     <option value="0">{t('weekDaySunday') || 'Dimanche'}</option>
                     <option value="1">{t('weekDayMonday') || 'Lundi'}</option>
+                    <option value="2">{t('weekDayTuesday') || 'Mardi'}</option>
+                    <option value="3">{t('weekDayWednesday') || 'Mercredi'}</option>
+                    <option value="4">{t('weekDayThursday') || 'Jeudi'}</option>
+                    <option value="5">{t('weekDayFriday') || 'Vendredi'}</option>
                     <option value="6">{t('weekDaySaturday') || 'Samedi'}</option>
                   </Select>
                 </Field>

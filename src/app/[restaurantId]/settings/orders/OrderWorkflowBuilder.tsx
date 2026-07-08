@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, ChevronDown, Info, Plus, Trash2 } from 'lucide-react';
+import { Bell, Bike, ChevronDown, ClipboardCheck, CreditCard, Info, PackageCheck, Plus, Trash2, X } from 'lucide-react';
 import {
   getOrderWorkflows,
   updateOrderWorkflow,
@@ -32,8 +32,7 @@ function blankStage(): WorkflowStage {
   };
 }
 
-// A stage advances via a single trigger in the builder; map it to/from the four
-// booleans the API carries.
+// The four API booleans map to a single builder trigger.
 function currentTrigger(s: WorkflowStage): TriggerChoice {
   if (s.trigger_production_done) return 'production';
   if (s.trigger_payment_confirmed) return 'payment';
@@ -50,12 +49,30 @@ function triggerPatch(choice: TriggerChoice): Partial<WorkflowStage> {
   };
 }
 
+// A status color per kind, so the flow reads as a progression: received (slate)
+// → in preparation (amber) → ready (green) → out for delivery (blue) →
+// completed (slate). The color encodes what the step IS, it is not decoration.
+function kindColor(k: WorkflowStageKind): string {
+  switch (k) {
+    case 'in_progress':
+      return 'var(--warning-500)';
+    case 'ready':
+      return 'var(--success-500)';
+    case 'out_for_delivery':
+      return 'var(--info-500)';
+    case 'completed':
+      return 'var(--fg-muted)';
+    default:
+      return 'var(--fg-subtle)';
+  }
+}
+
 /**
  * OrderWorkflowBuilder shows a restaurant's order pipeline per service type as a
- * living flow: steps are simple nodes on a vertical line, and the connector
- * between two steps carries HOW the order advances (its trigger) — because a
- * trigger describes the transition, not the step. A step's own editor only holds
- * its name, role, and customer notification. Saves one order type at a time.
+ * living flow. Steps are milestones on a color-coded line; between two steps a
+ * compact chip shows what advances the order — quiet ("＋ automate") when it is
+ * manual, a highlighted chip when an automation is set. A step's own editor
+ * holds only its name, role, and customer notification. Saves one type at a time.
  */
 export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: boolean }) {
   const { t } = useI18n();
@@ -63,6 +80,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   const [templateSource, setTemplateSource] = useState<Record<string, string>>({});
   const [activeType, setActiveType] = useState<WorkflowOrderType>('pickup');
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [editConn, setEditConn] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -95,6 +113,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   const removeStage = (i: number) => {
     setStages(stages.filter((_, idx) => idx !== i));
     setOpenIndex(null);
+    setEditConn(null);
   };
   const moveStage = (i: number, dir: -1 | 1) => {
     const j = i + dir;
@@ -112,6 +131,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   const switchType = (ot: WorkflowOrderType) => {
     setActiveType(ot);
     setOpenIndex(null);
+    setEditConn(null);
     setError(null);
     setSaved(false);
   };
@@ -146,6 +166,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       setByType((w) => ({ ...w, [activeType]: wf.stages }));
       setTemplateSource((s) => ({ ...s, [activeType]: wf.template_source }));
       setOpenIndex(null);
+      setEditConn(null);
       setSaved(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -155,10 +176,12 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   };
 
   const kinds = activeType === 'delivery' ? ALL_KINDS : ALL_KINDS.filter((k) => k !== 'out_for_delivery');
-  const triggerOptions: TriggerChoice[] =
+  // Only real automations are pickable; "manual" is the absence of one, reached
+  // by removing the automation (✕), never by choosing it from a list.
+  const automationOptions: TriggerChoice[] =
     activeType === 'delivery'
-      ? ['manual', 'payment', 'production', 'courier_assigned', 'courier_delivered']
-      : ['manual', 'payment', 'production'];
+      ? ['payment', 'production', 'courier_assigned', 'courier_delivered']
+      : ['payment', 'production'];
 
   const kindLabel = (k: WorkflowStageKind): string =>
     ({
@@ -168,6 +191,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       out_for_delivery: t('wfKindOutForDelivery') || 'En livraison',
       completed: t('wfKindCompleted') || 'Terminée',
     })[k];
+  // Full labels for the trigger picker.
   const triggerLabel = (c: TriggerChoice): string =>
     ({
       manual: t('wfTrigManual') || 'Avancement manuel',
@@ -176,6 +200,21 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
       courier_assigned: t('wfTrigCourierAssigned') || 'Livreur assigné',
       courier_delivered: t('wfTrigCourierDelivered') || 'Livré / récupéré',
     })[c];
+  // Compact chip (icon + short label) shown on the connector.
+  const triggerChip = (c: TriggerChoice): { muted: boolean; label: string; icon: React.ReactNode } => {
+    switch (c) {
+      case 'payment':
+        return { muted: false, label: t('wfWhenPayment') || 'Quand payé', icon: <CreditCard className="w-3.5 h-3.5" /> };
+      case 'production':
+        return { muted: false, label: t('wfWhenProduction') || 'Coché en prod', icon: <ClipboardCheck className="w-3.5 h-3.5" /> };
+      case 'courier_assigned':
+        return { muted: false, label: t('wfTrigCourierAssigned') || 'Livreur assigné', icon: <Bike className="w-3.5 h-3.5" /> };
+      case 'courier_delivered':
+        return { muted: false, label: t('wfTrigCourierDelivered') || 'Livré / récupéré', icon: <PackageCheck className="w-3.5 h-3.5" /> };
+      default:
+        return { muted: true, label: t('wfAutomate') || 'automatiser', icon: <Plus className="w-3.5 h-3.5" /> };
+    }
+  };
   const typeLabel = (ot: WorkflowOrderType): string =>
     ot === 'pickup'
       ? t('pickup') || 'À emporter'
@@ -241,35 +280,83 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
           {stages.map((stage, i) => {
             const open = openIndex === i;
             const isFirst = i === 0;
+            const color = kindColor(stage.kind);
+            const trig = currentTrigger(stage);
+            const chip = triggerChip(trig);
             return (
               <React.Fragment key={i}>
-                {/* Connector INTO this step: how the order advances here */}
+                {/* Connector INTO this step: quiet when manual, highlighted when automated */}
                 {!isFirst && (
                   <div className="flex gap-[var(--s-3)] items-stretch">
                     <Rail marker="arrow" topLine bottomLine />
-                    <div className="flex-1 min-w-0 flex items-center gap-2 py-[var(--s-1)] flex-wrap">
-                      <span className="text-fs-xs text-[var(--fg-subtle)] shrink-0">
-                        {t('wfTriggeredBy') || 'Se déclenche par'}
-                      </span>
-                      <Select
-                        value={currentTrigger(stage)}
-                        onChange={(e) => patchStage(i, triggerPatch(e.target.value as TriggerChoice))}
-                        disabled={!canEdit}
-                      >
-                        {triggerOptions.map((o) => (
-                          <option key={o} value={o}>
-                            {triggerLabel(o)}
-                          </option>
-                        ))}
-                      </Select>
+                    <div className="flex-1 min-w-0 flex items-center py-[var(--s-2)]">
+                      {editConn === i ? (
+                        <Select
+                          autoFocus
+                          value={trig === 'manual' ? '' : trig}
+                          onChange={(e) => {
+                            const v = e.target.value as TriggerChoice;
+                            if (v) patchStage(i, triggerPatch(v));
+                            setEditConn(null);
+                          }}
+                          onBlur={() => setEditConn(null)}
+                          disabled={!canEdit}
+                        >
+                          {trig === 'manual' && (
+                            <option value="" disabled>
+                              {t('wfChooseAutomation') || 'Choisir une automatisation…'}
+                            </option>
+                          )}
+                          {automationOptions.map((o) => (
+                            <option key={o} value={o}>
+                              {triggerLabel(o)}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : trig === 'manual' ? (
+                        <button
+                          type="button"
+                          onClick={() => canEdit && setEditConn(i)}
+                          className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 text-[var(--fg-subtle)] hover:text-[var(--fg-muted)] transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          {t('wfAutomate') || 'automatiser'}
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => canEdit && setEditConn(i)}
+                            className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 hover:opacity-80 transition-opacity"
+                            style={{
+                              background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                              color: 'var(--brand-600)',
+                            }}
+                          >
+                            {chip.icon}
+                            {chip.label}
+                          </button>
+                          {canEdit && (
+                            <button
+                              type="button"
+                              onClick={() => patchStage(i, triggerPatch('manual'))}
+                              aria-label={t('wfRemoveAutomation') || 'Retirer l’automatisation'}
+                              title={t('wfRemoveAutomation') || 'Retirer l’automatisation'}
+                              className="p-0.5 rounded-full text-[var(--fg-subtle)] hover:text-[var(--danger-500)] hover:bg-[var(--surface-2)]"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
 
                 {/* Step node */}
                 <div className="flex gap-[var(--s-3)] items-stretch">
-                  <Rail marker="dot" active={open} topLine={!isFirst} bottomLine />
-                  <div className="flex-1 min-w-0 pb-[var(--s-2)]">
+                  <Rail marker="dot" color={color} active={open} topLine={!isFirst} bottomLine />
+                  <div className="flex-1 min-w-0 py-[var(--s-2)]">
                     <div
                       className="rounded-r-md border transition-colors"
                       style={{ borderColor: open ? 'var(--brand-500)' : 'var(--line)' }}
@@ -293,10 +380,7 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
                         )}
                         <span
                           className="ms-2 shrink-0 inline-flex items-center h-[18px] px-[6px] rounded-r-full text-fs-micro font-medium"
-                          style={{
-                            background: 'color-mix(in oklab, var(--brand-500) 10%, transparent)',
-                            color: 'var(--brand-600)',
-                          }}
+                          style={{ background: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
                         >
                           {kindLabel(stage.kind)}
                         </span>
@@ -433,26 +517,40 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   );
 }
 
-// Rail draws the continuous flow line with a marker (a node dot, a transition
-// arrow, or the add "+"). Line segments are flex so they stretch to the row.
+// Rail draws the continuous flow line. A node dot takes its step's status color
+// and anchors to the collapsed header height (so it stays put when a step
+// expands); the transition arrow and add "+" center in their short rows.
 function Rail({
   marker,
+  color,
   active,
   topLine,
   bottomLine,
 }: {
   marker: 'dot' | 'arrow' | 'plus';
+  color?: string;
   active?: boolean;
   topLine?: boolean;
   bottomLine?: boolean;
 }) {
+  const isDot = marker === 'dot';
   return (
     <div className="w-4 shrink-0 flex flex-col items-center self-stretch">
-      <div className="w-px flex-1" style={{ background: topLine ? 'var(--line)' : 'transparent', minHeight: 8 }} />
+      <div
+        className={isDot ? 'w-px' : 'w-px flex-1'}
+        style={{
+          background: topLine ? 'var(--line)' : 'transparent',
+          height: isDot ? 26 : undefined,
+          minHeight: isDot ? undefined : 8,
+        }}
+      />
       {marker === 'dot' ? (
         <div
           className="w-2.5 h-2.5 rounded-full my-0.5"
-          style={{ background: active ? 'var(--brand-500)' : 'var(--line-strong)' }}
+          style={{
+            background: color || 'var(--line-strong)',
+            boxShadow: active ? '0 0 0 3px color-mix(in oklab, var(--brand-500) 22%, transparent)' : undefined,
+          }}
         />
       ) : marker === 'plus' ? (
         <Plus className="w-3.5 h-3.5 my-0.5" style={{ color: 'var(--fg-subtle)' }} />
