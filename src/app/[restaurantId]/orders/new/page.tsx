@@ -181,21 +181,25 @@ export default function NewOrderPage() {
     const q = search.trim().toLowerCase();
     const out: Section[] = [];
     if (!activeMenu) return out;
+    // For a weekly-rotating carte, the staff menu endpoint (GET /menu/) pre-filters
+    // each group's items to TODAY. That hides items whose série window opens on a
+    // later fulfilment day (e.g. next Friday's Poissons), so the picker showed far
+    // fewer items than the customer's web menu for the selected batch. Rebuild each
+    // group from the série-aware memberships instead — active on the selected day —
+    // and resolve full item data (variants, modifiers, combos) from itemMap
+    // (GET /menu/items, which is série-agnostic and carries every item). Fall back
+    // to group.items until memberships have loaded to avoid a transient empty grid.
+    const useMemberships = isRotating && !!selectedDay && membershipsByGroup.size > 0;
     for (const group of activeMenu.groups ?? []) {
       if (group.is_hidden || group.pos_enabled === false) continue;
-      const memberByItem =
-        isRotating && selectedDay
-          ? new Map((membershipsByGroup.get(group.id) ?? []).map((m) => [m.menu_item_id, m] as const))
-          : null;
-      const items = (group.items ?? [])
-        .map((gi) => itemMap.get(gi.id) ?? gi)
+      const source: MenuItem[] = useMemberships
+        ? (membershipsByGroup.get(group.id) ?? [])
+            .filter((m) => isMembershipActiveOn(m, selectedDay as string))
+            .map((m) => itemMap.get(m.menu_item_id) ?? m.item)
+            .filter((it): it is MenuItem => !!it)
+        : (group.items ?? []).map((gi) => itemMap.get(gi.id) ?? gi);
+      const items = source
         .filter((it) => it.is_active)
-        .filter((it) => {
-          if (!memberByItem) return true;
-          const m = memberByItem.get(it.id);
-          // Items with no membership row default to active (legacy/defensive).
-          return !m || isMembershipActiveOn(m, selectedDay as string);
-        })
         .filter((it) => !q || it.name.toLowerCase().includes(q));
       if (items.length > 0) out.push({ id: group.id, name: group.name, items });
     }
