@@ -137,7 +137,7 @@ export default function CustomersInsightsPage() {
       </div>
 
       {/* Table */}
-      <div className="card">
+      <div className="space-y-[var(--s-4)]">
         {loading && !data ? (
           <div className="flex justify-center py-16">
             <div className="animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full" />
@@ -148,7 +148,7 @@ export default function CustomersInsightsPage() {
           </p>
         ) : (
           <>
-            <DataTable>
+            <DataTable className="overflow-x-auto">
               <DataTableHead>
                 <DataTableHeadCell>{t('customer')}</DataTableHeadCell>
                 <SortableHeadCell
@@ -223,7 +223,7 @@ export default function CustomersInsightsPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-divider">
+              <div className="flex items-center justify-between">
                 <div className="text-sm text-fg-secondary">
                   {t('pageXofY').replace('{page}', String(page)).replace('{total}', String(totalPages)).replace('{count}', String(data.total))}
                 </div>

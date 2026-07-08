@@ -291,28 +291,44 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
                     <Rail marker="arrow" topLine bottomLine />
                     <div className="flex-1 min-w-0 flex items-center py-[var(--s-2)]">
                       {editConn === i ? (
-                        <Select
-                          autoFocus
-                          value={trig === 'manual' ? '' : trig}
-                          onChange={(e) => {
-                            const v = e.target.value as TriggerChoice;
-                            if (v) patchStage(i, triggerPatch(v));
-                            setEditConn(null);
-                          }}
-                          onBlur={() => setEditConn(null)}
-                          disabled={!canEdit}
-                        >
-                          {trig === 'manual' && (
-                            <option value="" disabled>
-                              {t('wfChooseAutomation') || 'Choisir une automatisation…'}
-                            </option>
-                          )}
-                          {automationOptions.map((o) => (
-                            <option key={o} value={o}>
-                              {triggerLabel(o)}
-                            </option>
-                          ))}
-                        </Select>
+                        <>
+                          <div className="flex-1 min-w-0">
+                            <Select
+                              autoFocus
+                              value={trig === 'manual' ? '' : trig}
+                              onChange={(e) => {
+                                const v = e.target.value as TriggerChoice;
+                                if (v) patchStage(i, triggerPatch(v));
+                                setEditConn(null);
+                              }}
+                              onBlur={() => setEditConn(null)}
+                              disabled={!canEdit}
+                            >
+                              {trig === 'manual' && (
+                                <option value="" disabled>
+                                  {t('wfChooseAutomation') || 'Choisir une automatisation…'}
+                                </option>
+                              )}
+                              {automationOptions.map((o) => (
+                                <option key={o} value={o}>
+                                  {triggerLabel(o)}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEditConn(null);
+                            }}
+                            aria-label={t('cancel')}
+                            title={t('cancel')}
+                            className="ms-1 shrink-0 p-1.5 rounded-r-md text-[var(--fg-subtle)] hover:text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
                       ) : trig === 'manual' ? (
                         <button
                           type="button"
