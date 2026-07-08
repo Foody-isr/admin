@@ -3415,8 +3415,10 @@ export async function collectOrderBalance(
 export async function getOrderInvoice(
   restaurantId: number,
   orderId: number,
+  documentNumber?: number,
 ): Promise<{ document_number: number; document_url: string }> {
-  return apiFetch<{ document_number: number; document_url: string }>(`/api/v1/orders/${orderId}/invoice`, restaurantId);
+  const qs = documentNumber != null ? `?document_number=${documentNumber}` : '';
+  return apiFetch<{ document_number: number; document_url: string }>(`/api/v1/orders/${orderId}/invoice${qs}`, restaurantId);
 }
 
 export async function sendOrderInvoice(
@@ -3436,9 +3438,11 @@ export async function sendOrderInvoice(
 export async function fetchOrderInvoicePdf(
   restaurantId: number,
   orderId: number,
+  documentNumber?: number,
 ): Promise<Blob> {
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/v1/orders/${orderId}/invoice/pdf`, {
+  const qs = documentNumber != null ? `?document_number=${documentNumber}` : '';
+  const res = await fetch(`${API_URL}/api/v1/orders/${orderId}/invoice/pdf${qs}`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'X-Restaurant-ID': String(restaurantId),
