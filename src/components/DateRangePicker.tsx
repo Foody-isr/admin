@@ -50,6 +50,21 @@ function fmt(d: Date): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+/** YYYY-MM-DD (local) for a native <input type="date"> value. */
+function toISOInput(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Parses a YYYY-MM-DD input value to a local Date, or null when incomplete. */
+function parseISOInput(v: string): Date | null {
+  if (!v) return null;
+  const d = new Date(`${v}T00:00:00`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function startOfDay(d: Date): Date {
   const r = new Date(d);
   r.setHours(0, 0, 0, 0);
@@ -186,6 +201,9 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
   const workdaySet = workdays && workdays.length > 0 ? new Set(workdays) : null;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // The start-date input is focused (and its native picker opened) when the user
+  // clicks "Custom", giving that entry a concrete action.
+  const startInputRef = useRef<HTMLInputElement>(null);
 
   // Calendar state
   const [viewMonth, setViewMonth] = useState(value.to.getMonth());
@@ -260,6 +278,47 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
     setTempTo(range.to);
     onChange(range);
     setOpen(false);
+  };
+
+  // Manual entry via the start/end date inputs. Commits live (so the filter
+  // updates) but keeps the dropdown open so the user can set both ends. An
+  // inverted range is clamped rather than rejected.
+  const applyStartInput = (v: string) => {
+    const d = parseISOInput(v);
+    if (!d) return;
+    const from = startOfDay(d);
+    const to = from > tempTo ? endOfDay(d) : tempTo;
+    setTempFrom(from);
+    setTempTo(to);
+    setPicking('idle');
+    setViewMonth(d.getMonth());
+    setViewYear(d.getFullYear());
+    onChange({ from, to });
+  };
+
+  const applyEndInput = (v: string) => {
+    const d = parseISOInput(v);
+    if (!d) return;
+    const to = endOfDay(d);
+    const from = to < tempFrom ? startOfDay(d) : tempFrom;
+    setTempFrom(from);
+    setTempTo(to);
+    setPicking('idle');
+    setViewMonth(d.getMonth());
+    setViewYear(d.getFullYear());
+    onChange({ from, to });
+  };
+
+  // "Custom" clears any active preset intent and jumps the user straight into
+  // manual entry by focusing the start field (and opening its native picker
+  // where supported) — otherwise the button would have nothing to do since the
+  // calendar is always visible.
+  const startCustom = () => {
+    setPicking('idle');
+    const el = startInputRef.current;
+    if (!el) return;
+    el.focus();
+    try { el.showPicker?.(); } catch { /* not a user gesture / unsupported */ }
   };
 
   const handleDayClick = (day: number) => {
@@ -401,9 +460,10 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
               </div>
             )}
 
-            {/* Custom (fallback) — highlights when the range matches no preset. */}
+            {/* Custom (fallback) — highlights when the range matches no preset.
+                Clicking it jumps to manual date entry (see startCustom). */}
             <button
-              onClick={() => setPicking('idle')}
+              onClick={startCustom}
               className={`block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[var(--surface-subtle)] ${
                 isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
               }`}
@@ -519,16 +579,28 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
               })}
             </div>
 
-            {/* Start / End date display */}
+            {/* Start / End date inputs — editable, so "Custom" has a real
+                target and exact dates can be typed or picked directly. */}
             <div className="grid grid-cols-2 gap-3 mt-4">
-              <div className="px-3 py-2 rounded-standard" style={{ border: '1px solid var(--divider)' }}>
-                <div className="text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drStartDate')}</div>
-                <div className="text-sm text-fg-primary mt-0.5">{fmt(tempFrom)}</div>
-              </div>
-              <div className="px-3 py-2 rounded-standard" style={{ border: '1px solid var(--divider)' }}>
-                <div className="text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drEndDate')}</div>
-                <div className="text-sm text-fg-primary mt-0.5">{fmt(tempTo)}</div>
-              </div>
+              <label className="px-3 py-2 rounded-standard block cursor-text" style={{ border: '1px solid var(--divider)' }}>
+                <span className="block text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drStartDate')}</span>
+                <input
+                  ref={startInputRef}
+                  type="date"
+                  value={toISOInput(tempFrom)}
+                  onChange={(e) => applyStartInput(e.target.value)}
+                  className="w-full bg-transparent text-sm text-fg-primary mt-0.5 outline-none"
+                />
+              </label>
+              <label className="px-3 py-2 rounded-standard block cursor-text" style={{ border: '1px solid var(--divider)' }}>
+                <span className="block text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drEndDate')}</span>
+                <input
+                  type="date"
+                  value={toISOInput(tempTo)}
+                  onChange={(e) => applyEndInput(e.target.value)}
+                  className="w-full bg-transparent text-sm text-fg-primary mt-0.5 outline-none"
+                />
+              </label>
             </div>
           </div>
         </div>
