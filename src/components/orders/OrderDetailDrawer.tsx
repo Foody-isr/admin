@@ -12,7 +12,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
   SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
-  RotateCcwIcon, ScaleIcon, BanknoteIcon,
+  RotateCcwIcon, ScaleIcon, BanknoteIcon, AlertTriangleIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -61,6 +61,12 @@ export const PAYMENT_TONE: Record<string, BadgeTone> = {
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
+
+// Order.external_metadata keys the server writes when a paid order is edited
+// after payment. Must stay in sync with foodyserver internal/common/models.go
+// (MetaKeyEditedAfterPayment / MetaKeyPaidAmount).
+const ORDER_META_EDITED_AFTER_PAYMENT = 'edited_after_payment';
+const ORDER_META_PAID_AMOUNT = 'paid_amount';
 
 // Simple hash to pick a muted color for item avatars
 function itemColor(name: string): string {
@@ -248,7 +254,7 @@ function statusIndex(status: string) {
 export function OrderDetailDrawer({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onCorrectPayment, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
-  onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
+  onTakePayment, onCloseOrder, onEdit, onConfirmWeights, onEditCustomer,
   restaurantInfo, customFieldLabels,
 }: {
   order: Order | null;
@@ -274,6 +280,9 @@ export function OrderDetailDrawer({
   /** Opens the confirm-weights modal for by-weight orders on a card hold.
    *  The action button only renders when order.settlement_status === "held". */
   onConfirmWeights?: () => void;
+  /** Opens the edit-customer dialog (fix a misspelled name/address). When
+   *  omitted or when !canManage, the customer name renders as plain text. */
+  onEditCustomer?: () => void;
   restaurantInfo: PrintTicketRestaurant;
   customFieldLabels: Record<string, string>;
 }) {
@@ -409,6 +418,16 @@ export function OrderDetailDrawer({
   // When a delivery fee applies, derive the subtotal from the total so the three
   // displayed lines (subtotal + fee = total) always reconcile exactly.
   const subtotal = deliveryFee > 0 ? totalsLine - deliveryFee : regularTotal + combosSubtotal;
+
+  // Post-payment edit warning: the server flags an order whose items were changed
+  // after the customer had already paid, snapshotting paid_amount (the amount
+  // actually charged). We surface the uncollected — or over-collected — difference
+  // so staff can reconcile it manually; there is no automatic re-charge.
+  const meta = (order.external_metadata ?? {}) as Record<string, unknown>;
+  const editedAfterPayment = meta[ORDER_META_EDITED_AFTER_PAYMENT] === true;
+  const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
+  const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
+  const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
 
   const displayedLineCount = regularItems.length + comboGroups.length;
   const totalUnits = allItems.reduce((s, i) => s + i.quantity, 0);
@@ -820,9 +839,21 @@ export function OrderDetailDrawer({
                 {customerInitials}
               </div>
               <div className="min-w-0">
-                <div className="font-semibold text-fs-md truncate">
-                  {order.customer_name || t('guestCustomer') || 'Client'}
-                </div>
+                {canManage && onEditCustomer ? (
+                  <button
+                    type="button"
+                    onClick={onEditCustomer}
+                    title={t('editCustomer')}
+                    className="group flex items-center gap-1.5 font-semibold text-fs-md truncate max-w-full text-start hover:text-[var(--brand-600)] transition-colors"
+                  >
+                    <span className="truncate">{order.customer_name || t('guestCustomer') || 'Client'}</span>
+                    <EditIcon className="w-3.5 h-3.5 shrink-0 text-[var(--fg-subtle)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ) : (
+                  <div className="font-semibold text-fs-md truncate">
+                    {order.customer_name || t('guestCustomer') || 'Client'}
+                  </div>
+                )}
                 {/* Source is shown once, in the structured rows below — no
                     duplicate subtitle here. */}
                 {order.customer_phone && (
@@ -952,6 +983,61 @@ export function OrderDetailDrawer({
                   variant="full"
                 />
               </div>
+
+              {/* Post-payment edit warning — the order's items were changed after
+                  the customer paid, so the collected amount no longer matches. */}
+              {editedAfterPayment && (
+                <div
+                  className="mt-[var(--s-2)] flex items-start gap-[var(--s-3)] rounded-md p-[var(--s-3)]"
+                  style={{
+                    background: 'color-mix(in oklab, var(--warning-500) 10%, var(--surface))',
+                    border: '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+                  }}
+                >
+                  <AlertTriangleIcon
+                    className="size-4 shrink-0 mt-0.5"
+                    style={{ color: 'var(--warning-500)' }}
+                  />
+                  <div className="flex-1 min-w-0 flex flex-col gap-[var(--s-2)]">
+                    <span className="text-fs-sm font-semibold text-[var(--fg)]">
+                      {t('editedAfterPaymentTitle')}
+                    </span>
+                    <span className="text-fs-xs text-[var(--fg-muted)]">
+                      {t('editedAfterPaymentDesc')}
+                    </span>
+                    {hasChargedAmount && (
+                      <div className="flex flex-col gap-1 text-fs-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[var(--fg-subtle)]">
+                            {t('editedAfterPaymentCharged')}
+                          </span>
+                          <span className="font-mono tabular-nums">₪{chargedAmount.toFixed(2)}</span>
+                        </div>
+                        {paymentDrift > 0.005 && (
+                          <div
+                            className="flex items-center justify-between font-semibold"
+                            style={{ color: 'var(--warning-500)' }}
+                          >
+                            <span>{t('editedAfterPaymentToCollect')}</span>
+                            <span className="font-mono tabular-nums">₪{paymentDrift.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {paymentDrift < -0.005 && (
+                          <div
+                            className="flex items-center justify-between font-semibold"
+                            style={{ color: 'var(--warning-500)' }}
+                          >
+                            <span>{t('editedAfterPaymentToRefund')}</span>
+                            <span className="font-mono tabular-nums">
+                              ₪{Math.abs(paymentDrift).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Payment link — for orders awaiting online payment. Lets staff
                   re-fetch and re-share the link any time. */}

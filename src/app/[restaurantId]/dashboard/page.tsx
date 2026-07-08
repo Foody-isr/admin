@@ -12,9 +12,11 @@ import {
   type DaySummary,
   type TopSeller,
   type Order,
+  type DateBasis,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
+import DateBasisToggle from '@/components/DateBasisToggle';
 import {
   clampWeekStartDay,
   getEffectiveWorkdays,
@@ -34,6 +36,14 @@ type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 // re-resolving KEY so they stay fresh across days; a custom or saved window is
 // stored as literal dates. Bumped to v2 when the enum toggle became the picker.
 const RANGE_STORAGE_KEY = 'foody.dashboard.range.v2';
+// Persisted separately from the window so the chosen date basis (order date vs
+// série/fulfillment date) survives navigation just like the range does.
+const BASIS_STORAGE_KEY = 'foody.dashboard.basis.v1';
+
+function readStoredBasis(): DateBasis {
+  if (typeof window === 'undefined') return 'created';
+  return localStorage.getItem(BASIS_STORAGE_KEY) === 'serie' ? 'serie' : 'created';
+}
 
 type RollingPreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'thisWeek' | 'thisMonth';
 type StoredSel = { preset: RollingPreset } | { from: string; to: string };
@@ -196,6 +206,8 @@ export default function DashboardPage() {
   // week config is loaded and the persisted selection is hydrated (rolling
   // presets re-resolved against today), so we load once with the right window.
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
+  // Order date vs série/fulfillment date. Hydrated from storage on mount.
+  const [basis, setBasis] = useState<DateBasis>('created');
   const [ready, setReady] = useState(false);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
@@ -209,6 +221,7 @@ export default function DashboardPage() {
         setWorkdays(getEffectiveWorkdays(r));
         const stored = readStoredSel();
         if (stored) setDateRange(resolveStored(stored, w));
+        setBasis(readStoredBasis());
       })
       .catch(() => {})
       .finally(() => setReady(true));
@@ -222,9 +235,9 @@ export default function DashboardPage() {
     // top-sellers always cover the full range.
     const days = daysInclusive(dateRange);
     Promise.allSettled([
-      getPeriodSummary(rid, { from: fromISO, to: toISO }),
-      getTopSellers(rid, { from: fromISO, to: toISO }),
-      getDailySeries(rid, days, toISO),
+      getPeriodSummary(rid, { from: fromISO, to: toISO }, basis),
+      getTopSellers(rid, { from: fromISO, to: toISO }, basis),
+      getDailySeries(rid, days, toISO, basis),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
     ])
       .then(([per, top, daily, orders]) => {
@@ -234,7 +247,13 @@ export default function DashboardPage() {
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
       })
       .finally(() => setLoading(false));
-  }, [rid, dateRange]);
+  }, [rid, dateRange, basis]);
+
+  // Switch the date basis and persist it; the load effect refetches on change.
+  const onChangeBasis = useCallback((b: DateBasis) => {
+    setBasis(b);
+    try { localStorage.setItem(BASIS_STORAGE_KEY, b); } catch { /* quota / private mode */ }
+  }, []);
 
   useEffect(() => {
     if (ready) load();
@@ -330,6 +349,7 @@ export default function DashboardPage() {
         desc={fmtDate(new Date(), dateLocale)}
         actions={
           <>
+            <DateBasisToggle value={basis} onChange={onChangeBasis} />
             <DateRangePicker
               value={dateRange}
               onChange={onPickRange}
