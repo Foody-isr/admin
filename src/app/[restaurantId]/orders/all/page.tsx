@@ -5,10 +5,10 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
-  updateOrderPaymentStatus,
+  updateOrderPaymentStatus, overrideOrderPaymentStatus,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
-  Order, OrderStatus, ListOrdersParams,
+  Order, OrderStatus, PaymentStatus, ListOrdersParams,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -40,6 +40,7 @@ import { TakePaymentDialog, PaymentMethod } from '@/components/orders/TakePaymen
 import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { OverrideStatusDialog } from '@/components/orders/OverrideStatusDialog';
+import { OverridePaymentDialog } from '@/components/orders/OverridePaymentDialog';
 import { CashTag } from '@/components/orders/CashTag';
 import {
   DataTable,
@@ -299,6 +300,27 @@ export default function OrdersPage() {
     if (overrideOrderId == null) return;
     return runAction(overrideOrderId, () => overrideOrderStatus(rid, overrideOrderId, status, note), status);
   };
+  // Manual payment correction (owner/manager, cash/manual orders only) — target
+  // payment status chosen in OverridePaymentDialog. Silent for the customer;
+  // server audit-logs it and rejects provider-settled orders. Applies the
+  // returned order directly (runAction's optimistic path only tracks `status`).
+  const handleCorrectPayment = (orderId: number) => setPaymentOverrideId(orderId);
+  const handleCorrectPaymentConfirm = async (paymentStatus: PaymentStatus, note: string) => {
+    if (paymentOverrideId == null) return;
+    const id = paymentOverrideId;
+    setActionLoading(id);
+    addProcessingGuard(id);
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, payment_status: paymentStatus } : o)));
+    try {
+      const updated = await overrideOrderPaymentStatus(rid, id, paymentStatus, note);
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    } catch {
+      await fetchOrders();
+    } finally {
+      setActionLoading(null);
+      removeProcessingGuard(id);
+    }
+  };
   // Hard delete — permanently removes the order. Owner/admin only (also enforced
   // server-side). Guarded by an explicit, irreversible-action warning.
   const handleDelete = async (orderId: number) => {
@@ -340,6 +362,7 @@ export default function OrdersPage() {
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [overrideOrderId, setOverrideOrderId] = useState<number | null>(null);
+  const [paymentOverrideId, setPaymentOverrideId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const handleTakePayment = (method: PaymentMethod) => {
@@ -771,6 +794,7 @@ export default function OrdersPage() {
         onReject={() => selectedOrder && handleReject(selectedOrder.id)}
         onDelete={() => selectedOrder && handleDelete(selectedOrder.id)}
         onOverride={() => selectedOrder && handleOverride(selectedOrder.id)}
+        onCorrectPayment={() => selectedOrder && handleCorrectPayment(selectedOrder.id)}
         onSendToKitchen={() => selectedOrder && handleSendToKitchen(selectedOrder.id)}
         onMarkReady={() => selectedOrder && handleMarkReady(selectedOrder.id)}
         onMarkServed={() => selectedOrder && handleMarkServed(selectedOrder.id)}
@@ -823,6 +847,14 @@ export default function OrdersPage() {
         currentStatus={orders.find((o) => o.id === overrideOrderId)?.status}
         onOpenChange={(v) => { if (!v) setOverrideOrderId(null); }}
         onConfirm={handleOverrideConfirm}
+      />
+
+      {/* Correct payment status — owner/manager, cash/manual orders, silent */}
+      <OverridePaymentDialog
+        open={paymentOverrideId !== null}
+        currentPaymentStatus={orders.find((o) => o.id === paymentOverrideId)?.payment_status}
+        onOpenChange={(v) => { if (!v) setPaymentOverrideId(null); }}
+        onConfirm={handleCorrectPaymentConfirm}
       />
     </div>
   );
