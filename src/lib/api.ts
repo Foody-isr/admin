@@ -521,6 +521,9 @@ export interface OrderItem {
   // that pre-date the snapshot migration — render those under an "Other" bucket.
   category_id?: number;
   category_name?: string;
+  /** Set once a settled payment has covered this line; null = added but not yet paid for. */
+  billed_at?: string | null;
+  billed_invoice_number?: string;
 }
 
 export interface Order {
@@ -583,6 +586,9 @@ export interface Order {
   // Payment-provider metadata serialized from the server's ExternalMeta
   // (e.g. Summit's document_id on a paid order). Shape is provider-specific.
   external_metadata?: Record<string, unknown> | null;
+  // Outstanding amount (₪) for items added after the order was paid. Server
+  // omits this field (undefined) when there is nothing outstanding.
+  balance_due?: number;
 }
 
 export interface StaffMember {
@@ -3390,6 +3396,17 @@ export async function initOrderPaymentLink(
 ): Promise<{ payment_url?: string }> {
   return apiFetch<{ payment_url?: string }>(
     `/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
+export async function collectOrderBalance(
+  restaurantId: number,
+  orderId: number,
+): Promise<{ balance_due: number; payment_url?: string }> {
+  return apiFetch<{ balance_due: number; payment_url?: string }>(
+    `/api/v1/orders/${orderId}/payment/collect-balance?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'POST' },
   );
