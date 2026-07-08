@@ -826,7 +826,7 @@ export function OrderDetailDrawer({
                     showTopBorder={gi > 0}
                   />
                   {group.items.map((item, ii) => (
-                    <OrderLineRow key={item.id} item={item} showTopBorder={ii > 0} />
+                    <OrderLineRow key={item.id} item={item} showTopBorder={ii > 0} hasBalance={(order.balance_due ?? 0) > 0} t={t} />
                   ))}
                 </Fragment>
               ))}
@@ -856,6 +856,8 @@ export function OrderDetailDrawer({
                           totalPicks={totalPicks}
                           picksLabel={picksLabel}
                           comboLabel={(t('combo') || 'Combo').toUpperCase()}
+                          hasBalance={(order.balance_due ?? 0) > 0}
+                          t={t}
                         />
                       </div>
                     );
@@ -1353,9 +1355,20 @@ function QtyBadge({ count, seed }: { count: number; seed: string }) {
 
 // ─── Regular order line row (shared across the items list) ────────────────────
 
-function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder: boolean }) {
+function OrderLineRow({
+  item,
+  showTopBorder,
+  hasBalance,
+  t,
+}: {
+  item: OrderItem;
+  showTopBorder: boolean;
+  hasBalance: boolean;
+  t: (k: string) => string;
+}) {
   const variantText = variantChipText(item);
   const hasMods = !!(item.modifiers && item.modifiers.length > 0);
+  const showUnpaidChip = hasBalance && item.billed_at == null;
   return (
     <div
       className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
@@ -1364,8 +1377,13 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
     >
       <QtyBadge count={item.quantity} seed={item.name} />
       <div className="min-w-0">
-        <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
-          {item.name}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-fs-sm font-medium truncate tracking-[-0.005em]">
+            {item.name}
+          </span>
+          {showUnpaidChip && (
+            <Badge tone="warning">{t('notPaidChip')}</Badge>
+          )}
         </div>
         {(variantText || hasMods) && (
           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -1420,6 +1438,8 @@ function ComboCard({
   totalPicks,
   picksLabel,
   comboLabel,
+  hasBalance,
+  t,
 }: {
   comboName: string;
   comboTotal: number;
@@ -1427,7 +1447,10 @@ function ComboCard({
   totalPicks: number;
   picksLabel: string;
   comboLabel: string;
+  hasBalance: boolean;
+  t: (k: string) => string;
 }) {
+  const showUnpaidChip = hasBalance && comboItems.some((ci) => ci.billed_at == null);
   return (
     <div>
       {/* Header — identical layout to OrderLineRow (badge · name · price). A combo
@@ -1448,6 +1471,9 @@ function ComboCard({
             >
               {comboLabel}
             </span>
+            {showUnpaidChip && (
+              <Badge tone="warning">{t('notPaidChip')}</Badge>
+            )}
           </div>
           <div className="text-fs-xs text-[var(--fg-subtle)] tabular-nums mt-0.5">
             {totalPicks} {picksLabel}
