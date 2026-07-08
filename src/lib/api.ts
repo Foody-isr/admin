@@ -1011,12 +1011,22 @@ export type AnalyticsRange = 'today' | 'yesterday' | 'week' | 'month';
  *  and computes the previous period as the equal-length window before it. */
 export type AnalyticsScope = AnalyticsRange | { from: string; to: string };
 
+/** Which date orders are bucketed by: 'created' (when placed) or 'serie' (the
+ *  série/fulfillment date, i.e. scheduled_for). Matches the server's
+ *  common.DateBasis* constants. Omitted/created is the default everywhere. */
+export type DateBasis = 'created' | 'serie';
+
 /** Serializes an analytics scope into query params for the period/top-sellers
  *  endpoints. A string becomes `range=`, a window becomes `from=&to=`. */
 function analyticsScopeParams(scope?: AnalyticsScope): Record<string, string> {
   if (!scope) return {};
   if (typeof scope === 'string') return { range: scope };
   return { from: scope.from, to: scope.to };
+}
+
+/** Serializes the date basis; only 'serie' is sent (created is the server default). */
+function dateBasisParams(basis?: DateBasis): Record<string, string> {
+  return basis === 'serie' ? { basis: 'serie' } : {};
 }
 
 export interface RangeSummary {
@@ -2995,6 +3005,8 @@ export interface ListOrdersParams {
   type?: string;
   from?: string;
   to?: string;
+  /** Which date the from/to window filters on: 'created' (default) or 'serie'. */
+  date_field?: DateBasis;
   limit?: number;
   offset?: number;
   sort_by?: string;
@@ -3016,6 +3028,7 @@ export async function listOrders(restaurantId: number, params?: ListOrdersParams
   if (params?.type) qs.set('type', params.type);
   if (params?.from) qs.set('from', params.from);
   if (params?.to) qs.set('to', params.to);
+  if (params?.date_field === 'serie') qs.set('date_field', 'serie');
   if (params?.limit != null) qs.set('limit', String(params.limit));
   if (params?.offset != null) qs.set('offset', String(params.offset));
   if (params?.sort_by) qs.set('sort_by', params.sort_by);
@@ -3100,6 +3113,39 @@ export async function overrideOrderPaymentStatus(
     {
       method: 'PUT',
       body: JSON.stringify({ payment_status: paymentStatus, note }),
+    },
+  );
+  return data.order;
+}
+
+/** Fields staff can correct on an order's customer, from the order screen. */
+export interface OrderCustomerDetailsInput {
+  name: string;
+  /** Delivery fields are only applied for delivery orders (ignored otherwise). */
+  delivery_address?: string;
+  delivery_city?: string;
+  delivery_floor?: string;
+  delivery_apt?: string;
+  delivery_entry_code?: string;
+}
+
+/**
+ * Corrects an order's customer name (canonically, keyed by the customer's
+ * phone, so it reflects on their other orders and the client page) and — for
+ * delivery orders — this order's delivery address. Used to fix typos from the
+ * order detail screen. Returns the updated order.
+ */
+export async function updateOrderCustomerDetails(
+  restaurantId: number,
+  orderId: number,
+  input: OrderCustomerDetailsInput,
+): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/customer-details?restaurant_id=${restaurantId}`,
+    restaurantId,
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
     },
   );
   return data.order;
@@ -3672,11 +3718,13 @@ export async function getAnalyticsToday(restaurantId: number): Promise<TodayStat
 
 export async function getTopSellers(
   restaurantId: number,
-  scope?: AnalyticsScope
+  scope?: AnalyticsScope,
+  basis?: DateBasis
 ): Promise<TopSeller[]> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
     ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
   });
   const data = await apiFetch<{ top_items: TopSeller[] }>(
     `/api/v1/analytics/top-sellers?${params}`, restaurantId
@@ -3713,11 +3761,13 @@ export async function getDayComparison(
 
 export async function getPeriodSummary(
   restaurantId: number,
-  scope: AnalyticsScope
+  scope: AnalyticsScope,
+  basis?: DateBasis
 ): Promise<PeriodComparison> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
     ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
   });
   return apiFetch<PeriodComparison>(
     `/api/v1/analytics/period?${params}`, restaurantId
@@ -3727,11 +3777,13 @@ export async function getPeriodSummary(
 export async function getDailySeries(
   restaurantId: number,
   days = 7,
-  date?: string
+  date?: string,
+  basis?: DateBasis
 ): Promise<DaySummary[]> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
     days: String(days),
+    ...dateBasisParams(basis),
   });
   if (date) params.set('date', date);
   const data = await apiFetch<{ days: DaySummary[] }>(

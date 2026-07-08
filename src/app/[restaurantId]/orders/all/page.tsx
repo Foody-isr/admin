@@ -5,10 +5,11 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
-  updateOrderPaymentStatus, overrideOrderPaymentStatus,
+  updateOrderPaymentStatus, overrideOrderPaymentStatus, updateOrderCustomerDetails,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
-  Order, OrderStatus, PaymentStatus, ListOrdersParams,
+  Order, OrderStatus, PaymentStatus, ListOrdersParams, type DateBasis,
+  type OrderCustomerDetailsInput,
 } from '@/lib/api';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
 import { useWs, WsEvent } from '@/lib/ws-context';
@@ -27,6 +28,7 @@ import {
 } from '@/components/orders/OrderDetailDrawer';
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
+import DateBasisToggle from '@/components/DateBasisToggle';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
@@ -41,6 +43,7 @@ import { ConfirmWeightsModal } from '@/components/orders/ConfirmWeightsModal';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { OverrideStatusDialog } from '@/components/orders/OverrideStatusDialog';
 import { OverridePaymentDialog } from '@/components/orders/OverridePaymentDialog';
+import { EditCustomerDialog } from '@/components/orders/EditCustomerDialog';
 import { CashTag } from '@/components/orders/CashTag';
 import {
   DataTable,
@@ -126,6 +129,9 @@ export default function OrdersPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
+  // Whether the date range filters by order date ('created') or série/fulfillment
+  // date ('serie', i.e. scheduled_for). Lets staff reconcile a whole série.
+  const [dateField, setDateField] = useState<DateBasis>('created');
   const [page, setPage] = useState(0);
 
   const orders = rawOrders;
@@ -201,6 +207,7 @@ export default function OrdersPage() {
     const params: ListOrdersParams = {
       from: toISODate(dateRange.from),
       to: toISODate(dateRange.to),
+      date_field: dateField,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
       sort_by: 'created_at',
@@ -221,7 +228,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, page]);
+  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -321,6 +328,16 @@ export default function OrdersPage() {
       removeProcessingGuard(id);
     }
   };
+  // Correct a misspelled customer name / delivery address from the order screen.
+  // The name is canonical (keyed by phone), so refetch afterwards to pick up the
+  // correction on the customer's other orders in the list too, not just this one.
+  const handleEditCustomerConfirm = async (input: OrderCustomerDetailsInput) => {
+    if (editCustomerId == null) return;
+    const id = editCustomerId;
+    const updated = await updateOrderCustomerDetails(rid, id, input);
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updated } : o)));
+    await fetchOrders();
+  };
   // Hard delete — permanently removes the order. Owner/admin only (also enforced
   // server-side). Guarded by an explicit, irreversible-action warning.
   const handleDelete = async (orderId: number) => {
@@ -363,6 +380,7 @@ export default function OrdersPage() {
   const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
   const [overrideOrderId, setOverrideOrderId] = useState<number | null>(null);
   const [paymentOverrideId, setPaymentOverrideId] = useState<number | null>(null);
+  const [editCustomerId, setEditCustomerId] = useState<number | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const handleTakePayment = (method: PaymentMethod) => {
@@ -638,6 +656,11 @@ export default function OrdersPage() {
             restaurantId={rid}
           />
 
+          <DateBasisToggle
+            value={dateField}
+            onChange={(b) => { setDateField(b); setPage(0); }}
+          />
+
           <FilterDropdown
             label={t('type')}
             value={typeFilter}
@@ -804,6 +827,7 @@ export default function OrdersPage() {
         onCloseOrder={() => selectedOrder && handleCloseOrder(selectedOrder.id, selectedOrder.order_type)}
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
+        onEditCustomer={() => selectedOrder && setEditCustomerId(selectedOrder.id)}
         restaurantInfo={restaurantInfo}
         customFieldLabels={customFieldLabels}
       />
@@ -855,6 +879,14 @@ export default function OrdersPage() {
         currentPaymentStatus={orders.find((o) => o.id === paymentOverrideId)?.payment_status}
         onOpenChange={(v) => { if (!v) setPaymentOverrideId(null); }}
         onConfirm={handleCorrectPaymentConfirm}
+      />
+
+      {/* Fix a misspelled customer name / delivery address */}
+      <EditCustomerDialog
+        open={editCustomerId !== null}
+        order={orders.find((o) => o.id === editCustomerId) ?? null}
+        onOpenChange={(v) => { if (!v) setEditCustomerId(null); }}
+        onConfirm={handleEditCustomerConfirm}
       />
     </div>
   );

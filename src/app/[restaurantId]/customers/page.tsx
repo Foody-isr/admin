@@ -206,18 +206,20 @@ export default function CustomersPage() {
     setSaving(true);
     setEditError('');
     try {
-      // Persist the profile (name + address) onto the account when one exists.
-      if (profile?.has_account) {
-        await updateCustomerProfile(rid, editRow.phone, {
-          name: editName,
-          address: editAddress,
-          city: editCity,
-          floor: editFloor,
-          apt: editApt,
-          entry_code: editEntryCode,
-          delivery_notes: editDeliveryNotes,
-        });
-      }
+      // Persist the name as a canonical correction — it works for every
+      // customer (account or not): the server stores it as a per-phone override
+      // resolved everywhere the customer appears. The address is stored on the
+      // account, so those fields are only applied when an account exists (they
+      // are disabled in the form otherwise and ignored server-side here).
+      await updateCustomerProfile(rid, editRow.phone, {
+        name: editName,
+        address: editAddress,
+        city: editCity,
+        floor: editFloor,
+        apt: editApt,
+        entry_code: editEntryCode,
+        delivery_notes: editDeliveryNotes,
+      });
 
       const tc = editRow.trusted;
       const wasTrusted = !!tc;
