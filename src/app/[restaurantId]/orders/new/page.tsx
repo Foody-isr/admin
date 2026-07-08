@@ -281,18 +281,24 @@ export default function NewOrderPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const paymentMethod =
-        data.payment === 'cash_paid' ? 'cash' : data.payment === 'card_paid' ? 'card' : '';
-      const paymentStatus: PaymentStatus | undefined =
-        data.payment === 'cash_paid' || data.payment === 'card_paid' ? 'paid' : undefined;
+      // Payment link → defer to the provider: no method, server sets it pending.
+      // Cash / card → carry the method (so an uncollected cash order still shows
+      // the cash badge) and mark paid or unpaid per the "déjà encaissé ?" toggle.
+      const isLink = data.paymentMethod === 'link';
+      const paymentMethod = isLink ? undefined : data.paymentMethod;
+      const paymentStatus: PaymentStatus | undefined = isLink
+        ? undefined
+        : data.paymentCollected
+          ? 'paid'
+          : 'unpaid';
 
       const res = await createOrder(restaurantId, {
         order_type: data.orderType,
         customer_name: data.customerName.trim(),
         customer_phone: data.customerPhone.trim(),
-        payment_method: paymentMethod || undefined,
+        payment_method: paymentMethod,
         payment_status: paymentStatus,
-        payment_required: data.payment === 'link',
+        payment_required: isLink,
         ...(data.fulfillment.timing === 'scheduled' && data.fulfillment.scheduledFor
           ? {
               is_scheduled: true,

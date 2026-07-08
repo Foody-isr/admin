@@ -5,7 +5,7 @@ import { Drawer, Field, Input, Textarea } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, ClockIcon, LinkIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -16,7 +16,13 @@ import {
 import type { BatchFulfillmentConfigResponse } from '@/lib/api';
 
 export type OrderType = 'pickup' | 'delivery';
-export type PaymentChoice = 'cash_paid' | 'card_paid' | 'unpaid' | 'link';
+// Payment is captured as two axes: the method (cash / card / payment link) and
+// whether it has already been collected ("déjà encaissé ?"). This lets staff
+// mark a cash order that will be collected on pickup — it stays UNPAID and still
+// carries the cash badge — instead of forcing a choice between "already paid" and
+// an ambiguous method-less "unpaid". `paymentCollected` is ignored for `link`
+// (the customer pays via the provider; the order is created pending).
+export type PaymentMethodChoice = 'cash' | 'card' | 'link';
 
 export interface CheckoutData {
   customerName: string;
@@ -27,7 +33,8 @@ export interface CheckoutData {
   floor: string;
   apt: string;
   deliveryNotes: string;
-  payment: PaymentChoice;
+  paymentMethod: PaymentMethodChoice;
+  paymentCollected: boolean;
   fulfillment: FulfillmentValue;
 }
 
@@ -73,6 +80,24 @@ function OptionTile({
   );
 }
 
+// Compact segmented button for the "déjà encaissé ?" yes/no toggle.
+function ToggleButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-md px-[var(--s-3)] py-1 text-fs-sm font-medium transition-colors',
+        active
+          ? 'bg-[var(--brand-500)] text-white shadow-1'
+          : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function NewOrderCheckoutDrawer({
   open, onClose, total, itemCount, submitting, error, onConfirm, batchConfig, defaultDate,
 }: NewOrderCheckoutDrawerProps) {
@@ -86,7 +111,10 @@ export function NewOrderCheckoutDrawer({
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [payment, setPayment] = useState<PaymentChoice>('cash_paid');
+  const [payMethod, setPayMethod] = useState<PaymentMethodChoice>('cash');
+  // "déjà encaissé ?" — has the payment already been collected. Defaults to yes
+  // (the common POS case: staff take payment in hand). Ignored for `link`.
+  const [collected, setCollected] = useState(true);
 
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
 
@@ -112,11 +140,10 @@ export function NewOrderCheckoutDrawer({
     (orderType !== 'delivery' || address.trim().length > 0) &&
     !submitting;
 
-  const payChoices: { key: PaymentChoice; icon: React.ReactNode; label: string }[] = [
-    { key: 'cash_paid', icon: <BanknoteIcon />, label: t('payCashPaid') },
-    { key: 'card_paid', icon: <CreditCardIcon />, label: t('payCardPaid') },
-    { key: 'unpaid', icon: <ClockIcon />, label: t('payUnpaid') },
-    { key: 'link', icon: <LinkIcon />, label: t('paySendLink') },
+  const payMethods: { key: PaymentMethodChoice; icon: React.ReactNode; label: string }[] = [
+    { key: 'cash', icon: <BanknoteIcon />, label: t('payMethodCash') },
+    { key: 'card', icon: <CreditCardIcon />, label: t('payMethodCard') },
+    { key: 'link', icon: <LinkIcon />, label: t('payMethodLink') },
   ];
 
   return (
@@ -127,7 +154,7 @@ export function NewOrderCheckoutDrawer({
       subtitle={`${itemCount} ${t('orderItems').toLowerCase()} · ₪${total.toFixed(2)}`}
       width={480}
       onSave={() =>
-        onConfirm({ customerName, customerPhone, orderType, address, city, floor, apt, deliveryNotes, payment, fulfillment })
+        onConfirm({ customerName, customerPhone, orderType, address, city, floor, apt, deliveryNotes, paymentMethod: payMethod, paymentCollected: collected, fulfillment })
       }
       saveLabel={submitting ? `${t('creating')}…` : `${t('createOrder')} · ₪${total.toFixed(2)}`}
       saveDisabled={!canConfirm}
@@ -183,19 +210,31 @@ export function NewOrderCheckoutDrawer({
           )}
         </div>
 
-        {/* Payment */}
+        {/* Payment: method + "déjà encaissé ?" */}
         <div className="flex flex-col gap-2">
           <span className="text-fs-xs font-medium uppercase tracking-[.06em] text-[var(--fg-muted)]">
             {t('payment')}
           </span>
-          <div className="grid grid-cols-2 gap-2">
-            {payChoices.map((p) => (
-              <OptionTile key={p.key} active={payment === p.key} onClick={() => setPayment(p.key)} icon={p.icon} label={p.label} />
+          <div className="grid grid-cols-3 gap-2">
+            {payMethods.map((p) => (
+              <OptionTile key={p.key} active={payMethod === p.key} onClick={() => setPayMethod(p.key)} icon={p.icon} label={p.label} />
             ))}
           </div>
+
+          {/* The payment link is always paid by the customer via the provider, so
+              the collected toggle only applies to cash / card. */}
+          {payMethod !== 'link' && (
+            <div className="flex items-center justify-between gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2">
+              <span className="text-fs-sm font-medium text-[var(--fg)]">{t('payAlreadyCollected')}</span>
+              <div className="inline-flex rounded-md border border-[var(--line-strong)] bg-[var(--surface-2)] p-0.5">
+                <ToggleButton active={collected} onClick={() => setCollected(true)} label={t('yes')} />
+                <ToggleButton active={!collected} onClick={() => setCollected(false)} label={t('no')} />
+              </div>
+            </div>
+          )}
         </div>
 
-        {fulfillment.timing === 'scheduled' && (payment === 'unpaid' || payment === 'link') && (
+        {fulfillment.timing === 'scheduled' && (payMethod === 'link' || !collected) && (
           <p className="text-fs-xs text-[var(--fg-muted)]">{t('fulfillmentScheduledUnpaidHint')}</p>
         )}
 
