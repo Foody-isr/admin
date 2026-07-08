@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Bike, ChevronDown, ClipboardCheck, CreditCard, Info, PackageCheck, Plus, Trash2 } from 'lucide-react';
+import { Bell, Bike, ChevronDown, ClipboardCheck, CreditCard, Info, PackageCheck, Plus, Trash2, X } from 'lucide-react';
 import {
   getOrderWorkflows,
   updateOrderWorkflow,
@@ -176,10 +176,12 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
   };
 
   const kinds = activeType === 'delivery' ? ALL_KINDS : ALL_KINDS.filter((k) => k !== 'out_for_delivery');
-  const triggerOptions: TriggerChoice[] =
+  // Only real automations are pickable; "manual" is the absence of one, reached
+  // by removing the automation (✕), never by choosing it from a list.
+  const automationOptions: TriggerChoice[] =
     activeType === 'delivery'
-      ? ['manual', 'payment', 'production', 'courier_assigned', 'courier_delivered']
-      : ['manual', 'payment', 'production'];
+      ? ['payment', 'production', 'courier_assigned', 'courier_delivered']
+      : ['payment', 'production'];
 
   const kindLabel = (k: WorkflowStageKind): string =>
     ({
@@ -279,7 +281,8 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
             const open = openIndex === i;
             const isFirst = i === 0;
             const color = kindColor(stage.kind);
-            const chip = triggerChip(currentTrigger(stage));
+            const trig = currentTrigger(stage);
+            const chip = triggerChip(trig);
             return (
               <React.Fragment key={i}>
                 {/* Connector INTO this step: quiet when manual, highlighted when automated */}
@@ -290,37 +293,61 @@ export function OrderWorkflowBuilder({ rid, canEdit }: { rid: number; canEdit: b
                       {editConn === i ? (
                         <Select
                           autoFocus
-                          value={currentTrigger(stage)}
+                          value={trig === 'manual' ? '' : trig}
                           onChange={(e) => {
-                            patchStage(i, triggerPatch(e.target.value as TriggerChoice));
+                            const v = e.target.value as TriggerChoice;
+                            if (v) patchStage(i, triggerPatch(v));
                             setEditConn(null);
                           }}
                           onBlur={() => setEditConn(null)}
                           disabled={!canEdit}
                         >
-                          {triggerOptions.map((o) => (
+                          {trig === 'manual' && (
+                            <option value="" disabled>
+                              {t('wfChooseAutomation') || 'Choisir une automatisation…'}
+                            </option>
+                          )}
+                          {automationOptions.map((o) => (
                             <option key={o} value={o}>
                               {triggerLabel(o)}
                             </option>
                           ))}
                         </Select>
-                      ) : (
+                      ) : trig === 'manual' ? (
                         <button
                           type="button"
                           onClick={() => canEdit && setEditConn(i)}
-                          className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 hover:opacity-80 transition-opacity"
-                          style={
-                            chip.muted
-                              ? { color: 'var(--fg-subtle)' }
-                              : {
-                                  background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
-                                  color: 'var(--brand-600)',
-                                }
-                          }
+                          className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 text-[var(--fg-subtle)] hover:text-[var(--fg-muted)] transition-colors"
                         >
-                          {chip.icon}
-                          {chip.label}
+                          <Plus className="w-3.5 h-3.5" />
+                          {t('wfAutomate') || 'automatiser'}
                         </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => canEdit && setEditConn(i)}
+                            className="inline-flex items-center gap-1.5 rounded-r-full text-fs-xs font-medium px-[var(--s-2)] py-1 hover:opacity-80 transition-opacity"
+                            style={{
+                              background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                              color: 'var(--brand-600)',
+                            }}
+                          >
+                            {chip.icon}
+                            {chip.label}
+                          </button>
+                          {canEdit && (
+                            <button
+                              type="button"
+                              onClick={() => patchStage(i, triggerPatch('manual'))}
+                              aria-label={t('wfRemoveAutomation') || 'Retirer l’automatisation'}
+                              title={t('wfRemoveAutomation') || 'Retirer l’automatisation'}
+                              className="p-0.5 rounded-full text-[var(--fg-subtle)] hover:text-[var(--danger-500)] hover:bg-[var(--surface-2)]"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
                       )}
                     </div>
                   </div>
