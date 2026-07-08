@@ -17,6 +17,7 @@ import {
 import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
+import SeriePicker from '@/components/SeriePicker';
 import {
   clampWeekStartDay,
   getEffectiveWorkdays,
@@ -206,9 +207,12 @@ export default function DashboardPage() {
   // week config is loaded and the persisted selection is hydrated (rolling
   // presets re-resolved against today), so we load once with the right window.
   const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
-  // Order date vs série/fulfillment date. Hydrated from storage on mount.
+  // Order date vs série date. basis is hydrated from storage on mount; serieDate
+  // holds the série selected in série mode (set by the SeriePicker).
   const [basis, setBasis] = useState<DateBasis>('created');
+  const [serieDate, setSerieDate] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const serieMode = basis === 'serie';
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
 
@@ -228,16 +232,21 @@ export default function DashboardPage() {
   }, [rid]);
 
   const load = useCallback(() => {
+    // In série mode, wait until the picker has resolved a série.
+    if (serieMode && !serieDate) return;
     setLoading(true);
-    const fromISO = isoDate(dateRange.from);
-    const toISO = isoDate(dateRange.to);
-    // The daily chart spans the window (server caps at 90 points); KPIs and
-    // top-sellers always cover the full range.
+    // Série mode scopes everything to one exact série (scheduled_for) and has no
+    // daily chart; created mode uses the calendar window + last-N-days chart.
+    const scope = serieMode
+      ? { from: serieDate!, to: serieDate! }
+      : { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
     const days = daysInclusive(dateRange);
     Promise.allSettled([
-      getPeriodSummary(rid, { from: fromISO, to: toISO }, basis),
-      getTopSellers(rid, { from: fromISO, to: toISO }, basis),
-      getDailySeries(rid, days, toISO, basis),
+      getPeriodSummary(rid, scope, basis),
+      getTopSellers(rid, scope, basis),
+      serieMode
+        ? Promise.resolve([] as DaySummary[])
+        : getDailySeries(rid, days, scope.to, basis),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
     ])
       .then(([per, top, daily, orders]) => {
@@ -247,7 +256,7 @@ export default function DashboardPage() {
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
       })
       .finally(() => setLoading(false));
-  }, [rid, dateRange, basis]);
+  }, [rid, dateRange, basis, serieMode, serieDate]);
 
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
@@ -350,14 +359,23 @@ export default function DashboardPage() {
         actions={
           <>
             <DateBasisToggle value={basis} onChange={onChangeBasis} />
-            <DateRangePicker
-              value={dateRange}
-              onChange={onPickRange}
-              weekStartDay={wsd}
-              workdays={workdays}
-              restaurantId={rid}
-              align="right"
-            />
+            {serieMode ? (
+              <SeriePicker
+                restaurantId={rid}
+                value={serieDate}
+                onChange={setSerieDate}
+                align="end"
+              />
+            ) : (
+              <DateRangePicker
+                value={dateRange}
+                onChange={onPickRange}
+                weekStartDay={wsd}
+                workdays={workdays}
+                restaurantId={rid}
+                align="right"
+              />
+            )}
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
@@ -376,7 +394,7 @@ export default function DashboardPage() {
               className="p-[var(--s-4)]"
               label={kpiLabel(m.label, m.hint)}
               value={<span className="text-fs-2xl">{m.value}</span>}
-              delta={{ value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
+              delta={serieMode ? undefined : { value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
             />
           );
         })}
@@ -389,26 +407,29 @@ export default function DashboardPage() {
             key={m.key}
             label={m.label}
             value={m.value}
-            delta={m.delta}
-            sub={vsLabel}
+            delta={serieMode ? undefined : m.delta}
+            sub={serieMode ? undefined : vsLabel}
             hint={m.hint}
-            spark={series.map((d) => seriesValue(m.key, d))}
+            spark={serieMode ? undefined : series.map((d) => seriesValue(m.key, d))}
           />
         ))}
       </div>
 
-      {/* Main row: chart + right rail */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--s-5)] mb-[var(--s-5)]">
-        <Section
-          title={selectedMetricLabel}
-          desc={chartCapped ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
-        >
-          <MetricChart
-            data={chartData}
-            fmt={(n) => formatMetric(metric, n)}
-            emptyLabel={t('noSalesIn7Days')}
-          />
-        </Section>
+      {/* Main row: chart + right rail. The daily chart is a range concept, so in
+          série mode (a single série) it is hidden and the rail spans the row. */}
+      <div className={`grid grid-cols-1 gap-[var(--s-5)] mb-[var(--s-5)] ${serieMode ? '' : 'lg:grid-cols-[1fr_320px]'}`}>
+        {!serieMode && (
+          <Section
+            title={selectedMetricLabel}
+            desc={chartCapped ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
+          >
+            <MetricChart
+              data={chartData}
+              fmt={(n) => formatMetric(metric, n)}
+              emptyLabel={t('noSalesIn7Days')}
+            />
+          </Section>
+        )}
 
         <div className="flex flex-col gap-[var(--s-4)]">
           <Section title={t('quickActions')}>
@@ -539,9 +560,10 @@ export default function DashboardPage() {
 interface KpiCardProps {
   label: string;
   value: string;
-  delta: number;
-  sub: string;
-  spark: number[];
+  /** Omitted in série mode, where a single série has no previous period. */
+  delta?: number;
+  sub?: string;
+  spark?: number[];
   /** Optional ⓘ tooltip appended to the label for a metric that needs a caveat. */
   hint?: string;
 }
@@ -559,18 +581,19 @@ function kpiLabel(label: string, hint?: string) {
 }
 
 function KpiCard({ label, value, delta, sub, spark, hint }: KpiCardProps) {
-  const up = delta >= 0;
+  const hasDelta = delta !== undefined;
+  const up = (delta ?? 0) >= 0;
   return (
     <Kpi
       label={kpiLabel(label, hint)}
       value={
         <div className="flex items-baseline justify-between gap-[var(--s-3)] w-full">
           <span>{value}</span>
-          <Sparkline values={spark} up={up} />
+          {spark && spark.length > 0 && <Sparkline values={spark} up={up} />}
         </div>
       }
       sub={sub}
-      delta={{ value: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
+      delta={hasDelta ? { value: `${delta! >= 0 ? '+' : ''}${delta!.toFixed(1)}%`, direction: up ? 'up' : 'down' } : undefined}
     />
   );
 }

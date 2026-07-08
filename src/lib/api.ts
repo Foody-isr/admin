@@ -3668,6 +3668,22 @@ export async function fetchProductionDays(restaurantId: number): Promise<Product
   return data.days ?? [];
 }
 
+// A série = a distinct scheduled_for fulfillment date with its order count,
+// most recent first. Powers the série picker (Date de série mode).
+export interface OrderSerie {
+  date: string; // YYYY-MM-DD
+  order_count: number;
+}
+
+export async function fetchOrderSeries(restaurantId: number): Promise<OrderSerie[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  const data = await apiFetch<{ series: OrderSerie[] }>(
+    `/api/v1/orders/series?${qs.toString()}`,
+    restaurantId,
+  );
+  return data.series ?? [];
+}
+
 export interface KitchenPlanVariantCount {
   name: string;
   qty: number;
