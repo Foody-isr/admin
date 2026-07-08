@@ -26,7 +26,7 @@ import {
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
 import { CashTag } from '@/components/orders/CashTag';
 import {
-  initOrderPaymentLink, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
+  initOrderPaymentLink, collectOrderBalance, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
 } from '@/lib/api';
 import { Badge, Button, Drawer, Section } from '@/components/ds';
@@ -295,11 +295,21 @@ export function OrderDetailDrawer({
   const [payLinkError, setPayLinkError] = useState<string | null>(null);
   const [payLinkCopied, setPayLinkCopied] = useState(false);
 
+  // Balance-link retrieval (for paid orders whose items were edited after payment,
+  // leaving an uncollected balance). Mirrors the pay-link pattern above.
+  const [balanceLink, setBalanceLink] = useState<string | null>(null);
+  const [balanceLinkLoading, setBalanceLinkLoading] = useState(false);
+  const [balanceLinkError, setBalanceLinkError] = useState<string | null>(null);
+  const [balanceLinkCopied, setBalanceLinkCopied] = useState(false);
+
   // Reset the fetched link whenever a different order is opened in this drawer.
   useEffect(() => {
     setPayLink(null);
     setPayLinkError(null);
     setPayLinkCopied(false);
+    setBalanceLink(null);
+    setBalanceLinkError(null);
+    setBalanceLinkCopied(false);
   }, [order?.id]);
 
   if (!order) {
@@ -334,6 +344,35 @@ export function OrderDetailDrawer({
 
   const payLinkWhatsApp = payLink
     ? `https://wa.me/${(order.customer_phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${payLink}`)}`
+    : '';
+
+  const generateBalanceLink = async () => {
+    setBalanceLinkLoading(true);
+    setBalanceLinkError(null);
+    try {
+      const res = await collectOrderBalance(order.restaurant_id, order.id);
+      if (res.payment_url) setBalanceLink(res.payment_url);
+      else setBalanceLinkError(t('noPaymentUrl') || 'No payment link available');
+    } catch (err) {
+      setBalanceLinkError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBalanceLinkLoading(false);
+    }
+  };
+
+  const copyBalanceLink = async () => {
+    if (!balanceLink) return;
+    try {
+      await navigator.clipboard.writeText(balanceLink);
+      setBalanceLinkCopied(true);
+      setTimeout(() => setBalanceLinkCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const balanceLinkWhatsApp = balanceLink
+    ? `https://wa.me/${(order.customer_phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${balanceLink}`)}`
     : '';
 
   const currentStep = statusIndex(order.status);
@@ -1035,6 +1074,97 @@ export function OrderDetailDrawer({
                         )}
                       </div>
                     )}
+
+                    {/* Balance-due action block — shown when the server has computed
+                        an explicit balance_due amount (items added after payment that
+                        haven't been billed yet). Lets staff generate + share a top-up
+                        payment link without leaving the drawer. */}
+                    {(order.balance_due ?? 0) > 0 && (() => {
+                      const unpaidCount = (order.items ?? []).filter((i) => i.billed_at == null).length;
+                      return (
+                        <div
+                          className="mt-[var(--s-1)] flex flex-col gap-[var(--s-2)] rounded-md p-[var(--s-3)]"
+                          style={{
+                            background: 'color-mix(in oklab, var(--warning-500) 6%, var(--surface))',
+                            border: '1px solid color-mix(in oklab, var(--warning-500) 22%, var(--line))',
+                          }}
+                        >
+                          {/* Amount pill — the balance due, prominent but not alarming */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-[.05em]">
+                              {t('balanceToCollect')}
+                            </span>
+                            <span
+                              className="font-mono tabular-nums font-semibold text-fs-sm px-2 py-0.5 rounded-full"
+                              style={{
+                                background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
+                                color: 'var(--warning-600)',
+                              }}
+                            >
+                              ₪{order.balance_due!.toFixed(2)}
+                            </span>
+                          </div>
+                          {unpaidCount > 0 && (
+                            <span className="text-fs-xs text-[var(--fg-subtle)]">
+                              {t('balanceItemsUnpaid').replace('{n}', String(unpaidCount))}
+                            </span>
+                          )}
+
+                          {balanceLink ? (
+                            <>
+                              <div className="flex items-center gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)]">
+                                <span className="flex-1 truncate font-mono text-fs-xs">{balanceLink}</span>
+                                <Button variant="secondary" size="sm" onClick={copyBalanceLink}>
+                                  {balanceLinkCopied ? <CheckIcon /> : <CopyIcon />}
+                                  {balanceLinkCopied ? t('copied') : t('copyLink')}
+                                </Button>
+                              </div>
+                              {(order.customer_phone || '').replace(/\D/g, '') && (
+                                <a
+                                  href={balanceLinkWhatsApp}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                                >
+                                  <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
+                                </a>
+                              )}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-fs-xs text-[var(--fg-muted)] italic">
+                                  {t('awaitingBalancePayment')}
+                                </span>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={generateBalanceLink}
+                                  disabled={balanceLinkLoading}
+                                >
+                                  <RotateCcwIcon className="size-3" />
+                                  {balanceLinkLoading ? `${t('loading')}…` : t('regenerateBalanceLink')}
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={generateBalanceLink}
+                              disabled={balanceLinkLoading}
+                              style={{
+                                borderColor: 'color-mix(in oklab, var(--warning-500) 40%, var(--line-strong))',
+                                color: 'var(--warning-700)',
+                              }}
+                            >
+                              <LinkIcon className="size-3.5" />
+                              {balanceLinkLoading ? `${t('loading')}…` : t('generateBalanceLink')}
+                            </Button>
+                          )}
+                          {balanceLinkError && (
+                            <span className="text-fs-xs text-[var(--danger-500)]">{balanceLinkError}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
