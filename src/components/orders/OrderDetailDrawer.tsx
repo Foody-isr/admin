@@ -1870,7 +1870,10 @@ function OrderOverflowMenu({
 // listed below the original, each with its own Voir / Télécharger buttons.
 
 // Shape stored by the server in external_metadata.supplementary_invoices.
+// The server serializes `number` as a JSON string (Go string via datatypes.JSONMap),
+// so we accept string | number and normalize to a numeric docNum at parse time.
 interface SupplementaryInvoice {
+  /** Numeric Summit document number, derived from the raw string the server stores. */
   number: number;
   amount: number;
 }
@@ -1945,17 +1948,23 @@ function InvoiceSection({ order }: { order: Order }) {
   const [pdfError, setPdfError] = useState(false);
 
   // Parse supplementary_invoices safely — the field is typed as unknown in
-  // external_metadata, so we guard with Array.isArray and a shape check.
+  // external_metadata. The server serializes `number` as a JSON string (Go string
+  // via datatypes.JSONMap), so we must accept string | number and coerce. We keep
+  // only entries whose `number` coerces to a positive integer (valid Summit document
+  // number); non-numeric UIDs (e.g. PayPlus transaction IDs) are dropped, which is
+  // correct — PayPlus orders have no downloadable invoice UI anyway.
   const supplements: SupplementaryInvoice[] = Array.isArray(
     order.external_metadata?.supplementary_invoices,
   )
-    ? (order.external_metadata.supplementary_invoices as unknown[]).filter(
-        (s): s is SupplementaryInvoice =>
-          typeof s === 'object' &&
-          s !== null &&
-          typeof (s as Record<string, unknown>).number === 'number' &&
-          typeof (s as Record<string, unknown>).amount === 'number',
-      )
+    ? (order.external_metadata.supplementary_invoices as unknown[]).flatMap((s) => {
+        if (typeof s !== 'object' || s === null) return [];
+        const raw = s as Record<string, unknown>;
+        const docNum = Number(raw.number);
+        const amount = Number(raw.amount);
+        if (!Number.isInteger(docNum) || docNum <= 0) return [];
+        if (!Number.isFinite(amount)) return [];
+        return [{ number: docNum, amount }];
+      })
     : [];
 
   useEffect(() => {
