@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon, XIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { clampWeekStartDay, type WeekStartDay } from '@/lib/weeks';
 import { useI18n } from '@/lib/i18n';
-import {
-  getSavedDateRanges,
-  createSavedDateRange,
-  deleteSavedDateRange,
-  type SavedDateRange,
-} from '@/lib/api';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -28,8 +22,9 @@ interface DateRangePickerProps {
    *  day-of-week is not in this list are visually muted (still selectable).
    *  Omit to keep every cell at full opacity. */
   workdays?: number[];
-  /** When set, enables per-restaurant saved ranges (recurring filter windows
-   *  like "Vendredi à vendredi"). Omit to hide the saved-range UI entirely. */
+  /** Reserved: previously enabled per-restaurant saved ranges. The saved-range
+   *  UI is parked (backend kept dormant), so this is accepted but ignored for
+   *  now — callers can keep passing it until saved ranges are re-wired. */
   restaurantId?: number;
   /** Which edge of the trigger the dropdown aligns to. Default 'left' (opens
    *  toward the right — correct for a left-aligned filter bar). Use 'right' when
@@ -40,29 +35,12 @@ interface DateRangePickerProps {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** Locale-independent DD/MM/YYYY — matches the FR/HE audience (07/05 = 7 May). */
 function fmt(d: Date): string {
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
-}
-
-/** YYYY-MM-DD (local) for a native <input type="date"> value. */
-function toISOInput(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-/** Parses a YYYY-MM-DD input value to a local Date, or null when incomplete. */
-function parseISOInput(v: string): Date | null {
-  if (!v) return null;
-  const d = new Date(`${v}T00:00:00`);
-  return isNaN(d.getTime()) ? null : d;
 }
 
 function startOfDay(d: Date): Date {
@@ -107,28 +85,10 @@ function rotatedWeekdays(weekStartDay: WeekStartDay): number[] {
   return [...base.slice(weekStartDay), ...base.slice(0, weekStartDay)];
 }
 
-/** Inclusive day span of a range (1 = single day). */
-function rangeLengthDays(range: DateRange): number {
-  return Math.round((startOfDay(range.to).getTime() - startOfDay(range.from).getTime()) / DAY_MS) + 1;
-}
-
-/** Resolves a saved (recurring) range to its current occurrence: the window
- *  starts at the most recent `start_weekday` on or before `now`, and spans
- *  `length_days`. This is what keeps a saved "Friday→Friday" tracking the live
- *  week instead of freezing on the date it was created. */
-function resolveSavedRange(sr: SavedDateRange, now: Date): DateRange {
-  const from = startOfDay(now);
-  from.setDate(from.getDate() - ((from.getDay() - sr.start_weekday + 7) % 7));
-  const to = new Date(from);
-  to.setDate(to.getDate() + Math.max(0, sr.length_days - 1));
-  return { from, to: endOfDay(to) };
-}
-
 // ─── Presets ───────────────────────────────────────────────────────────────
 
-// A selectable entry in the left rail. `id` is stable (an i18n key for built-ins,
-// `saved-<id>` for saved ranges) and used for active-state matching; `label` is
-// the resolved display string.
+// A selectable entry in the left rail. `id` is the preset's i18n key, used for
+// active-state matching; `label` is the resolved display string.
 interface Entry {
   id: string;
   label: string;
@@ -191,7 +151,7 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: string; r
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ value, onChange, weekStartDay, workdays, restaurantId, align = 'left' }: DateRangePickerProps) {
+export default function DateRangePicker({ value, onChange, weekStartDay, workdays, align = 'left' }: DateRangePickerProps) {
   const { t, locale, direction } = useI18n();
   const wsd = clampWeekStartDay(weekStartDay);
   const weekdayCols = rotatedWeekdays(wsd);
@@ -201,9 +161,6 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
   const workdaySet = workdays && workdays.length > 0 ? new Set(workdays) : null;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  // The start-date input is focused (and its native picker opened) when the user
-  // clicks "Custom", giving that entry a concrete action.
-  const startInputRef = useRef<HTMLInputElement>(null);
 
   // Calendar state
   const [viewMonth, setViewMonth] = useState(value.to.getMonth());
@@ -213,12 +170,6 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
   const [picking, setPicking] = useState<'idle' | 'start' | 'end'>('idle');
   const [tempFrom, setTempFrom] = useState<Date>(value.from);
   const [tempTo, setTempTo] = useState<Date>(value.to);
-
-  // Saved (recurring) ranges + the inline "save this range" form.
-  const [savedRanges, setSavedRanges] = useState<SavedDateRange[]>([]);
-  const [naming, setNaming] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [savingRange, setSavingRange] = useState(false);
 
   // Close on outside click
   useEffect(() => {
@@ -235,29 +186,13 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
     setTempTo(value.to);
   }, [value]);
 
-  // Load the restaurant's saved ranges once (shared across staff/devices).
-  useEffect(() => {
-    if (!restaurantId) return;
-    let alive = true;
-    getSavedDateRanges(restaurantId)
-      .then((r) => { if (alive) setSavedRanges(r); })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [restaurantId]);
-
   const now = new Date();
   const monthLabel = new Intl.DateTimeFormat(localeTag(locale), { month: 'long', year: 'numeric' })
     .format(new Date(viewYear, viewMonth, 1));
 
-  const builtins = builtinPresets(wsd, now);
-  const builtinEntries: Entry[] = builtins.map((p) => ({ id: p.key, label: t(p.key), range: p.range }));
-  const savedEntries: Entry[] = savedRanges.map((sr) => ({
-    id: `saved-${sr.id}`,
-    label: sr.name,
-    range: resolveSavedRange(sr, now),
-  }));
-  const activeId = matchEntry(value, [...builtinEntries, ...savedEntries]);
-  const activeEntry = [...builtinEntries, ...savedEntries].find((e) => e.id === activeId) ?? null;
+  const builtinEntries: Entry[] = builtinPresets(wsd, now).map((p) => ({ id: p.key, label: t(p.key), range: p.range }));
+  const activeId = matchEntry(value, builtinEntries);
+  const activeEntry = builtinEntries.find((e) => e.id === activeId) ?? null;
   const isCustomActive = activeId === null;
 
   const days = daysInMonth(viewYear, viewMonth);
@@ -278,47 +213,6 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
     setTempTo(range.to);
     onChange(range);
     setOpen(false);
-  };
-
-  // Manual entry via the start/end date inputs. Commits live (so the filter
-  // updates) but keeps the dropdown open so the user can set both ends. An
-  // inverted range is clamped rather than rejected.
-  const applyStartInput = (v: string) => {
-    const d = parseISOInput(v);
-    if (!d) return;
-    const from = startOfDay(d);
-    const to = from > tempTo ? endOfDay(d) : tempTo;
-    setTempFrom(from);
-    setTempTo(to);
-    setPicking('idle');
-    setViewMonth(d.getMonth());
-    setViewYear(d.getFullYear());
-    onChange({ from, to });
-  };
-
-  const applyEndInput = (v: string) => {
-    const d = parseISOInput(v);
-    if (!d) return;
-    const to = endOfDay(d);
-    const from = to < tempFrom ? startOfDay(d) : tempFrom;
-    setTempFrom(from);
-    setTempTo(to);
-    setPicking('idle');
-    setViewMonth(d.getMonth());
-    setViewYear(d.getFullYear());
-    onChange({ from, to });
-  };
-
-  // "Custom" clears any active preset intent and jumps the user straight into
-  // manual entry by focusing the start field (and opening its native picker
-  // where supported) — otherwise the button would have nothing to do since the
-  // calendar is always visible.
-  const startCustom = () => {
-    setPicking('idle');
-    const el = startInputRef.current;
-    if (!el) return;
-    el.focus();
-    try { el.showPicker?.(); } catch { /* not a user gesture / unsupported */ }
   };
 
   const handleDayClick = (day: number) => {
@@ -344,44 +238,11 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
     }
   };
 
-  const saveCurrentRange = async () => {
-    if (!restaurantId) return;
-    const name = newName.trim();
-    if (!name || savingRange) return;
-    setSavingRange(true);
-    try {
-      const created = await createSavedDateRange(restaurantId, {
-        name,
-        start_weekday: value.from.getDay(),
-        length_days: rangeLengthDays(value),
-      });
-      setSavedRanges((prev) => [...prev, created]);
-      setNaming(false);
-      setNewName('');
-    } catch {
-      // Surface nothing intrusive; the button simply re-enables so staff can retry.
-    } finally {
-      setSavingRange(false);
-    }
-  };
-
-  const removeSavedRange = async (id: number) => {
-    if (!restaurantId) return;
-    const prev = savedRanges;
-    setSavedRanges((cur) => cur.filter((r) => r.id !== id)); // optimistic
-    try {
-      await deleteSavedDateRange(restaurantId, id);
-    } catch {
-      setSavedRanges(prev); // roll back on failure
-    }
-  };
-
   // Build calendar grid
   const calendarCells: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) calendarCells.push(null);
   for (let d = 1; d <= days; d++) calendarCells.push(d);
 
-  const railWidth = restaurantId ? 'w-48' : 'w-36';
   // 'right' aligns the wide dropdown to the trigger's end so it opens inward
   // (used in right-aligned headers). Mirrored under RTL. Default stays left-0.
   const dropdownAlignClass = align === 'right' ? (direction === 'rtl' ? 'left-0' : 'right-0') : 'left-0';
@@ -408,7 +269,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
           {/* Left: presets */}
-          <div className={`${railWidth} py-3 flex-shrink-0 max-h-[380px] overflow-y-auto`} style={{ borderRight: '1px solid var(--divider)' }}>
+          <div className="w-36 py-3 flex-shrink-0 max-h-[380px] overflow-y-auto" style={{ borderRight: '1px solid var(--divider)' }}>
             {builtinEntries.map((e) => {
               const isActive = activeId === e.id;
               return (
@@ -425,45 +286,10 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
               );
             })}
 
-            {/* Saved (recurring) ranges */}
-            {savedEntries.length > 0 && (
-              <div className="mt-1 pt-1" style={{ borderTop: '1px solid var(--divider)' }}>
-                {savedEntries.map((e) => {
-                  const isActive = activeId === e.id;
-                  const savedId = Number(e.id.slice('saved-'.length));
-                  return (
-                    <div
-                      key={e.id}
-                      className={`group flex items-center gap-1 px-4 py-1.5 transition-colors hover:bg-[var(--surface-subtle)] ${
-                        isActive ? 'bg-[var(--surface-subtle)]' : ''
-                      }`}
-                    >
-                      <button onClick={() => applyRange(e.range)} className="flex-1 min-w-0 text-left">
-                        <div className={`text-sm truncate ${isActive ? 'font-semibold text-fg-primary' : 'text-fg-secondary'}`}>
-                          {e.label}
-                        </div>
-                        <div className="text-[11px] text-fg-secondary opacity-70">
-                          {fmt(e.range.from)} – {fmt(e.range.to)}
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => removeSavedRange(savedId)}
-                        aria-label={t('drDeleteRange')}
-                        title={t('drDeleteRange')}
-                        className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-fg-secondary hover:text-fg-primary hover:bg-[var(--divider)] transition-all"
-                      >
-                        <XIcon className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
             {/* Custom (fallback) — highlights when the range matches no preset.
-                Clicking it jumps to manual date entry (see startCustom). */}
+                Pick a custom window by clicking two days on the calendar. */}
             <button
-              onClick={startCustom}
+              onClick={() => setPicking('idle')}
               className={`block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-[var(--surface-subtle)] ${
                 isCustomActive ? 'font-semibold text-fg-primary' : 'font-medium text-fg-primary'
               }`}
@@ -471,50 +297,6 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
             >
               {t('drCustom')}
             </button>
-
-            {/* Save-this-range action / inline name form */}
-            {restaurantId && (
-              naming ? (
-                <div className="px-3 pt-2">
-                  <input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveCurrentRange();
-                      if (e.key === 'Escape') { setNaming(false); setNewName(''); }
-                    }}
-                    placeholder={t('drRangeNamePlaceholder')}
-                    maxLength={60}
-                    className="w-full px-2 py-1.5 text-sm rounded-standard bg-transparent text-fg-primary outline-none focus:border-fg-primary"
-                    style={{ border: '1px solid var(--divider)' }}
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={saveCurrentRange}
-                      disabled={!newName.trim() || savingRange}
-                      className="flex-1 px-2 py-1.5 text-sm font-medium rounded-standard bg-fg-primary text-[var(--surface)] disabled:opacity-40 transition-opacity"
-                    >
-                      {t('drSave')}
-                    </button>
-                    <button
-                      onClick={() => { setNaming(false); setNewName(''); }}
-                      className="px-2 py-1.5 text-sm text-fg-secondary hover:text-fg-primary transition-colors"
-                    >
-                      {t('drCancel')}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setNaming(true)}
-                  className="mt-1 flex items-center gap-1.5 w-full text-left px-4 py-2 text-sm text-fg-secondary hover:text-fg-primary hover:bg-[var(--surface-subtle)] transition-colors"
-                >
-                  <PlusIcon className="w-3.5 h-3.5" />
-                  {t('drSaveThisRange')}
-                </button>
-              )
-            )}
           </div>
 
           {/* Right: calendar */}
@@ -579,28 +361,16 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
               })}
             </div>
 
-            {/* Start / End date inputs — editable, so "Custom" has a real
-                target and exact dates can be typed or picked directly. */}
+            {/* Start / End date display */}
             <div className="grid grid-cols-2 gap-3 mt-4">
-              <label className="px-3 py-2 rounded-standard block cursor-text" style={{ border: '1px solid var(--divider)' }}>
-                <span className="block text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drStartDate')}</span>
-                <input
-                  ref={startInputRef}
-                  type="date"
-                  value={toISOInput(tempFrom)}
-                  onChange={(e) => applyStartInput(e.target.value)}
-                  className="w-full bg-transparent text-sm text-fg-primary mt-0.5 outline-none"
-                />
-              </label>
-              <label className="px-3 py-2 rounded-standard block cursor-text" style={{ border: '1px solid var(--divider)' }}>
-                <span className="block text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drEndDate')}</span>
-                <input
-                  type="date"
-                  value={toISOInput(tempTo)}
-                  onChange={(e) => applyEndInput(e.target.value)}
-                  className="w-full bg-transparent text-sm text-fg-primary mt-0.5 outline-none"
-                />
-              </label>
+              <div className="px-3 py-2 rounded-standard" style={{ border: '1px solid var(--divider)' }}>
+                <div className="text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drStartDate')}</div>
+                <div className="text-sm text-fg-primary mt-0.5">{fmt(tempFrom)}</div>
+              </div>
+              <div className="px-3 py-2 rounded-standard" style={{ border: '1px solid var(--divider)' }}>
+                <div className="text-[10px] font-medium text-fg-secondary uppercase tracking-wider">{t('drEndDate')}</div>
+                <div className="text-sm text-fg-primary mt-0.5">{fmt(tempTo)}</div>
+              </div>
             </div>
           </div>
         </div>
