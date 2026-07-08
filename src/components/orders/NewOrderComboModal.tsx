@@ -62,12 +62,16 @@ interface NewOrderComboModalProps {
   combo: MenuItem | null;
   restaurantId: number;
   itemMap: Map<number, MenuItem>;
+  // Selected série/batch ISO date for a weekly-rotating carte, so group steps
+  // resolve to the same week as the à-la-carte items. null on a non-rotating
+  // carte (the server then resolves at today).
+  serieDate?: string | null;
   open: boolean;
   onClose: () => void;
   onAdd: (line: NewOrderLine) => void;
 }
 
-export function NewOrderComboModal({ combo, restaurantId, itemMap, open, onClose, onAdd }: NewOrderComboModalProps) {
+export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, open, onClose, onAdd }: NewOrderComboModalProps) {
   const { t } = useI18n();
   const steps = useMemo(() => (combo?.combo_steps ?? []).filter((s) => s.id != null), [combo]);
 
@@ -96,6 +100,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, open, onClose
               sourceType: 'group',
               sourceId: step.source_group_id,
               variantLabel: step.source_variant_label ?? undefined,
+              serieDate: serieDate ?? undefined,
             });
             resolved[step.id as number] = items.map((it) => ({
               key: `${it.menu_item_id}:${it.option_id ?? ''}`,
@@ -114,7 +119,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, open, onClose
       if (!cancelled) setGroupItems(resolved);
     })();
     return () => { cancelled = true; };
-  }, [combo, open, steps, restaurantId, itemMap]);
+  }, [combo, open, steps, restaurantId, itemMap, serieDate]);
 
   if (!combo) return null;
   const activeCombo = combo;

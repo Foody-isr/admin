@@ -1006,6 +1006,19 @@ export interface ComparisonResult {
 // Named-period totals (session-grouped) for the dashboard period toggle.
 export type AnalyticsRange = 'today' | 'yesterday' | 'week' | 'month';
 
+/** Analytics period scope: a named preset OR an explicit inclusive date window
+ *  (YYYY-MM-DD). The server resolves from/to against the restaurant's timezone
+ *  and computes the previous period as the equal-length window before it. */
+export type AnalyticsScope = AnalyticsRange | { from: string; to: string };
+
+/** Serializes an analytics scope into query params for the period/top-sellers
+ *  endpoints. A string becomes `range=`, a window becomes `from=&to=`. */
+function analyticsScopeParams(scope?: AnalyticsScope): Record<string, string> {
+  if (!scope) return {};
+  if (typeof scope === 'string') return { range: scope };
+  return { from: scope.from, to: scope.to };
+}
+
 export interface RangeSummary {
   total_orders: number;
   total_revenue: number;
@@ -1984,7 +1997,7 @@ export interface ComboStepPreviewItem {
  *  drift from checkout the way the old client-side estimate did. */
 export async function resolveComboStepPreview(
   restaurantId: number,
-  params: { sourceType: 'group'; sourceId: number; variantLabel?: string },
+  params: { sourceType: 'group'; sourceId: number; variantLabel?: string; serieDate?: string },
 ): Promise<{ items: ComboStepPreviewItem[]; count: number }> {
   const qs = new URLSearchParams({
     restaurant_id: String(restaurantId),
@@ -1993,6 +2006,11 @@ export async function resolveComboStepPreview(
   });
   if (params.variantLabel && params.variantLabel.trim()) {
     qs.set('variant_label', params.variantLabel.trim());
+  }
+  // Scope a rotating carte's group step to the batch/série the caller is ordering
+  // for (the manual-order picker passes the operator's selected série date).
+  if (params.serieDate && params.serieDate.trim()) {
+    qs.set('serie_date', params.serieDate.trim());
   }
   const data = await apiFetch<{ items: ComboStepPreviewItem[]; count: number }>(
     `/api/v1/menu/combo/resolve-preview?${qs.toString()}`, restaurantId,
@@ -3618,10 +3636,12 @@ export async function getAnalyticsToday(restaurantId: number): Promise<TodayStat
 
 export async function getTopSellers(
   restaurantId: number,
-  range?: AnalyticsRange
+  scope?: AnalyticsScope
 ): Promise<TopSeller[]> {
-  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  if (range) params.set('range', range);
+  const params = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    ...analyticsScopeParams(scope),
+  });
   const data = await apiFetch<{ top_items: TopSeller[] }>(
     `/api/v1/analytics/top-sellers?${params}`, restaurantId
   );
@@ -3657,11 +3677,11 @@ export async function getDayComparison(
 
 export async function getPeriodSummary(
   restaurantId: number,
-  range: AnalyticsRange
+  scope: AnalyticsScope
 ): Promise<PeriodComparison> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
-    range,
+    ...analyticsScopeParams(scope),
   });
   return apiFetch<PeriodComparison>(
     `/api/v1/analytics/period?${params}`, restaurantId

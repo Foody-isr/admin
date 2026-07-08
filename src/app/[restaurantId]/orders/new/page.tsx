@@ -696,6 +696,7 @@ export default function NewOrderPage() {
         combo={comboItem}
         restaurantId={restaurantId}
         itemMap={itemMap}
+        serieDate={isRotating ? selectedDay : null}
         open={comboItem !== null}
         onClose={() => setComboItem(null)}
         onAdd={addLine}
