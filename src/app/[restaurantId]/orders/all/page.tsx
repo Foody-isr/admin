@@ -612,6 +612,7 @@ export default function OrdersPage() {
             onChange={(range) => { setDateRange(range); setPage(0); }}
             weekStartDay={weekStartDay}
             workdays={workdays}
+            restaurantId={rid}
           />
 
           <FilterDropdown
