@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { XIcon } from 'lucide-react';
 import { getAnalyticsCustomerDetail, CustomerDetailResponse } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { formatDeliveryAddress } from '@/lib/delivery-address';
 
 const labelKeyMap: Record<string, string> = {
   dine_in: 'labelDineIn',
@@ -221,6 +222,38 @@ export default function CustomerDetailPanel({
                 </div>
               )}
             </div>
+
+            {/* Delivery Addresses — every distinct place this customer has had
+                orders delivered to, so a new address on a fresh order reads as
+                the same person delivering elsewhere, not a wrong merge. */}
+            {detail.addresses.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-fg-primary mb-2">{t('deliveryAddresses')}</h4>
+                <div className="space-y-2">
+                  {detail.addresses.map((a) => {
+                    const fmt = formatDeliveryAddress(
+                      { address: a.address, city: a.city, floor: a.floor, apt: a.apt, entryCode: a.entry_code },
+                      t,
+                    );
+                    return (
+                      <div
+                        key={`${a.address}|${a.city}|${a.floor}|${a.apt}`}
+                        className="flex items-start justify-between gap-3 border-b border-divider pb-2 last:border-0 last:pb-0"
+                      >
+                        <div className="flex flex-col leading-tight min-w-0">
+                          <span className="text-xs text-fg-primary">{fmt?.line1 || '—'}</span>
+                          {fmt?.line2 && <span className="text-[11px] text-fg-secondary">{fmt.line2}</span>}
+                        </div>
+                        <div className="flex flex-col items-end text-[11px] text-fg-secondary whitespace-nowrap">
+                          <span>{t('usedNTimes').replace('{count}', String(a.order_count))}</span>
+                          <span>{t('lastUsedOn')} {new Date(a.last_used).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Order History */}
             <div>

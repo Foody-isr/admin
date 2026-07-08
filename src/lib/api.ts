@@ -1098,10 +1098,23 @@ export interface MonthlySpend {
   order_count: number;
 }
 
+/** A distinct delivery address the customer has used, with usage stats. */
+export interface CustomerAddress {
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  entry_code: string;
+  order_count: number;
+  last_used: string;
+}
+
 export interface CustomerDetailResponse extends CustomerInsight {
   orders: OrderBrief[];
   product_breakdown: ProductBreakdown[];
   monthly_spending: MonthlySpend[];
+  /** Every distinct delivery address used, most-recent first. */
+  addresses: CustomerAddress[];
 }
 
 // ─── Stock & Kitchen Types ───────────────────────────────────────────────────
@@ -3066,6 +3079,29 @@ export async function overrideOrderStatus(
     method: 'PUT',
     body: JSON.stringify({ status, note }),
   });
+  return data.order;
+}
+
+// overrideOrderPaymentStatus manually corrects an order's payment status
+// (paid ⇄ unpaid ⇄ pending), bypassing the forward-only payment transition rule.
+// Owner/manager only, and only for cash/manual orders (provider-settled orders
+// are rejected server-side and must be refunded). Silent for the customer, but
+// refreshes POS/admin screens and is audit-logged. For undoing a mistake such as
+// an internal order wrongly marked "paid in cash".
+export async function overrideOrderPaymentStatus(
+  restaurantId: number,
+  orderId: number,
+  paymentStatus: PaymentStatus,
+  note = '',
+): Promise<Order> {
+  const data = await apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/payment-status/override?restaurant_id=${restaurantId}`,
+    restaurantId,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ payment_status: paymentStatus, note }),
+    },
+  );
   return data.order;
 }
 

@@ -12,7 +12,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
   SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
-  RotateCcwIcon, ScaleIcon,
+  RotateCcwIcon, ScaleIcon, BanknoteIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -246,7 +246,7 @@ function statusIndex(status: string) {
 // ─── Order Detail Drawer — 1060px, matches design-reference/order-details.jsx ────
 
 export function OrderDetailDrawer({
-  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onSendToKitchen, onMarkReady, onMarkServed,
+  order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onCorrectPayment, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit, onConfirmWeights,
   restaurantInfo, customFieldLabels,
@@ -261,6 +261,8 @@ export function OrderDetailDrawer({
   onReject: () => void;
   onDelete?: () => void;
   onOverride?: () => void;
+  /** Opens the correct-payment dialog (owner/manager, cash/manual orders only). */
+  onCorrectPayment?: () => void;
   onSendToKitchen: () => void;
   onMarkReady: () => void;
   onMarkServed: () => void;
@@ -481,6 +483,19 @@ export function OrderDetailDrawer({
   // "served"/"delivered" by mistake can be walked back. Excluded for cancelled
   // and not-yet-started (scheduled) orders, which keep their own flows.
   const canCorrectStatus = !!canOverride && !isCancelled && !isScheduled;
+  // Manual payment correction (paid ⇄ unpaid) is offered only for cash/manual
+  // orders — provider-settled orders (PayPlus/Summit, or a weight-based hold)
+  // moved real money and must be refunded, never data-corrected. Mirrors the
+  // server guard; the server rejects anyway, this just hides an option that
+  // would always fail. Owner/manager only (gated by canOverride).
+  const isProviderSettled =
+    (order.hold_amount ?? 0) > 0 ||
+    (order.captured_amount ?? 0) > 0 ||
+    !!order.settlement_status ||
+    ['payplus', 'sumit'].includes(
+      String(order.external_metadata?.payment_method ?? '').toLowerCase(),
+    );
+  const canCorrectPayment = !!canOverride && !isCancelled && !isProviderSettled;
   // Items can be edited while the order is still in progress (not cancelled or
   // already served/delivered/rejected).
   const canEditOrder = !isCancelled && !isTerminal;
@@ -604,12 +619,14 @@ export function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {canManage && (canCorrectStatus || canCancelOrder || (canDelete && !!onDelete)) && (
+            {canManage && (canCorrectStatus || canCorrectPayment || canCancelOrder || (canDelete && !!onDelete)) && (
               <OrderOverflowMenu
                 canCorrect={canCorrectStatus && !!onOverride}
+                canCorrectPayment={canCorrectPayment && !!onCorrectPayment}
                 canCancel={canCancelOrder}
                 canDelete={!!(canDelete && onDelete)}
                 onCorrect={onOverride}
+                onCorrectPayment={onCorrectPayment}
                 onCancel={onReject}
                 onDelete={onDelete}
                 disabled={isLoading}
@@ -1509,12 +1526,14 @@ function SendToCustomerMenu({ order }: { order: Order }) {
 // footer); both items are danger-colored.
 
 function OrderOverflowMenu({
-  canCorrect, canCancel, canDelete, onCorrect, onCancel, onDelete, disabled,
+  canCorrect, canCorrectPayment, canCancel, canDelete, onCorrect, onCorrectPayment, onCancel, onDelete, disabled,
 }: {
   canCorrect?: boolean;
+  canCorrectPayment?: boolean;
   canCancel: boolean;
   canDelete: boolean;
   onCorrect?: () => void;
+  onCorrectPayment?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
   disabled?: boolean;
@@ -1560,7 +1579,16 @@ function OrderOverflowMenu({
               <RotateCcwIcon className="size-4" /> {t('correctStatus') || 'Corriger le statut'}
             </button>
           )}
-          {canCorrect && onCorrect && (canCancel || canDelete) && (
+          {canCorrectPayment && onCorrectPayment && (
+            <button
+              onClick={() => { setOpen(false); onCorrectPayment(); }}
+              className={itemClass}
+              style={{ color: 'var(--fg)' }}
+            >
+              <BanknoteIcon className="size-4" /> {t('correctPayment') || 'Corriger le paiement'}
+            </button>
+          )}
+          {((canCorrect && onCorrect) || (canCorrectPayment && onCorrectPayment)) && (canCancel || canDelete) && (
             <div className="my-1 h-px" style={{ background: 'var(--divider)' }} />
           )}
           {canCancel && (
