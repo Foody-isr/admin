@@ -31,6 +31,11 @@ interface DateRangePickerProps {
   /** When set, enables per-restaurant saved ranges (recurring filter windows
    *  like "Vendredi à vendredi"). Omit to hide the saved-range UI entirely. */
   restaurantId?: number;
+  /** Which edge of the trigger the dropdown aligns to. Default 'left' (opens
+   *  toward the right — correct for a left-aligned filter bar). Use 'right' when
+   *  the trigger sits on the right of its row (e.g. a page header) so the wide
+   *  dropdown opens inward instead of overflowing the viewport. RTL-aware. */
+  align?: 'left' | 'right';
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -171,8 +176,8 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: string; r
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ value, onChange, weekStartDay, workdays, restaurantId }: DateRangePickerProps) {
-  const { t, locale } = useI18n();
+export default function DateRangePicker({ value, onChange, weekStartDay, workdays, restaurantId, align = 'left' }: DateRangePickerProps) {
+  const { t, locale, direction } = useI18n();
   const wsd = clampWeekStartDay(weekStartDay);
   const weekdayCols = rotatedWeekdays(wsd);
   // `null` workdays (rather than a 7-day default) lets the picker skip the
@@ -318,6 +323,9 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
   for (let d = 1; d <= days; d++) calendarCells.push(d);
 
   const railWidth = restaurantId ? 'w-48' : 'w-36';
+  // 'right' aligns the wide dropdown to the trigger's end so it opens inward
+  // (used in right-aligned headers). Mirrored under RTL. Default stays left-0.
+  const dropdownAlignClass = align === 'right' ? (direction === 'rtl' ? 'left-0' : 'right-0') : 'left-0';
 
   return (
     <div className="relative" ref={ref}>
@@ -337,7 +345,7 @@ export default function DateRangePicker({ value, onChange, weekStartDay, workday
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute top-full left-0 mt-1 z-50 shadow-xl rounded-card flex overflow-hidden"
+          className={`absolute top-full ${dropdownAlignClass} mt-1 z-50 shadow-xl rounded-card flex overflow-hidden`}
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
           {/* Left: presets */}

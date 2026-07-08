@@ -6,27 +6,100 @@ import {
   getPeriodSummary,
   getTopSellers,
   getDailySeries,
+  getRestaurant,
   listOrders,
-  type AnalyticsRange,
   type PeriodComparison,
   type DaySummary,
   type TopSeller,
   type Order,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { usePersistentEnum } from '@/lib/use-persistent-enum';
+import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
+import {
+  clampWeekStartDay,
+  getEffectiveWorkdays,
+  getWeekStart,
+  addDays,
+  isoDate,
+  type WeekStartDay,
+} from '@/lib/weeks';
 import { Calendar, RefreshCw, DollarSign, Edit, Plus, Package } from 'lucide-react';
 import { Badge, Button, Kpi, PageHead, Section } from '@/components/ds';
 import { InfoTip } from '@/components/help/InfoTip';
 
-type Range = AnalyticsRange;
 type MetricKey = 'revenue' | 'orders' | 'avgTicket' | 'itemsSold';
 
 // The dashboard period is remembered across navigation as a single shared
-// preference (not per-restaurant), so picking "7 derniers jours" sticks until
-// the user changes it. Persisted via usePersistentEnum, like the locale.
-const RANGES: Range[] = ['yesterday', 'today', 'week', 'month'];
-const RANGE_STORAGE_KEY = 'foody.dashboard.range';
+// preference. Rolling presets (today, last 7 days, this week…) are stored as a
+// re-resolving KEY so they stay fresh across days; a custom or saved window is
+// stored as literal dates. Bumped to v2 when the enum toggle became the picker.
+const RANGE_STORAGE_KEY = 'foody.dashboard.range.v2';
+
+type RollingPreset = 'today' | 'yesterday' | 'last7' | 'last30' | 'thisWeek' | 'thisMonth';
+type StoredSel = { preset: RollingPreset } | { from: string; to: string };
+const ROLLING_PRESETS: RollingPreset[] = ['today', 'yesterday', 'last7', 'last30', 'thisWeek', 'thisMonth'];
+
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function sameYMD(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** Inclusive day span of a range (1 = single day). */
+function daysInclusive(range: DateRange): number {
+  const strip = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.round((strip(range.to) - strip(range.from)) / 86_400_000) + 1;
+}
+
+/** Resolves a rolling preset to a concrete [from, to] window for "now", so a
+ *  stored "today" / "this week" re-resolves each day instead of freezing. */
+function resolvePreset(preset: RollingPreset, wsd: WeekStartDay): DateRange {
+  const today = startOfToday();
+  switch (preset) {
+    case 'yesterday': { const d = addDays(today, -1); return { from: d, to: d }; }
+    case 'last7': return { from: addDays(today, -6), to: today };
+    case 'last30': return { from: addDays(today, -29), to: today };
+    case 'thisWeek': return { from: getWeekStart(today, wsd), to: today };
+    case 'thisMonth': return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today };
+    default: return { from: today, to: today };
+  }
+}
+
+/** Classifies a picked window as a re-resolvable rolling preset when it matches
+ *  one for today, else as literal dates (custom + saved windows freeze). */
+function classifySelection(range: DateRange, wsd: WeekStartDay): StoredSel {
+  for (const p of ROLLING_PRESETS) {
+    const r = resolvePreset(p, wsd);
+    if (sameYMD(r.from, range.from) && sameYMD(r.to, range.to)) return { preset: p };
+  }
+  return { from: isoDate(range.from), to: isoDate(range.to) };
+}
+
+function resolveStored(sel: StoredSel, wsd: WeekStartDay): DateRange {
+  if ('preset' in sel) return resolvePreset(sel.preset, wsd);
+  return { from: new Date(`${sel.from}T00:00:00`), to: new Date(`${sel.to}T00:00:00`) };
+}
+
+function readStoredSel(): StoredSel | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(RANGE_STORAGE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (v && (typeof v.preset === 'string' || (typeof v.from === 'string' && typeof v.to === 'string'))) {
+      return v as StoredSel;
+    }
+  } catch { /* malformed — ignore */ }
+  return null;
+}
+
+function writeStoredSel(sel: StoredSel): void {
+  try { localStorage.setItem(RANGE_STORAGE_KEY, JSON.stringify(sel)); } catch { /* quota / private mode */ }
+}
 
 const DATE_LOCALES: Record<'en' | 'he' | 'fr', string> = {
   en: 'en-US',
@@ -102,11 +175,6 @@ function paymentColor(status: string): string {
   }
 }
 
-function isoDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 export default function DashboardPage() {
   const { restaurantId } = useParams();
@@ -115,34 +183,48 @@ export default function DashboardPage() {
   const { t, locale } = useI18n();
   const dateLocale = DATE_LOCALES[locale];
 
-  const RANGE_LABELS: Record<Range, string> = {
-    yesterday: t('yesterday'),
-    today: t('today'),
-    week: t('days7'),
-    month: t('days30'),
-  };
-
   const [period, setPeriod] = useState<PeriodComparison | null>(null);
   const [topSellers, setTopSellers] = useState<TopSeller[]>([]);
   const [series, setSeries] = useState<DaySummary[]>([]);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  // Persisted across navigation. `hydrated` gates the first fetch until the
-  // stored period is restored, so we load once with the right range instead of
-  // fetching 'today' then re-fetching.
-  const [range, setRange, hydrated] = usePersistentEnum<Range>(RANGE_STORAGE_KEY, 'today', RANGES);
+
+  // First day of week + workdays drive the picker (same config as the orders list).
+  const [wsd, setWsd] = useState<WeekStartDay>(1);
+  const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  // The selected window. `ready` gates the first fetch until the restaurant's
+  // week config is loaded and the persisted selection is hydrated (rolling
+  // presets re-resolved against today), so we load once with the right window.
+  const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('today', 1));
+  const [ready, setReady] = useState(false);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
 
+  useEffect(() => {
+    if (!rid) return;
+    getRestaurant(rid)
+      .then((r) => {
+        const w = clampWeekStartDay(r.week_start_day);
+        setWsd(w);
+        setWorkdays(getEffectiveWorkdays(r));
+        const stored = readStoredSel();
+        if (stored) setDateRange(resolveStored(stored, w));
+      })
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, [rid]);
+
   const load = useCallback(() => {
     setLoading(true);
-    // Chart window follows the period: 30 daily points for the month, 7 otherwise.
-    const seriesDays = range === 'month' ? 30 : 7;
-    const endISO = range === 'yesterday' ? isoDaysAgo(1) : undefined;
+    const fromISO = isoDate(dateRange.from);
+    const toISO = isoDate(dateRange.to);
+    // The daily chart spans the window (server caps at 90 points); KPIs and
+    // top-sellers always cover the full range.
+    const days = daysInclusive(dateRange);
     Promise.allSettled([
-      getPeriodSummary(rid, range),
-      getTopSellers(rid, range),
-      getDailySeries(rid, seriesDays, endISO),
+      getPeriodSummary(rid, { from: fromISO, to: toISO }),
+      getTopSellers(rid, { from: fromISO, to: toISO }),
+      getDailySeries(rid, days, toISO),
       listOrders(rid, { limit: 6, sort_by: 'created_at', sort_dir: 'desc' }),
     ])
       .then(([per, top, daily, orders]) => {
@@ -152,28 +234,36 @@ export default function DashboardPage() {
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
       })
       .finally(() => setLoading(false));
-  }, [rid, range]);
+  }, [rid, dateRange]);
 
   useEffect(() => {
-    if (hydrated) load();
-  }, [load, hydrated]);
+    if (ready) load();
+  }, [load, ready]);
+
+  // Persist the picked window; rolling presets store a re-resolving key.
+  const onPickRange = useCallback((range: DateRange) => {
+    setDateRange(range);
+    writeStoredSel(classifySelection(range, wsd));
+  }, [wsd]);
 
   const current = period?.current;
   const previous = period?.previous;
 
-  const rangeWord = RANGE_LABELS[range].toLowerCase();
-  const vsLabel = range === 'today' ? t('vsYesterday') : t('vsPreviousPeriod');
+  const singleDay = sameYMD(dateRange.from, dateRange.to);
+  const vsLabel = singleDay ? t('vsYesterday') : t('vsPreviousPeriod');
+  const chartCapped = daysInclusive(dateRange) > 90;
 
   // Human label for the active window. `end` is exclusive (next midnight), so the
   // multi-day form shows the inclusive last day.
   const periodRangeLabel = useMemo(() => {
     if (!current) return '';
     const fmtShort = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale);
-    if (range === 'today' || range === 'yesterday') return fmtShort(current.start);
+    const startD = new Date(`${current.start}T00:00:00`);
     const lastDay = new Date(`${current.end}T00:00:00`);
     lastDay.setDate(lastDay.getDate() - 1);
+    if (sameYMD(startD, lastDay)) return fmtShort(current.start);
     return `${fmtShort(current.start)} → ${lastDay.toLocaleDateString(dateLocale)}`;
-  }, [current, range, dateLocale]);
+  }, [current, dateLocale]);
 
   // KPI definitions, driven by the period totals. Presentational only.
   const metrics: { key: MetricKey; label: string; value: string; delta: number; hint?: string }[] = [
@@ -240,26 +330,14 @@ export default function DashboardPage() {
         desc={fmtDate(new Date(), dateLocale)}
         actions={
           <>
-            <div className="inline-flex items-center gap-0.5 bg-[var(--surface-2)] p-1 rounded-r-md">
-              {(['yesterday', 'today', 'week', 'month'] as const).map((r) => {
-                const active = range === r;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setRange(r)}
-                    className={`inline-flex items-center h-[30px] px-[var(--s-3)] rounded-r-sm text-fs-sm font-medium transition-colors duration-fast ${
-                      active
-                        ? 'bg-[var(--surface)] text-[var(--fg)] shadow-1'
-                        : 'text-[var(--fg-muted)] hover:text-[var(--fg)]'
-                    }`}
-                  >
-                    {RANGE_LABELS[r]}
-                  </button>
-                );
-              })}
-            </div>
+            <DateRangePicker
+              value={dateRange}
+              onChange={onPickRange}
+              weekStartDay={wsd}
+              workdays={workdays}
+              restaurantId={rid}
+              align="right"
+            />
             <Button variant="ghost" size="md" icon aria-label={t('refresh')} onClick={load}>
               <RefreshCw />
             </Button>
@@ -301,7 +379,10 @@ export default function DashboardPage() {
 
       {/* Main row: chart + right rail */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-[var(--s-5)] mb-[var(--s-5)]">
-        <Section title={selectedMetricLabel} desc={periodRangeLabel}>
+        <Section
+          title={selectedMetricLabel}
+          desc={chartCapped ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
+        >
           <MetricChart
             data={chartData}
             fmt={(n) => formatMetric(metric, n)}
