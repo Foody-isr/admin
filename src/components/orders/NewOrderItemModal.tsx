@@ -4,8 +4,9 @@ import { useMemo, useState } from 'react';
 import { Drawer, Field, Textarea } from '@/components/ds';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import type { MenuItem, MenuItemModifier } from '@/lib/api';
-import { itemSizeOptions, itemSizeGroupLabel, type ItemSizeOption } from '@/lib/item-options';
+import { itemSizeOptions, itemSizeGroupLabel, isSizeOrderable, type ItemSizeOption } from '@/lib/item-options';
 
 // ─── Cart line model (shared with the order-builder page) ────────────────────
 
@@ -105,7 +106,9 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   const [seedItemId, setSeedItemId] = useState<number | null>(null);
   if (item && item.id !== seedItemId) {
     setSeedItemId(item.id);
-    setVariantId(variants[0]?.id);
+    // Default to the first orderable size (matches guest apps), not blindly the
+    // first — a sold-out lead size would otherwise pre-select an unorderable line.
+    setVariantId((variants.find(isSizeOrderable) ?? variants[0])?.id);
     setCheckedMods(
       new Set(
         modifierGroups.flatMap((g) => g.modifiers).filter((m) => m.is_preselected).map((m) => m.id),
@@ -119,6 +122,8 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   const activeItem = item;
 
   const selectedVariant: ItemSizeOption | undefined = variants.find((v) => v.id === variantId);
+  // Block adding a sold-out size — the order-time guard would reject it anyway.
+  const selectedSoldOut = !!selectedVariant && !isSizeOrderable(selectedVariant);
   const allMods = modifierGroups.flatMap((g) => g.modifiers);
   const appliedMods: NewOrderLineModifier[] = allMods
     .filter((m) => checkedMods.has(m.id))
@@ -140,6 +145,7 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
   }
 
   function handleAdd() {
+    if (selectedSoldOut) return;
     onAdd({
       uid: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${activeItem.id}-${Date.now()}`,
       item: activeItem,
@@ -162,7 +168,12 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
       subtitle={item.description || undefined}
       width={520}
       onSave={handleAdd}
-      saveLabel={`${t('addToOrder')} · ₪${(previewUnit * Math.max(1, quantity)).toFixed(2)}`}
+      saveDisabled={selectedSoldOut}
+      saveLabel={
+        selectedSoldOut
+          ? t('outOfStock')
+          : `${t('addToOrder')} · ₪${(previewUnit * Math.max(1, quantity)).toFixed(2)}`
+      }
     >
       <div className="flex flex-col gap-[var(--s-5)]">
         {variants.length > 0 && (
@@ -171,23 +182,36 @@ export function NewOrderItemModal({ item, open, onClose, onAdd }: NewOrderItemMo
               {itemSizeGroupLabel(activeItem) || t('size')}
             </span>
             <div className="flex flex-col gap-1.5">
-              {variants.map((v) => (
-                <label
-                  key={v.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-[var(--line)] px-[var(--s-3)] py-2 cursor-pointer hover:border-[var(--fg-subtle)]"
-                >
-                  <span className="flex items-center gap-2 text-fs-sm">
-                    <input
-                      type="radio"
-                      name="variant"
-                      checked={variantId === v.id}
-                      onChange={() => setVariantId(v.id)}
-                    />
-                    {v.name}
-                  </span>
-                  <span className="font-mono tabular-nums text-fs-sm">₪{v.price.toFixed(2)}</span>
-                </label>
-              ))}
+              {variants.map((v) => {
+                const soldOut = !isSizeOrderable(v);
+                return (
+                  <label
+                    key={v.id}
+                    className={cn(
+                      'flex items-center justify-between gap-3 rounded-md border border-[var(--line)] px-[var(--s-3)] py-2',
+                      soldOut ? 'cursor-not-allowed opacity-55' : 'cursor-pointer hover:border-[var(--fg-subtle)]',
+                    )}
+                  >
+                    <span className="flex items-center gap-2 text-fs-sm">
+                      <input
+                        type="radio"
+                        name="variant"
+                        checked={variantId === v.id}
+                        disabled={soldOut}
+                        onChange={() => setVariantId(v.id)}
+                      />
+                      {v.name}
+                    </span>
+                    {soldOut ? (
+                      <span className="text-fs-xs font-medium uppercase tracking-wide text-[var(--danger-500)]">
+                        {t('outOfStock')}
+                      </span>
+                    ) : (
+                      <span className="font-mono tabular-nums text-fs-sm">₪{v.price.toFixed(2)}</span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
           </div>
         )}

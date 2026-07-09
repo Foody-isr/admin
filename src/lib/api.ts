@@ -1518,6 +1518,21 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+/** Error thrown by apiFetch on a non-ok response. `message` is the server's
+ *  top-level `error` (a short code/label); `details` carries the human-readable
+ *  `details` field when present (e.g. "CAVIAR (250g) is sold out…"), so callers
+ *  can show the specific reason instead of the generic message. */
+export class ApiError extends Error {
+  status: number;
+  details?: string;
+  constructor(message: string, status: number, details?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   restaurantId?: number,
@@ -1541,7 +1556,8 @@ export async function apiFetch<T>(
       return new Promise<never>(() => {});
     }
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || body.message || `API error ${res.status}`);
+    const detail = typeof body.details === 'string' ? body.details : undefined;
+    throw new ApiError(body.error || body.message || `API error ${res.status}`, res.status, detail);
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') {
     return undefined as T;
@@ -2595,6 +2611,12 @@ export interface OptionSetOption {
    *  True when this option is combo-only on the surrounding item — should be
    *  excluded from à la carte price ranges and cost summaries. */
   is_combo_only?: boolean;
+  /** Computed per-size availability ("available" | "sold_out") under the parent
+   *  item's stock config. Transient — stamped by the menu service on staff menu
+   *  responses. Empty when the item isn't per-size tracked. */
+  availability_state?: AvailabilityState;
+  /** Units left for this size when known (per-variant pool). */
+  stock_remaining?: number | null;
   /** Per-locale name overrides. Source-locale value lives in `name`. */
   translations?: TranslationMap;
 }

@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  getMenu, listAllItems, createOrder,
+  getMenu, listAllItems, createOrder, ApiError,
   getBatchFulfillmentConfig, listGroupMemberships,
   type Menu, type MenuItem, type PaymentStatus,
   type BatchFulfillmentConfigResponse, type MenuGroupMembership,
 } from '@/lib/api';
 import { isMembershipActiveOn } from '@/lib/membership';
 import { itemSizeOptions } from '@/lib/item-options';
+import { isEffectivelySoldOut } from '@/components/menu/AvailabilityPill';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button } from '@/components/ds';
@@ -54,6 +55,15 @@ function hasOptions(it: MenuItem): boolean {
     (it.modifiers ?? []).some((m) => m.is_active) ||
     (it.modifier_sets ?? []).some((s) => (s.modifiers ?? []).some((m) => m.is_active));
   return variants || mods;
+}
+
+// Whether an item can't currently be ordered — every size is sold out, or the
+// item itself is force-sold-out / hidden. The order-time availability guard
+// rejects such lines, so the picker greys the tile and blocks selection (the
+// same behaviour the guest web app shows). Items with only SOME sizes sold out
+// stay orderable here; the size picker disables the individual sold-out sizes.
+function isItemSoldOut(it: MenuItem): boolean {
+  return isEffectivelySoldOut(it.availability_state, it.availability_override);
 }
 
 export default function NewOrderPage() {
@@ -239,6 +249,9 @@ export default function NewOrderPage() {
 
   function handleTile(it: MenuItem) {
     const full = itemMap.get(it.id) ?? it;
+    // Defensive: sold-out tiles are rendered disabled, but never let a stale
+    // click add a line the order-time guard would reject.
+    if (isItemSoldOut(full)) return;
     if (full.item_type === 'combo') {
       setComboItem(full);
       return;
@@ -349,7 +362,15 @@ export default function NewOrderPage() {
         router.push(`/${restaurantId}/orders/all`);
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err));
+      // Prefer the server's specific reason (e.g. "CAVIAR (250g) is sold out…")
+      // over the generic top-level message ("could not create order").
+      const msg =
+        err instanceof ApiError && err.details
+          ? err.details
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -532,24 +553,30 @@ export default function NewOrderPage() {
                         {section.items.map((it) => {
                           const qty = qtyByItem.get(it.id) ?? 0;
                           const selected = qty > 0;
+                          const soldOut = isItemSoldOut(it);
                           return (
                             <button
                               key={`${section.id}-${it.id}`}
                               type="button"
                               onClick={() => handleTile(it)}
+                              disabled={soldOut}
+                              aria-disabled={soldOut}
                               className={cn(
-                                'group relative flex h-[100px] flex-col justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] ps-[var(--s-4)] text-start transition-all duration-fast ease-out active:scale-[0.97]',
-                                selected
-                                  ? 'border-[var(--brand-500)] shadow-1 ring-1 ring-[var(--brand-500)]'
-                                  : 'border-[var(--line)] hover:-translate-y-px hover:border-[var(--brand-300)] hover:shadow-2',
+                                'group relative flex h-[100px] flex-col justify-between overflow-hidden rounded-lg border bg-[var(--surface)] p-[var(--s-3)] ps-[var(--s-4)] text-start transition-all duration-fast ease-out',
+                                soldOut
+                                  ? 'cursor-not-allowed border-[var(--line)] opacity-55'
+                                  : 'active:scale-[0.97] ' +
+                                    (selected
+                                      ? 'border-[var(--brand-500)] shadow-1 ring-1 ring-[var(--brand-500)]'
+                                      : 'border-[var(--line)] hover:-translate-y-px hover:border-[var(--brand-300)] hover:shadow-2'),
                               )}
                             >
                               {/* category accent edge */}
                               <span
                                 className="absolute inset-y-[var(--s-2)] start-0 w-[3px] rounded-full"
-                                style={{ backgroundColor: selected ? 'var(--brand-500)' : color }}
+                                style={{ backgroundColor: selected && !soldOut ? 'var(--brand-500)' : color }}
                               />
-                              {selected ? (
+                              {soldOut ? null : selected ? (
                                 <span className="absolute end-[var(--s-2)] top-[var(--s-2)] flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-500)] px-1.5 text-fs-xs font-bold text-white duration-200 animate-in zoom-in-50">
                                   {qty}
                                 </span>
@@ -563,11 +590,15 @@ export default function NewOrderPage() {
                                 <span className="font-mono tabular-nums text-fs-sm font-semibold text-[var(--fg)]">
                                   ₪{it.price.toFixed(2)}
                                 </span>
-                                {it.item_type === 'combo' && (
+                                {soldOut ? (
+                                  <Badge tone="danger" className="h-[18px] px-1.5 text-[10px] uppercase tracking-wide">
+                                    {t('outOfStock')}
+                                  </Badge>
+                                ) : it.item_type === 'combo' ? (
                                   <Badge tone="brand" className="h-[18px] px-1.5 text-[10px] uppercase tracking-wide">
                                     {t('comboLabel')}
                                   </Badge>
-                                )}
+                                ) : null}
                               </div>
                             </button>
                           );
