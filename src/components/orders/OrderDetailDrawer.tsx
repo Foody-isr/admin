@@ -26,7 +26,7 @@ import {
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
 import { CashTag } from '@/components/orders/CashTag';
 import {
-  initOrderPaymentLink, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
+  initOrderPaymentLink, collectOrderBalance, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
   type Order, type OrderItem, type CheckoutConfig, type CheckoutFieldConfig,
 } from '@/lib/api';
 import { Badge, Button, Drawer, Section } from '@/components/ds';
@@ -295,11 +295,21 @@ export function OrderDetailDrawer({
   const [payLinkError, setPayLinkError] = useState<string | null>(null);
   const [payLinkCopied, setPayLinkCopied] = useState(false);
 
+  // Balance-link retrieval (for paid orders whose items were edited after payment,
+  // leaving an uncollected balance). Mirrors the pay-link pattern above.
+  const [balanceLink, setBalanceLink] = useState<string | null>(null);
+  const [balanceLinkLoading, setBalanceLinkLoading] = useState(false);
+  const [balanceLinkError, setBalanceLinkError] = useState<string | null>(null);
+  const [balanceLinkCopied, setBalanceLinkCopied] = useState(false);
+
   // Reset the fetched link whenever a different order is opened in this drawer.
   useEffect(() => {
     setPayLink(null);
     setPayLinkError(null);
     setPayLinkCopied(false);
+    setBalanceLink(null);
+    setBalanceLinkError(null);
+    setBalanceLinkCopied(false);
   }, [order?.id]);
 
   if (!order) {
@@ -334,6 +344,35 @@ export function OrderDetailDrawer({
 
   const payLinkWhatsApp = payLink
     ? `https://wa.me/${(order.customer_phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${payLink}`)}`
+    : '';
+
+  const generateBalanceLink = async () => {
+    setBalanceLinkLoading(true);
+    setBalanceLinkError(null);
+    try {
+      const res = await collectOrderBalance(order.restaurant_id, order.id);
+      if (res.payment_url) setBalanceLink(res.payment_url);
+      else setBalanceLinkError(t('noPaymentUrl') || 'No payment link available');
+    } catch (err) {
+      setBalanceLinkError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBalanceLinkLoading(false);
+    }
+  };
+
+  const copyBalanceLink = async () => {
+    if (!balanceLink) return;
+    try {
+      await navigator.clipboard.writeText(balanceLink);
+      setBalanceLinkCopied(true);
+      setTimeout(() => setBalanceLinkCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
+  const balanceLinkWhatsApp = balanceLink
+    ? `https://wa.me/${(order.customer_phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`${t('paymentLinkHint')} ${balanceLink}`)}`
     : '';
 
   const currentStep = statusIndex(order.status);
@@ -787,7 +826,7 @@ export function OrderDetailDrawer({
                     showTopBorder={gi > 0}
                   />
                   {group.items.map((item, ii) => (
-                    <OrderLineRow key={item.id} item={item} showTopBorder={ii > 0} />
+                    <OrderLineRow key={item.id} item={item} showTopBorder={ii > 0} hasBalance={(order.balance_due ?? 0) > 0} t={t} />
                   ))}
                 </Fragment>
               ))}
@@ -817,6 +856,8 @@ export function OrderDetailDrawer({
                           totalPicks={totalPicks}
                           picksLabel={picksLabel}
                           comboLabel={(t('combo') || 'Combo').toUpperCase()}
+                          hasBalance={(order.balance_due ?? 0) > 0}
+                          t={t}
                         />
                       </div>
                     );
@@ -1035,6 +1076,97 @@ export function OrderDetailDrawer({
                         )}
                       </div>
                     )}
+
+                    {/* Balance-due action block — shown when the server has computed
+                        an explicit balance_due amount (items added after payment that
+                        haven't been billed yet). Lets staff generate + share a top-up
+                        payment link without leaving the drawer. */}
+                    {(order.balance_due ?? 0) > 0 && (() => {
+                      const unpaidCount = (order.items ?? []).filter((i) => i.billed_at == null).length;
+                      return (
+                        <div
+                          className="mt-[var(--s-1)] flex flex-col gap-[var(--s-2)] rounded-md p-[var(--s-3)]"
+                          style={{
+                            background: 'color-mix(in oklab, var(--warning-500) 6%, var(--surface))',
+                            border: '1px solid color-mix(in oklab, var(--warning-500) 22%, var(--line))',
+                          }}
+                        >
+                          {/* Amount pill — the balance due, prominent but not alarming */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-fs-xs font-medium text-[var(--fg-subtle)] uppercase tracking-[.05em]">
+                              {t('balanceToCollect')}
+                            </span>
+                            <span
+                              className="font-mono tabular-nums font-semibold text-fs-sm px-2 py-0.5 rounded-full"
+                              style={{
+                                background: 'color-mix(in oklab, var(--warning-500) 14%, transparent)',
+                                color: 'var(--warning-600)',
+                              }}
+                            >
+                              ₪{order.balance_due!.toFixed(2)}
+                            </span>
+                          </div>
+                          {unpaidCount > 0 && (
+                            <span className="text-fs-xs text-[var(--fg-subtle)]">
+                              {t('balanceItemsUnpaid').replace('{n}', String(unpaidCount))}
+                            </span>
+                          )}
+
+                          {balanceLink ? (
+                            <>
+                              <div className="flex items-center gap-2 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] p-[var(--s-2)]">
+                                <span className="flex-1 truncate font-mono text-fs-xs">{balanceLink}</span>
+                                <Button variant="secondary" size="sm" onClick={copyBalanceLink}>
+                                  {balanceLinkCopied ? <CheckIcon /> : <CopyIcon />}
+                                  {balanceLinkCopied ? t('copied') : t('copyLink')}
+                                </Button>
+                              </div>
+                              {(order.customer_phone || '').replace(/\D/g, '') && (
+                                <a
+                                  href={balanceLinkWhatsApp}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium text-[var(--fg)] hover:bg-[var(--surface-2)]"
+                                >
+                                  <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
+                                </a>
+                              )}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-fs-xs text-[var(--fg-muted)] italic">
+                                  {t('awaitingBalancePayment')}
+                                </span>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={generateBalanceLink}
+                                  disabled={balanceLinkLoading}
+                                >
+                                  <RotateCcwIcon className="size-3" />
+                                  {balanceLinkLoading ? `${t('loading')}…` : t('regenerateBalanceLink')}
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={generateBalanceLink}
+                              disabled={balanceLinkLoading}
+                              style={{
+                                borderColor: 'color-mix(in oklab, var(--warning-500) 40%, var(--line-strong))',
+                                color: 'var(--warning-700)',
+                              }}
+                            >
+                              <LinkIcon className="size-3.5" />
+                              {balanceLinkLoading ? `${t('loading')}…` : t('generateBalanceLink')}
+                            </Button>
+                          )}
+                          {balanceLinkError && (
+                            <span className="text-fs-xs text-[var(--danger-500)]">{balanceLinkError}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1079,7 +1211,9 @@ export function OrderDetailDrawer({
           </Section>
 
           {/* Invoice — official Summit fiscal document, for Summit-paid orders */}
-          {order.external_metadata?.document_number ? (
+          {(order.external_metadata?.document_number ||
+            (Array.isArray(order.external_metadata?.supplementary_invoices) &&
+              (order.external_metadata.supplementary_invoices as unknown[]).length > 0)) ? (
             <Section title={t('invoiceHeading') || 'Invoice'}>
               <InvoiceSection order={order} />
             </Section>
@@ -1223,9 +1357,20 @@ function QtyBadge({ count, seed }: { count: number; seed: string }) {
 
 // ─── Regular order line row (shared across the items list) ────────────────────
 
-function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder: boolean }) {
+function OrderLineRow({
+  item,
+  showTopBorder,
+  hasBalance,
+  t,
+}: {
+  item: OrderItem;
+  showTopBorder: boolean;
+  hasBalance: boolean;
+  t: (k: string) => string;
+}) {
   const variantText = variantChipText(item);
   const hasMods = !!(item.modifiers && item.modifiers.length > 0);
+  const showUnpaidChip = hasBalance && item.billed_at == null;
   return (
     <div
       className={`px-[var(--s-5)] py-[var(--s-3)] grid grid-cols-[44px_1fr_auto] gap-[var(--s-3)] items-start ${
@@ -1234,8 +1379,13 @@ function OrderLineRow({ item, showTopBorder }: { item: OrderItem; showTopBorder:
     >
       <QtyBadge count={item.quantity} seed={item.name} />
       <div className="min-w-0">
-        <div className="text-fs-sm font-medium truncate tracking-[-0.005em]">
-          {item.name}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-fs-sm font-medium truncate tracking-[-0.005em]">
+            {item.name}
+          </span>
+          {showUnpaidChip && (
+            <Badge tone="warning">{t('notPaidChip')}</Badge>
+          )}
         </div>
         {(variantText || hasMods) && (
           <div className="flex flex-wrap gap-1 mt-1.5">
@@ -1290,6 +1440,8 @@ function ComboCard({
   totalPicks,
   picksLabel,
   comboLabel,
+  hasBalance,
+  t,
 }: {
   comboName: string;
   comboTotal: number;
@@ -1297,7 +1449,10 @@ function ComboCard({
   totalPicks: number;
   picksLabel: string;
   comboLabel: string;
+  hasBalance: boolean;
+  t: (k: string) => string;
 }) {
+  const showUnpaidChip = hasBalance && comboItems.some((ci) => ci.billed_at == null);
   return (
     <div>
       {/* Header — identical layout to OrderLineRow (badge · name · price). A combo
@@ -1318,6 +1473,9 @@ function ComboCard({
             >
               {comboLabel}
             </span>
+            {showUnpaidChip && (
+              <Badge tone="warning">{t('notPaidChip')}</Badge>
+            )}
           </div>
           <div className="text-fs-xs text-[var(--fg-subtle)] tabular-nums mt-0.5">
             {totalPicks} {picksLabel}
@@ -1707,10 +1865,79 @@ function OrderOverflowMenu({
 // editable), or share the link (WhatsApp / copy). Rendered only when the order
 // carries a Summit document_id. No fiscal document is generated here — Summit
 // already created it at payment.
+//
+// Supplementary invoices (from balance charges on already-paid orders) are
+// listed below the original, each with its own Voir / Télécharger buttons.
+
+// Shape stored by the server in external_metadata.supplementary_invoices.
+// The server serializes `number` as a JSON string (Go string via datatypes.JSONMap),
+// so we accept string | number and normalize to a numeric docNum at parse time.
+interface SupplementaryInvoice {
+  /** Numeric Summit document number, derived from the raw string the server stores. */
+  number: number;
+  amount: number;
+}
+
+// A lightweight row for a single supplement invoice — its own PDF busy/error
+// state so multiple rows are independently interactive.
+function SupplementInvoiceRow({
+  order,
+  sup,
+}: {
+  order: Order;
+  sup: SupplementaryInvoice;
+}) {
+  const { t } = useI18n();
+  const [pdfBusy, setPdfBusy] = useState<false | 'view' | 'download'>(false);
+  const [pdfError, setPdfError] = useState(false);
+
+  const openPdf = async (mode: 'view' | 'download') => {
+    setPdfBusy(mode);
+    setPdfError(false);
+    try {
+      const blob = await fetchOrderInvoicePdf(order.restaurant_id, order.id, sup.number);
+      const blobUrl = URL.createObjectURL(blob);
+      if (mode === 'download') {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `facture-${sup.number}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        window.open(blobUrl, '_blank', 'noopener');
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch {
+      setPdfError(true);
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-[var(--s-2)] text-fs-sm border-t border-[var(--line)] pt-[var(--s-2)]">
+      <div className="flex items-center justify-between">
+        <span className="font-medium">#{sup.number} · {sup.amount} ₪</span>
+        <span className="text-fs-xs text-[var(--fg-muted)]">{t('supplementInvoice') || 'complément'}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+        <Button variant="secondary" size="sm" onClick={() => openPdf('view')} disabled={pdfBusy !== false}>
+          <FileTextIcon className="size-3.5" /> {pdfBusy === 'view' ? `${t('loading')}…` : (t('invoiceView') || 'Voir')}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => openPdf('download')} disabled={pdfBusy !== false}>
+          <DownloadIcon className="size-3.5" /> {pdfBusy === 'download' ? `${t('loading')}…` : (t('invoiceDownload') || 'Télécharger')}
+        </Button>
+      </div>
+      {pdfError && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</span>}
+    </div>
+  );
+}
 
 function InvoiceSection({ order }: { order: Order }) {
   const { t } = useI18n();
-  const [loading, setLoading] = useState(true);
+  const hasPrimary = Boolean(order.external_metadata?.document_number);
+  const [loading, setLoading] = useState(hasPrimary);
   const [failed, setFailed] = useState(false);
   const [invoice, setInvoice] = useState<{ document_number: number; document_url: string } | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -1720,7 +1947,28 @@ function InvoiceSection({ order }: { order: Order }) {
   const [pdfBusy, setPdfBusy] = useState<false | 'view' | 'download'>(false);
   const [pdfError, setPdfError] = useState(false);
 
+  // Parse supplementary_invoices safely — the field is typed as unknown in
+  // external_metadata. The server serializes `number` as a JSON string (Go string
+  // via datatypes.JSONMap), so we must accept string | number and coerce. We keep
+  // only entries whose `number` coerces to a positive integer (valid Summit document
+  // number); non-numeric UIDs (e.g. PayPlus transaction IDs) are dropped, which is
+  // correct — PayPlus orders have no downloadable invoice UI anyway.
+  const supplements: SupplementaryInvoice[] = Array.isArray(
+    order.external_metadata?.supplementary_invoices,
+  )
+    ? (order.external_metadata.supplementary_invoices as unknown[]).flatMap((s) => {
+        if (typeof s !== 'object' || s === null) return [];
+        const raw = s as Record<string, unknown>;
+        const docNum = Number(raw.number);
+        const amount = Number(raw.amount);
+        if (!Number.isInteger(docNum) || docNum <= 0) return [];
+        if (!Number.isFinite(amount)) return [];
+        return [{ number: docNum, amount }];
+      })
+    : [];
+
   useEffect(() => {
+    if (!hasPrimary) return;
     let active = true;
     setLoading(true);
     setFailed(false);
@@ -1728,7 +1976,7 @@ function InvoiceSection({ order }: { order: Order }) {
       .then((inv) => { if (active) { setInvoice(inv); setLoading(false); } })
       .catch(() => { if (active) { setFailed(true); setLoading(false); } });
     return () => { active = false; };
-  }, [order.restaurant_id, order.id]);
+  }, [order.restaurant_id, order.id, hasPrimary]);
 
   // Reset the send panel + recipient when a different order is shown in the
   // same reused drawer instance.
@@ -1738,46 +1986,15 @@ function InvoiceSection({ order }: { order: Order }) {
     setSendState('idle');
   }, [order.id, order.customer_email]);
 
-  if (loading) {
+  if (hasPrimary && loading) {
     return <div className="text-fs-sm text-[var(--fg-subtle)]">{t('invoiceLoading') || 'Chargement de la facture…'}</div>;
   }
-  if (failed || !invoice) {
-    return <div className="text-fs-sm text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</div>;
-  }
 
-  const url = invoice.document_url;
-  const waText = t('invoiceShareMessage')
-    .replace('{name}', order.customer_name ? ` ${order.customer_name}` : '')
-    .replace('{number}', String(invoice.document_number))
-    .replace('{id}', String(order.id))
-    .replace('{url}', url)
-    .trim();
-  const waUrl = buildWhatsAppUrl(order.customer_phone, waText);
+  const shareBtn =
+    'inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium hover:bg-[var(--surface-2)]';
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard unavailable — link still reachable via the other actions */
-    }
-  };
-
-  const doSend = async () => {
-    setSendState('sending');
-    try {
-      await sendOrderInvoice(order.restaurant_id, order.id, emailDraft.trim() || undefined);
-      setSendState('sent');
-      setSendOpen(false);
-    } catch {
-      setSendState('error');
-    }
-  };
-
-  // Fetch the PDF through our server (Summit forces a download + blocks
-  // cross-origin), then either open it inline in a new tab or save it.
   const openPdf = async (mode: 'view' | 'download') => {
+    if (!invoice) return;
     setPdfBusy(mode);
     setPdfError(false);
     try {
@@ -1802,60 +2019,103 @@ function InvoiceSection({ order }: { order: Order }) {
     }
   };
 
-  const shareBtn =
-    'inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] text-fs-xs font-medium hover:bg-[var(--surface-2)]';
+  const copyLink = async () => {
+    if (!invoice) return;
+    try {
+      await navigator.clipboard.writeText(invoice.document_url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable — link still reachable via the other actions */
+    }
+  };
+
+  const doSend = async () => {
+    setSendState('sending');
+    try {
+      await sendOrderInvoice(order.restaurant_id, order.id, emailDraft.trim() || undefined);
+      setSendState('sent');
+      setSendOpen(false);
+    } catch {
+      setSendState('error');
+    }
+  };
+
+  const waUrl = invoice
+    ? buildWhatsAppUrl(
+        order.customer_phone,
+        t('invoiceShareMessage')
+          .replace('{name}', order.customer_name ? ` ${order.customer_name}` : '')
+          .replace('{number}', String(invoice.document_number))
+          .replace('{id}', String(order.id))
+          .replace('{url}', invoice.document_url)
+          .trim(),
+      )
+    : null;
 
   return (
     <div className="flex flex-col gap-[var(--s-2)] text-fs-sm">
-      <div className="flex items-center justify-between">
-        <span className="font-medium">#{invoice.document_number}</span>
-        <span className="text-fs-xs text-[var(--fg-muted)]">Summit</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-        <Button variant="secondary" size="sm" onClick={() => openPdf('view')} disabled={pdfBusy !== false}>
-          <FileTextIcon className="size-3.5" /> {pdfBusy === 'view' ? `${t('loading')}…` : (t('invoiceView') || 'Voir')}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => openPdf('download')} disabled={pdfBusy !== false}>
-          <DownloadIcon className="size-3.5" /> {pdfBusy === 'download' ? `${t('loading')}…` : (t('invoiceDownload') || 'Télécharger')}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => setSendOpen((v) => !v)}>
-          <SendIcon className="size-3.5" /> {t('invoiceSend') || 'Envoyer la facture'}
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </Button>
-      </div>
-      {sendOpen && (
-        <div className="flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
-          <label htmlFor="invoice-recipient" className="text-fs-xs text-[var(--fg-muted)]">{t('invoiceRecipient') || 'Destinataire'}</label>
+      {/* Primary invoice */}
+      {hasPrimary && (failed || !invoice) ? (
+        <div className="text-fs-sm text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</div>
+      ) : invoice ? (
+        <>
+          <div className="flex items-center justify-between">
+            <span className="font-medium">#{invoice.document_number}</span>
+            <span className="text-fs-xs text-[var(--fg-muted)]">Summit</span>
+          </div>
           <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-            <input
-              id="invoice-recipient"
-              type="email"
-              value={emailDraft}
-              onChange={(e) => setEmailDraft(e.target.value)}
-              placeholder="client@email.com"
-              className="flex-1 min-w-[180px] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-2 py-1 text-fs-sm"
-            />
-            <Button variant="primary" size="sm" onClick={doSend} disabled={sendState === 'sending'}>
-              <MailIcon className="size-3.5" />
-              {sendState === 'sending' ? (t('invoiceSending') || 'Envoi…') : (t('invoiceSendEmail') || 'Par email (via Summit)')}
+            <Button variant="secondary" size="sm" onClick={() => openPdf('view')} disabled={pdfBusy !== false}>
+              <FileTextIcon className="size-3.5" /> {pdfBusy === 'view' ? `${t('loading')}…` : (t('invoiceView') || 'Voir')}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => openPdf('download')} disabled={pdfBusy !== false}>
+              <DownloadIcon className="size-3.5" /> {pdfBusy === 'download' ? `${t('loading')}…` : (t('invoiceDownload') || 'Télécharger')}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setSendOpen((v) => !v)}>
+              <SendIcon className="size-3.5" /> {t('invoiceSend') || 'Envoyer la facture'}
+              <ChevronDownIcon className="w-3.5 h-3.5" />
             </Button>
           </div>
-          <div className="flex flex-wrap items-center gap-[var(--s-2)]">
-            {waUrl && (
-              <a href={waUrl} target="_blank" rel="noopener noreferrer" className={shareBtn}>
-                <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
-              </a>
-            )}
-            <button onClick={copyLink} className={shareBtn}>
-              {copied ? <CheckIcon className="size-3.5" /> : <LinkIcon className="size-3.5" />}
-              {copied ? (t('linkCopied') || 'Lien copié') : (t('copyLink') || 'Copier le lien')}
-            </button>
-          </div>
-        </div>
-      )}
-      {sendState === 'sent' && <span className="text-fs-xs text-[var(--success-500)]">{t('invoiceSent') || 'Facture envoyée'}</span>}
-      {sendState === 'error' && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceSendError') || "Échec de l'envoi de la facture"}</span>}
-      {pdfError && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</span>}
+          {sendOpen && (
+            <div className="flex flex-col gap-[var(--s-2)] rounded-md border border-[var(--line)] bg-[var(--surface-2)] p-[var(--s-3)]">
+              <label htmlFor="invoice-recipient" className="text-fs-xs text-[var(--fg-muted)]">{t('invoiceRecipient') || 'Destinataire'}</label>
+              <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+                <input
+                  id="invoice-recipient"
+                  type="email"
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                  placeholder="client@email.com"
+                  className="flex-1 min-w-[180px] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-2 py-1 text-fs-sm"
+                />
+                <Button variant="primary" size="sm" onClick={doSend} disabled={sendState === 'sending'}>
+                  <MailIcon className="size-3.5" />
+                  {sendState === 'sending' ? (t('invoiceSending') || 'Envoi…') : (t('invoiceSendEmail') || 'Par email (via Summit)')}
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-[var(--s-2)]">
+                {waUrl && (
+                  <a href={waUrl} target="_blank" rel="noopener noreferrer" className={shareBtn}>
+                    <MessageCircleIcon className="size-3.5" /> {t('shareWhatsApp')}
+                  </a>
+                )}
+                <button onClick={copyLink} className={shareBtn}>
+                  {copied ? <CheckIcon className="size-3.5" /> : <LinkIcon className="size-3.5" />}
+                  {copied ? (t('linkCopied') || 'Lien copié') : (t('copyLink') || 'Copier le lien')}
+                </button>
+              </div>
+            </div>
+          )}
+          {sendState === 'sent' && <span className="text-fs-xs text-[var(--success-500)]">{t('invoiceSent') || 'Facture envoyée'}</span>}
+          {sendState === 'error' && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceSendError') || "Échec de l'envoi de la facture"}</span>}
+          {pdfError && <span className="text-fs-xs text-[var(--danger-500)]">{t('invoiceUnavailable') || 'Facture indisponible'}</span>}
+        </>
+      ) : null}
+
+      {/* Supplementary invoices — one row per balance charge */}
+      {supplements.map((sup) => (
+        <SupplementInvoiceRow key={sup.number} order={order} sup={sup} />
+      ))}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import {
 import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
+import SeriePicker from '@/components/SeriePicker';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
@@ -129,9 +130,11 @@ export default function OrdersPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
-  // Whether the date range filters by order date ('created') or série/fulfillment
-  // date ('serie', i.e. scheduled_for). Lets staff reconcile a whole série.
+  // Whether the date range filters by order date ('created', calendar range) or
+  // by a single série ('serie', an exact scheduled_for date picked from the série
+  // dropdown). serieDate holds the chosen série in série mode.
   const [dateField, setDateField] = useState<DateBasis>('created');
+  const [serieDate, setSerieDate] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
   const orders = rawOrders;
@@ -202,17 +205,27 @@ export default function OrdersPage() {
   // ─── Fetch ────────────────────────────────────────────────────────
 
   const fetchOrders = useCallback(async () => {
+    // In série mode, wait until the picker has resolved a série before fetching
+    // (otherwise a blank window would briefly list every order).
+    if (dateField === 'serie' && !serieDate) return;
     setLoading(true);
     const tab = TABS.find((t) => t.key === activeTab)!;
     const params: ListOrdersParams = {
-      from: toISODate(dateRange.from),
-      to: toISODate(dateRange.to),
-      date_field: dateField,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
       sort_by: 'created_at',
       sort_dir: 'desc',
     };
+    if (dateField === 'serie') {
+      // Exact série match — pass the ISO date straight through (no Date round-trip,
+      // which would shift the day in +UTC zones via toISOString).
+      params.from = serieDate!;
+      params.to = serieDate!;
+      params.date_field = 'serie';
+    } else {
+      params.from = toISODate(dateRange.from);
+      params.to = toISODate(dateRange.to);
+    }
     if (tab.statuses) params.status = tab.statuses;
     else if (tab.active) params.active = true;
     if (tab.isScheduled) params.is_scheduled = true;
@@ -228,7 +241,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, page]);
+  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, serieDate, page]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -648,18 +661,26 @@ export default function OrdersPage() {
             </button>
           </div>
 
-          <DateRangePicker
-            value={dateRange}
-            onChange={(range) => { setDateRange(range); setPage(0); }}
-            weekStartDay={weekStartDay}
-            workdays={workdays}
-            restaurantId={rid}
-          />
-
           <DateBasisToggle
             value={dateField}
             onChange={(b) => { setDateField(b); setPage(0); }}
           />
+
+          {dateField === 'serie' ? (
+            <SeriePicker
+              restaurantId={rid}
+              value={serieDate}
+              onChange={(d) => { setSerieDate(d); setPage(0); }}
+            />
+          ) : (
+            <DateRangePicker
+              value={dateRange}
+              onChange={(range) => { setDateRange(range); setPage(0); }}
+              weekStartDay={weekStartDay}
+              workdays={workdays}
+              restaurantId={rid}
+            />
+          )}
 
           <FilterDropdown
             label={t('type')}
