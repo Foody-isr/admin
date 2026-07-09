@@ -9,7 +9,7 @@ import { AvailabilityState, AvailabilityOverride } from '@/lib/api';
 // computed `availability_state`. This keeps the pill correct even on responses
 // that carry the override but not the computed state (e.g. the carte's
 // /menu/menus list before it was stamped).
-function isEffectivelySoldOut(state?: AvailabilityState, override?: AvailabilityOverride): boolean {
+export function isEffectivelySoldOut(state?: AvailabilityState, override?: AvailabilityOverride): boolean {
   if (override === 'force_sold_out') return true;
   if (override === 'force_available') return false;
   return state === 'sold_out' || state === 'hidden';
