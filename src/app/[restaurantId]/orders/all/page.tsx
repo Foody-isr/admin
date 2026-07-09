@@ -7,6 +7,7 @@ import {
   listOrders, acceptOrder, rejectOrder, deleteOrder, updateOrderStatus, overrideOrderStatus,
   updateOrderPaymentStatus, overrideOrderPaymentStatus, updateOrderCustomerDetails,
   markOrderServed, markOrderDelivered, markOrderOutForDelivery, markOrderReadyForDelivery,
+  setOrderForceProduction,
   getRestaurant, getRestaurantSettings, updateRestaurantSettings, getWebsiteConfig,
   Order, OrderStatus, PaymentStatus, ListOrdersParams, type DateBasis,
   type OrderCustomerDetailsInput,
@@ -30,6 +31,7 @@ import { usePermissions } from '@/lib/permissions-context';
 import DateRangePicker, { DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
+import { useOrderSeries, type SerieRange } from '@/lib/series';
 import {
   SearchIcon, RefreshCwIcon, Volume2Icon, VolumeXIcon,
   BellIcon, BellOffIcon, ChevronLeftIcon, ChevronRightIcon,
@@ -131,11 +133,19 @@ export default function OrdersPage() {
   const [paymentFilter, setPaymentFilter] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
   // Whether the date range filters by order date ('created', calendar range) or
-  // by a single série ('serie', an exact scheduled_for date picked from the série
-  // dropdown). serieDate holds the chosen série in série mode.
+  // by série(s) ('serie', an exact scheduled_for range picked from the série
+  // dropdown). serieSel holds the chosen série range in série mode.
   const [dateField, setDateField] = useState<DateBasis>('created');
-  const [serieDate, setSerieDate] = useState<string | null>(null);
+  const [serieSel, setSerieSel] = useState<SerieRange | null>(null);
+  const serieList = useOrderSeries(rid);
   const [page, setPage] = useState(0);
+
+  // Default the série selection to the latest série once the list arrives.
+  useEffect(() => {
+    if (serieList.length && !serieSel) {
+      setSerieSel({ from: serieList[0].date, to: serieList[0].date });
+    }
+  }, [serieList, serieSel]);
 
   const orders = rawOrders;
   const setOrders = setRawOrders;
@@ -207,7 +217,7 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     // In série mode, wait until the picker has resolved a série before fetching
     // (otherwise a blank window would briefly list every order).
-    if (dateField === 'serie' && !serieDate) return;
+    if (dateField === 'serie' && !serieSel) return;
     setLoading(true);
     const tab = TABS.find((t) => t.key === activeTab)!;
     const params: ListOrdersParams = {
@@ -217,10 +227,10 @@ export default function OrdersPage() {
       sort_dir: 'desc',
     };
     if (dateField === 'serie') {
-      // Exact série match — pass the ISO date straight through (no Date round-trip,
-      // which would shift the day in +UTC zones via toISOString).
-      params.from = serieDate!;
-      params.to = serieDate!;
+      // Exact série range — pass the ISO dates straight through (no Date
+      // round-trip, which would shift the day in +UTC zones via toISOString).
+      params.from = serieSel!.from;
+      params.to = serieSel!.to;
       params.date_field = 'serie';
     } else {
       params.from = toISODate(dateRange.from);
@@ -241,7 +251,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, serieDate, page]);
+  }, [rid, activeTab, searchSubmitted, typeFilter, paymentFilter, dateRange, dateField, serieSel, page]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -339,6 +349,17 @@ export default function OrdersPage() {
     } finally {
       setActionLoading(null);
       removeProcessingGuard(id);
+    }
+  };
+  // "Ajouter au plan de production" toggle from the order overflow menu. Pins
+  // (force=true) or unpins the order onto the production sheet, overriding the
+  // scheduled/paid gates. Optimistic; refetches on failure to resync.
+  const handleToggleForceProduction = async (orderId: number, force: boolean) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, force_production: force } : o)));
+    try {
+      await setOrderForceProduction(rid, orderId, force);
+    } catch {
+      await fetchOrders();
     }
   };
   // Correct a misspelled customer name / delivery address from the order screen.
@@ -668,9 +689,9 @@ export default function OrdersPage() {
 
           {dateField === 'serie' ? (
             <SeriePicker
-              restaurantId={rid}
-              value={serieDate}
-              onChange={(d) => { setSerieDate(d); setPage(0); }}
+              series={serieList}
+              value={serieSel}
+              onChange={(sel) => { setSerieSel(sel); setPage(0); }}
             />
           ) : (
             <DateRangePicker
@@ -849,6 +870,7 @@ export default function OrdersPage() {
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
         onEditCustomer={() => selectedOrder && setEditCustomerId(selectedOrder.id)}
+        onToggleForceProduction={() => selectedOrder && handleToggleForceProduction(selectedOrder.id, !selectedOrder.force_production)}
         restaurantInfo={restaurantInfo}
         customFieldLabels={customFieldLabels}
       />
