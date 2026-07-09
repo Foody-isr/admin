@@ -3123,6 +3123,47 @@ export async function overrideOrderStatus(
   return data.order;
 }
 
+// ─── Internal order notes ────────────────────────────────────────────────────
+// Free-text staff notes on an order (staff-only, never shown to the customer).
+// A stopgap for things without a dedicated feature yet, e.g. recording an ad-hoc
+// discount. Any authenticated staff member scoped to the restaurant can add or
+// remove them.
+
+export interface OrderNote {
+  id: number;
+  order_id: number;
+  restaurant_id: number;
+  author_user_id: number;
+  author_name: string;
+  body: string;
+  created_at: string;
+}
+
+export async function getOrderNotes(restaurantId: number, orderId: number): Promise<OrderNote[]> {
+  const data = await apiFetch<{ notes: OrderNote[] }>(
+    `/api/v1/orders/${orderId}/notes?restaurant_id=${restaurantId}`,
+    restaurantId,
+  );
+  return data.notes ?? [];
+}
+
+export async function addOrderNote(restaurantId: number, orderId: number, body: string): Promise<OrderNote> {
+  const data = await apiFetch<{ note: OrderNote }>(
+    `/api/v1/orders/${orderId}/notes?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ body }) },
+  );
+  return data.note;
+}
+
+export async function deleteOrderNote(restaurantId: number, orderId: number, noteId: number): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/${orderId}/notes/${noteId}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+}
+
 // overrideOrderPaymentStatus manually corrects an order's payment status
 // (paid ⇄ unpaid ⇄ pending), bypassing the forward-only payment transition rule.
 // Owner/manager only, and only for cash/manual orders (provider-settled orders
