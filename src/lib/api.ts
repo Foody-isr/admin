@@ -555,6 +555,9 @@ export interface Order {
   scheduled_pickup_window_start?: string;
   scheduled_pickup_window_end?: string;
   scheduled_accepted_at?: string;
+  // Staff "add to production plan" override. When true the order appears on the
+  // production sheet regardless of scheduling/payment (see setOrderForceProduction).
+  force_production?: boolean;
   accepted_at?: string;
   in_kitchen_at?: string;
   ready_at?: string;
@@ -3356,6 +3359,9 @@ export interface CreateOrderInput {
   scheduled_for?: string;                 // "YYYY-MM-DD"
   scheduled_pickup_window_start?: string; // "HH:MM"
   scheduled_pickup_window_end?: string;   // "HH:MM"
+  /** When true the order is pinned onto the production sheet regardless of
+   *  scheduling/payment — the "Ajouter au plan de production" checkbox. */
+  force_production?: boolean;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
 }
@@ -3722,6 +3728,21 @@ export async function setOrderPrepared(
   );
 }
 
+// Pin (force=true) or unpin an order onto the production sheet, overriding the
+// normal scheduled + paid/trusted gates. Server enforces KitchenManage. Backs
+// the "Ajouter au plan de production" override in the order overflow menu.
+export async function setOrderForceProduction(
+  restaurantId: number,
+  orderId: number,
+  force: boolean,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/orders/${orderId}/force-production?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify({ force }) },
+  );
+}
+
 export async function fetchProductionDays(restaurantId: number): Promise<ProductionDay[]> {
   const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
   const data = await apiFetch<{ days: ProductionDay[] }>(
@@ -3736,6 +3757,7 @@ export async function fetchProductionDays(restaurantId: number): Promise<Product
 export interface OrderSerie {
   date: string; // YYYY-MM-DD
   order_count: number;
+  revenue: number; // paid revenue only, matches the dashboard KPIs
 }
 
 export async function fetchOrderSeries(restaurantId: number): Promise<OrderSerie[]> {
@@ -3862,13 +3884,20 @@ export async function getDayComparison(
 export async function getPeriodSummary(
   restaurantId: number,
   scope: AnalyticsScope,
-  basis?: DateBasis
+  basis?: DateBasis,
+  /** Explicit previous window for the delta (série mode: the previous série(s)).
+   *  When omitted the server uses the equal-length window immediately before. */
+  prev?: { from: string; to: string }
 ): Promise<PeriodComparison> {
   const params = new URLSearchParams({
     restaurant_id: String(restaurantId),
     ...analyticsScopeParams(scope),
     ...dateBasisParams(basis),
   });
+  if (prev) {
+    params.set('prev_from', prev.from);
+    params.set('prev_to', prev.to);
+  }
   return apiFetch<PeriodComparison>(
     `/api/v1/analytics/period?${params}`, restaurantId
   );

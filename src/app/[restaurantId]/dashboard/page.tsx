@@ -18,6 +18,7 @@ import { useI18n } from '@/lib/i18n';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
+import { useOrderSeries, previousBlock, seriesInRange, type SerieRange } from '@/lib/series';
 import {
   clampWeekStartDay,
   getEffectiveWorkdays,
@@ -210,9 +211,19 @@ export default function DashboardPage() {
   // Order date vs série date. basis is hydrated from storage on mount; serieDate
   // holds the série selected in série mode (set by the SeriePicker).
   const [basis, setBasis] = useState<DateBasis>('created');
-  const [serieDate, setSerieDate] = useState<string | null>(null);
+  const [serieSel, setSerieSel] = useState<SerieRange | null>(null);
   const [ready, setReady] = useState(false);
   const serieMode = basis === 'serie';
+  // The restaurant's séries (newest first). Drives the SeriePicker + the
+  // per-série comparison and chart.
+  const serieList = useOrderSeries(rid);
+
+  // Default the série selection to the latest série once the list arrives.
+  useEffect(() => {
+    if (serieList.length && !serieSel) {
+      setSerieSel({ from: serieList[0].date, to: serieList[0].date });
+    }
+  }, [serieList, serieSel]);
   // The main chart tracks gross revenue; KPI cards are presentational.
   const metric: MetricKey = 'revenue';
 
@@ -232,17 +243,20 @@ export default function DashboardPage() {
   }, [rid]);
 
   const load = useCallback(() => {
-    // In série mode, wait until the picker has resolved a série.
-    if (serieMode && !serieDate) return;
+    // In série mode, wait until a série selection has resolved.
+    if (serieMode && !serieSel) return;
     setLoading(true);
-    // Série mode scopes everything to one exact série (scheduled_for) and has no
-    // daily chart; created mode uses the calendar window + last-N-days chart.
+    // Série mode scopes to the selected série(s) by exact scheduled_for and
+    // compares against the preceding equal-count block of séries; the per-série
+    // chart is drawn from serieList, so no daily series is fetched. Created mode
+    // uses the calendar window + last-N-days chart.
     const scope = serieMode
-      ? { from: serieDate!, to: serieDate! }
+      ? { from: serieSel!.from, to: serieSel!.to }
       : { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
+    const prev = serieMode ? previousBlock(serieList, serieSel!) ?? undefined : undefined;
     const days = daysInclusive(dateRange);
     Promise.allSettled([
-      getPeriodSummary(rid, scope, basis),
+      getPeriodSummary(rid, scope, basis, prev),
       getTopSellers(rid, scope, basis),
       serieMode
         ? Promise.resolve([] as DaySummary[])
@@ -256,7 +270,7 @@ export default function DashboardPage() {
         if (orders.status === 'fulfilled') setRecentOrders(orders.value.orders ?? []);
       })
       .finally(() => setLoading(false));
-  }, [rid, dateRange, basis, serieMode, serieDate]);
+  }, [rid, dateRange, basis, serieMode, serieSel, serieList]);
 
   // Switch the date basis and persist it; the load effect refetches on change.
   const onChangeBasis = useCallback((b: DateBasis) => {
@@ -278,8 +292,21 @@ export default function DashboardPage() {
   const previous = period?.previous;
 
   const singleDay = sameYMD(dateRange.from, dateRange.to);
-  const vsLabel = singleDay ? t('vsYesterday') : t('vsPreviousPeriod');
   const chartCapped = daysInclusive(dateRange) > 90;
+
+  // Série-aware comparison: a single série compares to the previous série, a
+  // range to the preceding equal-count block. The delta is hidden when there's
+  // no earlier série to compare against.
+  const serieCount = serieMode && serieSel ? seriesInRange(serieList, serieSel).length : 0;
+  const serieHasPrev = serieMode && serieSel ? previousBlock(serieList, serieSel) !== null : false;
+  const showDelta = serieMode ? serieHasPrev : true;
+  const vsLabel = serieMode
+    ? serieCount <= 1
+      ? t('vsPreviousSerie')
+      : t('vsPreviousSeries').replace('{n}', String(serieCount))
+    : singleDay
+      ? t('vsYesterday')
+      : t('vsPreviousPeriod');
 
   // Human label for the active window. `end` is exclusive (next midnight), so the
   // multi-day form shows the inclusive last day.
@@ -341,6 +368,22 @@ export default function DashboardPage() {
     });
   }, [series, metric, dateLocale]);
 
+  // One bar per série (oldest → newest) for a série range — a daily chart is a
+  // calendar concept that doesn't fit série cadence.
+  const serieChartData = useMemo(() => {
+    if (!serieMode || !serieSel) return [] as { day: string; value: number; isLast: boolean }[];
+    const inRange = seriesInRange(serieList, serieSel).slice().reverse();
+    return inRange.map((s, i) => ({
+      day: new Date(`${s.date}T00:00:00`).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' }),
+      value: s.revenue,
+      isLast: i === inRange.length - 1,
+    }));
+  }, [serieMode, serieSel, serieList, dateLocale]);
+
+  // A single série is one bar (not useful) — only show the chart for ranges.
+  const showChart = serieMode ? serieChartData.length > 1 : true;
+  const activeChartData = serieMode ? serieChartData : chartData;
+
   const selectedMetricLabel = metrics.find((m) => m.key === metric)?.label ?? '';
 
   if (loading) {
@@ -361,9 +404,9 @@ export default function DashboardPage() {
             <DateBasisToggle value={basis} onChange={onChangeBasis} />
             {serieMode ? (
               <SeriePicker
-                restaurantId={rid}
-                value={serieDate}
-                onChange={setSerieDate}
+                series={serieList}
+                value={serieSel}
+                onChange={setSerieSel}
                 align="end"
               />
             ) : (
@@ -394,7 +437,7 @@ export default function DashboardPage() {
               className="p-[var(--s-4)]"
               label={kpiLabel(m.label, m.hint)}
               value={<span className="text-fs-2xl">{m.value}</span>}
-              delta={serieMode ? undefined : { value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' }}
+              delta={showDelta ? { value: `${up ? '+' : ''}${m.delta.toFixed(1)}%`, direction: up ? 'up' : 'down' } : undefined}
             />
           );
         })}
@@ -407,24 +450,25 @@ export default function DashboardPage() {
             key={m.key}
             label={m.label}
             value={m.value}
-            delta={serieMode ? undefined : m.delta}
-            sub={serieMode ? undefined : vsLabel}
+            delta={showDelta ? m.delta : undefined}
+            sub={showDelta ? vsLabel : undefined}
             hint={m.hint}
             spark={serieMode ? undefined : series.map((d) => seriesValue(m.key, d))}
           />
         ))}
       </div>
 
-      {/* Main row: chart + right rail. The daily chart is a range concept, so in
-          série mode (a single série) it is hidden and the rail spans the row. */}
-      <div className={`grid grid-cols-1 gap-[var(--s-5)] mb-[var(--s-5)] ${serieMode ? '' : 'lg:grid-cols-[1fr_320px]'}`}>
-        {!serieMode && (
+      {/* Main row: chart + right rail. The chart is per-day (created mode) or
+          per-série (a série range); for a single série there's nothing to plot,
+          so it's hidden and the rail spans the row. */}
+      <div className={`grid grid-cols-1 gap-[var(--s-5)] mb-[var(--s-5)] ${showChart ? 'lg:grid-cols-[1fr_320px]' : ''}`}>
+        {showChart && (
           <Section
             title={selectedMetricLabel}
-            desc={chartCapped ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
+            desc={chartCapped && !serieMode ? `${periodRangeLabel} · ${t('dashChartLast90')}` : periodRangeLabel}
           >
             <MetricChart
-              data={chartData}
+              data={activeChartData}
               fmt={(n) => formatMetric(metric, n)}
               emptyLabel={t('noSalesIn7Days')}
             />

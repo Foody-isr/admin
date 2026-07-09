@@ -5,7 +5,7 @@ import { Drawer, Field, Input, Textarea } from '@/components/ds';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
-  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon,
+  ShoppingBagIcon, TruckIcon, BanknoteIcon, CreditCardIcon, LinkIcon, CheckIcon,
 } from 'lucide-react';
 import { FulfillmentSection } from './FulfillmentSection';
 import {
@@ -36,6 +36,8 @@ export interface CheckoutData {
   paymentMethod: PaymentMethodChoice;
   paymentCollected: boolean;
   fulfillment: FulfillmentValue;
+  /** Force the order onto the production sheet regardless of scheduling/payment. */
+  addToProduction: boolean;
 }
 
 interface NewOrderCheckoutDrawerProps {
@@ -115,6 +117,9 @@ export function NewOrderCheckoutDrawer({
   // "déjà encaissé ?" — has the payment already been collected. Defaults to yes
   // (the common POS case: staff take payment in hand). Ignored for `link`.
   const [collected, setCollected] = useState(true);
+  // "Ajouter au plan de production" override: pins the order onto the production
+  // sheet even when it wouldn't normally qualify (unscheduled / unpaid).
+  const [addToProduction, setAddToProduction] = useState(false);
 
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
 
@@ -154,7 +159,7 @@ export function NewOrderCheckoutDrawer({
       subtitle={`${itemCount} ${t('orderItems').toLowerCase()} · ₪${total.toFixed(2)}`}
       width={480}
       onSave={() =>
-        onConfirm({ customerName, customerPhone, orderType, address, city, floor, apt, deliveryNotes, paymentMethod: payMethod, paymentCollected: collected, fulfillment })
+        onConfirm({ customerName, customerPhone, orderType, address, city, floor, apt, deliveryNotes, paymentMethod: payMethod, paymentCollected: collected, fulfillment, addToProduction })
       }
       saveLabel={submitting ? `${t('creating')}…` : `${t('createOrder')} · ₪${total.toFixed(2)}`}
       saveDisabled={!canConfirm}
@@ -233,6 +238,30 @@ export function NewOrderCheckoutDrawer({
             </div>
           )}
         </div>
+
+        {/* Force onto the production sheet, bypassing the scheduled/paid gates. */}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={addToProduction}
+          onClick={() => setAddToProduction((v) => !v)}
+          className="flex items-start gap-[var(--s-3)] rounded-md border border-[var(--line-strong)] bg-[var(--surface)] px-[var(--s-3)] py-2 text-left"
+        >
+          <span
+            className={cn(
+              'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+              addToProduction
+                ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                : 'border-[var(--line-strong)] bg-[var(--surface-2)]',
+            )}
+          >
+            {addToProduction && <CheckIcon className="h-3 w-3" strokeWidth={3} />}
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-fs-sm font-medium text-[var(--fg)]">{t('addToProduction')}</span>
+            <span className="text-fs-xs text-[var(--fg-muted)]">{t('addToProductionHint')}</span>
+          </span>
+        </button>
 
         {fulfillment.timing === 'scheduled' && (payMethod === 'link' || !collected) && (
           <p className="text-fs-xs text-[var(--fg-muted)]">{t('fulfillmentScheduledUnpaidHint')}</p>

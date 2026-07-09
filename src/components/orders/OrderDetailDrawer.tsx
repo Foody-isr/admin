@@ -12,7 +12,7 @@ import {
   CheckIcon, ClockIcon, GlobeIcon, EditIcon,
   CopyIcon, MessageCircleIcon, LinkIcon, Trash2Icon, MapPinIcon,
   SendIcon, MailIcon, FileTextIcon, DownloadIcon, MoreHorizontalIcon,
-  RotateCcwIcon, ScaleIcon, BanknoteIcon, AlertTriangleIcon,
+  RotateCcwIcon, ScaleIcon, BanknoteIcon, AlertTriangleIcon, ClipboardListIcon,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
@@ -256,6 +256,7 @@ export function OrderDetailDrawer({
   order, canManage, canDelete, canOverride, isLoading, onClose, onAccept, onReject, onDelete, onOverride, onCorrectPayment, onSendToKitchen, onMarkReady, onMarkServed,
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit, onConfirmWeights, onEditCustomer,
+  onToggleForceProduction,
   restaurantInfo, customFieldLabels,
 }: {
   order: Order | null;
@@ -284,6 +285,9 @@ export function OrderDetailDrawer({
   /** Opens the edit-customer dialog (fix a misspelled name/address). When
    *  omitted or when !canManage, the customer name renders as plain text. */
   onEditCustomer?: () => void;
+  /** Toggles the "Ajouter au plan de production" override (pins/unpins the order
+   *  onto the production sheet). Absent = the action is hidden (e.g. dispatcher). */
+  onToggleForceProduction?: () => void;
   restaurantInfo: PrintTicketRestaurant;
   customFieldLabels: Record<string, string>;
 }) {
@@ -555,6 +559,10 @@ export function OrderDetailDrawer({
       String(order.external_metadata?.payment_method ?? '').toLowerCase(),
     );
   const canCorrectPayment = !!canOverride && !isCancelled && !isProviderSettled;
+  // "Ajouter au plan de production" override. Any manager can pin an order onto
+  // the production sheet; hidden on dead (rejected/cancelled) orders since the
+  // sheet excludes them regardless. Reversible — the label flips to "Retirer".
+  const canForceProduction = canManage && !isCancelled && !!onToggleForceProduction;
   // Items can be edited while the order is still in progress (not cancelled or
   // already served/delivered/rejected).
   const canEditOrder = !isCancelled && !isTerminal;
@@ -678,14 +686,17 @@ export function OrderDetailDrawer({
                 <CheckCircle2Icon /> {t('closeOrder')}
               </Button>
             )}
-            {canManage && (canCorrectStatus || canCorrectPayment || canCancelOrder || (canDelete && !!onDelete)) && (
+            {canManage && (canCorrectStatus || canCorrectPayment || canForceProduction || canCancelOrder || (canDelete && !!onDelete)) && (
               <OrderOverflowMenu
                 canCorrect={canCorrectStatus && !!onOverride}
                 canCorrectPayment={canCorrectPayment && !!onCorrectPayment}
+                canForceProduction={canForceProduction}
+                forceProductionActive={!!order.force_production}
                 canCancel={canCancelOrder}
                 canDelete={!!(canDelete && onDelete)}
                 onCorrect={onOverride}
                 onCorrectPayment={onCorrectPayment}
+                onToggleForceProduction={onToggleForceProduction}
                 onCancel={onReject}
                 onDelete={onDelete}
                 disabled={isLoading}
@@ -1901,14 +1912,18 @@ function SendToCustomerMenu({ order }: { order: Order }) {
 // footer); both items are danger-colored.
 
 function OrderOverflowMenu({
-  canCorrect, canCorrectPayment, canCancel, canDelete, onCorrect, onCorrectPayment, onCancel, onDelete, disabled,
+  canCorrect, canCorrectPayment, canForceProduction, forceProductionActive,
+  canCancel, canDelete, onCorrect, onCorrectPayment, onToggleForceProduction, onCancel, onDelete, disabled,
 }: {
   canCorrect?: boolean;
   canCorrectPayment?: boolean;
+  canForceProduction?: boolean;
+  forceProductionActive?: boolean;
   canCancel: boolean;
   canDelete: boolean;
   onCorrect?: () => void;
   onCorrectPayment?: () => void;
+  onToggleForceProduction?: () => void;
   onCancel: () => void;
   onDelete?: () => void;
   disabled?: boolean;
@@ -1963,7 +1978,19 @@ function OrderOverflowMenu({
               <BanknoteIcon className="size-4" /> {t('correctPayment') || 'Corriger le paiement'}
             </button>
           )}
-          {((canCorrect && onCorrect) || (canCorrectPayment && onCorrectPayment)) && (canCancel || canDelete) && (
+          {canForceProduction && onToggleForceProduction && (
+            <button
+              onClick={() => { setOpen(false); onToggleForceProduction(); }}
+              className={itemClass}
+              style={{ color: 'var(--fg)' }}
+            >
+              <ClipboardListIcon className="size-4" />{' '}
+              {forceProductionActive
+                ? (t('removeFromProduction') || 'Retirer du plan de production')
+                : (t('addToProduction') || 'Ajouter au plan de production')}
+            </button>
+          )}
+          {((canCorrect && onCorrect) || (canCorrectPayment && onCorrectPayment) || (canForceProduction && onToggleForceProduction)) && (canCancel || canDelete) && (
             <div className="my-1 h-px" style={{ background: 'var(--divider)' }} />
           )}
           {canCancel && (

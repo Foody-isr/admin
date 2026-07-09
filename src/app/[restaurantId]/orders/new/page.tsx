@@ -312,6 +312,7 @@ export default function NewOrderPage() {
         payment_method: paymentMethod,
         payment_status: paymentStatus,
         payment_required: isLink,
+        force_production: data.addToProduction,
         ...(data.fulfillment.timing === 'scheduled' && data.fulfillment.scheduledFor
           ? {
               is_scheduled: true,
