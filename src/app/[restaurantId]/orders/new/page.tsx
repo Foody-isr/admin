@@ -354,6 +354,9 @@ export default function NewOrderPage() {
               })),
             })),
           ),
+        // Discount: only one of these is ever set (mutually exclusive).
+        ...(data.discountCode ? { discount_code: data.discountCode } : {}),
+        ...(data.manualDiscount ? { manual_discount: data.manualDiscount } : {}),
       });
 
       if (res.payment_url) {
@@ -744,6 +747,13 @@ export default function NewOrderPage() {
         onConfirm={handleConfirm}
         batchConfig={fulfillmentBatchConfig}
         defaultDate={selectedDay ?? undefined}
+        restaurantId={restaurantId}
+        discountItems={lines.map((l) => ({
+          item_id: l.item.id,
+          category_id: l.item.category_id ?? 0,
+          line_total: lineTotal(l),
+          quantity: l.quantity,
+        }))}
       />
     </div>
   );
