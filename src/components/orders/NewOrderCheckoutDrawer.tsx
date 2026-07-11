@@ -223,7 +223,7 @@ export function NewOrderCheckoutDrawer({
     const amount =
       manualType === 'fixed'
         ? Math.min(val, total)
-        : Math.round(total * (val / 100) * 100) / 100;
+        : Math.round(total * (Math.min(100, Math.max(0, val)) / 100) * 100) / 100;
     setAppliedManual({ type: manualType, value: val, reason: manualReason.trim(), amount });
     setAppliedCoupon(null); // mutually exclusive
     setDiscountError(null);
@@ -389,7 +389,7 @@ export function NewOrderCheckoutDrawer({
                   >
                     <option value="">{t('chooseCoupon')}</option>
                     {coupons.map((c) => (
-                      <option key={c.id} value={c.code}>{c.code}{c.name ? ` — ${c.name}` : ''}</option>
+                      <option key={c.id} value={c.code}>{c.code}{c.name ? ` (${c.name})` : ''}</option>
                     ))}
                   </select>
                 )}
