@@ -108,11 +108,6 @@ export default function DiscountEditModal({
     setSaveError('');
   }, [open, editing]);
 
-  // Reset scope_ids when scope type changes
-  useEffect(() => {
-    setScopeIds([]);
-  }, [scope]);
-
   if (!open) return null;
 
   function toggleScopeId(id: number) {
@@ -295,7 +290,7 @@ export default function DiscountEditModal({
                       name="discount-scope"
                       value={opt}
                       checked={scope === opt}
-                      onChange={() => setScope(opt)}
+                      onChange={() => { setScope(opt); setScopeIds([]); }}
                       className="accent-brand-500"
                     />
                     <span className="text-sm text-fg-primary">
