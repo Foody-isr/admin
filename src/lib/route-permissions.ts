@@ -15,6 +15,7 @@ const SECTION_PERMISSIONS: Record<string, string[]> = {
   staff: ['staff.view', 'staff.manage', 'roles.manage'],
   roles: ['roles.manage', 'staff.manage'],
   settings: ['settings.view', 'settings.edit', 'tables.manage'],
+  marketing: ['discounts.view', 'discounts.edit'],
   // Floor plans, sections, table status/QR live under /restaurant/*.
   restaurant: ['tables.view', 'tables.manage', 'settings.view', 'settings.edit'],
 };

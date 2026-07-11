@@ -33,6 +33,7 @@ const PAGE_SLUGS = [
   'settings',
   'website',
   'billing',
+  'marketing',
 ] as const;
 
 function RestaurantGuard({ children }: { children: React.ReactNode }) {

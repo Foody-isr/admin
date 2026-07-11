@@ -161,6 +161,16 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     {
+      href: `${base}/marketing`,
+      labelKey: 'marketing',
+      icon: Tag,
+      perm: ['discounts.view', 'discounts.edit'],
+      clickHref: `${base}/marketing/discounts`,
+      subItems: [
+        { href: `${base}/marketing/discounts`, labelKey: 'discounts' },
+      ],
+    },
+    {
       href: `${base}/website`,
       labelKey: 'online',
       icon: Globe,
