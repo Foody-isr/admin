@@ -3364,6 +3364,8 @@ export interface CreateOrderInput {
   force_production?: boolean;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
+  discount_code?: string;
+  manual_discount?: { type: 'fixed' | 'percent'; value: number; reason: string };
 }
 
 /** Creates an order manually from the admin (POS-style). Mirrors the staff
@@ -6798,6 +6800,75 @@ export async function deleteDeliveryZone(restaurantId: number, id: number): Prom
     `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+// --- Discounts ---
+
+export interface Discount {
+  id: number;
+  restaurant_id: number;
+  code: string;
+  name: string;
+  description: string;
+  type: 'fixed' | 'percent' | 'free_delivery';
+  value: number;
+  scope: 'whole_sale' | 'category' | 'specific_item';
+  scope_ids: number[];
+  min_purchase: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  total_cap: number | null;
+  per_customer_cap: number | null;
+  is_active: boolean;
+  redemption_count: number;
+  created_at: string;
+}
+
+export type DiscountInput = Omit<Discount, 'id' | 'restaurant_id' | 'redemption_count' | 'created_at'>;
+
+export interface DiscountValidation {
+  valid: boolean;
+  reason?: string;
+  discount?: { code: string; name: string; type: string; value: number; scope: string; amount: number; new_total: number };
+}
+
+export interface ManualDiscountInput { type: 'fixed' | 'percent'; value: number; reason: string }
+
+export interface ValidateDiscountRequest {
+  code: string;
+  items: { item_id: number; category_id: number; line_total: number; quantity: number }[];
+  delivery_fee: number;
+  phone?: string;
+}
+
+export async function listDiscounts(restaurantId: number, opts: { active?: boolean } = {}): Promise<Discount[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (opts.active !== undefined) qs.set('active', String(opts.active));
+  const data = await apiFetch<{ discounts: Discount[] }>(`/api/v1/discounts?${qs.toString()}`, restaurantId);
+  return data.discounts ?? [];
+}
+
+export async function getDiscount(restaurantId: number, id: number): Promise<Discount> {
+  const data = await apiFetch<{ discount: Discount }>(`/api/v1/discounts/${id}?restaurant_id=${restaurantId}`, restaurantId);
+  return data.discount;
+}
+
+export async function createDiscount(restaurantId: number, input: DiscountInput): Promise<Discount> {
+  const data = await apiFetch<{ discount: Discount }>(`/api/v1/discounts?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
+  return data.discount;
+}
+
+export async function updateDiscount(restaurantId: number, id: number, input: Partial<DiscountInput>): Promise<Discount> {
+  const data = await apiFetch<{ discount: Discount }>(`/api/v1/discounts/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+  return data.discount;
+}
+
+export async function deleteDiscount(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/discounts/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function validateDiscount(restaurantId: number, req: ValidateDiscountRequest): Promise<DiscountValidation> {
+  return apiFetch<DiscountValidation>(`/api/v1/discounts/validate?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST', body: JSON.stringify(req) });
 }
 
 /**
