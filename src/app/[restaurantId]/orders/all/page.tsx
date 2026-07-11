@@ -890,6 +890,8 @@ export default function OrdersPage() {
         onOpenChange={setPaymentOpen}
         totalAmount={selectedOrder?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+        discountAmount={selectedOrder?.discount_amount}
+        discountLabel={selectedOrder?.discount?.code}
       />
 
       {/* Confirm weights — by-weight orders on a card hold */}

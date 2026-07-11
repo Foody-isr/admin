@@ -158,6 +158,8 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onOpenChange={setPaymentOpen}
         totalAmount={order?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+        discountAmount={order?.discount_amount}
+        discountLabel={order?.discount?.code}
       />
 
       <ConfirmWeightsModal

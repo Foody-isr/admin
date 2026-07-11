@@ -459,9 +459,15 @@ export function OrderDetailDrawer({
 
   const totalsLine = order.total_amount ?? regularTotal + combosSubtotal;
   const deliveryFee = order.delivery_fee ?? 0;
-  // When a delivery fee applies, derive the subtotal from the total so the three
-  // displayed lines (subtotal + fee = total) always reconcile exactly.
-  const subtotal = deliveryFee > 0 ? totalsLine - deliveryFee : regularTotal + combosSubtotal;
+  const discountAmount = order.discount_amount ?? 0;
+  // Derive the pre-discount items subtotal so displayed lines always reconcile:
+  //   subtotal − discountAmount + deliveryFee = totalsLine  ✓
+  // When neither a delivery fee nor a discount applies, fall back to the sum of
+  // item totals so the display is accurate even when total_amount is absent.
+  const subtotal =
+    deliveryFee > 0 || discountAmount > 0
+      ? totalsLine + discountAmount - deliveryFee
+      : regularTotal + combosSubtotal;
 
   // Post-payment edit warning: the server flags an order whose items were changed
   // after the customer had already paid, snapshotting paid_amount (the amount
@@ -1012,6 +1018,17 @@ export function OrderDetailDrawer({
                 <span className="text-[var(--fg-subtle)]">{t('subtotal') || 'Sous-total'}</span>
                 <span className="font-mono tabular-nums">₪{subtotal.toFixed(2)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--fg-subtle)]">
+                    {t('discountLine')}
+                    {order.discount?.code
+                      ? ` (${order.discount.code})`
+                      : ` ${t('manualDiscount')}`}
+                  </span>
+                  <span className="font-mono tabular-nums">−₪{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
               {deliveryFee > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--fg-subtle)]">{t('delivery_fee') || 'Frais de livraison'}</span>

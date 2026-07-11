@@ -592,6 +592,12 @@ export interface Order {
   // Outstanding amount (₪) for items added after the order was paid. Server
   // omits this field (undefined) when there is nothing outstanding.
   balance_due?: number;
+  // Discount applied to this order. discount_amount is the total reduction (₪)
+  // already folded into total_amount. discount is the snapshot of the applied
+  // discount rule. discount_source is 'code' | 'manual' | '' (or absent).
+  discount_amount?: number;
+  discount_source?: string;
+  discount?: { code?: string; type: string; value: number; scope: string; reason?: string };
 }
 
 export interface StaffMember {
@@ -1973,6 +1979,30 @@ export async function previewTranslations(
   return { sourceLocale: data.source_locale, translations: data.translations ?? {} };
 }
 
+/** One set of source texts sharing a single source language (e.g. all item names). */
+export interface TranslationPreviewGroup {
+  source_locale: string;
+  texts: string[];
+}
+
+/**
+ * Machine-translate each group FROM its own source language into every locale
+ * (the language-aware import). Unlike previewTranslations, the returned map is a
+ * FULL per-text locale map (en/fr/he all present, the source slot being the
+ * original text) — so a mixed menu with Latin names and Hebrew descriptions is
+ * translated correctly per section. Writes nothing.
+ */
+export async function previewTranslationsGrouped(
+  restaurantId: number,
+  groups: TranslationPreviewGroup[]
+): Promise<Record<string, Record<string, string>>> {
+  const data = await apiFetch<{ translations: Record<string, Record<string, string>> }>(
+    `/api/v1/menu/translations/preview?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ groups }) }
+  );
+  return data.translations ?? {};
+}
+
 /** Gather every catalog text with usage counts + fresh translations. Writes nothing. */
 export async function retranslatePreview(
   restaurantId: number
@@ -2992,9 +3022,16 @@ export interface ConfirmMenuImportOptions {
   /**
    * User-reviewed translations (source text -> locale -> value). When set,
    * entities are created with exactly these translations and the background
-   * backfill is skipped.
+   * backfill is skipped. In the language-aware import each entry is a full
+   * locale map so the primary-locale value can be promoted to the base column.
    */
   translations?: Record<string, Record<string, string>>;
+  /**
+   * The restaurant's canonical display language for this import. When it
+   * differs from the current default_locale the existing catalog is re-keyed
+   * losslessly and default_locale is updated. Empty preserves legacy behaviour.
+   */
+  primaryLocale?: string;
 }
 
 export interface ConfirmMenuImportResult {
@@ -3019,6 +3056,7 @@ export async function confirmMenuImport(
         carte_name: options.carteName ?? '',
         auto_translate: options.autoTranslate ?? false,
         translations: options.translations ?? undefined,
+        primary_locale: options.primaryLocale ?? undefined,
       }),
     }
   );
