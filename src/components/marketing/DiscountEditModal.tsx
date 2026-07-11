@@ -75,7 +75,6 @@ export default function DiscountEditModal({
   // --- UI state ---
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [savedMsg, setSavedMsg] = useState('');
 
   // Load categories and items once, for the scope pickers
   useEffect(() => {
@@ -83,14 +82,38 @@ export default function DiscountEditModal({
     listAllItems(restaurantId).then(setItems).catch(() => {});
   }, [restaurantId]);
 
+  // Re-initialize all form fields whenever the modal opens or the editing target changes
+  useEffect(() => {
+    if (!open) return;
+    setCode(editing?.code ?? '');
+    setName(editing?.name ?? '');
+    setDescription(editing?.description ?? '');
+    setType(editing?.type ?? 'fixed');
+    setValue(editing?.value != null ? String(editing.value) : '');
+    setScope(editing?.scope ?? 'whole_sale');
+    setScopeIds(editing?.scope_ids ?? []);
+    setMinPurchase(
+      editing?.min_purchase != null && editing.min_purchase !== 0
+        ? String(editing.min_purchase)
+        : '',
+    );
+    setTotalCap(editing?.total_cap != null ? String(editing.total_cap) : '');
+    setPerCustomerCap(
+      editing?.per_customer_cap != null ? String(editing.per_customer_cap) : '',
+    );
+    setStartsAt(editing?.starts_at ? editing.starts_at.slice(0, 10) : todayISO());
+    setHasEndDate(!!editing?.ends_at);
+    setEndsAt(editing?.ends_at ? editing.ends_at.slice(0, 10) : '');
+    setIsActive(editing?.is_active ?? true);
+    setSaveError('');
+  }, [open, editing]);
+
   // Reset scope_ids when scope type changes
   useEffect(() => {
     setScopeIds([]);
   }, [scope]);
 
   if (!open) return null;
-
-  const isNew = !editing;
 
   function toggleScopeId(id: number) {
     setScopeIds((prev) =>
@@ -100,11 +123,10 @@ export default function DiscountEditModal({
 
   async function handleSave() {
     setSaveError('');
-    setSavedMsg('');
 
     const numValue = value === '' ? 0 : parseFloat(value);
     if (isNaN(numValue)) {
-      setSaveError('Invalid value');
+      setSaveError(t('invalidValue'));
       return;
     }
 
@@ -132,7 +154,6 @@ export default function DiscountEditModal({
       } else {
         await createDiscount(restaurantId, input);
       }
-      setSavedMsg(t('discountSaved'));
       onSaved();
       onClose();
     } catch (err) {
@@ -232,7 +253,7 @@ export default function DiscountEditModal({
         {showValueAndScope && (
           <div>
             <label className="block text-sm font-medium text-fg-secondary mb-1">
-              {type === 'fixed' ? 'Valeur (₪)' : 'Valeur (%)'}
+              {t('discountValue')}
             </label>
             <div className="relative">
               <input
@@ -333,7 +354,7 @@ export default function DiscountEditModal({
 
         {/* Conditions */}
         <div className="space-y-3">
-          <p className="text-sm font-medium text-fg-secondary">Conditions</p>
+          <p className="text-sm font-medium text-fg-secondary">{t('conditions')}</p>
 
           <div>
             <label className="block text-sm font-medium text-fg-secondary mb-0.5">
@@ -455,13 +476,6 @@ export default function DiscountEditModal({
         {saveError && (
           <p className="text-sm text-red-500 bg-red-500/10 rounded-lg px-3 py-2">
             {saveError}
-          </p>
-        )}
-
-        {/* Success */}
-        {savedMsg && (
-          <p className="text-sm text-green-600 bg-green-500/10 rounded-lg px-3 py-2">
-            {savedMsg}
           </p>
         )}
 
