@@ -15,11 +15,14 @@ import {
   type QrCardTemplate,
   type QrCardBrandMode,
   type QrCardTexts,
+  type QrCardTypography,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Button, Input, PageHead, Field } from '@/components/ds';
 import { QrCard, contrastRatio, TEMPLATE_SIZES } from '@/components/qr/QrCard';
+import { QrTypographyPanel } from '@/components/qr/QrTypographyPanel';
+import { normalizeQrTypography } from '@/lib/qr/typography';
 
 const TEMPLATE_OPTIONS: {
   id: QrCardTemplate;
@@ -177,6 +180,8 @@ export default function CustomizeQrCardPage() {
         hero_width: draft.hero_width ?? 100,
         hero_height: draft.hero_height ?? 50,
         texts: draft.texts,
+        // null clears the column — the server takes it as "no overrides".
+        typography: normalizeQrTypography(draft.typography),
       });
       // Merge with existing filled defaults so the editor doesn't show blanks
       // if the server stripped omitted fields.
@@ -200,8 +205,15 @@ export default function CustomizeQrCardPage() {
     }
   };
 
+  const setTypography = (next: QrCardTypography) => {
+    setDraft((prev) => (prev ? { ...prev, typography: next } : prev));
+  };
+
   const handleReset = () => {
     if (!draft) return;
+    // Keep the font library: the restaurant uploaded those files, and a reset of
+    // the card's styling is no reason to make them upload them again.
+    const keptFonts = draft.typography?.extraFonts ?? [];
     setDraft({
       ...draft,
       template: 'compact',
@@ -212,6 +224,7 @@ export default function CustomizeQrCardPage() {
       hero_y: 50,
       hero_width: 100,
       hero_height: 50,
+      typography: keptFonts.length > 0 ? { extraFonts: keptFonts } : null,
       texts: {
         en: { ...defaultsByLocale.en },
         he: { ...defaultsByLocale.he },
@@ -478,6 +491,21 @@ export default function CustomizeQrCardPage() {
               />
             </div>
           </Field>
+
+          {canManage && (
+            <Field label={t('qrTypography')}>
+              <QrTypographyPanel
+                restaurantId={rid}
+                typography={draft.typography}
+                textColor={draft.text_color}
+                activeLocale={activeLocale}
+                onChange={setTypography}
+              />
+              <p className="text-fs-xs text-[var(--fg-subtle)] mt-1.5">
+                {t('qrTypographyHint')}
+              </p>
+            </Field>
+          )}
         </div>
 
         <div className="card p-[var(--s-5)] flex flex-col items-center gap-[var(--s-4)] bg-[var(--bg-subtle)]">

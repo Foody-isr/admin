@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type {
   QrCardConfig,
@@ -7,6 +8,11 @@ import type {
   QrCardTemplate,
   QrCardTexts,
 } from '@/lib/api';
+import {
+  loadQrFonts,
+  QR_DEFAULT_FONT_STACK,
+  sectionStyle,
+} from '@/lib/qr/typography';
 
 export interface QrCardLabels {
   poweredBy: string;
@@ -100,6 +106,14 @@ export function QrCard(props: QrCardProps) {
   const isRtl = (props.locale || props.restaurantDefaultLocale) === 'he';
   const tpl = props.config.template;
   const sharedProps = { ...props, resolved, isRtl };
+
+  // Pull in the stylesheets for whatever families the sections reference. The
+  // print sheet awaits the same loader before opening the print dialog.
+  const typography = props.config.typography;
+  useEffect(() => {
+    void loadQrFonts(typography);
+  }, [typography]);
+
   if (tpl === 'wide') return <WideCard {...sharedProps} />;
   if (tpl === 'tall') return <TallCard {...sharedProps} />;
   if (tpl === 'round') return <RoundCard {...sharedProps} />;
@@ -115,6 +129,23 @@ interface AtomProps {
   texts: Required<QrCardTexts>;
   logoUrl?: string;
   size: number; // font scale anchor (use card width)
+}
+
+/**
+ * Every user-entered string on the card goes through here.
+ *
+ * A Hebrew card carries dir="rtl", which makes the whole card one RTL bidi
+ * paragraph. A Latin brand like "148 Everyday" is then two runs — the digits
+ * and the word — separated by a neutral space that inherits the paragraph's
+ * RTL direction, so the runs get painted right-to-left as "Everyday 148".
+ *
+ * <bdi> is the element designed for exactly this: it isolates its content from
+ * the surrounding paragraph and picks the direction from the text's own first
+ * strong character. The Latin brand lays out left-to-right inside an otherwise
+ * right-to-left card, and a genuinely Hebrew title still reads right-to-left.
+ */
+function Bidi({ children }: { children: React.ReactNode }) {
+  return <bdi>{children}</bdi>;
 }
 
 function BrandBlock({ config, texts, logoUrl, size }: AtomProps) {
@@ -137,33 +168,37 @@ function BrandBlock({ config, texts, logoUrl, size }: AtomProps) {
   if (!texts.brand_text) return null;
   return (
     <div
-      style={{
+      style={sectionStyle(config.typography, 'brand', {
         fontSize: size * 0.04,
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         opacity: 0.75,
         fontWeight: 600,
-      }}
+      })}
     >
-      {texts.brand_text}
+      <Bidi>{texts.brand_text}</Bidi>
     </div>
   );
 }
 
-function StepsList({ texts, size, align = 'center' }: { texts: Required<QrCardTexts>; size: number; align?: 'left' | 'center' | 'right' }) {
+function StepsList({ config, texts, size, align = 'center' }: { config: QrCardConfig; texts: Required<QrCardTexts>; size: number; align?: 'left' | 'center' | 'right' }) {
   if (!texts.step1 && !texts.step2 && !texts.step3) return null;
   return (
     <div
       style={{
-        fontSize: size * 0.04,
-        opacity: 0.8,
-        lineHeight: 1.7,
+        ...sectionStyle(config.typography, 'steps', {
+          fontSize: size * 0.04,
+          opacity: 0.8,
+          lineHeight: 1.7,
+        }),
         textAlign: align,
       }}
     >
-      {texts.step1 && <div>1. {texts.step1}</div>}
-      {texts.step2 && <div>2. {texts.step2}</div>}
-      {texts.step3 && <div>3. {texts.step3}</div>}
+      {/* The "1." prefix is inside the isolate so it stays attached to its own
+          step and lands on the correct side in an RTL card. */}
+      {texts.step1 && <div><Bidi>1. {texts.step1}</Bidi></div>}
+      {texts.step2 && <div><Bidi>2. {texts.step2}</Bidi></div>}
+      {texts.step3 && <div><Bidi>3. {texts.step3}</Bidi></div>}
     </div>
   );
 }
@@ -216,7 +251,8 @@ function baseCardStyle(props: QrCardProps, w: number, h: number): React.CSSPrope
     height: h,
     background: props.config.background_color || '#ffffff',
     color: props.config.text_color || '#1a1a1a',
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    // Sections without a font override inherit this; those with one set their own.
+    fontFamily: QR_DEFAULT_FONT_STACK,
     borderRadius: 14,
     boxShadow: '0 2px 14px rgba(0,0,0,0.08)',
     boxSizing: 'border-box',
@@ -251,21 +287,25 @@ function CompactCard(props: RenderProps) {
       {resolved.title && (
         <div
           style={{
-            fontSize: width * 0.085,
-            fontWeight: 800,
-            lineHeight: 1.15,
+            ...sectionStyle(config.typography, 'title', {
+              fontSize: width * 0.085,
+              fontWeight: 800,
+              lineHeight: 1.15,
+            }),
             marginTop: -pad * 0.3,
           }}
         >
-          {resolved.title}
+          <Bidi>{resolved.title}</Bidi>
         </div>
       )}
 
       <QrSquare url={url} size={width * 0.5} />
 
-      <div style={{ fontSize: width * 0.05, fontWeight: 600 }}>{tableLabel}</div>
+      <div style={sectionStyle(config.typography, 'table', { fontSize: width * 0.05, fontWeight: 600 })}>
+        <Bidi>{tableLabel}</Bidi>
+      </div>
 
-      <StepsList texts={resolved} size={width} />
+      <StepsList config={config} texts={resolved} size={width} />
 
       <Foot label={labels.poweredBy} size={width} />
     </div>
@@ -298,13 +338,15 @@ function WideCard(props: RenderProps) {
       {resolved.title && (
         <div
           style={{
-            fontSize: width * 0.06,
-            fontWeight: 800,
-            lineHeight: 1.15,
+            ...sectionStyle(config.typography, 'title', {
+              fontSize: width * 0.06,
+              fontWeight: 800,
+              lineHeight: 1.15,
+            }),
             marginTop: pad * 0.3,
           }}
         >
-          {resolved.title}
+          <Bidi>{resolved.title}</Bidi>
         </div>
       )}
 
@@ -321,15 +363,25 @@ function WideCard(props: RenderProps) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: pad * 0.4 }}>
           <QrSquare url={url} size={width * 0.28} />
-          <div style={{ fontSize: width * 0.034, fontWeight: 600 }}>{tableLabel}</div>
+          <div style={sectionStyle(config.typography, 'table', { fontSize: width * 0.034, fontWeight: 600 })}>
+            <Bidi>{tableLabel}</Bidi>
+          </div>
         </div>
         <div style={{ textAlign: isRtl ? 'right' : 'left' }}>
           {resolved.subtitle && (
-            <div style={{ fontSize: width * 0.032, opacity: 0.8, marginBottom: pad * 0.3 }}>
-              {resolved.subtitle}
+            <div
+              style={{
+                ...sectionStyle(config.typography, 'subtitle', {
+                  fontSize: width * 0.032,
+                  opacity: 0.8,
+                }),
+                marginBottom: pad * 0.3,
+              }}
+            >
+              <Bidi>{resolved.subtitle}</Bidi>
             </div>
           )}
-          <StepsList texts={resolved} size={width * 0.85} align={isRtl ? 'right' : 'left'} />
+          <StepsList config={config} texts={resolved} size={width * 0.85} align={isRtl ? 'right' : 'left'} />
         </div>
       </div>
 
@@ -380,8 +432,14 @@ function TallCard(props: RenderProps) {
         }}
       >
         {resolved.title && (
-          <div style={{ fontSize: width * 0.085, fontWeight: 800, lineHeight: 1.15 }}>
-            {resolved.title}
+          <div
+            style={sectionStyle(config.typography, 'title', {
+              fontSize: width * 0.085,
+              fontWeight: 800,
+              lineHeight: 1.15,
+            })}
+          >
+            <Bidi>{resolved.title}</Bidi>
           </div>
         )}
 
@@ -397,14 +455,25 @@ function TallCard(props: RenderProps) {
         />
 
         <div style={{ display: 'flex', gap: pad * 0.5, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, fontSize: width * 0.04, opacity: 0.85, lineHeight: 1.6 }}>
-            {resolved.step1 && <div>{resolved.step1}</div>}
-            {resolved.step2 && <div>{resolved.step2}</div>}
-            {resolved.step3 && <div>{resolved.step3}</div>}
+          <div
+            style={{
+              ...sectionStyle(config.typography, 'steps', {
+                fontSize: width * 0.04,
+                opacity: 0.85,
+                lineHeight: 1.6,
+              }),
+              flex: 1,
+            }}
+          >
+            {resolved.step1 && <div><Bidi>{resolved.step1}</Bidi></div>}
+            {resolved.step2 && <div><Bidi>{resolved.step2}</Bidi></div>}
+            {resolved.step3 && <div><Bidi>{resolved.step3}</Bidi></div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
             <QrSquare url={url} size={width * 0.3} />
-            <div style={{ fontSize: width * 0.032 }}>{tableLabel}</div>
+            <div style={sectionStyle(config.typography, 'table', { fontSize: width * 0.032 })}>
+              <Bidi>{tableLabel}</Bidi>
+            </div>
           </div>
         </div>
       </div>
@@ -412,14 +481,16 @@ function TallCard(props: RenderProps) {
       {resolved.subtitle && (
         <div
           style={{
-            fontSize: width * 0.04,
+            ...sectionStyle(config.typography, 'subtitle', {
+              fontSize: width * 0.04,
+              opacity: 0.8,
+            }),
             textAlign: 'center',
-            opacity: 0.8,
             padding: `0 ${pad}px`,
             marginBottom: pad * 0.4,
           }}
         >
-          {resolved.subtitle}
+          <Bidi>{resolved.subtitle}</Bidi>
         </div>
       )}
 
@@ -474,6 +545,13 @@ function RoundCard(props: RenderProps) {
       {resolved.subtitle && (
         <div
           style={{
+            ...sectionStyle(config.typography, 'subtitle', {
+              // White by default because this sits on the dark gradient at the
+              // foot of the sticker, not on the card background.
+              color: '#fff',
+              fontSize: size * 0.036,
+              fontWeight: 600,
+            }),
             position: 'absolute',
             left: 0,
             right: 0,
@@ -481,14 +559,11 @@ function RoundCard(props: RenderProps) {
             paddingTop: size * 0.06,
             paddingBottom: size * 0.045,
             paddingInline: size * 0.14,
-            color: '#fff',
-            fontSize: size * 0.036,
-            fontWeight: 600,
             textAlign: 'center',
             background: 'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0))',
           }}
         >
-          {resolved.subtitle}
+          <Bidi>{resolved.subtitle}</Bidi>
         </div>
       )}
 
@@ -509,13 +584,15 @@ function RoundCard(props: RenderProps) {
         {resolved.title && (
           <div
             style={{
-              fontSize: size * 0.075,
-              fontWeight: 800,
-              lineHeight: 1.05,
+              ...sectionStyle(config.typography, 'title', {
+                fontSize: size * 0.075,
+                fontWeight: 800,
+                lineHeight: 1.05,
+              }),
               marginTop: pad * 0.4,
             }}
           >
-            {resolved.title}
+            <Bidi>{resolved.title}</Bidi>
           </div>
         )}
 
@@ -535,21 +612,24 @@ function RoundCard(props: RenderProps) {
           <QrSquare url={url} size={qrSize} />
           <div
             style={{
+              ...sectionStyle(config.typography, 'table', {
+                // White on the fixed black pill, not on the card background.
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: size * 0.085,
+                textTransform: 'uppercase',
+                letterSpacing: '0.02em',
+              }),
               background: '#111',
-              color: '#fff',
               padding: `${pad * 0.55}px ${pad * 0.75}px`,
               borderRadius: 8,
               textAlign: 'center',
-              fontWeight: 800,
               lineHeight: 1,
-              fontSize: size * 0.085,
-              textTransform: 'uppercase',
-              letterSpacing: '0.02em',
               minWidth: size * 0.22,
               boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
             }}
           >
-            {shortLabel}
+            <Bidi>{shortLabel}</Bidi>
           </div>
         </div>
       </div>
