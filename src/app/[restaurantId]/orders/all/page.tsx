@@ -161,6 +161,9 @@ export default function OrdersPage() {
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   // Minimal restaurant identity for printed tickets (name/address/phone header).
   const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
+  // The restaurant's own language — fallback for the customer-facing WhatsApp
+  // recap when an order carries no customer_locale.
+  const [restaurantLocale, setRestaurantLocale] = useState<string>('');
   useEffect(() => {
     if (!rid) return;
     getRestaurant(rid)
@@ -168,6 +171,7 @@ export default function OrdersPage() {
         setWeekStartDay(clampWeekStartDay(r.week_start_day));
         setWorkdays(getEffectiveWorkdays(r));
         setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
+        setRestaurantLocale(r.default_locale || '');
       })
       .catch(() => {});
   }, [rid]);
@@ -872,6 +876,7 @@ export default function OrdersPage() {
         onEditCustomer={() => selectedOrder && setEditCustomerId(selectedOrder.id)}
         onToggleForceProduction={() => selectedOrder && handleToggleForceProduction(selectedOrder.id, !selectedOrder.force_production)}
         restaurantInfo={restaurantInfo}
+        restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
       />
 
@@ -890,6 +895,8 @@ export default function OrdersPage() {
         onOpenChange={setPaymentOpen}
         totalAmount={selectedOrder?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+        discountAmount={selectedOrder?.discount_amount}
+        discountLabel={selectedOrder?.discount?.code}
       />
 
       {/* Confirm weights — by-weight orders on a card hold */}

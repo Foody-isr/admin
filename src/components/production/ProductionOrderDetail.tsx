@@ -47,11 +47,15 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
   // Minimal restaurant identity for printed tickets + custom checkout-field
   // labels — same data the orders board feeds the drawer.
   const [restaurantInfo, setRestaurantInfo] = useState<PrintTicketRestaurant>({});
+  const [restaurantLocale, setRestaurantLocale] = useState<string>('');
   const [customFieldLabels, setCustomFieldLabels] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!restaurantId) return;
     getRestaurant(restaurantId)
-      .then((r) => setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone }))
+      .then((r) => {
+        setRestaurantInfo({ name: r.name, address: r.address, phone: r.phone });
+        setRestaurantLocale(r.default_locale || '');
+      })
       .catch(() => {});
     getWebsiteConfig(restaurantId)
       .then((cfg) => setCustomFieldLabels(buildCustomFieldLabels(cfg.checkout_config)))
@@ -142,6 +146,7 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onEdit={() => setEditOpen(true)}
         onConfirmWeights={() => setWeightsOpen(true)}
         restaurantInfo={restaurantInfo}
+        restaurantDefaultLocale={restaurantLocale}
         customFieldLabels={customFieldLabels}
       />
 
@@ -158,6 +163,8 @@ export function ProductionOrderDetail({ restaurantId, orderId, onClose }: Props)
         onOpenChange={setPaymentOpen}
         totalAmount={order?.total_amount ?? 0}
         onConfirm={handleTakePayment}
+        discountAmount={order?.discount_amount}
+        discountLabel={order?.discount?.code}
       />
 
       <ConfirmWeightsModal

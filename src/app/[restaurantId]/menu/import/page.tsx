@@ -3,13 +3,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  importMenuAI, importMenuFromWolt, confirmMenuImport, previewTranslations,
+  importMenuAI, importMenuFromWolt, confirmMenuImport, previewTranslationsGrouped, getRestaurant,
   RichExtraction, TranslationReviewEntry,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { SparklesIcon, LinkIcon, ImageIcon } from 'lucide-react';
 import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
+import {
+  LOCALE_LABELS, SUPPORTED_LOCALES, sectionFor, detectLocale, type Locale,
+} from '@/components/translations/sections';
+
+function isLocale(v: unknown): v is Locale {
+  return v === 'en' || v === 'he' || v === 'fr';
+}
 
 /**
  * Flattens an extraction into unique translatable texts with usage kinds —
@@ -69,11 +76,43 @@ export default function MenuImportPage() {
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [trEntries, setTrEntries] = useState<TranslationReviewEntry[] | null>(null);
   const [trLoading, setTrLoading] = useState(false);
-  const [sourceLocale, setSourceLocale] = useState('');
+  // section key -> the language its original text is written in (auto-detected,
+  // overridable). Drives the per-section translation direction.
+  const [sectionSources, setSectionSources] = useState<Record<string, string>>({});
+  // The restaurant's canonical display language for this import. Prefilled from
+  // the current setting; the customer sees this by default.
+  const [primaryLocale, setPrimaryLocale] = useState<Locale>('en');
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Prefill the primary language from the restaurant's current default_locale.
+  useEffect(() => {
+    getRestaurant(rid)
+      .then((r) => { if (isLocale(r.default_locale)) setPrimaryLocale(r.default_locale); })
+      .catch(() => {});
+  }, [rid]);
+
+  // Translate a set of entries: group each section's texts by its source
+  // language, then fetch a full per-locale map so every language is populated.
+  const runGroupedPreview = async (
+    entries: TranslationReviewEntry[],
+    sources: Record<string, string>,
+  ) => {
+    const bySource: Record<string, Set<string>> = {};
+    for (const e of entries) {
+      const src = sources[sectionFor(e.usage)] ?? 'en';
+      (bySource[src] ||= new Set()).add(e.text);
+    }
+    const groups = Object.entries(bySource).map(([source_locale, texts]) => ({
+      source_locale, texts: Array.from(texts),
+    }));
+    const translations = await previewTranslationsGrouped(rid, groups);
+    return entries.map((e) => ({ ...e, translations: translations[e.text] ?? e.translations }));
+  };
+
   // Pre-compute translations while the user is still checking the extracted
-  // items, so the translation review step opens instantly.
+  // items, so the translation review step opens instantly. Each section's
+  // source language is auto-detected first (Hebrew script, French accents,
+  // else English) and can be overridden in the review table.
   useEffect(() => {
     if (!extraction || !autoTranslate || trEntries !== null || trLoading) return;
     const entries = collectReviewEntries(extraction);
@@ -81,15 +120,51 @@ export default function MenuImportPage() {
       setTrEntries([]);
       return;
     }
+    const bySection: Record<string, string[]> = {};
+    for (const e of entries) (bySection[sectionFor(e.usage)] ||= []).push(e.text);
+    const sources: Record<string, string> = {};
+    for (const [sec, texts] of Object.entries(bySection)) sources[sec] = detectLocale(texts);
+    setSectionSources(sources);
+
     setTrLoading(true);
-    previewTranslations(rid, entries.map((e) => e.text))
-      .then(({ sourceLocale: src, translations }) => {
-        setSourceLocale(src);
-        setTrEntries(entries.map((e) => ({ ...e, translations: translations[e.text] ?? {} })));
-      })
+    runGroupedPreview(entries, sources)
+      .then(setTrEntries)
       .catch(() => setTrEntries(entries))
       .finally(() => setTrLoading(false));
   }, [extraction, autoTranslate, trEntries, trLoading, rid]);
+
+  // Re-translate a single section when its source language is changed.
+  const handleSectionSourceChange = async (section: string, locale: string) => {
+    setSectionSources((prev) => ({ ...prev, [section]: locale }));
+    if (!trEntries) return;
+    setTrLoading(true);
+    try {
+      const texts = Array.from(
+        new Set(trEntries.filter((e) => sectionFor(e.usage) === section).map((e) => e.text)),
+      );
+      const translations = await previewTranslationsGrouped(rid, [{ source_locale: locale, texts }]);
+      setTrEntries((prev) =>
+        prev?.map((e) =>
+          sectionFor(e.usage) === section
+            ? { ...e, translations: translations[e.text] ?? e.translations }
+            : e,
+        ) ?? prev,
+      );
+    } catch {
+      /* keep the previous translations on failure */
+    } finally {
+      setTrLoading(false);
+    }
+  };
+
+  // How the given raw text renders for a customer using `lang`: its translation,
+  // else the primary-language value (the stored base), else the raw text.
+  const displayValue = (raw: string | undefined, lang: string): string => {
+    const text = raw?.trim();
+    if (!text) return '';
+    const tr = trEntries?.find((e) => e.text === text)?.translations ?? {};
+    return tr[lang] || tr[primaryLocale] || text;
+  };
 
   const handleTranslationEdit = (text: string, locale: string, value: string) => {
     setTrEntries((prev) =>
@@ -142,6 +217,7 @@ export default function MenuImportPage() {
         carteName: carteName.trim() || t('importCarteNameDefault'),
         autoTranslate,
         translations,
+        primaryLocale: autoTranslate ? primaryLocale : undefined,
       });
       if (createCarte && result.carteId) {
         router.push(`/${restaurantId}/menu/menus/${result.carteId}`);
@@ -163,11 +239,14 @@ export default function MenuImportPage() {
     setCarteName('');
     setAutoTranslate(true);
     setTrEntries(null);
-    setSourceLocale('');
+    setSectionSources({});
   };
 
   const totalItems = extraction?.categories.reduce((sum, c) => sum + c.items.length, 0) ?? 0;
   const hasBranding = !!(extraction?.restaurant_logo_url || extraction?.restaurant_cover_url);
+  // A representative item (first one with a name) for the live display preview.
+  const previewItem =
+    extraction?.categories.flatMap((c) => c.items).find((it) => it.name?.trim()) ?? null;
 
   if (!canEdit) {
     return (
@@ -402,11 +481,65 @@ export default function MenuImportPage() {
 
       {step === 'translations' && trEntries && (
         <div className="space-y-4">
-          <p className="text-sm text-fg-secondary">{t('trReviewIntro')}</p>
+          <p className="text-sm text-fg-secondary">{t('importLangReviewIntro')}</p>
+
+          {/* Primary display language + live preview of how guests will see it */}
+          <div
+            className="rounded-card border border-[var(--divider)] p-4 space-y-3"
+            style={{ background: 'var(--surface-subtle)' }}
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <label htmlFor="primary-locale" className="text-sm font-medium text-fg-primary">
+                {t('importPrimaryLanguageLabel')}
+              </label>
+              <select
+                id="primary-locale"
+                value={primaryLocale}
+                onChange={(e) => setPrimaryLocale(e.target.value as Locale)}
+                className="px-2.5 py-1.5 rounded-standard bg-[var(--surface)] border border-[var(--divider)] text-sm text-fg-primary focus:outline-none focus:border-brand-500"
+              >
+                {SUPPORTED_LOCALES.map((loc) => (
+                  <option key={loc} value={loc}>{LOCALE_LABELS[loc]}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-fg-secondary">{t('importPrimaryLanguageHint')}</p>
+
+            {previewItem && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-fg-secondary uppercase tracking-wide">
+                  {t('importPreviewHeading')}
+                </p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {SUPPORTED_LOCALES.map((lang) => (
+                    <div
+                      key={lang}
+                      className="rounded-standard bg-[var(--surface)] border border-[var(--divider)] p-2.5"
+                      dir={lang === 'he' ? 'rtl' : 'ltr'}
+                    >
+                      <div className="text-[11px] text-fg-secondary mb-1">
+                        {LOCALE_LABELS[lang]}
+                        {lang === primaryLocale ? ` · ${t('importPrimaryTag')}` : ''}
+                      </div>
+                      <div className="text-sm font-semibold text-fg-primary truncate">
+                        {displayValue(previewItem.name, lang)}
+                      </div>
+                      {previewItem.description?.trim() && (
+                        <div className="text-xs text-fg-secondary line-clamp-2 mt-0.5">
+                          {displayValue(previewItem.description, lang)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <TranslationReviewTable
             entries={trEntries}
-            sourceLocale={sourceLocale}
+            sectionSources={sectionSources}
+            onSectionSourceChange={handleSectionSourceChange}
             onEdit={handleTranslationEdit}
           />
 
@@ -420,7 +553,14 @@ export default function MenuImportPage() {
             <button className="btn-secondary" onClick={() => setStep('review')}>
               {t('back')}
             </button>
-            <button className="btn-primary" onClick={handleConfirm} disabled={confirming}>
+            <button
+              className="btn-primary flex items-center gap-2"
+              onClick={handleConfirm}
+              disabled={confirming || trLoading}
+            >
+              {trLoading && (
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+              )}
               {confirming ? t('creating') : t('importItems').replace('{count}', String(totalItems))}
             </button>
           </div>

@@ -16,6 +16,7 @@
 // app/[restaurantId]/orders/all/page.tsx and foodyweb's ReceiptClient.
 
 import type { Order, OrderItem } from '@/lib/api';
+import { groupOrder } from '@/lib/orders/group-order';
 
 export type TicketKind = 'receipt' | 'kitchen';
 
@@ -61,80 +62,6 @@ function esc(s: unknown): string {
 
 function money(n: number): string {
   return '₪' + (n ?? 0).toFixed(2);
-}
-
-// ─── Grouping (mirrors the drawer / foodyweb receipt) ────────────────────────
-
-interface GroupedOrder {
-  categoryGroups: Array<{ label: string; items: OrderItem[] }>;
-  comboGroups: Array<{ name: string; items: OrderItem[]; price: number }>;
-  subtotal: number;
-  total: number;
-}
-
-function groupOrder(order: Order, labels: PrintTicketLabels): GroupedOrder {
-  const allItems: OrderItem[] = order.items ?? [];
-  const regularItems = allItems.filter((i) => !i.combo_group);
-
-  const comboMap = new Map<string, OrderItem[]>();
-  for (const item of allItems) {
-    if (item.combo_group) {
-      const g = comboMap.get(item.combo_group) ?? [];
-      g.push(item);
-      comboMap.set(item.combo_group, g);
-    }
-  }
-  const comboEntries = Array.from(comboMap.values());
-
-  // Category grouping, first-seen order; uncategorized rows fall to the end.
-  const order_: string[] = [];
-  const byCat = new Map<string, OrderItem[]>();
-  for (const it of regularItems) {
-    const key = it.category_name && it.category_name.trim() !== '' ? it.category_name : '__other__';
-    if (!byCat.has(key)) {
-      byCat.set(key, []);
-      order_.push(key);
-    }
-    byCat.get(key)!.push(it);
-  }
-  const otherIdx = order_.indexOf('__other__');
-  if (otherIdx >= 0 && order_.length > 1) {
-    order_.splice(otherIdx, 1);
-    order_.push('__other__');
-  }
-  const categoryGroups = order_.map((key) => ({
-    label: key === '__other__' ? labels.uncategorized : key,
-    items: byCat.get(key)!,
-  }));
-
-  // Combo pricing: combo_price from server, else split the remainder of the
-  // order total evenly across combos (older clients).
-  const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const comboDeltasTotal = comboEntries.reduce(
-    (s, items) => s + items.reduce((gs, i) => gs + i.price * i.quantity, 0),
-    0,
-  );
-  const remainingForCombos = Math.max(0, (order.total_amount ?? 0) - regularTotal - comboDeltasTotal);
-  const comboCount = comboEntries.length;
-  const priceFor = (items: OrderItem[]): number => {
-    const fromServer = items[0]?.combo_price;
-    if (fromServer && fromServer > 0) return fromServer;
-    return comboCount > 0 ? remainingForCombos / comboCount : 0;
-  };
-
-  const comboGroups = comboEntries.map((items) => {
-    const deltas = items.reduce((gs, i) => gs + i.price * i.quantity, 0);
-    return {
-      name: items[0]?.combo_name || labels.comboFallback,
-      items,
-      price: priceFor(items) + deltas,
-    };
-  });
-
-  const combosSubtotal = comboGroups.reduce((s, g) => s + g.price, 0);
-  const subtotal = regularTotal + combosSubtotal;
-
-  return { categoryGroups, comboGroups, subtotal, total: order.total_amount ?? subtotal };
 }
 
 // ─── Item rendering helpers ──────────────────────────────────────────────────

@@ -17,12 +17,17 @@ interface TakePaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   totalAmount: number;
   onConfirm: (method: PaymentMethod) => Promise<void> | void;
+  /** Pre-discount reduction (₪). When provided, a read-only line is shown above
+   *  the total so cashiers understand why the amount differs from item prices. */
+  discountAmount?: number;
+  /** Human-readable label suffix, e.g. the discount code. */
+  discountLabel?: string;
 }
 
 type Stage = 'method' | 'cash_input' | 'cash_change';
 
 export function TakePaymentDialog({
-  open, onOpenChange, totalAmount, onConfirm,
+  open, onOpenChange, totalAmount, onConfirm, discountAmount, discountLabel,
 }: TakePaymentDialogProps) {
   const { t } = useI18n();
   const [stage, setStage] = useState<Stage>('method');
@@ -124,6 +129,8 @@ export function TakePaymentDialog({
               onCash={handleSelectCash}
               onCard={handleSelectCard}
               onCancel={close}
+              discountAmount={discountAmount}
+              discountLabel={discountLabel}
             />
           )}
           {stage === 'cash_input' && (
@@ -167,15 +174,18 @@ export function TakePaymentDialog({
 // ─── Stage 1: Method picker ────────────────────────────────────────────
 
 function MethodStage({
-  total, submitting, onCash, onCard, onCancel,
+  total, submitting, onCash, onCard, onCancel, discountAmount, discountLabel,
 }: {
   total: number;
   submitting: boolean;
   onCash: () => void;
   onCard: () => void;
   onCancel: () => void;
+  discountAmount?: number;
+  discountLabel?: string;
 }) {
   const { t } = useI18n();
+  const hasDiscount = (discountAmount ?? 0) > 0;
   return (
     <div className="p-[var(--s-5)]">
       <div className="flex items-start gap-[var(--s-3)] mb-[var(--s-4)]">
@@ -195,6 +205,24 @@ function MethodStage({
           <XIcon className="w-5 h-5" />
         </button>
       </div>
+
+      {hasDiscount && (
+        <div
+          className="flex items-center justify-between rounded-r-md px-[var(--s-4)] py-[var(--s-2)] mb-[var(--s-2)]"
+          style={{
+            background: 'color-mix(in oklab, var(--success-500) 8%, var(--surface))',
+            border: '1px solid color-mix(in oklab, var(--success-500) 25%, var(--line))',
+          }}
+        >
+          <span className="text-fs-xs text-[var(--fg-muted)]">
+            {t('discountLine')}
+            {discountLabel ? ` (${discountLabel})` : ''}
+          </span>
+          <span className="font-mono tabular-nums text-fs-sm" style={{ color: 'var(--success-500)' }}>
+            −₪{(discountAmount ?? 0).toFixed(2)}
+          </span>
+        </div>
+      )}
 
       <div
         className="flex items-center justify-between rounded-r-md px-[var(--s-4)] py-[var(--s-3)] mb-[var(--s-4)]"

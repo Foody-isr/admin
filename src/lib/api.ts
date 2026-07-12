@@ -586,12 +586,22 @@ export interface Order {
   receipt_token?: string;
   // Optional confirmation email captured at checkout (e.g. Google sign-in). May be absent.
   customer_email?: string;
+  // Language the customer ordered in (he/fr/en), captured from foodyweb's display
+  // locale at checkout. Absent on staff-created orders and orders placed before
+  // this was recorded — consumers fall back to the restaurant's default_locale.
+  customer_locale?: string;
   // Payment-provider metadata serialized from the server's ExternalMeta
   // (e.g. Summit's document_id on a paid order). Shape is provider-specific.
   external_metadata?: Record<string, unknown> | null;
   // Outstanding amount (₪) for items added after the order was paid. Server
   // omits this field (undefined) when there is nothing outstanding.
   balance_due?: number;
+  // Discount applied to this order. discount_amount is the total reduction (₪)
+  // already folded into total_amount. discount is the snapshot of the applied
+  // discount rule. discount_source is 'code' | 'manual' | '' (or absent).
+  discount_amount?: number;
+  discount_source?: string;
+  discount?: { code?: string; type: string; value: number; scope: string; reason?: string };
 }
 
 export interface StaffMember {
@@ -1973,6 +1983,30 @@ export async function previewTranslations(
   return { sourceLocale: data.source_locale, translations: data.translations ?? {} };
 }
 
+/** One set of source texts sharing a single source language (e.g. all item names). */
+export interface TranslationPreviewGroup {
+  source_locale: string;
+  texts: string[];
+}
+
+/**
+ * Machine-translate each group FROM its own source language into every locale
+ * (the language-aware import). Unlike previewTranslations, the returned map is a
+ * FULL per-text locale map (en/fr/he all present, the source slot being the
+ * original text) — so a mixed menu with Latin names and Hebrew descriptions is
+ * translated correctly per section. Writes nothing.
+ */
+export async function previewTranslationsGrouped(
+  restaurantId: number,
+  groups: TranslationPreviewGroup[]
+): Promise<Record<string, Record<string, string>>> {
+  const data = await apiFetch<{ translations: Record<string, Record<string, string>> }>(
+    `/api/v1/menu/translations/preview?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST', body: JSON.stringify({ groups }) }
+  );
+  return data.translations ?? {};
+}
+
 /** Gather every catalog text with usage counts + fresh translations. Writes nothing. */
 export async function retranslatePreview(
   restaurantId: number
@@ -2992,9 +3026,16 @@ export interface ConfirmMenuImportOptions {
   /**
    * User-reviewed translations (source text -> locale -> value). When set,
    * entities are created with exactly these translations and the background
-   * backfill is skipped.
+   * backfill is skipped. In the language-aware import each entry is a full
+   * locale map so the primary-locale value can be promoted to the base column.
    */
   translations?: Record<string, Record<string, string>>;
+  /**
+   * The restaurant's canonical display language for this import. When it
+   * differs from the current default_locale the existing catalog is re-keyed
+   * losslessly and default_locale is updated. Empty preserves legacy behaviour.
+   */
+  primaryLocale?: string;
 }
 
 export interface ConfirmMenuImportResult {
@@ -3019,6 +3060,7 @@ export async function confirmMenuImport(
         carte_name: options.carteName ?? '',
         auto_translate: options.autoTranslate ?? false,
         translations: options.translations ?? undefined,
+        primary_locale: options.primaryLocale ?? undefined,
       }),
     }
   );
@@ -3364,6 +3406,8 @@ export interface CreateOrderInput {
   force_production?: boolean;
   items: CreateOrderItemInput[];
   combos?: CreateOrderComboInput[];
+  discount_code?: string;
+  manual_discount?: { type: 'fixed' | 'percent'; value: number; reason: string };
 }
 
 /** Creates an order manually from the admin (POS-style). Mirrors the staff
@@ -6798,6 +6842,75 @@ export async function deleteDeliveryZone(restaurantId: number, id: number): Prom
     `/api/v1/delivery/zones/${id}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'DELETE' }
   );
+}
+
+// --- Discounts ---
+
+export interface Discount {
+  id: number;
+  restaurant_id: number;
+  code: string;
+  name: string;
+  description: string;
+  type: 'fixed' | 'percent' | 'free_delivery';
+  value: number;
+  scope: 'whole_sale' | 'category' | 'specific_item';
+  scope_ids: number[];
+  min_purchase: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  total_cap: number | null;
+  per_customer_cap: number | null;
+  is_active: boolean;
+  redemption_count: number;
+  created_at: string;
+}
+
+export type DiscountInput = Omit<Discount, 'id' | 'restaurant_id' | 'redemption_count' | 'created_at'>;
+
+export interface DiscountValidation {
+  valid: boolean;
+  reason?: string;
+  discount?: { code: string; name: string; type: string; value: number; scope: string; amount: number; new_total: number };
+}
+
+export interface ManualDiscountInput { type: 'fixed' | 'percent'; value: number; reason: string }
+
+export interface ValidateDiscountRequest {
+  code: string;
+  items: { item_id: number; category_id: number; line_total: number; quantity: number }[];
+  delivery_fee: number;
+  phone?: string;
+}
+
+export async function listDiscounts(restaurantId: number, opts: { active?: boolean } = {}): Promise<Discount[]> {
+  const qs = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (opts.active !== undefined) qs.set('active', String(opts.active));
+  const data = await apiFetch<{ discounts: Discount[] }>(`/api/v1/discounts?${qs.toString()}`, restaurantId);
+  return data.discounts ?? [];
+}
+
+export async function getDiscount(restaurantId: number, id: number): Promise<Discount> {
+  const data = await apiFetch<{ discount: Discount }>(`/api/v1/discounts/${id}?restaurant_id=${restaurantId}`, restaurantId);
+  return data.discount;
+}
+
+export async function createDiscount(restaurantId: number, input: DiscountInput): Promise<Discount> {
+  const data = await apiFetch<{ discount: Discount }>(`/api/v1/discounts?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST', body: JSON.stringify(input) });
+  return data.discount;
+}
+
+export async function updateDiscount(restaurantId: number, id: number, input: Partial<DiscountInput>): Promise<Discount> {
+  const data = await apiFetch<{ discount: Discount }>(`/api/v1/discounts/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'PUT', body: JSON.stringify(input) });
+  return data.discount;
+}
+
+export async function deleteDiscount(restaurantId: number, id: number): Promise<void> {
+  await apiFetch<void>(`/api/v1/discounts/${id}?restaurant_id=${restaurantId}`, restaurantId, { method: 'DELETE' });
+}
+
+export async function validateDiscount(restaurantId: number, req: ValidateDiscountRequest): Promise<DiscountValidation> {
+  return apiFetch<DiscountValidation>(`/api/v1/discounts/validate?restaurant_id=${restaurantId}`, restaurantId, { method: 'POST', body: JSON.stringify(req) });
 }
 
 /**
