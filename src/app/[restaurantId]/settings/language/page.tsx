@@ -185,7 +185,7 @@ export default function LanguageSettingsPage() {
             <AlertTriangle className="w-4 h-4 mt-[2px] shrink-0" />
             <div>
               {t('languageChangeWarning') ||
-                "Changing this won't update your existing menu items — their text will stay as it was. Use \"Re-translate everything\" below to regenerate translations from the new language."}
+                'Saving switches the language guests see by default. Your existing translations are kept and re-pointed to the new language, so nothing is re-translated or lost.'}
             </div>
           </div>
         )}

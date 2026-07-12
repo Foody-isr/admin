@@ -7,58 +7,26 @@ import {
 } from '@/components/data-table/DataTable';
 import { TranslationReviewEntry } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-
-const LOCALE_LABELS: Record<string, string> = {
-  en: 'English',
-  fr: 'Français',
-  he: 'עברית',
-};
-
-/**
- * Maps a usage kind (from the API or built client-side) to a display section.
- * Sections keep big menus scannable: items, descriptions, categories, options,
- * modifiers, then anything else.
- */
-const KIND_SECTION: Record<string, string> = {
-  item_name: 'items',
-  item_description: 'descriptions',
-  group_name: 'categories',
-  option_set: 'options',
-  option: 'options',
-  modifier_set: 'modifiers',
-  modifier: 'modifiers',
-  portion: 'other',
-};
-
-const SECTION_ORDER = ['items', 'descriptions', 'categories', 'options', 'modifiers', 'other'];
-
-const SECTION_LABEL_KEY: Record<string, string> = {
-  items: 'trReviewSectionItems',
-  descriptions: 'trReviewSectionDescriptions',
-  categories: 'trReviewSectionCategories',
-  options: 'trReviewSectionOptions',
-  modifiers: 'trReviewSectionModifiers',
-  other: 'trReviewSectionOther',
-};
-
-/** Picks the dominant section for an entry from its usage kinds. */
-function sectionFor(usage: Record<string, number>): string {
-  for (const section of SECTION_ORDER) {
-    for (const [kind, count] of Object.entries(usage)) {
-      if (count > 0 && KIND_SECTION[kind] === section) return section;
-    }
-  }
-  return 'other';
-}
-
-function usageTotal(usage: Record<string, number>): number {
-  return Object.values(usage).reduce((a, b) => a + b, 0);
-}
+import {
+  LOCALE_LABELS, SUPPORTED_LOCALES, SECTION_ORDER, SECTION_LABEL_KEY,
+  sectionFor, usageTotal,
+} from './sections';
 
 interface Props {
   entries: TranslationReviewEntry[];
-  sourceLocale: string;
   onEdit: (text: string, locale: string, value: string) => void;
+  /**
+   * Single-source mode (language settings): the restaurant's one source locale;
+   * that column is hidden and the other two are shown as editable translations.
+   */
+  sourceLocale?: string;
+  /**
+   * Per-section source mode (language-aware import): each section declares which
+   * language its original text is in. Enables a source dropdown per section
+   * header; the remaining two locales are the editable translation columns.
+   */
+  sectionSources?: Record<string, string>;
+  onSectionSourceChange?: (section: string, locale: string) => void;
 }
 
 /**
@@ -66,12 +34,14 @@ interface Props {
  * text (identical texts are pre-deduped by the caller/API); editing a row
  * applies everywhere that text is used, which the usage badge makes visible.
  */
-export default function TranslationReviewTable({ entries, sourceLocale, onEdit }: Props) {
+export default function TranslationReviewTable({
+  entries, onEdit, sourceLocale, sectionSources, onSectionSourceChange,
+}: Props) {
   const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const targetLocales = ['en', 'fr', 'he'].filter((l) => l !== sourceLocale);
+  const perSection = !!sectionSources;
 
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -94,6 +64,9 @@ export default function TranslationReviewTable({ entries, sourceLocale, onEdit }
     return <p className="text-sm text-fg-secondary">{t('trReviewEmpty')}</p>;
   }
 
+  const sourceFor = (sectionKey: string) =>
+    perSection ? (sectionSources![sectionKey] ?? 'en') : (sourceLocale ?? 'en');
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -109,27 +82,46 @@ export default function TranslationReviewTable({ entries, sourceLocale, onEdit }
 
       {sections.map(({ key, rows }) => {
         const isCollapsed = collapsed[key] ?? false;
+        const secSource = sourceFor(key);
+        const targetLocales = SUPPORTED_LOCALES.filter((l) => l !== secSource);
         return (
           <div key={key}>
-            <button
-              type="button"
-              onClick={() => setCollapsed((c) => ({ ...c, [key]: !isCollapsed }))}
-              className="flex items-center gap-1.5 text-sm font-bold text-fg-primary mb-2"
-            >
-              {isCollapsed ? (
-                <ChevronRightIcon className="w-4 h-4 rtl:rotate-180" />
-              ) : (
-                <ChevronDownIcon className="w-4 h-4" />
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setCollapsed((c) => ({ ...c, [key]: !isCollapsed }))}
+                className="flex items-center gap-1.5 text-sm font-bold text-fg-primary"
+              >
+                {isCollapsed ? (
+                  <ChevronRightIcon className="w-4 h-4 rtl:rotate-180" />
+                ) : (
+                  <ChevronDownIcon className="w-4 h-4" />
+                )}
+                {t(SECTION_LABEL_KEY[key])}
+                <span className="text-xs font-normal text-fg-secondary">({rows.length})</span>
+              </button>
+
+              {perSection && (
+                <label className="flex items-center gap-1.5 text-xs text-fg-secondary">
+                  {t('importSectionSourceLabel')}
+                  <select
+                    value={secSource}
+                    onChange={(e) => onSectionSourceChange?.(key, e.target.value)}
+                    className="px-2 py-1 rounded-standard bg-[var(--surface-subtle)] border border-[var(--divider)] text-xs text-fg-primary focus:outline-none focus:border-brand-500"
+                  >
+                    {SUPPORTED_LOCALES.map((loc) => (
+                      <option key={loc} value={loc}>{LOCALE_LABELS[loc]}</option>
+                    ))}
+                  </select>
+                </label>
               )}
-              {t(SECTION_LABEL_KEY[key])}
-              <span className="text-xs font-normal text-fg-secondary">({rows.length})</span>
-            </button>
+            </div>
 
             {!isCollapsed && (
               <DataTable responsive={false}>
                 <DataTableHead>
                   <DataTableHeadCell>
-                    {LOCALE_LABELS[sourceLocale] ?? sourceLocale}
+                    {LOCALE_LABELS[secSource] ?? secSource}
                   </DataTableHeadCell>
                   {targetLocales.map((loc) => (
                     <DataTableHeadCell key={loc}>{LOCALE_LABELS[loc] ?? loc}</DataTableHeadCell>
@@ -141,7 +133,12 @@ export default function TranslationReviewTable({ entries, sourceLocale, onEdit }
                     return (
                       <DataTableRow key={row.text} index={i}>
                         <DataTableCell className="align-top">
-                          <div className="text-sm text-fg-primary">{row.text}</div>
+                          <div
+                            className="text-sm text-fg-primary"
+                            dir={secSource === 'he' ? 'rtl' : 'ltr'}
+                          >
+                            {row.text}
+                          </div>
                           {total > 1 && (
                             <span className="inline-block mt-1 text-xs text-fg-secondary px-1.5 py-0.5 rounded bg-[var(--surface-subtle)]">
                               {t('trReviewUsedIn').replace('{count}', String(total))}
