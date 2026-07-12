@@ -9,19 +9,42 @@ const PALETTE_HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 type CustomPalette = NonNullable<WebsiteConfig['custom_palette']>;
 
-// Derives the palette mode from the background's luminance (same WCAG math +
-// 0.4 threshold as foodyweb's contrastInk, so both sides agree). The mode is
-// not user-facing: it only tells the foodyweb resolver which direction to
-// derive the secondary shades (muted ink, dividers…) from the 4 swatches.
-function paletteModeFromBg(bg: string): 'light' | 'dark' {
-  const c = bg.replace('#', '');
+// WCAG relative luminance. Mirrors foodyweb's lib/themes/contrastInk.ts so both
+// sides agree on which colours read against which.
+function relativeLuminance(hex: string): number {
+  const c = hex.replace('#', '');
   const r = parseInt(c.slice(0, 2), 16) / 255;
   const g = parseInt(c.slice(2, 4), 16) / 255;
   const b = parseInt(c.slice(4, 6), 16) / 255;
   const f = (v: number) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-  return luminance > 0.4 ? 'light' : 'dark';
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
+
+// Derives the palette mode from the background's luminance (same 0.4 threshold
+// as foodyweb's contrastInk). The mode is not user-facing: it only tells the
+// foodyweb resolver which direction to derive the secondary shades (muted ink,
+// dividers…) from the 4 swatches.
+function paletteModeFromBg(bg: string): 'light' | 'dark' {
+  return relativeLuminance(bg) > 0.4 ? 'light' : 'dark';
+}
+
+// Black or white, whichever reads on `bg`.
+function contrastInk(bg: string): string {
+  return relativeLuminance(bg) > 0.4 ? '#000000' : '#ffffff';
+}
+
+// WCAG contrast ratio, 1 (identical) → 21 (black on white).
+function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// Below this, body text on its background is unreadable. WCAG AA wants 4.5 for
+// small text; we warn at 3 so we only flag genuinely broken pairings (identical
+// colours score 1) rather than nagging about merely low-contrast brand choices.
+const MIN_TEXT_CONTRAST = 3;
 
 type Props = {
   config: WebsiteConfig;
@@ -262,6 +285,21 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
 
       {SECTION_DEFS.map((def) => {
         const active = !!sc[def.key];
+        const bg = sc[def.key]?.bg;
+        // Text and the active-pill both sit on the section's background, so an
+        // unset one should preview (and, if the OS picker commits on open,
+        // save) as a legible ink rather than a blind #ffffff.
+        const inkOn = (c?: string) => contrastInk(c && PALETTE_HEX_RE.test(c) ? c : '#ffffff');
+        const clashes = def.fields
+          .filter((f) => f.field !== 'bg')
+          .filter(
+            (f) =>
+              bg &&
+              PALETTE_HEX_RE.test(bg) &&
+              sc[def.key]?.[f.field] &&
+              PALETTE_HEX_RE.test(sc[def.key]![f.field]!) &&
+              contrastRatio(bg, sc[def.key]![f.field]!) < MIN_TEXT_CONTRAST,
+          );
         return (
           <div key={def.key} className="border-t border-[var(--divider)] pt-3 first:border-t-0 first:pt-0">
             <label className="flex items-center justify-between gap-2 cursor-pointer">
@@ -280,8 +318,26 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
                     key={field}
                     label={label}
                     value={sc[def.key]?.[field]}
+                    fallback={field === 'bg' ? '#ffffff' : inkOn(bg)}
                     onChange={(v) => setField(def.key, field, v)}
                   />
+                ))}
+                {clashes.map((f) => (
+                  <div
+                    key={f.field}
+                    className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-2 py-1.5"
+                  >
+                    <span className="text-[11px] leading-snug text-amber-900 flex-1">
+                      « {f.label} » se confond avec le fond : ce texte sera illisible sur le site.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setField(def.key, f.field, inkOn(bg))}
+                      className="text-[11px] font-semibold text-amber-900 underline shrink-0"
+                    >
+                      Corriger
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -292,7 +348,22 @@ function SectionColorsEditor({ config, onUpdate }: { config: WebsiteConfig; onUp
   );
 }
 
-function OptionalColorRow({ label, value, onChange }: { label: string; value?: string; onChange: (v: string | undefined) => void }) {
+// `fallback` is the colour an unset field inherits. A native <input type="color">
+// has no empty state and commits whatever it is showing as soon as the OS picker
+// is opened, so seeding it with a blind #ffffff turned a stray click into a
+// saved white — white text on a white background, invisible on the live site.
+// Seeding it with the inherited colour makes that same stray click a no-op.
+function OptionalColorRow({
+  label,
+  value,
+  fallback = '#ffffff',
+  onChange,
+}: {
+  label: string;
+  value?: string;
+  fallback?: string;
+  onChange: (v: string | undefined) => void;
+}) {
   const [draft, setDraft] = useState(value ?? '');
   useEffect(() => {
     setDraft(value ?? '');
@@ -308,10 +379,13 @@ function OptionalColorRow({ label, value, onChange }: { label: string; value?: s
       <span className="text-[11px] text-fg-primary w-24 shrink-0">{label}</span>
       <input
         type="color"
-        value={value || '#ffffff'}
+        value={value || fallback}
         onChange={(e) => onChange(e.target.value)}
-        className="w-8 h-8 rounded cursor-pointer border border-[var(--divider)] shrink-0"
+        className={`w-8 h-8 rounded cursor-pointer border shrink-0 ${
+          value ? 'border-[var(--divider)]' : 'border-dashed border-fg-secondary'
+        }`}
         aria-label={label}
+        title={value ? label : 'Hérité du thème'}
       />
       <input
         type="text"
