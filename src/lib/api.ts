@@ -5856,6 +5856,36 @@ export interface QrCardTexts {
   step3?: string;
 }
 
+/** The five styleable text sections on a QR card. "powered by foody" is platform
+ *  branding and deliberately not stylable. */
+export type QrSectionKey = 'brand' | 'title' | 'subtitle' | 'steps' | 'table';
+
+/** Per-section text styling. Every field is optional: absent means "keep the
+ *  template's built-in value", so an untouched card renders exactly as before. */
+export interface QrSectionStyle {
+  /** Font family (curated, Google catalog, or an uploaded family). Absent = the card's default stack. */
+  font?: string;
+  /** Size multiplier on the template's base size for this section. 1 = unchanged. */
+  sizeMult?: number;
+  /** Font weight 100-900. Absent = the section's built-in weight. */
+  weight?: number;
+  /** Text colour. Absent = the card's global text_color. */
+  color?: string;
+  /** Text case. Absent = the section's built-in casing. */
+  transform?: 'uppercase' | 'capitalize' | 'none';
+  /** Letter-spacing in em. Absent = the section's built-in tracking. */
+  tracking?: number;
+}
+
+/** QR card typography, shared across all four templates: each template applies
+ *  these on top of its own width-derived base sizes, so one config stays
+ *  balanced on both the 90mm round sticker and the 178mm poster. */
+export interface QrCardTypography {
+  sections?: Partial<Record<QrSectionKey, QrSectionStyle>>;
+  /** Fonts this restaurant added beyond the curated list (same shape as the website builder's). */
+  extraFonts?: ExtraFont[];
+}
+
 export interface QrCardConfig {
   id: number;
   restaurant_id: number;
@@ -5875,6 +5905,8 @@ export interface QrCardConfig {
   hero_height?: number;
   /** Locale code (en/he/fr) → text content. */
   texts: Partial<Record<QrCardLocale, QrCardTexts>>;
+  /** Per-section text styling. Absent = every section uses its template default. */
+  typography?: QrCardTypography | null;
   created_at?: string;
   updated_at?: string;
 }

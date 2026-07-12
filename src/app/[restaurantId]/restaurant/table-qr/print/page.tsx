@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { QrCard, TEMPLATE_SIZES, PRINT_LAYOUT } from '@/components/qr/QrCard';
+import { loadQrFonts } from '@/lib/qr/typography';
 
 interface PrintableTable {
   table: RestaurantTableRef;
@@ -72,10 +73,13 @@ export default function PrintQrCardsPage() {
     };
   }, [rid]);
 
-  // Auto-print only AFTER hero/logo images are fully loaded. Otherwise Chrome's
-  // "Save as PDF" can hang at "Saving…" waiting for in-flight image requests
-  // (the hero image is a CSS background, so the browser would have no idea
-  // when it's ready). Falls through after 5s if an image never resolves.
+  // Auto-print only AFTER hero/logo images AND the section fonts are fully
+  // loaded. Otherwise Chrome's "Save as PDF" can hang at "Saving…" waiting for
+  // in-flight image requests (the hero image is a CSS background, so the browser
+  // would have no idea when it's ready), or rasterize the cards against the
+  // fallback font stack before a Google Font has landed — printing a sheet in
+  // the wrong typeface. Falls through after 5s if an asset never resolves.
+  const typography = config?.typography;
   useEffect(() => {
     if (loading || error || items.length === 0) return;
     let cancelled = false;
@@ -96,14 +100,18 @@ export default function PrintQrCardsPage() {
         window.setTimeout(done, 5000);
         img.src = url;
       });
-    Promise.all(urls.map(preload)).then(() => {
+    const deadline = new Promise<void>((resolve) => window.setTimeout(resolve, 5000));
+    Promise.all([
+      ...urls.map(preload),
+      Promise.race([loadQrFonts(typography), deadline]),
+    ]).then(() => {
       if (cancelled) return;
       window.setTimeout(() => window.print(), 100);
     });
     return () => {
       cancelled = true;
     };
-  }, [loading, error, items.length, logoUrl, config?.hero_image_url]);
+  }, [loading, error, items.length, logoUrl, config?.hero_image_url, typography]);
 
   if (loading || !config) {
     return (
