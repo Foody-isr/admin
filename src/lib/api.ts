@@ -586,6 +586,10 @@ export interface Order {
   receipt_token?: string;
   // Optional confirmation email captured at checkout (e.g. Google sign-in). May be absent.
   customer_email?: string;
+  // Language the customer ordered in (he/fr/en), captured from foodyweb's display
+  // locale at checkout. Absent on staff-created orders and orders placed before
+  // this was recorded — consumers fall back to the restaurant's default_locale.
+  customer_locale?: string;
   // Payment-provider metadata serialized from the server's ExternalMeta
   // (e.g. Summit's document_id on a paid order). Shape is provider-specific.
   external_metadata?: Record<string, unknown> | null;

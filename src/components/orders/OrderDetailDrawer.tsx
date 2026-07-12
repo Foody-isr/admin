@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { formatDeliveryAddress } from '@/lib/delivery-address';
+import { groupOrder } from '@/lib/orders/group-order';
 import { printOrderTicket, type PrintTicketRestaurant, type TicketKind } from '@/lib/print-ticket';
 import {
   receiptShareUrl,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/receipt-share';
 import { cancellationInfo, CANCELLATION_REASON_KEY } from '@/lib/orders/cancellation';
 import { CashTag } from '@/components/orders/CashTag';
+import { WhatsAppRecapDialog } from '@/components/orders/WhatsAppRecapDialog';
 import {
   initOrderPaymentLink, collectOrderBalance, getOrderInvoice, sendOrderInvoice, fetchOrderInvoicePdf,
   getOrderNotes, addOrderNote, deleteOrderNote,
@@ -257,7 +259,7 @@ export function OrderDetailDrawer({
   onOutForDelivery, onMarkDelivered,
   onTakePayment, onCloseOrder, onEdit, onConfirmWeights, onEditCustomer,
   onToggleForceProduction,
-  restaurantInfo, customFieldLabels,
+  restaurantInfo, restaurantDefaultLocale, customFieldLabels,
 }: {
   order: Order | null;
   canManage: boolean;
@@ -289,6 +291,10 @@ export function OrderDetailDrawer({
    *  onto the production sheet). Absent = the action is hidden (e.g. dispatcher). */
   onToggleForceProduction?: () => void;
   restaurantInfo: PrintTicketRestaurant;
+  /** Restaurant's own language (he/fr/en). Fallback for the customer-facing
+   *  WhatsApp recap when the order carries no customer_locale (staff-created and
+   *  pre-existing orders). Defaults to Hebrew when absent. */
+  restaurantDefaultLocale?: string;
   customFieldLabels: Record<string, string>;
 }) {
   const { t, locale, direction } = useI18n();
@@ -307,6 +313,9 @@ export function OrderDetailDrawer({
   const [balanceLinkError, setBalanceLinkError] = useState<string | null>(null);
   const [balanceLinkCopied, setBalanceLinkCopied] = useState(false);
 
+  // WhatsApp order-confirmation recap ("Envoyer au client → Confirmation de commande").
+  const [recapOpen, setRecapOpen] = useState(false);
+
   // Reset the fetched link whenever a different order is opened in this drawer.
   useEffect(() => {
     setPayLink(null);
@@ -315,6 +324,7 @@ export function OrderDetailDrawer({
     setBalanceLink(null);
     setBalanceLinkError(null);
     setBalanceLinkCopied(false);
+    setRecapOpen(false);
   }, [order?.id]);
 
   if (!order) {
@@ -392,82 +402,22 @@ export function OrderDetailDrawer({
     Math.round((Date.now() - new Date(order.created_at).getTime()) / 60000),
   );
 
-  // Split items into regular vs combo groups (items sharing a combo_group).
-  // Combo step items are stored with price = price_delta (0 for non-premium picks),
-  // so the combo's base price lives only in the order total. We mirror the combo
-  // grouping logic from foodyweb's receipt and foodypos's order details page.
-  const allItems: OrderItem[] = order.items ?? [];
-  const regularItems = allItems.filter((i) => !i.combo_group);
-  const comboGroupsMap = new Map<string, OrderItem[]>();
-  for (const item of allItems) {
-    if (item.combo_group) {
-      const group = comboGroupsMap.get(item.combo_group) ?? [];
-      group.push(item);
-      comboGroupsMap.set(item.combo_group, group);
-    }
-  }
-  const comboGroups: Array<[string, OrderItem[]]> = Array.from(comboGroupsMap.entries());
-
-  // Group regular items by their snapshotted category. Preserve first-seen
-  // order so the visual order matches how the customer composed the order.
-  // Items with no category snapshot (older/fake rows that pre-date the
-  // snapshot migration) fall into a single "Other" bucket at the end.
-  const categoryOrder: string[] = [];
-  const itemsByCategory = new Map<string, OrderItem[]>();
-  for (const it of regularItems) {
-    const key = it.category_name && it.category_name.trim() !== '' ? it.category_name : '__other__';
-    if (!itemsByCategory.has(key)) {
-      itemsByCategory.set(key, []);
-      categoryOrder.push(key);
-    }
-    itemsByCategory.get(key)!.push(it);
-  }
-  // Move __other__ to the end if both labelled and other groups exist, so
-  // labelled categories always come first.
-  const otherIdx = categoryOrder.indexOf('__other__');
-  if (otherIdx >= 0 && categoryOrder.length > 1) {
-    categoryOrder.splice(otherIdx, 1);
-    categoryOrder.push('__other__');
-  }
-  const categoryGroups: Array<{ key: string; label: string; items: OrderItem[] }> = categoryOrder.map((key) => ({
-    key,
-    label: key === '__other__' ? (t('uncategorized') || 'Autres') : key,
-    items: itemsByCategory.get(key)!,
-  }));
-
-  const regularTotal = regularItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const comboDeltasTotal = comboGroups.reduce(
-    (s, [, items]) => s + items.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0),
-    0,
-  );
-  // Fallback when server hasn't sent combo_price (older clients): split the
-  // remainder of order.total_amount evenly across combos.
-  const remainingForCombos = Math.max(
-    0,
-    (order.total_amount ?? 0) - regularTotal - comboDeltasTotal,
-  );
-  const comboCount = comboGroups.length;
-  const comboPriceFor = (items: OrderItem[]): number => {
-    const fromServer = items[0]?.combo_price;
-    if (fromServer && fromServer > 0) return fromServer;
-    return comboCount > 0 ? remainingForCombos / comboCount : 0;
-  };
-  const combosSubtotal = comboGroups.reduce((s, [, items]) => {
-    const deltas = items.reduce((gs: number, i: OrderItem) => gs + i.price * i.quantity, 0);
-    return s + comboPriceFor(items) + deltas;
-  }, 0);
-
-  const totalsLine = order.total_amount ?? regularTotal + combosSubtotal;
-  const deliveryFee = order.delivery_fee ?? 0;
-  const discountAmount = order.discount_amount ?? 0;
-  // Derive the pre-discount items subtotal so displayed lines always reconcile:
-  //   subtotal − discountAmount + deliveryFee = totalsLine  ✓
-  // When neither a delivery fee nor a discount applies, fall back to the sum of
-  // item totals so the display is accurate even when total_amount is absent.
-  const subtotal =
-    deliveryFee > 0 || discountAmount > 0
-      ? totalsLine + discountAmount - deliveryFee
-      : regularTotal + combosSubtotal;
+  // Category groups, combo groups and reconciled totals all come from the shared
+  // groupOrder() — the same math the printed ticket and the WhatsApp recap use,
+  // so the three surfaces can never disagree about what was ordered.
+  const {
+    categoryGroups,
+    comboGroups,
+    subtotal,
+    deliveryFee,
+    discountAmount,
+    total: totalsLine,
+    displayedLineCount,
+    totalUnits,
+  } = groupOrder(order, {
+    uncategorized: t('uncategorized') || 'Autres',
+    comboFallback: t('comboMenuFallback') || 'Combo Menu',
+  });
 
   // Post-payment edit warning: the server flags an order whose items were changed
   // after the customer had already paid, snapshotting paid_amount (the amount
@@ -478,9 +428,6 @@ export function OrderDetailDrawer({
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
-
-  const displayedLineCount = regularItems.length + comboGroups.length;
-  const totalUnits = allItems.reduce((s, i) => s + i.quantity, 0);
 
   const handlePrint = (kind: TicketKind) => {
     printOrderTicket({
@@ -621,6 +568,7 @@ export function OrderDetailDrawer({
   );
 
   return (
+    <>
     <Drawer
       open={order != null}
       onOpenChange={(v) => { if (!v) onClose(); }}
@@ -646,7 +594,7 @@ export function OrderDetailDrawer({
               </Button>
             )}
             <PrintTicketMenu onSelect={handlePrint} />
-            <SendToCustomerMenu order={order} />
+            <SendToCustomerMenu order={order} onSendConfirmation={() => setRecapOpen(true)} />
           </div>
 
           {/* Right — contextual secondary · overflow · single primary */}
@@ -856,21 +804,18 @@ export function OrderDetailDrawer({
                     countLabel={comboGroups.length === 1 ? t('combo') || 'Combo' : t('combos') || 'Combos'}
                     showTopBorder={categoryGroups.length > 0}
                   />
-                  {comboGroups.map(([groupKey, comboItems], gi) => {
-                    const comboName = comboItems[0]?.combo_name || t('comboMenuFallback') || 'Combo Menu';
-                    const deltas = comboItems.reduce((s: number, i: OrderItem) => s + i.price * i.quantity, 0);
-                    const comboTotal = comboPriceFor(comboItems) + deltas;
-                    const totalPicks = comboItems.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
+                  {comboGroups.map((combo, gi) => {
+                    const totalPicks = combo.items.reduce((s: number, i: OrderItem) => s + i.quantity, 0);
                     const picksLabel = totalPicks === 1 ? t('selection') : t('selections');
                     return (
                       <div
-                        key={groupKey}
+                        key={combo.key}
                         className={`px-[var(--s-5)] py-[var(--s-3)] ${gi > 0 ? 'border-t border-[var(--line)]' : ''}`}
                       >
                         <ComboCard
-                          comboName={comboName}
-                          comboTotal={comboTotal}
-                          comboItems={comboItems}
+                          comboName={combo.name}
+                          comboTotal={combo.price}
+                          comboItems={combo.items}
                           totalPicks={totalPicks}
                           picksLabel={picksLabel}
                           comboLabel={(t('combo') || 'Combo').toUpperCase()}
@@ -1260,6 +1205,15 @@ export function OrderDetailDrawer({
         </div>
       </div>
     </Drawer>
+
+    <WhatsAppRecapDialog
+      open={recapOpen}
+      onOpenChange={setRecapOpen}
+      order={order}
+      restaurantName={restaurantInfo.name || ''}
+      restaurantDefaultLocale={restaurantDefaultLocale}
+    />
+    </>
   );
 }
 
@@ -1837,7 +1791,14 @@ function PrintTicketMenu({ onSelect }: { onSelect: (kind: TicketKind) => void })
 // the hosted receipt page, plus a copy-link shortcut. Mirrors PrintTicketMenu.
 // No backend call — the receipt link is built from the order's receipt_token.
 
-function SendToCustomerMenu({ order }: { order: Order }) {
+function SendToCustomerMenu({
+  order,
+  onSendConfirmation,
+}: {
+  order: Order;
+  /** Opens the WhatsApp order-confirmation preview (full recap, not just the receipt link). */
+  onSendConfirmation: () => void;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1893,6 +1854,20 @@ function SendToCustomerMenu({ order }: { order: Order }) {
           className="absolute bottom-full left-0 mb-1 rounded-standard py-1 min-w-[220px] z-50 shadow-lg"
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
+          {/* Full order recap (type, items, slot, totals, payment) — the message
+              staff actually want to send. The receipt link below stays as the
+              short "here's your receipt" share. */}
+          <button
+            onClick={() => {
+              setOpen(false);
+              onSendConfirmation();
+            }}
+            className={itemClass}
+          >
+            <ClipboardListIcon className="size-4" />
+            {t('sendOrderConfirmation') || 'Confirmation de commande'}
+          </button>
+          <div className="my-1 border-t" style={{ borderColor: 'var(--divider)' }} />
           {waUrl && (
             <a
               href={waUrl}
