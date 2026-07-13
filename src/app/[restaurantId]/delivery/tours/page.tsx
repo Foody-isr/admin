@@ -379,7 +379,9 @@ export default function DeliveryToursPage() {
       tr.name,
       `${cities}${cities ? ' · ' : ''}${day}${window}`,
       `${t('tourCutoff')}: ${cutoff}`,
-      `${WEB_URL}/r/${slug}/order`,
+      // ?tour=<id> deep-links foodyweb straight to this tour's tab; without it
+      // the customer lands on the default carte and has to find it themselves.
+      `${WEB_URL}/r/${slug}/order?tour=${tr.id}`,
     ];
     const text = lines.join('\n');
     try {
