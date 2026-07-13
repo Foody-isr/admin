@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   importMenuAI, importMenuFromWolt, confirmMenuImport, previewTranslationsGrouped, getRestaurant,
@@ -13,45 +13,7 @@ import TranslationReviewTable from '@/components/translations/TranslationReviewT
 import {
   LOCALE_LABELS, SUPPORTED_LOCALES, sectionFor, detectLocale, type Locale,
 } from '@/components/translations/sections';
-
-function isLocale(v: unknown): v is Locale {
-  return v === 'en' || v === 'he' || v === 'fr';
-}
-
-/**
- * Flattens an extraction into unique translatable texts with usage kinds —
- * the same dedup the server applies, so editing one row covers every
- * occurrence of that text.
- */
-function collectReviewEntries(extraction: RichExtraction): TranslationReviewEntry[] {
-  const index = new Map<string, TranslationReviewEntry>();
-  const add = (kind: string, raw?: string) => {
-    const text = raw?.trim();
-    if (!text) return;
-    let e = index.get(text);
-    if (!e) {
-      e = { text, usage: {}, translations: {} };
-      index.set(text, e);
-    }
-    e.usage[kind] = (e.usage[kind] ?? 0) + 1;
-  };
-  for (const cat of extraction.categories) {
-    add('group_name', cat.name);
-    for (const item of cat.items) {
-      add('item_name', item.name);
-      add('item_description', item.description);
-      for (const os of item.option_sets ?? []) {
-        add('option_set', os.name);
-        for (const o of os.options) add('option', o.name);
-      }
-      for (const ms of item.modifier_sets ?? []) {
-        add('modifier_set', ms.name);
-        for (const m of ms.modifiers) add('modifier', m.name);
-      }
-    }
-  }
-  return Array.from(index.values());
-}
+import { isLocale, collectReviewEntries, dominantLocale } from '@/lib/menu-import/primary-locale';
 
 type ImportSource = 'photo' | 'wolt';
 
@@ -79,15 +41,19 @@ export default function MenuImportPage() {
   // section key -> the language its original text is written in (auto-detected,
   // overridable). Drives the per-section translation direction.
   const [sectionSources, setSectionSources] = useState<Record<string, string>>({});
-  // The restaurant's canonical display language for this import. Prefilled from
-  // the current setting; the customer sees this by default.
-  const [primaryLocale, setPrimaryLocale] = useState<Locale>('en');
+  // The user's explicit pick, if they made one. Null means "nobody has chosen",
+  // which is NOT the same as English — conflating those two is the whole bug.
+  const [primaryChoice, setPrimaryChoice] = useState<Locale | null>(null);
+  // The restaurant's current default_locale, so we can warn when this import
+  // will change it (which re-keys the existing catalog server-side).
+  const [restaurantLocale, setRestaurantLocale] = useState<Locale | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Prefill the primary language from the restaurant's current default_locale.
   useEffect(() => {
     getRestaurant(rid)
-      .then((r) => { if (isLocale(r.default_locale)) setPrimaryLocale(r.default_locale); })
+      .then((r) => {
+        if (isLocale(r.default_locale)) setRestaurantLocale(r.default_locale);
+      })
       .catch(() => {});
   }, [rid]);
 
@@ -109,29 +75,58 @@ export default function MenuImportPage() {
     return entries.map((e) => ({ ...e, translations: translations[e.text] ?? e.translations }));
   };
 
-  // Pre-compute translations while the user is still checking the extracted
-  // items, so the translation review step opens instantly. Each section's
-  // source language is auto-detected first (Hebrew script, French accents,
-  // else English) and can be overridden in the review table.
+  // Detect each section's source language as soon as a menu is extracted —
+  // independent of auto-translate, because the primary language must be offered
+  // even when the user is not translating anything.
   useEffect(() => {
-    if (!extraction || !autoTranslate || trEntries !== null || trLoading) return;
+    if (!extraction) return;
     const entries = collectReviewEntries(extraction);
-    if (entries.length === 0) {
-      setTrEntries([]);
-      return;
-    }
+    if (entries.length === 0) return;
     const bySection: Record<string, string[]> = {};
     for (const e of entries) (bySection[sectionFor(e.usage)] ||= []).push(e.text);
     const sources: Record<string, string> = {};
     for (const [sec, texts] of Object.entries(bySection)) sources[sec] = detectLocale(texts);
     setSectionSources(sources);
+  }, [extraction]);
 
+  // The language the menu is actually written in, judged text by text and
+  // weighted by volume. Deliberately independent of the per-section source
+  // dropdowns: those are coarse by design (any Hebrew character wins the whole
+  // section), which is harmless for a translation direction the user can fix,
+  // but would be ruinous as the basis for re-keying an entire catalog.
+  const detectedPrimary = useMemo(() => dominantLocale(extraction), [extraction]);
+
+  // Derived, never assigned from two places: the restaurant fetch and the menu
+  // detection resolve independently, so racing setters could clobber a detected
+  // "he" with a stored "en" depending on which landed last.
+  //
+  // Precedence: the user's pick, else the menu we just read, else the
+  // restaurant's stored language, else the platform default. Detection outranks
+  // the stored setting because a restaurant that never chose is flagged 'en',
+  // and trusting that over the evidence in front of us is exactly what files a
+  // Hebrew menu away as a "translation".
+  const primaryLocale: Locale =
+    primaryChoice ?? detectedPrimary ?? restaurantLocale ?? 'en';
+
+  // Pre-compute translations while the user is still checking the extracted
+  // items, so the translation review step opens instantly.
+  useEffect(() => {
+    if (!extraction || !autoTranslate || trEntries !== null || trLoading) return;
+    if (Object.keys(sectionSources).length === 0) return; // wait for detection
+    const entries = collectReviewEntries(extraction);
+    if (entries.length === 0) {
+      setTrEntries([]);
+      return;
+    }
     setTrLoading(true);
-    runGroupedPreview(entries, sources)
+    runGroupedPreview(entries, sectionSources)
       .then(setTrEntries)
       .catch(() => setTrEntries(entries))
       .finally(() => setTrLoading(false));
-  }, [extraction, autoTranslate, trEntries, trLoading, rid]);
+    // sectionSources is read once to kick off the preview; later edits to a
+    // section re-translate through handleSectionSourceChange instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extraction, autoTranslate, trEntries, trLoading, rid, sectionSources]);
 
   // Re-translate a single section when its source language is changed.
   const handleSectionSourceChange = async (section: string, locale: string) => {
@@ -173,6 +168,42 @@ export default function MenuImportPage() {
       ) ?? prev,
     );
   };
+
+  // The primary-language control. Rendered on BOTH the review and translation
+  // steps so every path to "Import" has shown the user which language will
+  // become their catalog's — importing is what commits it, and when it differs
+  // from their current setting the server re-keys the existing catalog.
+  const willChangeLocale = restaurantLocale !== null && restaurantLocale !== primaryLocale;
+  const primaryLanguageChoice = (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <label htmlFor="primary-locale" className="text-sm font-medium text-fg-primary">
+          {t('importPrimaryLanguageLabel')}
+        </label>
+        <select
+          id="primary-locale"
+          value={primaryLocale}
+          onChange={(e) => setPrimaryChoice(e.target.value as Locale)}
+          className="px-2.5 py-1.5 rounded-standard bg-[var(--surface)] border border-[var(--divider)] text-sm text-fg-primary focus:outline-none focus:border-brand-500"
+        >
+          {SUPPORTED_LOCALES.map((loc) => (
+            <option key={loc} value={loc}>{LOCALE_LABELS[loc]}</option>
+          ))}
+        </select>
+        {primaryChoice === null && detectedPrimary !== null && (
+          <span className="text-xs text-fg-secondary">{t('importPrimaryDetected')}</span>
+        )}
+      </div>
+      <p className="text-xs text-fg-secondary">{t('importPrimaryLanguageHint')}</p>
+      {willChangeLocale && (
+        <p className="text-xs text-amber-500">
+          {t('importPrimaryLanguageChange')
+            .replace('{from}', LOCALE_LABELS[restaurantLocale])
+            .replace('{to}', LOCALE_LABELS[primaryLocale])}
+        </p>
+      )}
+    </div>
+  );
 
   const handleFile = async (file: File) => {
     setError('');
@@ -217,7 +248,11 @@ export default function MenuImportPage() {
         carteName: carteName.trim() || t('importCarteNameDefault'),
         autoTranslate,
         translations,
-        primaryLocale: autoTranslate ? primaryLocale : undefined,
+        // Always sent: the language control is shown on every path to this
+        // button, so the user has seen (and can correct) what it will be. It was
+        // previously sent only when auto-translating, which left an untranslated
+        // Hebrew menu flagged as English forever.
+        primaryLocale,
       });
       if (createCarte && result.carteId) {
         router.push(`/${restaurantId}/menu/menus/${result.carteId}`);
@@ -449,6 +484,13 @@ export default function MenuImportPage() {
             </label>
           )}
 
+          <div
+            className="rounded-card border border-[var(--divider)] p-4"
+            style={{ background: 'var(--surface-subtle)' }}
+          >
+            {primaryLanguageChoice}
+          </div>
+
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-standard text-sm text-red-400">
               {error}
@@ -488,22 +530,7 @@ export default function MenuImportPage() {
             className="rounded-card border border-[var(--divider)] p-4 space-y-3"
             style={{ background: 'var(--surface-subtle)' }}
           >
-            <div className="flex items-center gap-2 flex-wrap">
-              <label htmlFor="primary-locale" className="text-sm font-medium text-fg-primary">
-                {t('importPrimaryLanguageLabel')}
-              </label>
-              <select
-                id="primary-locale"
-                value={primaryLocale}
-                onChange={(e) => setPrimaryLocale(e.target.value as Locale)}
-                className="px-2.5 py-1.5 rounded-standard bg-[var(--surface)] border border-[var(--divider)] text-sm text-fg-primary focus:outline-none focus:border-brand-500"
-              >
-                {SUPPORTED_LOCALES.map((loc) => (
-                  <option key={loc} value={loc}>{LOCALE_LABELS[loc]}</option>
-                ))}
-              </select>
-            </div>
-            <p className="text-xs text-fg-secondary">{t('importPrimaryLanguageHint')}</p>
+            {primaryLanguageChoice}
 
             {previewItem && (
               <div className="space-y-2">
