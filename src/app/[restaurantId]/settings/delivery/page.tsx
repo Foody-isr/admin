@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import type { CityMarker } from '@/components/delivery/ZoneMap';
 import { lookupCityCoord } from '@/lib/israel-cities';
+import { parsePrice } from '@/lib/delivery-pricing';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -195,21 +196,13 @@ export default function DeliveryZonesPage() {
     setCityMarkers((prev) => prev.filter((m) => m.name !== c));
   };
 
-  // Parse a price-like field: empty/blank or invalid -> null (unset), else the number.
-  const parsePrice = (v: string): number | null => {
-    const s = v.trim();
-    if (s === '') return null;
-    const n = Number(s);
-    return Number.isFinite(n) && n >= 0 ? n : null;
-  };
-
-  const toPayload = (d: Draft): DeliveryZoneInput => {
+  const toPayload = (d: Draft, deliveryFee: number | null, minOrder: number | null): DeliveryZoneInput => {
     const base: DeliveryZoneInput = {
       name: d.name,
       type: d.type,
       is_active: d.isActive,
-      delivery_fee: parsePrice(d.deliveryFee),
-      min_order: parsePrice(d.minOrder),
+      delivery_fee: deliveryFee,
+      min_order: minOrder,
     };
     if (d.type === 'polygon') base.polygon = d.polygon;
     if (d.type === 'radius') {
@@ -239,10 +232,18 @@ export default function DeliveryZonesPage() {
 
   const save = async () => {
     if (!draft || !validDraft(draft)) return;
+    // A negative or garbage price must block the save, not silently become
+    // "unset" (i.e. free delivery / no minimum).
+    const deliveryFee = parsePrice(draft.deliveryFee);
+    const minOrder = parsePrice(draft.minOrder);
+    if (deliveryFee === undefined || minOrder === undefined) {
+      setSaveError(t('invalidPrice'));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
-      const payload = toPayload(draft);
+      const payload = toPayload(draft, deliveryFee, minOrder);
       const saved = draft.id ? await updateDeliveryZone(rid, draft.id, payload) : await createDeliveryZone(rid, payload);
       setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
       setSaveError(null);

@@ -6,12 +6,14 @@ import { useParams } from 'next/navigation';
 import { AlertCircle, Copy, Plus, Share2, Trash2, Truck } from 'lucide-react';
 import {
   getDeliveryTours, createDeliveryTour, updateDeliveryTour, deleteDeliveryTour,
-  getDeliveryZones, createDeliveryZone, listMenus, getRestaurant,
+  getDeliveryZones, createDeliveryZone, deleteDeliveryZone, listMenus, getRestaurant,
   ApiError, DeliveryTour, DeliveryTourInput, DeliveryZone,
 } from '@/lib/api';
 import {
   DataTable, DataTableHead, DataTableHeadCell, DataTableBody, DataTableRow, DataTableCell,
 } from '@/components/data-table/DataTable';
+import { Badge } from '@/components/ds';
+import { parsePrice } from '@/lib/delivery-pricing';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 
@@ -62,14 +64,6 @@ const emptyDraft = (): Draft => {
   };
 };
 
-/** Empty/blank/invalid -> null (unset), else the number. */
-const parsePrice = (v: string): number | null => {
-  const s = v.trim();
-  if (s === '') return null;
-  const n = Number(s);
-  return Number.isFinite(n) && n >= 0 ? n : null;
-};
-
 type Phase = 'live' | 'upcoming' | 'past';
 
 /** Where a tour sits relative to now: its ordering window first, then its
@@ -100,20 +94,34 @@ export default function DeliveryToursPage() {
   const canEdit = hasAnyPermission('orders.manage');
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [tours, setTours] = useState<DeliveryTour[]>([]);
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [cartes, setCartes] = useState<Array<{ id: number; name: string }>>([]);
   const [slug, setSlug] = useState('');
+  // True when getRestaurant failed and `slug` fell back to the numeric id: the
+  // share link below is then likely wrong, and that must be visible rather
+  // than silently broken.
+  const [slugUnknown, setSlugUnknown] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const [zoneError, setZoneError] = useState<string | null>(null);
+  const [manageCities, setManageCities] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
+  const [shareFallback, setShareFallback] = useState<{ id: number; text: string } | null>(null);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
+    setLoadError(null);
     Promise.all([
+      // Tours and zones are load-bearing: a failure here must not be read as
+      // "no tours" (see errorMessage/loadError below), or the owner recreates
+      // one and publishes a duplicate carte tab on the customer site.
       getDeliveryTours(rid),
       getDeliveryZones(rid),
+      // Best-effort: the page still works (minus "new tour" / share) without them.
       listMenus(rid).catch(() => []),
       getRestaurant(rid).catch(() => null),
     ])
@@ -127,8 +135,15 @@ export default function DeliveryToursPage() {
         // carte is browsable outside the tour, so it would show up twice.
         setCartes(ms.filter((m) => !m.web_enabled).map((m) => ({ id: m.id, name: m.name })));
         setSlug(r?.slug ?? String(rid));
+        setSlugUnknown(r == null);
       })
+      .catch((err) => setLoadError(errorMessage(err, t('couldNotLoad'))))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
 
   const dateLocale = locale === 'he' ? 'he-IL' : locale === 'fr' ? 'fr-FR' : 'en-GB';
@@ -150,7 +165,7 @@ export default function DeliveryToursPage() {
   // ── Error mapping ──────────────────────────────────────────────────────────
   // The server's reason travels in ApiError.details; surface it as a sentence the
   // owner can act on instead of a raw Go error.
-  const errorMessage = (err: unknown): string => {
+  const errorMessage = (err: unknown, fallback: string = t('saveFailed')): string => {
     if (err instanceof ApiError) {
       const d = (err.details ?? '').toLowerCase();
       if (d.includes('web_enabled')) return t('tourErrCarteWeb');
@@ -159,7 +174,7 @@ export default function DeliveryToursPage() {
       if (d.includes('cutoff_at must be after')) return t('tourErrCutoffPast');
       if (err.status === 409) return t('tourZoneInUse');
     }
-    return err instanceof Error ? err.message : t('saveFailed');
+    return err instanceof Error ? err.message : fallback;
   };
 
   // ── Draft handling ─────────────────────────────────────────────────────────
@@ -250,6 +265,21 @@ export default function DeliveryToursPage() {
       setSaveError(t('tourErrCutoffPast'));
       return;
     }
+    // "HH:MM" strings compare lexically the same as chronologically. Only
+    // enforced when both ends are set — a partially announced window isn't
+    // this check's concern.
+    if (draft.windowStart && draft.windowEnd && draft.windowStart >= draft.windowEnd) {
+      setSaveError(t('tourErrWindowOrder'));
+      return;
+    }
+    // A negative or garbage price must block the save, not silently become
+    // "unset" (i.e. free delivery / no minimum).
+    const deliveryFee = parsePrice(draft.deliveryFee);
+    const minOrder = parsePrice(draft.minOrder);
+    if (deliveryFee === undefined || minOrder === undefined) {
+      setSaveError(t('invalidPrice'));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -277,8 +307,8 @@ export default function DeliveryToursPage() {
         cutoff_at: cutoff.toISOString(),
         delivery_start: draft.windowStart || null,
         delivery_end: draft.windowEnd || null,
-        delivery_fee: parsePrice(draft.deliveryFee),
-        min_order: parsePrice(draft.minOrder),
+        delivery_fee: deliveryFee,
+        min_order: minOrder,
         require_prepayment: draft.requirePrepayment,
         is_published: publish,
       };
@@ -316,6 +346,22 @@ export default function DeliveryToursPage() {
     }
   };
 
+  /** Tour-only zones pile up (4-5 new cities a month, ~60/year) since each
+   *  tour uses a throwaway city and nothing else purges them. The server
+   *  answers 409 when an upcoming tour still references the zone. */
+  const removeZone = async (z: DeliveryZone) => {
+    if (!window.confirm(t('tourCityDeleteConfirm'))) return;
+    setZoneError(null);
+    try {
+      await deleteDeliveryZone(rid, z.id);
+      setZones((prev) => prev.filter((x) => x.id !== z.id));
+      // Don't leave the draft pointing at a zone that no longer exists.
+      setDraft((prev) => (prev && prev.zoneId === z.id ? { ...prev, zoneId: null } : prev));
+    } catch (err) {
+      setZoneError(errorMessage(err));
+    }
+  };
+
   /** The announcement the owner writes by hand today, ready to paste into
    *  WhatsApp or Instagram. */
   const share = async (tr: DeliveryTour) => {
@@ -335,9 +381,18 @@ export default function DeliveryToursPage() {
       `${t('tourCutoff')}: ${cutoff}`,
       `${WEB_URL}/r/${slug}/order`,
     ];
-    await navigator.clipboard.writeText(lines.join('\n'));
-    setCopied(tr.id);
-    setTimeout(() => setCopied(null), 2000);
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareFallback(null);
+      setCopied(tr.id);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      // Non-secure context, denied permission, etc. The whole point of this
+      // button is producing the message, so at minimum say so, and let the
+      // owner copy it by hand.
+      setShareFallback({ id: tr.id, text });
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -347,6 +402,11 @@ export default function DeliveryToursPage() {
   }
 
   const inputCls = 'border border-[var(--line-strong)] bg-[var(--surface)] text-[var(--fg)] rounded-lg px-3 py-2';
+  const warningBoxCls = 'mb-4 flex items-start gap-2 rounded-xl border p-3 text-sm';
+  const warningBoxStyle = {
+    background: 'color-mix(in oklab, var(--warning-500) 8%, var(--surface))',
+    borderColor: 'color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+  } as const;
 
   return (
     <div className="max-w-[1100px]">
@@ -355,13 +415,39 @@ export default function DeliveryToursPage() {
         <p className="text-[var(--fg-muted)] mt-1">{t('toursDesc')}</p>
       </div>
 
+      {loadError ? (
+        <div
+          className="flex items-start gap-2 rounded-xl border p-3 text-sm"
+          style={{
+            background: 'color-mix(in oklab, var(--danger-500) 8%, var(--surface))',
+            borderColor: 'color-mix(in oklab, var(--danger-500) 30%, var(--line))',
+          }}
+        >
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--danger-500)' }} />
+          <span className="flex-1 text-[var(--fg)]">{loadError}</span>
+          <button onClick={load} className="shrink-0 text-xs font-medium underline" style={{ color: 'var(--danger-500)' }}>
+            {t('retry')}
+          </button>
+        </div>
+      ) : (
+      <>
+      {/* getRestaurant failed during load: `slug` fell back to the numeric id
+          and the share link below is likely wrong. Say so instead of letting
+          the owner paste a broken link. */}
+      {slugUnknown && (
+        <div className={warningBoxCls} style={warningBoxStyle}>
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--warning-500)' }} />
+          <span className="text-[var(--fg)]">{t('tourSlugUnknown')}</span>
+        </div>
+      )}
+
       {/* Without a web-disabled carte there is nothing a tour can serve, and the
           server would reject the save. Say so up front rather than let the owner
           pick a normal carte and hit a 400. */}
       {cartes.length === 0 && (
-        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>
+        <div className={warningBoxCls} style={warningBoxStyle}>
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--warning-500)' }} />
+          <span className="text-[var(--fg)]">
             <span className="font-medium">{t('tourNoCarte')}</span>{' '}
             {t('tourNoCarteHint')}{' '}
             <Link href={`/${rid}/menu/menus`} className="underline font-medium">{t('tourGoToCartes')}</Link>
@@ -369,14 +455,39 @@ export default function DeliveryToursPage() {
         </div>
       )}
 
-      {canEdit && !draft && (
-        <button
-          onClick={beginNew}
-          disabled={cartes.length === 0}
-          className="mb-4 py-2 px-4 rounded-lg bg-[var(--brand-500)] text-white font-medium flex items-center gap-2 disabled:opacity-50"
-        >
-          <Plus className="w-4 h-4" />{t('newTour')}
-        </button>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {canEdit && !draft && (
+          <button
+            onClick={beginNew}
+            disabled={cartes.length === 0}
+            className="py-2 px-4 rounded-lg bg-[var(--brand-500)] text-white font-medium flex items-center gap-2 disabled:opacity-50"
+          >
+            <Plus className="w-4 h-4" />{t('newTour')}
+          </button>
+        )}
+        {/* Tour cities pile up (4-5 new ones a month) since nothing else purges
+            them. Keep this sober: a plain toggle, not a management screen.
+            Stays visible while the panel is open even if it empties out, so
+            it can still be closed. */}
+        {canEdit && (zones.length > 0 || manageCities) && (
+          <button onClick={() => setManageCities((v) => !v)} className="text-sm underline text-[var(--fg-muted)]">
+            {t('tourManageCities')}
+          </button>
+        )}
+      </div>
+
+      {manageCities && (
+        <div className="mb-4 p-3 rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+          <div className="flex flex-wrap gap-1">
+            {zones.map((z) => (
+              <span key={z.id} className="px-2 py-1 rounded-full bg-[var(--surface-2)] text-sm flex items-center gap-1">
+                {z.name}
+                <button onClick={() => removeZone(z)} aria-label={t('delete')} title={t('delete')}>&times;</button>
+              </span>
+            ))}
+          </div>
+          {zoneError && <p className="mt-2 text-xs text-[var(--danger-500)]">{zoneError}</p>}
+        </div>
       )}
 
       {draft && (
@@ -499,6 +610,20 @@ export default function DeliveryToursPage() {
 
       {listError && <p className="mb-3 text-sm text-[var(--danger-500)]">{listError}</p>}
 
+      {shareFallback && (
+        <div className="mb-3 p-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-sm space-y-2">
+          <p>{t('tourShareCopyFailed')}</p>
+          <textarea
+            readOnly
+            value={shareFallback.text}
+            rows={4}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full text-xs rounded-lg border border-[var(--line-strong)] bg-[var(--surface-2)] text-[var(--fg)] p-2"
+          />
+          <button onClick={() => setShareFallback(null)} className="text-xs underline text-[var(--fg-muted)]">{t('close')}</button>
+        </div>
+      )}
+
       {tours.length === 0 ? (
         <p className="text-sm text-[var(--fg-subtle)]">{t('tourNoTours')}</p>
       ) : (
@@ -517,7 +642,7 @@ export default function DeliveryToursPage() {
               return (
                 <DataTableRow key={tr.id} index={i}>
                   <DataTableCell mobilePrimary>
-                    <button className="text-left font-medium hover:underline disabled:no-underline"
+                    <button className="text-start font-medium hover:underline disabled:no-underline"
                       disabled={!canEdit} onClick={() => beginEdit(tr)}>
                       {tr.name}
                     </button>
@@ -534,13 +659,9 @@ export default function DeliveryToursPage() {
                   </DataTableCell>
                   <DataTableCell mobileLabel={t('tourStatus')}>
                     <div className="flex flex-col items-start gap-1">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        phase === 'live' ? 'bg-green-100 text-green-800'
-                          : phase === 'upcoming' ? 'bg-blue-100 text-blue-800'
-                            : 'bg-neutral-100 text-neutral-600'
-                      }`}>
+                      <Badge tone={phase === 'live' ? 'success' : phase === 'upcoming' ? 'info' : 'neutral'}>
                         {t(phase === 'live' ? 'tourLive' : phase === 'upcoming' ? 'tourUpcoming' : 'tourPast')}
-                      </span>
+                      </Badge>
                       {canEdit ? (
                         <button onClick={() => togglePublished(tr)} className="text-xs underline text-[var(--fg-muted)]">
                           {tr.is_published ? t('tourUnpublish') : t('tourPublish')}
@@ -576,6 +697,8 @@ export default function DeliveryToursPage() {
             })}
           </DataTableBody>
         </DataTable>
+      )}
+      </>
       )}
     </div>
   );
