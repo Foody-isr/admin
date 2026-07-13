@@ -20,7 +20,3 @@ export function parsePrice(v: string): number | null | undefined {
   if (!Number.isFinite(n) || n < 0) return undefined;
   return n;
 }
-
-/** True when `parsePrice` would accept the field as-is (blank, or a valid
- *  non-negative number) rather than reject it. */
-export const isValidPriceInput = (v: string): boolean => parsePrice(v) !== undefined;
