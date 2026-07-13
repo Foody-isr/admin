@@ -43,6 +43,7 @@ import {
   Boxes,
   MessageCircle,
   MapPin,
+  Truck,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -262,6 +263,9 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
   const isSettingsRoute =
     pathname === `${base}/settings` ||
     pathname.startsWith(`${base}/settings/`) ||
+    // Tours live outside /settings but belong to the Commerce group below, so the
+    // settings rail must stay up on them or the entry vanishes once opened.
+    pathname.startsWith(`${base}/delivery/`) ||
     pathname.startsWith(`${base}/restaurant/floor-plans`) ||
     pathname.startsWith(`${base}/restaurant/sections`) ||
     pathname.startsWith(`${base}/restaurant/table-status`) ||
@@ -286,6 +290,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
         { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },
+        { id: 'tours', href: `${base}/delivery/tours`, labelKey: 'tours', icon: Truck },
       ],
     },
     {
