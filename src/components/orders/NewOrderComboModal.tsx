@@ -16,11 +16,39 @@ interface StepOption {
   name: string;
   /** Pinned portion/size label for this option (e.g. "250 g"), if any. */
   portion?: string;
+  /** When the step carries per-size rules, the variant size this option
+   *  represents (e.g. "500g"). Drives the per-size cap tally. */
+  sizeLabel?: string;
   priceDelta: number;
 }
 
 function uid(): string {
   return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `combo-${Date.now()}`;
+}
+
+/** Normalize a size label for case/whitespace-insensitive matching, mirroring
+ *  the server's combo resolver and the guest web. */
+function normLabel(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+/** All active sizes (option-set options + legacy variants) on a catalog item,
+ *  as {optionId, name} pairs. Used to expand a per-size-rules step into one
+ *  pickable option per allowed size. */
+function itemSizeOptions(item: MenuItem | undefined): Array<{ optionId: number; name: string }> {
+  if (!item) return [];
+  const out: Array<{ optionId: number; name: string }> = [];
+  for (const os of item.option_sets ?? []) {
+    for (const o of os.options ?? []) {
+      if (o.is_active !== false) out.push({ optionId: o.id, name: o.name });
+    }
+  }
+  for (const g of item.variant_groups ?? []) {
+    for (const v of g.variants ?? []) {
+      if (v.is_active !== false) out.push({ optionId: v.id, name: v.name });
+    }
+  }
+  return out;
 }
 
 // Resolve the label of a pinned variant/option (e.g. "250 g") from the full
@@ -95,22 +123,48 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
       const resolved: Record<number, StepOption[]> = {};
       for (const step of steps) {
         if (step.source_type === 'group' && step.source_group_id) {
+          const rules = step.variant_rules ?? [];
+          const hasRules = rules.length > 0;
           try {
             const { items } = await resolveComboStepPreview(restaurantId, {
               sourceType: 'group',
               sourceId: step.source_group_id,
-              variantLabel: step.source_variant_label ?? undefined,
+              // Per-size-rules steps are not pinned to one size — resolve whole
+              // items and expand them into their allowed sizes below.
+              variantLabel: hasRules ? undefined : step.source_variant_label ?? undefined,
               serieDate: serieDate ?? undefined,
             });
-            resolved[step.id as number] = items.map((it) => ({
-              key: `${it.menu_item_id}:${it.option_id ?? ''}`,
-              menuItemId: it.menu_item_id,
-              optionId: it.option_id ?? null,
-              name: it.name,
-              // Group steps pin the size via the step's variant label.
-              portion: step.source_variant_label ?? portionLabel(itemMap.get(it.menu_item_id), it.option_id),
-              priceDelta: 0,
-            }));
+            if (hasRules) {
+              const allowed = new Set(rules.map((r) => normLabel(r.variant_label)));
+              const expanded: StepOption[] = [];
+              for (const it of items) {
+                const sizes = itemSizeOptions(itemMap.get(it.menu_item_id)).filter((s) =>
+                  allowed.has(normLabel(s.name)),
+                );
+                for (const s of sizes) {
+                  expanded.push({
+                    key: `${it.menu_item_id}:${s.optionId}`,
+                    menuItemId: it.menu_item_id,
+                    optionId: s.optionId,
+                    name: it.name,
+                    portion: s.name,
+                    sizeLabel: s.name,
+                    priceDelta: 0,
+                  });
+                }
+              }
+              resolved[step.id as number] = expanded;
+            } else {
+              resolved[step.id as number] = items.map((it) => ({
+                key: `${it.menu_item_id}:${it.option_id ?? ''}`,
+                menuItemId: it.menu_item_id,
+                optionId: it.option_id ?? null,
+                name: it.name,
+                // Group steps pin the size via the step's variant label.
+                portion: step.source_variant_label ?? portionLabel(itemMap.get(it.menu_item_id), it.option_id),
+                priceDelta: 0,
+              }));
+            }
           } catch {
             /* leave this step empty — staff can still pick from other steps */
           }
@@ -127,10 +181,32 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
   const stepCount = (stepId: number) =>
     Object.values(picks[stepId] ?? {}).reduce((a, b) => a + b, 0);
 
+  // Picks in a step that use a given size label (sums across all items of that
+  // size). Drives per-size cap enforcement for variant-rule steps.
+  const sizeCount = (stepId: number, sizeLabel: string): number => {
+    const opts = groupItems[stepId] ?? [];
+    const byKey = picks[stepId] ?? {};
+    return opts.reduce(
+      (sum, o) => (o.sizeLabel && normLabel(o.sizeLabel) === normLabel(sizeLabel) ? sum + (byKey[o.key] ?? 0) : sum),
+      0,
+    );
+  };
+
+  // Remaining picks allowed for a size (null = no cap / not a rule size).
+  const sizeRemaining = (step: ComboStep, sizeLabel?: string): number | null => {
+    if (!sizeLabel) return null;
+    const rule = (step.variant_rules ?? []).find((r) => normLabel(r.variant_label) === normLabel(sizeLabel));
+    if (!rule || rule.max_picks <= 0) return null;
+    return rule.max_picks - sizeCount(step.id as number, sizeLabel);
+  };
+
   function pick(step: ComboStep, opt: StepOption) {
     const stepId = step.id as number;
     const max = step.max_picks;
     const current = stepCount(stepId);
+    // Per-size cap: block a size once its max is reached.
+    const remaining = sizeRemaining(step, opt.sizeLabel);
+    if (remaining != null && remaining <= 0) return;
     setPicks((prev) => {
       const cur = { ...(prev[stepId] ?? {}) };
       // Single-choice step: selecting replaces the current pick.
@@ -153,7 +229,13 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     });
   }
 
-  const allComplete = steps.every((s) => stepCount(s.id as number) >= (s.min_picks ?? 0));
+  const allComplete = steps.every((s) => {
+    if (stepCount(s.id as number) < (s.min_picks ?? 0)) return false;
+    // Per-size minimums must also be met (e.g. "at least 4 at 500g").
+    return (s.variant_rules ?? []).every(
+      (r) => r.min_picks <= 0 || sizeCount(s.id as number, r.variant_label) >= r.min_picks,
+    );
+  });
 
   const extraDelta = steps.reduce((sum, step) => {
     const opts = optionsFromStep(step, groupItems[step.id as number], itemMap);
@@ -237,6 +319,8 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                   const qty = (picks[stepId] ?? {})[opt.key] ?? 0;
                   const selected = qty > 0;
                   const single = max === 1;
+                  const remaining = sizeRemaining(step, opt.sizeLabel);
+                  const sizeFull = remaining != null && remaining <= 0;
                   return (
                     <div
                       key={opt.key}
@@ -259,6 +343,11 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                             {opt.portion}
                           </span>
                         )}
+                        {remaining != null && (
+                          <span className="text-fs-xs text-[var(--fg-subtle)]">
+                            {sizeFull ? t('comboSizeFull') : t('comboSizeRemaining').replace('{n}', String(remaining))}
+                          </span>
+                        )}
                         {opt.priceDelta > 0 && (
                           <span className="text-fs-xs text-[var(--fg-muted)]">+₪{opt.priceDelta.toFixed(2)}</span>
                         )}
@@ -272,7 +361,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
                           <button
                             type="button"
                             onClick={() => pick(step, opt)}
-                            disabled={max > 0 && count >= max}
+                            disabled={(max > 0 && count >= max) || sizeFull}
                             className="flex size-6 items-center justify-center rounded border border-[var(--line-strong)] text-fs-sm disabled:opacity-40"
                           >
                             +
