@@ -234,27 +234,42 @@ export default function DeliveryToursPage() {
     setDraft({ ...draft, cutoffLocal: toLocalInput(presetDate(preset)) });
   };
 
+  /** The delivery window is REQUIRED (the form pre-fills 18:00 / 21:00, but the
+   *  operator can clear it). A tour saved without one produces orders whose
+   *  pickup window is NULL, and the scheduler — which activates a scheduled order
+   *  when `window_start <= now` — never picks those rows up: the orders sit in
+   *  "Programmées" forever and never reach the kitchen. The server refuses it;
+   *  the button is disabled here so nobody meets that refusal. */
   const validDraft = (d: Draft): boolean =>
     d.name.trim() !== '' &&
     d.menuId != null &&
     (d.zoneId != null || d.newCity.trim() !== '') &&
     d.deliveryDate !== '' &&
-    d.cutoffLocal !== '';
+    d.cutoffLocal !== '' &&
+    d.windowStart !== '' &&
+    d.windowEnd !== '';
 
-  const toInput = (tr: DeliveryTour, isPublished: boolean): DeliveryTourInput => ({
-    name: tr.name,
-    zone_id: tr.zone_id,
-    menu_id: tr.menu_id,
-    delivery_date: tr.delivery_date.slice(0, 10),
-    opens_at: tr.opens_at,
-    cutoff_at: tr.cutoff_at,
-    delivery_start: tr.delivery_start ?? null,
-    delivery_end: tr.delivery_end ?? null,
-    delivery_fee: tr.delivery_fee ?? null,
-    min_order: tr.min_order ?? null,
-    require_prepayment: tr.require_prepayment,
-    is_published: isPublished,
-  });
+  /** Null when the tour has no announced window: a legacy tour (created before the
+   *  window became mandatory) cannot be re-saved as-is, and publishing it from the
+   *  list would just earn a raw 400. The caller sends the operator to the editor
+   *  instead. */
+  const toInput = (tr: DeliveryTour, isPublished: boolean): DeliveryTourInput | null => {
+    if (!tr.delivery_start || !tr.delivery_end) return null;
+    return {
+      name: tr.name,
+      zone_id: tr.zone_id,
+      menu_id: tr.menu_id,
+      delivery_date: tr.delivery_date.slice(0, 10),
+      opens_at: tr.opens_at,
+      cutoff_at: tr.cutoff_at,
+      delivery_start: tr.delivery_start,
+      delivery_end: tr.delivery_end,
+      delivery_fee: tr.delivery_fee ?? null,
+      min_order: tr.min_order ?? null,
+      require_prepayment: tr.require_prepayment,
+      is_published: isPublished,
+    };
+  };
 
   const save = async (publish: boolean) => {
     if (!draft || !validDraft(draft)) return;
@@ -265,10 +280,14 @@ export default function DeliveryToursPage() {
       setSaveError(t('tourErrCutoffPast'));
       return;
     }
-    // "HH:MM" strings compare lexically the same as chronologically. Only
-    // enforced when both ends are set — a partially announced window isn't
-    // this check's concern.
-    if (draft.windowStart && draft.windowEnd && draft.windowStart >= draft.windowEnd) {
+    // Both ends are mandatory (see validDraft): without them the round's orders
+    // are scheduled with no pickup window and never leave "Programmées".
+    if (!draft.windowStart || !draft.windowEnd) {
+      setSaveError(t('tourErrWindowRequired'));
+      return;
+    }
+    // "HH:MM" strings compare lexically the same as chronologically.
+    if (draft.windowStart >= draft.windowEnd) {
       setSaveError(t('tourErrWindowOrder'));
       return;
     }
@@ -305,8 +324,8 @@ export default function DeliveryToursPage() {
         delivery_date: draft.deliveryDate,
         opens_at: draft.opensAt,
         cutoff_at: cutoff.toISOString(),
-        delivery_start: draft.windowStart || null,
-        delivery_end: draft.windowEnd || null,
+        delivery_start: draft.windowStart,
+        delivery_end: draft.windowEnd,
         delivery_fee: deliveryFee,
         min_order: minOrder,
         require_prepayment: draft.requirePrepayment,
@@ -326,8 +345,13 @@ export default function DeliveryToursPage() {
 
   const togglePublished = async (tr: DeliveryTour) => {
     setListError(null);
+    const input = toInput(tr, !tr.is_published);
+    if (!input) {
+      setListError(t('tourErrWindowRequired'));
+      return;
+    }
     try {
-      const saved = await updateDeliveryTour(rid, tr.id, toInput(tr, !tr.is_published));
+      const saved = await updateDeliveryTour(rid, tr.id, input);
       setTours((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
     } catch (err) {
       setListError(errorMessage(err));

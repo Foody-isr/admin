@@ -6931,8 +6931,12 @@ export interface DeliveryTourInput {
   delivery_date: string;
   opens_at: string; // RFC3339
   cutoff_at: string; // RFC3339, must be after opens_at
-  delivery_start?: string | null; // "HH:MM"
-  delivery_end?: string | null; // "HH:MM"
+  /** "HH:MM" — REQUIRED, and the server enforces it: a tour with no announced
+   *  window produces orders whose scheduled pickup window is NULL, which the
+   *  scheduled-order activator (`window_start <= now`) can never select. Those
+   *  orders would stay in "Programmées" forever and never reach the kitchen. */
+  delivery_start: string;
+  delivery_end: string; // "HH:MM", must be after delivery_start
   delivery_fee?: number | null;
   min_order?: number | null;
   require_prepayment: boolean;
