@@ -194,7 +194,40 @@ export default function StepCard({
   const dynamicAvailableCount = preview?.count ?? 0;
   const optionsCount = dynamic ? dynamicAvailableCount : options.length;
 
+  // Distinct items available in this step, for per-item limit overrides.
+  // Group steps read the server preview; explicit steps read their own options.
+  const perItemChoices = useMemo<{ id: number; name: string }[]>(() => {
+    if (dynamic) {
+      const seen = new Map<number, string>();
+      for (const it of preview?.items ?? []) {
+        if (!seen.has(it.menu_item_id)) {
+          seen.set(it.menu_item_id, itemsById.get(it.menu_item_id)?.name ?? it.name);
+        }
+      }
+      return Array.from(seen, ([id, name]) => ({ id, name }));
+    }
+    return options.map((o) => ({ id: o.menuItemId, name: o.itemName }));
+  }, [dynamic, preview, options, itemsById]);
+
   // ── Mutation helpers ─────────────────────────────────────────────────
+
+  const setMaxPerItem = (v: number) => onChange({ ...step, max_per_item: v > 0 ? v : 0 });
+  const addItemLimit = (menuItemId: number) => {
+    if (!menuItemId) return;
+    const cur = step.item_limits ?? [];
+    if (cur.some((l) => l.menu_item_id === menuItemId)) return;
+    const name = perItemChoices.find((c) => c.id === menuItemId)?.name;
+    onChange({ ...step, item_limits: [...cur, { menu_item_id: menuItemId, max_qty: 1, item_name: name }] });
+  };
+  const setItemLimitMax = (menuItemId: number, max: number) =>
+    onChange({
+      ...step,
+      item_limits: (step.item_limits ?? []).map((l) =>
+        l.menu_item_id === menuItemId ? { ...l, max_qty: Math.max(0, max) } : l,
+      ),
+    });
+  const removeItemLimit = (menuItemId: number) =>
+    onChange({ ...step, item_limits: (step.item_limits ?? []).filter((l) => l.menu_item_id !== menuItemId) });
 
   const setOptions = (nextOptions: ComboOptionView[]) => {
     onChange({ ...step, items: toDraftItems(nextOptions) });
@@ -354,6 +387,69 @@ export default function StepCard({
           />
         </div>
 
+        {/* Per-item caps: a step-wide default (max repeats of any one item,
+            counted across sizes) plus optional per-item overrides. */}
+        <div className="flex flex-col gap-2">
+          <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
+            {t('composeStepPerItemTitle')}
+          </span>
+          <label className="inline-flex items-center gap-2 self-start">
+            <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepMaxPerItem')}</span>
+            <input
+              type="number"
+              min={0}
+              value={step.max_per_item || ''}
+              placeholder="∞"
+              onChange={(e) => setMaxPerItem(Math.max(0, Number(e.target.value) || 0))}
+              className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+            />
+          </label>
+          {(step.item_limits ?? []).length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              {(step.item_limits ?? []).map((l) => (
+                <div key={l.menu_item_id} className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 text-fs-sm text-[var(--fg)] truncate">
+                    {perItemChoices.find((c) => c.id === l.menu_item_id)?.name ?? l.item_name ?? `#${l.menu_item_id}`}
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={l.max_qty || ''}
+                    placeholder="∞"
+                    onChange={(e) => setItemLimitMax(l.menu_item_id, Number(e.target.value) || 0)}
+                    className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItemLimit(l.menu_item_id)}
+                    className="text-fs-sm text-[var(--fg-muted)] hover:text-[var(--danger-500)] px-1"
+                    aria-label={t('composeStepRemoveItemLimit')}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {perItemChoices.some((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id)) && (
+            <select
+              value=""
+              onChange={(e) => {
+                addItemLimit(Number(e.target.value));
+                e.currentTarget.value = '';
+              }}
+              className="h-9 px-2 self-start rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg-muted)]"
+            >
+              <option value="">{t('composeStepAddItemLimit')}</option>
+              {perItemChoices
+                .filter((c) => !(step.item_limits ?? []).some((l) => l.menu_item_id === c.id))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+            </select>
+          )}
+        </div>
+
         {/* Source mode — segmented control between manual list and dynamic category. */}
         <div className="flex flex-col gap-1.5">
           <span className="text-fs-xs font-semibold uppercase tracking-[.06em] text-[var(--fg-subtle)]">
@@ -496,8 +592,45 @@ function DynamicModePanel({
   const groups = useMemo(() => groupOptions(menus), [menus]);
   const availableNames = preview?.items.map((i) => i.name) ?? [];
 
+  // Per-size caps: map normalized label -> {min,max} from the draft rules.
+  const rulesByLabel = useMemo(() => {
+    const m = new Map<string, { min: number; max: number }>();
+    for (const r of step.variant_rules ?? []) {
+      m.set(r.variant_label.trim().toLowerCase(), { min: r.min_picks, max: r.max_picks });
+    }
+    return m;
+  }, [step.variant_rules]);
+  const hasCaps = (step.variant_rules ?? []).some((r) => r.min_picks > 0 || r.max_picks > 0);
+
   const onSelectSource = (id: number) =>
-    onChange({ ...step, source_group_id: id || undefined, source_variant_label: undefined });
+    onChange({ ...step, source_group_id: id || undefined, source_variant_label: undefined, variant_rules: [] });
+
+  // Update one size's min/max. Any active cap turns the whole step into
+  // customer-choice-with-caps mode: we emit a rule for EVERY size (uncapped
+  // ones as 0/0 = unlimited) so they all stay choosable, and clear the legacy
+  // single-size pin. No caps anywhere → drop rules entirely (legacy behaviour).
+  const setRule = (sizeName: string, patch: { min?: number; max?: number }) => {
+    const key = sizeName.trim().toLowerCase();
+    const cur = rulesByLabel.get(key) ?? { min: 0, max: 0 };
+    const next = { min: patch.min ?? cur.min, max: patch.max ?? cur.max };
+    const resolved = new Map<string, { min: number; max: number }>();
+    for (const l of sizeLabels) {
+      const k = l.toLowerCase();
+      resolved.set(k, k === key ? next : rulesByLabel.get(k) ?? { min: 0, max: 0 });
+    }
+    const anyCap = Array.from(resolved.values()).some((v) => v.min > 0 || v.max > 0);
+    const variant_rules = anyCap
+      ? sizeLabels.map((l) => {
+          const v = resolved.get(l.toLowerCase())!;
+          return { variant_label: l, min_picks: v.min, max_picks: v.max };
+        })
+      : [];
+    onChange({
+      ...step,
+      variant_rules,
+      source_variant_label: anyCap ? undefined : step.source_variant_label,
+    });
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -517,19 +650,77 @@ function DynamicModePanel({
       </select>
 
       {selectedId > 0 && sizeLabels.length > 0 && (
-        <label className="flex flex-col gap-1">
-          <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
-          <select
-            value={label}
-            onChange={(e) => onChange({ ...step, source_variant_label: e.target.value || undefined })}
-            className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
-          >
-            <option value="">{t('composeStepSizeAll')}</option>
-            {sizeLabels.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
-        </label>
+        <div className="flex flex-col gap-3">
+          {/* Single-size pin: force every pick to one size (no customer choice).
+              Clearing it to "Toutes les tailles" unlocks the per-size limits
+              table below — the two modes are mutually exclusive. */}
+          <label className="flex flex-col gap-1">
+            <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
+            <select
+              value={label}
+              onChange={(e) =>
+                onChange({ ...step, source_variant_label: e.target.value || undefined, variant_rules: [] })
+              }
+              className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+            >
+              <option value="">{t('composeStepSizeAll')}</option>
+              {sizeLabels.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Per-size caps: customer chooses a size per pick, bounded by these
+              min/max limits (e.g. up to 4 at 500g, the rest 250g). Leave a row
+              blank for "no limit". Always visible so the feature is discoverable;
+              disabled while a single size is forced above. */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeRulesLabel')}</span>
+            <p className="text-fs-xs text-[var(--fg-subtle)]">
+              {label ? t('composeStepSizeRulesDisabled') : t('composeStepSizeRulesHint')}
+            </p>
+            <div className="grid grid-cols-[1fr_4rem_4rem] gap-2 text-fs-2xs uppercase tracking-wide text-[var(--fg-subtle)]">
+              <span>{t('composeStepSizeCol')}</span>
+              <span className="text-center">{t('composeStepMinCol')}</span>
+              <span className="text-center">{t('composeStepMaxCol')}</span>
+            </div>
+            {sizeLabels.map((l) => {
+              const cur = rulesByLabel.get(l.toLowerCase()) ?? { min: 0, max: 0 };
+              return (
+                <div key={l} className={`grid grid-cols-[1fr_4rem_4rem] gap-2 items-center ${label ? 'opacity-40' : ''}`}>
+                  <span className="text-fs-sm text-[var(--fg)]">{l}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    disabled={!!label}
+                    value={cur.min || ''}
+                    placeholder="0"
+                    onChange={(e) => setRule(l, { min: Math.max(0, Number(e.target.value) || 0) })}
+                    className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    disabled={!!label}
+                    value={cur.max || ''}
+                    placeholder="∞"
+                    onChange={(e) => setRule(l, { max: Math.max(0, Number(e.target.value) || 0) })}
+                    className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)] disabled:cursor-not-allowed"
+                  />
+                </div>
+              );
+            })}
+            {hasCaps && (
+              <button
+                type="button"
+                onClick={() => onChange({ ...step, variant_rules: [] })}
+                className="self-start text-fs-xs text-[var(--fg-muted)] underline hover:text-[var(--fg)]"
+              >
+                {t('composeStepSizeRulesClear')}
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {selectedId > 0 && preview?.loading && (
