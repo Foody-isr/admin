@@ -51,6 +51,12 @@ interface SubItem {
   href: string;
   labelKey: string;
   badge?: number;
+  /**
+   * Permissions granting access to this entry (any one of them). Needed when a
+   * section groups pages with different gates — Clients holds both the customer
+   * list and Promotions, which not every role may see.
+   */
+  perm?: string[];
   /** Hide this entry when the sidebar is shown as the mobile drawer (<lg). */
   desktopOnly?: boolean;
 }
@@ -161,16 +167,6 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       ],
     },
     {
-      href: `${base}/marketing`,
-      labelKey: 'marketing',
-      icon: Tag,
-      perm: ['discounts.view', 'discounts.edit'],
-      clickHref: `${base}/marketing/discounts`,
-      subItems: [
-        { href: `${base}/marketing/discounts`, labelKey: 'discounts' },
-      ],
-    },
-    {
       href: `${base}/website`,
       labelKey: 'online',
       icon: Globe,
@@ -179,10 +175,17 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [{ href: `${base}/website`, labelKey: 'websiteBuilder' }],
     },
     {
+      // Everything aimed at the customer lives here: who they are, and what we
+      // offer them. Promotions keep their /marketing/* route, whose permission
+      // gate is keyed on that path segment.
       href: `${base}/customers`,
       labelKey: 'customers',
       icon: Users,
-      perm: ['customers.view', 'customers.manage'],
+      perm: ['customers.view', 'customers.manage', 'discounts.view', 'discounts.edit'],
+      subItems: [
+        { href: `${base}/customers`, labelKey: 'customers', perm: ['customers.view', 'customers.manage'] },
+        { href: `${base}/marketing/discounts`, labelKey: 'discounts', perm: ['discounts.view', 'discounts.edit'] },
+      ],
     },
     {
       href: `${base}/analytics`,
@@ -212,7 +215,19 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['settings.view', 'settings.edit', 'tables.manage'],
     },
   ];
-  const nav = allNav.filter((item) => !item.perm || hasAnyPermission(...item.perm));
+  // A section is visible when the user holds any of its permissions; its
+  // sub-entries are then filtered on their own gate, so a section that mixes
+  // gates (Clients: customer list + Promotions) only ever offers the pages the
+  // user can actually open. Dropping a section left with no sub-entry keeps a
+  // section from becoming a dead link.
+  const nav = allNav
+    .filter((item) => !item.perm || hasAnyPermission(...item.perm))
+    .map((item) =>
+      item.subItems
+        ? { ...item, subItems: item.subItems.filter((s) => !s.perm || hasAnyPermission(...s.perm)) }
+        : item,
+    )
+    .filter((item) => !item.subItems || item.subItems.length > 0);
 
   function getSubHrefs(item: NavItem): string[] {
     return [
