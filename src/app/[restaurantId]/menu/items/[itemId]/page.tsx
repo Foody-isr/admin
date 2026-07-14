@@ -234,6 +234,11 @@ export default function EditItemPage() {
                 source_type: s.source_type === 'group' ? 'group' : 'explicit',
                 source_group_id: s.source_group_id ?? undefined,
                 source_variant_label: s.source_variant_label ?? undefined,
+                variant_rules: (s.variant_rules ?? []).map((r) => ({
+                  variant_label: r.variant_label,
+                  min_picks: r.min_picks,
+                  max_picks: r.max_picks,
+                })),
                 items: s.items.map((si) => ({
                   menu_item_id: si.menu_item_id,
                   price_delta: si.price_delta,

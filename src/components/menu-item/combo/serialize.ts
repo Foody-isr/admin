@@ -11,6 +11,12 @@ import type { ComboStepDraft } from './types';
 export function toComboStepInputs(steps: ComboStepDraft[]): ComboStepInput[] {
   return steps.map((s, i) => {
     const isGroup = s.source_type === 'group';
+    // Per-size rules and a single force-pin are mutually exclusive. When rules
+    // are present, drop the single label so the server enters customer-choice
+    // mode; otherwise keep the legacy single-pin behaviour.
+    const variantRules = isGroup
+      ? (s.variant_rules ?? []).filter((r) => r.variant_label.trim() !== '')
+      : [];
     return {
       name: s.name || `Choice ${i + 1}`,
       description: s.description || '',
@@ -19,7 +25,14 @@ export function toComboStepInputs(steps: ComboStepDraft[]): ComboStepInput[] {
       sort_order: i,
       source_type: s.source_type,
       source_group_id: isGroup ? s.source_group_id : undefined,
-      source_variant_label: isGroup ? (s.source_variant_label || null) : null,
+      source_variant_label:
+        isGroup && variantRules.length === 0 ? (s.source_variant_label || null) : null,
+      variant_rules: variantRules.map((r, ri) => ({
+        variant_label: r.variant_label.trim(),
+        min_picks: r.min_picks,
+        max_picks: r.max_picks,
+        sort_order: ri,
+      })),
       items: isGroup
         ? []
         : s.items.map((si) => ({

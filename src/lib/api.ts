@@ -363,6 +363,15 @@ export interface ComboStepItem {
 
 export type ComboStepSourceType = 'explicit' | 'group';
 
+/** Per-size pick rule on a group-sourced step (e.g. up to 4 at 500g). */
+export interface ComboStepVariantRule {
+  id?: number;
+  variant_label: string;
+  min_picks: number;
+  max_picks: number;
+  sort_order?: number;
+}
+
 export interface ComboStep {
   id?: number;
   menu_item_id?: number;
@@ -376,6 +385,7 @@ export interface ComboStep {
   source_type?: ComboStepSourceType;
   source_group_id?: number | null;
   source_variant_label?: string | null;
+  variant_rules?: ComboStepVariantRule[];
   items: ComboStepItem[];
 }
 
@@ -389,6 +399,12 @@ export interface ComboStepInput {
   source_type?: ComboStepSourceType;
   source_group_id?: number | null;
   source_variant_label?: string | null;
+  variant_rules?: {
+    variant_label: string;
+    min_picks: number;
+    max_picks: number;
+    sort_order?: number;
+  }[];
   items: {
     menu_item_id: number;
     option_id?: number | null;

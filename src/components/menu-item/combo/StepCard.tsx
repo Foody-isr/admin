@@ -496,8 +496,45 @@ function DynamicModePanel({
   const groups = useMemo(() => groupOptions(menus), [menus]);
   const availableNames = preview?.items.map((i) => i.name) ?? [];
 
+  // Per-size caps: map normalized label -> {min,max} from the draft rules.
+  const rulesByLabel = useMemo(() => {
+    const m = new Map<string, { min: number; max: number }>();
+    for (const r of step.variant_rules ?? []) {
+      m.set(r.variant_label.trim().toLowerCase(), { min: r.min_picks, max: r.max_picks });
+    }
+    return m;
+  }, [step.variant_rules]);
+  const hasCaps = (step.variant_rules ?? []).some((r) => r.min_picks > 0 || r.max_picks > 0);
+
   const onSelectSource = (id: number) =>
-    onChange({ ...step, source_group_id: id || undefined, source_variant_label: undefined });
+    onChange({ ...step, source_group_id: id || undefined, source_variant_label: undefined, variant_rules: [] });
+
+  // Update one size's min/max. Any active cap turns the whole step into
+  // customer-choice-with-caps mode: we emit a rule for EVERY size (uncapped
+  // ones as 0/0 = unlimited) so they all stay choosable, and clear the legacy
+  // single-size pin. No caps anywhere → drop rules entirely (legacy behaviour).
+  const setRule = (sizeName: string, patch: { min?: number; max?: number }) => {
+    const key = sizeName.trim().toLowerCase();
+    const cur = rulesByLabel.get(key) ?? { min: 0, max: 0 };
+    const next = { min: patch.min ?? cur.min, max: patch.max ?? cur.max };
+    const resolved = new Map<string, { min: number; max: number }>();
+    for (const l of sizeLabels) {
+      const k = l.toLowerCase();
+      resolved.set(k, k === key ? next : rulesByLabel.get(k) ?? { min: 0, max: 0 });
+    }
+    const anyCap = Array.from(resolved.values()).some((v) => v.min > 0 || v.max > 0);
+    const variant_rules = anyCap
+      ? sizeLabels.map((l) => {
+          const v = resolved.get(l.toLowerCase())!;
+          return { variant_label: l, min_picks: v.min, max_picks: v.max };
+        })
+      : [];
+    onChange({
+      ...step,
+      variant_rules,
+      source_variant_label: anyCap ? undefined : step.source_variant_label,
+    });
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -517,19 +554,76 @@ function DynamicModePanel({
       </select>
 
       {selectedId > 0 && sizeLabels.length > 0 && (
-        <label className="flex flex-col gap-1">
-          <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
-          <select
-            value={label}
-            onChange={(e) => onChange({ ...step, source_variant_label: e.target.value || undefined })}
-            className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
-          >
-            <option value="">{t('composeStepSizeAll')}</option>
-            {sizeLabels.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
-        </label>
+        <div className="flex flex-col gap-3">
+          {/* Legacy single-size pin: force every pick to one size (no customer
+              choice). Hidden once per-size caps are in play — the two modes are
+              mutually exclusive. */}
+          {!hasCaps && (
+            <label className="flex flex-col gap-1">
+              <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeLabel')}</span>
+              <select
+                value={label}
+                onChange={(e) =>
+                  onChange({ ...step, source_variant_label: e.target.value || undefined, variant_rules: [] })
+                }
+                className="h-9 px-2 rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+              >
+                <option value="">{t('composeStepSizeAll')}</option>
+                {sizeLabels.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {/* Per-size caps: customer chooses a size per pick, bounded by these
+              min/max limits (e.g. up to 4 at 500g, the rest 250g). Leave a row
+              blank for "no limit". Only shown when the single pin isn't set. */}
+          {!label && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-fs-xs text-[var(--fg-muted)]">{t('composeStepSizeRulesLabel')}</span>
+              <p className="text-fs-xs text-[var(--fg-subtle)]">{t('composeStepSizeRulesHint')}</p>
+              <div className="grid grid-cols-[1fr_4rem_4rem] gap-2 text-fs-2xs uppercase tracking-wide text-[var(--fg-subtle)]">
+                <span>{t('composeStepSizeCol')}</span>
+                <span className="text-center">{t('composeStepMinCol')}</span>
+                <span className="text-center">{t('composeStepMaxCol')}</span>
+              </div>
+              {sizeLabels.map((l) => {
+                const cur = rulesByLabel.get(l.toLowerCase()) ?? { min: 0, max: 0 };
+                return (
+                  <div key={l} className="grid grid-cols-[1fr_4rem_4rem] gap-2 items-center">
+                    <span className="text-fs-sm text-[var(--fg)]">{l}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={cur.min || ''}
+                      placeholder="0"
+                      onChange={(e) => setRule(l, { min: Math.max(0, Number(e.target.value) || 0) })}
+                      className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={cur.max || ''}
+                      placeholder="∞"
+                      onChange={(e) => setRule(l, { max: Math.max(0, Number(e.target.value) || 0) })}
+                      className="h-9 w-16 px-2 text-center rounded-r-sm border border-[var(--line)] bg-[var(--surface)] text-fs-sm text-[var(--fg)]"
+                    />
+                  </div>
+                );
+              })}
+              {hasCaps && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...step, variant_rules: [] })}
+                  className="self-start text-fs-xs text-[var(--fg-muted)] underline hover:text-[var(--fg)]"
+                >
+                  {t('composeStepSizeRulesClear')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {selectedId > 0 && preview?.loading && (
