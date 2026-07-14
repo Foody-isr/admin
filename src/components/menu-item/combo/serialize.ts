@@ -33,6 +33,10 @@ export function toComboStepInputs(steps: ComboStepDraft[]): ComboStepInput[] {
         max_picks: r.max_picks,
         sort_order: ri,
       })),
+      max_per_item: s.max_per_item && s.max_per_item > 0 ? s.max_per_item : 0,
+      item_limits: (s.item_limits ?? [])
+        .filter((l) => l.menu_item_id > 0)
+        .map((l) => ({ menu_item_id: l.menu_item_id, max_qty: Math.max(0, l.max_qty) })),
       items: isGroup
         ? []
         : s.items.map((si) => ({

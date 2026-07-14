@@ -200,6 +200,21 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     return rule.max_picks - sizeCount(step.id as number, sizeLabel);
   };
 
+  // Picks of one item in a step, summed across its sizes.
+  const itemCount = (stepId: number, menuItemId: number): number => {
+    const opts = groupItems[stepId] ?? optionsFromStep(steps.find((s) => s.id === stepId)!, undefined, itemMap);
+    const byKey = picks[stepId] ?? {};
+    return opts.reduce((sum, o) => (o.menuItemId === menuItemId ? sum + (byKey[o.key] ?? 0) : sum), 0);
+  };
+
+  // The per-item cap for an item in a step (null = unlimited): an item_limits
+  // override wins, else the step-wide max_per_item.
+  const itemCap = (step: ComboStep, menuItemId: number): number | null => {
+    const ov = (step.item_limits ?? []).find((l) => l.menu_item_id === menuItemId);
+    const cap = ov ? ov.max_qty : step.max_per_item ?? 0;
+    return cap > 0 ? cap : null;
+  };
+
   function pick(step: ComboStep, opt: StepOption) {
     const stepId = step.id as number;
     const max = step.max_picks;
@@ -207,6 +222,9 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     // Per-size cap: block a size once its max is reached.
     const remaining = sizeRemaining(step, opt.sizeLabel);
     if (remaining != null && remaining <= 0) return;
+    // Per-item cap: block an item once its max (across sizes) is reached.
+    const cap = itemCap(step, opt.menuItemId);
+    if (cap != null && itemCount(stepId, opt.menuItemId) >= cap) return;
     setPicks((prev) => {
       const cur = { ...(prev[stepId] ?? {}) };
       // Single-choice step: selecting replaces the current pick.
