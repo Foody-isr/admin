@@ -372,6 +372,13 @@ export interface ComboStepVariantRule {
   sort_order?: number;
 }
 
+/** Per-item pick cap override within a step (e.g. "Tuna max 1"). */
+export interface ComboStepItemLimit {
+  id?: number;
+  menu_item_id: number;
+  max_qty: number;
+}
+
 export interface ComboStep {
   id?: number;
   menu_item_id?: number;
@@ -386,6 +393,10 @@ export interface ComboStep {
   source_group_id?: number | null;
   source_variant_label?: string | null;
   variant_rules?: ComboStepVariantRule[];
+  /** Default cap on repeats of any single item in the step (0 = unlimited). */
+  max_per_item?: number;
+  /** Per-item overrides of max_per_item. */
+  item_limits?: ComboStepItemLimit[];
   items: ComboStepItem[];
 }
 
@@ -405,6 +416,8 @@ export interface ComboStepInput {
     max_picks: number;
     sort_order?: number;
   }[];
+  max_per_item?: number;
+  item_limits?: { menu_item_id: number; max_qty: number }[];
   items: {
     menu_item_id: number;
     option_id?: number | null;
