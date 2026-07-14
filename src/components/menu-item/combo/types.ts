@@ -12,6 +12,19 @@
 
 import type { MenuItem } from '@/lib/api';
 
+/** A per-size pick rule on a group-sourced step. Mirrors the server's
+ *  `ComboStepVariantRule`. Lets the customer choose a size per pick within
+ *  limits (e.g. up to 4 at 500g, the rest 250g). Mutually exclusive with
+ *  `source_variant_label` (single force-pin, no choice). */
+export interface ComboStepVariantRuleDraft {
+  /** Variant/option name this rule caps (e.g. "500g"). */
+  variant_label: string;
+  /** Minimum picks that must use this size. 0 = no minimum. */
+  min_picks: number;
+  /** Maximum picks that may use this size. 0 = unlimited. */
+  max_picks: number;
+}
+
 /** A draft entry in a combo step's items list. Matches `ComboStepInput.items[]`
  *  on the server, plus a few denormalized fields used at the UI layer. */
 export interface ComboStepDraftItem {
@@ -54,6 +67,10 @@ export interface ComboStepDraft {
    *  label (e.g. "250g"). undefined = no pin (whole items). Items without a
    *  matching variant are excluded by the server. */
   source_variant_label?: string;
+  /** Group mode: per-size pick caps. When non-empty the customer chooses a size
+   *  per pick within these limits, and `source_variant_label` is ignored (the
+   *  two are mutually exclusive). Empty/undefined = no per-size constraint. */
+  variant_rules?: ComboStepVariantRuleDraft[];
   /** UI-only intent flag. Not sent to the server.
    *
    *  - "choice" — operator wants the customer to pick from multiple options.
