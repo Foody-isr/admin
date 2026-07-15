@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  listMenus, createMenu, updateMenu, deleteMenu,
+  listMenus, createMenu, updateMenu, deleteMenu, duplicateMenu,
   setMenuHours, getMenuHours, getRestaurant,
   Menu, MenuAvailabilityHour, Restaurant,
 } from '@/lib/api';
@@ -90,6 +90,7 @@ export default function MenusPage() {
   const [isReordering, setIsReordering] = useState(false);
   const [editModal, setEditModal] = useState<{ open: boolean; editing?: Menu }>({ open: false });
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [channelDropdownOpen, setChannelDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<HTMLDivElement>(null);
@@ -114,6 +115,20 @@ export default function MenusPage() {
     await deleteMenu(rid, m.id);
     setOpenDropdown(null);
     reload();
+  };
+
+  // Duplicate a carte, then land on the copy so the user can edit it (the
+  // common "duplicate to tweak" flow). The guard blocks a double-fire.
+  const handleDuplicate = async (m: Menu) => {
+    if (duplicatingId !== null) return;
+    setDuplicatingId(m.id);
+    try {
+      const copy = await duplicateMenu(rid, m.id);
+      router.push(`/${rid}/menu/menus/${copy.id}`);
+    } catch {
+      setDuplicatingId(null);
+      alert(t('duplicateMenuFailed'));
+    }
   };
 
   // Drag-to-reorder
@@ -310,7 +325,7 @@ export default function MenusPage() {
                   isOpen={openDropdown === m.id}
                   onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
                   onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                  onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); alert(t('comingSoon')); }}
+                  onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDuplicate(m); }}
                   onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
                   t={t}
                 />
@@ -354,7 +369,7 @@ export default function MenusPage() {
                     isOpen={openDropdown === m.id}
                     onToggle={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === m.id ? null : m.id); }}
                     onEdit={(e) => { e.stopPropagation(); setOpenDropdown(null); router.push(`/${rid}/menu/menus/${m.id}/edit`); }}
-                    onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); alert(t('comingSoon')); }}
+                    onDuplicate={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDuplicate(m); }}
                     onDelete={(e) => { e.stopPropagation(); setOpenDropdown(null); handleDelete(m); }}
                     t={t}
                   />

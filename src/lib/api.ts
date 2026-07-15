@@ -2221,6 +2221,18 @@ export async function deleteMenu(restaurantId: number, id: number): Promise<void
   );
 }
 
+/** Server-side clone of a carte (menu) with its groups, sub-groups, attached
+ *  items, availability hours and locations preserved (the POS display layout is
+ *  NOT copied). The copy is named "<source> (copie)". Returns the new menu so
+ *  the caller can navigate to it for editing. Mirrors duplicateMenuItem. */
+export async function duplicateMenu(restaurantId: number, menuId: number): Promise<Menu> {
+  const data = await apiFetch<{ menu: Menu }>(
+    `/api/v1/menu/menus/${menuId}/duplicate?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'POST' }
+  );
+  return data.menu;
+}
+
 export async function getMenuHours(restaurantId: number, menuId: number): Promise<MenuAvailabilityHour[]> {
   const data = await apiFetch<{ hours: MenuAvailabilityHour[] }>(
     `/api/v1/menu/menus/${menuId}/hours?restaurant_id=${restaurantId}`, restaurantId
