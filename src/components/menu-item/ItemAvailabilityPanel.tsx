@@ -19,6 +19,14 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
 import { LearnMore } from '@/components/help/LearnMore';
+import { parsePortionGrams } from '@/lib/production';
+import { toBaseUnit, convertQuantity } from '@/lib/units';
+
+// Display unit for predefined stock. '' = portion counts; 'g'/'kg' = weight,
+// which maps to the server's "measure" mode (shared) or a portion count derived
+// from each size's weight (per-size). Volume (ml/L) is intentionally out of scope.
+type StockUnit = '' | 'g' | 'kg';
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 interface Props {
   rid: number;
@@ -50,7 +58,6 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   const [stockTracked, setStockTracked] = useState<boolean>(
     item.stock_quantity != null || item.stock_mode === 'per_variant',
   );
-  const [stockValue, setStockValue] = useState<number>(item.stock_quantity ?? 0);
   // Per-size ("per_variant") counts live on the FIRST attached option set — this
   // mirrors the server's stockConfigs, which keys the pool off that set. So that
   // set's active options ARE the trackable sizes. Legacy variant_groups can't
@@ -63,17 +70,60 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   const hasOptionSizes = sizeOptions.length > 0;
   const hasVariants =
     (item.variant_groups?.some((g) => (g.variants?.length ?? 0) > 0) ?? false) || hasOptionSizes;
-  // 'shared' = one counter for every size; 'per_variant' = a count per size.
+  // Grams per size, parsed from the size name ("250g" -> 250). Weight tracking is
+  // only offered when EVERY active size carries a parseable weight; otherwise a
+  // weightless size couldn't deduct and would silently oversell.
+  const sizeGrams = useMemo(() => {
+    const m: Record<number, number> = {};
+    for (const o of sizeOptions) {
+      const g = parsePortionGrams(o.name);
+      if (g != null) m[o.id] = g;
+    }
+    return m;
+  }, [sizeOptions]);
+  const hasWeightedSizes = hasOptionSizes && sizeOptions.every((o) => sizeGrams[o.id] != null);
+  // Unit of the predefined count. Seed from the saved unit / mode.
+  const initialUnit: StockUnit =
+    item.stock_unit === 'kg' ? 'kg' : item.stock_unit === 'g' || item.stock_mode === 'measure' ? 'g' : '';
+  const [stockUnit, setStockUnit] = useState<StockUnit>(initialUnit);
+  // 'shared' = one pool for every size; 'per_variant' = a pool per size.
   const [stockMode, setStockMode] = useState<'shared' | 'per_variant'>(
     item.stock_mode === 'per_variant' ? 'per_variant' : 'shared',
   );
-  // optionId -> current remaining count, seeded from the live per-size remaining
-  // the server stamps on each option.
-  const [perSizeCounts, setPerSizeCounts] = useState<Record<number, number>>(() => {
-    const m: Record<number, number> = {};
-    for (const o of sizeSet?.options ?? []) m[o.id] = o.stock_remaining ?? 0;
-    return m;
+  // Shared field value in the CURRENT unit. Measure stores base grams, so convert
+  // for display when the unit is weight.
+  const [stockValue, setStockValue] = useState<number>(() =>
+    item.stock_mode === 'measure' && item.stock_quantity != null
+      ? round2(convertQuantity(item.stock_quantity, 'g', initialUnit || 'g'))
+      : item.stock_quantity ?? 0,
+  );
+  // Per-size field values in the CURRENT unit. Canonical storage is always a
+  // portion count (per-option stock_remaining); weight = count x size weight.
+  const [perSizeField, setPerSizeField] = useState<Record<number, number>>(() => {
+    const f: Record<number, number> = {};
+    for (const o of sizeSet?.options ?? []) {
+      const count = o.stock_remaining ?? 0;
+      const g = parsePortionGrams(o.name) ?? 0;
+      f[o.id] = initialUnit === '' ? count : round2(convertQuantity(count * g, 'g', initialUnit));
+    }
+    return f;
   });
+  // Field value <-> canonical portion count, given a unit. In weight mode a
+  // per-size gram amount becomes floor(grams / size weight) whole portions.
+  const fieldToCount = useCallback(
+    (oid: number, val: number, unit: StockUnit): number => {
+      if (unit === '') return Math.max(0, Math.round(val || 0));
+      const g = sizeGrams[oid];
+      if (!g) return 0;
+      return Math.max(0, Math.floor(toBaseUnit(val || 0, unit) / g));
+    },
+    [sizeGrams],
+  );
+  const countToField = useCallback(
+    (oid: number, count: number, unit: StockUnit): number =>
+      unit === '' ? count : round2(convertQuantity(count * (sizeGrams[oid] ?? 0), 'g', unit)),
+    [sizeGrams],
+  );
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -140,16 +190,31 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     [rid, itemId, ruleId, override, loadPreview, onSaved, t],
   );
 
-  // Persist the SHARED manual count. `null` stops tracking (the item goes back
-  // to unlimited unless a recipe constrains it); a number sets the current count.
-  // Always sends stock_mode: leaving 'per_variant' this way makes the server drop
-  // the now-stale per-size counts.
-  const saveStock = useCallback(
-    async (q: number | null) => {
+  // Persist the SHARED predefined stock. `null` stops tracking. Otherwise the unit
+  // picks the server mode: portions -> "count" (the value is a plain unit count);
+  // weight -> "measure" (the value is stored in the base unit, grams, and each
+  // ordered size deducts its own weight). Always sends stock_mode so leaving
+  // 'per_variant' makes the server drop the now-stale per-size counts.
+  const saveSharedStock = useCallback(
+    async (val: number | null, unit: StockUnit) => {
       setBusy(true);
       setError(null);
       try {
-        await updateMenuItem(rid, itemId, { stock_quantity: q, stock_mode: q == null ? '' : 'count' });
+        if (val == null) {
+          await updateMenuItem(rid, itemId, { stock_quantity: null, stock_mode: '', stock_unit: '' });
+        } else if (unit === '') {
+          await updateMenuItem(rid, itemId, {
+            stock_quantity: Math.max(0, Math.round(val)),
+            stock_mode: 'count',
+            stock_unit: '',
+          });
+        } else {
+          await updateMenuItem(rid, itemId, {
+            stock_quantity: Math.max(0, Math.round(toBaseUnit(val, unit))), // base grams
+            stock_mode: 'measure',
+            stock_unit: unit,
+          });
+        }
         await loadPreview();
         onSaved?.();
       } catch (e: any) {
@@ -161,35 +226,22 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     [rid, itemId, loadPreview, onSaved, t],
   );
 
-  // Switch the item to per-size stock: push every size's current count, then set
-  // the mode (clearing the shared count). Order matters — an unset size defaults
-  // to 0 (sold out) server-side, so we seed all sizes before flipping the mode.
-  const saveStockPerVariant = useCallback(async () => {
-    if (!sizeSet) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await Promise.all(
-        sizeOptions.map((o) => setItemOptionStock(rid, sizeSet.id, itemId, o.id, perSizeCounts[o.id] ?? 0)),
-      );
-      await updateMenuItem(rid, itemId, { stock_mode: 'per_variant', stock_quantity: null });
-      await loadPreview();
-      onSaved?.();
-    } catch (e: any) {
-      setError(e?.message || t('availabilityCouldNotSave'));
-    } finally {
-      setBusy(false);
-    }
-  }, [rid, itemId, sizeSet, sizeOptions, perSizeCounts, loadPreview, onSaved, t]);
-
-  // Persist a single size's count (field blur) without disturbing the others.
-  const saveSizeCount = useCallback(
-    async (optionId: number, q: number) => {
+  // Switch to per-size stock: push every size's count, then set the mode (clearing
+  // the shared count). Order matters — an unset size defaults to 0 (sold out)
+  // server-side, so we seed all sizes before flipping the mode. `unit` persists as
+  // a display hint; the per-option values stay portion counts either way.
+  const saveStockPerVariant = useCallback(
+    async (unit: StockUnit, fields: Record<number, number>) => {
       if (!sizeSet) return;
       setBusy(true);
       setError(null);
       try {
-        await setItemOptionStock(rid, sizeSet.id, itemId, optionId, q);
+        await Promise.all(
+          sizeOptions.map((o) =>
+            setItemOptionStock(rid, sizeSet.id, itemId, o.id, fieldToCount(o.id, fields[o.id] ?? 0, unit)),
+          ),
+        );
+        await updateMenuItem(rid, itemId, { stock_mode: 'per_variant', stock_quantity: null, stock_unit: unit });
         await loadPreview();
         onSaved?.();
       } catch (e: any) {
@@ -198,8 +250,70 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
         setBusy(false);
       }
     },
-    [rid, itemId, sizeSet, loadPreview, onSaved, t],
+    [rid, itemId, sizeSet, sizeOptions, fieldToCount, loadPreview, onSaved, t],
   );
+
+  // Persist a single size's count (field blur) without disturbing the others.
+  const saveSizeCount = useCallback(
+    async (optionId: number, val: number, unit: StockUnit) => {
+      if (!sizeSet) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await setItemOptionStock(rid, sizeSet.id, itemId, optionId, fieldToCount(optionId, val, unit));
+        await loadPreview();
+        onSaved?.();
+      } catch (e: any) {
+        setError(e?.message || t('availabilityCouldNotSave'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [rid, itemId, sizeSet, fieldToCount, loadPreview, onSaved, t],
+  );
+
+  // Change the display unit and re-persist. Per-size converts cleanly through the
+  // stable portion count. Shared portions<->weight can't be inferred (a gram
+  // budget has no fixed portion count without a size mix), so it resets to 0;
+  // weight<->weight (g<->kg) converts.
+  const changeUnit = useCallback(
+    (newUnit: StockUnit) => {
+      if (!canEdit || newUnit === stockUnit) return;
+      if (stockMode === 'shared') {
+        const next =
+          stockUnit !== '' && newUnit !== ''
+            ? round2(convertQuantity(toBaseUnit(stockValue, stockUnit), 'g', newUnit))
+            : 0;
+        setStockUnit(newUnit);
+        setStockValue(next);
+        saveSharedStock(next, newUnit);
+      } else {
+        const nextFields: Record<number, number> = {};
+        for (const o of sizeOptions) {
+          const count = fieldToCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
+          nextFields[o.id] = countToField(o.id, count, newUnit);
+        }
+        setStockUnit(newUnit);
+        setPerSizeField(nextFields);
+        saveStockPerVariant(newUnit, nextFields);
+      }
+    },
+    [
+      canEdit,
+      stockUnit,
+      stockMode,
+      stockValue,
+      sizeOptions,
+      perSizeField,
+      fieldToCount,
+      countToField,
+      saveSharedStock,
+      saveStockPerVariant,
+    ],
+  );
+
+  // Suffix shown next to stock fields: the unit itself for weight, else "portions".
+  const unitLabel = stockUnit === '' ? t('availabilityPortions') : stockUnit;
 
   function ruleSummary(rule: AvailabilityRule | undefined): string {
     if (!rule) return '';
@@ -409,9 +523,9 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                           if (on) {
                             // Always (re)start in shared mode; per-size is opt-in below.
                             setStockMode('shared');
-                            saveStock(stockValue);
+                            saveSharedStock(stockValue, stockUnit);
                           } else {
-                            saveStock(null);
+                            saveSharedStock(null, '');
                           }
                         }}
                         className="mt-0.5 accent-[var(--brand-500)]"
@@ -439,8 +553,8 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                                 onClick={() => {
                                   if (!canEdit || stockMode === m) return;
                                   setStockMode(m);
-                                  if (m === 'shared') saveStock(stockValue);
-                                  else saveStockPerVariant();
+                                  if (m === 'shared') saveSharedStock(stockValue, stockUnit);
+                                  else saveStockPerVariant(stockUnit, perSizeField);
                                 }}
                                 className={cn(
                                   'px-3 h-8 rounded-[5px] text-fs-xs font-medium transition-colors',
@@ -455,31 +569,62 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                           </div>
                         )}
 
+                        {/* Unit selector — Portions vs weight. Only offered when
+                            every size has a parseable weight, so weight always
+                            deducts correctly. */}
+                        {hasWeightedSizes && (
+                          <div className="flex items-center gap-[var(--s-2)]">
+                            <span className="text-fs-xs text-[var(--fg-muted)]">{t('manualStockUnitLabel')}</span>
+                            <div className="inline-flex rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] p-0.5">
+                              {(['', 'g', 'kg'] as StockUnit[]).map((u) => (
+                                <button
+                                  key={u || 'portions'}
+                                  type="button"
+                                  disabled={busy || !canEdit}
+                                  onClick={() => changeUnit(u)}
+                                  className={cn(
+                                    'px-3 h-8 rounded-[5px] text-fs-xs font-medium transition-colors',
+                                    stockUnit === u
+                                      ? 'bg-[var(--brand-500)] text-white'
+                                      : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+                                  )}
+                                >
+                                  {u === '' ? t('manualStockUnitPortions') : u}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {(!hasOptionSizes || stockMode === 'shared') && (
                           <div>
                             <Field label={t('manualStockField')}>
                               <div className="flex items-center gap-[var(--s-2)]">
                                 <NumberInput
-                                  integer
+                                  integer={stockUnit !== 'kg'}
                                   min={0}
                                   value={stockValue}
                                   disabled={busy || !canEdit}
                                   onChange={setStockValue}
                                   onBlur={() => {
-                                    if (canEdit) saveStock(stockValue);
+                                    if (canEdit) saveSharedStock(stockValue, stockUnit);
                                   }}
                                   placeholder="0"
                                   className="w-28 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
                                 />
-                                <span className="text-fs-xs text-[var(--fg-muted)]">
-                                  {t('availabilityPortions')}
-                                </span>
+                                <span className="text-fs-xs text-[var(--fg-muted)]">{unitLabel}</span>
                               </div>
                             </Field>
-                            {hasVariants && (
+                            {stockUnit !== '' ? (
                               <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
-                                {t('manualStockSharedVariants')}
+                                {t('manualStockMeasureHint')}
                               </p>
+                            ) : (
+                              hasVariants && (
+                                <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
+                                  {t('manualStockSharedVariants')}
+                                </p>
+                              )
                             )}
                           </div>
                         )}
@@ -487,33 +632,44 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                         {hasOptionSizes && stockMode === 'per_variant' && (
                           <div className="flex flex-col gap-[var(--s-2)]">
                             <p className="text-fs-xs text-[var(--fg-subtle)]">
-                              {t('manualStockPerVariantHint')}
+                              {stockUnit === '' ? t('manualStockPerVariantHint') : t('manualStockPerVariantWeightHint')}
                             </p>
-                            {sizeOptions.map((o) => (
-                              <div key={o.id} className="flex items-center gap-[var(--s-3)]">
-                                <span className="min-w-0 flex-1 truncate text-fs-sm text-[var(--fg)]">
-                                  {o.name}
-                                  {o.portion ? (
-                                    <span className="text-[var(--fg-subtle)]"> · {o.portion}</span>
-                                  ) : null}
-                                </span>
-                                <NumberInput
-                                  integer
-                                  min={0}
-                                  value={perSizeCounts[o.id] ?? 0}
-                                  disabled={busy || !canEdit}
-                                  onChange={(v) => setPerSizeCounts((prev) => ({ ...prev, [o.id]: v }))}
-                                  onBlur={() => {
-                                    if (canEdit) saveSizeCount(o.id, perSizeCounts[o.id] ?? 0);
-                                  }}
-                                  placeholder="0"
-                                  className="w-24 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
-                                />
-                                <span className="w-16 shrink-0 text-fs-xs text-[var(--fg-muted)]">
-                                  {t('availabilityPortions')}
-                                </span>
-                              </div>
-                            ))}
+                            {sizeOptions.map((o) => {
+                              // In weight mode, show the whole-portion equivalent so the
+                              // operator sees that grams round down to sellable portions.
+                              const portions =
+                                stockUnit === '' ? null : fieldToCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
+                              return (
+                                <div key={o.id} className="flex items-center gap-[var(--s-3)]">
+                                  <span className="min-w-0 flex-1 truncate text-fs-sm text-[var(--fg)]">
+                                    {o.name}
+                                    {o.portion ? (
+                                      <span className="text-[var(--fg-subtle)]"> · {o.portion}</span>
+                                    ) : null}
+                                  </span>
+                                  {portions != null && (
+                                    <span className="shrink-0 text-fs-xs text-[var(--fg-subtle)]">
+                                      = {portions} {t('availabilityPortions')}
+                                    </span>
+                                  )}
+                                  <NumberInput
+                                    integer={stockUnit !== 'kg'}
+                                    min={0}
+                                    value={perSizeField[o.id] ?? 0}
+                                    disabled={busy || !canEdit}
+                                    onChange={(v) => setPerSizeField((prev) => ({ ...prev, [o.id]: v }))}
+                                    onBlur={() => {
+                                      if (canEdit) saveSizeCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
+                                    }}
+                                    placeholder="0"
+                                    className="w-24 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
+                                  />
+                                  <span className="w-16 shrink-0 text-fs-xs text-[var(--fg-muted)]">
+                                    {unitLabel}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
