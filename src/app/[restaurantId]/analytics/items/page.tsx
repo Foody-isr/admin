@@ -13,6 +13,8 @@ import { useI18n } from '@/lib/i18n';
 import { clampWeekStartDay, getEffectiveWorkdays, isoDate, type WeekStartDay } from '@/lib/weeks';
 import DateRangePicker, { type DateRange } from '@/components/DateRangePicker';
 import DateBasisToggle, { type DateBasis } from '@/components/DateBasisToggle';
+import SeriePicker from '@/components/SeriePicker';
+import { useOrderSeries, type SerieRange } from '@/lib/series';
 import ItemDetailPanel from './ItemDetailPanel';
 import { PageHead } from '@/components/ds';
 import {
@@ -74,12 +76,25 @@ export default function SalesByItemPage() {
   const [workdays, setWorkdays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [dateRange, setDateRange] = useState<DateRange>(currentMonthRange);
   const [basis, setBasis] = useState<DateBasis>('created');
+  // Série mode: scope to a specific série (scheduled_for) instead of a calendar
+  // window, exactly like the dashboard. serieSel is the chosen série (or range).
+  const [serieSel, setSerieSel] = useState<SerieRange | null>(null);
+  const serieMode = basis === 'serie';
+  // The restaurant's séries (newest first) — drives the SeriePicker.
+  const serieList = useOrderSeries(rid);
   // Gate the first fetch until the week config + persisted selection hydrate, so
   // we load once with the right window instead of flashing the default.
   const [ready, setReady] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const perPage = 50;
+
+  // Default the série selection to the latest série once the list arrives.
+  useEffect(() => {
+    if (serieList.length && !serieSel) {
+      setSerieSel({ from: serieList[0].date, to: serieList[0].date });
+    }
+  }, [serieList, serieSel]);
 
   // Hydrate week config (drives the picker presets) + persisted selection.
   useEffect(() => {
@@ -98,7 +113,11 @@ export default function SalesByItemPage() {
       });
   }, [rid]);
 
-  const scope = { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
+  // Série mode scopes to the selected série's scheduled_for date(s); otherwise
+  // the calendar window. Falls back to the window until a série is selected.
+  const scope = serieMode && serieSel
+    ? { from: serieSel.from, to: serieSel.to }
+    : { from: isoDate(dateRange.from), to: isoDate(dateRange.to) };
 
   const fetchData = useCallback(async (s: string, sb: SortField, sd: string, p: number, from: string, to: string, b: DateBasis) => {
     setLoading(true);
@@ -118,11 +137,15 @@ export default function SalesByItemPage() {
     }
   }, [rid]);
 
-  // Refetch on sort / page / window / basis changes (once hydrated).
+  // Refetch on sort / page / window / basis / série changes (once hydrated).
+  // In série mode, wait until a série has resolved so we don't fetch the
+  // fallback window first.
   useEffect(() => {
-    if (ready) fetchData(search, sortBy, sortDir, page, scope.from, scope.to, basis);
+    if (!ready) return;
+    if (serieMode && !serieSel) return;
+    fetchData(search, sortBy, sortDir, page, scope.from, scope.to, basis);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, sortBy, sortDir, page, scope.from, scope.to, basis]);
+  }, [ready, sortBy, sortDir, page, scope.from, scope.to, basis, serieMode, serieSel]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
@@ -157,6 +180,11 @@ export default function SalesByItemPage() {
     try { localStorage.setItem(BASIS_STORAGE_KEY, b); } catch { /* quota / private mode */ }
   };
 
+  const onChangeSerie = (sel: SerieRange) => {
+    setSerieSel(sel);
+    setPage(1);
+  };
+
   const totalPages = data ? Math.ceil(data.total / perPage) : 0;
 
   return (
@@ -166,15 +194,19 @@ export default function SalesByItemPage() {
         desc={t('salesByItemDesc')}
       />
 
-      {/* Filter bar: period + date basis */}
+      {/* Filter bar: period (calendar window OR série picker) + date basis */}
       <div className="flex flex-wrap items-center gap-[var(--s-3)]">
-        <DateRangePicker
-          value={dateRange}
-          onChange={onPickRange}
-          weekStartDay={wsd}
-          workdays={workdays}
-          restaurantId={rid}
-        />
+        {serieMode ? (
+          <SeriePicker series={serieList} value={serieSel} onChange={onChangeSerie} />
+        ) : (
+          <DateRangePicker
+            value={dateRange}
+            onChange={onPickRange}
+            weekStartDay={wsd}
+            workdays={workdays}
+            restaurantId={rid}
+          />
+        )}
         <DateBasisToggle value={basis} onChange={onChangeBasis} />
       </div>
 
