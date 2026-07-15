@@ -18,14 +18,13 @@ import { PageHead } from '@/components/ds';
 import {
   DataTable,
   DataTableHead,
-  DataTableHeadCell,
   SortableHeadCell,
   DataTableBody,
   DataTableRow,
   DataTableCell,
 } from '@/components/data-table';
 
-type SortField = 'quantity' | 'revenue' | 'avg_price' | 'order_count' | 'name';
+type SortField = 'quantity' | 'revenue' | 'avg_price' | 'order_count' | 'name' | 'category_name' | 'pct_of_revenue';
 
 // The report window + date basis are remembered across navigation. Stored as
 // literal dates (not a rolling key) — a sales report is usually pinned to a
@@ -236,7 +235,14 @@ export default function SalesByItemPage() {
                 >
                   {t('item')}
                 </SortableHeadCell>
-                <DataTableHeadCell>{t('category')}</DataTableHeadCell>
+                <SortableHeadCell
+                  sortKey="category_name"
+                  currentSortKey={sortBy}
+                  sortDir={sortDir}
+                  onSort={(k) => handleSort(k as SortField)}
+                >
+                  {t('category')}
+                </SortableHeadCell>
                 <SortableHeadCell
                   sortKey="quantity"
                   currentSortKey={sortBy}
@@ -264,7 +270,15 @@ export default function SalesByItemPage() {
                 >
                   {t('avgPrice')}
                 </SortableHeadCell>
-                <DataTableHeadCell align="right">{t('pctOfRevenue')}</DataTableHeadCell>
+                <SortableHeadCell
+                  sortKey="pct_of_revenue"
+                  currentSortKey={sortBy}
+                  sortDir={sortDir}
+                  onSort={(k) => handleSort(k as SortField)}
+                  align="right"
+                >
+                  {t('pctOfRevenue')}
+                </SortableHeadCell>
               </DataTableHead>
               <DataTableBody>
                 {data.items.map((it: ItemSalesInsight, index: number) => (
