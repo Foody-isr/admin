@@ -28,6 +28,105 @@ import { toBaseUnit, convertQuantity } from '@/lib/units';
 type StockUnit = '' | 'g' | 'kg';
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+// Segmented control — a sunken neutral track with a raised, brand-tinted active
+// pill. Calmer than a saturated fill and consistent with the app's selection
+// idiom (brand border + brand-tint background). Theme-safe in light and dark.
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      className="inline-flex rounded-lg p-[3px]"
+      style={{ background: 'color-mix(in oklab, var(--fg) 6%, transparent)' }}
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value || '_'}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => {
+              if (!disabled && o.value !== value) onChange(o.value);
+            }}
+            className={cn(
+              'px-[var(--s-3)] h-7 rounded-[6px] text-fs-xs font-semibold transition-all duration-150',
+              active ? 'text-[var(--brand-500)]' : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+              disabled && 'cursor-not-allowed opacity-60',
+            )}
+            style={
+              active
+                ? {
+                    background: 'color-mix(in oklab, var(--brand-500) 14%, var(--surface))',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                  }
+                : undefined
+            }
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Number entry with the unit as an integrated suffix (hairline-divided) rather
+// than a floating word — reads as one control and keeps the value and its unit
+// visually bound.
+function StockValueField({
+  value,
+  integer,
+  unitLabel,
+  disabled,
+  width,
+  onChange,
+  onCommit,
+}: {
+  value: number;
+  integer: boolean;
+  unitLabel: string;
+  disabled?: boolean;
+  width: string;
+  onChange: (v: number) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <div className="inline-flex items-stretch overflow-hidden rounded-md border border-[var(--line-strong)] bg-[var(--surface)] transition-colors focus-within:border-[var(--brand-500)]">
+      <NumberInput
+        integer={integer}
+        min={0}
+        value={value}
+        disabled={disabled}
+        onChange={onChange}
+        onBlur={onCommit}
+        placeholder="0"
+        className={cn(
+          'h-10 bg-transparent px-[var(--s-3)] text-fs-sm tabular-nums text-[var(--fg)] focus:outline-none',
+          width,
+        )}
+      />
+      <span
+        className="flex items-center border-s border-[var(--line)] px-[var(--s-3)] text-fs-xs font-medium text-[var(--fg-muted)]"
+        style={{ background: 'color-mix(in oklab, var(--fg) 4%, transparent)' }}
+      >
+        {unitLabel}
+      </span>
+    </div>
+  );
+}
+
 interface Props {
   rid: number;
   itemId: number;
@@ -540,136 +639,129 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                       </span>
                     </label>
                     {stockTracked && (
-                      <div className="ms-[calc(1rem+var(--s-3))] flex flex-col gap-[var(--s-3)]">
-                        {/* Shared vs per-size selector — only for items whose first
-                            option set gives a set of trackable sizes. */}
-                        {hasOptionSizes && (
-                          <div className="inline-flex w-fit rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] p-0.5">
-                            {(['shared', 'per_variant'] as const).map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                disabled={busy || !canEdit}
-                                onClick={() => {
-                                  if (!canEdit || stockMode === m) return;
-                                  setStockMode(m);
-                                  if (m === 'shared') saveSharedStock(stockValue, stockUnit);
-                                  else saveStockPerVariant(stockUnit, perSizeField);
-                                }}
-                                className={cn(
-                                  'px-3 h-8 rounded-[5px] text-fs-xs font-medium transition-colors',
-                                  stockMode === m
-                                    ? 'bg-[var(--brand-500)] text-white'
-                                    : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-                                )}
-                              >
-                                {t(m === 'shared' ? 'manualStockModeShared' : 'manualStockModePerVariant')}
-                              </button>
-                            ))}
+                      <div className="ms-[calc(1rem+var(--s-3))] flex flex-col gap-[var(--s-4)]">
+                        {/* "How you count" — distribution (shared/per-size) and unit,
+                            as an aligned two-row cluster. Each control only appears
+                            when it's meaningful for this item. */}
+                        {(hasOptionSizes || hasWeightedSizes) && (
+                          <div className="flex flex-col gap-[var(--s-3)]">
+                            {hasOptionSizes && (
+                              <div className="flex items-center gap-[var(--s-3)]">
+                                <span className="w-[5.5rem] shrink-0 text-fs-xs font-medium text-[var(--fg-muted)]">
+                                  {t('manualStockDistributionLabel')}
+                                </span>
+                                <Segmented
+                                  value={stockMode}
+                                  disabled={busy || !canEdit}
+                                  onChange={(m) => {
+                                    setStockMode(m);
+                                    if (m === 'shared') saveSharedStock(stockValue, stockUnit);
+                                    else saveStockPerVariant(stockUnit, perSizeField);
+                                  }}
+                                  options={[
+                                    { value: 'shared', label: t('manualStockModeShared') },
+                                    { value: 'per_variant', label: t('manualStockModePerVariant') },
+                                  ]}
+                                />
+                              </div>
+                            )}
+                            {/* Unit — only when every size has a parseable weight, so
+                                weight always deducts correctly. */}
+                            {hasWeightedSizes && (
+                              <div className="flex items-center gap-[var(--s-3)]">
+                                <span className="w-[5.5rem] shrink-0 text-fs-xs font-medium text-[var(--fg-muted)]">
+                                  {t('manualStockUnitLabel')}
+                                </span>
+                                <Segmented
+                                  value={stockUnit}
+                                  disabled={busy || !canEdit}
+                                  onChange={changeUnit}
+                                  options={[
+                                    { value: '', label: t('manualStockUnitPortions') },
+                                    { value: 'g', label: 'g' },
+                                    { value: 'kg', label: 'kg' },
+                                  ]}
+                                />
+                              </div>
+                            )}
                           </div>
                         )}
 
-                        {/* Unit selector — Portions vs weight. Only offered when
-                            every size has a parseable weight, so weight always
-                            deducts correctly. */}
-                        {hasWeightedSizes && (
-                          <div className="flex items-center gap-[var(--s-2)]">
-                            <span className="text-fs-xs text-[var(--fg-muted)]">{t('manualStockUnitLabel')}</span>
-                            <div className="inline-flex rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] p-0.5">
-                              {(['', 'g', 'kg'] as StockUnit[]).map((u) => (
-                                <button
-                                  key={u || 'portions'}
-                                  type="button"
-                                  disabled={busy || !canEdit}
-                                  onClick={() => changeUnit(u)}
-                                  className={cn(
-                                    'px-3 h-8 rounded-[5px] text-fs-xs font-medium transition-colors',
-                                    stockUnit === u
-                                      ? 'bg-[var(--brand-500)] text-white'
-                                      : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
-                                  )}
-                                >
-                                  {u === '' ? t('manualStockUnitPortions') : u}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        {/* Hairline — separates "how you count" from "how much". */}
+                        {(hasOptionSizes || hasWeightedSizes) && <div className="h-px bg-[var(--line)]" />}
 
                         {(!hasOptionSizes || stockMode === 'shared') && (
-                          <div>
-                            <Field label={t('manualStockField')}>
-                              <div className="flex items-center gap-[var(--s-2)]">
-                                <NumberInput
-                                  integer={stockUnit !== 'kg'}
-                                  min={0}
-                                  value={stockValue}
-                                  disabled={busy || !canEdit}
-                                  onChange={setStockValue}
-                                  onBlur={() => {
-                                    if (canEdit) saveSharedStock(stockValue, stockUnit);
-                                  }}
-                                  placeholder="0"
-                                  className="w-28 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
-                                />
-                                <span className="text-fs-xs text-[var(--fg-muted)]">{unitLabel}</span>
-                              </div>
-                            </Field>
-                            {stockUnit !== '' ? (
-                              <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
-                                {t('manualStockMeasureHint')}
+                          <div className="flex flex-col gap-[var(--s-2)]">
+                            <span className="text-fs-micro font-semibold uppercase tracking-wide text-[var(--fg-subtle)]">
+                              {t('manualStockField')}
+                            </span>
+                            <StockValueField
+                              value={stockValue}
+                              integer={stockUnit !== 'kg'}
+                              unitLabel={unitLabel}
+                              disabled={busy || !canEdit}
+                              width="w-28"
+                              onChange={setStockValue}
+                              onCommit={() => {
+                                if (canEdit) saveSharedStock(stockValue, stockUnit);
+                              }}
+                            />
+                            {(stockUnit !== '' || hasVariants) && (
+                              <p className="text-fs-xs text-[var(--fg-subtle)] leading-[var(--lh-base)]">
+                                {stockUnit !== '' ? t('manualStockMeasureHint') : t('manualStockSharedVariants')}
                               </p>
-                            ) : (
-                              hasVariants && (
-                                <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
-                                  {t('manualStockSharedVariants')}
-                                </p>
-                              )
                             )}
                           </div>
                         )}
 
                         {hasOptionSizes && stockMode === 'per_variant' && (
-                          <div className="flex flex-col gap-[var(--s-2)]">
-                            <p className="text-fs-xs text-[var(--fg-subtle)]">
+                          <div className="flex flex-col gap-[var(--s-3)]">
+                            <p className="text-fs-xs text-[var(--fg-subtle)] leading-[var(--lh-base)]">
                               {stockUnit === '' ? t('manualStockPerVariantHint') : t('manualStockPerVariantWeightHint')}
                             </p>
-                            {sizeOptions.map((o) => {
-                              // In weight mode, show the whole-portion equivalent so the
-                              // operator sees that grams round down to sellable portions.
-                              const portions =
-                                stockUnit === '' ? null : fieldToCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
-                              return (
-                                <div key={o.id} className="flex items-center gap-[var(--s-3)]">
-                                  <span className="min-w-0 flex-1 truncate text-fs-sm text-[var(--fg)]">
-                                    {o.name}
-                                    {o.portion ? (
-                                      <span className="text-[var(--fg-subtle)]"> · {o.portion}</span>
-                                    ) : null}
-                                  </span>
-                                  {portions != null && (
-                                    <span className="shrink-0 text-fs-xs text-[var(--fg-subtle)]">
-                                      = {portions} {t('availabilityPortions')}
+                            <div className="flex flex-col gap-[var(--s-2)]">
+                              {sizeOptions.map((o) => {
+                                // In weight mode, show the whole-portion equivalent so the
+                                // operator sees grams round down to sellable portions.
+                                const portions =
+                                  stockUnit === '' ? null : fieldToCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
+                                return (
+                                  <div key={o.id} className="flex items-center gap-[var(--s-3)]">
+                                    <span className="min-w-0 flex-1 truncate text-fs-sm font-medium text-[var(--fg)]">
+                                      {o.name}
+                                      {o.portion ? (
+                                        <span className="text-fs-xs font-normal text-[var(--fg-subtle)]">
+                                          {' '}
+                                          · {o.portion}
+                                        </span>
+                                      ) : null}
                                     </span>
-                                  )}
-                                  <NumberInput
-                                    integer={stockUnit !== 'kg'}
-                                    min={0}
-                                    value={perSizeField[o.id] ?? 0}
-                                    disabled={busy || !canEdit}
-                                    onChange={(v) => setPerSizeField((prev) => ({ ...prev, [o.id]: v }))}
-                                    onBlur={() => {
-                                      if (canEdit) saveSizeCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
-                                    }}
-                                    placeholder="0"
-                                    className="w-24 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
-                                  />
-                                  <span className="w-16 shrink-0 text-fs-xs text-[var(--fg-muted)]">
-                                    {unitLabel}
-                                  </span>
-                                </div>
-                              );
-                            })}
+                                    {portions != null && (
+                                      <span
+                                        className="shrink-0 rounded-full px-[var(--s-2)] py-0.5 text-fs-micro font-semibold"
+                                        style={{
+                                          background: 'color-mix(in oklab, var(--brand-500) 12%, transparent)',
+                                          color: 'var(--brand-500)',
+                                        }}
+                                      >
+                                        ≈ {portions} {t('availabilityPortions')}
+                                      </span>
+                                    )}
+                                    <StockValueField
+                                      value={perSizeField[o.id] ?? 0}
+                                      integer={stockUnit !== 'kg'}
+                                      unitLabel={unitLabel}
+                                      disabled={busy || !canEdit}
+                                      width="w-20"
+                                      onChange={(v) => setPerSizeField((prev) => ({ ...prev, [o.id]: v }))}
+                                      onCommit={() => {
+                                        if (canEdit) saveSizeCount(o.id, perSizeField[o.id] ?? 0, stockUnit);
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
