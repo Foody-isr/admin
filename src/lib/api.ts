@@ -489,6 +489,12 @@ export interface MenuItem {
    *  each option (see `OptionSetOption.stock_remaining`); "measure" = a g/ml
    *  budget. Empty when predefined stock isn't used. */
   stock_mode?: string;
+  /** Display unit for weight/volume-based predefined stock ("g"/"kg"/"ml"/"l"),
+   *  empty for portion counts. In "measure" mode the value is stored in the base
+   *  unit (g or ml) and this only drives how it's shown/entered. In "per_variant"
+   *  mode it is a display hint: the per-option values stay portion counts, and the
+   *  admin renders them as weight (count x size weight) when this is set. */
+  stock_unit?: string;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
