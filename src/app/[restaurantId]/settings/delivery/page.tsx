@@ -8,10 +8,11 @@ import { AlertCircle, MapPin, Trash2, Plus } from 'lucide-react';
 import {
   getDeliveryZones, createDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
   getRestaurant, geocodeAddress, getRestaurantSettings, updateRestaurantSettings,
-  DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
+  ApiError, DeliveryZone, DeliveryZoneInput, DeliveryZoneType,
 } from '@/lib/api';
 import type { CityMarker } from '@/components/delivery/ZoneMap';
 import { lookupCityCoord } from '@/lib/israel-cities';
+import { parsePrice } from '@/lib/delivery-pricing';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { useIsMobile } from '@/components/ui/use-mobile';
@@ -64,6 +65,9 @@ export default function DeliveryZonesPage() {
   const [cityMarkers, setCityMarkers] = useState<CityMarker[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Errors raised by the list itself (toggle / delete), which have no editor to
+  // display them in.
+  const [listError, setListError] = useState<string | null>(null);
 
   // Restaurant-wide default minimum order for delivery. Applies to any address
   // not covered by a zone-specific minimum. 0 = no minimum.
@@ -77,7 +81,14 @@ export default function DeliveryZonesPage() {
 
   useEffect(() => {
     Promise.all([getDeliveryZones(rid), getRestaurant(rid).catch(() => null)])
-      .then(async ([zs, r]) => {
+      .then(async ([all, r]) => {
+        // Tour zones never show here: they exist only to serve a delivery tour and
+        // are invisible to the classic delivery path (see delivery.ExcludeTourZones
+        // on the server). Listing them would suggest the city is deliverable every
+        // day, which is exactly what tour_only prevents. They are managed on the
+        // Tours page. Filtering at the source also keeps this page from ever
+        // sending one back to the server.
+        const zs = all.filter((z) => !z.tour_only);
         setZones(zs);
 
         // Try to geocode the restaurant address for the radius center.
@@ -185,21 +196,13 @@ export default function DeliveryZonesPage() {
     setCityMarkers((prev) => prev.filter((m) => m.name !== c));
   };
 
-  // Parse a price-like field: empty/blank or invalid -> null (unset), else the number.
-  const parsePrice = (v: string): number | null => {
-    const s = v.trim();
-    if (s === '') return null;
-    const n = Number(s);
-    return Number.isFinite(n) && n >= 0 ? n : null;
-  };
-
-  const toPayload = (d: Draft): DeliveryZoneInput => {
+  const toPayload = (d: Draft, deliveryFee: number | null, minOrder: number | null): DeliveryZoneInput => {
     const base: DeliveryZoneInput = {
       name: d.name,
       type: d.type,
       is_active: d.isActive,
-      delivery_fee: parsePrice(d.deliveryFee),
-      min_order: parsePrice(d.minOrder),
+      delivery_fee: deliveryFee,
+      min_order: minOrder,
     };
     if (d.type === 'polygon') base.polygon = d.polygon;
     if (d.type === 'radius') {
@@ -219,37 +222,63 @@ export default function DeliveryZonesPage() {
     return false;
   };
 
+  // A zone still held by an upcoming delivery tour cannot be deleted or made
+  // non-tour: the server answers 409 rather than let the tour lose its zone.
+  // Say so in words instead of surfacing the raw error.
+  const zoneError = (err: unknown): string => {
+    if (err instanceof ApiError && err.status === 409) return t('tourZoneInUse');
+    return err instanceof Error ? err.message : t('saveFailed');
+  };
+
   const save = async () => {
     if (!draft || !validDraft(draft)) return;
+    // A negative or garbage price must block the save, not silently become
+    // "unset" (i.e. free delivery / no minimum).
+    const deliveryFee = parsePrice(draft.deliveryFee);
+    const minOrder = parsePrice(draft.minOrder);
+    if (deliveryFee === undefined || minOrder === undefined) {
+      setSaveError(t('invalidPrice'));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
-      const payload = toPayload(draft);
+      const payload = toPayload(draft, deliveryFee, minOrder);
       const saved = draft.id ? await updateDeliveryZone(rid, draft.id, payload) : await createDeliveryZone(rid, payload);
       setZones((prev) => draft.id ? prev.map((z) => (z.id === saved.id ? saved : z)) : [...prev, saved]);
       setSaveError(null);
       setDraft(null);
       setCityMarkers([]);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed');
+      setSaveError(zoneError(err));
     } finally {
       setSaving(false);
     }
   };
 
   const toggleActive = async (z: DeliveryZone) => {
-    const saved = await updateDeliveryZone(rid, z.id, {
-      name: z.name, type: z.type, is_active: !z.is_active,
-      polygon: z.polygon, center_lat: z.center_lat, center_lng: z.center_lng, radius_m: z.radius_m, cities: z.cities,
-      delivery_fee: z.delivery_fee ?? null, min_order: z.min_order ?? null,
-    });
-    setZones((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
+    setListError(null);
+    try {
+      const saved = await updateDeliveryZone(rid, z.id, {
+        name: z.name, type: z.type, is_active: !z.is_active,
+        polygon: z.polygon, center_lat: z.center_lat, center_lng: z.center_lng, radius_m: z.radius_m, cities: z.cities,
+        delivery_fee: z.delivery_fee ?? null, min_order: z.min_order ?? null,
+      });
+      setZones((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
+    } catch (err) {
+      setListError(zoneError(err));
+    }
   };
 
   const remove = async (z: DeliveryZone) => {
-    await deleteDeliveryZone(rid, z.id);
-    setZones((prev) => prev.filter((x) => x.id !== z.id));
-    if (draft?.id === z.id) { setDraft(null); setCityMarkers([]); }
+    setListError(null);
+    try {
+      await deleteDeliveryZone(rid, z.id);
+      setZones((prev) => prev.filter((x) => x.id !== z.id));
+      if (draft?.id === z.id) { setDraft(null); setCityMarkers([]); }
+    } catch (err) {
+      setListError(zoneError(err));
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -333,6 +362,7 @@ export default function DeliveryZonesPage() {
               </div>
             ))}
             {zones.length === 0 && <p className="text-sm text-[var(--fg-subtle)]">{t('noZonesYet') || 'Aucune zone. Toute adresse est livrable.'}</p>}
+            {listError && <p className="text-sm text-[var(--danger-500)]">{listError}</p>}
           </div>
 
           {canEdit && !draft && (
