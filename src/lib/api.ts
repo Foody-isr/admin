@@ -7070,6 +7070,10 @@ export interface DeliveryTour {
   id: number;
   restaurant_id: number;
   name: string;
+  /** URL-safe slug, unique per restaurant, generated from the name at creation
+   *  and stable across renames. The tour's dedicated public link is
+   *  /r/<restaurant-slug>/tournee/<slug>. */
+  slug: string;
   zone_id: number;
   zone?: DeliveryZone;
   menu_id: number;
