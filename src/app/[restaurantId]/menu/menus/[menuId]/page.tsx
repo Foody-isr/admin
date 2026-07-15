@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import {
-  listMenus, getRestaurant, deleteGroup, deleteMenu, reorderGroups,
+  listMenus, getRestaurant, deleteGroup, deleteMenu, duplicateMenu, reorderGroups,
   reorderGroupItems,
   listAllItems, addItemsToGroup, removeItemFromGroup,
   listGroupMemberships, getBatchFulfillmentConfig,
@@ -190,6 +190,7 @@ export default function MenuDetailPage() {
   const expandInitializedRef = useRef(!!cached);
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   const [headerDropdownOpen, setHeaderDropdownOpen] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [groupDropdown, setGroupDropdown] = useState<number | null>(null);
   const [itemPickerGroupId, setItemPickerGroupId] = useState<number | null>(null);
   const [allItems, setAllItems] = useState<MenuItem[]>([]);
@@ -732,8 +733,20 @@ export default function MenuDetailPage() {
                     </button>
                     <div className="border-t border-[var(--divider)]" />
                     <button
-                      onClick={() => { setHeaderDropdownOpen(false); alert(t('comingSoon')); }}
-                      className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors"
+                      disabled={duplicating}
+                      onClick={async () => {
+                        setHeaderDropdownOpen(false);
+                        if (duplicating) return;
+                        setDuplicating(true);
+                        try {
+                          const copy = await duplicateMenu(rid, mid);
+                          router.push(`/${rid}/menu/menus/${copy.id}`);
+                        } catch {
+                          setDuplicating(false);
+                          alert(t('duplicateMenuFailed'));
+                        }
+                      }}
+                      className="w-full text-start px-4 py-3 text-sm font-medium hover:bg-[var(--surface-subtle)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {t('duplicateMenu')}
                     </button>

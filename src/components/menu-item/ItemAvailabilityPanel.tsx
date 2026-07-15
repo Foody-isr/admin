@@ -6,6 +6,7 @@ import {
   listAvailabilityRules,
   previewItemAvailability,
   updateMenuItem,
+  setItemOptionStock,
   AvailabilityRule,
   AvailabilityPreview,
   AvailabilityOverride,
@@ -44,13 +45,35 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
   const [override, setOverride] = useState<AvailabilityOverride>(item.availability_override ?? 'auto');
   // Manual stock count (predefined stock): null = not tracked. `stockTracked`
   // mirrors null-ness so the toggle survives a 0 value (0 = sold out, not off).
-  const [stockTracked, setStockTracked] = useState<boolean>(item.stock_quantity != null);
+  // Per-size mode carries the counts on the options (item.stock_quantity is null),
+  // so it counts as "tracked" too.
+  const [stockTracked, setStockTracked] = useState<boolean>(
+    item.stock_quantity != null || item.stock_mode === 'per_variant',
+  );
   const [stockValue, setStockValue] = useState<number>(item.stock_quantity ?? 0);
-  // Predefined stock is one shared counter (−1 per item sold, any size), so flag
-  // items that have size variants/options to show the "shared across sizes" note.
+  // Per-size ("per_variant") counts live on the FIRST attached option set — this
+  // mirrors the server's stockConfigs, which keys the pool off that set. So that
+  // set's active options ARE the trackable sizes. Legacy variant_groups can't
+  // carry per-size counts, so they only ever get the shared counter.
+  const sizeSet = item.option_sets?.[0];
+  const sizeOptions = useMemo(
+    () => (sizeSet?.options ?? []).filter((o) => o.is_active !== false),
+    [sizeSet],
+  );
+  const hasOptionSizes = sizeOptions.length > 0;
   const hasVariants =
-    (item.variant_groups?.some((g) => (g.variants?.length ?? 0) > 0) ?? false) ||
-    (item.option_sets?.some((os) => (os.options?.length ?? 0) > 0) ?? false);
+    (item.variant_groups?.some((g) => (g.variants?.length ?? 0) > 0) ?? false) || hasOptionSizes;
+  // 'shared' = one counter for every size; 'per_variant' = a count per size.
+  const [stockMode, setStockMode] = useState<'shared' | 'per_variant'>(
+    item.stock_mode === 'per_variant' ? 'per_variant' : 'shared',
+  );
+  // optionId -> current remaining count, seeded from the live per-size remaining
+  // the server stamps on each option.
+  const [perSizeCounts, setPerSizeCounts] = useState<Record<number, number>>(() => {
+    const m: Record<number, number> = {};
+    for (const o of sizeSet?.options ?? []) m[o.id] = o.stock_remaining ?? 0;
+    return m;
+  });
   const [preview, setPreview] = useState<AvailabilityPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,15 +140,16 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
     [rid, itemId, ruleId, override, loadPreview, onSaved, t],
   );
 
-  // Persist the manual stock count. `null` stops tracking (the item goes back
-  // to unlimited unless a recipe constrains it); a number sets the current
-  // count. Reuses the same updateMenuItem endpoint as the rule/override save.
+  // Persist the SHARED manual count. `null` stops tracking (the item goes back
+  // to unlimited unless a recipe constrains it); a number sets the current count.
+  // Always sends stock_mode: leaving 'per_variant' this way makes the server drop
+  // the now-stale per-size counts.
   const saveStock = useCallback(
     async (q: number | null) => {
       setBusy(true);
       setError(null);
       try {
-        await updateMenuItem(rid, itemId, { stock_quantity: q });
+        await updateMenuItem(rid, itemId, { stock_quantity: q, stock_mode: q == null ? '' : 'count' });
         await loadPreview();
         onSaved?.();
       } catch (e: any) {
@@ -135,6 +159,46 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
       }
     },
     [rid, itemId, loadPreview, onSaved, t],
+  );
+
+  // Switch the item to per-size stock: push every size's current count, then set
+  // the mode (clearing the shared count). Order matters — an unset size defaults
+  // to 0 (sold out) server-side, so we seed all sizes before flipping the mode.
+  const saveStockPerVariant = useCallback(async () => {
+    if (!sizeSet) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await Promise.all(
+        sizeOptions.map((o) => setItemOptionStock(rid, sizeSet.id, itemId, o.id, perSizeCounts[o.id] ?? 0)),
+      );
+      await updateMenuItem(rid, itemId, { stock_mode: 'per_variant', stock_quantity: null });
+      await loadPreview();
+      onSaved?.();
+    } catch (e: any) {
+      setError(e?.message || t('availabilityCouldNotSave'));
+    } finally {
+      setBusy(false);
+    }
+  }, [rid, itemId, sizeSet, sizeOptions, perSizeCounts, loadPreview, onSaved, t]);
+
+  // Persist a single size's count (field blur) without disturbing the others.
+  const saveSizeCount = useCallback(
+    async (optionId: number, q: number) => {
+      if (!sizeSet) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await setItemOptionStock(rid, sizeSet.id, itemId, optionId, q);
+        await loadPreview();
+        onSaved?.();
+      } catch (e: any) {
+        setError(e?.message || t('availabilityCouldNotSave'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [rid, itemId, sizeSet, loadPreview, onSaved, t],
   );
 
   function ruleSummary(rule: AvailabilityRule | undefined): string {
@@ -342,7 +406,13 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                           if (!canEdit) return;
                           const on = e.target.checked;
                           setStockTracked(on);
-                          saveStock(on ? stockValue : null);
+                          if (on) {
+                            // Always (re)start in shared mode; per-size is opt-in below.
+                            setStockMode('shared');
+                            saveStock(stockValue);
+                          } else {
+                            saveStock(null);
+                          }
                         }}
                         className="mt-0.5 accent-[var(--brand-500)]"
                       />
@@ -356,30 +426,95 @@ export default function ItemAvailabilityPanel({ rid, itemId, item, onSaved }: Pr
                       </span>
                     </label>
                     {stockTracked && (
-                      <div className="ms-[calc(1rem+var(--s-3))]">
-                        <Field label={t('manualStockField')}>
-                          <div className="flex items-center gap-[var(--s-2)]">
-                            <NumberInput
-                              integer
-                              min={0}
-                              value={stockValue}
-                              disabled={busy || !canEdit}
-                              onChange={setStockValue}
-                              onBlur={() => {
-                                if (canEdit) saveStock(stockValue);
-                              }}
-                              placeholder="0"
-                              className="w-28 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
-                            />
-                            <span className="text-fs-xs text-[var(--fg-muted)]">
-                              {t('availabilityPortions')}
-                            </span>
+                      <div className="ms-[calc(1rem+var(--s-3))] flex flex-col gap-[var(--s-3)]">
+                        {/* Shared vs per-size selector — only for items whose first
+                            option set gives a set of trackable sizes. */}
+                        {hasOptionSizes && (
+                          <div className="inline-flex w-fit rounded-r-md border border-[var(--line-strong)] bg-[var(--surface)] p-0.5">
+                            {(['shared', 'per_variant'] as const).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                disabled={busy || !canEdit}
+                                onClick={() => {
+                                  if (!canEdit || stockMode === m) return;
+                                  setStockMode(m);
+                                  if (m === 'shared') saveStock(stockValue);
+                                  else saveStockPerVariant();
+                                }}
+                                className={cn(
+                                  'px-3 h-8 rounded-[5px] text-fs-xs font-medium transition-colors',
+                                  stockMode === m
+                                    ? 'bg-[var(--brand-500)] text-white'
+                                    : 'text-[var(--fg-muted)] hover:text-[var(--fg)]',
+                                )}
+                              >
+                                {t(m === 'shared' ? 'manualStockModeShared' : 'manualStockModePerVariant')}
+                              </button>
+                            ))}
                           </div>
-                        </Field>
-                        {hasVariants && (
-                          <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
-                            {t('manualStockSharedVariants')}
-                          </p>
+                        )}
+
+                        {(!hasOptionSizes || stockMode === 'shared') && (
+                          <div>
+                            <Field label={t('manualStockField')}>
+                              <div className="flex items-center gap-[var(--s-2)]">
+                                <NumberInput
+                                  integer
+                                  min={0}
+                                  value={stockValue}
+                                  disabled={busy || !canEdit}
+                                  onChange={setStockValue}
+                                  onBlur={() => {
+                                    if (canEdit) saveStock(stockValue);
+                                  }}
+                                  placeholder="0"
+                                  className="w-28 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
+                                />
+                                <span className="text-fs-xs text-[var(--fg-muted)]">
+                                  {t('availabilityPortions')}
+                                </span>
+                              </div>
+                            </Field>
+                            {hasVariants && (
+                              <p className="text-fs-xs text-[var(--fg-subtle)] mt-[var(--s-2)]">
+                                {t('manualStockSharedVariants')}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {hasOptionSizes && stockMode === 'per_variant' && (
+                          <div className="flex flex-col gap-[var(--s-2)]">
+                            <p className="text-fs-xs text-[var(--fg-subtle)]">
+                              {t('manualStockPerVariantHint')}
+                            </p>
+                            {sizeOptions.map((o) => (
+                              <div key={o.id} className="flex items-center gap-[var(--s-3)]">
+                                <span className="min-w-0 flex-1 truncate text-fs-sm text-[var(--fg)]">
+                                  {o.name}
+                                  {o.portion ? (
+                                    <span className="text-[var(--fg-subtle)]"> · {o.portion}</span>
+                                  ) : null}
+                                </span>
+                                <NumberInput
+                                  integer
+                                  min={0}
+                                  value={perSizeCounts[o.id] ?? 0}
+                                  disabled={busy || !canEdit}
+                                  onChange={(v) => setPerSizeCounts((prev) => ({ ...prev, [o.id]: v }))}
+                                  onBlur={() => {
+                                    if (canEdit) saveSizeCount(o.id, perSizeCounts[o.id] ?? 0);
+                                  }}
+                                  placeholder="0"
+                                  className="w-24 px-3 h-10 bg-[var(--surface)] text-[var(--fg)] border border-[var(--line-strong)] rounded-r-md text-fs-sm focus:outline-none focus:border-[var(--brand-500)]"
+                                />
+                                <span className="w-16 shrink-0 text-fs-xs text-[var(--fg-muted)]">
+                                  {t('availabilityPortions')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
