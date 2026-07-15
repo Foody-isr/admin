@@ -403,9 +403,9 @@ export default function DeliveryToursPage() {
       tr.name,
       `${cities}${cities ? ' · ' : ''}${day}${window}`,
       `${t('tourCutoff')}: ${cutoff}`,
-      // ?tour=<id> deep-links foodyweb straight to this tour's tab; without it
-      // the customer lands on the default carte and has to find it themselves.
-      `${WEB_URL}/r/${slug}/order?tour=${tr.id}`,
+      // The tour's dedicated link: this page shows ONLY the tour's carte. It is
+      // the only way in — a tour never appears on the restaurant's normal site.
+      `${WEB_URL}/r/${slug}/tournee/${tr.slug}`,
     ];
     const text = lines.join('\n');
     try {

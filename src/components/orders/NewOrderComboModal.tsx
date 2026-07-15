@@ -97,21 +97,34 @@ interface NewOrderComboModalProps {
   open: boolean;
   onClose: () => void;
   onAdd: (line: NewOrderLine) => void;
+  // Edit mode: pre-fill the picker with an existing combo instance's selections
+  // and switch the CTA to "save". `editKey` uniquely identifies the instance
+  // being edited so the picker re-seeds when a different instance of the same
+  // combo opens (e.g. two units of the same combo on one order).
+  initialSelections?: ComboSelection[];
+  editKey?: string;
 }
 
-export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, open, onClose, onAdd }: NewOrderComboModalProps) {
+export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, open, onClose, onAdd, initialSelections, editKey }: NewOrderComboModalProps) {
   const { t } = useI18n();
   const steps = useMemo(() => (combo?.combo_steps ?? []).filter((s) => s.id != null), [combo]);
+  const isEdit = !!editKey;
 
   // Resolved items for group-sourced (dynamic) steps, keyed by step id.
   const [groupItems, setGroupItems] = useState<Record<number, StepOption[]>>({});
   // Picks: stepId → optionKey → quantity.
   const [picks, setPicks] = useState<Record<number, Record<string, number>>>({});
 
-  // Reset local state whenever a different combo is opened.
-  const [seedId, setSeedId] = useState<number | null>(null);
-  if (combo && combo.id !== seedId) {
-    setSeedId(combo.id);
+  // Reset local state whenever a different combo instance is opened. In edit
+  // mode the seed key is the instance id (editKey) so switching between two
+  // units of the same combo re-seeds; in add mode it's the combo id.
+  const seedKey = editKey ?? (combo ? `add:${combo.id}` : null);
+  const [seededKey, setSeededKey] = useState<string | null>(null);
+  if (seedKey && seedKey !== seededKey) {
+    setSeededKey(seedKey);
+    // Edit-mode picks are seeded by the effect below (once options resolve), so
+    // an existing selection maps to a real option even when the server pinned a
+    // default size the step doesn't expose. Start empty in both modes.
     setPicks({});
     setGroupItems({});
   }
@@ -174,6 +187,33 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
     })();
     return () => { cancelled = true; };
   }, [combo, open, steps, restaurantId, itemMap, serieDate]);
+
+  // Edit mode: pre-fill picks by matching each existing selection to a real
+  // resolved option. Runs when a different instance opens (editKey) and again
+  // once group steps resolve. Matching (not raw key rebuild) means a selection
+  // whose stored option was a server-assigned default still lands on the right
+  // option even when the step exposes the item without a pinned size.
+  useEffect(() => {
+    if (!isEdit || !combo || !open || !initialSelections) return;
+    const next: Record<number, Record<string, number>> = {};
+    for (const step of steps) {
+      const stepId = step.id as number;
+      const opts = optionsFromStep(step, groupItems[stepId], itemMap);
+      for (const sel of initialSelections) {
+        if (sel.stepId !== stepId) continue;
+        const wanted = sel.optionId ?? null;
+        const match =
+          opts.find((o) => o.menuItemId === sel.menuItemId && o.optionId === wanted) ??
+          opts.find((o) => o.menuItemId === sel.menuItemId);
+        if (!match) continue;
+        const bucket = (next[stepId] ??= {});
+        bucket[match.key] = (bucket[match.key] ?? 0) + sel.quantity;
+      }
+    }
+    setPicks(next);
+    // editKey is in the deps so switching between two instances of the same
+    // combo (same `combo` object ref) still re-seeds.
+  }, [isEdit, combo, open, steps, itemMap, groupItems, initialSelections, editKey]);
 
   if (!combo) return null;
   const activeCombo = combo;
@@ -291,7 +331,7 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
       comboItemId: activeCombo.id,
       comboSelections: selections,
     });
-    setSeedId(null);
+    setSeededKey(null);
     onClose();
   }
 
@@ -300,11 +340,11 @@ export function NewOrderComboModal({ combo, restaurantId, itemMap, serieDate, op
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title={activeCombo.name}
-      subtitle={activeCombo.description || t('comboLabel')}
+      subtitle={isEdit ? t('editComboSubtitle') : activeCombo.description || t('comboLabel')}
       width={520}
       onSave={handleAdd}
       saveDisabled={!allComplete}
-      saveLabel={`${t('addToOrder')} · ₪${totalPrice.toFixed(2)}`}
+      saveLabel={`${isEdit ? t('save') : t('addToOrder')} · ₪${totalPrice.toFixed(2)}`}
     >
       <div className="flex flex-col gap-[var(--s-5)]">
         {steps.map((step) => {

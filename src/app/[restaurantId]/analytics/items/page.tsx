@@ -214,9 +214,9 @@ export default function SalesByItemPage() {
       {data && (
         <div className="grid grid-cols-3 gap-[var(--s-4)]">
           {[
-            { v: `₪${Math.round(data.total_revenue).toLocaleString()}`, l: t('totalRevenue'), c: 'var(--fg)' },
-            { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--fg)' },
-            { v: data.items_sold.toLocaleString(), l: t('itemsSoldLabel'), c: 'var(--fg)' },
+            { v: `₪${Math.round(data.total_revenue).toLocaleString()}`, l: t('totalRevenue'), c: 'var(--fg)', sub: t('revenueExclHint') },
+            { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--fg)', sub: '' },
+            { v: data.items_sold.toLocaleString(), l: t('itemsSoldLabel'), c: 'var(--fg)', sub: '' },
           ].map((k, i) => (
             <div
               key={i}
@@ -228,10 +228,50 @@ export default function SalesByItemPage() {
               <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
                 {k.l}
               </div>
+              {k.sub && (
+                <div className="text-fs-xs text-[var(--fg-subtle)] font-normal">{k.sub}</div>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      {/* Reconciliation with gross revenue — only when item revenue diverges from
+          the dashboard's whole-order total (delivery fees and/or combos present). */}
+      {data && Math.round(data.gross_revenue) !== Math.round(data.total_revenue) && (() => {
+        // Build the additive bridge; a discount enters as a negative term. Each
+        // term after the first renders with a +/− operator from its sign.
+        const parts: { label: string; value: number }[] = [
+          { label: t('itemSalesLabel'), value: data.total_revenue },
+        ];
+        if (data.delivery_total > 0) parts.push({ label: t('delivery'), value: data.delivery_total });
+        if (data.combo_extras_total !== 0) parts.push({ label: t('comboExtras'), value: data.combo_extras_total });
+        if (data.discount_total > 0) parts.push({ label: t('discounts'), value: -data.discount_total });
+        const money = (n: number) => `₪${Math.round(Math.abs(n)).toLocaleString()}`;
+        return (
+          <div className="bg-[var(--surface)] border border-[var(--line)] rounded-r-lg p-[var(--s-4)] space-y-[var(--s-3)]">
+            <div className="text-fs-xs text-[var(--fg-muted)] uppercase tracking-[.06em] font-medium">
+              {t('reconcileTitle')}
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-[var(--s-3)] gap-y-[var(--s-2)] text-fs-sm">
+              {parts.map((p, i) => (
+                <span key={i} className="inline-flex items-baseline gap-[var(--s-2)]">
+                  {i > 0 && (
+                    <span className="text-[var(--fg-subtle)]">{p.value < 0 ? '−' : '+'}</span>
+                  )}
+                  <span className="text-[var(--fg-muted)]">{p.label}</span>
+                  <span className="font-medium text-[var(--fg)] tabular-nums">{money(p.value)}</span>
+                </span>
+              ))}
+              <span className="text-[var(--fg-subtle)]">=</span>
+              <span className="inline-flex items-baseline gap-[var(--s-2)]">
+                <span className="text-[var(--fg-muted)]">{t('grossRevenue')}</span>
+                <span className="font-semibold text-[var(--fg)] tabular-nums">{money(data.gross_revenue)}</span>
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Search */}
       <div className="relative">
