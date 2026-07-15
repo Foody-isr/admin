@@ -484,6 +484,11 @@ export interface MenuItem {
    *  the item's rule based on this number; it decrements as orders come in.
    *  null = not tracked (unlimited unless a recipe constrains it). */
   stock_quantity?: number | null;
+  /** How predefined stock is tracked. "" / "count" = one shared counter
+   *  (`stock_quantity`); "per_variant" = a separate count per size, stored on
+   *  each option (see `OptionSetOption.stock_remaining`); "measure" = a g/ml
+   *  budget. Empty when predefined stock isn't used. */
+  stock_mode?: string;
   /** Computed (read-only) availability stamped onto staff menu responses. */
   availability_state?: AvailabilityState;
   buildable_count?: number | null;
@@ -2890,6 +2895,23 @@ export async function setItemOptionPrice(restaurantId: number, setId: number, it
   const data = await apiFetch<{ item_option: ItemOptionOverride }>(
     `/api/v1/menu/option-sets/${setId}/items/${itemId}/options/${optionId}?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.item_option;
+}
+
+// Sets (or clears, with null) the per-item predefined-stock count for a single
+// option — the write path for "per_variant" stock mode. Narrow by design: it
+// never touches price/visibility, unlike the full variants sync.
+export async function setItemOptionStock(
+  restaurantId: number,
+  setId: number,
+  itemId: number,
+  optionId: number,
+  stockQuantity: number | null,
+): Promise<ItemOptionOverride> {
+  const data = await apiFetch<{ item_option: ItemOptionOverride }>(
+    `/api/v1/menu/option-sets/${setId}/items/${itemId}/options/${optionId}/stock?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify({ stock_quantity: stockQuantity }) },
   );
   return data.item_option;
 }
