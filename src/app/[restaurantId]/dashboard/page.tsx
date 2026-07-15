@@ -513,7 +513,7 @@ export default function DashboardPage() {
           title={t('bestSellingItems')}
           desc={periodRangeLabel}
           aside={
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/menu/items`)}>
+            <Button variant="ghost" size="sm" onClick={() => router.push(`/${rid}/analytics/items`)}>
               {t('seeAll')}
             </Button>
           }

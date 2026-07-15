@@ -1175,6 +1175,68 @@ export interface CustomerDetailResponse extends CustomerInsight {
   addresses: CustomerAddress[];
 }
 
+// ─── Sales by Item (analytics) Types ─────────────────────────────────────────
+
+/** One item's aggregated sales within the selected window. */
+export interface ItemSalesInsight {
+  menu_item_id: number;
+  name: string;
+  category_name: string;
+  quantity: number;
+  revenue: number;
+  avg_price: number;
+  order_count: number;
+  /** Share of the window's total item revenue, 0–100. */
+  pct_of_revenue: number;
+}
+
+/** Paginated response for the item-sales list, with window totals for the KPI strip. */
+export interface ItemSalesListResult {
+  items: ItemSalesInsight[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_revenue: number;
+  total_quantity: number;
+  items_sold: number;
+}
+
+export interface ItemDailyPoint {
+  date: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface ItemTopCustomer {
+  customer_phone: string;
+  customer_name: string;
+  orders: number;
+  quantity: number;
+  revenue: number;
+}
+
+export interface ItemVariantBreakdown {
+  variant_name: string;
+  quantity: number;
+  revenue: number;
+}
+
+/** Full drill-down for one item within the selected window. */
+export interface ItemSalesDetail {
+  menu_item_id: number;
+  name: string;
+  category_name: string;
+  quantity: number;
+  revenue: number;
+  order_count: number;
+  avg_price: number;
+  daily: ItemDailyPoint[];
+  top_customers: ItemTopCustomer[];
+  order_type_breakdown: Record<string, number>;
+  order_source_breakdown: Record<string, number>;
+  variants: ItemVariantBreakdown[];
+}
+
 // ─── Stock & Kitchen Types ───────────────────────────────────────────────────
 
 export type StockUnit = 'kg' | 'g' | 'l' | 'ml' | 'unit' | 'pack' | 'box' | 'bag' | 'dose' | 'other';
@@ -4018,6 +4080,46 @@ export async function getAnalyticsCustomerDetail(
     restaurantId
   );
   return data.customer;
+}
+
+// ─── Sales by Item ──────────────────────────────────────────────────────────
+
+/** Paginated item-sales report for the given period (scope) + date basis. */
+export async function getAnalyticsItems(
+  restaurantId: number,
+  scope: AnalyticsScope,
+  basis?: DateBasis,
+  params?: { sort_by?: string; sort_dir?: string; search?: string; page?: number; per_page?: number }
+): Promise<ItemSalesListResult> {
+  const query = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
+  });
+  if (params?.sort_by) query.set('sort_by', params.sort_by);
+  if (params?.sort_dir) query.set('sort_dir', params.sort_dir);
+  if (params?.search) query.set('search', params.search);
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.per_page) query.set('per_page', String(params.per_page));
+  return apiFetch<ItemSalesListResult>(`/api/v1/analytics/items?${query}`, restaurantId);
+}
+
+/** Drill-down for one item, scoped to the same period + date basis as the list. */
+export async function getAnalyticsItemDetail(
+  restaurantId: number,
+  itemId: number,
+  scope: AnalyticsScope,
+  basis?: DateBasis
+): Promise<ItemSalesDetail> {
+  const query = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
+  });
+  const data = await apiFetch<{ item: ItemSalesDetail }>(
+    `/api/v1/analytics/items/${itemId}?${query}`, restaurantId
+  );
+  return data.item;
 }
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
