@@ -11,7 +11,7 @@
 // removed as a whole but not edited here — editing a combo's contents means
 // recreating it from a new order.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus, Trash2, Search, Pencil } from 'lucide-react';
 import { Drawer, Field, Input } from '@/components/ds';
 import {
@@ -19,6 +19,7 @@ import {
   addOrderItem,
   updateOrderItem,
   removeOrderItem,
+  replaceOrderCombo,
   updateOrderFulfillment,
   getBatchFulfillmentConfig,
   type Order,
@@ -32,7 +33,8 @@ import { cn } from '@/lib/utils';
 import { itemSizeOptions } from '@/lib/item-options';
 import { FulfillmentSection } from './FulfillmentSection';
 import type { FulfillmentValue } from '@/lib/orders/fulfillment';
-import { NewOrderItemModal, type NewOrderLine, lineUnitPrice } from './NewOrderItemModal';
+import { NewOrderItemModal, type NewOrderLine, type ComboSelection, lineUnitPrice } from './NewOrderItemModal';
+import { NewOrderComboModal } from './NewOrderComboModal';
 
 // ─── Working-copy model ──────────────────────────────────────────────────────
 
@@ -123,6 +125,46 @@ function newLineToEditLine(nl: NewOrderLine): EditLine {
   };
 }
 
+// A combo whose composition has been edited but not yet saved. `price` is the
+// display price (frozen base + new upcharges); `labels` are the new component
+// labels for the collapsed combo row.
+interface StagedCombo {
+  selections: ComboSelection[];
+  price: number;
+  labels: string[];
+}
+
+// Which combo step a picked line came from. Prefer the snapshotted combo_step_id
+// (set on every row created after this feature shipped); for pre-feature rows,
+// best-effort match the item against an explicit step's item list, else fall back
+// to the first step. Group steps resolve async in the picker, so we can't match
+// them here — the admin can adjust the pre-filled selection if it lands wrong.
+function deriveComboStepId(item: OrderItem, comboMenuItem: MenuItem): number {
+  if (item.combo_step_id != null) return item.combo_step_id;
+  const steps = comboMenuItem.combo_steps ?? [];
+  for (const s of steps) {
+    if (s.source_type !== 'group' && (s.items ?? []).some((si) => si.menu_item_id === item.menu_item_id)) {
+      return (s.id as number) ?? 0;
+    }
+  }
+  return (steps[0]?.id as number) ?? 0;
+}
+
+// Map a combo instance's existing OrderItem children to picker selections, so the
+// edit flow opens pre-filled. priceDelta carries the stored per-pick upcharge
+// (combo child Price); the picker re-derives it from the menu on save.
+function comboItemsToSelections(items: OrderItem[], comboMenuItem: MenuItem): ComboSelection[] {
+  return items.map((it) => ({
+    stepId: deriveComboStepId(it, comboMenuItem),
+    stepName: '',
+    menuItemId: it.menu_item_id,
+    menuItemName: it.name,
+    optionId: it.selected_variant_id ?? null,
+    quantity: it.quantity,
+    priceDelta: it.price,
+  }));
+}
+
 interface EditOrderDrawerProps {
   open: boolean;
   order: Order | null;
@@ -138,6 +180,13 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [lines, setLines] = useState<EditLine[]>([]);
   const [combos, setCombos] = useState<ComboBlock[]>([]);
   const [removedCombos, setRemovedCombos] = useState<Set<string>>(new Set());
+  // Staged combo re-compositions: group UUID → new selections (persisted on save).
+  const [comboEdits, setComboEdits] = useState<Record<string, StagedCombo>>({});
+  // The combo instance currently open in the composition picker, if any. `key`
+  // is unique per open (group + nonce) so the picker always re-seeds from
+  // `initial`, even when reopening the same combo after closing without saving.
+  const [editingCombo, setEditingCombo] = useState<{ group: string; combo: MenuItem; initial: ComboSelection[]; key: string } | null>(null);
+  const comboEditNonce = useRef(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -152,6 +201,10 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   // Add-item picker state. Results render only while a query is typed; the
   // highlight index drives ArrowUp/ArrowDown + Enter keyboard selection.
   const [catalog, setCatalog] = useState<MenuItem[]>([]);
+  // Full catalog by id (INCLUDING combos) — used to resolve a combo's step
+  // definition when opening the composition picker, and passed to it for
+  // group-step resolution.
+  const [itemMap, setItemMap] = useState<Map<number, MenuItem>>(new Map());
   const [search, setSearch] = useState('');
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [pickerItem, setPickerItem] = useState<MenuItem | null>(null);
@@ -182,6 +235,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       })),
     );
     setRemovedCombos(new Set());
+    setComboEdits({});
+    setEditingCombo(null);
     setError(null);
     setSearch('');
     setHighlightIdx(0);
@@ -204,13 +259,18 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     );
   }, [open, order, t]);
 
-  // Load the item catalog once for the add picker.
+  // Load the item catalog once: `catalog` (active non-combos) feeds the add
+  // picker; `itemMap` (everything, combos included) resolves a combo's step
+  // definition for the composition picker.
   useEffect(() => {
-    if (!open || catalog.length > 0) return;
+    if (!open || itemMap.size > 0) return;
     listAllItems(restaurantId)
-      .then((items) => setCatalog(items.filter((i) => i.is_active && i.item_type !== 'combo')))
-      .catch(() => setCatalog([]));
-  }, [open, restaurantId, catalog.length]);
+      .then((items) => {
+        setItemMap(new Map(items.map((i) => [i.id, i])));
+        setCatalog(items.filter((i) => i.is_active && i.item_type !== 'combo'));
+      })
+      .catch(() => { setItemMap(new Map()); setCatalog([]); });
+  }, [open, restaurantId, itemMap.size]);
 
   // Load batch fulfillment config on open.
   useEffect(() => {
@@ -244,9 +304,9 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     const itemsTotal = activeLines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
     const combosTotal = combos
       .filter((c) => !removedCombos.has(c.group))
-      .reduce((s, c) => s + c.price, 0);
+      .reduce((s, c) => s + (comboEdits[c.group]?.price ?? c.price), 0);
     return itemsTotal + combosTotal;
-  }, [activeLines, combos, removedCombos]);
+  }, [activeLines, combos, removedCombos, comboEdits]);
 
   const remainingCount =
     activeLines.length + combos.filter((c) => !removedCombos.has(c.group)).length;
@@ -280,12 +340,13 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const linesDirty = useMemo(
     () =>
       removedCombos.size > 0 ||
+      Object.keys(comboEdits).length > 0 ||
       lines.some((l) => {
         if (l.removed || !l.orderItemId) return true; // removal or brand-new line
         const orig = origById.get(l.orderItemId);
         return !!orig && (orig.quantity !== l.quantity || orig.notes !== l.notes);
       }),
-    [lines, removedCombos, origById],
+    [lines, removedCombos, comboEdits, origById],
   );
 
   const isDirty = linesDirty || fulfillmentDirty;
@@ -323,6 +384,38 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       else next.add(group);
       return next;
     });
+  }
+
+  // Open the composition picker for a combo instance, pre-filled with its current
+  // (or already-staged) selections. Needs the combo's step definition from the
+  // catalog; if it isn't loaded/available, surface a note rather than a broken UI.
+  function openComboEditor(combo: ComboBlock) {
+    const comboItemId = combo.items[0]?.combo_item_id;
+    const comboMenuItem = comboItemId != null ? itemMap.get(comboItemId) : undefined;
+    if (!comboMenuItem) {
+      setError(t('comboNotEditableNow'));
+      return;
+    }
+    const staged = comboEdits[combo.group];
+    const initial = staged ? staged.selections : comboItemsToSelections(combo.items, comboMenuItem);
+    comboEditNonce.current += 1;
+    setEditingCombo({ group: combo.group, combo: comboMenuItem, initial, key: `${combo.group}#${comboEditNonce.current}` });
+  }
+
+  // Stage a re-composed combo from the picker. The display price keeps the
+  // frozen base (the combo_price snapshot on the order) and adds the new
+  // upcharges; the server enforces the same on save.
+  function handleComboEdited(nl: NewOrderLine) {
+    if (!editingCombo) return;
+    const group = editingCombo.group;
+    const selections = nl.comboSelections ?? [];
+    const base = combos.find((c) => c.group === group)?.price ?? nl.item.price;
+    const upcharge = selections.reduce((s, sel) => s + (sel.priceDelta || 0) * sel.quantity, 0);
+    setComboEdits((prev) => ({
+      ...prev,
+      [group]: { selections, price: base + upcharge, labels: selections.map((s) => s.menuItemName) },
+    }));
+    setEditingCombo(null);
   }
 
   function handleAddFromPicker(nl: NewOrderLine) {
@@ -405,6 +498,24 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         if (!line.removed && !line.orderItemId) {
           await addOrderItem(restaurantId, order.id, lineToInput(line));
         }
+      }
+      // 4b) Re-composed combos — one atomic replace per edited group. Skip any
+      // group that was also removed (removal wins). The server preserves the
+      // base-price snapshot and recomputes the total.
+      for (const [group, staged] of Object.entries(comboEdits)) {
+        if (removedCombos.has(group)) continue;
+        const comboItemId = combos.find((c) => c.group === group)?.items[0]?.combo_item_id;
+        if (comboItemId == null) continue;
+        await replaceOrderCombo(restaurantId, order.id, group, {
+          combo_item_id: comboItemId,
+          selections: staged.selections.map((s) => ({
+            step_id: s.stepId,
+            menu_item_id: s.menuItemId,
+            option_id: s.optionId ?? undefined,
+            quantity: s.quantity,
+          })),
+          serie_date: order.scheduled_for ? order.scheduled_for.slice(0, 10) : undefined,
+        });
       }
 
       // 5) Fulfillment (type, address, schedule) — only when actually changed,
@@ -744,9 +855,12 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                 );
               })}
 
-              {/* Combos — removable as a whole, not editable */}
+              {/* Combos — editable in place (composition) or removable as a whole */}
               {combos.map((combo) => {
                 const removed = removedCombos.has(combo.group);
+                const edited = comboEdits[combo.group];
+                const labels = edited ? edited.labels : combo.items.map((i) => i.name);
+                const price = edited ? edited.price : combo.price;
                 return (
                   <div key={combo.group} className="flex items-center gap-[var(--s-3)] px-[var(--s-3)] py-[var(--s-2)]">
                     <div className="min-w-0 flex-1">
@@ -768,9 +882,20 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                         >
                           {t('combo') || 'Combo'}
                         </span>
+                        {edited && !removed && (
+                          <span
+                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
+                            style={{
+                              background: 'color-mix(in oklab, var(--warning-500) 16%, transparent)',
+                              color: 'var(--warning-600)',
+                            }}
+                          >
+                            {t('modified')}
+                          </span>
+                        )}
                       </div>
                       <div className={cn('text-fs-xs text-[var(--fg-muted)] truncate', removed && 'line-through')}>
-                        {combo.items.map((i) => i.name).join(' · ')}
+                        {labels.join(' · ')}
                       </div>
                     </div>
                     <span
@@ -779,8 +904,19 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                         removed && 'line-through text-[var(--fg-muted)]',
                       )}
                     >
-                      ₪{combo.price.toFixed(2)}
+                      ₪{price.toFixed(2)}
                     </span>
+                    {!removed && (
+                      <button
+                        type="button"
+                        onClick={() => openComboEditor(combo)}
+                        aria-label={t('editCombo')}
+                        title={t('editCombo')}
+                        className="shrink-0 text-[var(--fg-subtle)] hover:text-[var(--fg)] transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {removed ? (
                       <button
                         type="button"
@@ -805,7 +941,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
             </div>
 
             {combos.length > 0 && (
-              <p className="text-fs-xs text-[var(--fg-subtle)]">{t('combosNotEditable')}</p>
+              <p className="text-fs-xs text-[var(--fg-subtle)]">{t('combosEditHint')}</p>
             )}
           </div>
         </div>
@@ -817,6 +953,19 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         open={pickerItem != null}
         onClose={() => setPickerItem(null)}
         onAdd={handleAddFromPicker}
+      />
+
+      {/* Composition picker for editing an existing combo instance in place */}
+      <NewOrderComboModal
+        combo={editingCombo?.combo ?? null}
+        restaurantId={restaurantId}
+        itemMap={itemMap}
+        serieDate={order?.scheduled_for ? order.scheduled_for.slice(0, 10) : null}
+        open={editingCombo != null}
+        onClose={() => setEditingCombo(null)}
+        onAdd={handleComboEdited}
+        initialSelections={editingCombo?.initial}
+        editKey={editingCombo?.key}
       />
     </>
   );

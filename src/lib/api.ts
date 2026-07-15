@@ -555,6 +555,9 @@ export interface OrderItem {
   modifiers?: OrderItemModifier[];
   combo_item_id?: number;
   combo_group?: string;
+  /** Which combo step this pick came from. Snapshotted at order time; nil on
+   *  pre-feature rows (re-derived when editing a combo's composition). */
+  combo_step_id?: number;
   combo_name?: string;
   combo_price?: number;
   // Snapshot of the item's category at order time. NULL on older/fake rows
@@ -1207,9 +1210,19 @@ export interface ItemSalesListResult {
   total: number;
   page: number;
   per_page: number;
+  /** Item line revenue only (price × quantity) — excludes delivery and combo base. */
   total_revenue: number;
   total_quantity: number;
   items_sold: number;
+  /**
+   * Reconciliation with the dashboard's gross revenue. Over the same window:
+   * total_revenue + delivery_total + combo_extras_total − discount_total = gross_revenue.
+   * gross_revenue equals the dashboard's Revenu brut for the same window/basis.
+   */
+  gross_revenue: number;
+  delivery_total: number;
+  discount_total: number;
+  combo_extras_total: number;
 }
 
 export interface ItemDailyPoint {
@@ -3596,6 +3609,34 @@ export async function removeOrderItem(
     `/api/v1/orders/${orderId}/items/${itemId}?restaurant_id=${restaurantId}`,
     restaurantId,
     { method: 'DELETE' },
+  );
+}
+
+/** Re-composes an existing combo instance on an order (swaps its component
+ *  selections in place). The combo is identified by its `combo_group` UUID; the
+ *  server preserves the original base-price snapshot and recomputes only the
+ *  per-pick upcharges. `serie_date` pins group-sourced step resolution for
+ *  rotating/batch cartes (omit for non-rotating — the server falls back to the
+ *  order's scheduled date, else today). */
+export interface ReplaceComboInput {
+  combo_item_id: number;
+  selections: CreateOrderComboSelectionInput[];
+  serie_date?: string; // "YYYY-MM-DD"
+}
+
+/** Edits a combo's contents on an existing order. Returns the refreshed order so
+ *  the caller can re-render the recomputed combo lines and total. Mirrors
+ *  `PUT /api/v1/orders/:id/combo/:comboGroup`. */
+export async function replaceOrderCombo(
+  restaurantId: number,
+  orderId: number,
+  comboGroup: string,
+  input: ReplaceComboInput,
+): Promise<{ order: Order }> {
+  return apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/combo/${encodeURIComponent(comboGroup)}?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
   );
 }
 
