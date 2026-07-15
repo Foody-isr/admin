@@ -195,6 +195,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       perm: ['analytics.view'],
       subItems: [
         { href: `${base}/analytics/overview`, labelKey: 'overview' },
+        { href: `${base}/analytics/items`, labelKey: 'salesByItem' },
         { href: `${base}/analytics/customers`, labelKey: 'salesByCustomer' },
       ],
     },
