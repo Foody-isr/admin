@@ -9,10 +9,18 @@ import type {
   CommitResult,
 } from '@/app/[restaurantId]/kitchen/lab/types';
 import type { PosDisplayLayout } from './posDisplay';
+import {
+  startRegistration,
+  startAuthentication,
+  browserSupportsWebAuthn,
+  platformAuthenticatorIsAvailable,
+} from '@simplewebauthn/browser';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'foody_restaurant_token';
 const USER_KEY = 'foody_restaurant_user';
+const RIDS_KEY = 'foody_restaurant_ids';
+const REMEMBER_KEY = 'foody_remember';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1641,9 +1649,67 @@ export interface DemandForecastItem {
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
-export function getToken(): string | null {
+// ─── Session storage ──────────────────────────────────────────────────────────
+// "Remember me" decides where the session lives: localStorage survives PWA
+// restarts (stay signed in), sessionStorage is wiped when the app/tab closes.
+// Reads check both stores so an in-flight session works whichever one holds it.
+
+function readAuthValue(key: string): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+}
+
+/** Writes a full session to the store chosen by `remember`, clearing any copy
+ *  left in the other store so a token never lingers where it shouldn't. */
+function persistSession(token: string, user: User, restaurantIds: number[], remember: boolean) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0');
+  const store = remember ? localStorage : sessionStorage;
+  const other = remember ? sessionStorage : localStorage;
+  [TOKEN_KEY, USER_KEY, RIDS_KEY].forEach((k) => other.removeItem(k));
+  store.setItem(TOKEN_KEY, token);
+  store.setItem(USER_KEY, JSON.stringify(user));
+  store.setItem(RIDS_KEY, JSON.stringify(restaurantIds));
+}
+
+export function getToken(): string | null {
+  return readAuthValue(TOKEN_KEY);
+}
+
+/** Milliseconds until the stored token's `exp` (negative if already expired),
+ *  or null when there's no token or no exp claim. Used to refresh proactively. */
+export function tokenTimeToExpiryMs(): number | null {
+  const token = getToken();
+  if (!token) return null;
+  const claims = parseJwtClaims(token);
+  const exp = typeof claims?.exp === 'number' ? claims.exp : null;
+  return exp === null ? null : exp * 1000 - Date.now();
+}
+
+/** Swaps the current (possibly recently-expired) token for a fresh one via the
+ *  server's refresh endpoint, keeping the same remember-me store. Returns the
+ *  new token, or null when refresh isn't possible (no session, beyond the 7-day
+ *  grace window, user removed, or offline) — callers treat null as "log out". */
+export async function refreshToken(): Promise<string | null> {
+  const token = getToken();
+  const user = getStoredUser();
+  if (!token || !user) return null;
+  try {
+    const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.token) return null;
+    const remember = readAuthValue(REMEMBER_KEY) !== '0';
+    const claims = parseJwtClaims(data.token);
+    const rids = (claims?.restaurant_ids as number[]) ?? getStoredRestaurantIds();
+    persistSession(data.token, user, rids, remember);
+    return data.token;
+  } catch {
+    return null;
+  }
 }
 
 /** Error thrown by apiFetch on a non-ok response. `message` is the server's
@@ -1664,7 +1730,8 @@ export class ApiError extends Error {
 export async function apiFetch<T>(
   path: string,
   restaurantId?: number,
-  options?: RequestInit
+  options?: RequestInit,
+  _retried = false,
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -1676,8 +1743,17 @@ export async function apiFetch<T>(
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== 'undefined') {
-      // Token expired or revoked — clear stored auth and force re-login
+    // Auth endpoints (login, refresh, setup, reset) use 401 to mean "bad
+    // credentials" — surface that to the caller instead of hijacking it.
+    const isAuthEndpoint = path.startsWith('/api/v1/auth/');
+    if (res.status === 401 && typeof window !== 'undefined' && !isAuthEndpoint) {
+      // Token expired mid-session: try one silent refresh and replay the
+      // request before forcing a re-login.
+      if (!_retried) {
+        const refreshed = await refreshToken();
+        if (refreshed) return apiFetch<T>(path, restaurantId, options, true);
+      }
+      // Refresh impossible (beyond grace window / revoked) — clear and re-login.
       logout();
       window.location.href = '/login';
       // Stop execution — don't throw, which could trigger competing redirects
@@ -1809,7 +1885,11 @@ export function canAccessAdmin(user: User | null, restaurantIds: number[]): bool
   return restaurantIds.length > 0;
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(
+  email: string,
+  password: string,
+  remember = true,
+): Promise<LoginResponse> {
   const data = await apiFetch<{ token: string; user: User }>('/api/v1/auth/login', undefined, {
     method: 'POST',
     body: JSON.stringify({ email, password }),
@@ -1823,28 +1903,26 @@ export async function login(email: string, password: string): Promise<LoginRespo
     throw new Error('Access denied. Your account is not linked to any restaurant.');
   }
 
-  localStorage.setItem(TOKEN_KEY, data.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-  localStorage.setItem('foody_restaurant_ids', JSON.stringify(restaurantIds));
+  persistSession(data.token, data.user, restaurantIds, remember);
 
   return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
 }
 
 export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem('foody_restaurant_ids');
+  if (typeof window === 'undefined') return;
+  [TOKEN_KEY, USER_KEY, RIDS_KEY, REMEMBER_KEY].forEach((k) => {
+    localStorage.removeItem(k);
+    sessionStorage.removeItem(k);
+  });
 }
 
 export function getStoredUser(): User | null {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = readAuthValue(USER_KEY);
   return raw ? JSON.parse(raw) : null;
 }
 
 export function getStoredRestaurantIds(): number[] {
-  if (typeof window === 'undefined') return [];
-  const raw = localStorage.getItem('foody_restaurant_ids');
+  const raw = readAuthValue(RIDS_KEY);
   return raw ? JSON.parse(raw) : [];
 }
 
@@ -1893,9 +1971,7 @@ export async function resetPassword(input: {
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
 
-  localStorage.setItem(TOKEN_KEY, data.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-  localStorage.setItem('foody_restaurant_ids', JSON.stringify(restaurantIds));
+  persistSession(data.token, data.user, restaurantIds, true);
 
   return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
 }
@@ -1921,9 +1997,7 @@ export async function setupAccount(input: {
   const claims = parseJwtClaims(data.token);
   const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
 
-  localStorage.setItem(TOKEN_KEY, data.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-  localStorage.setItem('foody_restaurant_ids', JSON.stringify(restaurantIds));
+  persistSession(data.token, data.user, restaurantIds, true);
 
   return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
 }
@@ -1935,6 +2009,79 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+// ─── Passkeys (WebAuthn / Face ID) ──────────────────────────────────────────
+// The server verifies every assertion; the private key never leaves the device.
+// Enrolment requires an existing (password) session; login is password-less.
+
+type PasskeyRegOptions = Parameters<typeof startRegistration>[0]['optionsJSON'];
+type PasskeyAuthOptions = Parameters<typeof startAuthentication>[0]['optionsJSON'];
+
+export interface PasskeyCredential {
+  id: number;
+  name: string;
+  created_at: string;
+  last_used_at?: string;
+}
+
+/** True when this browser can use a platform authenticator (Face ID / Touch ID). */
+export async function passkeysSupported(): Promise<boolean> {
+  if (typeof window === 'undefined' || !browserSupportsWebAuthn()) return false;
+  try {
+    return await platformAuthenticatorIsAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/** Enrols a new passkey for the signed-in user. `name` labels the device. */
+export async function registerPasskey(name: string): Promise<PasskeyCredential> {
+  const begin = await apiFetch<{ options: { publicKey: PasskeyRegOptions }; session_id: string }>(
+    '/api/v1/auth/webauthn/register/begin',
+    undefined,
+    { method: 'POST' },
+  );
+  const attestation = await startRegistration({ optionsJSON: begin.options.publicKey });
+  const data = await apiFetch<{ credential: PasskeyCredential }>(
+    `/api/v1/auth/webauthn/register/finish?session_id=${encodeURIComponent(begin.session_id)}&name=${encodeURIComponent(name)}`,
+    undefined,
+    { method: 'POST', body: JSON.stringify(attestation) },
+  );
+  return data.credential;
+}
+
+/** Password-less sign-in with a previously enrolled passkey for `email`. */
+export async function loginWithPasskey(email: string, remember = true): Promise<LoginResponse> {
+  const begin = await apiFetch<{ options: { publicKey: PasskeyAuthOptions }; session_id: string }>(
+    '/api/v1/auth/webauthn/login/begin',
+    undefined,
+    { method: 'POST', body: JSON.stringify({ email }) },
+  );
+  const assertion = await startAuthentication({ optionsJSON: begin.options.publicKey });
+  const data = await apiFetch<{ token: string; user: User }>(
+    `/api/v1/auth/webauthn/login/finish?session_id=${encodeURIComponent(begin.session_id)}`,
+    undefined,
+    { method: 'POST', body: JSON.stringify(assertion) },
+  );
+  const claims = parseJwtClaims(data.token);
+  const restaurantIds: number[] = (claims?.restaurant_ids as number[]) ?? [];
+  if (!canAccessAdmin(data.user, restaurantIds)) {
+    throw new Error('Access denied. Your account is not linked to any restaurant.');
+  }
+  persistSession(data.token, data.user, restaurantIds, remember);
+  return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
+}
+
+/** Lists the signed-in user's registered passkeys, newest first. */
+export async function listPasskeys(): Promise<PasskeyCredential[]> {
+  const data = await apiFetch<{ credentials: PasskeyCredential[] }>('/api/v1/auth/webauthn/credentials');
+  return data.credentials ?? [];
+}
+
+/** Removes one of the signed-in user's passkeys. */
+export async function deletePasskey(id: number): Promise<void> {
+  await apiFetch(`/api/v1/auth/webauthn/credentials/${id}`, undefined, { method: 'DELETE' });
 }
 
 // ─── POS Downloads ────────────────────────────────────────────────────────────

@@ -71,6 +71,11 @@ export const PAYMENT_TONE: Record<string, BadgeTone> = {
 const ORDER_META_EDITED_AFTER_PAYMENT = 'edited_after_payment';
 const ORDER_META_PAID_AMOUNT = 'paid_amount';
 
+// Set by the server when a late-paid order is revived past its predefined stock
+// (foodyserver common.MetaKeyStockOversold). The sale is honored; staff must
+// reconcile the physical count.
+const ORDER_META_STOCK_OVERSOLD = 'stock_oversold';
+
 // Simple hash to pick a muted color for item avatars
 function itemColor(name: string): string {
   const colors = ['#F18A47', '#60A5FA', '#D89B35', '#77BA4B', '#A78BFA', '#F472B6', '#34D399', '#FB7185'];
@@ -425,6 +430,7 @@ export function OrderDetailDrawer({
   // so staff can reconcile it manually; there is no automatic re-charge.
   const meta = (order.external_metadata ?? {}) as Record<string, unknown>;
   const editedAfterPayment = meta[ORDER_META_EDITED_AFTER_PAYMENT] === true;
+  const stockOversold = meta[ORDER_META_STOCK_OVERSOLD] === true;
   const chargedAmount = Number(meta[ORDER_META_PAID_AMOUNT]);
   const hasChargedAmount = editedAfterPayment && Number.isFinite(chargedAmount);
   const paymentDrift = hasChargedAmount ? totalsLine - chargedAmount : 0;
@@ -998,6 +1004,33 @@ export function OrderDetailDrawer({
                   variant="full"
                 />
               </div>
+
+              {/* Stock oversell warning — a late payment revived this order after
+                  its predefined stock was already taken, or a staff edit drew past
+                  the count. The sale is honored; staff must reconcile the physical
+                  stock. */}
+              {stockOversold && (
+                <div
+                  className="mt-[var(--s-2)] flex items-start gap-[var(--s-3)] rounded-md p-[var(--s-3)]"
+                  style={{
+                    background: 'color-mix(in oklab, var(--warning-500) 10%, var(--surface))',
+                    border: '1px solid color-mix(in oklab, var(--warning-500) 30%, var(--line))',
+                  }}
+                >
+                  <AlertTriangleIcon
+                    className="size-4 shrink-0 mt-0.5"
+                    style={{ color: 'var(--warning-500)' }}
+                  />
+                  <div className="flex-1 min-w-0 flex flex-col gap-[var(--s-2)]">
+                    <span className="text-fs-sm font-semibold text-[var(--fg)]">
+                      {t('stockOversoldTitle')}
+                    </span>
+                    <span className="text-fs-xs text-[var(--fg-muted)]">
+                      {t('stockOversoldDesc')}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Post-payment edit warning — the order's items were changed after
                   the customer paid, so the collected amount no longer matches. */}

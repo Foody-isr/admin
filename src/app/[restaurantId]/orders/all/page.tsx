@@ -797,9 +797,16 @@ export default function OrdersPage() {
                       </div>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('status')}>
-                      <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
-                        {localizeStatus(order.status, t)}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge tone={STATUS_TONE[order.status] ?? 'neutral'} dot>
+                          {localizeStatus(order.status, t)}
+                        </Badge>
+                        {order.external_metadata?.stock_oversold === true && (
+                          <Badge tone="warning" dot>
+                            {t('stockOversoldBadge')}
+                          </Badge>
+                        )}
+                      </div>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('payment')}>
                       <div className="flex items-center gap-1.5 flex-wrap">
