@@ -2035,6 +2035,39 @@ export async function passkeysSupported(): Promise<boolean> {
   }
 }
 
+// A UX hint (never a security boundary) remembering that a passkey was enrolled
+// or used on THIS device+browser, so the login screen can lead with Face ID and
+// hide the password form. A stale hint is harmless: the Face ID prompt simply
+// finds nothing and the screen falls back to the password form.
+const PASSKEY_DEVICE_KEY = 'foody.passkey.device';
+
+/** Records that a passkey was enrolled or used on this device. */
+export function markPasskeyOnDevice(): void {
+  try {
+    localStorage.setItem(PASSKEY_DEVICE_KEY, '1');
+  } catch {
+    /* storage unavailable — degrade to password-first login */
+  }
+}
+
+/** True when a passkey has previously been enrolled or used on this device. */
+export function hasPasskeyOnDevice(): boolean {
+  try {
+    return localStorage.getItem(PASSKEY_DEVICE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Forgets the device passkey hint (e.g. after the last passkey is removed). */
+export function clearPasskeyOnDevice(): void {
+  try {
+    localStorage.removeItem(PASSKEY_DEVICE_KEY);
+  } catch {
+    /* storage unavailable — nothing to clear */
+  }
+}
+
 /** Enrols a new passkey for the signed-in user. `name` labels the device. */
 export async function registerPasskey(name: string): Promise<PasskeyCredential> {
   const begin = await apiFetch<{ options: { publicKey: PasskeyRegOptions }; session_id: string }>(
@@ -2048,6 +2081,7 @@ export async function registerPasskey(name: string): Promise<PasskeyCredential> 
     undefined,
     { method: 'POST', body: JSON.stringify(attestation) },
   );
+  markPasskeyOnDevice();
   return data.credential;
 }
 
@@ -2071,6 +2105,7 @@ export async function loginWithPasskey(remember = true): Promise<LoginResponse> 
     throw new Error('Access denied. Your account is not linked to any restaurant.');
   }
   persistSession(data.token, data.user, restaurantIds, remember);
+  markPasskeyOnDevice();
   return { token: data.token, user: data.user, restaurant_ids: restaurantIds };
 }
 

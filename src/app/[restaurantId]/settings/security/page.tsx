@@ -7,6 +7,7 @@ import {
   registerPasskey,
   deletePasskey,
   passkeysSupported,
+  clearPasskeyOnDevice,
   PasskeyCredential,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
@@ -60,7 +61,11 @@ export default function SecuritySettingsPage() {
     setDeletingId(id);
     try {
       await deletePasskey(id);
-      setPasskeys((prev) => prev.filter((p) => p.id !== id));
+      const next = passkeys.filter((p) => p.id !== id);
+      setPasskeys(next);
+      // Removing the last passkey makes the device hint stale — forget it so the
+      // login screen leads with the password form again.
+      if (next.length === 0) clearPasskeyOnDevice();
     } catch {
       setError(t('passkeyDeleteFailed'));
     } finally {

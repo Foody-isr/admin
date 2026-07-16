@@ -7,6 +7,7 @@ import {
   login,
   loginWithPasskey,
   passkeysSupported,
+  hasPasskeyOnDevice,
   isAuthenticated,
   getStoredRestaurantIds,
   getStoredUser,
@@ -24,7 +25,13 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [deviceHasPasskey, setDeviceHasPasskey] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  // Reveals the password form when the user opts out of Face ID (or it fails).
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  // Gate the interactive body until the capability check resolves, so passkey
+  // devices don't flash the password form before flipping to Face ID.
+  const [checked, setChecked] = useState(false);
 
   // If already logged in, skip to restaurant selection
   useEffect(() => {
@@ -44,9 +51,15 @@ export default function LoginPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Only surface the Face ID button on devices with a platform authenticator.
+  // Lead with Face ID only on devices that both support a platform authenticator
+  // and have previously enrolled/used a passkey here (otherwise the button would
+  // be a dead end). Everyone else gets the password form as before.
   useEffect(() => {
-    passkeysSupported().then(setPasskeyAvailable);
+    passkeysSupported().then((ok) => {
+      setPasskeyAvailable(ok);
+      setDeviceHasPasskey(ok && hasPasskeyOnDevice());
+      setChecked(true);
+    });
   }, []);
 
   const routeAfterLogin = (restaurantIds: number[]) => {
@@ -82,15 +95,23 @@ export default function LoginPage() {
       const { restaurant_ids } = await loginWithPasskey(remember);
       routeAfterLogin(restaurant_ids);
     } catch (err: unknown) {
-      // Silently ignore the user dismissing the Face ID prompt.
+      // Silently ignore the user dismissing the Face ID prompt; on a real
+      // failure, surface the error and fall back to the password form so the
+      // user is never stranded (e.g. a stale device hint after the passkey was
+      // removed elsewhere).
       const name = (err as { name?: string })?.name;
       if (name !== 'NotAllowedError' && name !== 'AbortError') {
         setError(t('passkeyLoginFailed'));
+        setShowPasswordForm(true);
       }
     } finally {
       setPasskeyLoading(false);
     }
   };
+
+  // Face ID leads and the password form is hidden until the user asks for it.
+  const passkeyFirst = passkeyAvailable && deviceHasPasskey;
+  const showForm = !passkeyFirst || showPasswordForm;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-page">
@@ -117,64 +138,90 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder={t('emailPlaceholder')}
-                required
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-fg-secondary mb-1">{t('password')}</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder={t('passwordPlaceholder')}
-                required
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="w-4 h-4 rounded border-border accent-brand-500"
-              />
-              {t('rememberMe')}
-            </label>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full justify-center disabled:opacity-50"
-            >
-              {loading ? t('signingIn') : t('signIn')}
-            </button>
-          </form>
-
-          {passkeyAvailable && (
+          {!checked ? (
+            // Brief capability check — keep the card height stable, no flash.
+            <div className="h-11" aria-hidden />
+          ) : passkeyFirst && !showPasswordForm ? (
             <>
-              <div className="flex items-center gap-3 my-4">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-xs text-fg-secondary">{t('or')}</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
               <button
                 type="button"
                 onClick={handlePasskeyLogin}
-                disabled={passkeyLoading || loading}
-                className="btn-secondary w-full justify-center gap-2 disabled:opacity-50"
+                disabled={passkeyLoading}
+                className="btn-primary w-full justify-center gap-2 disabled:opacity-50"
               >
-                <Fingerprint className="w-4 h-4" />
+                <Fingerprint className="w-5 h-5" />
                 {passkeyLoading ? t('signingIn') : t('signInWithPasskey')}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowPasswordForm(true)}
+                className="mt-4 w-full text-center text-sm text-fg-secondary hover:text-fg-primary"
+              >
+                {t('usePasswordInstead')}
+              </button>
+            </>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('email')}</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input"
+                    placeholder={t('emailPlaceholder')}
+                    required
+                    autoFocus={!passkeyFirst}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-fg-secondary mb-1">{t('password')}</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input"
+                    placeholder={t('passwordPlaceholder')}
+                    required
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-fg-secondary cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="w-4 h-4 rounded border-border accent-brand-500"
+                  />
+                  {t('rememberMe')}
+                </label>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full justify-center disabled:opacity-50"
+                >
+                  {loading ? t('signingIn') : t('signIn')}
+                </button>
+              </form>
+
+              {passkeyAvailable && (
+                <>
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-fg-secondary">{t('or')}</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePasskeyLogin}
+                    disabled={passkeyLoading || loading}
+                    className="btn-secondary w-full justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Fingerprint className="w-4 h-4" />
+                    {passkeyLoading ? t('signingIn') : t('signInWithPasskey')}
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
