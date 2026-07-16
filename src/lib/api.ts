@@ -2051,12 +2051,13 @@ export async function registerPasskey(name: string): Promise<PasskeyCredential> 
   return data.credential;
 }
 
-/** Password-less sign-in with a previously enrolled passkey for `email`. */
-export async function loginWithPasskey(email: string, remember = true): Promise<LoginResponse> {
+/** Password-less, usernameless sign-in: the device offers the passkeys for this
+ *  site and the user picks one with Face ID — no email needed. */
+export async function loginWithPasskey(remember = true): Promise<LoginResponse> {
   const begin = await apiFetch<{ options: { publicKey: PasskeyAuthOptions }; session_id: string }>(
     '/api/v1/auth/webauthn/login/begin',
     undefined,
-    { method: 'POST', body: JSON.stringify({ email }) },
+    { method: 'POST' },
   );
   const assertion = await startAuthentication({ optionsJSON: begin.options.publicKey });
   const data = await apiFetch<{ token: string; user: User }>(

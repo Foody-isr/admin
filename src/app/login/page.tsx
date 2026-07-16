@@ -76,14 +76,10 @@ export default function LoginPage() {
   };
 
   const handlePasskeyLogin = async () => {
-    if (!email) {
-      setError(t('passkeyNeedEmail'));
-      return;
-    }
     setError('');
     setPasskeyLoading(true);
     try {
-      const { restaurant_ids } = await loginWithPasskey(email, remember);
+      const { restaurant_ids } = await loginWithPasskey(remember);
       routeAfterLogin(restaurant_ids);
     } catch (err: unknown) {
       // Silently ignore the user dismissing the Face ID prompt.
