@@ -237,7 +237,9 @@ export default function SalesByItemPage() {
       )}
 
       {/* Reconciliation with gross revenue — only when item revenue diverges from
-          the dashboard's whole-order total (delivery fees and/or combos present). */}
+          the dashboard's whole-order total. Combo base prices are now spread into
+          item revenue, so divergence comes from delivery, discounts, or leftover
+          unattributed extras (e.g. fixed combo-step surcharges). */}
       {data && Math.round(data.gross_revenue) !== Math.round(data.total_revenue) && (() => {
         // Build the additive bridge; a discount enters as a negative term. Each
         // term after the first renders with a +/− operator from its sign.
