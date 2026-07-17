@@ -1208,6 +1208,9 @@ export interface ItemSalesInsight {
   revenue: number;
   avg_price: number;
   order_count: number;
+  /** Units and attributed revenue sold inside combos (à-la-carte = total − combo). */
+  combo_quantity: number;
+  combo_revenue: number;
   /** Share of the window's total item revenue, 0–100. */
   pct_of_revenue: number;
 }
@@ -1231,6 +1234,9 @@ export interface ItemSalesListResult {
   delivery_total: number;
   discount_total: number;
   combo_extras_total: number;
+  /** Units sold inside combos and the revenue attributed to them (part of total_revenue). */
+  combo_revenue_total: number;
+  combo_quantity_total: number;
 }
 
 export interface ItemDailyPoint {
@@ -1245,12 +1251,16 @@ export interface ItemTopCustomer {
   orders: number;
   quantity: number;
   revenue: number;
+  combo_quantity: number;
+  combo_revenue: number;
 }
 
 export interface ItemVariantBreakdown {
   variant_name: string;
   quantity: number;
   revenue: number;
+  combo_quantity: number;
+  combo_revenue: number;
 }
 
 /** Full drill-down for one item within the selected window. */
@@ -1262,6 +1272,9 @@ export interface ItemSalesDetail {
   revenue: number;
   order_count: number;
   avg_price: number;
+  /** Units and attributed revenue sold inside combos (à-la-carte = total − combo). */
+  combo_quantity: number;
+  combo_revenue: number;
   daily: ItemDailyPoint[];
   top_customers: ItemTopCustomer[];
   order_type_breakdown: Record<string, number>;
