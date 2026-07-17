@@ -16,7 +16,7 @@ import DateBasisToggle, { type DateBasis } from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
 import { useOrderSeries, type SerieRange } from '@/lib/series';
 import ItemDetailPanel from './ItemDetailPanel';
-import { PageHead } from '@/components/ds';
+import { PageHead, Badge } from '@/components/ds';
 import {
   DataTable,
   DataTableHead,
@@ -214,9 +214,16 @@ export default function SalesByItemPage() {
       {data && (
         <div className="grid grid-cols-3 gap-[var(--s-4)]">
           {[
-            { v: `₪${Math.round(data.total_revenue).toLocaleString()}`, l: t('totalRevenue'), c: 'var(--fg)', sub: t('revenueExclHint') },
-            { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--fg)', sub: '' },
-            { v: data.items_sold.toLocaleString(), l: t('itemsSoldLabel'), c: 'var(--fg)', sub: '' },
+            {
+              v: `₪${Math.round(data.total_revenue).toLocaleString()}`, l: t('totalRevenue'), c: 'var(--fg)', sub: t('revenueExclHint'),
+              // Window-level combo contribution (already inside total_revenue) — the
+              // amount the CA hint refers to, shown only when combos are present.
+              combo: data.combo_quantity_total > 0
+                ? `${t('combo')} · ₪${Math.round(data.combo_revenue_total).toLocaleString()} · ${data.combo_quantity_total.toLocaleString()}`
+                : '',
+            },
+            { v: data.total_quantity.toLocaleString(), l: t('unitsSold'), c: 'var(--fg)', sub: '', combo: '' },
+            { v: data.items_sold.toLocaleString(), l: t('itemsSoldLabel'), c: 'var(--fg)', sub: '', combo: '' },
           ].map((k, i) => (
             <div
               key={i}
@@ -230,6 +237,9 @@ export default function SalesByItemPage() {
               </div>
               {k.sub && (
                 <div className="text-fs-xs text-[var(--fg-subtle)] font-normal">{k.sub}</div>
+              )}
+              {k.combo && (
+                <div className="text-fs-xs font-medium text-[#7c3aed] dark:text-[#a78bfa]">{k.combo}</div>
               )}
             </div>
           ))}
@@ -363,7 +373,14 @@ export default function SalesByItemPage() {
                     onClick={() => setSelectedItemId(it.menu_item_id)}
                   >
                     <DataTableCell mobilePrimary className="whitespace-nowrap">
-                      <div className="text-fg-primary font-medium">{it.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-fg-primary font-medium">{it.name}</span>
+                        {it.combo_quantity > 0 && (
+                          <Badge tone="combo" className="h-[18px] px-1.5" title={t('comboSalesHint')}>
+                            {t('combo')}
+                          </Badge>
+                        )}
+                      </div>
                     </DataTableCell>
                     <DataTableCell mobileLabel={t('category')} className="text-fg-secondary whitespace-nowrap">{it.category_name || '—'}</DataTableCell>
                     <DataTableCell align="right" mobileLabel={t('quantitySold')} className="text-fg-primary whitespace-nowrap">{it.quantity}</DataTableCell>

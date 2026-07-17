@@ -5,6 +5,13 @@ import { XIcon } from 'lucide-react';
 import { getAnalyticsItemDetail, ItemSalesDetail } from '@/lib/api';
 import type { DateBasis } from '@/components/DateBasisToggle';
 import { useI18n } from '@/lib/i18n';
+import { Badge } from '@/components/ds';
+
+// Combo visual language, reused across the report: violet = sold inside a combo,
+// neutral slate = à la carte. Distinct from the breakdown hues below and from
+// brand orange (default sales).
+const COMBO_COLOR = '#7c3aed';
+const ALACARTE_COLOR = '#94a3b8';
 
 // Order type / source values → existing i18n label keys (same map the customer
 // panel uses). Kept local so this screen stays self-contained.
@@ -56,6 +63,47 @@ function BreakdownBar({ data, colors, t }: { data: Record<string, number>; color
             {formatLabel(key)} {pct.toFixed(0)}%
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** À la carte vs combo split, sized by revenue, with units + ₪ per side. Explains
+ *  why an item's revenue isn't quantity × à-la-carte price: combo picks are
+ *  attributed at their real (discounted) share of the combo forfait. */
+function SalesSplitBar({
+  totalRevenue, comboRevenue, totalQty, comboQty, t,
+}: {
+  totalRevenue: number; comboRevenue: number; totalQty: number; comboQty: number;
+  t: (k: string) => string;
+}) {
+  const alaRevenue = Math.max(0, totalRevenue - comboRevenue);
+  const alaQty = Math.max(0, totalQty - comboQty);
+  const denom = totalRevenue > 0 ? totalRevenue : 1;
+  const comboPct = Math.min(100, Math.max(0, (comboRevenue / denom) * 100));
+  const alaPct = 100 - comboPct;
+  const seg = (label: string, qty: number, rev: number, color: string) => (
+    <span className="text-xs text-fg-secondary flex items-center gap-1">
+      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />
+      {label}{' '}
+      <span className="text-fg-primary font-medium">{qty} · ₪{Math.round(rev)}</span>
+    </span>
+  );
+  return (
+    <div>
+      <div className="flex rounded-full overflow-hidden h-3 bg-surface-subtle">
+        {alaPct > 0 && (
+          <div style={{ width: `${alaPct}%`, backgroundColor: ALACARTE_COLOR }}
+            title={`${t('alaCarteLabel')}: ${alaQty} · ₪${Math.round(alaRevenue)}`} />
+        )}
+        {comboPct > 0 && (
+          <div style={{ width: `${comboPct}%`, backgroundColor: COMBO_COLOR }}
+            title={`${t('combo')}: ${comboQty} · ₪${Math.round(comboRevenue)}`} />
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+        {seg(t('alaCarteLabel'), alaQty, alaRevenue, ALACARTE_COLOR)}
+        {seg(t('combo'), comboQty, comboRevenue, COMBO_COLOR)}
       </div>
     </div>
   );
@@ -149,6 +197,21 @@ export default function ItemDetailPanel({
               </div>
             </div>
 
+            {/* À la carte vs combo — shown only when combos contributed, right
+                under the KPIs where "why isn't revenue qty × price?" arises. */}
+            {detail.combo_quantity > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-fg-primary mb-2">{t('salesSplitTitle')}</h4>
+                <SalesSplitBar
+                  totalRevenue={detail.revenue}
+                  comboRevenue={detail.combo_revenue}
+                  totalQty={detail.quantity}
+                  comboQty={detail.combo_quantity}
+                  t={t}
+                />
+              </div>
+            )}
+
             {/* Daily trend */}
             <div>
               <h4 className="text-sm font-medium text-fg-primary mb-2">{t('dailyTrend')}</h4>
@@ -183,7 +246,14 @@ export default function ItemDetailPanel({
                     <tbody>
                       {detail.variants.map((v, i) => (
                         <tr key={i} className="border-b border-divider">
-                          <td className="py-1.5 text-fg-primary">{v.variant_name || t('standardVariant')}</td>
+                          <td className="py-1.5 text-fg-primary">
+                            {v.variant_name || t('standardVariant')}
+                            {v.combo_quantity > 0 && (
+                              <span className="ml-2 text-[10px]" style={{ color: COMBO_COLOR }}>
+                                {v.combo_quantity} {t('inComboSuffix')}
+                              </span>
+                            )}
+                          </td>
                           <td className="py-1.5 text-right text-fg-secondary">{v.quantity}</td>
                           <td className="py-1.5 text-right font-medium text-fg-primary">₪{v.revenue.toFixed(0)}</td>
                         </tr>
@@ -214,7 +284,12 @@ export default function ItemDetailPanel({
                       {detail.top_customers.map((c) => (
                         <tr key={c.customer_phone} className="border-b border-divider">
                           <td className="py-1.5 text-fg-primary">
-                            <div>{c.customer_name || '—'}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{c.customer_name || '—'}</span>
+                              {c.combo_quantity > 0 && (
+                                <Badge tone="combo" className="h-[18px] px-1.5">{t('combo')}</Badge>
+                              )}
+                            </div>
                             <div className="text-[11px] text-fg-secondary">{c.customer_phone}</div>
                           </td>
                           <td className="py-1.5 text-right text-fg-secondary">{c.orders}</td>

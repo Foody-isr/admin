@@ -16,6 +16,10 @@ const badgeVariants = cva(
         info: 'bg-[var(--info-50)] text-[var(--info-500)] dark:text-[#60a5fa]',
         brand:
           'text-[var(--brand-500)] bg-[color-mix(in_oklab,var(--brand-500)_14%,transparent)]',
+        // Combo indicator — violet, distinct from the panel's blue/green/amber
+        // breakdown hues and from brand orange (= default sales).
+        combo:
+          'text-[#7c3aed] dark:text-[#a78bfa] bg-[color-mix(in_oklab,#7c3aed_16%,transparent)]',
       },
     },
     defaultVariants: { tone: 'neutral' },
