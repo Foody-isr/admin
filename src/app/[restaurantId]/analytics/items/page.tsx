@@ -16,6 +16,7 @@ import DateBasisToggle, { type DateBasis } from '@/components/DateBasisToggle';
 import SeriePicker from '@/components/SeriePicker';
 import { useOrderSeries, type SerieRange } from '@/lib/series';
 import ItemDetailPanel from './ItemDetailPanel';
+import { ComboTooltip } from './ComboTooltip';
 import { PageHead, Badge } from '@/components/ds';
 import {
   DataTable,
@@ -376,9 +377,11 @@ export default function SalesByItemPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-fg-primary font-medium">{it.name}</span>
                         {it.combo_quantity > 0 && (
-                          <Badge tone="combo" className="h-[18px] px-1.5" title={t('comboSalesHint')}>
-                            {t('combo')}
-                          </Badge>
+                          <ComboTooltip quantity={it.quantity} revenue={it.revenue} comboQty={it.combo_quantity} comboRevenue={it.combo_revenue}>
+                            <Badge tone="combo" className="h-[18px] px-1.5 cursor-help">
+                              {t('combo')}
+                            </Badge>
+                          </ComboTooltip>
                         )}
                       </div>
                     </DataTableCell>

@@ -6,6 +6,7 @@ import { getAnalyticsItemDetail, ItemSalesDetail } from '@/lib/api';
 import type { DateBasis } from '@/components/DateBasisToggle';
 import { useI18n } from '@/lib/i18n';
 import { Badge } from '@/components/ds';
+import { ComboTooltip } from './ComboTooltip';
 
 // Combo visual language, reused across the report: violet = sold inside a combo,
 // neutral slate = à la carte. Distinct from the breakdown hues below and from
@@ -82,8 +83,8 @@ function SalesSplitBar({
   const denom = totalRevenue > 0 ? totalRevenue : 1;
   const comboPct = Math.min(100, Math.max(0, (comboRevenue / denom) * 100));
   const alaPct = 100 - comboPct;
-  const seg = (label: string, qty: number, rev: number, color: string) => (
-    <span className="text-xs text-fg-secondary flex items-center gap-1">
+  const seg = (label: string, qty: number, rev: number, color: string, interactive = false) => (
+    <span className={`text-xs text-fg-secondary flex items-center gap-1${interactive ? ' cursor-help' : ''}`}>
       <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />
       {label}{' '}
       <span className="text-fg-primary font-medium">{qty} · ₪{Math.round(rev)}</span>
@@ -103,7 +104,9 @@ function SalesSplitBar({
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
         {seg(t('alaCarteLabel'), alaQty, alaRevenue, ALACARTE_COLOR)}
-        {seg(t('combo'), comboQty, comboRevenue, COMBO_COLOR)}
+        <ComboTooltip quantity={totalQty} revenue={totalRevenue} comboQty={comboQty} comboRevenue={comboRevenue}>
+          {seg(t('combo'), comboQty, comboRevenue, COMBO_COLOR, true)}
+        </ComboTooltip>
       </div>
     </div>
   );
@@ -249,9 +252,11 @@ export default function ItemDetailPanel({
                           <td className="py-1.5 text-fg-primary">
                             {v.variant_name || t('standardVariant')}
                             {v.combo_quantity > 0 && (
-                              <span className="ml-2 text-[10px]" style={{ color: COMBO_COLOR }}>
-                                {v.combo_quantity} {t('inComboSuffix')}
-                              </span>
+                              <ComboTooltip quantity={v.quantity} revenue={v.revenue} comboQty={v.combo_quantity} comboRevenue={v.combo_revenue}>
+                                <span className="ml-2 text-[10px] cursor-help underline decoration-dotted underline-offset-2" style={{ color: COMBO_COLOR }}>
+                                  {v.combo_quantity} {t('inComboSuffix')}
+                                </span>
+                              </ComboTooltip>
                             )}
                           </td>
                           <td className="py-1.5 text-right text-fg-secondary">{v.quantity}</td>
@@ -287,7 +292,9 @@ export default function ItemDetailPanel({
                             <div className="flex items-center gap-1.5">
                               <span>{c.customer_name || '—'}</span>
                               {c.combo_quantity > 0 && (
-                                <Badge tone="combo" className="h-[18px] px-1.5">{t('combo')}</Badge>
+                                <ComboTooltip quantity={c.quantity} revenue={c.revenue} comboQty={c.combo_quantity} comboRevenue={c.combo_revenue}>
+                                  <Badge tone="combo" className="h-[18px] px-1.5 cursor-help">{t('combo')}</Badge>
+                                </ComboTooltip>
                               )}
                             </div>
                             <div className="text-[11px] text-fg-secondary">{c.customer_phone}</div>
