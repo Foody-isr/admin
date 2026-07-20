@@ -7485,3 +7485,77 @@ export async function geocodeAddress(
     return { found: false };
   }
 }
+
+// ---- Catering ----
+export type CateringPricingModel = 'per_unit' | 'per_person' | 'custom_quote';
+
+export interface CateringService {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  slug: string;
+  description: string;
+  pricing_model: CateringPricingModel;
+  is_active: boolean;
+  display_order: number;
+}
+
+export interface CateringServiceInput {
+  name: string;
+  description?: string;
+  pricing_model: CateringPricingModel;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+export interface CateringBranch {
+  location: {
+    id: number;
+    name: string;
+    address: string;
+    is_active: boolean;
+    catering_type: 'standard' | 'labo';
+    latitude?: number | null;
+    longitude?: number | null;
+  };
+  service_ids: number[];
+}
+
+export interface CateringBranchInput {
+  catering_type: 'standard' | 'labo';
+  latitude?: number | null;
+  longitude?: number | null;
+  service_ids: number[];
+}
+
+/** List all catering services for a restaurant. */
+export async function listCateringServices(restaurantId: number): Promise<CateringService[]> {
+  const res = await apiFetch<{ services: CateringService[] }>('/api/v1/catering/services', restaurantId);
+  return res.services ?? [];
+}
+
+/** Create a catering service. */
+export async function createCateringService(restaurantId: number, body: CateringServiceInput): Promise<CateringService> {
+  return apiFetch<CateringService>('/api/v1/catering/services', restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a catering service. */
+export async function updateCateringService(restaurantId: number, id: number, body: CateringServiceInput): Promise<CateringService> {
+  return apiFetch<CateringService>(`/api/v1/catering/services/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive (soft-delete) a catering service. */
+export async function archiveCateringService(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/services/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** List branches with their catering capabilities. */
+export async function listCateringBranches(restaurantId: number): Promise<CateringBranch[]> {
+  const res = await apiFetch<{ branches: CateringBranch[] }>('/api/v1/catering/branches', restaurantId);
+  return res.branches ?? [];
+}
+
+/** Set a branch's catering type, coordinates, and service capabilities. */
+export async function updateCateringBranch(restaurantId: number, locationId: number, body: CateringBranchInput): Promise<CateringBranch> {
+  return apiFetch<CateringBranch>(`/api/v1/catering/branches/${locationId}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
