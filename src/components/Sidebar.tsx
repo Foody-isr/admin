@@ -45,6 +45,7 @@ import {
   MapPin,
   Truck,
   Fingerprint,
+  PartyPopper,
   type LucideIcon,
 } from 'lucide-react';
 import { useSidebar } from '@/lib/sidebar-context';
@@ -209,6 +210,16 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [
         { href: `${base}/staff`, labelKey: 'staffMembers' },
         { href: `${base}/roles`, labelKey: 'rolesPermissions' },
+      ],
+    },
+    {
+      href: `${base}/catering/services`,
+      labelKey: 'nav_catering',
+      icon: PartyPopper,
+      perm: ['catering.view', 'catering.manage'],
+      subItems: [
+        { href: `${base}/catering/services`, labelKey: 'nav_catering_services', perm: ['catering.view', 'catering.manage'] },
+        { href: `${base}/catering/branches`, labelKey: 'nav_catering_branches', perm: ['catering.manage'] },
       ],
     },
     {
