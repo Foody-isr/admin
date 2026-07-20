@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { PencilIcon, TrashIcon, PlusIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
@@ -25,6 +25,7 @@ const PRICING_KEYS: Record<CateringPricingModel, string> = {
 export default function CateringServicesPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
+  const router = useRouter();
   const { t } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('catering.manage');
@@ -85,7 +86,12 @@ export default function CateringServicesPage() {
           </DataTableHead>
           <DataTableBody>
             {services.map((service, index) => (
-              <DataTableRow key={service.id} index={index}>
+              <DataTableRow
+                key={service.id}
+                index={index}
+                onClick={() => router.push(`/${rid}/catering/services/${service.id}`)}
+                className="cursor-pointer"
+              >
                 <DataTableCell mobilePrimary className="font-medium text-fg-primary">
                   {service.name}
                 </DataTableCell>
@@ -100,14 +106,14 @@ export default function CateringServicesPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         aria-label={t('catering_edit_service')}
-                        onClick={() => setEditModal({ open: true, editing: service })}
+                        onClick={(e) => { e.stopPropagation(); setEditModal({ open: true, editing: service }); }}
                         className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         aria-label={t('catering_archive')}
-                        onClick={() => handleArchive(service)}
+                        onClick={(e) => { e.stopPropagation(); handleArchive(service); }}
                         className="p-1.5 rounded hover:bg-red-500/10 text-fg-secondary hover:text-red-500"
                       >
                         <TrashIcon className="w-4 h-4" />
