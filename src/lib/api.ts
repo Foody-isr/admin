@@ -7559,3 +7559,98 @@ export async function listCateringBranches(restaurantId: number): Promise<Cateri
 export async function updateCateringBranch(restaurantId: number, locationId: number, body: CateringBranchInput): Promise<CateringBranch> {
   return apiFetch<CateringBranch>(`/api/v1/catering/branches/${locationId}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
 }
+
+// ---- Catering catalog (Phase 2) ----
+export interface CateringCatalogItem {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  description: string;
+  image_url: string;
+  base_price: number;
+  min_quantity: number;
+  min_guests: number;
+  event_type: string;
+  lead_time_days: number;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringCatalogItemInput {
+  name: string;
+  description?: string;
+  image_url?: string;
+  base_price: number;
+  min_quantity?: number;
+  min_guests?: number;
+  event_type?: string;
+  lead_time_days?: number;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export type CateringOptionPriceMode = 'fixed' | 'per_person';
+
+export interface CateringOption {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  description: string;
+  price: number;
+  price_mode: CateringOptionPriceMode;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface CateringOptionInput {
+  name: string;
+  description?: string;
+  price: number;
+  price_mode: CateringOptionPriceMode;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+/** List catalog items for a catering service. */
+export async function listCateringItems(restaurantId: number, serviceId: number): Promise<CateringCatalogItem[]> {
+  const res = await apiFetch<{ items: CateringCatalogItem[] }>(`/api/v1/catering/services/${serviceId}/items`, restaurantId);
+  return res.items ?? [];
+}
+
+/** Create a catalog item under a service. */
+export async function createCateringItem(restaurantId: number, serviceId: number, body: CateringCatalogItemInput): Promise<CateringCatalogItem> {
+  return apiFetch<CateringCatalogItem>(`/api/v1/catering/services/${serviceId}/items`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a catalog item. */
+export async function updateCateringItem(restaurantId: number, id: number, body: CateringCatalogItemInput): Promise<CateringCatalogItem> {
+  return apiFetch<CateringCatalogItem>(`/api/v1/catering/items/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive (soft-delete) a catalog item. */
+export async function archiveCateringItem(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/items/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** List add-on options for a catering service. */
+export async function listCateringOptions(restaurantId: number, serviceId: number): Promise<CateringOption[]> {
+  const res = await apiFetch<{ options: CateringOption[] }>(`/api/v1/catering/services/${serviceId}/options`, restaurantId);
+  return res.options ?? [];
+}
+
+/** Create an option under a service. */
+export async function createCateringOption(restaurantId: number, serviceId: number, body: CateringOptionInput): Promise<CateringOption> {
+  return apiFetch<CateringOption>(`/api/v1/catering/services/${serviceId}/options`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update an option. */
+export async function updateCateringOption(restaurantId: number, id: number, body: CateringOptionInput): Promise<CateringOption> {
+  return apiFetch<CateringOption>(`/api/v1/catering/options/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Archive (soft-delete) an option. */
+export async function archiveCateringOption(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/options/${id}`, restaurantId, { method: 'DELETE' });
+}
