@@ -173,7 +173,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit }: {
                   {item.name}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={priceLabel}>
-                  {item.base_price}
+                  {`₪${item.base_price.toFixed(2)}`}
                 </DataTableCell>
                 {pricingModel !== 'custom_quote' && (
                   <DataTableCell align="right" mobileLabel={minLabel}>
@@ -433,7 +433,7 @@ function OptionsTab({ restaurantId, serviceId, canEdit }: {
                   {option.name}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_option_price')}>
-                  {option.price}
+                  {`₪${option.price.toFixed(2)}`}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_option_mode')}>
                   {option.price_mode === 'fixed' ? t('catering_option_mode_fixed') : t('catering_option_mode_per_person')}
