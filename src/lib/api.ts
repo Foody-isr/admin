@@ -2946,6 +2946,20 @@ export async function createModifierInSet(restaurantId: number, setId: number, i
   return data.modifier;
 }
 
+/**
+ * Persist edits to an existing modifier that lives inside a modifier set
+ * (name, kitchen name, price, flags, stock link, translations). The set-scoped
+ * fields map onto the shared `PUT /menu/modifiers/:id` endpoint, which already
+ * scopes by restaurant and supports set-owned modifiers.
+ */
+export async function updateModifierInSet(restaurantId: number, id: number, input: ModifierInSetInput): Promise<MenuItemModifier> {
+  const data = await apiFetch<{ modifier: MenuItemModifier }>(
+    `/api/v1/menu/modifiers/${id}?restaurant_id=${restaurantId}`, restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+  return data.modifier;
+}
+
 export async function migrateLegacyModifiers(restaurantId: number): Promise<{ sets_created: number }> {
   return apiFetch<{ sets_created: number }>(
     `/api/v1/menu/modifier-sets/migrate-legacy?restaurant_id=${restaurantId}`, restaurantId,
