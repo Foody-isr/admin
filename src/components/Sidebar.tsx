@@ -174,7 +174,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       icon: Globe,
       perm: ['settings.edit'],
       desktopOnly: true,
-      subItems: [{ href: `${base}/website`, labelKey: 'websiteBuilder' }],
+      subItems: [
+        { href: `${base}/website`, labelKey: 'websiteBuilder' },
+        { href: `${base}/reels`, labelKey: 'reels' },
+      ],
     },
     {
       // Everything aimed at the customer lives here: who they are, and what we

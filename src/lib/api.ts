@@ -7130,6 +7130,127 @@ export async function disconnectWhatsApp(restaurantId: number): Promise<void> {
   );
 }
 
+// ─── Social reels (Instagram/TikTok Stories page) ────────────────────────────
+
+export type SocialProvider = 'instagram' | 'tiktok';
+
+export interface SocialConnection {
+  connected: boolean;
+  server_configured?: boolean;
+  provider?: string;
+  handle?: string;
+  enabled?: boolean;
+  last_synced_at?: string | null;
+  last_sync_error?: string;
+  token_expires_at?: string | null;
+  /** Present on the connect response: how many reels the initial sync pulled. */
+  synced?: number;
+  sync_error?: string;
+}
+
+export interface Reel {
+  id: number;
+  restaurant_id: number;
+  provider: string;
+  external_id: string;
+  media_url: string;
+  embed_url: string;
+  thumbnail_url: string;
+  caption: string;
+  permalink: string;
+  sort_order: number;
+  is_visible: boolean;
+  published_at?: string | null;
+}
+
+/** Returns the connection status for a social provider (Instagram/TikTok). */
+export async function getSocialConnection(
+  restaurantId: number,
+  provider: SocialProvider,
+): Promise<SocialConnection> {
+  return apiFetch<SocialConnection>(
+    `/api/v1/restaurants/${restaurantId}/social/${provider}`,
+    restaurantId,
+  );
+}
+
+/** Exchanges an OAuth code (from Facebook Login for Business) for a stored connection. */
+export async function connectSocial(
+  restaurantId: number,
+  provider: SocialProvider,
+  input: { code: string; redirect_uri?: string },
+): Promise<SocialConnection> {
+  return apiFetch<SocialConnection>(
+    `/api/v1/restaurants/${restaurantId}/social/${provider}/connect`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+/** Disconnects a social provider and removes its synced reels. */
+export async function disconnectSocial(
+  restaurantId: number,
+  provider: SocialProvider,
+): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/social/${provider}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+}
+
+/** Triggers an immediate reel sync from the connected provider. Returns the count. */
+export async function syncSocial(
+  restaurantId: number,
+  provider: SocialProvider,
+): Promise<{ synced: number }> {
+  return apiFetch<{ synced: number }>(
+    `/api/v1/restaurants/${restaurantId}/social/${provider}/sync`,
+    restaurantId,
+    { method: 'POST' },
+  );
+}
+
+/** Lists all reels (visible or hidden) for the reels manager. */
+export async function listReels(restaurantId: number): Promise<Reel[]> {
+  const res = await apiFetch<{ reels: Reel[] }>(
+    `/api/v1/restaurants/${restaurantId}/reels`,
+    restaurantId,
+  );
+  return res.reels ?? [];
+}
+
+/** Toggles visibility / sort order for a single reel. */
+export async function updateReel(
+  restaurantId: number,
+  reelId: number,
+  input: { is_visible?: boolean; sort_order?: number },
+): Promise<Reel> {
+  return apiFetch<Reel>(
+    `/api/v1/restaurants/${restaurantId}/reels/${reelId}`,
+    restaurantId,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+/** Persists a new reel ordering. */
+export async function reorderReels(restaurantId: number, ids: number[]): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/reels-reorder`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify({ ids }) },
+  );
+}
+
+/** Removes a single reel. */
+export async function deleteReel(restaurantId: number, reelId: number): Promise<void> {
+  return apiFetch<void>(
+    `/api/v1/restaurants/${restaurantId}/reels/${reelId}`,
+    restaurantId,
+    { method: 'DELETE' },
+  );
+}
+
 // ─── Menu Item AI Image Generator ───────────────────────────────────────────
 // Per-restaurant prompt templates + on-demand text-to-image and image-to-image
 // generation against gpt-image-1. Templates can include {{item_name}},

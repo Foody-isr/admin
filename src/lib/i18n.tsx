@@ -2637,6 +2637,7 @@ const translations: Record<Locale, Record<string, string>> = {
     topCustomers: 'Top Customers',
     general: 'General',
     websiteBuilder: 'Website',
+    reels: 'Stories',
 
     // ── Item Types ──
     itemType: 'Item type',
@@ -6040,6 +6041,7 @@ const translations: Record<Locale, Record<string, string>> = {
     topCustomers: 'לקוחות מובילים',
     general: 'כללי',
     websiteBuilder: 'אתר',
+    reels: 'סטוריז',
 
     // ── Item Types ──
     itemType: 'סוג פריט',
@@ -9441,6 +9443,7 @@ const translations: Record<Locale, Record<string, string>> = {
     topCustomers: 'Meilleurs clients',
     general: 'Général',
     websiteBuilder: 'Site web',
+    reels: 'Stories',
 
     // ── Item Types ──
     itemType: 'Type d\'article',
