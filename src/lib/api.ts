@@ -7176,11 +7176,11 @@ export async function getSocialConnection(
   );
 }
 
-/** Exchanges an OAuth code (from Facebook Login for Business) for a stored connection. */
+/** Stores a social connection from an FB.login user access token (or an OAuth code). */
 export async function connectSocial(
   restaurantId: number,
   provider: SocialProvider,
-  input: { code: string; redirect_uri?: string },
+  input: { access_token?: string; code?: string; redirect_uri?: string },
 ): Promise<SocialConnection> {
   return apiFetch<SocialConnection>(
     `/api/v1/restaurants/${restaurantId}/social/${provider}/connect`,
