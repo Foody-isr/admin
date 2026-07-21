@@ -29,9 +29,12 @@ import { Badge, Button, PageHead, Section } from '@/components/ds';
 
 const FB_SDK_VERSION = process.env.NEXT_PUBLIC_META_GRAPH_VERSION || 'v21.0';
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || '';
-// Facebook Login for Business configuration that requests the Instagram reels
-// scopes (instagram_business_basic). Create it in the same Meta app as WhatsApp.
-const IG_CONFIG_ID = process.env.NEXT_PUBLIC_META_IG_CONFIG_ID || '';
+// Facebook Login for Business configuration (General login variant) that requests
+// the Instagram reels scopes. Pinned to the correct config id in code rather than
+// read from NEXT_PUBLIC_META_IG_CONFIG_ID, because a stale build-time env value in
+// the hosting provider was shipping the wrong (FBE "Associer à Instagram") config.
+// It is a public client-side id, not a secret. Same config works for dev and prod.
+const IG_CONFIG_ID = '992572743780171';
 
 interface FacebookSDK {
   init: (options: Record<string, unknown>) => void;
