@@ -782,6 +782,8 @@ export interface WebsiteConfig {
   landing_enabled: boolean;
   /** Whether the customer Stories/Reels page + bottom-nav tab is shown. */
   stories_enabled?: boolean;
+  /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First = default landing tab. */
+  nav_order?: string;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
   // Draft / publish workflow (added in v2)
