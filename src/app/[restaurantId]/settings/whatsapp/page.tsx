@@ -29,6 +29,7 @@ const SOLUTION_ID = process.env.NEXT_PUBLIC_TWILIO_SOLUTION_ID || '';
 interface FacebookSDK {
   init: (options: Record<string, unknown>) => void;
   login: (callback: (response: unknown) => void, options: Record<string, unknown>) => void;
+  getLoginStatus: (callback: (response: unknown) => void, roundtrip?: boolean) => void;
 }
 
 declare global {
