@@ -7496,6 +7496,7 @@ export interface CateringService {
   slug: string;
   description: string;
   pricing_model: CateringPricingModel;
+  quote_mode: 'auto' | 'review';
   is_active: boolean;
   display_order: number;
 }
@@ -7504,6 +7505,7 @@ export interface CateringServiceInput {
   name: string;
   description?: string;
   pricing_model: CateringPricingModel;
+  quote_mode?: 'auto' | 'review';
   is_active?: boolean;
   display_order?: number;
 }
@@ -7558,6 +7560,50 @@ export async function listCateringBranches(restaurantId: number): Promise<Cateri
 /** Set a branch's catering type, coordinates, and service capabilities. */
 export async function updateCateringBranch(restaurantId: number, locationId: number, body: CateringBranchInput): Promise<CateringBranch> {
   return apiFetch<CateringBranch>(`/api/v1/catering/branches/${locationId}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+export type CateringQuoteStatus = 'auto_approved' | 'pending_human_review' | 'approved' | 'rejected';
+
+export interface CateringQuote {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  public_token: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  guests: number;
+  event_date: string | null;
+  event_type: string;
+  config: unknown;
+  total: number;
+  status: CateringQuoteStatus;
+  review_note: string;
+  created_at: string;
+}
+
+export interface CateringQuoteReviewInput { total?: number; note?: string }
+
+/** List catering quotes, optionally filtered by status. */
+export async function listCateringQuotes(restaurantId: number, status?: CateringQuoteStatus): Promise<CateringQuote[]> {
+  const qs = status ? `?status=${status}` : '';
+  const res = await apiFetch<{ quotes: CateringQuote[] }>(`/api/v1/catering/quotes${qs}`, restaurantId);
+  return res.quotes ?? [];
+}
+
+/** Get one catering quote. */
+export async function getCateringQuote(restaurantId: number, id: number): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}`, restaurantId);
+}
+
+/** Approve (optionally adjust total) a catering quote. */
+export async function approveCateringQuote(restaurantId: number, id: number, body: CateringQuoteReviewInput): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/approve`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Reject a catering quote. */
+export async function rejectCateringQuote(restaurantId: number, id: number, body: CateringQuoteReviewInput): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/reject`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
 }
 
 // ---- Catering catalog (Phase 2) ----

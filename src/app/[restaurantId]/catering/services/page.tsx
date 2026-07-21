@@ -149,6 +149,7 @@ function ServiceEditModal({ restaurantId, editing, onClose, onSaved }: {
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [pricingModel, setPricingModel] = useState<CateringPricingModel>(editing?.pricing_model ?? 'per_unit');
+  const [quoteMode, setQuoteMode] = useState<'auto' | 'review'>(editing?.quote_mode ?? 'auto');
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -156,7 +157,7 @@ function ServiceEditModal({ restaurantId, editing, onClose, onSaved }: {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const body = { name: name.trim(), description, pricing_model: pricingModel, is_active: isActive };
+      const body = { name: name.trim(), description, pricing_model: pricingModel, quote_mode: quoteMode, is_active: isActive };
       if (editing) {
         await updateCateringService(restaurantId, editing.id, body);
       } else {
@@ -201,6 +202,18 @@ function ServiceEditModal({ restaurantId, editing, onClose, onSaved }: {
             <option value="per_unit">{t('catering_pricing_per_unit')}</option>
             <option value="per_person">{t('catering_pricing_per_person')}</option>
             <option value="custom_quote">{t('catering_pricing_custom')}</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_service_quote_mode')}</label>
+          <select
+            className="input"
+            value={quoteMode}
+            onChange={(e) => setQuoteMode(e.target.value as 'auto' | 'review')}
+          >
+            <option value="auto">{t('catering_quote_mode_auto')}</option>
+            <option value="review">{t('catering_quote_mode_review')}</option>
           </select>
         </div>
 

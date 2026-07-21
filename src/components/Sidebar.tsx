@@ -220,6 +220,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       subItems: [
         { href: `${base}/catering/services`, labelKey: 'nav_catering_services', perm: ['catering.view', 'catering.manage'] },
         { href: `${base}/catering/branches`, labelKey: 'nav_catering_branches', perm: ['catering.manage'] },
+        { href: `${base}/catering/quotes`, labelKey: 'nav_catering_quotes', perm: ['catering.view', 'catering.manage'] },
       ],
     },
     {
