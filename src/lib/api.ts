@@ -780,6 +780,8 @@ export interface WebsiteConfig {
   /** Custom pages beyond home + menu. Each renders at /r/<slug>/<page.slug> and shows in the nav. */
   pages?: WebsitePageMeta[] | null;
   landing_enabled: boolean;
+  /** Whether the customer Stories/Reels page + bottom-nav tab is shown. */
+  stories_enabled?: boolean;
   checkout_config?: CheckoutConfig | null;
   order_page_info?: OrderPageInfo | null;
   // Draft / publish workflow (added in v2)

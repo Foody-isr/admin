@@ -18,6 +18,8 @@ import {
   updateReel,
   reorderReels,
   deleteReel,
+  getWebsiteConfig,
+  updateWebsiteConfig,
   SocialConnection,
   Reel,
 } from '@/lib/api';
@@ -63,6 +65,7 @@ export default function ReelsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [storiesEnabled, setStoriesEnabled] = useState(false);
 
   // Load the Facebook SDK once (shared pattern with the WhatsApp page).
   useEffect(() => {
@@ -81,14 +84,25 @@ export default function ReelsPage() {
   const refresh = useCallback(() => {
     if (!Number.isFinite(rid)) return;
     setLoading(true);
-    Promise.all([getSocialConnection(rid, 'instagram'), listReels(rid)])
-      .then(([c, r]) => {
+    Promise.all([getSocialConnection(rid, 'instagram'), listReels(rid), getWebsiteConfig(rid)])
+      .then(([c, r, cfg]) => {
         setConn(c);
         setReels(r);
+        setStoriesEnabled(!!cfg.stories_enabled);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }, [rid]);
+
+  const toggleStories = async (next: boolean) => {
+    setStoriesEnabled(next); // optimistic
+    try {
+      await updateWebsiteConfig(rid, { stories_enabled: next });
+    } catch (e: unknown) {
+      setStoriesEnabled(!next); // rollback
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   useEffect(() => {
     refresh();
@@ -200,6 +214,36 @@ export default function ReelsPage() {
         title="Stories / Reels"
         desc="Connect Instagram to auto-sync your reels onto your customer Stories page."
       />
+
+      <Section title="Stories page">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium">Show Stories on my website</div>
+            <div className="text-fs-sm opacity-70">
+              Adds a “Stories” tab to your customer site so guests can watch your reels. Turn it on
+              once you&apos;ve connected Instagram and synced a few reels.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={storiesEnabled}
+            disabled={!canEdit}
+            onClick={() => toggleStories(!storiesEnabled)}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              !canEdit ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            style={{ background: storiesEnabled ? 'var(--brand-500)' : 'var(--line)' }}
+            aria-label="Show Stories on my website"
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                storiesEnabled ? 'left-[22px]' : 'left-0.5'
+              }`}
+            />
+          </button>
+        </div>
+      </Section>
 
       <Section title="Instagram connection">
         {loading ? (
