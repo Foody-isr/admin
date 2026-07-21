@@ -39,6 +39,7 @@ const IG_CONFIG_ID = '992572743780171';
 interface FacebookSDK {
   init: (options: Record<string, unknown>) => void;
   login: (callback: (response: unknown) => void, options: Record<string, unknown>) => void;
+  getLoginStatus: (callback: (response: unknown) => void, roundtrip?: boolean) => void;
 }
 
 declare global {
@@ -124,7 +125,19 @@ export default function ReelsPage() {
     // of type asyncfunction, not function"), so the callback must be sync and
     // kick off the async work itself.
     const handleAuthResponse = async (response: unknown) => {
-      const accessToken = extractAccessToken(response);
+      let accessToken = extractAccessToken(response);
+      if (!accessToken && window.FB?.getLoginStatus) {
+        // Facebook Login for Business establishes the session out-of-band: the
+        // login popup can fire this callback with an empty authResponse while the
+        // "Associer à Instagram" association completes in a second popup. Once the
+        // account is associated the session exists, so recover the token from the
+        // current login status instead of failing.
+        accessToken = await new Promise<string | null>((resolve) => {
+          window.FB!.getLoginStatus((statusResp: unknown) => {
+            resolve(extractAccessToken(statusResp));
+          }, true);
+        });
+      }
       if (!accessToken) {
         setError(t('reelsCancelled'));
         return;
