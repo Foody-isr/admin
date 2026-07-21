@@ -52,6 +52,12 @@ interface QuoteConfig {
   options?: QuoteConfigOption[];
 }
 
+function formatEventDate(eventDate: string | undefined | null): string {
+  if (!eventDate) return '-';
+  const d = new Date(eventDate);
+  return isNaN(d.getTime()) ? eventDate : d.toLocaleDateString();
+}
+
 function parseConfig(config: unknown): QuoteConfig {
   if (!config || typeof config !== 'object') return {};
   const c = config as Record<string, unknown>;
@@ -123,7 +129,7 @@ export default function CateringQuotesPage() {
                   {quote.guests}
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('catering_quote_event_date')} className="text-fg-secondary">
-                  {quote.event_date ?? '—'}
+                  {formatEventDate(quote.event_date)}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_quote_total')}>
                   {`₪${quote.total.toFixed(2)}`}
@@ -198,7 +204,7 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
           </div>
           <div>
             <div className="text-fg-secondary">{t('catering_quote_event_date')}</div>
-            <div className="text-fg-primary font-medium">{config.event_date ?? quote.event_date ?? '—'}</div>
+            <div className="text-fg-primary font-medium">{formatEventDate(config.event_date ?? quote.event_date)}</div>
           </div>
         </div>
 
