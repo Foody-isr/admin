@@ -45,11 +45,11 @@ declare global {
   }
 }
 
-/** Narrows the FB.login callback payload to the authorization code, if present. */
-function extractCode(response: unknown): string | null {
+/** Pulls the short-lived user access token from the FB.login callback payload. */
+function extractAccessToken(response: unknown): string | null {
   if (response && typeof response === 'object') {
-    const auth = (response as { authResponse?: { code?: string } }).authResponse;
-    if (auth?.code) return auth.code;
+    const auth = (response as { authResponse?: { accessToken?: string } }).authResponse;
+    if (auth?.accessToken) return auth.accessToken;
   }
   return null;
 }
@@ -121,14 +121,14 @@ export default function ReelsPage() {
     // of type asyncfunction, not function"), so the callback must be sync and
     // kick off the async work itself.
     const handleAuthResponse = async (response: unknown) => {
-      const code = extractCode(response);
-      if (!code) {
+      const accessToken = extractAccessToken(response);
+      if (!accessToken) {
         setError(t('reelsCancelled'));
         return;
       }
       setBusy(true);
       try {
-        const result = await connectSocial(rid, 'instagram', { code });
+        const result = await connectSocial(rid, 'instagram', { access_token: accessToken });
         if (result.sync_error) {
           setNotice(
             t('reelsConnectedSyncErr')
@@ -150,11 +150,14 @@ export default function ReelsPage() {
       }
     };
 
+    // Use the login configuration's default response (a user access token) — the
+    // config is a "user access token" type, so we must NOT override to a code
+    // (that forces the FBE code-redirect flow, which errors on completion).
     window.FB.login(
       (response: unknown) => {
         void handleAuthResponse(response);
       },
-      { config_id: IG_CONFIG_ID, response_type: 'code', override_default_response_type: true },
+      { config_id: IG_CONFIG_ID },
     );
   };
 
