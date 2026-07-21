@@ -3335,6 +3335,13 @@ const translations: Record<Locale, Record<string, string>> = {
     batchFulfillmentRequirePrepayment: 'Require payment at checkout',
     batchFulfillmentRequirePrepaymentSubtitle:
       'Customers must pay immediately when placing a pre-order.',
+    batchPreviewTitle: 'Upcoming orders preview',
+    batchPreviewHint:
+      'The dates your customers will see. Check that the delivery day matches what you expect.',
+    batchPreviewOrdering: 'Ordering',
+    batchPreviewDelivery: 'Pickup / delivery',
+    batchPreviewCurrent: 'Next',
+    batchPreviewNoDay: 'No day',
     // ── Delivery zones ──
     deliveryZones: 'Delivery zones',
     deliveryZonesDesc: 'Define where you deliver. Outside these zones, customers cannot place a delivery order.',
@@ -6729,6 +6736,13 @@ const translations: Record<Locale, Record<string, string>> = {
     batchFulfillmentRequirePrepayment: 'נדרש תשלום בעת ההזמנה',
     batchFulfillmentRequirePrepaymentSubtitle:
       'הלקוחות חייבים לשלם מיידית בעת ביצוע הזמנה מרוכזת.',
+    batchPreviewTitle: 'תצוגה מקדימה של ההזמנות הקרובות',
+    batchPreviewHint:
+      'התאריכים שהלקוחות שלך יראו. ודא שיום המסירה תואם למה שאתה מצפה.',
+    batchPreviewOrdering: 'הזמנות',
+    batchPreviewDelivery: 'איסוף / משלוח',
+    batchPreviewCurrent: 'הבא',
+    batchPreviewNoDay: 'אין יום',
     // ── Delivery zones ──
     deliveryZones: 'אזורי משלוח',
     deliveryZonesDesc: 'הגדירו לאן אתם מבצעים משלוחים. מחוץ לאזורים אלו, לקוחות לא יוכלו להזמין משלוח.',
@@ -10124,6 +10138,13 @@ const translations: Record<Locale, Record<string, string>> = {
     batchFulfillmentRequirePrepayment: 'Paiement requis à la commande',
     batchFulfillmentRequirePrepaymentSubtitle:
       'Les clients doivent payer immédiatement lors d’une pré-commande.',
+    batchPreviewTitle: 'Aperçu des prochaines commandes',
+    batchPreviewHint:
+      'Les dates que verront vos clients. Vérifiez que le jour de livraison correspond à ce que vous attendez.',
+    batchPreviewOrdering: 'Commandes',
+    batchPreviewDelivery: 'Retrait / livraison',
+    batchPreviewCurrent: 'Prochaine',
+    batchPreviewNoDay: 'Aucun jour',
     // ── Delivery zones ──
     deliveryZones: 'Zones de livraison',
     deliveryZonesDesc: 'Definissez ou vous livrez. Hors de ces zones, les clients ne peuvent pas commander en livraison.',

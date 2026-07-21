@@ -2235,6 +2235,32 @@ export async function getBatchFulfillmentConfig(
   );
 }
 
+/** Draft batch config the operator is editing, sent to the preview endpoint. */
+export interface BatchPreviewInput {
+  batch_order_open_day: number;
+  batch_order_open_time: string;
+  batch_cutoff_day: number;
+  batch_cutoff_time: string;
+  batch_fulfillment_days: BatchFulfillmentDay[];
+}
+
+/**
+ * Computes the upcoming batch cycles for an unsaved configuration. Reuses the
+ * server's single date resolver so the admin editor can reflect the exact
+ * opening / cutoff / delivery dates a customer would see — catching a cutoff
+ * that silently pushes delivery a week out before it is saved.
+ */
+export async function previewBatchFulfillment(
+  restaurantId: number,
+  input: BatchPreviewInput
+): Promise<{ upcoming_cycles: BatchCycleSummary[] }> {
+  return apiFetch<{ upcoming_cycles: BatchCycleSummary[] }>(
+    `/api/v1/restaurants/${restaurantId}/batch-preview`,
+    restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
 // ─── Menu translations backfill ──────────────────────────────────────────────
 
 /**
