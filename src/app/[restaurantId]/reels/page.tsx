@@ -4,7 +4,7 @@
  * Stories / Reels — connect the restaurant's Instagram (Business/Creator) account
  * via Facebook Login for Business and manage which synced reels appear on the
  * customer Stories page. Reuses the same Meta app + FB JS SDK as WhatsApp
- * Embedded Signup. Copy is English-only for now (newer admin section).
+ * Embedded Signup.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -24,6 +24,7 @@ import {
   Reel,
 } from '@/lib/api';
 import { usePermissions } from '@/lib/permissions-context';
+import { useI18n } from '@/lib/i18n';
 import { Badge, Button, PageHead, Section } from '@/components/ds';
 
 const FB_SDK_VERSION = process.env.NEXT_PUBLIC_META_GRAPH_VERSION || 'v21.0';
@@ -57,6 +58,7 @@ export default function ReelsPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
   const { hasAnyPermission } = usePermissions();
+  const { t } = useI18n();
   const canEdit = hasAnyPermission('settings.edit');
 
   const [conn, setConn] = useState<SocialConnection | null>(null);
@@ -112,23 +114,31 @@ export default function ReelsPage() {
     setError(null);
     setNotice(null);
     if (!window.FB) {
-      setError('Facebook SDK not loaded yet. Please retry in a moment.');
+      setError(t('reelsFbNotLoaded'));
       return;
     }
     window.FB.login(
       async (response: unknown) => {
         const code = extractCode(response);
         if (!code) {
-          setError('Instagram authorization was cancelled or returned no code.');
+          setError(t('reelsCancelled'));
           return;
         }
         setBusy(true);
         try {
           const result = await connectSocial(rid, 'instagram', { code });
           if (result.sync_error) {
-            setNotice(`Connected as @${result.handle}. First sync failed — try "Sync now". (${result.sync_error})`);
+            setNotice(
+              t('reelsConnectedSyncErr')
+                .replace('{handle}', result.handle || '')
+                .replace('{err}', result.sync_error),
+            );
           } else {
-            setNotice(`Connected as @${result.handle}. Synced ${result.synced ?? 0} reels.`);
+            setNotice(
+              t('reelsConnectedSynced')
+                .replace('{handle}', result.handle || '')
+                .replace('{n}', String(result.synced ?? 0)),
+            );
           }
           refresh();
         } catch (e: unknown) {
@@ -147,7 +157,7 @@ export default function ReelsPage() {
     setNotice(null);
     try {
       const { synced } = await syncSocial(rid, 'instagram');
-      setNotice(`Synced ${synced} reels.`);
+      setNotice(t('reelsSynced').replace('{n}', String(synced)));
       refresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -157,7 +167,7 @@ export default function ReelsPage() {
   };
 
   const handleDisconnect = async () => {
-    if (!window.confirm('Disconnect Instagram? This removes the connection and its synced reels.')) return;
+    if (!window.confirm(t('reelsConfirmDisconnect'))) return;
     setBusy(true);
     try {
       await disconnectSocial(rid, 'instagram');
@@ -196,7 +206,7 @@ export default function ReelsPage() {
   };
 
   const remove = async (reel: Reel) => {
-    if (!window.confirm('Remove this reel from the Stories page?')) return;
+    if (!window.confirm(t('reelsConfirmRemove'))) return;
     setReels((prev) => prev.filter((r) => r.id !== reel.id));
     try {
       await deleteReel(rid, reel.id);
@@ -210,19 +220,13 @@ export default function ReelsPage() {
 
   return (
     <div>
-      <PageHead
-        title="Stories / Reels"
-        desc="Connect Instagram to auto-sync your reels onto your customer Stories page."
-      />
+      <PageHead title={t('reels')} desc={t('reelsSubtitle')} />
 
-      <Section title="Stories page">
+      <Section title={t('reelsSectionPage')}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <div className="font-medium">Show Stories on my website</div>
-            <div className="text-fs-sm opacity-70">
-              Adds a “Stories” tab to your customer site so guests can watch your reels. Turn it on
-              once you&apos;ve connected Instagram and synced a few reels.
-            </div>
+            <div className="font-medium">{t('reelsShowOnSite')}</div>
+            <div className="text-fs-sm opacity-70">{t('reelsShowOnSiteDesc')}</div>
           </div>
           <button
             type="button"
@@ -234,7 +238,7 @@ export default function ReelsPage() {
               !canEdit ? 'opacity-50 cursor-not-allowed' : ''
             }`}
             style={{ background: storiesEnabled ? 'var(--brand-500)' : 'var(--line)' }}
-            aria-label="Show Stories on my website"
+            aria-label={t('reelsShowOnSite')}
           >
             <span
               className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
@@ -245,29 +249,33 @@ export default function ReelsPage() {
         </div>
       </Section>
 
-      <Section title="Instagram connection">
+      <Section title={t('reelsConnTitle')}>
         {loading ? (
-          <p>Loading...</p>
+          <p>{t('reelsLoading')}</p>
         ) : conn?.connected ? (
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="font-medium">@{conn.handle}</div>
               <div className="text-fs-sm opacity-70">
-                {conn.last_synced_at ? `Last synced ${new Date(conn.last_synced_at).toLocaleString()}` : 'Not synced yet'}
+                {conn.last_synced_at
+                  ? t('reelsLastSynced').replace('{date}', new Date(conn.last_synced_at).toLocaleString())
+                  : t('reelsNotSynced')}
               </div>
               {conn.last_sync_error && (
-                <div className="text-fs-sm text-[var(--danger-500)]">Last sync error: {conn.last_sync_error}</div>
+                <div className="text-fs-sm text-[var(--danger-500)]">
+                  {t('reelsLastSyncError').replace('{err}', conn.last_sync_error)}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-3">
-              <Badge tone="success">Connected</Badge>
+              <Badge tone="success">{t('reelsConnected')}</Badge>
               {canEdit && (
                 <>
                   <Button variant="secondary" onClick={handleSync} disabled={busy}>
-                    {busy ? 'Working…' : 'Sync now'}
+                    {busy ? t('reelsWorking') : t('reelsSyncNow')}
                   </Button>
                   <Button variant="ghost" onClick={handleDisconnect} disabled={busy}>
-                    Disconnect
+                    {t('reelsDisconnect')}
                   </Button>
                 </>
               )}
@@ -275,22 +283,15 @@ export default function ReelsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-fs-sm opacity-80">
-              Connect your Instagram Business/Creator account (linked to a Facebook Page). We pull your latest reels and
-              show them as a swipeable Stories feed on your customer site. Nothing is re-uploaded.
-            </p>
+            <p className="text-fs-sm opacity-80">{t('reelsConnectHint')}</p>
             {canEdit && (
               <div>
                 <Button onClick={launchConnect} disabled={!serverReady || busy}>
-                  {busy ? 'Connecting…' : 'Connect Instagram'}
+                  {busy ? t('reelsConnecting') : t('reelsConnectBtn')}
                 </Button>
               </div>
             )}
-            {!serverReady && (
-              <p className="text-fs-sm text-[var(--danger-500)]">
-                Instagram sync is not configured yet (missing Meta app / Instagram login config).
-              </p>
-            )}
+            {!serverReady && <p className="text-fs-sm text-[var(--danger-500)]">{t('reelsNotConfigured')}</p>}
           </div>
         )}
         {error && <p className="mt-3 text-fs-sm text-[var(--danger-500)]">{error}</p>}
@@ -298,9 +299,9 @@ export default function ReelsPage() {
       </Section>
 
       {conn?.connected && (
-        <Section title={`Reels (${reels.length})`}>
+        <Section title={t('reelsSectionCount').replace('{n}', String(reels.length))}>
           {reels.length === 0 ? (
-            <p className="text-fs-sm opacity-70">No reels synced yet. Post a reel on Instagram, then hit “Sync now”.</p>
+            <p className="text-fs-sm opacity-70">{t('reelsEmpty')}</p>
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {reels.map((reel, i) => (
@@ -315,7 +316,9 @@ export default function ReelsPage() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={reel.thumbnail_url} alt={reel.caption || 'reel'} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-fs-sm text-white/60">No preview</div>
+                      <div className="flex h-full items-center justify-center text-fs-sm text-white/60">
+                        {t('reelsNoPreview')}
+                      </div>
                     )}
                   </div>
                   <div className="flex flex-col gap-2 p-2">
@@ -323,7 +326,7 @@ export default function ReelsPage() {
                     {canEdit && (
                       <div className="flex flex-wrap items-center gap-1">
                         <Button variant="ghost" onClick={() => toggleVisible(reel)}>
-                          {reel.is_visible ? 'Hide' : 'Show'}
+                          {reel.is_visible ? t('reelsHide') : t('reelsShow')}
                         </Button>
                         <Button variant="ghost" onClick={() => move(i, -1)} disabled={i === 0}>
                           ↑
@@ -332,7 +335,7 @@ export default function ReelsPage() {
                           ↓
                         </Button>
                         <Button variant="ghost" onClick={() => remove(reel)}>
-                          Delete
+                          {t('reelsDelete')}
                         </Button>
                       </div>
                     )}
