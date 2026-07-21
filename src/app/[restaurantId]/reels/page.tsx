@@ -117,35 +117,42 @@ export default function ReelsPage() {
       setError(t('reelsFbNotLoaded'));
       return;
     }
+    // The Facebook SDK rejects an async function as the callback ("Expression is
+    // of type asyncfunction, not function"), so the callback must be sync and
+    // kick off the async work itself.
+    const handleAuthResponse = async (response: unknown) => {
+      const code = extractCode(response);
+      if (!code) {
+        setError(t('reelsCancelled'));
+        return;
+      }
+      setBusy(true);
+      try {
+        const result = await connectSocial(rid, 'instagram', { code });
+        if (result.sync_error) {
+          setNotice(
+            t('reelsConnectedSyncErr')
+              .replace('{handle}', result.handle || '')
+              .replace('{err}', result.sync_error),
+          );
+        } else {
+          setNotice(
+            t('reelsConnectedSynced')
+              .replace('{handle}', result.handle || '')
+              .replace('{n}', String(result.synced ?? 0)),
+          );
+        }
+        refresh();
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
+      }
+    };
+
     window.FB.login(
-      async (response: unknown) => {
-        const code = extractCode(response);
-        if (!code) {
-          setError(t('reelsCancelled'));
-          return;
-        }
-        setBusy(true);
-        try {
-          const result = await connectSocial(rid, 'instagram', { code });
-          if (result.sync_error) {
-            setNotice(
-              t('reelsConnectedSyncErr')
-                .replace('{handle}', result.handle || '')
-                .replace('{err}', result.sync_error),
-            );
-          } else {
-            setNotice(
-              t('reelsConnectedSynced')
-                .replace('{handle}', result.handle || '')
-                .replace('{n}', String(result.synced ?? 0)),
-            );
-          }
-          refresh();
-        } catch (e: unknown) {
-          setError(e instanceof Error ? e.message : String(e));
-        } finally {
-          setBusy(false);
-        }
+      (response: unknown) => {
+        void handleAuthResponse(response);
       },
       { config_id: IG_CONFIG_ID, response_type: 'code', override_default_response_type: true },
     );
