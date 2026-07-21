@@ -8,6 +8,8 @@ import {
   updateRestaurant,
   getRestaurantSettings,
   updateRestaurantSettings,
+  previewBatchFulfillment,
+  BatchCycleSummary,
   BatchFulfillmentDay,
   DayHours,
   OpeningHoursConfig,
@@ -18,7 +20,7 @@ import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import { Badge, Button, Field, Input, NumberField, PageHead, Section, Select } from '@/components/ds';
 import { clampWeekStartDay, getEffectiveWorkdays, type WeekStartDay } from '@/lib/weeks';
-import { FulfillmentDayRow, ModeCard, ServiceToggle, Switch, WEEKDAYS_FR } from './_components';
+import { BatchCyclePreview, FulfillmentDayRow, ModeCard, ServiceToggle, Switch, WEEKDAYS_FR } from './_components';
 import { OrderWorkflowBuilder } from './OrderWorkflowBuilder';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
@@ -75,7 +77,7 @@ function toLocalInput(iso: string): string {
 export default function OrdersAvailabilityPage() {
   const { restaurantId } = useParams();
   const rid = Number(restaurantId);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { hasAnyPermission } = usePermissions();
   const canEdit = hasAnyPermission('settings.edit');
 
@@ -111,6 +113,10 @@ export default function OrdersAvailabilityPage() {
   const [cutoffTime, setCutoffTime] = useState('22:00');
   const [batchDays, setBatchDays] = useState<BatchFulfillmentDay[]>([]);
   const [batchPrepayment, setBatchPrepayment] = useState(true);
+  // Live preview of the resulting opening/cutoff/delivery dates for the batch
+  // config being edited — so a cutoff that pushes delivery a week out is visible
+  // before saving. Computed by the server (single date resolver, no drift).
+  const [batchPreview, setBatchPreview] = useState<BatchCycleSummary[]>([]);
   // Slots
   const [slotMinDays, setSlotMinDays] = useState(1);
   const [slotMaxDays, setSlotMaxDays] = useState(7);
@@ -175,6 +181,27 @@ export default function OrdersAvailabilityPage() {
   }, [rid]);
 
   const usedBatchDays = useMemo(() => new Set(batchDays.map((d) => d.day)), [batchDays]);
+
+  // Debounced live preview: recompute the upcoming cycles whenever the batch
+  // config changes. Skipped unless batch mode is active with at least one day.
+  useEffect(() => {
+    if (mode !== 'batch' || batchDays.length === 0) {
+      setBatchPreview([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      previewBatchFulfillment(rid, {
+        batch_order_open_day: openDay,
+        batch_order_open_time: openTime,
+        batch_cutoff_day: cutoffDay,
+        batch_cutoff_time: cutoffTime,
+        batch_fulfillment_days: batchDays,
+      })
+        .then((res) => setBatchPreview(res.upcoming_cycles ?? []))
+        .catch(() => setBatchPreview([]));
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [rid, mode, openDay, openTime, cutoffDay, cutoffTime, batchDays]);
 
   const isServiceEnabled = (ot: OrderType): boolean =>
     ot === 'pickup' ? pickupEnabled : ot === 'delivery' ? deliveryEnabled : dineInEnabled;
@@ -840,6 +867,8 @@ export default function OrdersAvailabilityPage() {
                 </div>
               )}
             </div>
+
+            <BatchCyclePreview cycles={batchPreview} locale={locale} t={t} />
 
             <PrepaymentToggle
               checked={batchPrepayment}
