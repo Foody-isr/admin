@@ -234,6 +234,17 @@ export default function ReelsPage() {
       await disconnectSocial(rid, 'instagram');
       setConn({ connected: false, server_configured: conn?.server_configured });
       setReels([]);
+      // Turn Stories off so customers never see the tab with no connection behind
+      // it. Best-effort: a failure here isn't fatal (the web app also gates the
+      // Stories tab on having visible reels).
+      if (storiesEnabled) {
+        setStoriesEnabled(false);
+        try {
+          await updateWebsiteConfig(rid, { stories_enabled: false });
+        } catch {
+          /* non-fatal */
+        }
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -278,6 +289,9 @@ export default function ReelsPage() {
   };
 
   const serverReady = conn?.server_configured !== false && !!META_APP_ID && !!IG_CONFIG_ID;
+  // Stories can only be shown once Instagram is connected — otherwise the
+  // customer tab would lead to an empty page. The toggle is locked until then.
+  const connected = conn?.connected === true;
 
   return (
     <div>
@@ -288,17 +302,22 @@ export default function ReelsPage() {
           <div>
             <div className="font-medium">{t('reelsShowOnSite')}</div>
             <div className="text-fs-sm opacity-70">{t('reelsShowOnSiteDesc')}</div>
+            {!connected && !loading && (
+              <div className="mt-1 text-fs-sm" style={{ color: 'var(--brand-600)' }}>
+                {t('reelsShowOnSiteNeedsConnect')}
+              </div>
+            )}
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={storiesEnabled}
-            disabled={!canEdit}
+            disabled={!canEdit || !connected}
             onClick={() => toggleStories(!storiesEnabled)}
             className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-              !canEdit ? 'opacity-50 cursor-not-allowed' : ''
+              !canEdit || !connected ? 'opacity-50 cursor-not-allowed' : ''
             }`}
-            style={{ background: storiesEnabled ? 'var(--brand-500)' : 'var(--line)' }}
+            style={{ background: storiesEnabled && connected ? 'var(--brand-500)' : 'var(--line)' }}
             aria-label={t('reelsShowOnSite')}
           >
             <span
