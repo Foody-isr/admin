@@ -25,6 +25,7 @@ import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionO
 import CheckoutEditor from '@/components/website/CheckoutEditor';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import { OrderPageInfoEditor } from '@/components/website/OrderPageInfoEditor';
+import { NavOrderCard } from '@/components/website/NavOrderCard';
 import type { CheckoutConfig, OrderPageInfo } from '@/lib/api';
 import { WEBSITE_FONT_FAMILIES } from '@/lib/website-fonts';
 
@@ -1161,6 +1162,7 @@ export default function WebsitePage() {
           )}
           {editorMode === 'settings' && (
             <SettingsLeftRail
+              rid={restaurantId}
               subMode={settingsSubMode}
               onSubModeChange={setSettingsSubMode}
               restaurant={restaurant}
@@ -1782,7 +1784,8 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   );
 }
 
-function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
+function SettingsLeftRail({ rid, subMode, onSubModeChange, restaurant, tagline, navbarStyle, navbarColor, showAddress, showPhone, showHours, landingEnabled, socialLinks, onTaglineChange, onNavbarStyleChange, onNavbarColorChange, onShowAddressChange, onShowPhoneChange, onShowHoursChange, onLandingEnabledChange, onSocialLinksChange, orderPageInfo, onOrderPageInfoChange, lockOrderType }: {
+  rid: number;
   subMode: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   onSubModeChange: (m: 'general' | 'contact' | 'social' | 'orderInfo' | 'seo') => void;
   restaurant: Restaurant | null;
@@ -1855,6 +1858,14 @@ function SettingsLeftRail({ subMode, onSubModeChange, restaurant, tagline, navba
                 </span>
               </label>
             </div>
+
+            {/* Bottom-bar tab order for the customer mobile app. The first tab is
+                the default landing tab when the landing page above is disabled,
+                so it belongs right here beside that toggle. Self-contained: it
+                reads/writes the live website-config, independent of the builder
+                draft. Hidden unless Stories are enabled (nothing to order with a
+                single tab). */}
+            <NavOrderCard rid={rid} />
 
             <div>
               <label className="block text-xs font-medium text-fg-primary mb-1.5">Slogan</label>
