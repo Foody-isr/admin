@@ -195,6 +195,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [city, setCity] = useState('');
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
+  // Delivery fee (₪) as a string for the input; '' means no fee.
+  const [deliveryFee, setDeliveryFee] = useState('');
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
 
@@ -247,6 +249,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setCity(order.delivery_city ?? '');
     setFloor(order.delivery_floor ?? '');
     setApt(order.delivery_apt ?? '');
+    setDeliveryFee(order.delivery_fee && order.delivery_fee > 0 ? String(order.delivery_fee) : '');
     setFulfillment(
       order.is_scheduled && order.scheduled_for
         ? {
@@ -321,7 +324,8 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       (address !== (order.delivery_address ?? '') ||
         city !== (order.delivery_city ?? '') ||
         floor !== (order.delivery_floor ?? '') ||
-        apt !== (order.delivery_apt ?? ''))
+        apt !== (order.delivery_apt ?? '') ||
+        (Math.max(0, parseFloat(deliveryFee) || 0)) !== (order.delivery_fee ?? 0))
     ) {
       return true;
     }
@@ -335,7 +339,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
       );
     }
     return false;
-  }, [order, orderType, address, city, floor, apt, fulfillment]);
+  }, [order, orderType, address, city, floor, apt, deliveryFee, fulfillment]);
 
   const linesDirty = useMemo(
     () =>
@@ -528,7 +532,13 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
           scheduled_pickup_window_start: fulfillment.timing === 'scheduled' ? fulfillment.windowStart : undefined,
           scheduled_pickup_window_end: fulfillment.timing === 'scheduled' ? fulfillment.windowEnd : undefined,
           ...(orderType === 'delivery'
-            ? { delivery_address: address, delivery_city: city, delivery_floor: floor, delivery_apt: apt }
+            ? {
+                delivery_address: address,
+                delivery_city: city,
+                delivery_floor: floor,
+                delivery_apt: apt,
+                delivery_fee: Math.max(0, parseFloat(deliveryFee) || 0),
+              }
             : {}),
         });
       }
@@ -594,6 +604,14 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
                 <Field label={t('floor')}><Input value={floor} onChange={(e) => setFloor(e.target.value)} /></Field>
                 <Field label={t('apt')}><Input value={apt} onChange={(e) => setApt(e.target.value)} /></Field>
               </div>
+              <Field label={t('deliveryFee')}>
+                <Input
+                  value={deliveryFee}
+                  onChange={(e) => setDeliveryFee(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                />
+              </Field>
             </div>
           )}
 
