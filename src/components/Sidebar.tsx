@@ -173,9 +173,10 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       labelKey: 'online',
       icon: Globe,
       perm: ['settings.edit'],
-      desktopOnly: true,
+      // The group is visible on mobile so an admin can reach Stories (connect
+      // Instagram) from a phone. The website builder itself stays desktop-only.
       subItems: [
-        { href: `${base}/website`, labelKey: 'websiteBuilder' },
+        { href: `${base}/website`, labelKey: 'websiteBuilder', desktopOnly: true },
         { href: `${base}/reels`, labelKey: 'reels' },
       ],
     },
