@@ -299,7 +299,7 @@ export default function ReelsPage() {
 
       <Section title={t('reelsSectionPage')}>
         <div className="flex items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="font-medium">{t('reelsShowOnSite')}</div>
             <div className="text-fs-sm opacity-70">{t('reelsShowOnSiteDesc')}</div>
             {!connected && !loading && (
@@ -383,8 +383,8 @@ export default function ReelsPage() {
         {loading ? (
           <p>{t('reelsLoading')}</p>
         ) : conn?.connected ? (
-          <div className="flex items-center justify-between gap-4">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <div className="font-medium">@{conn.handle}</div>
               <div className="text-fs-sm opacity-70">
                 {conn.last_synced_at
@@ -397,7 +397,7 @@ export default function ReelsPage() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge tone="success">{t('reelsConnected')}</Badge>
               {canEdit && (
                 <>
