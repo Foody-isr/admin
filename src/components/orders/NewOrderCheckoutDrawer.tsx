@@ -274,8 +274,29 @@ export function NewOrderCheckoutDrawer({
   // order total the same way the server does (subtotal + fee - discount).
   const feeValue = orderType === 'delivery' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0;
 
+  // A manual discount typed into the fields but not yet confirmed with the inner
+  // "Apply" button. Honouring it makes that button optional: staff who fill the
+  // amount + reason and go straight to "Create order" still get the discount,
+  // instead of silently losing it. Mirrors applyManualDiscount's math.
+  const manualValNum = parseFloat(manualValue);
+  const pendingManual =
+    canManualDiscount && !appliedCoupon && !appliedManual && manualValNum > 0 && manualReason.trim()
+      ? {
+          type: manualType,
+          value: manualValNum,
+          reason: manualReason.trim(),
+          amount:
+            manualType === 'fixed'
+              ? Math.min(manualValNum, total)
+              : Math.round(total * (Math.min(100, Math.max(0, manualValNum)) / 100) * 100) / 100,
+        }
+      : null;
+  // The manual discount that actually applies: an explicitly-applied one wins,
+  // else the pending typed one. A coupon takes precedence over both.
+  const effectiveManual = appliedCoupon ? null : (appliedManual ?? pendingManual);
+
   // The applied discount amount (0 if none). Clamped so total never goes negative.
-  const appliedAmount = appliedCoupon?.amount ?? appliedManual?.amount ?? 0;
+  const appliedAmount = appliedCoupon?.amount ?? effectiveManual?.amount ?? 0;
   const discountedTotal = Math.max(0, total + feeValue - appliedAmount);
 
   const canConfirm =
@@ -303,8 +324,8 @@ export function NewOrderCheckoutDrawer({
           deliveryNotes, deliveryFee: feeValue, paymentMethod: payMethod, paymentCollected: collected,
           fulfillment, addToProduction,
           ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
-          ...(appliedManual && !appliedCoupon
-            ? { manualDiscount: { type: appliedManual.type, value: appliedManual.value, reason: appliedManual.reason } }
+          ...(effectiveManual
+            ? { manualDiscount: { type: effectiveManual.type, value: effectiveManual.value, reason: effectiveManual.reason } }
             : {}),
         })
       }
