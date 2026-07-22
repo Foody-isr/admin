@@ -1,8 +1,8 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { CalendarCheck, Trash2 } from 'lucide-react';
 import { Field, Input, Select } from '@/components/ds';
-import type { BatchFulfillmentDay } from '@/lib/api';
+import type { BatchCycleSummary, BatchFulfillmentDay } from '@/lib/api';
 
 export const WEEKDAYS_FR = [
   'Dimanche',
@@ -100,6 +100,96 @@ export function ModeCard({
       <div className="text-fs-sm font-semibold text-[var(--fg)]">{title}</div>
       <div className="text-fs-xs text-[var(--fg-subtle)] mt-1">{desc}</div>
     </button>
+  );
+}
+
+/** Maps the app locale to a BCP-47 tag for date formatting. */
+function localeTag(locale: string): string {
+  return locale === 'he' ? 'he-IL' : locale === 'fr' ? 'fr-FR' : 'en-US';
+}
+
+/** Formats an ISO datetime as a short weekday + day + month, e.g. "ven. 24 juil.". */
+function shortDate(iso: string, locale: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(localeTag(locale), {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+/**
+ * BatchCyclePreview reflects the actual opening / cutoff / delivery dates the
+ * batch config produces, computed by the server. The first row is the cycle
+ * customers are ordering for right now — seeing its delivery date is what catches
+ * a cutoff that silently pushes delivery a week out (e.g. cutoff on the same day
+ * as the opening). There is no reliable heuristic for that misconfiguration
+ * because a legitimate "order this week, deliver next week" schedule looks
+ * identical — so we show the truth rather than guess.
+ */
+export function BatchCyclePreview({
+  cycles,
+  locale,
+  t,
+}: {
+  cycles: BatchCycleSummary[];
+  locale: string;
+  t: (key: string) => string;
+}) {
+  if (cycles.length === 0) return null;
+
+  return (
+    <div
+      className="rounded-r-md border border-[var(--line)] overflow-hidden"
+      style={{ background: 'var(--surface-2)' }}
+    >
+      <div className="flex items-center gap-[var(--s-2)] px-[var(--s-4)] py-[var(--s-3)] border-b border-[var(--line)]">
+        <CalendarCheck className="w-4 h-4 text-[var(--brand-500)]" />
+        <div className="text-fs-sm font-semibold text-[var(--fg)]">
+          {t('batchPreviewTitle') || 'Aperçu des prochaines commandes'}
+        </div>
+      </div>
+      <div className="px-[var(--s-4)] py-[var(--s-3)] text-fs-xs text-[var(--fg-subtle)]">
+        {t('batchPreviewHint') ||
+          'Dates que verront vos clients. Vérifiez que le jour de livraison correspond à ce que vous attendez.'}
+      </div>
+      <div className="grid grid-cols-[auto_1fr] gap-x-[var(--s-4)] gap-y-[var(--s-2)] px-[var(--s-4)] pb-[var(--s-2)] text-fs-xs font-medium text-[var(--fg-muted)]">
+        <div>{t('batchPreviewOrdering') || 'Commandes'}</div>
+        <div>{t('batchPreviewDelivery') || 'Retrait / livraison'}</div>
+      </div>
+      <ul>
+        {cycles.map((cy, i) => {
+          const delivery = cy.fulfillment_days.map((d) => shortDate(d.date, locale)).join(' · ');
+          return (
+            <li
+              key={i}
+              className="grid grid-cols-[auto_1fr] items-baseline gap-x-[var(--s-4)] px-[var(--s-4)] py-[var(--s-3)] border-t border-[var(--line)]"
+              style={i === 0 ? { background: 'color-mix(in oklab, var(--brand-500) 6%, transparent)' } : undefined}
+            >
+              <div className="text-fs-sm text-[var(--fg)] whitespace-nowrap">
+                {shortDate(cy.open_at, locale)}
+                <span className="text-[var(--fg-subtle)]"> → </span>
+                {shortDate(cy.cutoff_at, locale)}
+              </div>
+              <div className="flex items-center gap-[var(--s-2)] min-w-0">
+                <span className="text-fs-sm font-semibold text-[var(--fg)] truncate">
+                  {delivery || (t('batchPreviewNoDay') || '—')}
+                </span>
+                {i === 0 && (
+                  <span
+                    className="shrink-0 text-fs-xs px-[var(--s-2)] py-0.5 rounded-full"
+                    style={{ background: 'var(--brand-500)', color: 'white' }}
+                  >
+                    {t('batchPreviewCurrent') || 'Prochaine'}
+                  </span>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
