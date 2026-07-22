@@ -3749,6 +3749,10 @@ export interface CreateOrderInput {
   delivery_apt?: string;
   delivery_entry_code?: string;
   delivery_notes?: string;
+  /** Explicit delivery fee for a manual (staff-created) delivery order. The
+   *  staff endpoint has no delivery-zone resolution, so this is the only way a
+   *  manual delivery order gets a non-zero fee. Ignored server-side for pickup. */
+  delivery_fee?: number;
   /** When true the order is created as scheduled (status "scheduled") for
    *  `scheduled_for`. The server persists these for any order. */
   is_scheduled?: boolean;
@@ -3864,6 +3868,10 @@ export interface FulfillmentUpdateInput {
   delivery_floor?: string;
   delivery_apt?: string;
   delivery_entry_code?: string;
+  /** Explicit delivery fee (₪). Omitted → the server leaves the existing fee
+   *  unchanged; sent → it replaces the fee and the order total is recomputed.
+   *  Ignored server-side for pickup (which always has a zero fee). */
+  delivery_fee?: number;
 }
 
 /** Updates an existing order's fulfillment (type, address, schedule). The server
@@ -7483,6 +7491,29 @@ export async function geocodeAddress(
     return res.json();
   } catch {
     return { found: false };
+  }
+}
+
+/**
+ * Resolve a delivery address against the restaurant's delivery zones and return
+ * the matched zone's fee. Wraps the public `GET /public/delivery/check`. Used to
+ * prefill the delivery fee on the manual-order screen (staff can still edit it).
+ * Returns `{ deliverable: false }` on any error so callers can degrade to a blank
+ * fee field rather than block the order.
+ */
+export async function checkDeliverable(
+  restaurantId: number,
+  address: string,
+  city?: string,
+): Promise<{ deliverable: boolean; resolved?: boolean; delivery_fee?: number }> {
+  const q = new URLSearchParams({ restaurant_id: String(restaurantId), address });
+  if (city) q.set('city', city);
+  try {
+    const res = await fetch(`${API_URL}/api/v1/public/delivery/check?${q.toString()}`);
+    if (!res.ok) return { deliverable: false };
+    return res.json();
+  } catch {
+    return { deliverable: false };
   }
 }
 
