@@ -13,7 +13,7 @@ import {
   defaultFulfillment,
   type FulfillmentValue,
 } from '@/lib/orders/fulfillment';
-import { listDiscounts, validateDiscount, type Discount, type BatchFulfillmentConfigResponse } from '@/lib/api';
+import { listDiscounts, validateDiscount, checkDeliverable, type Discount, type BatchFulfillmentConfigResponse } from '@/lib/api';
 import { reasonKey } from '@/lib/discounts';
 import { usePermissions } from '@/lib/permissions-context';
 
@@ -35,6 +35,9 @@ export interface CheckoutData {
   floor: string;
   apt: string;
   deliveryNotes: string;
+  /** Delivery fee in ₪ (0 for pickup). Prefilled from the matched delivery zone,
+   *  editable by staff. */
+  deliveryFee: number;
   paymentMethod: PaymentMethodChoice;
   paymentCollected: boolean;
   fulfillment: FulfillmentValue;
@@ -134,6 +137,11 @@ export function NewOrderCheckoutDrawer({
   const [floor, setFloor] = useState('');
   const [apt, setApt] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  // Delivery fee (₪). Prefilled from the matched zone via checkDeliverable, but
+  // fully editable — once staff type a value, `feeTouched` stops the auto-prefill
+  // from overwriting it.
+  const [deliveryFee, setDeliveryFee] = useState('');
+  const [feeTouched, setFeeTouched] = useState(false);
   const [payMethod, setPayMethod] = useState<PaymentMethodChoice>('cash');
   // "déjà encaissé ?" — has the payment already been collected. Defaults to yes
   // (the common POS case: staff take payment in hand). Ignored for `link`.
@@ -173,6 +181,8 @@ export function NewOrderCheckoutDrawer({
       setManualValue('');
       setManualReason('');
       setAppliedManual(null);
+      setDeliveryFee('');
+      setFeeTouched(false);
       return;
     }
     if (didInitFulfillment.current) return;
@@ -190,6 +200,31 @@ export function NewOrderCheckoutDrawer({
     listDiscounts(restaurantId, { active: true }).then(setCoupons).catch(() => {});
   }, [restaurantId]);
 
+  // Prefill the delivery fee from the matched delivery zone once the address
+  // settles (debounced). Only while staff haven't hand-edited the fee, and only
+  // when the address resolves inside a zone with a fee — otherwise the field is
+  // left for staff to fill in. Staff can always override the prefilled value.
+  useEffect(() => {
+    if (orderType !== 'delivery' || feeTouched) return;
+    const addr = address.trim();
+    if (!addr) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      checkDeliverable(restaurantId, addr, city.trim() || undefined)
+        .then((res) => {
+          if (cancelled || feeTouched) return;
+          if (res.deliverable && typeof res.delivery_fee === 'number' && res.delivery_fee > 0) {
+            setDeliveryFee(String(res.delivery_fee));
+          }
+        })
+        .catch(() => {});
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [orderType, address, city, feeTouched, restaurantId]);
+
   // ── Discount helpers ──────────────────────────────────────────────────────
   async function applyDiscountCode() {
     const code = couponCode.trim();
@@ -202,7 +237,7 @@ export function NewOrderCheckoutDrawer({
       const res = await validateDiscount(restaurantId, {
         code,
         items: discountItems,
-        delivery_fee: 0,
+        delivery_fee: orderType === 'delivery' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0,
         phone: customerPhone.trim() || undefined,
       });
       if (res.valid && res.discount) {
@@ -235,9 +270,13 @@ export function NewOrderCheckoutDrawer({
     setDiscountError(null);
   }
 
+  // Delivery fee in ₪ (only for delivery; negatives/blank → 0). Added to the
+  // order total the same way the server does (subtotal + fee - discount).
+  const feeValue = orderType === 'delivery' ? Math.max(0, parseFloat(deliveryFee) || 0) : 0;
+
   // The applied discount amount (0 if none). Clamped so total never goes negative.
   const appliedAmount = appliedCoupon?.amount ?? appliedManual?.amount ?? 0;
-  const discountedTotal = Math.max(0, total - appliedAmount);
+  const discountedTotal = Math.max(0, total + feeValue - appliedAmount);
 
   const canConfirm =
     customerName.trim().length > 0 &&
@@ -261,7 +300,7 @@ export function NewOrderCheckoutDrawer({
       onSave={() =>
         onConfirm({
           customerName, customerPhone, orderType, address, city, floor, apt,
-          deliveryNotes, paymentMethod: payMethod, paymentCollected: collected,
+          deliveryNotes, deliveryFee: feeValue, paymentMethod: payMethod, paymentCollected: collected,
           fulfillment, addToProduction,
           ...(appliedCoupon ? { discountCode: appliedCoupon.code } : {}),
           ...(appliedManual && !appliedCoupon
@@ -318,6 +357,14 @@ export function NewOrderCheckoutDrawer({
               </div>
               <Field label={t('deliveryNotes')}>
                 <Textarea value={deliveryNotes} onChange={(e) => setDeliveryNotes(e.target.value)} />
+              </Field>
+              <Field label={t('deliveryFee')}>
+                <Input
+                  value={deliveryFee}
+                  onChange={(e) => { setDeliveryFee(e.target.value); setFeeTouched(true); }}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                />
               </Field>
             </>
           )}
