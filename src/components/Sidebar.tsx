@@ -34,6 +34,7 @@ import {
   Languages,
   Tag,
   DollarSign,
+  CreditCard,
   Printer,
   Bell,
   LayoutGrid,
@@ -306,6 +307,7 @@ export default function Sidebar({ restaurantId, restaurantName, isOpen, onClose 
       items: [
         { id: 'orders', href: `${base}/settings/orders`, labelKey: 'ordersAndAvailability', icon: CalendarClock },
         { id: 'payments', href: `${base}/settings/payments`, labelKey: 'paymentsAndVat',  icon: DollarSign, desktopOnly: true },
+        { id: 'cibus', href: `${base}/settings/cibus`, labelKey: 'cibusSettings', icon: CreditCard, desktopOnly: true },
         { id: 'printers', href: `${base}/settings/printers`, labelKey: 'printersAndKds',  icon: Printer, desktopOnly: true },
         { id: 'ai-assistant', href: `${base}/settings/ai-assistant`, labelKey: 'aiOrderAssistant', icon: Sparkles },
         { id: 'delivery', href: `${base}/settings/delivery`, labelKey: 'deliveryZones', icon: MapPin },

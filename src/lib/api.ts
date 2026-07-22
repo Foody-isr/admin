@@ -2191,6 +2191,37 @@ export async function updateRestaurantSettings(
   return data.settings;
 }
 
+// ─── Cibus (Pluxee) terminal credentials (merchant self-serve) ──────────────
+// The restaurant enters its own Cibus terminal identity. Cibus must first be
+// enabled (selected as the payment provider) by a Foody superadmin; `enabled`
+// reflects that. Credentials are write-only from here — reads return masked hints.
+
+export interface CibusCreds {
+  enabled: boolean;
+  masked_restaurant_id?: string;
+  masked_pos_id?: string;
+  masked_company_code?: string;
+}
+
+export interface UpdateCibusCredsInput {
+  cibus_restaurant_id?: string;
+  cibus_pos_id?: string;
+  cibus_company_code?: string;
+}
+
+export async function getCibusCreds(id: number): Promise<CibusCreds> {
+  return apiFetch<CibusCreds>(`/api/v1/restaurants/${id}/cibus-credentials`, id);
+}
+
+export async function updateCibusCreds(
+  id: number, input: UpdateCibusCredsInput
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(
+    `/api/v1/restaurants/${id}/cibus-credentials`, id,
+    { method: 'PUT', body: JSON.stringify(input) }
+  );
+}
+
 // ─── Batch fulfillment config (public-shape) ────────────────────────────────
 // Mirrors the foodyserver response from GET /api/v1/public/batch-fulfillment-config/:idOrSlug.
 // foodyadmin reads this to drive the carte-page batch picker.
