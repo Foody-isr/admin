@@ -975,7 +975,9 @@ export function OrderDetailDrawer({
                     {t('discountLine')}
                     {order.discount?.code
                       ? ` (${order.discount.code})`
-                      : ` ${t('manualDiscount')}`}
+                      : order.discount?.reason
+                        ? ` · ${order.discount.reason}`
+                        : ` ${t('manualDiscount')}`}
                   </span>
                   <span className="font-mono tabular-nums">−₪{discountAmount.toFixed(2)}</span>
                 </div>
@@ -1688,6 +1690,33 @@ function ComboCard({
 
 // ─── Activity timeline — events from order timestamps ────────────────────────
 
+// One recorded manual-discount change, mirrored from the server's
+// common.DiscountAuditEntry (external_metadata.discount_audit).
+type DiscountAuditEntry = {
+  action: string; // applied | removed
+  type?: string; // fixed | percent
+  value?: number;
+  reason?: string;
+  at: string;
+};
+
+// Builds the "Discount applied · …" label from whichever detail is available:
+// a coupon code, a percentage/fixed value, or the resolved ₪ amount, plus the
+// staff reason when present.
+function discountAppliedLabel(
+  t: (k: string) => string,
+  d: { type?: string; value?: number; amount?: number; reason?: string; code?: string },
+): string {
+  const applied = t('activityDiscountApplied') || 'Discount applied';
+  let desc = '';
+  if (d.code) desc = d.code;
+  else if (d.type === 'percent' && d.value != null) desc = `−${d.value}%`;
+  else if (d.amount != null) desc = `−₪${d.amount.toFixed(2)}`;
+  else if (d.value != null) desc = `−₪${d.value.toFixed(2)}`;
+  const head = desc ? `${applied} · ${desc}` : applied;
+  return d.reason ? `${head} · ${d.reason}` : head;
+}
+
 function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string }) {
   const events: Array<{ at: string; label: string; future?: boolean }> = [];
   events.push({
@@ -1696,6 +1725,34 @@ function ActivityTimeline({ order, t }: { order: Order; t: (k: string) => string
       ? (t('activityCreatedFrom') || 'Created from {source}').replace('{source}', localizeSource(order.order_source, t))
       : (t('activityCreatedSimple') || 'Order created'),
   });
+
+  // Discount events. A discount set at creation carries no audit entry — anchor
+  // it to the creation moment. Post-creation changes (apply / replace / remove
+  // in "Modifier la commande") are recorded in external_metadata.discount_audit
+  // with their own timestamps, so each renders where it happened.
+  const discountAudit = Array.isArray(order.external_metadata?.discount_audit)
+    ? (order.external_metadata!.discount_audit as DiscountAuditEntry[])
+    : [];
+  if (discountAudit.length > 0) {
+    for (const a of discountAudit) {
+      events.push({
+        at: a.at,
+        label:
+          a.action === 'removed'
+            ? t('activityDiscountRemoved') || 'Discount removed'
+            : discountAppliedLabel(t, { type: a.type, value: a.value, reason: a.reason }),
+      });
+    }
+  } else if ((order.discount_amount ?? 0) > 0) {
+    events.push({
+      at: order.created_at,
+      label: discountAppliedLabel(t, {
+        amount: order.discount_amount,
+        reason: order.discount?.reason,
+        code: order.discount?.code,
+      }),
+    });
+  }
   if (order.scheduled_for) {
     events.push({
       at: order.scheduled_for,

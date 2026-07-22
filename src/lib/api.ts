@@ -3905,6 +3905,22 @@ export async function updateOrderFulfillment(
   );
 }
 
+/** Applies, replaces, or removes a staff manual discount on an EXISTING order.
+ *  Pass `{ remove: true }` to clear any discount, or `{ type, value, reason }`
+ *  to apply/replace one (`type` is 'fixed' ₪ or 'percent'). Gated server-side by
+ *  the orders.discount permission. Returns the recomputed order. */
+export async function setOrderDiscount(
+  restaurantId: number,
+  orderId: number,
+  input: { remove: true } | { type: 'fixed' | 'percent'; value: number; reason: string },
+): Promise<{ order: Order }> {
+  return apiFetch<{ order: Order }>(
+    `/api/v1/orders/${orderId}/discount?restaurant_id=${restaurantId}`,
+    restaurantId,
+    { method: 'PUT', body: JSON.stringify(input) },
+  );
+}
+
 /** (Re)generates a payment link for an existing unpaid/pending order so staff
  *  can copy/share it again. The URL is not persisted server-side — it's minted
  *  on demand by the provider — so each call returns a fresh link. Wraps the

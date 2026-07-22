@@ -21,6 +21,7 @@ import {
   removeOrderItem,
   replaceOrderCombo,
   updateOrderFulfillment,
+  setOrderDiscount,
   getBatchFulfillmentConfig,
   type Order,
   type OrderItem,
@@ -29,6 +30,7 @@ import {
   type BatchFulfillmentConfigResponse,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import { cn } from '@/lib/utils';
 import { itemSizeOptions } from '@/lib/item-options';
 import { FulfillmentSection } from './FulfillmentSection';
@@ -176,6 +178,9 @@ interface EditOrderDrawerProps {
 
 export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }: EditOrderDrawerProps) {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  // Manual ad-hoc discounts are gated on the same permission as the create flow.
+  const canManualDiscount = hasAnyPermission('orders.discount');
 
   const [lines, setLines] = useState<EditLine[]>([]);
   const [combos, setCombos] = useState<ComboBlock[]>([]);
@@ -197,6 +202,13 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
   const [apt, setApt] = useState('');
   // Delivery fee (₪) as a string for the input; '' means no fee.
   const [deliveryFee, setDeliveryFee] = useState('');
+  // Staff manual discount. Seeded from the order's current manual discount (if
+  // any); a coupon-sourced discount is left read-only (not editable here). The
+  // change is persisted on save via setOrderDiscount. `discountValue` empty means
+  // "no discount" — saving with an empty value removes an existing one.
+  const [discountType, setDiscountType] = useState<'fixed' | 'percent'>('fixed');
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
   const [fulfillment, setFulfillment] = useState<FulfillmentValue>({ timing: 'immediate' });
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
 
@@ -250,6 +262,18 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     setFloor(order.delivery_floor ?? '');
     setApt(order.delivery_apt ?? '');
     setDeliveryFee(order.delivery_fee && order.delivery_fee > 0 ? String(order.delivery_fee) : '');
+    // Seed the manual-discount fields from the order's current manual discount.
+    // A coupon (discount_source 'coupon') is not editable here, so leave the
+    // fields blank — saving would then only ever remove it, not silently edit.
+    if (order.discount_source === 'manual' && order.discount) {
+      setDiscountType(order.discount.type === 'percent' ? 'percent' : 'fixed');
+      setDiscountValue(String(order.discount.value ?? ''));
+      setDiscountReason(order.discount.reason ?? '');
+    } else {
+      setDiscountType('fixed');
+      setDiscountValue('');
+      setDiscountReason('');
+    }
     setFulfillment(
       order.is_scheduled && order.scheduled_for
         ? {
@@ -353,7 +377,35 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
     [lines, removedCombos, comboEdits, origById],
   );
 
-  const isDirty = linesDirty || fulfillmentDirty;
+  // ── Manual discount (edit-time) ───────────────────────────────────────────
+  // The discount staged in the fields (0 when blank/invalid). Percent applies to
+  // the live item subtotal, fixed clamps to it — mirroring the server and the
+  // create drawer so the preview matches what gets persisted.
+  const stagedDiscountValue = parseFloat(discountValue);
+  const hasStagedDiscount = canManualDiscount && stagedDiscountValue > 0;
+  const stagedDiscountAmount = !hasStagedDiscount
+    ? 0
+    : discountType === 'fixed'
+      ? Math.min(stagedDiscountValue, liveTotal)
+      : Math.round(liveTotal * (Math.min(100, Math.max(0, stagedDiscountValue)) / 100) * 100) / 100;
+
+  // The order's current manual discount (a coupon counts as "none" here — it is
+  // not editable in this drawer, only replaceable).
+  const currentManual =
+    order?.discount_source === 'manual' ? order.discount : undefined;
+  const discountDirty =
+    canManualDiscount &&
+    (hasStagedDiscount
+      ? // applying or replacing: differs from the current manual discount, or the
+        // order currently carries a coupon we're overriding
+        order?.discount_source === 'coupon' ||
+        stagedDiscountValue !== (currentManual?.value ?? -1) ||
+        discountType !== (currentManual?.type ?? '') ||
+        discountReason.trim() !== (currentManual?.reason ?? '')
+      : // cleared: only dirty when there was a manual discount to remove
+        !!currentManual);
+
+  const isDirty = linesDirty || fulfillmentDirty || discountDirty;
 
   function changeQty(uid: string, delta: number) {
     setLines((prev) =>
@@ -543,6 +595,19 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         });
       }
 
+      // 6) Manual discount — applied last so its recompute reflects the final
+      // line-up (a percentage is re-resolved against the edited subtotal). An
+      // empty value with a prior manual discount removes it.
+      if (discountDirty) {
+        await setOrderDiscount(
+          restaurantId,
+          order.id,
+          hasStagedDiscount
+            ? { type: discountType, value: stagedDiscountValue, reason: discountReason.trim() }
+            : { remove: true },
+        );
+      }
+
       onSaved();
       onClose();
     } catch (e) {
@@ -566,7 +631,7 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
         subtitle={order ? t('orderNumber').replace('{id}', String(order.id)) : undefined}
         width={560}
         onSave={handleSave}
-        saveLabel={saving ? t('savingChanges') || 'Saving…' : `${t('saveChanges')} · ₪${liveTotal.toFixed(2)}`}
+        saveLabel={saving ? t('savingChanges') || 'Saving…' : `${t('saveChanges')} · ₪${Math.max(0, liveTotal - stagedDiscountAmount).toFixed(2)}`}
         saveDisabled={saving || !isDirty}
       >
         <div className="flex flex-col gap-[var(--s-5)]">
@@ -621,6 +686,54 @@ export function EditOrderDrawer({ open, order, restaurantId, onClose, onSaved }:
             value={fulfillment}
             onChange={setFulfillment}
           />
+
+          {/* Manual discount (owner/manager with orders.discount). Applies on
+              save; clearing the value removes an existing manual discount. */}
+          {canManualDiscount && (
+            <Field label={t('manualDiscount')}>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as 'fixed' | 'percent')}
+                    className="h-9 rounded-lg border border-[var(--line-strong)] bg-[var(--surface)] ps-[var(--s-3)] pe-[var(--s-3)] text-fs-sm outline-none focus:border-[var(--brand-500)] focus:shadow-ring"
+                  >
+                    <option value="fixed">{t('typeFixed')}</option>
+                    <option value="percent">{t('typePercent')}</option>
+                  </select>
+                  <Input
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    inputMode="decimal"
+                    placeholder={discountType === 'fixed' ? '0.00' : '0'}
+                    className="w-24 shrink-0"
+                  />
+                  {stagedDiscountAmount > 0 && (
+                    <span className="font-mono text-fs-sm tabular-nums text-[var(--fg-subtle)]">
+                      −₪{stagedDiscountAmount.toFixed(2)}
+                    </span>
+                  )}
+                  {currentManual && (
+                    <button
+                      type="button"
+                      onClick={() => { setDiscountValue(''); setDiscountReason(''); }}
+                      className="ms-auto text-fs-xs font-medium text-[var(--fg-muted)] underline-offset-2 hover:text-[var(--danger-500)] hover:underline"
+                    >
+                      {t('remove')}
+                    </button>
+                  )}
+                </div>
+                <Input
+                  value={discountReason}
+                  onChange={(e) => setDiscountReason(e.target.value)}
+                  placeholder={t('manualDiscountReason')}
+                />
+                {order?.discount_source === 'coupon' && (
+                  <span className="text-fs-xs text-[var(--fg-subtle)]">{t('manualDiscountReplacesCoupon')}</span>
+                )}
+              </div>
+            </Field>
+          )}
 
           {/* Add-item search — at the TOP of the items area so adding never
               requires scrolling past the whole order. Results render as an
