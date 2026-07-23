@@ -13,7 +13,7 @@ import type { BadgeProps } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
   listCateringQuotes, approveCateringQuote, rejectCateringQuote,
-  type CateringQuote, type CateringQuoteStatus,
+  type CateringQuote, type CateringQuoteStatus, type CateringDepositStatus,
 } from '@/lib/api';
 
 const STATUS_KEYS: Record<CateringQuoteStatus, string> = {
@@ -28,6 +28,20 @@ const STATUS_TONE: Record<CateringQuoteStatus, BadgeProps['tone']> = {
   approved: 'success',
   rejected: 'danger',
   auto_approved: 'neutral',
+};
+
+const DEPOSIT_KEYS: Record<CateringDepositStatus, string> = {
+  none: 'catering_deposit_none',
+  pending: 'catering_deposit_pending',
+  paid: 'catering_deposit_paid',
+  refunded: 'catering_deposit_refunded',
+};
+
+const DEPOSIT_TONE: Record<CateringDepositStatus, BadgeProps['tone']> = {
+  none: 'neutral',
+  pending: 'warning',
+  paid: 'success',
+  refunded: 'neutral',
 };
 
 interface QuoteConfigLine {
@@ -112,6 +126,7 @@ export default function CateringQuotesPage() {
             <DataTableHeadCell align="right">{t('catering_quote_guests')}</DataTableHeadCell>
             <DataTableHeadCell>{t('catering_quote_event_date')}</DataTableHeadCell>
             <DataTableHeadCell align="right">{t('catering_quote_total')}</DataTableHeadCell>
+            <DataTableHeadCell>{t('catering_deposit')}</DataTableHeadCell>
             <DataTableHeadSpacerCell />
           </DataTableHead>
           <DataTableBody>
@@ -133,6 +148,9 @@ export default function CateringQuotesPage() {
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_quote_total')}>
                   {`₪${quote.total.toFixed(2)}`}
+                </DataTableCell>
+                <DataTableCell mobileLabel={t('catering_deposit')}>
+                  <Badge tone={DEPOSIT_TONE[quote.deposit_status]}>{t(DEPOSIT_KEYS[quote.deposit_status])}</Badge>
                 </DataTableCell>
                 <DataTableCell>
                   <div className="flex items-center justify-end">

@@ -7793,6 +7793,8 @@ export async function updateCateringBranch(restaurantId: number, locationId: num
 
 export type CateringQuoteStatus = 'auto_approved' | 'pending_human_review' | 'approved' | 'rejected';
 
+export type CateringDepositStatus = 'none' | 'pending' | 'paid' | 'refunded';
+
 export interface CateringQuote {
   id: number;
   restaurant_id: number;
@@ -7808,6 +7810,8 @@ export interface CateringQuote {
   total: number;
   status: CateringQuoteStatus;
   review_note: string;
+  deposit_status: CateringDepositStatus;
+  deposit_amount: number;
   created_at: string;
 }
 
