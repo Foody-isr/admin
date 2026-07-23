@@ -119,6 +119,7 @@ const ACTION_TYPES = [
   { value: 'order_pickup', labelKey: 'orderPickup' },
   { value: 'order_delivery', labelKey: 'orderDelivery' },
   { value: 'view_menu', labelKey: 'viewMenu' },
+  { value: 'catering', labelKey: 'cateringAction' },
   { value: 'external_link', labelKey: 'externalLink' },
   { value: 'scroll_to_section', labelKey: 'scrollToSection' },
 ];
