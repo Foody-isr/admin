@@ -107,7 +107,7 @@ export default function CateringRoutingPage() {
                   {branchName(rule.target_location_id)}
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('catering_routing_cities')} className="text-fg-secondary">
-                  {rule.cities.join(', ')}
+                  {(rule.cities ?? []).join(', ')}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_routing_priority')}>
                   {rule.priority}
