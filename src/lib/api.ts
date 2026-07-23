@@ -7791,6 +7791,49 @@ export async function updateCateringBranch(restaurantId: number, locationId: num
   return apiFetch<CateringBranch>(`/api/v1/catering/branches/${locationId}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
 }
 
+export interface CateringRoutingRule {
+  id: number;
+  restaurant_id: number;
+  service_id: number;
+  name: string;
+  cities: string[];
+  target_location_id: number;
+  priority: number;
+  is_fallback: boolean;
+  is_active: boolean;
+}
+
+export interface CateringRoutingRuleInput {
+  service_id: number;
+  name: string;
+  cities: string[];
+  target_location_id: number;
+  priority?: number;
+  is_fallback?: boolean;
+  is_active?: boolean;
+}
+
+/** List catering routing rules (priority desc, id asc). */
+export async function listCateringRoutingRules(restaurantId: number): Promise<CateringRoutingRule[]> {
+  const res = await apiFetch<{ routing_rules: CateringRoutingRule[] }>('/api/v1/catering/routing-rules', restaurantId);
+  return res.routing_rules ?? [];
+}
+
+/** Create a catering routing rule. */
+export async function createCateringRoutingRule(restaurantId: number, body: CateringRoutingRuleInput): Promise<CateringRoutingRule> {
+  return apiFetch<CateringRoutingRule>('/api/v1/catering/routing-rules', restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Update a catering routing rule. */
+export async function updateCateringRoutingRule(restaurantId: number, id: number, body: CateringRoutingRuleInput): Promise<CateringRoutingRule> {
+  return apiFetch<CateringRoutingRule>(`/api/v1/catering/routing-rules/${id}`, restaurantId, { method: 'PUT', body: JSON.stringify(body) });
+}
+
+/** Delete (soft) a catering routing rule. */
+export async function deleteCateringRoutingRule(restaurantId: number, id: number): Promise<void> {
+  await apiFetch(`/api/v1/catering/routing-rules/${id}`, restaurantId, { method: 'DELETE' });
+}
+
 export type CateringQuoteStatus = 'auto_approved' | 'pending_human_review' | 'approved' | 'rejected';
 
 export type CateringDepositStatus = 'none' | 'pending' | 'paid' | 'refunded';
