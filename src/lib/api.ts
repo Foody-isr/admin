@@ -7836,7 +7836,7 @@ export async function deleteCateringRoutingRule(restaurantId: number, id: number
 
 export type CateringQuoteStatus = 'auto_approved' | 'pending_human_review' | 'approved' | 'rejected';
 
-export type CateringDepositStatus = 'none' | 'pending' | 'paid' | 'refunded';
+export type CateringDepositStatus = 'none' | 'pending' | 'paid' | 'refunding' | 'refunded';
 
 export interface CateringQuote {
   id: number;
@@ -7856,10 +7856,21 @@ export interface CateringQuote {
   review_note: string;
   deposit_status: CateringDepositStatus;
   deposit_amount: number;
+  /** Non-empty when a second successful charge landed on an already-paid quote (customer charged twice) and needs refunding. */
+  deposit_overcharge_txn_uid: string;
+  deposit_refund_txn_uid: string;
+  deposit_refunded_amount: number;
+  deposit_refunded_at: string | null;
+  overcharge_refund_txn_uid: string;
   created_at: string;
 }
 
 export interface CateringQuoteReviewInput { total?: number; note?: string }
+
+/** Which charge a refund targets: the primary deposit, or a recorded duplicate charge. */
+export type CateringRefundTarget = 'deposit' | 'overcharge';
+
+export interface CateringDepositRefundInput { amount: number; target: CateringRefundTarget }
 
 /** List catering quotes, optionally filtered by status. */
 export async function listCateringQuotes(restaurantId: number, status?: CateringQuoteStatus): Promise<CateringQuote[]> {
@@ -7881,6 +7892,11 @@ export async function approveCateringQuote(restaurantId: number, id: number, bod
 /** Reject a catering quote. */
 export async function rejectCateringQuote(restaurantId: number, id: number, body: CateringQuoteReviewInput): Promise<CateringQuote> {
   return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/reject`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/** Refund a catering quote's deposit (or a recorded duplicate charge) via PayPlus, at staff discretion. */
+export async function refundCateringDeposit(restaurantId: number, id: number, body: CateringDepositRefundInput): Promise<CateringQuote> {
+  return apiFetch<CateringQuote>(`/api/v1/catering/quotes/${id}/refund`, restaurantId, { method: 'POST', body: JSON.stringify(body) });
 }
 
 // ---- Catering catalog (Phase 2) ----

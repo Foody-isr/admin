@@ -12,8 +12,8 @@ import { PageHead, Badge } from '@/components/ds';
 import type { BadgeProps } from '@/components/ds';
 import Modal from '@/components/Modal';
 import {
-  listCateringQuotes, approveCateringQuote, rejectCateringQuote,
-  type CateringQuote, type CateringQuoteStatus, type CateringDepositStatus,
+  listCateringQuotes, approveCateringQuote, rejectCateringQuote, refundCateringDeposit,
+  type CateringQuote, type CateringQuoteStatus, type CateringDepositStatus, type CateringRefundTarget,
 } from '@/lib/api';
 
 const STATUS_KEYS: Record<CateringQuoteStatus, string> = {
@@ -34,6 +34,7 @@ const DEPOSIT_KEYS: Record<CateringDepositStatus, string> = {
   none: 'catering_deposit_none',
   pending: 'catering_deposit_pending',
   paid: 'catering_deposit_paid',
+  refunding: 'catering_deposit_refunding',
   refunded: 'catering_deposit_refunded',
 };
 
@@ -41,6 +42,7 @@ const DEPOSIT_TONE: Record<CateringDepositStatus, BadgeProps['tone']> = {
   none: 'neutral',
   pending: 'warning',
   paid: 'success',
+  refunding: 'warning',
   refunded: 'neutral',
 };
 
@@ -154,7 +156,12 @@ export default function CateringQuotesPage() {
                   {`₪${quote.total.toFixed(2)}`}
                 </DataTableCell>
                 <DataTableCell mobileLabel={t('catering_deposit')}>
-                  <Badge tone={DEPOSIT_TONE[quote.deposit_status]}>{t(DEPOSIT_KEYS[quote.deposit_status])}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone={DEPOSIT_TONE[quote.deposit_status]}>{t(DEPOSIT_KEYS[quote.deposit_status])}</Badge>
+                    {quote.deposit_overcharge_txn_uid && (
+                      <Badge tone="danger">{t('catering_deposit_overcharge')}</Badge>
+                    )}
+                  </div>
                 </DataTableCell>
                 <DataTableCell>
                   <div className="flex items-center justify-end">
@@ -194,6 +201,33 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
   const [saving, setSaving] = useState(false);
 
   const showActions = quote.status === 'pending_human_review' && canManage;
+
+  // Refund is admin-discretionary. Two targets: a recorded duplicate charge
+  // ("overcharge"), or the primary deposit. Both may be present; the duplicate
+  // is the urgent one, so it is the default when set.
+  const hasOvercharge = !!quote.deposit_overcharge_txn_uid;
+  const canRefundDeposit = quote.deposit_status === 'paid';
+  const showRefund = canManage && (hasOvercharge || canRefundDeposit);
+  const [refundTarget, setRefundTarget] = useState<CateringRefundTarget>(hasOvercharge ? 'overcharge' : 'deposit');
+  const [refundAmount, setRefundAmount] = useState(quote.deposit_amount ? quote.deposit_amount.toFixed(2) : '');
+  const [refunding, setRefunding] = useState(false);
+  const [refundError, setRefundError] = useState('');
+
+  const handleRefund = async () => {
+    const amount = Number(refundAmount);
+    if (!(amount > 0)) { setRefundError(t('catering_refund_amount_invalid')); return; }
+    if (!confirm(t('catering_refund_confirm'))) return;
+    setRefunding(true);
+    setRefundError('');
+    try {
+      await refundCateringDeposit(restaurantId, quote.id, { amount, target: refundTarget });
+      onReviewed();
+    } catch (e) {
+      setRefundError(e instanceof Error ? e.message : t('catering_refund_failed'));
+    } finally {
+      setRefunding(false);
+    }
+  };
 
   const handleApprove = async () => {
     setSaving(true);
@@ -268,6 +302,65 @@ function QuoteReviewModal({ restaurantId, quote, canManage, onClose, onReviewed 
           <div className="text-sm">
             <div className="text-fg-secondary">{t('catering_quote_note')}</div>
             <div className="text-fg-primary">{quote.review_note}</div>
+          </div>
+        )}
+
+        {quote.deposit_refunded_amount > 0 && (
+          <div className="text-sm">
+            <span className="text-fg-secondary">{t('catering_refund_refunded')}: </span>
+            <span className="text-fg-primary font-medium">{`₪${quote.deposit_refunded_amount.toFixed(2)}`}</span>
+            {quote.deposit_refunded_at && (
+              <span className="text-fg-secondary">{` · ${new Date(quote.deposit_refunded_at).toLocaleDateString()}`}</span>
+            )}
+          </div>
+        )}
+
+        {showRefund && (
+          <div className="space-y-3 border-t pt-4" style={{ borderColor: 'var(--divider)' }}>
+            {hasOvercharge && (
+              <p className="text-sm text-red-600 dark:text-red-400">{t('catering_refund_overcharge_warning')}</p>
+            )}
+
+            {hasOvercharge && canRefundDeposit && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={refundTarget === 'overcharge' ? 'btn-primary' : 'btn-secondary'}
+                  onClick={() => setRefundTarget('overcharge')}
+                >
+                  {t('catering_refund_target_overcharge')}
+                </button>
+                <button
+                  type="button"
+                  className={refundTarget === 'deposit' ? 'btn-primary' : 'btn-secondary'}
+                  onClick={() => setRefundTarget('deposit')}
+                >
+                  {t('catering_refund_target_deposit')}
+                </button>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">
+                {t('catering_refund_amount')}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className="input"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                placeholder={quote.deposit_amount.toFixed(2)}
+              />
+            </div>
+
+            {refundError && <p className="text-sm text-red-600 dark:text-red-400">{refundError}</p>}
+
+            <div className="flex justify-end">
+              <button className="btn-secondary" onClick={handleRefund} disabled={refunding}>
+                {t('catering_refund_action')}
+              </button>
+            </div>
           </div>
         )}
 
