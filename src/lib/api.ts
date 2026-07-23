@@ -7848,6 +7848,7 @@ export interface CateringQuote {
   customer_email: string;
   guests: number;
   event_date: string | null;
+  event_city: string;
   event_type: string;
   config: unknown;
   total: number;
