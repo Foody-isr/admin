@@ -116,7 +116,7 @@ export default function CateringRoutingPage() {
                   {rule.is_fallback && <Badge tone="neutral">{t('catering_routing_fallback')}</Badge>}
                 </DataTableCell>
                 <DataTableCell align="right" mobileLabel={t('catering_routing_active')}>
-                  {rule.is_active ? '✓' : '—'}
+                  {rule.is_active ? '✓' : '-'}
                 </DataTableCell>
                 <DataTableCell>
                   {canEdit && (
