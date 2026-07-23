@@ -3342,6 +3342,8 @@ const translations: Record<Locale, Record<string, string>> = {
     pickupServiceDesc: 'Customers pick up their order at the counter.',
     dineInServiceDesc: 'Customers order at the table, via QR or a server.',
     deliveryServiceDesc: 'Customers get their order delivered to their address.',
+    cateringOnlyMode: 'Catering only',
+    cateringOnlyModeDesc: 'No classic menu — customers land on the catering shop and the Menu is hidden.',
     noServiceWarning:
       "No order mode is enabled — customers won't be able to order online.",
     noServiceEnabledBanner:
@@ -6905,6 +6907,8 @@ const translations: Record<Locale, Record<string, string>> = {
     pickupServiceDesc: 'הלקוח אוסף את ההזמנה מהדלפק.',
     dineInServiceDesc: 'הלקוח מזמין מהשולחן, דרך QR או מלצר.',
     deliveryServiceDesc: 'ההזמנה נמסרת לכתובת הלקוח.',
+    cateringOnlyMode: 'קייטרינג בלבד',
+    cateringOnlyModeDesc: 'ללא תפריט רגיל — הלקוחות מגיעים לחנות הקייטרינג והתפריט מוסתר.',
     noServiceWarning:
       'אף מצב הזמנה אינו פעיל — לקוחות לא יוכלו להזמין באתר.',
     noServiceEnabledBanner:
@@ -10469,6 +10473,8 @@ const translations: Record<Locale, Record<string, string>> = {
     pickupServiceDesc: 'Le client retire sa commande au comptoir.',
     dineInServiceDesc: 'Le client commande à table, via QR ou serveur.',
     deliveryServiceDesc: 'Le client se fait livrer à son adresse.',
+    cateringOnlyMode: 'Traiteur uniquement',
+    cateringOnlyModeDesc: 'Pas de menu classique — les clients arrivent sur la boutique traiteur et le menu est masqué.',
     noServiceWarning:
       'Aucun mode de commande activé : les clients ne pourront pas commander en ligne.',
     noServiceEnabledBanner:

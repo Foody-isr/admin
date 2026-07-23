@@ -77,6 +77,8 @@ export interface Restaurant {
   google_places_api_key?: string;
   pickup_enabled: boolean;
   dine_in_enabled: boolean;
+  /** No classic menu: customers land on the catering shop and Menu is hidden. */
+  catering_only?: boolean;
   is_active: boolean;
   opening_hours_config?: OpeningHoursConfig;
   created_at: string;
