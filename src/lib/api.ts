@@ -7834,6 +7834,32 @@ export async function deleteCateringRoutingRule(restaurantId: number, id: number
   await apiFetch(`/api/v1/catering/routing-rules/${id}`, restaurantId, { method: 'DELETE' });
 }
 
+// ---- Catering events (deposit-paid, routed to a branch) ----
+
+export interface CateringEvent {
+  id: number;
+  quote_id: number;
+  service_id: number;
+  assigned_location_id: number | null;
+  event_date: string | null;
+  event_type: string;
+  event_city: string;
+  deposit_amount: number;
+  status: string;
+  created_at: string;
+  customer_name: string;
+  customer_phone: string;
+  service_name: string;
+  assigned_location_name: string;
+}
+
+/** List catering events (deposit paid, routed), optionally filtered by status. */
+export async function listCateringEvents(restaurantId: number, status?: string): Promise<CateringEvent[]> {
+  const qs = status ? `?status=${status}` : '';
+  const res = await apiFetch<{ events: CateringEvent[] }>(`/api/v1/catering/events${qs}`, restaurantId);
+  return res.events ?? [];
+}
+
 export type CateringQuoteStatus = 'auto_approved' | 'pending_human_review' | 'approved' | 'rejected';
 
 export type CateringDepositStatus = 'none' | 'pending' | 'paid' | 'refunding' | 'refunded';
@@ -7923,8 +7949,6 @@ export interface CateringCatalogItemInput {
   base_price: number;
   min_quantity?: number;
   min_guests?: number;
-  event_type?: string;
-  lead_time_days?: number;
   is_active?: boolean;
   sort_order?: number;
 }

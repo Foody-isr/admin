@@ -237,8 +237,6 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
   const [basePrice, setBasePrice] = useState(editing ? String(editing.base_price) : '');
   const [minQuantity, setMinQuantity] = useState(editing ? String(editing.min_quantity ?? '') : '');
   const [minGuests, setMinGuests] = useState(editing ? String(editing.min_guests ?? '') : '');
-  const [leadTimeDays, setLeadTimeDays] = useState(editing ? String(editing.lead_time_days ?? '') : '');
-  const [eventType, setEventType] = useState(editing?.event_type ?? '');
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -252,8 +250,6 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
         name: name.trim(),
         description,
         base_price: Number(basePrice) || 0,
-        lead_time_days: Number(leadTimeDays) || 0,
-        event_type: eventType,
         is_active: isActive,
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(pricingModel === 'per_person' ? { min_guests: Number(minGuests) || 0 } : {}),
@@ -331,27 +327,6 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
             />
           </div>
         )}
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_item_lead_time')}</label>
-          <input
-            type="number"
-            min={0}
-            step="1"
-            className="input"
-            value={leadTimeDays}
-            onChange={(e) => setLeadTimeDays(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_item_event_type')}</label>
-          <input
-            className="input"
-            value={eventType}
-            onChange={(e) => setEventType(e.target.value)}
-          />
-        </div>
 
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
