@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions-context';
 import {
   getWebsiteConfig, updateWebsiteConfig, resetWebsiteConfig, getRestaurant, updateRestaurant,
   listWebsiteSections, createWebsiteSection, updateWebsiteSection,
@@ -96,6 +97,7 @@ const SECTION_TYPE_META: Record<string, { labelKey: string; icon: string; descKe
   promo_banner:    { labelKey: 'promoBanner',      icon: '\u{1F3F7}\u{FE0F}', descKey: 'promoBannerDesc' },
   social_feed:     { labelKey: 'socialLinks',      icon: '\u{1F4F1}', descKey: 'socialLinksDesc' },
   action_buttons:  { labelKey: 'actionButtons',    icon: '\u{1F518}', descKey: 'actionButtonsDesc' },
+  feature_cards:   { labelKey: 'featureCards',     icon: '\u{1F5C2}\u{FE0F}', descKey: 'featureCardsDesc' },
   picnic_basket:   { labelKey: 'picnicBasket',     icon: '\u{1F9FA}', descKey: 'picnicBasketDesc' },
   footer:          { labelKey: 'footer',            icon: '\u{1F3E0}', descKey: 'footerDesc' },
 };
@@ -147,6 +149,10 @@ type Tab = 'styles' | 'sections';
 
 export default function WebsitePage() {
   const { t } = useI18n();
+  const { hasAnyPermission } = usePermissions();
+  // Catering is offered as an editable "Traiteur" page only when this restaurant
+  // has catering (same catering.manage gate used across the catering section).
+  const canManageCatering = hasAnyPermission('catering.manage');
   const params = useParams();
   const router = useRouter();
   const restaurantId = Number(params.restaurantId);
@@ -1104,6 +1110,7 @@ export default function WebsitePage() {
               activePage={activePage}
               onActivePageChange={setActivePage}
               landingEnabled={landingEnabled}
+              cateringEnabled={canManageCatering}
               pages={pages}
               onAddPage={handleAddPage}
               onRenamePage={handleRenamePage}
@@ -1372,10 +1379,11 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
+  cateringEnabled: boolean;
   pages: WebsitePageMeta[];
   onAddPage: () => void;
   onRenamePage: (slug: string, label: string) => void;
@@ -1449,6 +1457,11 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, pages, 
           <div className={rowCls(activePage === 'menu')}>
             <button onClick={() => onActivePageChange('menu')} className={rowBtnCls(activePage === 'menu')}>Page de commande</button>
           </div>
+          {cateringEnabled && (
+            <div className={rowCls(activePage === 'catering')}>
+              <button onClick={() => onActivePageChange('catering')} className={rowBtnCls(activePage === 'catering')}>Traiteur</button>
+            </div>
+          )}
           {pages.map((p, i) => (
             <div key={p.slug} className={rowCls(activePage === p.slug)}>
               <button onClick={() => onActivePageChange(p.slug)} className={rowBtnCls(activePage === p.slug)}>{p.label}</button>
@@ -3373,6 +3386,10 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
           <ActionButtonsEditor content={content} updateContent={updateContent} />
         )}
 
+        {section.section_type === 'feature_cards' && (
+          <FeatureCardsEditor content={content} updateContent={updateContent} restaurantId={restaurantId} />
+        )}
+
         {/* Footer Editor */}
         {section.section_type === 'footer' && (
           <div className="space-y-3">
@@ -3519,6 +3536,68 @@ function ActionButtonsEditor({ content, updateContent }: {
         className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--divider)] text-sm font-medium text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-all"
       >
         + Add Button
+      </button>
+    </div>
+  );
+}
+
+// Editor for the feature_cards section: a grid of image cards, each with an
+// image, a title (rendered as a button label), an optional subtitle, and a link
+// to a page/URL. Modeled on ActionButtonsEditor, adding per-card image upload.
+function FeatureCardsEditor({ content, updateContent, restaurantId }: {
+  content: Record<string, any>;
+  updateContent: (key: string, value: any) => void;
+  restaurantId: number;
+}) {
+  const cards: any[] = content.cards || [];
+
+  function updateCard(idx: number, field: string, value: string) {
+    updateContent('cards', cards.map((c, i) => i === idx ? { ...c, [field]: value } : c));
+  }
+  function addCard() {
+    updateContent('cards', [...cards, { image_url: '', title: '', subtitle: '', link: '' }]);
+  }
+  function removeCard(idx: number) {
+    updateContent('cards', cards.filter((_, i) => i !== idx));
+  }
+
+  const inputClass = "w-full border border-[var(--divider)] rounded-lg px-3 py-2 text-sm bg-[var(--surface)] text-fg-primary";
+  const labelClass = "text-xs text-fg-secondary mb-1 block";
+
+  return (
+    <div className="space-y-4">
+      {cards.map((card, idx) => (
+        <div key={idx} className="p-4 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-fg-primary">Card {idx + 1}</span>
+            <button onClick={() => removeCard(idx)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+          </div>
+          <SectionImageUploader
+            restaurantId={restaurantId}
+            currentUrl={card.image_url}
+            onUploaded={(url) => updateCard(idx, 'image_url', url)}
+            onRemove={() => updateCard(idx, 'image_url', '')}
+            label="Image"
+          />
+          <div>
+            <label className={labelClass}>Title</label>
+            <input type="text" value={card.title || ''} onChange={e => updateCard(idx, 'title', e.target.value)} className={inputClass} placeholder="Nos Plateaux" />
+          </div>
+          <div>
+            <label className={labelClass}>Subtitle</label>
+            <input type="text" value={card.subtitle || ''} onChange={e => updateCard(idx, 'subtitle', e.target.value)} className={inputClass} placeholder="Optional" />
+          </div>
+          <div>
+            <label className={labelClass}>Link</label>
+            <input type="text" value={card.link || ''} onChange={e => updateCard(idx, 'link', e.target.value)} className={inputClass} placeholder="/catering, /order, a page slug, or https://..." />
+          </div>
+        </div>
+      ))}
+      <button
+        onClick={addCard}
+        className="w-full py-2.5 rounded-xl border-2 border-dashed border-[var(--divider)] text-sm font-medium text-fg-secondary hover:border-brand-500 hover:text-brand-500 transition-all"
+      >
+        + Add Card
       </button>
     </div>
   );
@@ -3671,6 +3750,7 @@ function getDefaultContent(sectionType: string): Record<string, any> {
     case 'promo_banner': return { title: 'Special Offer', body: 'Check out our latest deals!' };
     case 'social_feed': return { links: [] };
     case 'action_buttons': return { buttons: [{ label: 'Order Now', action: 'view_menu', style: 'primary' }] };
+    case 'feature_cards': return { cards: [{ image_url: '', title: '', subtitle: '', link: '' }] };
     case 'picnic_basket': return { title: 'Preparing Your Basket', subtitle: 'Scroll to fill your Shabbat basket with love', items: [], basket_image: '', completion_text: 'Ready for Shabbat! \u{1F56F}\u{FE0F}' };
     case 'footer': return { show_logo: true, show_description: true, show_address: true, show_phone: true, show_hours: true, custom_text: '', social_links: [] };
     default: return {};
