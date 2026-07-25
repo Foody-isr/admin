@@ -469,9 +469,12 @@ export default function WebsitePage() {
     setSelectedSectionId(null);
   }
 
-  // Filter sections by active page, footer always last
+  // Filter sections by active page, footer always last. The "Page de commande"
+  // pseudo-page (activePage 'menu') hosts sections stored under the reserved
+  // 'order' slug (consumed by the order route; avoids a phantom /menu page).
+  const activeSectionPage = activePage === 'menu' ? 'order' : activePage;
   const filteredSections = sections
-    .filter(s => (s.page || 'home') === activePage)
+    .filter(s => (s.page || 'home') === activeSectionPage)
     .sort((a, b) => {
       if (a.section_type === 'footer') return 1;
       if (b.section_type === 'footer') return -1;
@@ -826,13 +829,17 @@ export default function WebsitePage() {
   function handleAddPage() {
     const slug = slugifyPage('page');
     const label = `Nouvelle page ${pages.length + 1}`;
-    setPages((prev) => [...prev, { slug, label, sort_order: prev.length }]);
+    setPages((prev) => [...prev, { slug, label, sort_order: prev.length, show_in_nav: true }]);
     setActivePage(slug);
     setSelectedSectionId(null);
   }
 
   function handleRenamePage(slug: string, label: string) {
     setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, label } : p)));
+  }
+
+  function handleTogglePageNav(slug: string, show: boolean) {
+    setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, show_in_nav: show } : p)));
   }
 
   function handleDeletePage(slug: string) {
@@ -922,7 +929,7 @@ export default function WebsitePage() {
       id: syntheticId,
       restaurant_id: restaurantId,
       section_type: sectionType,
-      page: activePage,
+      page: activePage === 'menu' ? 'order' : activePage,
       sort_order: sections.length,
       is_visible: true,
       layout: 'default',
@@ -1114,6 +1121,7 @@ export default function WebsitePage() {
               pages={pages}
               onAddPage={handleAddPage}
               onRenamePage={handleRenamePage}
+              onTogglePageNav={handleTogglePageNav}
               onDeletePage={handleDeletePage}
               onReorderPage={handleReorderPage}
               footerExists={footerSection !== null}
@@ -1238,7 +1246,7 @@ export default function WebsitePage() {
             <LiveHomePreviewIframe
               mode={previewMode}
               slug={restaurant?.slug}
-              path={activePage === '_site' ? '/order' : `/${activePage}`}
+              path={activePage === '_site' || activePage === 'menu' ? '/order' : `/${activePage}`}
               draftPayload={buildDraftPayload()}
               onSectionClick={(id) => {
                 if (typeof id === 'number') setSelectedSectionId(id);
@@ -1379,7 +1387,7 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onRenamePage, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onRenamePage, onTogglePageNav, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
@@ -1387,6 +1395,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
   pages: WebsitePageMeta[];
   onAddPage: () => void;
   onRenamePage: (slug: string, label: string) => void;
+  onTogglePageNav: (slug: string, show: boolean) => void;
   onDeletePage: (slug: string) => void;
   onReorderPage: (slug: string, dir: 'up' | 'down') => void;
   footerExists: boolean;
@@ -1419,7 +1428,7 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
 }) {
   const activeCustom = pages.find((p) => p.slug === activePage) || null;
   const isFooter = activePage === '_site';
-  const showSectionList = !isFooter && activePage !== 'menu';
+  const showSectionList = !isFooter;
   const sectionLabel = activePage === 'home' ? 'Sections' : activeCustom ? `Sections — ${activeCustom.label}` : 'Sections';
 
   // Category banner: the style is shared across devices; only the fit (Cadrage)
@@ -1499,8 +1508,17 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
             className="w-full px-3 py-2 rounded-lg border border-divider bg-[var(--surface)] text-sm text-fg-primary focus:outline-none focus:ring-2 focus:ring-brand-500/40"
           />
           <p className="mt-1.5 text-[10px] text-fg-secondary leading-relaxed">
-            Adresse : <span className="text-fg-primary">/{activeCustom.slug}</span> · apparaît dans le menu hamburger.
+            Adresse : <span className="text-fg-primary">/{activeCustom.slug}</span>
           </p>
+          <label className="mt-3 flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={activeCustom.show_in_nav !== false}
+              onChange={(e) => onTogglePageNav(activeCustom.slug, e.target.checked)}
+              className="accent-brand-500"
+            />
+            <span className="text-[11px] text-fg-secondary">Afficher dans la navigation</span>
+          </label>
         </div>
       )}
 

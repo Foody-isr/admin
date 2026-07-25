@@ -863,6 +863,8 @@ export interface WebsitePageMeta {
   slug: string;
   label: string;
   sort_order: number;
+  /** Show this page in the horizontal top nav. Defaults to true when omitted. */
+  show_in_nav?: boolean;
 }
 
 // ─── Checkout-form builder ──────────────────────────────────────────────
