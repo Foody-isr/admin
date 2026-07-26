@@ -3325,14 +3325,44 @@ function SectionSettingsPanel({ section, restaurantId, onUpdate, onDelete }: {
               onSettingChange={updateSettings}
               multiline
             />
+            {/* Text position in the banner (horizontal + vertical → 9-way). */}
+            <div className="space-y-1.5">
+              <label className={labelClass}>Position du texte</label>
+              <div className="flex gap-1.5">
+                {[{ v: 'left', l: 'Gauche' }, { v: 'center', l: 'Centre' }, { v: 'right', l: 'Droite' }].map(o => (
+                  <button key={o.v} type="button" onClick={() => updateSettings('text_align', o.v)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.text_align || 'center') === o.v ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>{o.l}</button>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                {[{ v: 'top', l: 'Haut' }, { v: 'center', l: 'Milieu' }, { v: 'bottom', l: 'Bas' }].map(o => (
+                  <button key={o.v} type="button" onClick={() => updateSettings('vertical_align', o.v)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all ${(settings.vertical_align || 'center') === o.v ? 'border-brand-500 bg-brand-500/10 text-brand-500' : 'border-[var(--divider)] text-fg-secondary hover:border-fg-secondary/30'}`}>{o.l}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Button: text + typography (font/size/weight/color) + background color. */}
+            <TextFieldWithTypography
+              label="Bouton — texte"
+              value={content.cta_text || ''}
+              onChange={v => updateContent('cta_text', v)}
+              placeholder="Commander"
+              fieldPrefix="cta"
+              settings={settings}
+              onSettingChange={updateSettings}
+            />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>CTA Text</label>
-                <input type="text" value={content.cta_text || ''} onChange={e => updateContent('cta_text', e.target.value)} className={inputClass} placeholder="Order Now" />
+                <label className={labelClass}>Lien du bouton</label>
+                <input type="text" value={content.cta_link || ''} onChange={e => updateContent('cta_link', e.target.value)} className={inputClass} placeholder="/order" />
               </div>
               <div>
-                <label className={labelClass}>CTA Link</label>
-                <input type="text" value={content.cta_link || ''} onChange={e => updateContent('cta_link', e.target.value)} className={inputClass} placeholder="#menu" />
+                <label className={labelClass}>Couleur du bouton</label>
+                <div className="flex items-center gap-1.5">
+                  <input type="color" value={settings.cta_bg_color || '#000000'} onChange={e => updateSettings('cta_bg_color', e.target.value)} className="w-8 h-8 rounded border border-[var(--divider)] cursor-pointer shrink-0" />
+                  <input type="text" value={settings.cta_bg_color || ''} onChange={e => updateSettings('cta_bg_color', e.target.value)} className={inputClass} placeholder="défaut" />
+                </div>
               </div>
             </div>
           </>
