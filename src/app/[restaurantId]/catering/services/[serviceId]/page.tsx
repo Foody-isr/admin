@@ -11,10 +11,12 @@ import {
 } from '@/components/data-table';
 import { PageHead, Button, Tabs, TabsList, Tab, TabsContent } from '@/components/ds';
 import Modal from '@/components/Modal';
+import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
+import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
   listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem,
   listCateringOptions, createCateringOption, updateCateringOption, archiveCateringOption,
-  uploadSectionImage,
+  uploadSectionImage, getRestaurant,
   type CateringService, type CateringPricingModel,
   type CateringCatalogItem, type CateringCatalogItemInput,
   type CateringOption, type CateringOptionInput, type CateringOptionPriceMode,
@@ -42,16 +44,19 @@ export default function CateringServiceCatalogPage() {
   const canEdit = hasAnyPermission('catering.manage');
 
   const [service, setService] = useState<CateringService | undefined>(undefined);
+  const [sourceLocale, setSourceLocale] = useState<Locale>('en');
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'items' | 'options'>('items');
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    listCateringServices(rid)
-      .then((services) => {
+    Promise.all([listCateringServices(rid), getRestaurant(rid)])
+      .then(([services, restaurant]) => {
         if (!active) return;
         setService(services.find((s) => s.id === sid));
+        const loc = restaurant.default_locale;
+        if (loc === 'en' || loc === 'he' || loc === 'fr') setSourceLocale(loc);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -92,7 +97,7 @@ export default function CateringServiceCatalogPage() {
 
         <TabsContent value="items">
           {service && (
-            <ItemsTab restaurantId={rid} serviceId={sid} pricingModel={service.pricing_model} canEdit={canEdit} />
+            <ItemsTab restaurantId={rid} serviceId={sid} pricingModel={service.pricing_model} canEdit={canEdit} sourceLocale={sourceLocale} />
           )}
         </TabsContent>
 
@@ -104,11 +109,12 @@ export default function CateringServiceCatalogPage() {
   );
 }
 
-function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit }: {
+function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale }: {
   restaurantId: number;
   serviceId: number;
   pricingModel: CateringPricingModel;
   canEdit: boolean;
+  sourceLocale: Locale;
 }) {
   const { t } = useI18n();
   const [items, setItems] = useState<CateringCatalogItem[]>([]);
@@ -215,6 +221,7 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit }: {
           restaurantId={restaurantId}
           serviceId={serviceId}
           pricingModel={pricingModel}
+          sourceLocale={sourceLocale}
           editing={editModal.editing}
           onClose={() => setEditModal({ open: false })}
           onSaved={() => { setEditModal({ open: false }); reload(); }}
@@ -224,10 +231,11 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit }: {
   );
 }
 
-function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose, onSaved }: {
+function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, editing, onClose, onSaved }: {
   restaurantId: number;
   serviceId: number;
   pricingModel: CateringPricingModel;
+  sourceLocale: Locale;
   editing?: CateringCatalogItem;
   onClose: () => void;
   onSaved: () => void;
@@ -235,6 +243,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
+  const [translations, setTranslations] = useState<Record<string, Record<string, string>>>(editing?.translations ?? {});
   const [basePrice, setBasePrice] = useState(editing ? String(editing.base_price) : '');
   const [minQuantity, setMinQuantity] = useState(editing ? String(editing.min_quantity ?? '') : '');
   const [minGuests, setMinGuests] = useState(editing ? String(editing.min_guests ?? '') : '');
@@ -267,6 +276,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
         description,
         base_price: Number(basePrice) || 0,
         image_url: imageUrl,
+        translations,
         is_active: isActive,
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(pricingModel === 'per_person'
@@ -293,25 +303,18 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
   return (
     <Modal title={editing ? t('catering_edit_item') : t('catering_new_item')} onClose={onClose}>
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_field_name')}</label>
-          <input
-            autoFocus
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_field_desc')}</label>
-          <textarea
-            className="input"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
+        <CateringLocaleFields
+          sourceLocale={sourceLocale}
+          name={name}
+          onName={setName}
+          description={description}
+          onDescription={setDescription}
+          translations={translations}
+          onTranslations={setTranslations}
+          nameLabel={t('catering_field_name')}
+          descLabel={t('catering_field_desc')}
+          onEnter={handleSave}
+        />
 
         <div>
           <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_field_image')}</label>

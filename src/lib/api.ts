@@ -7942,6 +7942,7 @@ export interface CateringCatalogItem {
   image_url: string;
   base_price: number;
   price_tiers?: CateringPriceTier[] | null;
+  translations?: Record<string, Record<string, string>>;
   min_quantity: number;
   min_guests: number;
   event_type: string;
@@ -7956,6 +7957,7 @@ export interface CateringCatalogItemInput {
   image_url?: string;
   base_price: number;
   price_tiers?: CateringPriceTier[];
+  translations?: Record<string, Record<string, string>>;
   min_quantity?: number;
   min_guests?: number;
   is_active?: boolean;
