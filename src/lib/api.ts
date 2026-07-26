@@ -723,6 +723,8 @@ export interface SectionColors {
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
   categoryBar?: { bg?: string; text?: string; accent?: string };
+  /** Catering shop: bg, buttons/accent, and button-label text. */
+  catering?: { bg?: string; text?: string; accent?: string };
 }
 
 export interface WebsiteConfig {

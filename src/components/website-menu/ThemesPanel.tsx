@@ -239,7 +239,7 @@ export function ThemesPanel({ config, catalog, onUpdate }: Props) {
 
 /* ─────────────────────── Per-section color overrides ─────────────────────── */
 
-type SectionKey = 'navbar' | 'hero' | 'metadata' | 'categoryBar';
+type SectionKey = 'navbar' | 'hero' | 'metadata' | 'categoryBar' | 'catering';
 type SectionField = 'bg' | 'text' | 'accent';
 
 // Each section exposes Background + Text; the category bar adds an Active-pill
@@ -249,6 +249,7 @@ const SECTION_DEFS: { key: SectionKey; label: string; fields: { field: SectionFi
   { key: 'hero', label: 'Hero (bandeau du resto)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
   { key: 'metadata', label: 'Infos (pré-commande, min…)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }] },
   { key: 'categoryBar', label: 'Barre de catégories', fields: [{ field: 'bg', label: 'Fond' }, { field: 'text', label: 'Texte' }, { field: 'accent', label: 'Pastille active' }] },
+  { key: 'catering', label: 'Traiteur (boutique)', fields: [{ field: 'bg', label: 'Fond' }, { field: 'accent', label: 'Boutons / accents' }, { field: 'text', label: 'Texte des boutons' }] },
 ];
 
 type SectionMap = Record<string, Record<string, string | undefined> | undefined>;
