@@ -24,6 +24,7 @@ import { CoverBackgroundEditor } from '@/components/website-menu/CoverBackground
 import { CoverFocalPicker } from '@/components/website/CoverFocalPicker';
 import { SelectionOverlay, SectionBounds } from '@/components/website/SelectionOverlay';
 import CheckoutEditor from '@/components/website/CheckoutEditor';
+import { WEBSITE_TEMPLATES, type WebsiteTemplate } from './templates';
 import CheckoutPreviewIframe from '@/components/website/CheckoutPreviewIframe';
 import { OrderPageInfoEditor } from '@/components/website/OrderPageInfoEditor';
 import { NavOrderCard } from '@/components/website/NavOrderCard';
@@ -263,6 +264,7 @@ export default function WebsitePage() {
   const [selectedBanner, setSelectedBanner] = useState<{ groupId: number; design: BannerDesign } | null>(null);
   const bannerSaveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [activePage, setActivePage] = useState('home');
   // Custom pages (beyond the built-in home + menu). Each renders at
   // /r/<slug>/<page.slug> on foodyweb and appears in the hamburger nav.
@@ -842,6 +844,45 @@ export default function WebsitePage() {
     setPages((prev) => prev.map((p) => (p.slug === slug ? { ...p, show_in_nav: show } : p)));
   }
 
+  // Apply a ready-made template: replace the current page content with the
+  // template's pages + sections (the site-wide footer is preserved). Existing
+  // DB-backed sections are queued for deletion; the whole thing autosaves as a
+  // draft the owner can then tweak and publish.
+  function applyTemplate(tpl: WebsiteTemplate) {
+    const footer = sections.find((s) => s.section_type === 'footer');
+    const toDelete = sections.filter((s) => s.id > 0 && s.section_type !== 'footer').map((s) => s.id);
+    if (toDelete.length > 0) setDeletedIds((prev) => [...prev, ...toDelete]);
+
+    const tmpMap = new Map<number, string>();
+    let synth = -1;
+    const stamp = Date.now();
+    const templateSections: WebsiteSection[] = tpl.sections.map((s, i) => {
+      const id = synth--;
+      tmpMap.set(id, `tmp_${stamp}_${i}_${Math.random().toString(36).slice(2, 6)}`);
+      return {
+        id,
+        restaurant_id: restaurantId,
+        section_type: s.section_type,
+        page: s.page,
+        sort_order: i,
+        is_visible: true,
+        layout: s.layout || 'default',
+        content: s.content as Record<string, unknown>,
+        settings: (s.settings as Record<string, unknown>) || { color_style: 'light', text_alignment: 'center', padding: 'normal' },
+        created_at: '',
+        updated_at: '',
+      } as WebsiteSection;
+    });
+    newSectionTmpIds.current = tmpMap;
+    setSections(footer ? [...templateSections, footer] : templateSections);
+    setPages(tpl.pages);
+    setLandingEnabled(true);
+    setConfig((c) => (c ? ({ ...c, pages: tpl.pages, landing_enabled: true } as WebsiteConfig) : c));
+    setActivePage('home');
+    setSelectedSectionId(null);
+    setShowTemplates(false);
+  }
+
   function handleDeletePage(slug: string) {
     // Drop the page and queue its sections for deletion on publish.
     const owned = sections.filter((s) => s.page === slug);
@@ -1120,6 +1161,7 @@ export default function WebsitePage() {
               cateringEnabled={canManageCatering}
               pages={pages}
               onAddPage={handleAddPage}
+              onOpenTemplates={() => setShowTemplates(true)}
               onRenamePage={handleRenamePage}
               onTogglePageNav={handleTogglePageNav}
               onDeletePage={handleDeletePage}
@@ -1353,6 +1395,14 @@ export default function WebsitePage() {
         <AddSectionModal onAdd={handleAddSection} onClose={() => setShowAddModal(false)} />
       )}
 
+      {showTemplates && (
+        <TemplatePickerModal
+          hasCatering={canManageCatering}
+          onApply={applyTemplate}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
+
       {/* Discard confirm modal */}
       {showDiscardConfirm && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowDiscardConfirm(false)}>
@@ -1387,13 +1437,14 @@ export default function WebsitePage() {
 // Each owns its own internal layout; the parent just hands them state.
 // ═══════════════════════════════════════════════════════════════════
 
-function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onRenamePage, onTogglePageNav, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
+function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, cateringEnabled, pages, onAddPage, onOpenTemplates, onRenamePage, onTogglePageNav, onDeletePage, onReorderPage, footerExists, onSelectFooter, sections, selectedId, onSelect, onMove, onToggleVisibility, onAddSection, menuLayout, menuLayoutMobile, heroCoverLayout, heroLogoSize, categoryBannerStyle, categoryBannerOverlay, categoryBannerFit, categoryBannerFitMobile, onMenuLayoutChange, onMenuLayoutMobileChange, onHeroCoverLayoutChange, onHeroLogoSizeChange, onCategoryBannerStyleChange, onCategoryBannerOverlayChange, onCategoryBannerFitChange, onCategoryBannerFitMobileChange, restaurantId, restaurant, onRestaurantUpdate }: {
   activePage: string;
   onActivePageChange: (p: string) => void;
   landingEnabled: boolean;
   cateringEnabled: boolean;
   pages: WebsitePageMeta[];
   onAddPage: () => void;
+  onOpenTemplates: () => void;
   onRenamePage: (slug: string, label: string) => void;
   onTogglePageNav: (slug: string, show: boolean) => void;
   onDeletePage: (slug: string) => void;
@@ -1452,7 +1503,15 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
       {/* Pages list — built-in (Accueil/Commande) + custom pages + the site
           footer. Works regardless of the landing toggle; custom pages appear in
           the customer hamburger menu. */}
-      <div className="px-3 pt-4 pb-3 border-b border-divider">
+      <div className="px-3 pt-3">
+        <button
+          onClick={onOpenTemplates}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-brand-500/40 bg-brand-500/5 px-3 py-2 text-[12px] font-semibold text-brand-600 hover:bg-brand-500/10 transition-colors"
+        >
+          <span>{'✨'}</span> Modèles de site
+        </button>
+      </div>
+      <div className="px-3 pt-3 pb-3 border-b border-divider">
         <div className="flex items-center justify-between px-1 mb-2">
           <span className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">Pages</span>
           <button onClick={onAddPage} className="text-[11px] font-medium text-brand-500 hover:text-brand-600">+ Nouvelle page</button>
@@ -3749,6 +3808,46 @@ function AddSectionModal({ onAdd, onClose }: { onAdd: (type: string) => void; on
           ))}
         </div>
         <button onClick={onClose} className="mt-4 w-full py-2 text-sm text-fg-secondary hover:text-fg-primary transition">{t('cancel')}</button>
+      </div>
+    </div>
+  );
+}
+
+// Template picker: pick a ready-made multi-page design. Applying replaces the
+// current page content (with a confirm) and seeds the draft to tweak + publish.
+function TemplatePickerModal({ hasCatering, onApply, onClose }: {
+  hasCatering: boolean;
+  onApply: (tpl: WebsiteTemplate) => void;
+  onClose: () => void;
+}) {
+  function pick(tpl: WebsiteTemplate) {
+    if (typeof window !== 'undefined' && !window.confirm('Appliquer ce modèle ? Le contenu actuel de vos pages sera remplacé (vous pourrez ensuite tout modifier avant de publier).')) return;
+    onApply(tpl);
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto" style={{ background: 'var(--surface)' }} onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-fg-primary">Modèles de site</h2>
+        <p className="text-sm text-fg-secondary mt-1 mb-4">Choisissez un modèle pour créer votre site en un clic, puis remplacez les images et les textes.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {WEBSITE_TEMPLATES.map((tpl) => (
+            <button
+              key={tpl.id}
+              onClick={() => pick(tpl)}
+              className="p-4 rounded-xl border border-[var(--divider)] hover:border-brand-500 hover:bg-brand-500/5 transition-all text-left"
+            >
+              <span className="text-3xl block mb-1.5">{tpl.emoji}</span>
+              <div className="font-semibold text-fg-primary text-sm flex items-center gap-1.5">
+                {tpl.name}
+                {tpl.usesCatering && !hasCatering && (
+                  <span className="text-[9px] font-medium uppercase tracking-wide text-amber-600 bg-amber-500/10 rounded px-1.5 py-0.5">Traiteur requis</span>
+                )}
+              </div>
+              <div className="text-xs text-fg-secondary mt-1 leading-relaxed">{tpl.description}</div>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-4 w-full py-2 text-sm text-fg-secondary hover:text-fg-primary transition">Annuler</button>
       </div>
     </div>
   );
