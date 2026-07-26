@@ -14,6 +14,7 @@ import Modal from '@/components/Modal';
 import {
   listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem,
   listCateringOptions, createCateringOption, updateCateringOption, archiveCateringOption,
+  uploadSectionImage,
   type CateringService, type CateringPricingModel,
   type CateringCatalogItem, type CateringCatalogItemInput,
   type CateringOption, type CateringOptionInput, type CateringOptionPriceMode,
@@ -241,10 +242,21 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
   const [tiers, setTiers] = useState<{ min_guests: string; price: string }[]>(
     () => (editing?.price_tiers ?? []).map((t) => ({ min_guests: String(t.min_guests), price: String(t.price) })),
   );
+  const [imageUrl, setImageUrl] = useState(editing?.image_url ?? '');
+  const [uploading, setUploading] = useState(false);
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
   const priceLabel = itemPriceLabel(pricingModel, t);
+
+  const handleImage = async (file: File) => {
+    setUploading(true);
+    try {
+      setImageUrl(await uploadSectionImage(restaurantId, file));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) return;
@@ -254,6 +266,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
         name: name.trim(),
         description,
         base_price: Number(basePrice) || 0,
+        image_url: imageUrl,
         is_active: isActive,
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
         ...(pricingModel === 'per_person'
@@ -298,6 +311,28 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_field_image')}</label>
+          <div className="flex items-center gap-3">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt="" className="h-16 w-16 rounded-lg object-cover border border-[var(--divider)]" />
+            ) : (
+              <div className="grid h-16 w-16 place-items-center rounded-lg border border-dashed border-[var(--divider)] text-fg-tertiary text-xs">—</div>
+            )}
+            <label className="cursor-pointer rounded-lg border border-[var(--divider)] px-3 py-2 text-sm font-medium text-fg-primary hover:border-brand-500">
+              {uploading ? '…' : t('catering_upload_image')}
+              <input type="file" accept="image/*" className="hidden" disabled={uploading}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImage(f); e.currentTarget.value = ''; }} />
+            </label>
+            {imageUrl && (
+              <button type="button" onClick={() => setImageUrl('')} className="text-sm text-red-500 hover:text-red-700">
+                {t('catering_remove_image')}
+              </button>
+            )}
+          </div>
         </div>
 
         <div>
