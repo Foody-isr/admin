@@ -237,6 +237,10 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
   const [basePrice, setBasePrice] = useState(editing ? String(editing.base_price) : '');
   const [minQuantity, setMinQuantity] = useState(editing ? String(editing.min_quantity ?? '') : '');
   const [minGuests, setMinGuests] = useState(editing ? String(editing.min_guests ?? '') : '');
+  // Per-person price tiers: from N guests, the rate is X/person. Empty → flat base price.
+  const [tiers, setTiers] = useState<{ min_guests: string; price: string }[]>(
+    () => (editing?.price_tiers ?? []).map((t) => ({ min_guests: String(t.min_guests), price: String(t.price) })),
+  );
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -252,7 +256,15 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
         base_price: Number(basePrice) || 0,
         is_active: isActive,
         ...(pricingModel === 'per_unit' ? { min_quantity: Number(minQuantity) || 0 } : {}),
-        ...(pricingModel === 'per_person' ? { min_guests: Number(minGuests) || 0 } : {}),
+        ...(pricingModel === 'per_person'
+          ? {
+              min_guests: Number(minGuests) || 0,
+              price_tiers: tiers
+                .filter((t) => t.min_guests.trim() !== '' && t.price.trim() !== '')
+                .map((t) => ({ min_guests: Number(t.min_guests) || 0, price: Number(t.price) || 0 }))
+                .sort((a, b) => a.min_guests - b.min_guests),
+            }
+          : {}),
       };
       if (editing) {
         await updateCateringItem(restaurantId, editing.id, body);
@@ -325,6 +337,39 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, editing, onClose
               value={minGuests}
               onChange={(e) => setMinGuests(e.target.value)}
             />
+          </div>
+        )}
+
+        {pricingModel === 'per_person' && (
+          <div>
+            <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_item_tiers_title')}</label>
+            <p className="text-fs-xs text-fg-secondary mb-2">{t('catering_item_tiers_hint')}</p>
+            <div className="space-y-2">
+              {tiers.map((tier, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="number" min={0} step="1" className="input flex-1"
+                    placeholder={t('catering_item_tier_from')}
+                    value={tier.min_guests}
+                    onChange={(e) => setTiers((ts) => ts.map((x, j) => (j === i ? { ...x, min_guests: e.target.value } : x)))}
+                  />
+                  <input
+                    type="number" min={0} step="0.01" className="input flex-1"
+                    placeholder={t('catering_item_tier_price')}
+                    value={tier.price}
+                    onChange={(e) => setTiers((ts) => ts.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
+                  />
+                  <button type="button" aria-label="remove" onClick={() => setTiers((ts) => ts.filter((_, j) => j !== i))} className="px-2 text-red-500 hover:text-red-700">✕</button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTiers((ts) => [...ts, { min_guests: '', price: '' }])}
+              className="mt-2 text-sm font-medium text-brand-500 hover:text-brand-600"
+            >
+              + {t('catering_item_tier_add')}
+            </button>
           </div>
         )}
 

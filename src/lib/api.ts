@@ -7930,6 +7930,9 @@ export async function refundCateringDeposit(restaurantId: number, id: number, bo
 }
 
 // ---- Catering catalog (Phase 2) ----
+/** A per-person price break: from `min_guests` guests, the rate is `price`/person. */
+export interface CateringPriceTier { min_guests: number; price: number }
+
 export interface CateringCatalogItem {
   id: number;
   restaurant_id: number;
@@ -7938,6 +7941,7 @@ export interface CateringCatalogItem {
   description: string;
   image_url: string;
   base_price: number;
+  price_tiers?: CateringPriceTier[] | null;
   min_quantity: number;
   min_guests: number;
   event_type: string;
@@ -7951,6 +7955,7 @@ export interface CateringCatalogItemInput {
   description?: string;
   image_url?: string;
   base_price: number;
+  price_tiers?: CateringPriceTier[];
   min_quantity?: number;
   min_guests?: number;
   is_active?: boolean;
