@@ -625,8 +625,12 @@ export default function WebsitePage() {
         setRestaurant(rest);
         setSiteStyles(styles);
 
-        // Auto-create essential sections (footer, action_buttons) if missing.
-        // Done locally so it lands in the draft without touching live state.
+        // Auto-create the site-wide footer if missing. Only NON-DELETABLE
+        // sections may be auto-seeded here: this runs on every builder load, so
+        // seeding a user-deletable type (e.g. action_buttons) would resurrect it
+        // on the next refresh right after the user deleted it. The footer is
+        // safe because it can never be deleted (see isDeletable). New sites get
+        // their optional sections (CTAs, etc.) from templates or "+ Ajouter".
         const existingTypes = new Set((draft.state.sections || []).map((s) => s.section_type));
         const missing: DraftSectionPayload[] = [];
         if (!existingTypes.has('footer')) {
@@ -636,14 +640,6 @@ export default function WebsitePage() {
             tmp_id: `tmp_${Date.now()}_footer`, section_type: 'footer', page: '_site',
             is_visible: true, layout: 'columns', sort_order: 99,
             content: getDefaultContent('footer'), settings: { color_style: 'dark' },
-          });
-        }
-        if (!existingTypes.has('action_buttons')) {
-          missing.push({
-            tmp_id: `tmp_${Date.now()}_action`, section_type: 'action_buttons', page: 'home',
-            is_visible: true, layout: 'default', sort_order: (draft.state.sections?.length || 0),
-            content: getDefaultContent('action_buttons'),
-            settings: { color_style: 'light', text_alignment: 'center', padding: 'normal' },
           });
         }
         if (missing.length > 0) {
