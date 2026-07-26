@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon } from 'lucide-react';
+import { PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon, ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
 import {
@@ -14,7 +14,7 @@ import Modal from '@/components/Modal';
 import { CateringLocaleFields } from '@/components/catering/CateringLocaleFields';
 import { type Locale } from '@/components/i18n/LocaleTabs';
 import {
-  listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem,
+  listCateringServices, listCateringItems, createCateringItem, updateCateringItem, archiveCateringItem, reorderCateringItems,
   listCateringOptions, createCateringOption, updateCateringOption, archiveCateringOption,
   uploadSectionImage, getRestaurant,
   type CateringService, type CateringPricingModel,
@@ -138,6 +138,20 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
     reload();
   };
 
+  // Move an item one slot up/down, optimistically, then persist the new order.
+  const handleMove = async (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[index], next[target]] = [next[target], next[index]];
+    setItems(next);
+    try {
+      await reorderCateringItems(restaurantId, serviceId, next.map((i) => i.id));
+    } catch {
+      reload(); // revert to server order on failure
+    }
+  };
+
   const priceLabel = itemPriceLabel(pricingModel, t);
   const minLabel = pricingModel === 'per_unit' ? t('catering_item_min_qty') : t('catering_item_min_guests');
 
@@ -194,6 +208,22 @@ function ItemsTab({ restaurantId, serviceId, pricingModel, canEdit, sourceLocale
                   {canEdit && (
                     <div className="flex items-center justify-end gap-1">
                       <button
+                        aria-label={t('catering_move_up')}
+                        disabled={index === 0}
+                        onClick={() => handleMove(index, -1)}
+                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                      >
+                        <ChevronUpIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        aria-label={t('catering_move_down')}
+                        disabled={index === items.length - 1}
+                        onClick={() => handleMove(index, 1)}
+                        className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                      >
+                        <ChevronDownIcon className="w-4 h-4" />
+                      </button>
+                      <button
                         aria-label={t('catering_edit_item')}
                         onClick={() => setEditModal({ open: true, editing: item })}
                         className="p-1.5 rounded hover:bg-[var(--surface-subtle)] text-fg-secondary hover:text-fg-primary"
@@ -242,6 +272,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, ed
 }) {
   const { t } = useI18n();
   const [name, setName] = useState(editing?.name ?? '');
+  const [overview, setOverview] = useState(editing?.overview ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [translations, setTranslations] = useState<Record<string, Record<string, string>>>(editing?.translations ?? {});
   const [basePrice, setBasePrice] = useState(editing ? String(editing.base_price) : '');
@@ -273,6 +304,7 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, ed
     try {
       const body: CateringCatalogItemInput = {
         name: name.trim(),
+        overview,
         description,
         base_price: Number(basePrice) || 0,
         image_url: imageUrl,
@@ -307,12 +339,17 @@ function ItemEditModal({ restaurantId, serviceId, pricingModel, sourceLocale, ed
           sourceLocale={sourceLocale}
           name={name}
           onName={setName}
+          overview={overview}
+          onOverview={setOverview}
+          overviewLabel={t('catering_field_overview')}
+          overviewHint={t('catering_field_overview_hint')}
           description={description}
           onDescription={setDescription}
           translations={translations}
           onTranslations={setTranslations}
           nameLabel={t('catering_field_name')}
-          descLabel={t('catering_field_desc')}
+          descLabel={t('catering_field_contents')}
+          descHint={t('catering_field_contents_hint')}
           onEnter={handleSave}
         />
 

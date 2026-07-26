@@ -7940,6 +7940,9 @@ export interface CateringCatalogItem {
   restaurant_id: number;
   service_id: number;
   name: string;
+  /** Short marketing intro shown under the title (1-2 sentences), distinct from
+   *  the itemized `description`. Translatable via the translations map. */
+  overview: string;
   description: string;
   image_url: string;
   base_price: number;
@@ -7955,6 +7958,7 @@ export interface CateringCatalogItem {
 
 export interface CateringCatalogItemInput {
   name: string;
+  overview?: string;
   description?: string;
   image_url?: string;
   base_price: number;
@@ -8008,6 +8012,15 @@ export async function updateCateringItem(restaurantId: number, id: number, body:
 /** Archive (soft-delete) a catalog item. */
 export async function archiveCateringItem(restaurantId: number, id: number): Promise<void> {
   await apiFetch(`/api/v1/catering/items/${id}`, restaurantId, { method: 'DELETE' });
+}
+
+/** Reorder items within a service. `itemIds` is the full ordered set; the first
+ *  gets sort_order=0, the next 1, and so on. */
+export async function reorderCateringItems(restaurantId: number, serviceId: number, itemIds: number[]): Promise<void> {
+  await apiFetch(`/api/v1/catering/services/${serviceId}/items/reorder`, restaurantId, {
+    method: 'PUT',
+    body: JSON.stringify({ item_ids: itemIds }),
+  });
 }
 
 /** List add-on options for a catering service. */
