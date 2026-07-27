@@ -583,6 +583,8 @@ export default function WebsitePage() {
           navbar_text_color: stateConfig.navbar_text_color || '',
           navbar_overlay_text_color: stateConfig.navbar_overlay_text_color || '',
           navbar_cta: stateConfig.navbar_cta ?? null,
+          navbar_show_links: stateConfig.navbar_show_links ?? true,
+          navbar_hamburger: stateConfig.navbar_hamburger || 'mobile',
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           hero_cover_layout: asHeroCoverLayout(stateConfig.hero_cover_layout),
@@ -695,6 +697,8 @@ export default function WebsitePage() {
         navbar_text_color: config?.navbar_text_color || '',
         navbar_overlay_text_color: config?.navbar_overlay_text_color || '',
         navbar_cta: config?.navbar_cta ?? null,
+        navbar_show_links: config?.navbar_show_links ?? true,
+        navbar_hamburger: config?.navbar_hamburger || 'mobile',
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         hero_cover_layout: asHeroCoverLayout(config?.hero_cover_layout),
@@ -2372,6 +2376,26 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
 
       {style !== 'hidden' && (
         <>
+          {sec('Éléments',
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-fg-primary mb-1">Menu (hamburger)</label>
+                <div className="flex gap-1.5">
+                  {([['mobile', 'Sur mobile'], ['always', 'Toujours'], ['off', 'Jamais']] as const).map(([v, label]) => (
+                    <button key={v} onClick={() => onUpdate({ navbar_hamburger: v })}
+                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${(config.navbar_hamburger || 'mobile') === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1 text-[10px] text-fg-tertiary">Le bouton menu ouvre le tiroir avec toutes les pages.</p>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-fg-primary">
+                <input type="checkbox" checked={config.navbar_show_links !== false} onChange={(e) => onUpdate({ navbar_show_links: e.target.checked })} className="accent-brand-500" />
+                Afficher les liens vers les pages (ordinateur)
+              </label>
+            </div>,
+          )}
           {sec('Logo',
             <div className="space-y-3">
               <div>

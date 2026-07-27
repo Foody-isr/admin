@@ -764,6 +764,10 @@ export interface WebsiteConfig {
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
   navbar_cta?: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
+  /** Navbar composition: inline page links on/off, and the hamburger drawer
+   *  button ('mobile' = phones only, 'always', or 'off'). */
+  navbar_show_links?: boolean;
+  navbar_hamburger?: 'mobile' | 'always' | 'off';
   hide_hero_logo: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   hero_logo_bg: 'white' | 'black';
