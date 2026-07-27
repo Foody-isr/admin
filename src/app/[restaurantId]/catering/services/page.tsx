@@ -150,6 +150,7 @@ function ServiceEditModal({ restaurantId, editing, onClose, onSaved }: {
   const [description, setDescription] = useState(editing?.description ?? '');
   const [pricingModel, setPricingModel] = useState<CateringPricingModel>(editing?.pricing_model ?? 'per_unit');
   const [quoteMode, setQuoteMode] = useState<'auto' | 'review'>(editing?.quote_mode ?? 'auto');
+  const [selectionMode, setSelectionMode] = useState<'' | 'single' | 'multiple'>(editing?.selection_mode ?? '');
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [saving, setSaving] = useState(false);
 
@@ -157,7 +158,7 @@ function ServiceEditModal({ restaurantId, editing, onClose, onSaved }: {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const body = { name: name.trim(), description, pricing_model: pricingModel, quote_mode: quoteMode, is_active: isActive };
+      const body = { name: name.trim(), description, pricing_model: pricingModel, quote_mode: quoteMode, selection_mode: selectionMode, is_active: isActive };
       if (editing) {
         await updateCateringService(restaurantId, editing.id, body);
       } else {
@@ -215,6 +216,20 @@ function ServiceEditModal({ restaurantId, editing, onClose, onSaved }: {
             <option value="auto">{t('catering_quote_mode_auto')}</option>
             <option value="review">{t('catering_quote_mode_review')}</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1">{t('catering_service_selection')}</label>
+          <select
+            className="input"
+            value={selectionMode}
+            onChange={(e) => setSelectionMode(e.target.value as '' | 'single' | 'multiple')}
+          >
+            <option value="">{t('catering_selection_auto')}</option>
+            <option value="single">{t('catering_selection_single')}</option>
+            <option value="multiple">{t('catering_selection_multiple')}</option>
+          </select>
+          <p className="mt-1 text-xs text-fg-tertiary">{t('catering_selection_hint')}</p>
         </div>
 
         <label className="flex items-center gap-2">

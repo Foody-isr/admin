@@ -7857,6 +7857,9 @@ export interface CateringService {
   description: string;
   pricing_model: CateringPricingModel;
   quote_mode: 'auto' | 'review';
+  /** How many articles a customer may pick: 'single', 'multiple', or '' = auto
+   *  (per_person → one formula, per_unit → several items). */
+  selection_mode?: '' | 'single' | 'multiple';
   is_active: boolean;
   display_order: number;
 }
@@ -7866,6 +7869,7 @@ export interface CateringServiceInput {
   description?: string;
   pricing_model: CateringPricingModel;
   quote_mode?: 'auto' | 'review';
+  selection_mode?: '' | 'single' | 'multiple';
   is_active?: boolean;
   display_order?: number;
 }
