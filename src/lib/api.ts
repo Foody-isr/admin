@@ -1117,6 +1117,31 @@ export interface PeriodComparison {
   previous: RangeSummary;
 }
 
+/** A breakdown pivot dimension. Time dimensions (month/week/day/serie) double as
+ *  a full-range revenue time series; the rest slice by an order attribute. */
+export type BreakdownDimension =
+  | 'month'
+  | 'week'
+  | 'day'
+  | 'serie'
+  | 'order_type'
+  | 'payment_method'
+  | 'day_of_week'
+  | 'customer';
+
+export interface BreakdownRow {
+  key: string;
+  label: string;
+  orders: number;
+  revenue: number;
+}
+
+export interface BreakdownResult {
+  dimension: BreakdownDimension;
+  rows: BreakdownRow[];
+  total: { orders: number; revenue: number };
+}
+
 // ─── Customer Insights Types ────────────────────────────────────────────────
 
 export interface FavoriteItem {
@@ -4385,6 +4410,26 @@ export async function getDailySeries(
     `/api/v1/analytics/daily?${params}`, restaurantId
   );
   return data.days ?? [];
+}
+
+/**
+ * Groups paid orders in a scope by a chosen dimension (month/week/day/série,
+ * order type, payment method, day-of-week, or customer), returning per-group
+ * order counts + revenue plus the period total. Order-level, so it also covers
+ * historical orders imported without line items. `limit` caps rows (top-N).
+ */
+export async function getBreakdown(
+  restaurantId: number,
+  opts: { dimension: BreakdownDimension; scope?: AnalyticsScope; basis?: DateBasis; limit?: number }
+): Promise<BreakdownResult> {
+  const params = new URLSearchParams({
+    restaurant_id: String(restaurantId),
+    dimension: opts.dimension,
+    ...analyticsScopeParams(opts.scope),
+    ...dateBasisParams(opts.basis),
+  });
+  if (opts.limit) params.set('limit', String(opts.limit));
+  return apiFetch<BreakdownResult>(`/api/v1/analytics/breakdown?${params}`, restaurantId);
 }
 
 // ─── Customer Insights ──────────────────────────────────────────────────────
