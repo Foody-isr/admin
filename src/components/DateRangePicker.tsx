@@ -135,6 +135,10 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: string; r
   const lastYearStart = new Date(today.getFullYear() - 1, 0, 1);
   const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
 
+  // "All time": a fixed early start that predates any real data, so one click
+  // spans the full history (e.g. imported past orders across several years).
+  const allTimeStart = new Date(2020, 0, 1);
+
   return [
     { key: 'drToday', range: { from: today, to: endOfDay(now) } },
     { key: 'drYesterday', range: { from: yesterday, to: endOfDay(yesterday) } },
@@ -146,6 +150,7 @@ function builtinPresets(weekStartDay: WeekStartDay, now: Date): { key: string; r
     { key: 'drLastMonth', range: { from: lastMonthStart, to: endOfDay(lastMonthEnd) } },
     { key: 'drThisYear', range: { from: yearStart, to: endOfDay(now) } },
     { key: 'drLastYear', range: { from: lastYearStart, to: endOfDay(lastYearEnd) } },
+    { key: 'drAllTime', range: { from: allTimeStart, to: endOfDay(now) } },
   ];
 }
 

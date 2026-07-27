@@ -16,7 +16,8 @@ export type RollingPreset =
   | 'last90'
   | 'thisWeek'
   | 'thisMonth'
-  | 'thisYear';
+  | 'thisYear'
+  | 'allTime';
 export type StoredSel = { preset: RollingPreset } | { from: string; to: string };
 
 const ROLLING_PRESETS: RollingPreset[] = [
@@ -28,6 +29,7 @@ const ROLLING_PRESETS: RollingPreset[] = [
   'thisWeek',
   'thisMonth',
   'thisYear',
+  'allTime',
 ];
 
 function startOfToday(): Date {
@@ -64,6 +66,10 @@ export function resolvePreset(preset: RollingPreset, wsd: WeekStartDay): DateRan
       return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: today };
     case 'thisYear':
       return { from: new Date(today.getFullYear(), 0, 1), to: today };
+    case 'allTime':
+      // Fixed early start that predates any real data — matches the picker's
+      // "All time" preset so the full history (incl. imported past orders) shows.
+      return { from: new Date(2020, 0, 1), to: today };
     default:
       return { from: today, to: today };
   }

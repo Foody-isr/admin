@@ -43,7 +43,9 @@ import {
 import TrendChart, { type TrendPoint } from './TrendChart';
 import BreakdownExplorer from './BreakdownExplorer';
 
-const RANGE_STORAGE_KEY = 'foody.analytics.range.v2';
+// v3: default the reports overview to "all time" so imported history is visible
+// on open (bumping the key resets anyone parked on the old last-30 default).
+const RANGE_STORAGE_KEY = 'foody.analytics.range.v3';
 const BASIS_STORAGE_KEY = 'foody.analytics.basis.v1';
 
 function pct(now: number, before: number): number {
@@ -84,7 +86,7 @@ export default function AnalyticsOverviewPage() {
   const locStr = locale === 'he' ? 'he-IL' : locale === 'en' ? 'en-US' : 'fr-FR';
 
   const [wsd, setWsd] = useState<WeekStartDay>(1);
-  const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('last30', 1));
+  const [dateRange, setDateRange] = useState<DateRange>(() => resolvePreset('allTime', 1));
   const [basis, setBasis] = useState<DateBasis>('created');
   const [ready, setReady] = useState(false);
 
