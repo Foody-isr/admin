@@ -2355,6 +2355,9 @@ function NavbarPanel({ config, onUpdate, restaurantId }: {
 
   return (
     <div className="space-y-5">
+      <p className="text-[11px] leading-relaxed text-fg-secondary">
+        La barre de navigation est <strong>partagée par toutes les pages</strong> du site : accueil, commande, traiteur et pages personnalisées.
+      </p>
       {sec('Style de la barre',
         <div className="grid grid-cols-2 gap-1.5">
           {styleOpts.map((o) => (
