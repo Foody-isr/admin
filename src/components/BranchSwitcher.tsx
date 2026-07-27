@@ -48,8 +48,11 @@ export default function BranchSwitcher({ restaurantId, restaurantName }: BranchS
   const hasChain = overview?.chain_id != null && branches.length > 1;
   const canManage = isOwner || hasPermission('chain.manage');
 
-  // No chain (or single branch) → plain label, identical to the old crumb.
-  if (!hasChain) {
+  // Show the dropdown when there's a chain to switch within, OR the user can
+  // manage branches (so a standalone-restaurant owner still has an entry point to
+  // create their first branch). Otherwise degrade to plain text, unchanged.
+  const showDropdown = hasChain || canManage;
+  if (!showDropdown) {
     return <span className="text-[var(--fg)] font-medium truncate">{restaurantName}</span>;
   }
 
@@ -91,13 +94,16 @@ export default function BranchSwitcher({ restaurantId, restaurantName }: BranchS
 
           <div className="my-1 border-t border-[var(--line)]" />
 
-          <button
-            onClick={() => { setOpen(false); router.push(`/chain/${overview?.chain_id}/dashboard`); }}
-            className="w-full flex items-center gap-[var(--s-3)] px-3 py-2 text-fs-sm transition-colors hover:bg-[var(--surface-2)] text-[var(--fg)]"
-          >
-            <LayersIcon className="w-4 h-4 text-[var(--fg-muted)] shrink-0" />
-            {t('branch_switcher_global')}
-          </button>
+          {/* Global merged reports only make sense once a chain exists. */}
+          {hasChain && overview?.chain_id != null && (
+            <button
+              onClick={() => { setOpen(false); router.push(`/chain/${overview.chain_id}/dashboard`); }}
+              className="w-full flex items-center gap-[var(--s-3)] px-3 py-2 text-fs-sm transition-colors hover:bg-[var(--surface-2)] text-[var(--fg)]"
+            >
+              <LayersIcon className="w-4 h-4 text-[var(--fg-muted)] shrink-0" />
+              {t('branch_switcher_global')}
+            </button>
+          )}
 
           {canManage && (
             <button
