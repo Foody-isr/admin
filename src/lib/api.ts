@@ -2786,6 +2786,74 @@ export async function setMenuLocations(restaurantId: number, menuId: number, loc
   return data.locations ?? [];
 }
 
+// --- Chain (multi-branch) ---
+
+/** One branch (restaurant) of a chain, as returned by the switcher endpoint. */
+export interface ChainBranch {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  is_current: boolean;
+}
+
+/** Chain overview for the current restaurant. chain_id is null for a standalone
+ *  restaurant, in which case `branches` contains only that restaurant. */
+export interface ChainOverview {
+  chain_id: number | null;
+  chain_name?: string;
+  branches: ChainBranch[];
+}
+
+export interface CreateBranchInput {
+  name: string;
+  chain_name?: string;
+  address?: string;
+  phone?: string;
+}
+
+/** Returns the chain of the current restaurant and the branches the caller can access. */
+export async function getChainBranches(restaurantId: number): Promise<ChainOverview> {
+  return apiFetch<ChainOverview>(`/api/v1/chain/branches`, restaurantId);
+}
+
+/** Self-serve create of a new branch under the current restaurant's chain
+ *  (creating the chain lazily on the first branch). Requires chain.manage. */
+export async function createChainBranch(restaurantId: number, input: CreateBranchInput): Promise<{ branch_id: number }> {
+  return apiFetch<{ branch_id: number }>(
+    `/api/v1/chain/branches`, restaurantId,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+/** Lists a chain's branches by chain id (no single-restaurant context), for the
+ *  Global reports view. Access is authorized server-side. */
+export async function getChainOverview(chainId: number): Promise<ChainOverview> {
+  return apiFetch<ChainOverview>(`/api/v1/chains/${chainId}/branches`);
+}
+
+/** Merged period summary across every branch of the chain (chain-scoped, no
+ *  single restaurant). Powers the Global dashboard KPIs. */
+export async function getChainPeriodSummary(chainId: number, scope: AnalyticsScope, basis?: DateBasis): Promise<PeriodComparison> {
+  const params = new URLSearchParams({
+    chain_id: String(chainId),
+    ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
+  });
+  return apiFetch<PeriodComparison>(`/api/v1/analytics/period?${params}`);
+}
+
+/** Merged top sellers across every branch of the chain. */
+export async function getChainTopSellers(chainId: number, scope?: AnalyticsScope, basis?: DateBasis): Promise<TopSeller[]> {
+  const params = new URLSearchParams({
+    chain_id: String(chainId),
+    ...analyticsScopeParams(scope),
+    ...dateBasisParams(basis),
+  });
+  const data = await apiFetch<{ top_items: TopSeller[] }>(`/api/v1/analytics/top-sellers?${params}`);
+  return data.top_items ?? [];
+}
+
 export async function createMenuItem(restaurantId: number, input: Partial<MenuItem> & { category_id: number; name: string; price: number }): Promise<MenuItem> {
   const data = await apiFetch<{ item: MenuItem }>(
     `/api/v1/menu/items?restaurant_id=${restaurantId}`, restaurantId,

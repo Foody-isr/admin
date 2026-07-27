@@ -196,6 +196,7 @@ function RestaurantShell({
           className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden transition-[margin] duration-200 ${marginClass}`}
         >
           <TopBar
+            restaurantId={restaurantId}
             restaurantName={restaurant.name}
             pageName={pageName}
             onToggleSidebar={toggleSidebar}
