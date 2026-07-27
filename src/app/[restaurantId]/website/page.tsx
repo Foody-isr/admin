@@ -1369,7 +1369,6 @@ export default function WebsitePage() {
           selectedId={selectedSectionId}
           bounds={sectionBounds}
           iframeScrollY={iframeScrollY}
-          onSelect={(id) => { if (typeof id === 'number') setSelectedSectionId(id); }}
           onMoveUp={(id) => typeof id === 'number' && handleMoveSection(id, 'up')}
           onMoveDown={(id) => typeof id === 'number' && handleMoveSection(id, 'down')}
           onToggleVisibility={(id) => {
