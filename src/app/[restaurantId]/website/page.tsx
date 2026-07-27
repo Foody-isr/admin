@@ -171,7 +171,7 @@ export default function WebsitePage() {
   // Paramètres: slug, contact display toggles, social links, SEO.
   // The old "Site Settings"/"Section Settings" duality is gone.
   type EditorMode = 'pages' | 'theme' | 'checkout' | 'settings';
-  type ThemeSubMode = 'colors' | 'typography' | 'logo';
+  type ThemeSubMode = 'colors' | 'typography' | 'logo' | 'navbar';
   type SettingsSubMode = 'general' | 'contact' | 'social' | 'orderInfo' | 'seo';
   const [editorMode, setEditorMode] = useState<EditorMode>('pages');
   const [themeSubMode, setThemeSubMode] = useState<ThemeSubMode>('colors');
@@ -578,6 +578,11 @@ export default function WebsitePage() {
           navbar_color: stateConfig.navbar_color || '',
           logo_size: stateConfig.logo_size > 0 ? stateConfig.logo_size : 40,
           hide_navbar_name: stateConfig.hide_navbar_name || false,
+          navbar_logo_position: stateConfig.navbar_logo_position || 'left',
+          navbar_scrolled_logo_url: stateConfig.navbar_scrolled_logo_url || '',
+          navbar_text_color: stateConfig.navbar_text_color || '',
+          navbar_overlay_text_color: stateConfig.navbar_overlay_text_color || '',
+          navbar_cta: stateConfig.navbar_cta ?? null,
           hide_hero_logo: stateConfig.hide_hero_logo || false,
           hero_logo_bg: stateConfig.hero_logo_bg === 'black' ? 'black' : 'white',
           hero_cover_layout: asHeroCoverLayout(stateConfig.hero_cover_layout),
@@ -685,6 +690,11 @@ export default function WebsitePage() {
         navbar_color: navbarColor,
         logo_size: logoSize,
         hide_navbar_name: hideNavbarName,
+        navbar_logo_position: config?.navbar_logo_position || 'left',
+        navbar_scrolled_logo_url: config?.navbar_scrolled_logo_url || '',
+        navbar_text_color: config?.navbar_text_color || '',
+        navbar_overlay_text_color: config?.navbar_overlay_text_color || '',
+        navbar_cta: config?.navbar_cta ?? null,
         hide_hero_logo: config?.hide_hero_logo ?? false,
         hero_logo_bg: config?.hero_logo_bg === 'black' ? 'black' : 'white',
         hero_cover_layout: asHeroCoverLayout(config?.hero_cover_layout),
@@ -1261,6 +1271,17 @@ export default function WebsitePage() {
               subTab={checkoutSubTab}
               checkoutConfig={checkoutConfig}
             />
+          ) : editorMode === 'theme' && themeSubMode === 'navbar' ? (
+            // The Navigation sub-tab customizes the LANDING navbar, so preview the
+            // landing here (the rest of the Thème tab previews the order page).
+            <LiveHomePreviewIframe
+              mode={previewMode}
+              slug={restaurant?.slug}
+              draftPayload={buildDraftPayload()}
+              onSectionClick={() => {}}
+              onBoundsUpdate={handleBoundsUpdate}
+              onIframeRectUpdate={handleIframeRectUpdate}
+            />
           ) : (editorMode === 'pages' && activePage === 'menu') || editorMode === 'theme' ? (
             // The Thème tab (colors/typography/logo) and the Page de commande
             // both preview against the order page. Theme CSS vars are only
@@ -1804,8 +1825,8 @@ function PagesLeftRail({ activePage, onActivePageChange, landingEnabled, caterin
 }
 
 function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfigUpdate, heroNameFont, onHeroNameFontChange, restaurantId, restaurant, onRestaurantUpdate }: {
-  subMode: 'colors' | 'typography' | 'logo';
-  onSubModeChange: (m: 'colors' | 'typography' | 'logo') => void;
+  subMode: 'colors' | 'typography' | 'logo' | 'navbar';
+  onSubModeChange: (m: 'colors' | 'typography' | 'logo' | 'navbar') => void;
   config: WebsiteConfig | null;
   themeCatalog: ThemeCatalog | null;
   onConfigUpdate: (patch: Partial<WebsiteConfig>) => void;
@@ -1818,6 +1839,7 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
   const tabs: { id: typeof subMode; label: string }[] = [
     { id: 'colors', label: 'Couleurs' },
     { id: 'typography', label: 'Typographie' },
+    { id: 'navbar', label: 'Navigation' },
     { id: 'logo', label: 'Logo & favicon' },
   ];
   return (
@@ -1856,6 +1878,8 @@ function ThemeLeftRail({ subMode, onSubModeChange, config, themeCatalog, onConfi
             onHeroNameFontChange={onHeroNameFontChange}
             heroSample={restaurant?.name}
           />
+        ) : subMode === 'navbar' ? (
+          <NavbarPanel config={config} onUpdate={onConfigUpdate} restaurantId={restaurantId} />
         ) : (
           <BrandingPanel
             config={config}
@@ -2284,6 +2308,142 @@ const MenuPreviewIframe = forwardRef<HTMLIFrameElement, {
     />
   );
 });
+
+// NavbarPanel — full customization of the landing-page top navigation.
+// All fields live on the config object (persisted via the draft autosave); the
+// second-logo/overlay controls only matter for the "overlay" style.
+function NavbarPanel({ config, onUpdate, restaurantId }: {
+  config: WebsiteConfig | null;
+  onUpdate: (patch: Partial<WebsiteConfig>) => void;
+  restaurantId: number;
+}) {
+  const cta = config?.navbar_cta || {};
+  const [linkMode, setLinkMode] = useState<'order' | 'catering' | 'custom'>(
+    !cta.link || cta.link === 'order' ? 'order' : cta.link === 'catering' ? 'catering' : 'custom',
+  );
+  if (!config) return <p className="text-xs text-fg-secondary">Chargement…</p>;
+
+  const style = config.navbar_style || 'solid';
+  const pos = config.navbar_logo_position || 'left';
+  const isOverlay = style === 'overlay';
+  const ctaEnabled = cta.enabled !== false;
+  const setCta = (patch: Partial<NonNullable<WebsiteConfig['navbar_cta']>>) =>
+    onUpdate({ navbar_cta: { ...cta, ...patch } });
+
+  const sec = (title: string, node: React.ReactNode) => (
+    <div className="space-y-2">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-fg-secondary">{title}</div>
+      {node}
+    </div>
+  );
+  const colorRow = (label: string, value: string | undefined, onChange: (v: string) => void, fallback: string) => (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-fg-primary">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <input type="color" value={value || fallback} onChange={(e) => onChange(e.target.value)} className="w-8 h-8 rounded border border-divider cursor-pointer" />
+        <button onClick={() => onChange('')} className={`text-[10px] ${value ? 'text-fg-secondary hover:text-fg-primary' : 'text-fg-tertiary'}`}>Auto</button>
+      </div>
+    </div>
+  );
+
+  const styleOpts = [
+    { v: 'solid', label: 'Pleine', hint: 'Fond opaque en permanence' },
+    { v: 'overlay', label: 'Superposée', hint: 'Transparente sur la bannière, opaque au survol' },
+    { v: 'custom', label: 'Couleur', hint: 'Fond de couleur personnalisée' },
+    { v: 'hidden', label: 'Masquée', hint: 'Logo flottant seul' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {sec('Style de la barre',
+        <div className="grid grid-cols-2 gap-1.5">
+          {styleOpts.map((o) => (
+            <button key={o.v} onClick={() => onUpdate({ navbar_style: o.v })}
+              className={`text-left px-2.5 py-2 rounded-lg border text-xs transition ${style === o.v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+              <div className="font-medium">{o.label}</div>
+              <div className="text-[10px] text-fg-secondary leading-tight mt-0.5">{o.hint}</div>
+            </button>
+          ))}
+        </div>,
+      )}
+
+      {style !== 'hidden' && (
+        <>
+          {sec('Logo',
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-fg-primary mb-1">Position</label>
+                <div className="flex gap-1.5">
+                  {(['left', 'center', 'right'] as const).map((v) => (
+                    <button key={v} onClick={() => onUpdate({ navbar_logo_position: v })}
+                      className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition ${pos === v ? 'border-brand-500 bg-brand-500/10 text-brand-600' : 'border-divider text-fg-primary hover:bg-surface-subtle'}`}>
+                      {v === 'left' ? 'Gauche' : v === 'center' ? 'Centre' : 'Droite'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="flex items-center justify-between text-xs text-fg-primary mb-1">
+                  <span>Taille du logo</span><span className="text-fg-secondary">{config.logo_size || 40}px</span>
+                </label>
+                <input type="range" min={24} max={96} step={2} value={config.logo_size || 40} onChange={(e) => onUpdate({ logo_size: Number(e.target.value) })} className="w-full accent-brand-500" />
+              </div>
+              <label className="flex items-center gap-2 text-xs text-fg-primary">
+                <input type="checkbox" checked={!!config.hide_navbar_name} onChange={(e) => onUpdate({ hide_navbar_name: e.target.checked })} className="accent-brand-500" />
+                Masquer le nom du restaurant
+              </label>
+              {isOverlay && (
+                <div>
+                  <label className="block text-xs text-fg-primary mb-1">Logo pour l&apos;état opaque (au survol)</label>
+                  <SectionImageUploader restaurantId={restaurantId} currentUrl={config.navbar_scrolled_logo_url || ''} onUploaded={(url) => onUpdate({ navbar_scrolled_logo_url: url })} onRemove={() => onUpdate({ navbar_scrolled_logo_url: '' })} label="Téléverser un logo" />
+                  <p className="text-[10px] text-fg-secondary mt-1">Optionnel. Sur la bannière on affiche le logo principal (souvent clair) ; au survol, ce logo (souvent foncé).</p>
+                </div>
+              )}
+            </div>,
+          )}
+
+          {sec('Couleurs',
+            <div className="space-y-2">
+              {colorRow(isOverlay ? 'Fond au survol' : 'Fond', config.navbar_color, (v) => onUpdate({ navbar_color: v }), '#ffffff')}
+              {colorRow(isOverlay ? 'Texte au survol' : 'Texte', config.navbar_text_color, (v) => onUpdate({ navbar_text_color: v }), '#111111')}
+              {isOverlay && colorRow('Texte sur la bannière', config.navbar_overlay_text_color, (v) => onUpdate({ navbar_overlay_text_color: v }), '#ffffff')}
+            </div>,
+          )}
+
+          {sec("Bouton d'action",
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs text-fg-primary">
+                <input type="checkbox" checked={ctaEnabled} onChange={(e) => setCta({ enabled: e.target.checked })} className="accent-brand-500" />
+                Afficher le bouton
+              </label>
+              {ctaEnabled && (
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-xs text-fg-primary mb-1">Texte</label>
+                    <input className="input" value={cta.text || ''} placeholder="Commander" onChange={(e) => setCta({ text: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-fg-primary mb-1">Lien</label>
+                    <select className="input" value={linkMode} onChange={(e) => { const m = e.target.value as 'order' | 'catering' | 'custom'; setLinkMode(m); setCta({ link: m === 'custom' ? '' : m }); }}>
+                      <option value="order">Commander</option>
+                      <option value="catering">Traiteur</option>
+                      <option value="custom">Lien personnalisé…</option>
+                    </select>
+                    {linkMode === 'custom' && (
+                      <input className="input mt-1.5" value={cta.link || ''} placeholder="https://… ou /nom-de-page" onChange={(e) => setCta({ link: e.target.value })} />
+                    )}
+                  </div>
+                  {colorRow('Fond du bouton', cta.bg, (v) => setCta({ bg: v }), '#ea580c')}
+                  {colorRow('Texte du bouton', cta.text_color, (v) => setCta({ text_color: v }), '#ffffff')}
+                </div>
+              )}
+            </div>,
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 function SiteStylesPanel({ styles, currentPrimary, onApply, primaryColor, secondaryColor, fontFamily, onPrimaryChange, onSecondaryChange, onFontChange }: {
   styles: SiteStylePreset[];

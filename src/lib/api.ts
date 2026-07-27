@@ -756,6 +756,14 @@ export interface WebsiteConfig {
   navbar_color: string;
   logo_size: number;
   hide_navbar_name: boolean;
+  /** Landing navbar customization. navbar_style 'overlay' = transparent over the
+   *  hero, solid on hover; the two states can use different logos and text
+   *  colors. navbar_color is the solid-state background. */
+  navbar_logo_position?: 'left' | 'center' | 'right';
+  navbar_scrolled_logo_url?: string;
+  navbar_text_color?: string;
+  navbar_overlay_text_color?: string;
+  navbar_cta?: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
   hide_hero_logo: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   hero_logo_bg: 'white' | 'black';
