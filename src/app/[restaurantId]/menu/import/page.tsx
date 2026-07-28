@@ -3,19 +3,19 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  importMenuAI, importMenuFromWolt, confirmMenuImport, previewTranslationsGrouped, getRestaurant,
+  importMenuAI, importMenuFromURL, confirmMenuImport, previewTranslationsGrouped, getRestaurant,
   RichExtraction, TranslationReviewEntry,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { usePermissions } from '@/lib/permissions-context';
-import { SparklesIcon, LinkIcon, ImageIcon } from 'lucide-react';
+import { SparklesIcon, LinkIcon, ImageIcon, GlobeIcon } from 'lucide-react';
 import TranslationReviewTable from '@/components/translations/TranslationReviewTable';
 import {
   LOCALE_LABELS, SUPPORTED_LOCALES, sectionFor, detectLocale, type Locale,
 } from '@/components/translations/sections';
 import { isLocale, collectReviewEntries, dominantLocale } from '@/lib/menu-import/primary-locale';
 
-type ImportSource = 'photo' | 'wolt';
+type ImportSource = 'photo' | 'wolt' | 'website';
 
 export default function MenuImportPage() {
   const { restaurantId } = useParams();
@@ -31,7 +31,9 @@ export default function MenuImportPage() {
   const [error, setError] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [woltUrl, setWoltUrl] = useState('');
+  // Shared by the Wolt and Website sources: both feed the same /import/url
+  // endpoint, which routes by host. Only one link source is active at a time.
+  const [urlInput, setUrlInput] = useState('');
   const [importBranding, setImportBranding] = useState(false);
   const [createCarte, setCreateCarte] = useState(true);
   const [carteName, setCarteName] = useState('');
@@ -219,16 +221,16 @@ export default function MenuImportPage() {
     }
   };
 
-  const handleWoltFetch = async () => {
-    if (!woltUrl.trim()) return;
+  const handleUrlFetch = async () => {
+    if (!urlInput.trim()) return;
     setError('');
     setExtracting(true);
     try {
-      const result = await importMenuFromWolt(rid, woltUrl.trim());
+      const result = await importMenuFromURL(rid, urlInput.trim());
       setExtraction(result);
       setStep('review');
     } catch {
-      setError(t('importWoltError'));
+      setError(t(source === 'website' ? 'importWebsiteError' : 'importWoltError'));
     } finally {
       setExtracting(false);
     }
@@ -323,10 +325,24 @@ export default function MenuImportPage() {
               <LinkIcon className="w-4 h-4" />
               {t('importSourceWolt')}
             </button>
+            <button
+              type="button"
+              onClick={() => { setSource('website'); setError(''); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-standard text-sm font-medium transition-colors ${
+                source === 'website' ? 'bg-brand-500 text-white' : 'bg-[var(--surface-subtle)] text-fg-secondary'
+              }`}
+            >
+              <GlobeIcon className="w-4 h-4" />
+              {t('importSourceWebsite')}
+            </button>
           </div>
 
           <p className="text-sm text-fg-secondary">
-            {source === 'photo' ? t('uploadMenuAI') : t('importWoltHint')}
+            {source === 'photo'
+              ? t('uploadMenuAI')
+              : source === 'website'
+              ? t('importWebsiteHint')
+              : t('importWoltHint')}
           </p>
 
           {source === 'photo' ? (
@@ -352,24 +368,24 @@ export default function MenuImportPage() {
             <div className="space-y-3">
               <input
                 type="url"
-                value={woltUrl}
+                value={urlInput}
                 disabled={extracting}
-                onChange={(e) => setWoltUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleWoltFetch(); }}
-                placeholder={t('importWoltUrlPlaceholder')}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleUrlFetch(); }}
+                placeholder={t(source === 'website' ? 'importWebsiteUrlPlaceholder' : 'importWoltUrlPlaceholder')}
                 className="w-full px-4 py-3 rounded-standard bg-[var(--surface-subtle)] border border-[var(--divider)] text-sm text-fg-primary placeholder:text-fg-secondary focus:outline-none focus:border-brand-500"
                 dir="ltr"
               />
               <button
                 type="button"
                 className="btn-primary w-full flex items-center justify-center gap-2"
-                onClick={handleWoltFetch}
-                disabled={extracting || !woltUrl.trim()}
+                onClick={handleUrlFetch}
+                disabled={extracting || !urlInput.trim()}
               >
                 {extracting ? (
                   <>
                     <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                    {t('importWoltFetching')}
+                    {t(source === 'website' ? 'importWebsiteFetching' : 'importWoltFetching')}
                   </>
                 ) : (
                   <>
