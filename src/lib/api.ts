@@ -3404,7 +3404,12 @@ export interface RichExtraction {
   restaurant_cover_url?: string;
 }
 
-export async function importMenuFromWolt(restaurantId: number, url: string): Promise<RichExtraction> {
+/**
+ * Import a menu from any public URL. The server auto-detects the source: Wolt
+ * links are parsed from their structured page data, any other website is
+ * rendered headless and read by AI. Both return the same RichExtraction shape.
+ */
+export async function importMenuFromURL(restaurantId: number, url: string): Promise<RichExtraction> {
   return apiFetch<RichExtraction>(
     `/api/v1/menu/import/url?restaurant_id=${restaurantId}`, restaurantId,
     { method: 'POST', body: JSON.stringify({ url }) }
