@@ -5018,10 +5018,27 @@ export type DraftSectionPayload = {
   settings: Record<string, any>;
 };
 
+// Website Builder v2 — a first-class page in the draft (server WebsitePage).
+export type DraftPagePayload = {
+  id?: number;
+  tmp_id?: string;
+  type: string;
+  slug: string;
+  title: string;
+  sort_order: number;
+  nav_visible?: boolean;
+  seo?: Record<string, any>;
+  settings?: Record<string, any>;
+  appearance_overrides?: Record<string, any>;
+};
+
 export type DraftStatePayload = {
   config: Record<string, any>;
+  // v2: typed pages carried in the draft (empty on legacy configs).
+  pages?: DraftPagePayload[];
   sections: DraftSectionPayload[];
   deleted_section_ids: number[];
+  deleted_page_ids?: number[];
 };
 
 export type DraftResponse = {
