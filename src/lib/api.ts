@@ -783,6 +783,9 @@ export interface WebsiteConfig {
     surface: string;
     accent: string;
     ink: string;
+    /** Text color for category banners/dividers. Optional — inherits `ink`
+     *  on the customer-facing app when unset. */
+    categoryInk?: string;
   } | null;
   /** Optional per-section color overrides; omitted section/field inherits the theme. */
   section_colors?: SectionColors | null;

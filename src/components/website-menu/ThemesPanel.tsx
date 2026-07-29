@@ -423,11 +423,12 @@ type EditorProps = {
 
 function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProps) {
   const { t } = useI18n();
-  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink'; label: string }[] = [
+  const rows: { key: 'bg' | 'surface' | 'accent' | 'ink' | 'categoryInk'; label: string }[] = [
     { key: 'bg', label: t('customPaletteBg') },
     { key: 'surface', label: t('customPaletteSurface') },
     { key: 'accent', label: t('customPaletteAccent') },
     { key: 'ink', label: t('customPaletteInk') },
+    { key: 'categoryInk', label: t('customPaletteCategoryInk') },
   ];
 
   return (
@@ -442,7 +443,9 @@ function CustomPaletteEditor({ palette, catalog, onChange, onReset }: EditorProp
 
       {/* The 4 swatch rows. Color picker + hex input, both wired to the same field. */}
       {rows.map(({ key, label }) => (
-        <PaletteColorRow key={key} label={label} value={palette[key]} onChange={(v) => onChange({ [key]: v } as Partial<CustomPalette>)} />
+        // categoryInk is optional; while unset it inherits ink, so show ink as
+        // the row's starting value rather than an empty/invalid swatch.
+        <PaletteColorRow key={key} label={label} value={palette[key] ?? palette.ink} onChange={(v) => onChange({ [key]: v } as Partial<CustomPalette>)} />
       ))}
 
       {/* Start-from-preset seeder. Confirms before overwriting current edits. */}
